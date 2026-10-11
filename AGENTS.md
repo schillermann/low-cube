@@ -29,7 +29,13 @@ All git commit messages in this repository must strictly follow the **Convention
 - Use the imperative present tense in the description (e.g., `feat: add ...` instead of `feat: added ...`).
 - Keep the first line concise (50–72 characters).
 - Include relevant context or motivations in the body when necessary.
-- **Line Count Verification**: Check the line counts of modified files only upon the prompt `create git message` to verify that no modified file exceeds the 200-line limit before generating the commit message.
+
+### Workflow: `create git message`
+Upon the prompt `create git message`, execute the following steps in sequence before generating the commit message:
+1. **Version Increment**: Increment the version number following Semantic Versioning across crate manifests (`crates/*/Cargo.toml`).
+2. **Changelog Update**: Update `CHANGELOG.md` according to Keep a Changelog conventions, promoting unreleased items under the new version header with the current date.
+3. **Line Count Verification**: Check the line counts of modified and newly created files to ensure no file exceeds the 200-line limit.
+4. **Message Generation**: Generate the commit message following the format and types specified above.
 
 ---
 

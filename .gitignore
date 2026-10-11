@@ -3,3 +3,6 @@
 
 # Rust build artifacts
 target/
+dist/
+low-cube-linux
+low-cube-windows.exe

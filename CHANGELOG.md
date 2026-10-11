@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-11
+
+### Added
+- GitHub Actions workflow (`.github/workflows/release.yml`) building standalone Linux (`low-cube-linux`) and Windows (`low-cube-windows.exe`) executables published as GitHub Releases and workflow artifacts.
+- Dedicated developer guide in `docs/DEVELOPMENT.md` covering setup, dependencies, execution, and controls.
+- Pre-built binary download and direct execution instructions in `README.md`.
+- Workflow rules for version increments and changelog updates upon `create git message` prompt in `AGENTS.md`.
+
 ### Changed
 - **Pure OOP Refactoring (Elegant Objects / Alan Kay)**:
   - Eliminated `normal()` getter on `Face` trait in favor of behavioral methods (`surface_up()`, `pull_direction()`, `constrain()`, `emit_surface()`).

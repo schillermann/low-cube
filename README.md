@@ -34,9 +34,33 @@ Scattered across the stars are ancient Ring Gates. Step through the shimmering p
 
 ---
 
+## Quick Play (Pre-built Binaries)
+
+Ready-to-run executables for Linux and Windows are built automatically via GitHub Actions and published under [Releases](../../releases):
+
+- **Linux**: Download `low-cube-linux`, mark as executable, and run:
+  ```bash
+  chmod +x low-cube-linux
+  ./low-cube-linux
+  ```
+- **Windows**: Download `low-cube-windows.exe` and launch directly by double-clicking or from PowerShell / CMD:
+  ```powershell
+  .\low-cube-windows.exe
+  ```
+
+---
+
+## Development
+
+For environment setup, building, running, and testing instructions, see the [Developer Guide](docs/DEVELOPMENT.md).
+
+---
+
 ## Documentation
 
-For deep design and world mechanics, check out the [Game Concept](CONCEPT.md).
+- [Game Concept](CONCEPT.md)
+- [Developer Guide](docs/DEVELOPMENT.md)
+- [Architecture Decision Records](docs/adr/README.md)
 
 ---
 
