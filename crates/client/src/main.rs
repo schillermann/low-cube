@@ -34,6 +34,8 @@ struct LowCubeApp {
     key_s: bool,
     key_a: bool,
     key_d: bool,
+    invert_y: bool,
+    invert_x: bool,
 }
 
 impl LowCubeApp {
@@ -54,6 +56,8 @@ impl LowCubeApp {
             key_s: false,
             key_a: false,
             key_d: false,
+            invert_y: true,
+            invert_x: false,
         }
     }
 }
@@ -65,7 +69,7 @@ impl ApplicationHandler for LowCubeApp {
         }
 
         let window_attributes = WindowAttributes::default()
-            .with_title("Low-Cube Minimal Prototype [90° Edge Gravity]")
+            .with_title("Low-Cube [WASD: Move, Mouse: Look, I: Invert Y, O: Invert X, Esc: Release Cursor]")
             .with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0));
 
         let template = ConfigTemplateBuilder::new().with_alpha_size(8);
@@ -160,6 +164,17 @@ impl ApplicationHandler for LowCubeApp {
                     }
                 }
             }
+            WindowEvent::MouseInput {
+                state: ElementState::Pressed,
+                ..
+            } => {
+                if let Some(window) = &self.window {
+                    let _ = window
+                        .set_cursor_grab(winit::window::CursorGrabMode::Locked)
+                        .or_else(|_| window.set_cursor_grab(winit::window::CursorGrabMode::Confined));
+                    window.set_cursor_visible(false);
+                }
+            }
             WindowEvent::KeyboardInput {
                 event: KeyEvent {
                     physical_key: PhysicalKey::Code(code),
@@ -174,7 +189,24 @@ impl ApplicationHandler for LowCubeApp {
                     KeyCode::KeyS => self.key_s = pressed,
                     KeyCode::KeyA => self.key_a = pressed,
                     KeyCode::KeyD => self.key_d = pressed,
-                    KeyCode::Escape => event_loop.exit(),
+                    KeyCode::KeyI => {
+                        if pressed {
+                            self.invert_y = !self.invert_y;
+                            println!("[Controls] Invert Y (Pitch) is now: {}", self.invert_y);
+                        }
+                    }
+                    KeyCode::KeyO => {
+                        if pressed {
+                            self.invert_x = !self.invert_x;
+                            println!("[Controls] Invert X (Yaw) is now: {}", self.invert_x);
+                        }
+                    }
+                    KeyCode::Escape => {
+                        if let Some(window) = &self.window {
+                            let _ = window.set_cursor_grab(winit::window::CursorGrabMode::None);
+                            window.set_cursor_visible(true);
+                        }
+                    }
                     _ => {}
                 }
             }
@@ -194,7 +226,7 @@ impl ApplicationHandler for LowCubeApp {
                 let up = self.player_up.normalize();
                 let arbitrary_ref = if up.y.abs() < 0.9 { Vec3::Y } else { Vec3::Z };
                 let tangent = up.cross(arbitrary_ref).normalize();
-                let bitangent = up.cross(tangent).normalize();
+                let bitangent = tangent.cross(up).normalize();
 
                 // Build surface rotation
                 let surface_rot = Quat::from_mat3(&glam::Mat3::from_cols(tangent, up, bitangent));
@@ -255,8 +287,11 @@ impl ApplicationHandler for LowCubeApp {
     fn device_event(&mut self, _event_loop: &ActiveEventLoop, _device_id: winit::event::DeviceId, event: DeviceEvent) {
         if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
             let sensitivity = 0.003;
-            self.yaw -= (dx as f32) * sensitivity;
-            self.pitch = (self.pitch - (dy as f32) * sensitivity).clamp(-1.4, 1.4);
+            let x_mult = if self.invert_x { 1.0 } else { -1.0 };
+            let y_mult = if self.invert_y { 1.0 } else { -1.0 };
+
+            self.yaw += (dx as f32) * sensitivity * x_mult;
+            self.pitch = (self.pitch + (dy as f32) * sensitivity * y_mult).clamp(-1.4, 1.4);
         }
     }
 }
