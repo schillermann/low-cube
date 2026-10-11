@@ -10,7 +10,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowAttributes;
 
 use world::{PlanetaryWorld, StandardCubeWorld};
-use engine_render::{CpuMeshBatch, ForwardPipeline, GlslPipeline, GpuAllocation};
+use engine::{CpuMeshBatch, ForwardPipeline, GlslPipeline, GpuAllocation};
 use crate::avatar::PlanetaryAvatar;
 use crate::controls::KeyState;
 use crate::session::GameSession;

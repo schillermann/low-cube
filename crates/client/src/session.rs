@@ -8,7 +8,7 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 
 use world::PlanetaryWorld;
-use engine_render::{GraphicPipeline, Mesh, ShaderProgram};
+use engine::{GraphicPipeline, Mesh, ShaderProgram};
 use crate::avatar::Avatar;
 use crate::controls::KeyboardControls;
 

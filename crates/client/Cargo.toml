@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 world = { path = "../world" }
-engine_render = { path = "../engine_render" }
+engine = { path = "../engine" }
 glam = "0.29"
 glow = "0.16"
 glutin = "0.32"
