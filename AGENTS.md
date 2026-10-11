@@ -51,3 +51,4 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
 - **Interfaces Everywhere**: Code against clean, focused interfaces / traits. Objects must be decoupled and swappable.
 - **Clean Constructors**: Primary constructors do nothing except assign arguments to internal fields. No I/O, heavy calculations, or side effects during construction.
 - **Composition & Decorators**: Favor object composition and decorators over class inheritance.
+- **Small Files (Max 200 Lines)**: No source code file may exceed 200 lines of code. Classes, traits, and modules must be small, highly cohesive, and focused on a single responsibility. Split larger files into dedicated, decoupled object files.
