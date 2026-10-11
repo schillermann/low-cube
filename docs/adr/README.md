@@ -7,6 +7,7 @@ This directory documents all significant technical and architectural decisions f
 | ID | Title | Status | Date |
 | :--- | :--- | :--- | :--- |
 | [0001](0001-graphics-api-selection.md) | Graphics API Selection (Modern Core OpenGL) | Accepted | 2026-10-11 |
+| [0002](0002-programming-language-rust.md) | Programming Language Selection (Rust) | Accepted | 2026-10-11 |
 
 ---
 
