@@ -62,7 +62,7 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 - **Spawn Suppression**: Torches, campfires, and placeable lamps emit light zones that actively suppress hostile creature spawns within their illumination radius.
 
 ### 3.3 Death & Respawn
-- **Life Capsule (Lebenskapsel)**: A craftable, deployable personal module that anchors the player's biometric data. Placing or activating a Life Capsule sets/updates the player's active respawn point upon death.
+- **Life Capsule**: A craftable, deployable personal module that anchors the player's biometric data. Placing or activating a Life Capsule sets/updates the player's active respawn point upon death.
 
 ---
 
@@ -81,11 +81,16 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 - **Player Inventory**: Personal grid-based carry capacity.
 - **Containers**: Lockable storage chests and bulk crates with access control permissions for securing loot against other players in multiplayer.
 
-### 4.4 Transportation & Infrastructure
+### 4.4 Architecture & Interactive Fixtures
+- **Openable Doors & Windows**: Craftable doors and hinged windows (available in wood, reinforced metal, and glazed varieties) that players can interact with to toggle between open and closed states.
+- **Environmental Sealing & Shelter**: Closed doors and windows seal interior habitats against hostile creature pathfinding, extreme temperatures, and fluid breach, establishing a secure indoor refuge. When open, they permit passage, projectile fire, and ventilation.
+- **Locking & Permissions**: Doors integrate with player access controls to secure private bases and outposts against unauthorized access in multiplayer.
+
+### 4.5 Transportation & Infrastructure
 - **90° Rail Networks**: Placeable rails, switches, and minecarts/trains capable of traversing terrain, slopes, and bending over 90° cube edges. Enables seamless high-speed cargo and player transport across adjacent faces.
 - **Vehicles**: Craftable land vehicles (rovers) and aerial vehicles for cross-face exploration.
 
-### 4.5 Inter-World Ring Gates
+### 4.6 Inter-World Ring Gates
 - **Transit & Animation**: Ancient circular portals bridging distinct cube worlds. Stepping into a Ring Gate initiates a hyper-space wormhole / tunnel animation.
 - **Technical Role**: The tunnel sequence serves as an in-game loading transition, masking network handoff between server processes and chunk streaming.
 
