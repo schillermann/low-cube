@@ -33,59 +33,37 @@ pub trait Face: Send + Sync {
     fn emit_surface(&self, half_size: f32, divisions: u32, receiver: &mut dyn SurfaceMeshReceiver);
 }
 
-/// Encapsulated planar face implementing Face.
+/// Pure geometric planar face operating strictly on coordinate bases without integer switches.
 pub struct PlanarFace {
     normal: Vec3,
     tangent: Vec3,
     bitangent: Vec3,
     color: Vec3,
-    primary_axis: usize,
-    positive_side: bool,
 }
 
 impl PlanarFace {
-    pub fn new(
-        normal: Vec3,
-        tangent: Vec3,
-        bitangent: Vec3,
-        color: Vec3,
-        primary_axis: usize,
-        positive_side: bool,
-    ) -> Self {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(normal: Vec3, tangent: Vec3, bitangent: Vec3, color: Vec3) -> Self {
         Self {
             normal,
             tangent,
             bitangent,
             color,
-            primary_axis,
-            positive_side,
         }
     }
 }
 
 impl Face for PlanarFace {
     fn matches(&self, point: Vec3) -> bool {
-        let abs_x = point.x.abs();
-        let abs_y = point.y.abs();
-        let abs_z = point.z.abs();
-
-        let is_dominant = match self.primary_axis {
-            0 => abs_x >= abs_y && abs_x >= abs_z,
-            1 => abs_y >= abs_x && abs_y >= abs_z,
-            _ => abs_z >= abs_x && abs_z >= abs_y,
-        };
-
-        if !is_dominant {
+        let height = point.dot(self.normal);
+        if height <= 0.0 {
             return false;
         }
 
-        let coord = match self.primary_axis {
-            0 => point.x,
-            1 => point.y,
-            _ => point.z,
-        };
+        let u = point.dot(self.tangent).abs();
+        let v = point.dot(self.bitangent).abs();
 
-        (coord >= 0.0) == self.positive_side
+        height >= u && height >= v
     }
 
     fn normal(&self) -> Vec3 {
@@ -93,31 +71,11 @@ impl Face for PlanarFace {
     }
 
     fn constrain(&self, point: Vec3, half_size: f32, distance: f32) -> Vec3 {
-        let mut result = point;
-        let target_dist = if self.positive_side {
-            half_size + distance
-        } else {
-            -(half_size + distance)
-        };
+        let u = point.dot(self.tangent).clamp(-half_size, half_size);
+        let v = point.dot(self.bitangent).clamp(-half_size, half_size);
+        let h = half_size + distance;
 
-        match self.primary_axis {
-            0 => {
-                result.x = target_dist;
-                result.y = result.y.clamp(-half_size, half_size);
-                result.z = result.z.clamp(-half_size, half_size);
-            }
-            1 => {
-                result.y = target_dist;
-                result.x = result.x.clamp(-half_size, half_size);
-                result.z = result.z.clamp(-half_size, half_size);
-            }
-            _ => {
-                result.z = target_dist;
-                result.x = result.x.clamp(-half_size, half_size);
-                result.y = result.y.clamp(-half_size, half_size);
-            }
-        }
-        result
+        self.normal * h + self.tangent * u + self.bitangent * v
     }
 
     fn emit_surface(&self, half_size: f32, divisions: u32, receiver: &mut dyn SurfaceMeshReceiver) {
@@ -149,7 +107,7 @@ impl Face for PlanarFace {
     }
 }
 
-/// A cubic planetary world composed of polymorphic Face instances.
+/// A cubic planetary world composed of polymorphic Face instances with Dependency Injection.
 pub struct CubePlanet {
     half_size: f32,
     divisions: u32,
@@ -157,68 +115,11 @@ pub struct CubePlanet {
 }
 
 impl CubePlanet {
-    pub fn new(size_blocks: u32) -> Self {
-        let half = (size_blocks as f32) * 0.5;
-        let faces: Vec<Box<dyn Face>> = vec![
-            // Top (+Y): Temperate Green
-            Box::new(PlanarFace::new(
-                Vec3::Y,
-                Vec3::X,
-                Vec3::Z,
-                Vec3::new(0.28, 0.65, 0.25),
-                1,
-                true,
-            )),
-            // Bottom (-Y): Volcanic Dark Red
-            Box::new(PlanarFace::new(
-                Vec3::NEG_Y,
-                Vec3::X,
-                Vec3::NEG_Z,
-                Vec3::new(0.35, 0.18, 0.18),
-                1,
-                false,
-            )),
-            // Right (+X): Desert Sand
-            Box::new(PlanarFace::new(
-                Vec3::X,
-                Vec3::NEG_Z,
-                Vec3::Y,
-                Vec3::new(0.85, 0.75, 0.35),
-                0,
-                true,
-            )),
-            // Left (-X): Arctic Ice
-            Box::new(PlanarFace::new(
-                Vec3::NEG_X,
-                Vec3::Z,
-                Vec3::Y,
-                Vec3::new(0.75, 0.88, 0.95),
-                0,
-                false,
-            )),
-            // Front (+Z): Jungle Emerald
-            Box::new(PlanarFace::new(
-                Vec3::Z,
-                Vec3::X,
-                Vec3::Y,
-                Vec3::new(0.12, 0.45, 0.22),
-                2,
-                true,
-            )),
-            // Back (-Z): Arid Steppe Brown
-            Box::new(PlanarFace::new(
-                Vec3::NEG_Z,
-                Vec3::NEG_X,
-                Vec3::Y,
-                Vec3::new(0.68, 0.48, 0.32),
-                2,
-                false,
-            )),
-        ];
-
+    /// Primary constructor: code-free, assigns fields directly.
+    pub fn new(half_size: f32, divisions: u32, faces: Vec<Box<dyn Face>>) -> Self {
         Self {
-            half_size: half,
-            divisions: size_blocks,
+            half_size,
+            divisions,
             faces,
         }
     }
@@ -252,5 +153,105 @@ impl PlanetaryWorld for CubePlanet {
         for face in &self.faces {
             face.emit_surface(self.half_size, self.divisions, receiver);
         }
+    }
+}
+
+/// Factory constructing standard cubic planetary worlds.
+pub struct StandardPlanetFactory;
+
+impl StandardPlanetFactory {
+    pub fn create_cube(size_blocks: u32) -> CubePlanet {
+        let half = (size_blocks as f32) * 0.5;
+        let faces: Vec<Box<dyn Face>> = vec![
+            // Top (+Y): Temperate Green
+            Box::new(PlanarFace::new(
+                Vec3::Y,
+                Vec3::X,
+                Vec3::Z,
+                Vec3::new(0.28, 0.65, 0.25),
+            )),
+            // Bottom (-Y): Volcanic Dark Red
+            Box::new(PlanarFace::new(
+                Vec3::NEG_Y,
+                Vec3::X,
+                Vec3::NEG_Z,
+                Vec3::new(0.35, 0.18, 0.18),
+            )),
+            // Right (+X): Desert Sand
+            Box::new(PlanarFace::new(
+                Vec3::X,
+                Vec3::NEG_Z,
+                Vec3::Y,
+                Vec3::new(0.85, 0.75, 0.35),
+            )),
+            // Left (-X): Arctic Ice
+            Box::new(PlanarFace::new(
+                Vec3::NEG_X,
+                Vec3::Z,
+                Vec3::Y,
+                Vec3::new(0.75, 0.88, 0.95),
+            )),
+            // Front (+Z): Jungle Emerald
+            Box::new(PlanarFace::new(
+                Vec3::Z,
+                Vec3::X,
+                Vec3::Y,
+                Vec3::new(0.12, 0.45, 0.22),
+            )),
+            // Back (-Z): Arid Steppe Brown
+            Box::new(PlanarFace::new(
+                Vec3::NEG_Z,
+                Vec3::NEG_X,
+                Vec3::Y,
+                Vec3::new(0.68, 0.48, 0.32),
+            )),
+        ];
+
+        CubePlanet::new(half, size_blocks, faces)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gravity_orientation_across_faces() {
+        let planet = StandardPlanetFactory::create_cube(16);
+
+        // Top face (+Y)
+        assert_eq!(planet.surface_up_at(Vec3::new(0.0, 10.0, 0.0)), Vec3::Y);
+        assert_eq!(planet.pull_direction_at(Vec3::new(0.0, 10.0, 0.0)), Vec3::NEG_Y);
+
+        // Right face (+X)
+        assert_eq!(planet.surface_up_at(Vec3::new(10.0, 0.0, 0.0)), Vec3::X);
+        assert_eq!(planet.pull_direction_at(Vec3::new(10.0, 0.0, 0.0)), Vec3::NEG_X);
+
+        // Front face (+Z)
+        assert_eq!(planet.surface_up_at(Vec3::new(0.0, 0.0, 10.0)), Vec3::Z);
+        assert_eq!(planet.pull_direction_at(Vec3::new(0.0, 0.0, 10.0)), Vec3::NEG_Z);
+
+        // Bottom face (-Y)
+        assert_eq!(planet.surface_up_at(Vec3::new(0.0, -10.0, 0.0)), Vec3::NEG_Y);
+        assert_eq!(planet.pull_direction_at(Vec3::new(0.0, -10.0, 0.0)), Vec3::Y);
+
+        // Left face (-X)
+        assert_eq!(planet.surface_up_at(Vec3::new(-10.0, 0.0, 0.0)), Vec3::NEG_X);
+        assert_eq!(planet.pull_direction_at(Vec3::new(-10.0, 0.0, 0.0)), Vec3::X);
+
+        // Back face (-Z)
+        assert_eq!(planet.surface_up_at(Vec3::new(0.0, 0.0, -10.0)), Vec3::NEG_Z);
+        assert_eq!(planet.pull_direction_at(Vec3::new(0.0, 0.0, -10.0)), Vec3::Z);
+    }
+
+    #[test]
+    fn test_edge_transition_switch() {
+        let planet = StandardPlanetFactory::create_cube(16);
+
+        // On top face near edge: Y = 9.0, Z = 7.9 -> Dominant is Y
+        assert_eq!(planet.surface_up_at(Vec3::new(0.0, 9.0, 7.9)), Vec3::Y);
+
+        // Over the edge on front face: Y = 7.9, Z = 9.0 -> Dominant is Z
+        assert_eq!(planet.surface_up_at(Vec3::new(0.0, 7.9, 9.0)), Vec3::Z);
     }
 }

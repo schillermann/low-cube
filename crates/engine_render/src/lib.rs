@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec3, Vec4};
 use glow::HasContext;
 use world::SurfaceMeshReceiver;
 
@@ -38,7 +38,6 @@ pub trait SceneRenderer {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         view_proj: &Mat4,
-        light_dir: Vec3,
     );
 }
 
@@ -87,7 +86,7 @@ impl SurfaceMeshReceiver for CpuMeshBuffer {
     }
 }
 
-/// Encapsulated GPU Mesh implementing Mesh.
+/// Encapsulated GPU Mesh implementing Mesh with a clean, code-free primary constructor.
 pub struct GlMesh {
     vao: glow::VertexArray,
     _vbo: glow::Buffer,
@@ -96,7 +95,40 @@ pub struct GlMesh {
 }
 
 impl GlMesh {
-    pub unsafe fn upload(gl: &glow::Context, buffer: &CpuMeshBuffer) -> Self {
+    pub fn new(
+        vao: glow::VertexArray,
+        vbo: glow::Buffer,
+        ebo: glow::Buffer,
+        index_count: i32,
+    ) -> Self {
+        Self {
+            vao,
+            _vbo: vbo,
+            _ebo: ebo,
+            index_count,
+        }
+    }
+}
+
+impl Mesh for GlMesh {
+    fn draw(&self, gl: &glow::Context) {
+        unsafe {
+            gl.bind_vertex_array(Some(self.vao));
+            gl.draw_elements(glow::TRIANGLES, self.index_count, glow::UNSIGNED_INT, 0);
+            gl.bind_vertex_array(None);
+        }
+    }
+}
+
+/// Dedicated factory for uploading CPU mesh buffers to OpenGL.
+pub struct MeshUploader;
+
+impl MeshUploader {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub unsafe fn upload(&self, gl: &glow::Context, buffer: &CpuMeshBuffer) -> GlMesh {
         let vao = gl.create_vertex_array().expect("Failed to create VAO");
         let vbo = gl.create_buffer().expect("Failed to create VBO");
         let ebo = gl.create_buffer().expect("Failed to create EBO");
@@ -130,22 +162,7 @@ impl GlMesh {
 
         gl.bind_vertex_array(None);
 
-        Self {
-            vao,
-            _vbo: vbo,
-            _ebo: ebo,
-            index_count: buffer.indices.len() as i32,
-        }
-    }
-}
-
-impl Mesh for GlMesh {
-    fn draw(&self, gl: &glow::Context) {
-        unsafe {
-            gl.bind_vertex_array(Some(self.vao));
-            gl.draw_elements(glow::TRIANGLES, self.index_count, glow::UNSIGNED_INT, 0);
-            gl.bind_vertex_array(None);
-        }
+        GlMesh::new(vao, vbo, ebo, buffer.indices.len() as i32)
     }
 }
 
@@ -183,7 +200,7 @@ void main() {
 }
 "#;
 
-/// Encapsulated Flat Shader implementing ShaderProgram.
+/// Encapsulated Flat Shader with clean, code-free primary constructor.
 pub struct VoxelShader {
     program: glow::Program,
     u_view_proj: glow::UniformLocation,
@@ -191,7 +208,38 @@ pub struct VoxelShader {
 }
 
 impl VoxelShader {
-    pub unsafe fn compile(gl: &glow::Context) -> Self {
+    pub fn new(
+        program: glow::Program,
+        u_view_proj: glow::UniformLocation,
+        u_light_dir: glow::UniformLocation,
+    ) -> Self {
+        Self {
+            program,
+            u_view_proj,
+            u_light_dir,
+        }
+    }
+}
+
+impl ShaderProgram for VoxelShader {
+    fn bind(&self, gl: &glow::Context, view_proj: &Mat4, light_dir: Vec3) {
+        unsafe {
+            gl.use_program(Some(self.program));
+            gl.uniform_matrix_4_f32_slice(Some(&self.u_view_proj), false, &view_proj.to_cols_array());
+            gl.uniform_3_f32(Some(&self.u_light_dir), light_dir.x, light_dir.y, light_dir.z);
+        }
+    }
+}
+
+/// Dedicated factory for compiling shaders.
+pub struct ShaderCompiler;
+
+impl ShaderCompiler {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub unsafe fn compile_voxel_shader(&self, gl: &glow::Context) -> VoxelShader {
         let vs = gl.create_shader(glow::VERTEX_SHADER).expect("VS create failed");
         gl.shader_source(vs, VERTEX_SHADER_SRC);
         gl.compile_shader(vs);
@@ -220,30 +268,22 @@ impl VoxelShader {
         let u_view_proj = gl.get_uniform_location(program, "u_view_proj").expect("u_view_proj missing");
         let u_light_dir = gl.get_uniform_location(program, "u_light_dir").expect("u_light_dir missing");
 
-        Self {
-            program,
-            u_view_proj,
-            u_light_dir,
-        }
+        VoxelShader::new(program, u_view_proj, u_light_dir)
     }
 }
 
-impl ShaderProgram for VoxelShader {
-    fn bind(&self, gl: &glow::Context, view_proj: &Mat4, light_dir: Vec3) {
-        unsafe {
-            gl.use_program(Some(self.program));
-            gl.uniform_matrix_4_f32_slice(Some(&self.u_view_proj), false, &view_proj.to_cols_array());
-            gl.uniform_3_f32(Some(&self.u_light_dir), light_dir.x, light_dir.y, light_dir.z);
-        }
-    }
+/// Forward renderer encapsulating clear color and scene lighting parameters.
+pub struct ForwardRenderer {
+    clear_color: Vec4,
+    light_direction: Vec3,
 }
-
-/// Renderer implementation encapsulating clear and draw calls.
-pub struct ForwardRenderer;
 
 impl ForwardRenderer {
-    pub fn new() -> Self {
-        Self
+    pub fn new(clear_color: Vec4, light_direction: Vec3) -> Self {
+        Self {
+            clear_color,
+            light_direction: light_direction.normalize(),
+        }
     }
 }
 
@@ -254,12 +294,17 @@ impl SceneRenderer for ForwardRenderer {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         view_proj: &Mat4,
-        light_dir: Vec3,
     ) {
         unsafe {
+            gl.clear_color(
+                self.clear_color.x,
+                self.clear_color.y,
+                self.clear_color.z,
+                self.clear_color.w,
+            );
             gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         }
-        shader.bind(gl, view_proj, light_dir);
+        shader.bind(gl, view_proj, self.light_direction);
         mesh.draw(gl);
     }
 }
