@@ -4,13 +4,45 @@ use world::SurfaceMeshReceiver;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
-pub struct Vertex {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
-    pub color: [f32; 3],
+struct Vertex {
+    position: [f32; 3],
+    normal: [f32; 3],
+    color: [f32; 3],
 }
 
-/// Buffer collecting vertices and triangles via SurfaceMeshReceiver.
+impl Vertex {
+    fn new(position: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Self {
+        Self {
+            position,
+            normal,
+            color,
+        }
+    }
+}
+
+/// Interface for GPU-renderable mesh objects.
+pub trait Mesh {
+    fn draw(&self, gl: &glow::Context);
+}
+
+/// Interface for shader pipelines.
+pub trait ShaderProgram {
+    fn bind(&self, gl: &glow::Context, view_proj: &Mat4, light_dir: Vec3);
+}
+
+/// Interface for scene rendering.
+pub trait SceneRenderer {
+    fn render(
+        &self,
+        gl: &glow::Context,
+        shader: &dyn ShaderProgram,
+        mesh: &dyn Mesh,
+        view_proj: &Mat4,
+        light_dir: Vec3,
+    );
+}
+
+/// CPU buffer collecting quads via SurfaceMeshReceiver interface.
 pub struct CpuMeshBuffer {
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
@@ -22,14 +54,6 @@ impl CpuMeshBuffer {
             vertices: Vec::new(),
             indices: Vec::new(),
         }
-    }
-
-    pub fn vertex_count(&self) -> usize {
-        self.vertices.len()
-    }
-
-    pub fn index_count(&self) -> usize {
-        self.indices.len()
     }
 }
 
@@ -48,28 +72,11 @@ impl SurfaceMeshReceiver for CpuMeshBuffer {
         let norm_arr = normal.to_array();
         let col_arr = color.to_array();
 
-        self.vertices.push(Vertex {
-            position: v0.to_array(),
-            normal: norm_arr,
-            color: col_arr,
-        });
-        self.vertices.push(Vertex {
-            position: v1.to_array(),
-            normal: norm_arr,
-            color: col_arr,
-        });
-        self.vertices.push(Vertex {
-            position: v2.to_array(),
-            normal: norm_arr,
-            color: col_arr,
-        });
-        self.vertices.push(Vertex {
-            position: v3.to_array(),
-            normal: norm_arr,
-            color: col_arr,
-        });
+        self.vertices.push(Vertex::new(v0.to_array(), norm_arr, col_arr));
+        self.vertices.push(Vertex::new(v1.to_array(), norm_arr, col_arr));
+        self.vertices.push(Vertex::new(v2.to_array(), norm_arr, col_arr));
+        self.vertices.push(Vertex::new(v3.to_array(), norm_arr, col_arr));
 
-        // Two triangles per quad
         self.indices.push(base_idx);
         self.indices.push(base_idx + 1);
         self.indices.push(base_idx + 2);
@@ -80,23 +87,22 @@ impl SurfaceMeshReceiver for CpuMeshBuffer {
     }
 }
 
-/// Represents GPU-allocated mesh buffers (VAO, VBO, EBO).
+/// Encapsulated GPU Mesh implementing Mesh.
 pub struct GlMesh {
     vao: glow::VertexArray,
-    vbo: glow::Buffer,
-    ebo: glow::Buffer,
+    _vbo: glow::Buffer,
+    _ebo: glow::Buffer,
     index_count: i32,
 }
 
 impl GlMesh {
-    pub unsafe fn from_cpu_buffer(gl: &glow::Context, buffer: &CpuMeshBuffer) -> Self {
+    pub unsafe fn upload(gl: &glow::Context, buffer: &CpuMeshBuffer) -> Self {
         let vao = gl.create_vertex_array().expect("Failed to create VAO");
         let vbo = gl.create_buffer().expect("Failed to create VBO");
         let ebo = gl.create_buffer().expect("Failed to create EBO");
 
         gl.bind_vertex_array(Some(vao));
 
-        // Upload vertex data
         gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
         let vertex_bytes = core::slice::from_raw_parts(
             buffer.vertices.as_ptr() as *const u8,
@@ -104,7 +110,6 @@ impl GlMesh {
         );
         gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertex_bytes, glow::STATIC_DRAW);
 
-        // Upload index data
         gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
         let index_bytes = core::slice::from_raw_parts(
             buffer.indices.as_ptr() as *const u8,
@@ -114,15 +119,12 @@ impl GlMesh {
 
         let stride = core::mem::size_of::<Vertex>() as i32;
 
-        // Position: attribute 0
         gl.enable_vertex_attrib_array(0);
         gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, stride, 0);
 
-        // Normal: attribute 1
         gl.enable_vertex_attrib_array(1);
         gl.vertex_attrib_pointer_f32(1, 3, glow::FLOAT, false, stride, 12);
 
-        // Color: attribute 2
         gl.enable_vertex_attrib_array(2);
         gl.vertex_attrib_pointer_f32(2, 3, glow::FLOAT, false, stride, 24);
 
@@ -130,22 +132,20 @@ impl GlMesh {
 
         Self {
             vao,
-            vbo,
-            ebo,
+            _vbo: vbo,
+            _ebo: ebo,
             index_count: buffer.indices.len() as i32,
         }
     }
+}
 
-    pub unsafe fn draw(&self, gl: &glow::Context) {
-        gl.bind_vertex_array(Some(self.vao));
-        gl.draw_elements(glow::TRIANGLES, self.index_count, glow::UNSIGNED_INT, 0);
-        gl.bind_vertex_array(None);
-    }
-
-    pub unsafe fn destroy(&self, gl: &glow::Context) {
-        gl.delete_vertex_array(self.vao);
-        gl.delete_buffer(self.vbo);
-        gl.delete_buffer(self.ebo);
+impl Mesh for GlMesh {
+    fn draw(&self, gl: &glow::Context) {
+        unsafe {
+            gl.bind_vertex_array(Some(self.vao));
+            gl.draw_elements(glow::TRIANGLES, self.index_count, glow::UNSIGNED_INT, 0);
+            gl.bind_vertex_array(None);
+        }
     }
 }
 
@@ -177,13 +177,13 @@ out vec4 frag_color;
 void main() {
     vec3 norm = normalize(v_normal);
     float diff = max(dot(norm, normalize(u_light_dir)), 0.0);
-    // Ambient + diffuse directional sunlight
     vec3 ambient = vec3(0.35);
     vec3 light = ambient + vec3(0.65) * diff;
     frag_color = vec4(v_color * light, 1.0);
 }
 "#;
 
+/// Encapsulated Flat Shader implementing ShaderProgram.
 pub struct VoxelShader {
     program: glow::Program,
     u_view_proj: glow::UniformLocation,
@@ -226,10 +226,40 @@ impl VoxelShader {
             u_light_dir,
         }
     }
+}
 
-    pub unsafe fn bind(&self, gl: &glow::Context, view_proj: &Mat4, light_dir: Vec3) {
-        gl.use_program(Some(self.program));
-        gl.uniform_matrix_4_f32_slice(Some(&self.u_view_proj), false, &view_proj.to_cols_array());
-        gl.uniform_3_f32(Some(&self.u_light_dir), light_dir.x, light_dir.y, light_dir.z);
+impl ShaderProgram for VoxelShader {
+    fn bind(&self, gl: &glow::Context, view_proj: &Mat4, light_dir: Vec3) {
+        unsafe {
+            gl.use_program(Some(self.program));
+            gl.uniform_matrix_4_f32_slice(Some(&self.u_view_proj), false, &view_proj.to_cols_array());
+            gl.uniform_3_f32(Some(&self.u_light_dir), light_dir.x, light_dir.y, light_dir.z);
+        }
+    }
+}
+
+/// Renderer implementation encapsulating clear and draw calls.
+pub struct ForwardRenderer;
+
+impl ForwardRenderer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl SceneRenderer for ForwardRenderer {
+    fn render(
+        &self,
+        gl: &glow::Context,
+        shader: &dyn ShaderProgram,
+        mesh: &dyn Mesh,
+        view_proj: &Mat4,
+        light_dir: Vec3,
+    ) {
+        unsafe {
+            gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+        }
+        shader.bind(gl, view_proj, light_dir);
+        mesh.draw(gl);
     }
 }

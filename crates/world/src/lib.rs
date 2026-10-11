@@ -1,7 +1,6 @@
 use glam::Vec3;
 
-/// Interface for any consumer that collects generated surface quads.
-/// Implements "Tell, Don't Ask" - the world pushes geometry rather than exposing internal arrays.
+/// Interface for collecting surface quads ("Tell, Don't Ask").
 pub trait SurfaceMeshReceiver {
     fn push_quad(
         &mut self,
@@ -14,211 +13,244 @@ pub trait SurfaceMeshReceiver {
     );
 }
 
-/// Interface for gravity and orientation calculation around planetary bodies.
+/// Interface for planetary gravity fields.
 pub trait GravityField {
     fn pull_direction_at(&self, position: Vec3) -> Vec3;
     fn surface_up_at(&self, position: Vec3) -> Vec3;
 }
 
-/// Core interface for a planetary voxel world.
+/// Core interface for a planetary voxel body.
 pub trait PlanetaryWorld: GravityField {
     fn emit_surface(&self, receiver: &mut dyn SurfaceMeshReceiver);
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3;
 }
 
-/// Represents the six distinct faces of a cubic world.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CubeFace {
-    PosY, // Top (Temperate Forest / Grass)
-    NegY, // Bottom (Volcanic Crag)
-    PosX, // Right (Scorched Desert)
-    NegX, // Left (Frozen Tundra / Arctic)
-    PosZ, // Front (Dense Jungle)
-    NegZ, // Back (Arid Steppe)
+/// Interface representing an individual face of a planetary body.
+pub trait Face: Send + Sync {
+    fn matches(&self, point: Vec3) -> bool;
+    fn normal(&self) -> Vec3;
+    fn constrain(&self, point: Vec3, half_size: f32, distance: f32) -> Vec3;
+    fn emit_surface(&self, half_size: f32, divisions: u32, receiver: &mut dyn SurfaceMeshReceiver);
 }
 
-impl CubeFace {
-    pub fn normal(&self) -> Vec3 {
-        match self {
-            Self::PosY => Vec3::Y,
-            Self::NegY => Vec3::NEG_Y,
-            Self::PosX => Vec3::X,
-            Self::NegX => Vec3::NEG_X,
-            Self::PosZ => Vec3::Z,
-            Self::NegZ => Vec3::NEG_Z,
-        }
-    }
+/// Encapsulated planar face implementing Face.
+pub struct PlanarFace {
+    normal: Vec3,
+    tangent: Vec3,
+    bitangent: Vec3,
+    color: Vec3,
+    primary_axis: usize,
+    positive_side: bool,
+}
 
-    pub fn base_color(&self) -> Vec3 {
-        match self {
-            Self::PosY => Vec3::new(0.28, 0.65, 0.25), // Green
-            Self::NegY => Vec3::new(0.35, 0.18, 0.18), // Dark Volcanic Red
-            Self::PosX => Vec3::new(0.85, 0.75, 0.35), // Desert Sand
-            Self::NegX => Vec3::new(0.75, 0.88, 0.95), // Arctic Ice
-            Self::PosZ => Vec3::new(0.12, 0.45, 0.22), // Jungle Emerald
-            Self::NegZ => Vec3::new(0.68, 0.48, 0.32), // Arid Steppe Brown
+impl PlanarFace {
+    pub fn new(
+        normal: Vec3,
+        tangent: Vec3,
+        bitangent: Vec3,
+        color: Vec3,
+        primary_axis: usize,
+        positive_side: bool,
+    ) -> Self {
+        Self {
+            normal,
+            tangent,
+            bitangent,
+            color,
+            primary_axis,
+            positive_side,
         }
     }
 }
 
-/// A cubic planetary world body with 90-degree edge gravity.
+impl Face for PlanarFace {
+    fn matches(&self, point: Vec3) -> bool {
+        let abs_x = point.x.abs();
+        let abs_y = point.y.abs();
+        let abs_z = point.z.abs();
+
+        let is_dominant = match self.primary_axis {
+            0 => abs_x >= abs_y && abs_x >= abs_z,
+            1 => abs_y >= abs_x && abs_y >= abs_z,
+            _ => abs_z >= abs_x && abs_z >= abs_y,
+        };
+
+        if !is_dominant {
+            return false;
+        }
+
+        let coord = match self.primary_axis {
+            0 => point.x,
+            1 => point.y,
+            _ => point.z,
+        };
+
+        (coord >= 0.0) == self.positive_side
+    }
+
+    fn normal(&self) -> Vec3 {
+        self.normal
+    }
+
+    fn constrain(&self, point: Vec3, half_size: f32, distance: f32) -> Vec3 {
+        let mut result = point;
+        let target_dist = if self.positive_side {
+            half_size + distance
+        } else {
+            -(half_size + distance)
+        };
+
+        match self.primary_axis {
+            0 => {
+                result.x = target_dist;
+                result.y = result.y.clamp(-half_size, half_size);
+                result.z = result.z.clamp(-half_size, half_size);
+            }
+            1 => {
+                result.y = target_dist;
+                result.x = result.x.clamp(-half_size, half_size);
+                result.z = result.z.clamp(-half_size, half_size);
+            }
+            _ => {
+                result.z = target_dist;
+                result.x = result.x.clamp(-half_size, half_size);
+                result.y = result.y.clamp(-half_size, half_size);
+            }
+        }
+        result
+    }
+
+    fn emit_surface(&self, half_size: f32, divisions: u32, receiver: &mut dyn SurfaceMeshReceiver) {
+        let step = (half_size * 2.0) / (divisions as f32);
+        let base_center = self.normal * half_size;
+
+        for i in 0..divisions {
+            for j in 0..divisions {
+                let u0 = -half_size + (i as f32) * step;
+                let u1 = u0 + step;
+                let v0 = -half_size + (j as f32) * step;
+                let v1 = v0 + step;
+
+                let pattern = ((i + j) % 2 == 0) as i32 as f32 * 0.08;
+                let quad_color = Vec3::new(
+                    (self.color.x + pattern).clamp(0.0, 1.0),
+                    (self.color.y + pattern).clamp(0.0, 1.0),
+                    (self.color.z + pattern).clamp(0.0, 1.0),
+                );
+
+                let p0 = base_center + self.tangent * u0 + self.bitangent * v0;
+                let p1 = base_center + self.tangent * u1 + self.bitangent * v0;
+                let p2 = base_center + self.tangent * u1 + self.bitangent * v1;
+                let p3 = base_center + self.tangent * u0 + self.bitangent * v1;
+
+                receiver.push_quad(p0, p1, p2, p3, self.normal, quad_color);
+            }
+        }
+    }
+}
+
+/// A cubic planetary world composed of polymorphic Face instances.
 pub struct CubePlanet {
-    size_blocks: u32,
     half_size: f32,
+    divisions: u32,
+    faces: Vec<Box<dyn Face>>,
 }
 
 impl CubePlanet {
     pub fn new(size_blocks: u32) -> Self {
-        let half_size = (size_blocks as f32) * 0.5;
+        let half = (size_blocks as f32) * 0.5;
+        let faces: Vec<Box<dyn Face>> = vec![
+            // Top (+Y): Temperate Green
+            Box::new(PlanarFace::new(
+                Vec3::Y,
+                Vec3::X,
+                Vec3::Z,
+                Vec3::new(0.28, 0.65, 0.25),
+                1,
+                true,
+            )),
+            // Bottom (-Y): Volcanic Dark Red
+            Box::new(PlanarFace::new(
+                Vec3::NEG_Y,
+                Vec3::X,
+                Vec3::NEG_Z,
+                Vec3::new(0.35, 0.18, 0.18),
+                1,
+                false,
+            )),
+            // Right (+X): Desert Sand
+            Box::new(PlanarFace::new(
+                Vec3::X,
+                Vec3::NEG_Z,
+                Vec3::Y,
+                Vec3::new(0.85, 0.75, 0.35),
+                0,
+                true,
+            )),
+            // Left (-X): Arctic Ice
+            Box::new(PlanarFace::new(
+                Vec3::NEG_X,
+                Vec3::Z,
+                Vec3::Y,
+                Vec3::new(0.75, 0.88, 0.95),
+                0,
+                false,
+            )),
+            // Front (+Z): Jungle Emerald
+            Box::new(PlanarFace::new(
+                Vec3::Z,
+                Vec3::X,
+                Vec3::Y,
+                Vec3::new(0.12, 0.45, 0.22),
+                2,
+                true,
+            )),
+            // Back (-Z): Arid Steppe Brown
+            Box::new(PlanarFace::new(
+                Vec3::NEG_Z,
+                Vec3::NEG_X,
+                Vec3::Y,
+                Vec3::new(0.68, 0.48, 0.32),
+                2,
+                false,
+            )),
+        ];
+
         Self {
-            size_blocks,
-            half_size,
+            half_size: half,
+            divisions: size_blocks,
+            faces,
         }
     }
 
-    /// Determines the closest face based on position relative to cube center.
-    pub fn dominant_face(&self, position: Vec3) -> CubeFace {
-        let ax = position.x.abs();
-        let ay = position.y.abs();
-        let az = position.z.abs();
-
-        if ay >= ax && ay >= az {
-            if position.y >= 0.0 { CubeFace::PosY } else { CubeFace::NegY }
-        } else if ax >= ay && ax >= az {
-            if position.x >= 0.0 { CubeFace::PosX } else { CubeFace::NegX }
-        } else {
-            if position.z >= 0.0 { CubeFace::PosZ } else { CubeFace::NegZ }
+    fn active_face(&self, position: Vec3) -> &dyn Face {
+        for face in &self.faces {
+            if face.matches(position) {
+                return face.as_ref();
+            }
         }
+        self.faces[0].as_ref()
     }
 }
 
 impl GravityField for CubePlanet {
     fn pull_direction_at(&self, position: Vec3) -> Vec3 {
-        -self.dominant_face(position).normal()
+        -self.active_face(position).normal()
     }
 
     fn surface_up_at(&self, position: Vec3) -> Vec3 {
-        self.dominant_face(position).normal()
+        self.active_face(position).normal()
     }
 }
 
 impl PlanetaryWorld for CubePlanet {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
-        let face = self.dominant_face(position);
-        let half = self.half_size;
-        let target_dist = half + player_height;
-
-        let mut constrained = position;
-        match face {
-            CubeFace::PosY => {
-                constrained.y = target_dist;
-                constrained.x = constrained.x.clamp(-half, half);
-                constrained.z = constrained.z.clamp(-half, half);
-            }
-            CubeFace::NegY => {
-                constrained.y = -target_dist;
-                constrained.x = constrained.x.clamp(-half, half);
-                constrained.z = constrained.z.clamp(-half, half);
-            }
-            CubeFace::PosX => {
-                constrained.x = target_dist;
-                constrained.y = constrained.y.clamp(-half, half);
-                constrained.z = constrained.z.clamp(-half, half);
-            }
-            CubeFace::NegX => {
-                constrained.x = -target_dist;
-                constrained.y = constrained.y.clamp(-half, half);
-                constrained.z = constrained.z.clamp(-half, half);
-            }
-            CubeFace::PosZ => {
-                constrained.z = target_dist;
-                constrained.x = constrained.x.clamp(-half, half);
-                constrained.y = constrained.y.clamp(-half, half);
-            }
-            CubeFace::NegZ => {
-                constrained.z = -target_dist;
-                constrained.x = constrained.x.clamp(-half, half);
-                constrained.y = constrained.y.clamp(-half, half);
-            }
-        }
-        constrained
+        self.active_face(position).constrain(position, self.half_size, player_height)
     }
 
     fn emit_surface(&self, receiver: &mut dyn SurfaceMeshReceiver) {
-        let half = self.half_size;
-        let count = self.size_blocks;
-        let block_step = 1.0f32;
-
-        let faces = [
-            CubeFace::PosY,
-            CubeFace::NegY,
-            CubeFace::PosX,
-            CubeFace::NegX,
-            CubeFace::PosZ,
-            CubeFace::NegZ,
-        ];
-
-        for face in &faces {
-            let norm = face.normal();
-            let base_col = face.base_color();
-
-            for i in 0..count {
-                for j in 0..count {
-                    let u0 = -half + (i as f32) * block_step;
-                    let u1 = u0 + block_step;
-                    let v0 = -half + (j as f32) * block_step;
-                    let v1 = v0 + block_step;
-
-                    // Checker pattern modulation for voxel block grid visibility
-                    let pattern = ((i + j) % 2 == 0) as i32 as f32 * 0.08;
-                    let col = Vec3::new(
-                        (base_col.x + pattern).clamp(0.0, 1.0),
-                        (base_col.y + pattern).clamp(0.0, 1.0),
-                        (base_col.z + pattern).clamp(0.0, 1.0),
-                    );
-
-                    let (p0, p1, p2, p3) = match face {
-                        CubeFace::PosY => (
-                            Vec3::new(u0, half, v0),
-                            Vec3::new(u1, half, v0),
-                            Vec3::new(u1, half, v1),
-                            Vec3::new(u0, half, v1),
-                        ),
-                        CubeFace::NegY => (
-                            Vec3::new(u0, -half, v1),
-                            Vec3::new(u1, -half, v1),
-                            Vec3::new(u1, -half, v0),
-                            Vec3::new(u0, -half, v0),
-                        ),
-                        CubeFace::PosX => (
-                            Vec3::new(half, v0, u0),
-                            Vec3::new(half, v0, u1),
-                            Vec3::new(half, v1, u1),
-                            Vec3::new(half, v1, u0),
-                        ),
-                        CubeFace::NegX => (
-                            Vec3::new(-half, v0, u1),
-                            Vec3::new(-half, v0, u0),
-                            Vec3::new(-half, v1, u0),
-                            Vec3::new(-half, v1, u1),
-                        ),
-                        CubeFace::PosZ => (
-                            Vec3::new(u1, v0, half),
-                            Vec3::new(u0, v0, half),
-                            Vec3::new(u0, v1, half),
-                            Vec3::new(u1, v1, half),
-                        ),
-                        CubeFace::NegZ => (
-                            Vec3::new(u0, v0, -half),
-                            Vec3::new(u1, v0, -half),
-                            Vec3::new(u1, v1, -half),
-                            Vec3::new(u0, v1, -half),
-                        ),
-                    };
-
-                    receiver.push_quad(p0, p1, p2, p3, norm, col);
-                }
-            }
+        for face in &self.faces {
+            face.emit_surface(self.half_size, self.divisions, receiver);
         }
     }
 }
