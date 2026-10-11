@@ -1,5 +1,5 @@
 use glow::HasContext;
-use world::SurfaceMeshReceiver;
+use world::{MeshTarget, Quad};
 use crate::Mesh;
 
 #[repr(C)]
@@ -20,13 +20,13 @@ impl Vertex {
     }
 }
 
-/// CPU buffer collecting quads via SurfaceMeshReceiver interface.
-pub struct CpuMeshBuffer {
+/// CPU batch collecting quads via MeshTarget interface.
+pub struct CpuMeshBatch {
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
 }
 
-impl CpuMeshBuffer {
+impl CpuMeshBatch {
     pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
@@ -35,8 +35,8 @@ impl CpuMeshBuffer {
     }
 }
 
-impl SurfaceMeshReceiver for CpuMeshBuffer {
-    fn push_quad(&mut self, quad: world::Quad) {
+impl MeshTarget for CpuMeshBatch {
+    fn push_quad(&mut self, quad: Quad) {
         let base_idx = self.vertices.len() as u32;
 
         quad.transfer(|v0, v1, v2, v3, normal, color| {
@@ -93,15 +93,15 @@ impl Mesh for GlMesh {
     }
 }
 
-/// Dedicated factory for uploading CPU mesh buffers to OpenGL.
-pub struct MeshUploader;
+/// GPU resource allocation mechanism for CPU mesh buffers.
+pub struct GpuAllocation;
 
-impl MeshUploader {
+impl GpuAllocation {
     pub fn new() -> Self {
         Self
     }
 
-    pub unsafe fn upload(&self, gl: &glow::Context, buffer: &CpuMeshBuffer) -> GlMesh {
+    pub unsafe fn upload(&self, gl: &glow::Context, batch: &CpuMeshBatch) -> GlMesh {
         let vao = gl.create_vertex_array().expect("Failed to create VAO");
         let vbo = gl.create_buffer().expect("Failed to create VBO");
         let ebo = gl.create_buffer().expect("Failed to create EBO");
@@ -110,15 +110,15 @@ impl MeshUploader {
 
         gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
         let vertex_bytes = core::slice::from_raw_parts(
-            buffer.vertices.as_ptr() as *const u8,
-            buffer.vertices.len() * core::mem::size_of::<Vertex>(),
+            batch.vertices.as_ptr() as *const u8,
+            batch.vertices.len() * core::mem::size_of::<Vertex>(),
         );
         gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertex_bytes, glow::STATIC_DRAW);
 
         gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
         let index_bytes = core::slice::from_raw_parts(
-            buffer.indices.as_ptr() as *const u8,
-            buffer.indices.len() * core::mem::size_of::<u32>(),
+            batch.indices.as_ptr() as *const u8,
+            batch.indices.len() * core::mem::size_of::<u32>(),
         );
         gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, index_bytes, glow::STATIC_DRAW);
 
@@ -135,6 +135,6 @@ impl MeshUploader {
 
         gl.bind_vertex_array(None);
 
-        GlMesh::new(vao, vbo, ebo, buffer.indices.len() as i32)
+        GlMesh::new(vao, vbo, ebo, batch.indices.len() as i32)
     }
 }

@@ -7,7 +7,7 @@ mod planet;
 mod tests;
 
 pub use face::PlanarFace;
-pub use planet::{CubePlanet, NullFace, StandardPlanetFactory};
+pub use planet::{CubePlanet, NullFace, StandardCubeWorld};
 
 /// Encapsulated geometric quad entity with vertices, normal, and surface color.
 #[derive(Clone, Copy, Debug)]
@@ -40,7 +40,7 @@ impl Quad {
 }
 
 /// Interface for collecting surface quads ("Tell, Don't Ask").
-pub trait SurfaceMeshReceiver {
+pub trait MeshTarget {
     fn push_quad(&mut self, quad: Quad);
 }
 
@@ -52,7 +52,7 @@ pub trait GravityField {
 
 /// Core interface for a planetary voxel body.
 pub trait PlanetaryWorld: GravityField {
-    fn emit_surface(&self, receiver: &mut dyn SurfaceMeshReceiver);
+    fn emit_surface(&self, target: &mut dyn MeshTarget);
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3;
 }
 
@@ -61,5 +61,5 @@ pub trait Face: Send + Sync {
     fn matches(&self, point: Vec3) -> bool;
     fn normal(&self) -> Vec3;
     fn constrain(&self, point: Vec3, half_size: f32, distance: f32) -> Vec3;
-    fn emit_surface(&self, half_size: f32, divisions: u32, receiver: &mut dyn SurfaceMeshReceiver);
+    fn emit_surface(&self, half_size: f32, divisions: u32, target: &mut dyn MeshTarget);
 }

@@ -8,9 +8,9 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 
 use world::PlanetaryWorld;
-use engine_render::{Mesh, SceneRenderer, ShaderProgram};
+use engine_render::{GraphicPipeline, Mesh, ShaderProgram};
+use crate::avatar::Avatar;
 use crate::controls::KeyboardControls;
-use crate::player::Player;
 
 /// Fully initialized active game session with code-free primary constructor.
 pub struct GameSession {
@@ -18,11 +18,11 @@ pub struct GameSession {
     gl_context: PossiblyCurrentContext,
     gl_surface: Surface<WindowSurface>,
     gl: glow::Context,
-    renderer: Box<dyn SceneRenderer>,
+    pipeline: Box<dyn GraphicPipeline>,
     shader: Box<dyn ShaderProgram>,
     mesh: Box<dyn Mesh>,
     world: Box<dyn PlanetaryWorld>,
-    player: Box<dyn Player>,
+    avatar: Box<dyn Avatar>,
     controls: Box<dyn KeyboardControls>,
 }
 
@@ -33,11 +33,11 @@ impl GameSession {
         gl_context: PossiblyCurrentContext,
         gl_surface: Surface<WindowSurface>,
         gl: glow::Context,
-        renderer: Box<dyn SceneRenderer>,
+        pipeline: Box<dyn GraphicPipeline>,
         shader: Box<dyn ShaderProgram>,
         mesh: Box<dyn Mesh>,
         world: Box<dyn PlanetaryWorld>,
-        player: Box<dyn Player>,
+        avatar: Box<dyn Avatar>,
         controls: Box<dyn KeyboardControls>,
     ) -> Self {
         Self {
@@ -45,11 +45,11 @@ impl GameSession {
             gl_context,
             gl_surface,
             gl,
-            renderer,
+            pipeline,
             shader,
             mesh,
             world,
-            player,
+            avatar,
             controls,
         }
     }
@@ -96,12 +96,12 @@ impl GameSession {
                     }
                     KeyCode::KeyI => {
                         if pressed {
-                            self.player.toggle_invert_y();
+                            self.avatar.toggle_invert_y();
                         }
                     }
                     KeyCode::KeyO => {
                         if pressed {
-                            self.player.toggle_invert_x();
+                            self.avatar.toggle_invert_x();
                         }
                     }
                     KeyCode::Escape => event_loop.exit(),
@@ -110,13 +110,13 @@ impl GameSession {
             }
             WindowEvent::RedrawRequested => {
                 let dt = 1.0 / 60.0;
-                self.player.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
+                self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
 
                 let win_size = self.window.inner_size();
                 let aspect = (win_size.width as f32) / (win_size.height.max(1) as f32);
-                let view_proj = self.player.view_projection_matrix(aspect);
+                let view_proj = self.avatar.view_projection_matrix(aspect);
 
-                self.renderer.render(
+                self.pipeline.render(
                     &self.gl,
                     self.shader.as_ref(),
                     self.mesh.as_ref(),
@@ -132,7 +132,7 @@ impl GameSession {
 
     pub fn handle_device_event(&mut self, event: DeviceEvent) {
         if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
-            self.player.rotate_view(dx as f32, dy as f32);
+            self.avatar.rotate_view(dx as f32, dy as f32);
         }
     }
 }

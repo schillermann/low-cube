@@ -36,14 +36,14 @@ void main() {
 }
 "#;
 
-/// Encapsulated Flat Shader with clean, code-free primary constructor.
-pub struct VoxelShader {
+/// Encapsulated GPU program with clean, code-free primary constructor.
+pub struct VoxelProgram {
     program: glow::Program,
     u_view_proj: glow::UniformLocation,
     u_light_dir: glow::UniformLocation,
 }
 
-impl VoxelShader {
+impl VoxelProgram {
     pub fn new(
         program: glow::Program,
         u_view_proj: glow::UniformLocation,
@@ -57,7 +57,7 @@ impl VoxelShader {
     }
 }
 
-impl ShaderProgram for VoxelShader {
+impl ShaderProgram for VoxelProgram {
     fn bind(&self, gl: &glow::Context, view_proj: &Mat4, light_dir: Vec3) {
         unsafe {
             gl.use_program(Some(self.program));
@@ -67,15 +67,15 @@ impl ShaderProgram for VoxelShader {
     }
 }
 
-/// Dedicated factory for compiling shaders.
-pub struct ShaderCompiler;
+/// Pipeline constructing compiled shader programs.
+pub struct GlslPipeline;
 
-impl ShaderCompiler {
+impl GlslPipeline {
     pub fn new() -> Self {
         Self
     }
 
-    pub unsafe fn compile_voxel_shader(&self, gl: &glow::Context) -> VoxelShader {
+    pub unsafe fn compile_voxel_program(&self, gl: &glow::Context) -> VoxelProgram {
         let vs = gl.create_shader(glow::VERTEX_SHADER).expect("VS create failed");
         gl.shader_source(vs, VERTEX_SHADER_SRC);
         gl.compile_shader(vs);
@@ -104,6 +104,6 @@ impl ShaderCompiler {
         let u_view_proj = gl.get_uniform_location(program, "u_view_proj").expect("u_view_proj missing");
         let u_light_dir = gl.get_uniform_location(program, "u_light_dir").expect("u_light_dir missing");
 
-        VoxelShader::new(program, u_view_proj, u_light_dir)
+        VoxelProgram::new(program, u_view_proj, u_light_dir)
     }
 }

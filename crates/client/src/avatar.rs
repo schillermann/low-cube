@@ -4,7 +4,7 @@ use crate::controls::KeyboardControls;
 use crate::orientation::MouseLook;
 
 /// Interface for player avatars acting within planetary gravity.
-pub trait Player {
+pub trait Avatar {
     fn rotate_view(&mut self, dx: f32, dy: f32);
     fn toggle_invert_y(&mut self);
     fn toggle_invert_x(&mut self);
@@ -13,13 +13,13 @@ pub trait Player {
 }
 
 /// Fully encapsulated player entity composed of position, gravity alignment, and MouseLook.
-pub struct PlayerAvatar {
+pub struct PlanetaryAvatar {
     position: Vec3,
     surface_up: Vec3,
     look: MouseLook,
 }
 
-impl PlayerAvatar {
+impl PlanetaryAvatar {
     pub fn new(initial_position: Vec3) -> Self {
         Self {
             position: initial_position,
@@ -44,7 +44,7 @@ impl PlayerAvatar {
     }
 }
 
-impl Player for PlayerAvatar {
+impl Avatar for PlanetaryAvatar {
     fn rotate_view(&mut self, dx: f32, dy: f32) {
         self.look.rotate(dx, dy);
     }

@@ -1,8 +1,8 @@
 mod app;
-mod bootstrap;
+mod avatar;
 mod controls;
+mod launch;
 mod orientation;
-mod player;
 mod session;
 
 use winit::event_loop::{ControlFlow, EventLoop};

@@ -3,7 +3,7 @@ use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
-use crate::bootstrap::SessionBootstrapper;
+use crate::launch::SessionLaunch;
 use crate::session::GameSession;
 
 /// State pattern interface for application lifecycle transitions.
@@ -18,8 +18,8 @@ pub struct PendingLifecycle;
 
 impl AppLifecycle for PendingLifecycle {
     fn resume(self: Box<Self>, event_loop: &ActiveEventLoop) -> Box<dyn AppLifecycle> {
-        let bootstrapper = SessionBootstrapper::new();
-        let session = bootstrapper.bootstrap(event_loop);
+        let launch = SessionLaunch::new();
+        let session = launch.assemble(event_loop);
         Box::new(ActiveLifecycle::new(session))
     }
 

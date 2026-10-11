@@ -1,14 +1,14 @@
 use glam::{Mat4, Vec3, Vec4};
 use glow::HasContext;
-use crate::{Mesh, SceneRenderer, ShaderProgram};
+use crate::{GraphicPipeline, Mesh, ShaderProgram};
 
-/// Forward renderer encapsulating clear color and scene lighting parameters.
-pub struct ForwardRenderer {
+/// Forward graphic pipeline encapsulating clear color and scene lighting parameters.
+pub struct ForwardPipeline {
     clear_color: Vec4,
     light_direction: Vec3,
 }
 
-impl ForwardRenderer {
+impl ForwardPipeline {
     pub fn new(clear_color: Vec4, light_direction: Vec3) -> Self {
         Self {
             clear_color,
@@ -17,7 +17,7 @@ impl ForwardRenderer {
     }
 }
 
-impl SceneRenderer for ForwardRenderer {
+impl GraphicPipeline for ForwardPipeline {
     fn render(
         &self,
         gl: &glow::Context,

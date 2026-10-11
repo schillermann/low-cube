@@ -1,9 +1,9 @@
 use glam::Vec3;
-use crate::{GravityField, StandardPlanetFactory};
+use crate::{GravityField, StandardCubeWorld};
 
 #[test]
 fn test_gravity_orientation_across_faces() {
-    let planet = StandardPlanetFactory::create_cube(16);
+    let planet = StandardCubeWorld::build(16);
 
     // Top face (+Y)
     assert_eq!(planet.surface_up_at(Vec3::new(0.0, 10.0, 0.0)), Vec3::Y);
@@ -32,7 +32,7 @@ fn test_gravity_orientation_across_faces() {
 
 #[test]
 fn test_edge_transition_switch() {
-    let planet = StandardPlanetFactory::create_cube(16);
+    let planet = StandardCubeWorld::build(16);
 
     // On top face near edge: Y = 9.0, Z = 7.9 -> Dominant is Y
     assert_eq!(planet.surface_up_at(Vec3::new(0.0, 9.0, 7.9)), Vec3::Y);

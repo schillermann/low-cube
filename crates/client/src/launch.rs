@@ -9,21 +9,21 @@ use raw_window_handle::HasWindowHandle;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowAttributes;
 
-use world::{PlanetaryWorld, StandardPlanetFactory};
-use engine_render::{CpuMeshBuffer, ForwardRenderer, MeshUploader, ShaderCompiler};
+use world::{PlanetaryWorld, StandardCubeWorld};
+use engine_render::{CpuMeshBatch, ForwardPipeline, GlslPipeline, GpuAllocation};
+use crate::avatar::PlanetaryAvatar;
 use crate::controls::KeyState;
-use crate::player::PlayerAvatar;
 use crate::session::GameSession;
 
-/// Bootstrapper responsible for assembling the environment and constructing GameSession.
-pub struct SessionBootstrapper;
+/// Environment assembly mechanism for constructing GameSession.
+pub struct SessionLaunch;
 
-impl SessionBootstrapper {
+impl SessionLaunch {
     pub fn new() -> Self {
         Self
     }
 
-    pub fn bootstrap(&self, event_loop: &ActiveEventLoop) -> GameSession {
+    pub fn assemble(&self, event_loop: &ActiveEventLoop) -> GameSession {
         let window_attributes = WindowAttributes::default()
             .with_title("Low-Cube [WASD: Move, Mouse: Look, I: Invert Y, O: Invert X, Esc: Exit]")
             .with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0));
@@ -77,18 +77,18 @@ impl SessionBootstrapper {
             })
         };
 
-        let planet: Box<dyn PlanetaryWorld> = Box::new(StandardPlanetFactory::create_cube(16));
+        let planet: Box<dyn PlanetaryWorld> = Box::new(StandardCubeWorld::build(16));
 
-        let mut cpu_buf = CpuMeshBuffer::new();
+        let mut cpu_buf = CpuMeshBatch::new();
         planet.emit_surface(&mut cpu_buf);
 
-        let uploader = MeshUploader::new();
-        let mesh = unsafe { Box::new(uploader.upload(&gl, &cpu_buf)) };
+        let allocation = GpuAllocation::new();
+        let mesh = unsafe { Box::new(allocation.upload(&gl, &cpu_buf)) };
 
-        let compiler = ShaderCompiler::new();
-        let shader = unsafe { Box::new(compiler.compile_voxel_shader(&gl)) };
+        let glsl = GlslPipeline::new();
+        let shader = unsafe { Box::new(glsl.compile_voxel_program(&gl)) };
 
-        let renderer = Box::new(ForwardRenderer::new(
+        let pipeline = Box::new(ForwardPipeline::new(
             Vec4::new(0.04, 0.05, 0.08, 1.0),
             Vec3::new(0.6, 0.8, 0.4),
         ));
@@ -103,7 +103,7 @@ impl SessionBootstrapper {
             .or_else(|_| window.set_cursor_grab(winit::window::CursorGrabMode::Confined));
         window.set_cursor_visible(false);
 
-        let player = Box::new(PlayerAvatar::new(Vec3::new(0.0, 9.0, 0.0)));
+        let avatar = Box::new(PlanetaryAvatar::new(Vec3::new(0.0, 9.0, 0.0)));
         let controls = Box::new(KeyState::new());
 
         GameSession::new(
@@ -111,11 +111,11 @@ impl SessionBootstrapper {
             gl_context,
             gl_surface,
             gl,
-            renderer,
+            pipeline,
             shader,
             mesh,
             planet,
-            player,
+            avatar,
             controls,
         )
     }

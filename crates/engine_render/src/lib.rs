@@ -1,12 +1,12 @@
 use glam::{Mat4, Vec3};
 
 mod buffer;
-mod renderer;
+mod pipeline;
 mod shader;
 
-pub use buffer::{CpuMeshBuffer, GlMesh, MeshUploader};
-pub use renderer::ForwardRenderer;
-pub use shader::{ShaderCompiler, VoxelShader};
+pub use buffer::{CpuMeshBatch, GlMesh, GpuAllocation};
+pub use pipeline::ForwardPipeline;
+pub use shader::{GlslPipeline, VoxelProgram};
 
 /// Interface for GPU-renderable mesh objects.
 pub trait Mesh {
@@ -19,7 +19,7 @@ pub trait ShaderProgram {
 }
 
 /// Interface for scene rendering.
-pub trait SceneRenderer {
+pub trait GraphicPipeline {
     fn render(
         &self,
         gl: &glow::Context,

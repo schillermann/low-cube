@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{Face, SurfaceMeshReceiver};
+use crate::{Face, MeshTarget, Quad};
 
 /// Pure geometric planar face operating strictly on coordinate bases without integer switches.
 pub struct PlanarFace {
@@ -46,7 +46,7 @@ impl Face for PlanarFace {
         self.normal * h + self.tangent * u + self.bitangent * v
     }
 
-    fn emit_surface(&self, half_size: f32, divisions: u32, receiver: &mut dyn SurfaceMeshReceiver) {
+    fn emit_surface(&self, half_size: f32, divisions: u32, target: &mut dyn MeshTarget) {
         let step = (half_size * 2.0) / (divisions as f32);
         let base_center = self.normal * half_size;
 
@@ -69,7 +69,7 @@ impl Face for PlanarFace {
                 let p2 = base_center + self.tangent * u1 + self.bitangent * v1;
                 let p3 = base_center + self.tangent * u0 + self.bitangent * v1;
 
-                receiver.push_quad(crate::Quad::new(p0, p1, p2, p3, self.normal, quad_color));
+                target.push_quad(Quad::new(p0, p1, p2, p3, self.normal, quad_color));
             }
         }
     }

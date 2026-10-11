@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{Face, GravityField, PlanarFace, PlanetaryWorld, SurfaceMeshReceiver};
+use crate::{Face, GravityField, MeshTarget, PlanarFace, PlanetaryWorld};
 
 /// Null Object pattern implementation for Face.
 pub struct NullFace;
@@ -17,7 +17,7 @@ impl Face for NullFace {
         point
     }
 
-    fn emit_surface(&self, _half_size: f32, _divisions: u32, _receiver: &mut dyn SurfaceMeshReceiver) {}
+    fn emit_surface(&self, _half_size: f32, _divisions: u32, _target: &mut dyn MeshTarget) {}
 }
 
 /// A cubic planetary world composed of polymorphic Face instances with Dependency Injection.
@@ -69,18 +69,18 @@ impl PlanetaryWorld for CubePlanet {
         self.active_face(position).constrain(position, self.half_size, player_height)
     }
 
-    fn emit_surface(&self, receiver: &mut dyn SurfaceMeshReceiver) {
+    fn emit_surface(&self, target: &mut dyn MeshTarget) {
         for face in &self.faces {
-            face.emit_surface(self.half_size, self.divisions, receiver);
+            face.emit_surface(self.half_size, self.divisions, target);
         }
     }
 }
 
-/// Factory constructing standard cubic planetary worlds.
-pub struct StandardPlanetFactory;
+/// Standard cubic planetary world assembler.
+pub struct StandardCubeWorld;
 
-impl StandardPlanetFactory {
-    pub fn create_cube(size_blocks: u32) -> CubePlanet {
+impl StandardCubeWorld {
+    pub fn build(size_blocks: u32) -> CubePlanet {
         let half = (size_blocks as f32) * 0.5;
         let faces: Vec<Box<dyn Face>> = vec![
             // Top (+Y): Temperate Green
