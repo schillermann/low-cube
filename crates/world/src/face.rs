@@ -69,7 +69,7 @@ impl Face for PlanarFace {
                 let p2 = base_center + self.tangent * u1 + self.bitangent * v1;
                 let p3 = base_center + self.tangent * u0 + self.bitangent * v1;
 
-                receiver.push_quad(p0, p1, p2, p3, self.normal, quad_color);
+                receiver.push_quad(crate::Quad::new(p0, p1, p2, p3, self.normal, quad_color));
             }
         }
     }

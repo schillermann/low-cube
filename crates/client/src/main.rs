@@ -1,6 +1,7 @@
 mod app;
 mod bootstrap;
 mod controls;
+mod orientation;
 mod player;
 mod session;
 

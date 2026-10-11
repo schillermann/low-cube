@@ -7,19 +7,41 @@ mod planet;
 mod tests;
 
 pub use face::PlanarFace;
-pub use planet::{CubePlanet, StandardPlanetFactory};
+pub use planet::{CubePlanet, NullFace, StandardPlanetFactory};
+
+/// Encapsulated geometric quad entity with vertices, normal, and surface color.
+#[derive(Clone, Copy, Debug)]
+pub struct Quad {
+    v0: Vec3,
+    v1: Vec3,
+    v2: Vec3,
+    v3: Vec3,
+    normal: Vec3,
+    color: Vec3,
+}
+
+impl Quad {
+    /// Primary constructor: assigns fields directly without computation.
+    pub fn new(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3, normal: Vec3, color: Vec3) -> Self {
+        Self {
+            v0,
+            v1,
+            v2,
+            v3,
+            normal,
+            color,
+        }
+    }
+
+    /// Feeds its encapsulated data to a target without exposing raw getters.
+    pub fn transfer<T>(&self, consumer: impl FnOnce(Vec3, Vec3, Vec3, Vec3, Vec3, Vec3) -> T) -> T {
+        consumer(self.v0, self.v1, self.v2, self.v3, self.normal, self.color)
+    }
+}
 
 /// Interface for collecting surface quads ("Tell, Don't Ask").
 pub trait SurfaceMeshReceiver {
-    fn push_quad(
-        &mut self,
-        v0: Vec3,
-        v1: Vec3,
-        v2: Vec3,
-        v3: Vec3,
-        normal: Vec3,
-        color: Vec3,
-    );
+    fn push_quad(&mut self, quad: Quad);
 }
 
 /// Interface for planetary gravity fields.

@@ -1,6 +1,7 @@
 use glam::{Mat4, Quat, Vec3};
 use world::PlanetaryWorld;
 use crate::controls::KeyboardControls;
+use crate::orientation::MouseLook;
 
 /// Interface for player avatars acting within planetary gravity.
 pub trait Player {
@@ -11,14 +12,11 @@ pub trait Player {
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
 }
 
-/// Fully encapsulated player entity implementing Player.
+/// Fully encapsulated player entity composed of position, gravity alignment, and MouseLook.
 pub struct PlayerAvatar {
     position: Vec3,
     surface_up: Vec3,
-    yaw: f32,
-    pitch: f32,
-    invert_y: bool,
-    invert_x: bool,
+    look: MouseLook,
 }
 
 impl PlayerAvatar {
@@ -26,10 +24,7 @@ impl PlayerAvatar {
         Self {
             position: initial_position,
             surface_up: Vec3::Y,
-            yaw: 0.0,
-            pitch: 0.0,
-            invert_y: false,
-            invert_x: false,
+            look: MouseLook::new(),
         }
     }
 
@@ -40,7 +35,7 @@ impl PlayerAvatar {
         let bitangent = tangent.cross(up).normalize();
 
         let surface_rot = Quat::from_mat3(&glam::Mat3::from_cols(tangent, up, bitangent));
-        let view_rot = surface_rot * Quat::from_rotation_y(self.yaw) * Quat::from_rotation_x(self.pitch);
+        let view_rot = surface_rot * self.look.rotation_quat();
 
         let forward = view_rot * Vec3::NEG_Z;
         let right = view_rot * Vec3::X;
@@ -51,22 +46,15 @@ impl PlayerAvatar {
 
 impl Player for PlayerAvatar {
     fn rotate_view(&mut self, dx: f32, dy: f32) {
-        let sensitivity = 0.003;
-        let x_sign = if self.invert_x { 1.0 } else { -1.0 };
-        let y_sign = if self.invert_y { 1.0 } else { -1.0 };
-
-        self.yaw += dx * sensitivity * x_sign;
-        self.pitch = (self.pitch + dy * sensitivity * y_sign).clamp(-1.4, 1.4);
+        self.look.rotate(dx, dy);
     }
 
     fn toggle_invert_y(&mut self) {
-        self.invert_y = !self.invert_y;
-        println!("[Player] Invert Y (Pitch) is now: {}", self.invert_y);
+        self.look.toggle_invert_y();
     }
 
     fn toggle_invert_x(&mut self) {
-        self.invert_x = !self.invert_x;
-        println!("[Player] Invert X (Yaw) is now: {}", self.invert_x);
+        self.look.toggle_invert_x();
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {

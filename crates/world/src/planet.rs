@@ -1,20 +1,46 @@
 use glam::Vec3;
 use crate::{Face, GravityField, PlanarFace, PlanetaryWorld, SurfaceMeshReceiver};
 
+/// Null Object pattern implementation for Face.
+pub struct NullFace;
+
+impl Face for NullFace {
+    fn matches(&self, _point: Vec3) -> bool {
+        false
+    }
+
+    fn normal(&self) -> Vec3 {
+        Vec3::Y
+    }
+
+    fn constrain(&self, point: Vec3, _half_size: f32, _distance: f32) -> Vec3 {
+        point
+    }
+
+    fn emit_surface(&self, _half_size: f32, _divisions: u32, _receiver: &mut dyn SurfaceMeshReceiver) {}
+}
+
 /// A cubic planetary world composed of polymorphic Face instances with Dependency Injection.
 pub struct CubePlanet {
     half_size: f32,
     divisions: u32,
     faces: Vec<Box<dyn Face>>,
+    fallback: Box<dyn Face>,
 }
 
 impl CubePlanet {
     /// Primary constructor: code-free, assigns fields directly.
-    pub fn new(half_size: f32, divisions: u32, faces: Vec<Box<dyn Face>>) -> Self {
+    pub fn new(
+        half_size: f32,
+        divisions: u32,
+        faces: Vec<Box<dyn Face>>,
+        fallback: Box<dyn Face>,
+    ) -> Self {
         Self {
             half_size,
             divisions,
             faces,
+            fallback,
         }
     }
 
@@ -24,7 +50,7 @@ impl CubePlanet {
                 return face.as_ref();
             }
         }
-        self.faces[0].as_ref()
+        self.fallback.as_ref()
     }
 }
 
@@ -101,6 +127,6 @@ impl StandardPlanetFactory {
             )),
         ];
 
-        CubePlanet::new(half, size_blocks, faces)
+        CubePlanet::new(half, size_blocks, faces, Box::new(NullFace))
     }
 }

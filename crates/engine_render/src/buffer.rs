@@ -1,4 +1,3 @@
-use glam::Vec3;
 use glow::HasContext;
 use world::SurfaceMeshReceiver;
 use crate::Mesh;
@@ -37,24 +36,18 @@ impl CpuMeshBuffer {
 }
 
 impl SurfaceMeshReceiver for CpuMeshBuffer {
-    fn push_quad(
-        &mut self,
-        v0: Vec3,
-        v1: Vec3,
-        v2: Vec3,
-        v3: Vec3,
-        normal: Vec3,
-        color: Vec3,
-    ) {
+    fn push_quad(&mut self, quad: world::Quad) {
         let base_idx = self.vertices.len() as u32;
 
-        let norm_arr = normal.to_array();
-        let col_arr = color.to_array();
+        quad.transfer(|v0, v1, v2, v3, normal, color| {
+            let norm_arr = normal.to_array();
+            let col_arr = color.to_array();
 
-        self.vertices.push(Vertex::new(v0.to_array(), norm_arr, col_arr));
-        self.vertices.push(Vertex::new(v1.to_array(), norm_arr, col_arr));
-        self.vertices.push(Vertex::new(v2.to_array(), norm_arr, col_arr));
-        self.vertices.push(Vertex::new(v3.to_array(), norm_arr, col_arr));
+            self.vertices.push(Vertex::new(v0.to_array(), norm_arr, col_arr));
+            self.vertices.push(Vertex::new(v1.to_array(), norm_arr, col_arr));
+            self.vertices.push(Vertex::new(v2.to_array(), norm_arr, col_arr));
+            self.vertices.push(Vertex::new(v3.to_array(), norm_arr, col_arr));
+        });
 
         self.indices.push(base_idx);
         self.indices.push(base_idx + 1);
