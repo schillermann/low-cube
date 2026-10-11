@@ -56,7 +56,7 @@ impl LowCubeApp {
             key_s: false,
             key_a: false,
             key_d: false,
-            invert_y: true,
+            invert_y: false,
             invert_x: false,
         }
     }
@@ -69,7 +69,7 @@ impl ApplicationHandler for LowCubeApp {
         }
 
         let window_attributes = WindowAttributes::default()
-            .with_title("Low-Cube [WASD: Move, Mouse: Look, I: Invert Y, O: Invert X, Esc: Release Cursor]")
+            .with_title("Low-Cube [WASD: Move, Mouse: Look, I: Invert Y, O: Invert X, Esc: Exit]")
             .with_inner_size(winit::dpi::LogicalSize::new(1280.0, 720.0));
 
         let template = ConfigTemplateBuilder::new().with_alpha_size(8);
@@ -201,12 +201,7 @@ impl ApplicationHandler for LowCubeApp {
                             println!("[Controls] Invert X (Yaw) is now: {}", self.invert_x);
                         }
                     }
-                    KeyCode::Escape => {
-                        if let Some(window) = &self.window {
-                            let _ = window.set_cursor_grab(winit::window::CursorGrabMode::None);
-                            window.set_cursor_visible(true);
-                        }
-                    }
+                    KeyCode::Escape => event_loop.exit(),
                     _ => {}
                 }
             }
