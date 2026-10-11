@@ -4,13 +4,18 @@ mod buffer;
 mod pipeline;
 mod shader;
 
-pub use buffer::{CpuMeshBatch, GlMesh, GpuAllocation};
+pub use buffer::{CpuMeshBatch, GlMesh};
 pub use pipeline::ForwardPipeline;
-pub use shader::{GlslPipeline, VoxelProgram};
+pub use shader::{VoxelProgram, VoxelShaderSource};
 
 /// Interface for GPU-renderable mesh objects.
 pub trait Mesh {
     fn draw(&self, gl: &glow::Context);
+}
+
+/// Interface for compiling shader sources into GPU shader programs.
+pub trait ShaderSource {
+    unsafe fn compile(&self, gl: &glow::Context) -> Box<dyn ShaderProgram>;
 }
 
 /// Interface for shader pipelines.

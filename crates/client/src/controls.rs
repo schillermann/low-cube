@@ -3,31 +3,37 @@ use winit::keyboard::KeyCode;
 
 /// Interface representing player keyboard navigation state.
 pub trait KeyboardControls {
-    fn set_key(&mut self, code: KeyCode, pressed: bool);
+    fn register_key(&mut self, code: KeyCode, pressed: bool);
     fn resolve_motion(&self, forward: Vec3, right: Vec3) -> Vec3;
 }
 
-/// Encapsulated keyboard state implementing KeyboardControls.
-pub struct KeyState {
+/// Encapsulated keyboard motion implementing KeyboardControls.
+pub struct KeyMotion {
     forward: bool,
     backward: bool,
     left: bool,
     right: bool,
 }
 
-impl KeyState {
-    pub fn new() -> Self {
+impl KeyMotion {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(forward: bool, backward: bool, left: bool, right: bool) -> Self {
         Self {
-            forward: false,
-            backward: false,
-            left: false,
-            right: false,
+            forward,
+            backward,
+            left,
+            right,
         }
+    }
+
+    /// Secondary constructor initializing idle key states.
+    pub fn idle() -> Self {
+        Self::new(false, false, false, false)
     }
 }
 
-impl KeyboardControls for KeyState {
-    fn set_key(&mut self, code: KeyCode, pressed: bool) {
+impl KeyboardControls for KeyMotion {
+    fn register_key(&mut self, code: KeyCode, pressed: bool) {
         match code {
             KeyCode::KeyW => self.forward = pressed,
             KeyCode::KeyS => self.backward = pressed,

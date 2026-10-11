@@ -1,6 +1,6 @@
 use glam::{Mat4, Vec3};
 use glow::HasContext;
-use crate::ShaderProgram;
+use crate::{ShaderProgram, ShaderSource};
 
 const VERTEX_SHADER_SRC: &str = r#"#version 330 core
 layout(location = 0) in vec3 in_position;
@@ -67,24 +67,35 @@ impl ShaderProgram for VoxelProgram {
     }
 }
 
-/// Pipeline constructing compiled shader programs.
-pub struct GlslPipeline;
+/// Encapsulated GLSL source code for voxel rendering.
+pub struct VoxelShaderSource {
+    vertex: &'static str,
+    fragment: &'static str,
+}
 
-impl GlslPipeline {
-    pub fn new() -> Self {
-        Self
+impl VoxelShaderSource {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(vertex: &'static str, fragment: &'static str) -> Self {
+        Self { vertex, fragment }
     }
 
-    pub unsafe fn compile_voxel_program(&self, gl: &glow::Context) -> VoxelProgram {
+    /// Embedded voxel shader sources compiled into the binary.
+    pub fn embedded() -> Self {
+        Self::new(VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)
+    }
+}
+
+impl ShaderSource for VoxelShaderSource {
+    unsafe fn compile(&self, gl: &glow::Context) -> Box<dyn ShaderProgram> {
         let vs = gl.create_shader(glow::VERTEX_SHADER).expect("VS create failed");
-        gl.shader_source(vs, VERTEX_SHADER_SRC);
+        gl.shader_source(vs, self.vertex);
         gl.compile_shader(vs);
         if !gl.get_shader_compile_status(vs) {
             panic!("VS compile error: {}", gl.get_shader_info_log(vs));
         }
 
         let fs = gl.create_shader(glow::FRAGMENT_SHADER).expect("FS create failed");
-        gl.shader_source(fs, FRAGMENT_SHADER_SRC);
+        gl.shader_source(fs, self.fragment);
         gl.compile_shader(fs);
         if !gl.get_shader_compile_status(fs) {
             panic!("FS compile error: {}", gl.get_shader_info_log(fs));
@@ -104,6 +115,6 @@ impl GlslPipeline {
         let u_view_proj = gl.get_uniform_location(program, "u_view_proj").expect("u_view_proj missing");
         let u_light_dir = gl.get_uniform_location(program, "u_light_dir").expect("u_light_dir missing");
 
-        VoxelProgram::new(program, u_view_proj, u_light_dir)
+        Box::new(VoxelProgram::new(program, u_view_proj, u_light_dir))
     }
 }

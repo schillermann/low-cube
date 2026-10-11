@@ -7,7 +7,7 @@ mod planet;
 mod tests;
 
 pub use face::PlanarFace;
-pub use planet::{CubePlanet, NullFace, StandardCubeWorld};
+pub use planet::{BiomedCubeWorld, CubePlanet, NullFace};
 
 /// Encapsulated geometric quad entity with vertices, normal, and surface color.
 #[derive(Clone, Copy, Debug)]
@@ -59,7 +59,9 @@ pub trait PlanetaryWorld: GravityField {
 /// Interface representing an individual face of a planetary body.
 pub trait Face: Send + Sync {
     fn matches(&self, point: Vec3) -> bool;
-    fn normal(&self) -> Vec3;
-    fn constrain(&self, point: Vec3, half_size: f32, distance: f32) -> Vec3;
-    fn emit_surface(&self, half_size: f32, divisions: u32, target: &mut dyn MeshTarget);
+    fn surface_up(&self) -> Vec3;
+    fn pull_direction(&self) -> Vec3;
+    fn constrain(&self, point: Vec3, distance: f32) -> Vec3;
+    fn emit_surface(&self, target: &mut dyn MeshTarget);
 }
+

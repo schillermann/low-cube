@@ -44,7 +44,7 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
 
 ### 2. Elegant Objects Rules (Yegor Bugayenko)
 - **No Getters and Setters**: Never extract data from an object to process it outside ("Tell, Don't Ask"). Objects represent living entities with behavior, not bags of data.
-- **No NULL**: Never use, accept, or return `null` / `nullptr` / `None`. Use Null Objects, Optional types, or polymorphism instead.
+- **No NULL / No Half-Born Objects**: Never use, accept, or return `null` / `nullptr`. In Rust, never use `Option<T>` to represent uninitialized or half-born object states; use the Polymorphic State Pattern or Null Object pattern instead. (Technical `Option` as a return type from standard library lookup/iteration is permitted).
 - **No Static Methods or Utility Classes**: No `Utils`, `Helpers`, or static procedural functions. Everything must be an instance of an object that implements an interface.
 - **Immutability by Default**: Objects should be immutable whenever feasible. State transitions produce new object representations rather than mutating existing fields.
 - **No Public Fields**: All attributes and state are strictly private.
@@ -54,3 +54,4 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
 - **Composition & Decorators**: Favor object composition and decorators over class inheritance.
 - **Small Files (Max 200 Lines)**: No source code file may exceed 200 lines of code. Classes, traits, and modules must be small, highly cohesive, and focused on a single responsibility. Split larger files into dedicated, decoupled object files. Verification of modified files' line counts is performed upon the prompt `create git message`.
 - **No "-er" in Names (Declarative Naming)**: Never name classes, structs, or traits with "-er" or "-or" agent suffixes (e.g., Manager, Controller, Helper, Handler, Renderer, Compiler, Uploader, Receiver, Bootstrapper, Player). Objects must be named as declarative nouns representing what they ARE, never procedural workers or action executors (what they DO).
+- **No Generic or Vague Names (`Standard`, `Default`, `Common`, `Base`, etc.)**: Never use generic, lazy, or vague words such as `Standard`, `Default`, `Common`, `Base`, `Simple`, `Generic`, `Abstract`, or `Data` in names of project-owned classes, structs, traits, methods, or modules. Names must be specific, expressive domain nouns representing what the entity is in its model. (Required external crate traits like `std::default::Default` or `std::fmt::Display` are exempt when implementing upstream interfaces).

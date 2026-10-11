@@ -1,7 +1,7 @@
 use glam::{Mat4, Quat, Vec3};
 use world::PlanetaryWorld;
 use crate::controls::KeyboardControls;
-use crate::orientation::MouseLook;
+use crate::orientation::{MouseLook, ViewOrientation};
 
 /// Interface for player avatars acting within planetary gravity.
 pub trait Avatar {
@@ -12,35 +12,106 @@ pub trait Avatar {
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
 }
 
-/// Fully encapsulated player entity composed of position, gravity alignment, and MouseLook.
-pub struct PlanetaryAvatar {
-    position: Vec3,
-    surface_up: Vec3,
-    look: MouseLook,
+/// Perspective projection lens encapsulating field of view and clipping planes.
+pub struct PerspectiveLens {
+    fov_radians: f32,
+    near_plane: f32,
+    far_plane: f32,
 }
 
-impl PlanetaryAvatar {
-    pub fn new(initial_position: Vec3) -> Self {
+impl PerspectiveLens {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(fov_radians: f32, near_plane: f32, far_plane: f32) -> Self {
         Self {
-            position: initial_position,
-            surface_up: Vec3::Y,
-            look: MouseLook::new(),
+            fov_radians,
+            near_plane,
+            far_plane,
         }
     }
 
-    fn orientation_basis(&self) -> (Vec3, Vec3, Vec3, Quat) {
-        let up = self.surface_up.normalize();
+    /// Secondary constructor with standard first-person field of view.
+    pub fn human_eye() -> Self {
+        Self::new(65.0f32.to_radians(), 0.1, 200.0)
+    }
+
+    pub fn projection_matrix(&self, aspect: f32) -> Mat4 {
+        Mat4::perspective_rh(self.fov_radians, aspect, self.near_plane, self.far_plane)
+    }
+}
+
+/// Local coordinate basis for an avatar on a curved planetary surface.
+struct OrientationBasis {
+    forward: Vec3,
+    right: Vec3,
+    up: Vec3,
+}
+
+impl OrientationBasis {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    fn new(forward: Vec3, right: Vec3, up: Vec3) -> Self {
+        Self { forward, right, up }
+    }
+
+    /// Secondary constructor aligning basis with surface up vector and view orientation.
+    fn aligned(surface_up: Vec3, look: &dyn ViewOrientation) -> Self {
+        let up = surface_up.normalize();
         let arbitrary_ref = if up.y.abs() < 0.9 { Vec3::Y } else { Vec3::Z };
         let tangent = up.cross(arbitrary_ref).normalize();
         let bitangent = tangent.cross(up).normalize();
 
         let surface_rot = Quat::from_mat3(&glam::Mat3::from_cols(tangent, up, bitangent));
-        let view_rot = surface_rot * self.look.rotation_quat();
+        let view_rot = look.combine_with_surface(surface_rot);
 
         let forward = view_rot * Vec3::NEG_Z;
         let right = view_rot * Vec3::X;
 
-        (forward, right, up, view_rot)
+        Self::new(forward, right, up)
+    }
+
+    fn resolve_tangent_motion(&self, controls: &dyn KeyboardControls) -> Vec3 {
+        let raw_move = controls.resolve_motion(self.forward, self.right);
+        raw_move - self.up * raw_move.dot(self.up)
+    }
+
+    fn view_matrix_at(&self, position: Vec3, eye_height: f32) -> Mat4 {
+        let eye = position + self.up * eye_height;
+        let target = eye + self.forward;
+        Mat4::look_at_rh(eye, target, self.up)
+    }
+}
+
+/// Fully encapsulated player entity composed of position, gravity alignment, ViewOrientation, and PerspectiveLens.
+pub struct PlanetaryAvatar {
+    position: Vec3,
+    surface_up: Vec3,
+    look: Box<dyn ViewOrientation>,
+    lens: PerspectiveLens,
+}
+
+impl PlanetaryAvatar {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(
+        position: Vec3,
+        surface_up: Vec3,
+        look: Box<dyn ViewOrientation>,
+        lens: PerspectiveLens,
+    ) -> Self {
+        Self {
+            position,
+            surface_up,
+            look,
+            lens,
+        }
+    }
+
+    /// Secondary constructor initializing avatar at an initial position.
+    pub fn at(initial_position: Vec3) -> Self {
+        Self::new(
+            initial_position,
+            Vec3::Y,
+            Box::new(MouseLook::idle()),
+            PerspectiveLens::human_eye(),
+        )
     }
 }
 
@@ -66,10 +137,8 @@ impl Avatar for PlanetaryAvatar {
             self.surface_up = target_up;
         }
 
-        let (forward, right, up, _) = self.orientation_basis();
-        let raw_move = controls.resolve_motion(forward, right);
-
-        let tangent_move = raw_move - up * raw_move.dot(up);
+        let basis = OrientationBasis::aligned(self.surface_up, self.look.as_ref());
+        let tangent_move = basis.resolve_tangent_motion(controls);
         if tangent_move.length_squared() > 1e-4 {
             self.position += tangent_move.normalize() * (6.0 * dt);
         }
@@ -78,11 +147,10 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
-        let (forward, _, up, _) = self.orientation_basis();
-        let proj = Mat4::perspective_rh(65.0f32.to_radians(), aspect, 0.1, 200.0);
-        let eye = self.position + up * 0.8;
-        let target = eye + forward;
-        let view = Mat4::look_at_rh(eye, target, up);
+        let basis = OrientationBasis::aligned(self.surface_up, self.look.as_ref());
+        let proj = self.lens.projection_matrix(aspect);
+        let view = basis.view_matrix_at(self.position, 0.8);
         proj * view
     }
 }
+

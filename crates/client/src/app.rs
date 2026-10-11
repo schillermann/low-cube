@@ -3,8 +3,8 @@ use winit::event::{DeviceEvent, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
-use crate::launch::SessionLaunch;
-use crate::session::GameSession;
+use crate::launch::SessionAssembly;
+use crate::session::Session;
 
 /// State pattern interface for application lifecycle transitions.
 pub trait AppLifecycle {
@@ -14,12 +14,19 @@ pub trait AppLifecycle {
 }
 
 /// Initial pending state before display connection is available.
-pub struct PendingLifecycle;
+pub struct PendingLifecycle {
+    assembly: Box<dyn SessionAssembly>,
+}
+
+impl PendingLifecycle {
+    pub fn new(assembly: Box<dyn SessionAssembly>) -> Self {
+        Self { assembly }
+    }
+}
 
 impl AppLifecycle for PendingLifecycle {
     fn resume(self: Box<Self>, event_loop: &ActiveEventLoop) -> Box<dyn AppLifecycle> {
-        let launch = SessionLaunch::new();
-        let session = launch.assemble(event_loop);
+        let session = self.assembly.assemble(event_loop);
         Box::new(ActiveLifecycle::new(session))
     }
 
@@ -39,13 +46,13 @@ impl AppLifecycle for TransitioningLifecycle {
     fn device_event(&mut self, _event: DeviceEvent) {}
 }
 
-/// Active running state delegating to GameSession.
+/// Active running state delegating to polymorphically wrapped Session.
 pub struct ActiveLifecycle {
-    session: GameSession,
+    session: Box<dyn Session>,
 }
 
 impl ActiveLifecycle {
-    pub fn new(session: GameSession) -> Self {
+    pub fn new(session: Box<dyn Session>) -> Self {
         Self { session }
     }
 }
@@ -70,10 +77,14 @@ pub struct LowCubeApp {
 }
 
 impl LowCubeApp {
-    pub fn new() -> Self {
-        Self {
-            lifecycle: Box::new(PendingLifecycle),
-        }
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(lifecycle: Box<dyn AppLifecycle>) -> Self {
+        Self { lifecycle }
+    }
+
+    /// Secondary constructor initializing with a session assembly mechanism.
+    pub fn launching(assembly: Box<dyn SessionAssembly>) -> Self {
+        Self::new(Box::new(PendingLifecycle::new(assembly)))
     }
 }
 
