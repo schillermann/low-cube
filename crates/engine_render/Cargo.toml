@@ -1,0 +1,9 @@
+[package]
+name = "engine_render"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+world = { path = "../world" }
+glam = "0.29"
+glow = "0.16"

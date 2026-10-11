@@ -1,2 +1,5 @@
 # Editor
 *.swp
+
+# Rust build artifacts
+target/
