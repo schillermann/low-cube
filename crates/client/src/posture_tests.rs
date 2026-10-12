@@ -38,8 +38,8 @@ fn test_posture_initial_standing() {
 #[test]
 fn test_posture_transitions_to_crouch_and_back() {
     let initial = AvatarPosture::standing();
-    let sneak_gait = SneakGait::new();
-    let walk_gait = WalkGait::new();
+    let sneak_gait = SneakGait::crouching();
+    let walk_gait = WalkGait::upright();
 
     // Transitioning into crouch across multiple frames
     let mut posture = initial;
@@ -99,4 +99,35 @@ fn test_avatar_lowers_viewpoint_when_sneaking() {
             assert!(diff.col(col)[row] < 1e-3);
         }
     }
+}
+
+#[test]
+fn test_avatar_expands_fov_when_sprinting() {
+    let world = FlatGroundWorld;
+    let mut avatar = PlanetaryAvatar::at(Vec3::new(0.0, 1.0, 0.0));
+    let mut controls = KeyMotion::idle();
+
+    let normal_matrix = avatar.view_projection_matrix(16.0 / 9.0);
+
+    // Double-tap W to initiate sprint
+    controls.register_key(KeyCode::KeyW, true);
+    controls.register_key(KeyCode::KeyW, false);
+    controls.register_key(KeyCode::KeyW, true);
+
+    for _ in 0..30 {
+        avatar.step_motion(1.0 / 60.0, &controls, &world);
+    }
+    let sprint_matrix = avatar.view_projection_matrix(16.0 / 9.0);
+
+    // Projection matrix changed due to expanded sprint FOV
+    assert_ne!(normal_matrix, sprint_matrix);
+    assert!((normal_matrix.col(0)[0] - sprint_matrix.col(0)[0]).abs() > 0.05);
+
+    // Releasing W restores normal walking FOV
+    controls.register_key(KeyCode::KeyW, false);
+    for _ in 0..40 {
+        avatar.step_motion(1.0 / 60.0, &controls, &world);
+    }
+    let restored_matrix = avatar.view_projection_matrix(16.0 / 9.0);
+    assert!((normal_matrix.col(0)[0] - restored_matrix.col(0)[0]).abs() < 1e-3);
 }

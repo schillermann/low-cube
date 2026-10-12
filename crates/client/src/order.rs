@@ -2,7 +2,8 @@ use glam::Vec3;
 use world::PlanetaryWorld;
 use crate::controls::LocomotionTarget;
 use crate::flight::GravitationalFlight;
-use crate::gait::{LocomotionGait, SneakGait, WalkGait};
+use crate::gait::{LocomotionGait, SneakGait, SprintGait, WalkGait};
+use crate::lens::PerspectiveLens;
 use crate::posture::AvatarPosture;
 
 /// Polymorphic intention to initiate vertical leap flight.
@@ -45,7 +46,7 @@ impl LocomotionOrder {
 
     /// Secondary constructor initializing with idle state and walking gait.
     pub fn idle() -> Self {
-        Self::new(Vec3::ZERO, Box::new(RestingLeap), Box::new(WalkGait::new()))
+        Self::new(Vec3::ZERO, Box::new(RestingLeap), Box::new(WalkGait::upright()))
     }
 
     /// Computes the horizontal stride aligned with a surface normal for a given distance scaled by gait pace.
@@ -67,6 +68,11 @@ impl LocomotionOrder {
     /// Advances avatar posture towards this order's active gait across elapsed time.
     pub fn advance_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {
         self.gait.shape_posture(posture, dt)
+    }
+
+    /// Advances projection lens towards this order's active gait across elapsed time.
+    pub fn advance_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens {
+        self.gait.shape_lens(lens, dt)
     }
 
     /// Advances gravitational flight using commanded stride and active gait.
@@ -94,6 +100,10 @@ impl LocomotionTarget for LocomotionOrder {
     }
 
     fn sneak(&mut self) {
-        self.gait = Box::new(SneakGait::new());
+        self.gait = Box::new(SneakGait::crouching());
+    }
+
+    fn sprint(&mut self) {
+        self.gait = Box::new(SprintGait::swift());
     }
 }

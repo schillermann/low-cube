@@ -1,12 +1,15 @@
 use std::collections::HashSet;
 use glam::Vec3;
 use winit::keyboard::KeyCode;
+use crate::cadence::{RestingCadence, SprintCadence, TransitioningCadence};
+use crate::clock::{MonotonicTime, SystemClock};
 
 /// Interface for receiving unified locomotion messages ("Tell, Don't Ask").
 pub trait LocomotionTarget {
     fn travel(&mut self, direction: Vec3);
     fn jump(&mut self);
     fn sneak(&mut self);
+    fn sprint(&mut self);
 }
 
 /// Interface representing player keyboard navigation state.
@@ -23,17 +26,31 @@ pub trait KeyboardControls {
 /// Encapsulated active key registry implementing KeyboardControls without primitive flags.
 pub struct KeyMotion {
     active_keys: HashSet<KeyCode>,
+    cadence: Box<dyn SprintCadence>,
+    clock: Box<dyn MonotonicTime>,
 }
 
 impl KeyMotion {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(active_keys: HashSet<KeyCode>) -> Self {
-        Self { active_keys }
+    pub fn new(
+        active_keys: HashSet<KeyCode>,
+        cadence: Box<dyn SprintCadence>,
+        clock: Box<dyn MonotonicTime>,
+    ) -> Self {
+        Self {
+            active_keys,
+            cadence,
+            clock,
+        }
     }
 
-    /// Secondary constructor initializing with an empty key registry.
+    /// Secondary constructor initializing with an empty key registry, brisk cadence, and system clock.
     pub fn idle() -> Self {
-        Self::new(HashSet::new())
+        Self::new(
+            HashSet::new(),
+            Box::new(RestingCadence::brisk()),
+            Box::new(SystemClock::new()),
+        )
     }
 }
 
@@ -43,6 +60,18 @@ impl KeyboardControls for KeyMotion {
             self.active_keys.insert(code);
         } else {
             self.active_keys.remove(&code);
+        }
+
+        if code == KeyCode::KeyW {
+            let now = self.clock.current_instant();
+            let current = std::mem::replace(&mut self.cadence, Box::new(TransitioningCadence));
+            self.cadence = if pressed {
+                current.on_press(now)
+            } else {
+                current.on_release(now)
+            };
+        } else if code == KeyCode::KeyS && pressed {
+            self.cadence = Box::new(RestingCadence::brisk());
         }
     }
 
@@ -68,6 +97,9 @@ impl KeyboardControls for KeyMotion {
 
         if direction.length_squared() > 1e-4 {
             target.travel(direction.normalize());
+            if self.active_keys.contains(&KeyCode::KeyW) {
+                self.cadence.dispatch_sprint(target);
+            }
         }
 
         if self.active_keys.contains(&KeyCode::Space) {

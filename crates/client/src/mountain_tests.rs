@@ -11,7 +11,7 @@ fn test_walk_up_mountain_continuous_slope() {
     let start_pos = world.constrain_to_surface(Vec3::new(1.5, 5.0, 2.2), 1.0);
     let stride = Vec3::new(0.0, 0.0, 0.1);
 
-    let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &WalkGait::new(), Vec3::Y, &world);
+    let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &WalkGait::upright(), Vec3::Y, &world);
 
     assert!(next_pos.z > start_pos.z);
     assert!(next_pos.y > start_pos.y);
@@ -25,7 +25,7 @@ fn test_walk_blocked_by_mountain_entrance_shelf() {
     let start_pos = world.constrain_to_surface(Vec3::new(0.5, 5.0, 1.95), 1.0);
     let stride = Vec3::new(0.0, 0.0, 0.1);
 
-    let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &WalkGait::new(), Vec3::Y, &world);
+    let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &WalkGait::upright(), Vec3::Y, &world);
 
     // Stride is blocked by the 0.5m vertical entrance rock shelf
     assert_eq!(next_pos.z, start_pos.z);
@@ -43,10 +43,10 @@ fn test_jump_clears_mountain_entrance_shelf() {
     flight.jump();
     let mut pos = start_pos;
     for _ in 0..5 {
-        pos = flight.advance(1.0 / 60.0, pos, stride, &WalkGait::new(), Vec3::Y, &world);
+        pos = flight.advance(1.0 / 60.0, pos, stride, &WalkGait::upright(), Vec3::Y, &world);
     }
     for _ in 0..25 {
-        pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::new(), Vec3::Y, &world);
+        pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, &world);
     }
 
     // Successfully ascended onto the entrance rock slab (grid v=2, elevation 0.5m -> y = 9.5)

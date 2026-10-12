@@ -90,6 +90,7 @@ impl Avatar for PlanetaryAvatar {
 
         order.dispatch_jump(&mut *self.flight);
         self.posture = order.advance_posture(self.posture, dt);
+        self.lens = order.advance_lens(self.lens, dt);
         self.position = order.advance_flight(&mut *self.flight, dt, self.position, self.surface_up, 6.0, world);
     }
 

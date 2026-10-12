@@ -20,6 +20,8 @@ impl LocomotionTarget for MockLocomotionTarget {
     fn sneak(&mut self) {
         self.sneaked = true;
     }
+
+    fn sprint(&mut self) {}
 }
 
 #[test]
