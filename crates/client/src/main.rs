@@ -1,9 +1,12 @@
 mod app;
+mod argument_physics;
 mod avatar;
 mod basis;
 mod cadence;
 mod clock;
 mod controls;
+mod environment_physics;
+mod file_physics;
 mod flight;
 mod gait;
 mod launch;
@@ -11,7 +14,9 @@ mod lens;
 mod order;
 mod orientation;
 mod phase;
+mod physics;
 mod posture;
+mod server_physics;
 mod session;
 mod stride;
 mod surface;
@@ -25,6 +30,8 @@ mod controls_tests;
 mod flight_tests;
 #[cfg(test)]
 mod mountain_tests;
+#[cfg(test)]
+mod physics_tests;
 #[cfg(test)]
 mod posture_tests;
 #[cfg(test)]

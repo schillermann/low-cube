@@ -19,15 +19,10 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
   - The boundary separating the minable geological crust from the hollow core is an **indestructible 1-block core shell** (*Bedrock Shell*).
   - This impenetrable, single-block foundation layer prevents players from falling into the internal void, serves as the rigid gravitational anchor, and provides the unbreakable bedrock foundation for structural stability (Section 2.3).
 - **Face-Based Biomes**: Each of the 6 faces represents a distinct climate zone (e.g., Arctic, Desert, Temperate Forest, Volcanic, Jungle, Arid Steppe).
-- **World-Variable Gravity & Scale-Derived Jump Dynamics**:
-  - Planetary surface gravity and vertical jump height scale dynamically with cube world size.
-  - The Standard Terrestrial World ($L_{\text{baseline}} = 1024^3$) defines the Earth baseline ($g = 9.81\,\text{m/s}^2$) with an authentic human vertical leap ($h \approx 0.5\,\text{m}$, $v_0 \approx 3.2\,\text{m/s}$) onto $50\,\text{cm}$ rock shelves (slabs).
-  - Jump height scales inversely with cube dimension ($h(L) = h_{\text{baseline}} \cdot \frac{L_{\text{baseline}}}{L}$):
-    - *Pocket Moonlets ($128^3$)*: Micro-gravity ($g \approx 1.23\,\text{m/s}^2$) with soaring floaty leaps ($h \approx 4.0\,\text{m}$).
-    - *Moons & Outposts ($256^3$)*: Low gravity ($g \approx 2.45\,\text{m/s}^2$) with high $2.0\,\text{m}$ leaps over wide chasms.
-    - *Dwarf Worlds ($512^3$)*: Half-gravity ($g \approx 4.90\,\text{m/s}^2$) permitting direct $1.0\,\text{m}$ jumps onto full blocks.
-    - *Standard Earth World ($1024^3$)*: Authentic Earth gravity ($g = 9.81\,\text{m/s}^2$) with realistic $0.5\,\text{m}$ jumps.
-    - *Mega-Worlds ($2048^3$)*: Heavy gravity ($g \approx 19.6\,\text{m/s}^2$) with restricted jump heights ($h \le 0.25\,\text{m}$), enforcing the construction of 90° rail networks, cable winches, and engineered ramp switchbacks.
+- **Planetary Gravity & Configurable Jump Dynamics (Decoupled from Cube Scale)**:
+  - Planetary surface gravity and vertical jump height are **completely decoupled from cube world size**. Jump dynamics do not automatically change or scale based on the dimensions of the planetary cube ($128^3$ to $2048^3$).
+  - **Earth Gravity as Standard Baseline**: The standard default configuration for any cube world is authentic Earth gravity ($g = 9.81\,\text{m/s}^2$) paired with a realistic human vertical leap ($h \approx 0.52\,\text{m}$, initial velocity $v_0 \approx 3.2\,\text{m/s}$). This default enables players to climb $50\,\text{cm}$ rock shelves (slabs) while preserving 1-meter vertical walls and cliffs as real physical barriers that require crafted ramps or carved paths.
+  - **Authoritative Server Configurability**: Jump height and gravitational acceleration are fully configurable per server and world instance. Operators can configure custom jump heights (e.g. $h = 1.0\,\text{m}$ for high mobility, or lower values for restrictive survival) and gravity via the server configuration (`server.toml`), command-line parameters, or environment variables.
 
 ### 2.2 Edge Gravity & 90° Seam Traversal
 - **Player & Camera Orientation**: Approaching and stepping over a cube edge smoothly reorients the player coordinate system and camera by 90° toward the new face's gravitational plane.
@@ -128,5 +123,16 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 ### 5.2 Server & Network Architecture
 - **Dedicated Client-Server**: Authoritative server for both dedicated multiplayer and local single-player loopback.
 - **Process Model**: One server process manages one cube world instance (ranging from $128^3$ moonlets to $1024^3$ terrestrial worlds, up to $2048^3$ mega-worlds).
-- **Ring Gate Handoff**: Stepping through a portal triggers an authoritative client transfer to the destination world's server instance during the tunnel animation.
 - **Capacity**: Up to 50 concurrent players per world instance.
+- **Server Physics & Jump Configuration**:
+  - The dedicated server authoritatively governs player flight kinematics and trajectory physics.
+  - Server operators configure jump height and gravity via `server.toml` (in the server working directory):
+    ```toml
+    [physics]
+    # Vertical jump height in meters (default: 0.522m for human leap onto rock slabs)
+    jump_height = 0.522
+    # Planetary gravity acceleration in m/s^2 (default: 9.81 m/s^2 for Earth gravitation)
+    gravity = 9.81
+    ```
+  - Options can also be overridden via command-line flags (`--jump-height <METERS>`, `--gravity <M/S2>`) or environment variables (`LOW_CUBE_JUMP_HEIGHT`, `LOW_CUBE_GRAVITY`). See the [Server & Game Settings Guide](docs/SETTINGS.md) for full configuration details and gameplay presets.
+

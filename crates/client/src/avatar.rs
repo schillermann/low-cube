@@ -47,16 +47,22 @@ impl PlanetaryAvatar {
         }
     }
 
-    /// Secondary constructor initializing avatar at an initial position.
-    pub fn at(initial_position: Vec3) -> Self {
+    /// Secondary constructor initializing avatar with explicit gravitational flight mechanics.
+    pub fn with_flight(initial_position: Vec3, flight: Box<dyn GravitationalFlight>) -> Self {
         Self::new(
             initial_position,
             Vec3::Y,
             Box::new(MouseLook::idle()),
             PerspectiveLens::human_eye(),
-            Box::new(SurfaceFlight::terrestrial(1.0)),
+            flight,
             AvatarPosture::standing(),
         )
+    }
+
+    /// Secondary constructor initializing avatar at an initial position with default terrestrial flight.
+    #[allow(dead_code)]
+    pub fn at(initial_position: Vec3) -> Self {
+        Self::with_flight(initial_position, Box::new(SurfaceFlight::terrestrial(1.0)))
     }
 
     fn reorient_surface(&mut self, target_up: Vec3) {

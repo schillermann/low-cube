@@ -13,6 +13,8 @@ use world::{BiomedCubeWorld, PlanetaryWorld};
 use engine::{CpuMeshBatch, ForwardPipeline, VoxelShaderSource};
 use crate::avatar::PlanetaryAvatar;
 use crate::controls::KeyMotion;
+use crate::physics::PlanetaryPhysics;
+use crate::server_physics::ServerPhysics;
 use crate::session::{GameSession, Session};
 use crate::surface::{GlPlatformSurface, PlatformSurface};
 
@@ -112,22 +114,29 @@ impl HostEnvironment for GlHostEnvironment {
 pub struct SessionLaunch {
     host_env: Box<dyn HostEnvironment>,
     world_blocks: u32,
+    physics: Box<dyn PlanetaryPhysics>,
 }
 
 impl SessionLaunch {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(host_env: Box<dyn HostEnvironment>, world_blocks: u32) -> Self {
+    pub fn new(
+        host_env: Box<dyn HostEnvironment>,
+        world_blocks: u32,
+        physics: Box<dyn PlanetaryPhysics>,
+    ) -> Self {
         Self {
             host_env,
             world_blocks,
+            physics,
         }
     }
 
-    /// Secondary constructor initializing with window dimensions.
+    /// Secondary constructor initializing with window dimensions and configured server physics.
     pub fn configured(title: &'static str, width: f64, height: f64, world_blocks: u32) -> Self {
         Self::new(
             Box::new(GlHostEnvironment::new(title, width, height)),
             world_blocks,
+            Box::new(ServerPhysics::assembled()),
         )
     }
 }
@@ -151,7 +160,8 @@ impl SessionAssembly for SessionLaunch {
 
         let half = (self.world_blocks as f32) * 0.5;
         let spawn_position = planet.constrain_to_surface(Vec3::new(0.0, half + 1.0, 0.0), 1.0);
-        let avatar = Box::new(PlanetaryAvatar::at(spawn_position));
+        let flight = self.physics.surface_flight(1.0);
+        let avatar = Box::new(PlanetaryAvatar::with_flight(spawn_position, flight));
         let controls = Box::new(KeyMotion::idle());
 
         Box::new(GameSession::new(

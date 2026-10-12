@@ -1,0 +1,9 @@
+# Low-Cube Server Configuration
+
+[physics]
+# Configurable vertical jump height in meters (default: 0.522m for authentic Earth human leap onto 50cm slabs).
+# Jump height is decoupled from world-cube dimensions.
+jump_height = 0.522
+
+# Planetary gravity acceleration in m/s^2 (default: 9.81 m/s^2 for authentic Earth gravitation).
+gravity = 9.81

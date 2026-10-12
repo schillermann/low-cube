@@ -52,6 +52,44 @@ Ready-to-run executables for Linux and Windows are built automatically via GitHu
 
 ---
 
+## Server & World Configuration
+
+Jump height is completely independent of the world-cube size. By default, **Earth gravity** ($9.81\,\text{m/s}^2$) and an authentic human jump height of $\approx 0.52\,\text{m}$ (ideal for mounting $50\,\text{cm}$ rock shelves) are enabled.
+
+Players hosting a local game or dedicated server can customize jump height and gravity in three ways:
+
+### 1. Configuration File (`server.toml`) — Recommended
+Place a `server.toml` file in the same folder as your executable:
+```toml
+[physics]
+# Vertical jump height in meters (default: 0.522)
+# Set to 1.0 to leap directly onto full 1-meter blocks
+jump_height = 0.522
+
+# Planetary gravity in m/s^2 (default: 9.81 for Earth gravitation)
+gravity = 9.81
+```
+
+### 2. Launch Flags
+Launch the executable from your terminal or command prompt:
+- **Linux**:
+  ```bash
+  ./low-cube-linux --jump-height 1.0 --gravity 9.81
+  ```
+- **Windows**:
+  ```powershell
+  .\low-cube-windows.exe --jump-height 1.0 --gravity 9.81
+  ```
+
+### 3. Environment Variables
+```bash
+LOW_CUBE_JUMP_HEIGHT=1.0 LOW_CUBE_GRAVITY=9.81 ./low-cube-linux
+```
+
+For detailed options and presets, see the [Server & Game Settings Guide](docs/SETTINGS.md).
+
+---
+
 ## Development
 
 For environment setup, building, running, and testing instructions, see the [Developer Guide](docs/DEVELOPMENT.md).
@@ -61,6 +99,7 @@ For environment setup, building, running, and testing instructions, see the [Dev
 ## Documentation
 
 - [Game Concept](CONCEPT.md)
+- [Server & Game Settings Guide](docs/SETTINGS.md)
 - [Developer Guide](docs/DEVELOPMENT.md)
 - [Architecture Decision Records](docs/adr/README.md)
 

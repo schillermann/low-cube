@@ -41,14 +41,21 @@ impl SurfaceFlight {
         }
     }
 
-    /// Secondary constructor initializing in grounded state with authentic Earth gravity and realistic human leap.
-    pub fn terrestrial(eye_height: f32) -> Self {
+    /// Secondary constructor calculating jump velocity from configured jump height and gravity.
+    pub fn calibrated(jump_height: f32, gravity: f32, eye_height: f32) -> Self {
+        let jump_strength = (2.0 * gravity * jump_height).max(0.0).sqrt();
         Self::new(
             Box::new(GroundedFlight::human()),
-            3.2,
-            9.81,
+            jump_strength,
+            gravity,
             eye_height,
         )
+    }
+
+    /// Secondary constructor initializing in grounded state with authentic Earth gravity and realistic human leap.
+    #[allow(dead_code)]
+    pub fn terrestrial(eye_height: f32) -> Self {
+        Self::calibrated(0.522, 9.81, eye_height)
     }
 }
 
