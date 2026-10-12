@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 use glam::Vec3;
-use super::cube_face::CubeFace;
+use super::climate_zone::ClimateZone;
 use super::seam::SeamFold;
 
 /// Interface representing continuous normal transitions and geometric bevel zones across planetary seams.
@@ -13,8 +13,8 @@ pub trait BevelTransition: Send + Sync {
 /// Encapsulated seam bevel geometry providing smooth continuous surface normals across a 90° edge.
 #[derive(Clone, Copy, Debug)]
 pub struct SeamBevel {
-    source: CubeFace,
-    destination: CubeFace,
+    source: ClimateZone,
+    destination: ClimateZone,
     seam_center: Vec3,
     half_size: f32,
     margin: f32,
@@ -23,8 +23,8 @@ pub struct SeamBevel {
 impl SeamBevel {
     /// Primary constructor assigning geometry arguments directly to fields.
     pub fn new(
-        source: CubeFace,
-        destination: CubeFace,
+        source: ClimateZone,
+        destination: ClimateZone,
         seam_center: Vec3,
         half_size: f32,
         margin: f32,
@@ -38,10 +38,10 @@ impl SeamBevel {
         }
     }
 
-    /// Secondary constructor deriving seam center from adjacent faces and half size.
+    /// Secondary constructor deriving seam center from adjacent climate zones and half size.
     pub fn between(
-        source: CubeFace,
-        destination: CubeFace,
+        source: ClimateZone,
+        destination: ClimateZone,
         half_size: f32,
         margin: f32,
     ) -> Self {
@@ -54,12 +54,23 @@ impl SeamBevel {
         fold.bevel(half_size, margin)
     }
 
-    /// Continuous interpolation parameter t in [0.0, 1.0] across the bevel zone.
-    pub fn blend_factor(&self, point: Vec3) -> f32 {
+    fn delta_at(&self, point: Vec3) -> f32 {
         let h1 = point.dot(self.source.normal());
         let h2 = point.dot(self.destination.normal());
-        let delta = h2 - h1;
-        ((delta + self.margin) / (2.0 * self.margin)).clamp(0.0, 1.0)
+        if h1 >= self.half_size && h2 <= self.half_size {
+            h2 - self.half_size
+        } else if h2 >= self.half_size && h1 <= self.half_size {
+            self.half_size - h1
+        } else {
+            h2 - h1
+        }
+    }
+
+    /// Continuous interpolation parameter t in [0.0, 1.0] across the bevel zone with C^2 smootherstep.
+    pub fn blend_factor(&self, point: Vec3) -> f32 {
+        let delta = self.delta_at(point);
+        let linear = ((delta + self.margin) / (2.0 * self.margin)).clamp(0.0, 1.0);
+        linear * linear * linear * (linear * (linear * 6.0 - 15.0) + 10.0)
     }
 
     /// Predicate verifying whether a spatial position lies within the bevel transition zone.
@@ -67,7 +78,8 @@ impl SeamBevel {
         let h1 = point.dot(self.source.normal());
         let h2 = point.dot(self.destination.normal());
         let threshold = self.half_size - self.margin;
-        h1 >= threshold && h2 >= threshold && (h2 - h1).abs() <= self.margin
+        let delta = self.delta_at(point);
+        h1 >= threshold && h2 >= threshold && delta.abs() <= self.margin
     }
 
     /// Evaluates continuous surface normal transitioning smoothly across the 90° edge.

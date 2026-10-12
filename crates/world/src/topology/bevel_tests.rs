@@ -1,12 +1,12 @@
 use glam::Vec3;
-use super::{CubeFace, PerimeterEdge, PlanetaryTopology, SeamBevel};
+use super::{ClimateZone, PerimeterEdge, PlanetaryTopology, SeamBevel};
 
 const HALF_SIZE: f32 = 8.0;
 const MARGIN: f32 = 0.5;
 
 #[test]
 fn test_seam_bevel_blend_factor_and_bounds() {
-    let bevel = SeamBevel::between(CubeFace::Top, CubeFace::Front, HALF_SIZE, MARGIN);
+    let bevel = SeamBevel::between(ClimateZone::Temperate, ClimateZone::Jungle, HALF_SIZE, MARGIN);
 
     // Deep in source face (Top +Y): Y = 9.0, Z = 8.0 - 1.0 = 7.0 -> delta = -2.0 -> clamped to 0.0
     let inside_top = Vec3::new(0.0, 9.0, 7.0);
@@ -36,7 +36,7 @@ fn test_seam_bevel_blend_factor_and_bounds() {
 
 #[test]
 fn test_seam_bevel_smooth_normal_transition() {
-    let bevel = SeamBevel::between(CubeFace::Top, CubeFace::Front, HALF_SIZE, MARGIN);
+    let bevel = SeamBevel::between(ClimateZone::Temperate, ClimateZone::Jungle, HALF_SIZE, MARGIN);
 
     // On Top face: normal is pure +Y
     let top_pt = Vec3::new(0.0, 9.0, 7.0);
@@ -71,7 +71,7 @@ fn test_seam_bevel_smooth_normal_transition() {
 
 #[test]
 fn test_seam_bevel_tell_dont_ask_evaluate() {
-    let bevel = SeamBevel::between(CubeFace::Top, CubeFace::Front, HALF_SIZE, MARGIN);
+    let bevel = SeamBevel::between(ClimateZone::Temperate, ClimateZone::Jungle, HALF_SIZE, MARGIN);
     let bisector = Vec3::new(0.0, 9.0, 9.0);
 
     bevel.evaluate(bisector, |normal, factor| {
@@ -84,7 +84,7 @@ fn test_seam_bevel_tell_dont_ask_evaluate() {
 #[test]
 fn test_seam_bevel_derivation_from_topology() {
     let topology = PlanetaryTopology::cubic(HALF_SIZE);
-    let bevel = topology.bevel(CubeFace::Top, PerimeterEdge::PositiveV, HALF_SIZE, MARGIN);
+    let bevel = topology.bevel(ClimateZone::Temperate, PerimeterEdge::PositiveV, HALF_SIZE, MARGIN);
 
     let bisector = Vec3::new(0.0, 9.0, 9.0);
     assert!(bevel.contains(bisector));

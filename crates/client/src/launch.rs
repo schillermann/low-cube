@@ -146,7 +146,7 @@ impl SessionAssembly for SessionLaunch {
         let surface = self.host_env.attach(event_loop);
         surface.capture_cursor();
 
-        let planet: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(self.world_blocks, 0.5));
+        let planet: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(self.world_blocks, 2.5));
 
         let mut cpu_buf = CpuMeshBatch::empty();
         planet.emit_surface(&mut cpu_buf);

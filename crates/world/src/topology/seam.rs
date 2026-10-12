@@ -1,7 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 use glam::{Quat, Vec3};
 use crate::frame::SurfaceFrame;
-use super::cube_face::CubeFace;
+use super::climate_zone::ClimateZone;
 use super::folded_point::FoldedPoint;
 use super::perimeter::PerimeterEdge;
 use super::Topology;
@@ -13,12 +13,12 @@ pub trait CoordinateFold: Send + Sync {
     fn fold_step(&self, point: Vec3) -> FoldedPoint;
 }
 
-/// Encapsulated 90° seam fold connecting two adjacent faces across a shared perimeter edge.
+/// Encapsulated 90° seam fold connecting two adjacent climate zones across a shared perimeter edge.
 #[derive(Clone, Copy, Debug)]
 pub struct SeamFold {
-    source: CubeFace,
+    source: ClimateZone,
     source_edge: PerimeterEdge,
-    destination: CubeFace,
+    destination: ClimateZone,
     destination_edge: PerimeterEdge,
     rotation: Quat,
     seam_center: Vec3,
@@ -27,9 +27,9 @@ pub struct SeamFold {
 impl SeamFold {
     /// Primary constructor: assigns transformation fields directly without computation.
     pub fn new(
-        source: CubeFace,
+        source: ClimateZone,
         source_edge: PerimeterEdge,
-        destination: CubeFace,
+        destination: ClimateZone,
         destination_edge: PerimeterEdge,
         rotation: Quat,
         seam_center: Vec3,
@@ -44,11 +44,11 @@ impl SeamFold {
         }
     }
 
-    /// Secondary constructor assembling 90° rotation and seam center from adjacent faces and half size.
+    /// Secondary constructor assembling 90° rotation and seam center from adjacent climate zones and half size.
     pub fn between(
-        source: CubeFace,
+        source: ClimateZone,
         source_edge: PerimeterEdge,
-        destination: CubeFace,
+        destination: ClimateZone,
         destination_edge: PerimeterEdge,
         half_size: f32,
     ) -> Self {
@@ -68,13 +68,13 @@ impl SeamFold {
         )
     }
 
-    /// Predicate verifying whether this seam fold connects the specified face and outer edge.
-    pub fn connects(&self, face: CubeFace, edge: PerimeterEdge) -> bool {
-        self.source == face && self.source_edge == edge
+    /// Predicate verifying whether this seam fold connects the specified climate zone and outer edge.
+    pub fn connects(&self, zone: ClimateZone, edge: PerimeterEdge) -> bool {
+        self.source == zone && self.source_edge == edge
     }
 
     /// Predicate verifying whether another seam fold represents the exact reciprocal transition.
-    pub fn is_reciprocal_to(&self, other: &Self) -> bool {
+    pub fn reciprocal_to(&self, other: &Self) -> bool {
         self.source == other.destination
             && self.source_edge == other.destination_edge
             && self.destination == other.source
@@ -86,8 +86,8 @@ impl SeamFold {
         super::bevel::SeamBevel::between(self.source, self.destination, half_size, margin)
     }
 
-    /// Destination face onto which motion unfolds across the seam.
-    pub fn destination(&self) -> CubeFace {
+    /// Destination climate zone onto which motion unfolds across the seam.
+    pub fn destination(&self) -> ClimateZone {
         self.destination
     }
 

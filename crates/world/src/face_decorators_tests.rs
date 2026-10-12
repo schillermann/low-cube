@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{CubeFace, ElevatedFace, Face, MeshTarget, PlanarFace, Quad, TintedFace};
+use crate::{ClimateZone, ElevatedFace, Face, MeshTarget, PlanarFace, Quad, TintedFace};
 
 struct QuadReceiver {
     quads: Vec<Quad>,
@@ -13,8 +13,8 @@ impl MeshTarget for QuadReceiver {
 
 #[test]
 fn test_elevated_face_decorates_elevation_and_constraint() {
-    let base_face = Box::new(PlanarFace::on_cube(
-        CubeFace::Top,
+    let base_face = Box::new(PlanarFace::in_zone(
+        ClimateZone::Temperate,
         Vec3::new(0.5, 0.5, 0.5),
         8.0,
         2,
@@ -37,8 +37,8 @@ fn test_elevated_face_decorates_elevation_and_constraint() {
 
 #[test]
 fn test_tinted_face_decorates_emitted_quad_color() {
-    let base_face = Box::new(PlanarFace::on_cube(
-        CubeFace::Top,
+    let base_face = Box::new(PlanarFace::in_zone(
+        ClimateZone::Temperate,
         Vec3::new(1.0, 1.0, 1.0),
         8.0,
         2,

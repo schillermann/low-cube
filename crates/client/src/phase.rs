@@ -57,7 +57,7 @@ impl<'a> FlightContext<'a> {
     }
 
     pub fn clearance(&self, point: Vec3, surface_point: Vec3) -> SurfaceClearance {
-        SurfaceClearance::between(point, surface_point, self.surface_up)
+        SurfaceClearance::between(self.position, point, surface_point, self.surface_up, self.world)
     }
 
     pub fn gravity_velocity_delta(&self) -> f32 {
@@ -135,7 +135,7 @@ impl FlightPhase for GroundedFlight {
         let surface_pos = ctx.constrain_surface(horizontal);
         let clearance = ctx.clearance(horizontal, surface_pos);
 
-        if clearance.is_precipice() {
+        if clearance.precipice() {
             ctx.resolve_precipice(self.threshold, horizontal)
         } else {
             let next_pos = ctx.resolve_ground_stride(self.threshold);
@@ -173,7 +173,7 @@ impl FlightPhase for AirborneFlight {
         let supported = ctx.constrain_surface(rebound);
         let clearance = ctx.clearance(rebound, supported);
 
-        if next_speed <= 0.0 && clearance.is_floor_contact(self.threshold) {
+        if next_speed <= 0.0 && clearance.floor_contact(self.threshold) {
             FlightProgress::new(Box::new(GroundedFlight::new(self.threshold)), supported)
         } else {
             FlightProgress::new(Box::new(AirborneFlight::new(next_speed, self.threshold)), rebound)

@@ -3,6 +3,7 @@ use glam::Vec3;
 mod beveled_world;
 mod biome;
 mod block;
+mod centripetal_world;
 mod cluster;
 mod elevated_face;
 mod face;
@@ -18,6 +19,8 @@ mod topology;
 #[cfg(test)]
 mod beveled_world_tests;
 #[cfg(test)]
+mod centripetal_tests;
+#[cfg(test)]
 mod cluster_tests;
 #[cfg(test)]
 mod face_decorators_tests;
@@ -32,6 +35,7 @@ mod mountain_tests;
 
 pub use beveled_world::BeveledWorld;
 pub use biome::BiomedCubeWorld;
+pub use centripetal_world::CentripetalWorld;
 pub use block::{
     Block, CornerHeading, CuboidShape, DirtBlock, ElevatedShape, FormBlock, GridCell,
     PyramidPeak, RampWedge, RidgeCorner, SandBlock, SnowBlock, StairFlight,
@@ -48,7 +52,7 @@ pub use null_face::NullFace;
 pub use planet::CubePlanet;
 pub use tinted_face::TintedFace;
 pub use topology::{
-    BevelTransition, CoordinateFold, CubeFace, FacePerimeter, FoldedFace,
+    BevelTransition, ClimateZone, CoordinateFold, CubeFace, FacePerimeter, FoldedFace,
     FoldedPoint, PerimeterCrossing, PerimeterEdge, PlanetaryTopology, SeamBevel,
     SeamFold, Topology,
 };

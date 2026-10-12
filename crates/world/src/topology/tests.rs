@@ -1,6 +1,6 @@
 use glam::Vec3;
 use super::{
-    CubeFace, FacePerimeter, PerimeterEdge, PlanetaryTopology, Topology,
+    ClimateZone, FacePerimeter, PerimeterEdge, PlanetaryTopology, Topology,
 };
 
 const HALF_SIZE: f32 = 8.0;
@@ -8,17 +8,17 @@ const HALF_SIZE: f32 = 8.0;
 #[test]
 fn test_face_perimeter_crossing_evaluation_and_clamping() {
     let perimeter = FacePerimeter::square(HALF_SIZE);
-    let frame = CubeFace::Top.surface_frame(HALF_SIZE);
+    let frame = ClimateZone::Temperate.surface_frame(HALF_SIZE);
 
     assert!(perimeter.contains(0.0, 0.0));
     assert!(perimeter.contains_point(&frame, Vec3::new(0.0, 8.0, 0.0)));
     assert!(!perimeter.contains(HALF_SIZE + 0.1, 0.0));
 
     let inside = perimeter.crossing_point(&frame, Vec3::new(0.0, 8.0, 0.0));
-    assert!(inside.is_interior());
+    assert!(inside.interior());
 
     let cross_u = perimeter.crossing_at(HALF_SIZE + 0.75, 2.0);
-    assert!(cross_u.is_crossing());
+    assert!(cross_u.crossing());
     let (edge, overshoot) = cross_u.dispatch(
         || unreachable!("Must be crossing"),
         |e, o| (e, o),
@@ -43,15 +43,15 @@ fn test_all_12_undirected_edge_neighborhoods_reciprocity() {
     let topology = PlanetaryTopology::cubic(HALF_SIZE);
     assert_eq!(topology.fold_count(), 24);
 
-    for face in CubeFace::all() {
+    for zone in ClimateZone::all() {
         for edge in PerimeterEdge::all() {
-            let seam = topology.seam(face, edge);
-            assert!(seam.connects(face, edge));
+            let seam = topology.seam(zone, edge);
+            assert!(seam.connects(zone, edge));
 
             let return_seam = seam.reciprocal_on(&topology);
 
-            assert!(seam.is_reciprocal_to(return_seam));
-            assert!(return_seam.is_reciprocal_to(seam));
+            assert!(seam.reciprocal_to(return_seam));
+            assert!(return_seam.reciprocal_to(seam));
         }
     }
 }
@@ -60,10 +60,10 @@ fn test_all_12_undirected_edge_neighborhoods_reciprocity() {
 fn test_seam_boundary_point_continuity_across_all_24_folds() {
     let topology = PlanetaryTopology::cubic(HALF_SIZE);
 
-    for face in CubeFace::all() {
-        let frame = face.surface_frame(HALF_SIZE);
+    for zone in ClimateZone::all() {
+        let frame = zone.surface_frame(HALF_SIZE);
         for edge in PerimeterEdge::all() {
-            let seam = topology.seam(face, edge);
+            let seam = topology.seam(zone, edge);
 
             let (u, v) = match edge {
                 PerimeterEdge::PositiveU => (HALF_SIZE, 3.0),
@@ -77,7 +77,7 @@ fn test_seam_boundary_point_continuity_across_all_24_folds() {
             assert!(
                 (folded_point - edge_point).length() < 1e-4,
                 "Point on seam {:?} {:?} must remain identical when folded, delta {}",
-                face,
+                zone,
                 edge,
                 (folded_point - edge_point).length()
             );
@@ -89,16 +89,16 @@ fn test_seam_boundary_point_continuity_across_all_24_folds() {
 fn test_normal_vector_90_degree_switch_across_all_24_folds() {
     let topology = PlanetaryTopology::cubic(HALF_SIZE);
 
-    for face in CubeFace::all() {
+    for zone in ClimateZone::all() {
         for edge in PerimeterEdge::all() {
-            let seam = topology.seam(face, edge);
-            let rotated_normal = seam.fold_vector(face.normal());
+            let seam = topology.seam(zone, edge);
+            let rotated_normal = seam.fold_vector(zone.normal());
             let target_normal = seam.destination().normal();
 
             assert!(
                 (rotated_normal - target_normal).length() < 1e-4,
                 "Normal for {:?} {:?} must fold to destination normal {:?}, got {:?}",
-                face,
+                zone,
                 edge,
                 target_normal,
                 rotated_normal
@@ -110,10 +110,10 @@ fn test_normal_vector_90_degree_switch_across_all_24_folds() {
 #[test]
 fn test_overshoot_step_folding_onto_adjacent_face() {
     let topology = PlanetaryTopology::cubic(HALF_SIZE);
-    let seam = topology.seam(CubeFace::Top, PerimeterEdge::PositiveU);
+    let seam = topology.seam(ClimateZone::Temperate, PerimeterEdge::PositiveU);
 
-    let top_frame = CubeFace::Top.surface_frame(HALF_SIZE);
-    let right_frame = CubeFace::Right.surface_frame(HALF_SIZE);
+    let top_frame = ClimateZone::Temperate.surface_frame(HALF_SIZE);
+    let right_frame = ClimateZone::Desert.surface_frame(HALF_SIZE);
 
     let overshoot = 0.5;
     let initial_elevation = 1.8;
@@ -122,7 +122,7 @@ fn test_overshoot_step_folding_onto_adjacent_face() {
     let world_pt = top_frame.point_at(HALF_SIZE + overshoot, lateral_v, initial_elevation);
     let folded = seam.fold_step(world_pt);
 
-    assert!(folded.is_on_face(CubeFace::Right));
+    assert!(folded.in_zone(ClimateZone::Desert));
     assert_eq!(folded.surface_up(), Vec3::X);
     assert_eq!(folded.pull_direction(), Vec3::NEG_X);
 
@@ -133,8 +133,8 @@ fn test_overshoot_step_folding_onto_adjacent_face() {
     assert!((v_dst - (HALF_SIZE - overshoot)).abs() < 1e-4);
     assert!((u_dst - (-lateral_v)).abs() < 1e-4);
 
-    folded.transfer(|face, pt| {
-        assert_eq!(face, CubeFace::Right);
+    folded.transfer(|zone, pt| {
+        assert_eq!(zone, ClimateZone::Desert);
         assert_eq!(pt, folded.point());
     });
 }
@@ -143,20 +143,20 @@ fn test_overshoot_step_folding_onto_adjacent_face() {
 fn test_closed_360_degree_planetary_circuit() {
     let topology = PlanetaryTopology::cubic(HALF_SIZE);
 
-    // Circuit: Top (+Y) -> Right (+X) -> Bottom (-Y) -> Left (-X) -> Top (+Y)
+    // Circuit: Temperate (+Y) -> Desert (+X) -> Volcanic (-Y) -> Arctic (-X) -> Temperate (+Y)
     let circuit = [
-        (CubeFace::Top, PerimeterEdge::PositiveU),
-        (CubeFace::Right, PerimeterEdge::NegativeV),
-        (CubeFace::Bottom, PerimeterEdge::NegativeU),
-        (CubeFace::Left, PerimeterEdge::PositiveV),
+        (ClimateZone::Temperate, PerimeterEdge::PositiveU),
+        (ClimateZone::Desert, PerimeterEdge::NegativeV),
+        (ClimateZone::Volcanic, PerimeterEdge::NegativeU),
+        (ClimateZone::Arctic, PerimeterEdge::PositiveV),
     ];
 
     let mut forward_vector = Vec3::X;
     let mut normal_vector = Vec3::Y;
 
-    for (face, edge) in circuit {
-        forward_vector = topology.fold_vector(face, edge, forward_vector);
-        normal_vector = topology.fold_vector(face, edge, normal_vector);
+    for (zone, edge) in circuit {
+        forward_vector = topology.fold_vector(zone, edge, forward_vector);
+        normal_vector = topology.fold_vector(zone, edge, normal_vector);
     }
 
     assert!(

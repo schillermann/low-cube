@@ -2,7 +2,7 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{GravityField, MeshTarget, PlanetaryWorld};
 use crate::avatar::{Avatar, PlanetaryAvatar};
-use crate::basis::OrientationBasis;
+use crate::horizon::CameraHorizon;
 use crate::controls::{KeyboardControls, KeyMotion};
 use crate::gait::{LocomotionGait, SneakGait, WalkGait};
 use crate::orientation::MouseLook;
@@ -29,10 +29,10 @@ impl PlanetaryWorld for FlatGroundWorld {
 #[test]
 fn test_posture_initial_standing() {
     let standing = AvatarPosture::standing();
-    assert!(!standing.is_crouching());
+    assert!(!standing.crouched());
 
     let crouching = AvatarPosture::crouching();
-    assert!(crouching.is_crouching());
+    assert!(crouching.crouched());
 }
 
 #[test]
@@ -46,23 +46,23 @@ fn test_posture_transitions_to_crouch_and_back() {
     for _ in 0..30 {
         posture = sneak_gait.shape_posture(posture, 1.0 / 60.0);
     }
-    assert!(posture.is_crouching());
+    assert!(posture.crouched());
 
     // Transitioning back to upright standing
     for _ in 0..30 {
         posture = walk_gait.shape_posture(posture, 1.0 / 60.0);
     }
-    assert!(!posture.is_crouching());
+    assert!(!posture.crouched());
 }
 
 #[test]
 fn test_posture_computes_distinct_view_matrices() {
     let look = MouseLook::idle();
-    let basis = OrientationBasis::aligned(Vec3::Y, &look);
+    let horizon = CameraHorizon::aligned(glam::Quat::IDENTITY, &look);
     let position = Vec3::new(0.0, 1.0, 0.0);
 
-    let standing_view = AvatarPosture::standing().view_matrix(&basis, position);
-    let crouching_view = AvatarPosture::crouching().view_matrix(&basis, position);
+    let standing_view = AvatarPosture::standing().view_matrix(&horizon, position);
+    let crouching_view = AvatarPosture::crouching().view_matrix(&horizon, position);
 
     assert_ne!(standing_view, crouching_view);
 }

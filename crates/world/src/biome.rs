@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{
-    BlockGallery, CubeFace, CubePlanet, Face, FoldedFace, GravityField, MeshTarget,
+    BlockGallery, ClimateZone, CubePlanet, Face, FoldedFace, GravityField, MeshTarget,
     NullFace, PlanarFace, PlanetaryWorld, VoxelMountain,
 };
 
@@ -15,37 +15,31 @@ impl BiomedCubeWorld {
         Self { planet }
     }
 
-    /// Secondary constructor assembling distinct biome faces with pure decorators.
+    /// Secondary constructor assembling distinct biome climate zones with pure decorators.
     pub fn of_size(size_blocks: u32) -> Self {
         let half = (size_blocks as f32) * 0.5;
-        let assemble_face = |face: CubeFace, color: Vec3| -> Box<dyn Face> {
-            let base = Box::new(PlanarFace::on_cube(face, color, half, size_blocks));
-            Box::new(FoldedFace::on_cube(base, face, half))
+        let assemble_face = |zone: ClimateZone, color: Vec3| -> Box<dyn Face> {
+            let base = Box::new(PlanarFace::in_zone(zone, color, half, size_blocks));
+            Box::new(FoldedFace::in_zone(base, zone, half))
         };
 
-        let top_face = Box::new(PlanarFace::on_cube(
-            CubeFace::Top,
+        let temperate_face = Box::new(PlanarFace::in_zone(
+            ClimateZone::Temperate,
             Vec3::new(0.28, 0.65, 0.25),
             half,
             size_blocks,
         ));
-        let top_face = Box::new(VoxelMountain::alpine(top_face, half));
-        let top_face = Box::new(BlockGallery::parallel_lines(top_face, half));
-        let top_face = Box::new(FoldedFace::on_cube(top_face, CubeFace::Top, half));
+        let temperate_face = Box::new(VoxelMountain::alpine(temperate_face, half));
+        let temperate_face = Box::new(BlockGallery::parallel_lines(temperate_face, half));
+        let temperate_face = Box::new(FoldedFace::in_zone(temperate_face, ClimateZone::Temperate, half));
 
         let faces: Vec<Box<dyn Face>> = vec![
-            // Top (+Y): Temperate Green with Alpine Mountain and Block Gallery
-            top_face,
-            // Bottom (-Y): Volcanic Dark Red
-            assemble_face(CubeFace::Bottom, Vec3::new(0.35, 0.18, 0.18)),
-            // Right (+X): Desert Sand
-            assemble_face(CubeFace::Right, Vec3::new(0.85, 0.75, 0.35)),
-            // Left (-X): Arctic Ice
-            assemble_face(CubeFace::Left, Vec3::new(0.75, 0.88, 0.95)),
-            // Front (+Z): Jungle Emerald
-            assemble_face(CubeFace::Front, Vec3::new(0.12, 0.45, 0.22)),
-            // Back (-Z): Arid Steppe Brown
-            assemble_face(CubeFace::Back, Vec3::new(0.68, 0.48, 0.32)),
+            temperate_face,
+            assemble_face(ClimateZone::Volcanic, Vec3::new(0.35, 0.18, 0.18)),
+            assemble_face(ClimateZone::Desert, Vec3::new(0.85, 0.75, 0.35)),
+            assemble_face(ClimateZone::Arctic, Vec3::new(0.75, 0.88, 0.95)),
+            assemble_face(ClimateZone::Jungle, Vec3::new(0.12, 0.45, 0.22)),
+            assemble_face(ClimateZone::Steppe, Vec3::new(0.68, 0.48, 0.32)),
         ];
 
         Self::new(Box::new(CubePlanet::new(faces, Box::new(NullFace))))

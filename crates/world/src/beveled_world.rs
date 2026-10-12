@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{
-    CubeFace, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology,
+    ClimateZone, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology,
     PlanetaryWorld, SeamBevel,
 };
 
@@ -41,7 +41,7 @@ impl BeveledWorld {
         on_bevel: impl FnOnce(SeamBevel) -> T,
         on_origin: impl FnOnce() -> T,
     ) -> T {
-        let dominant = CubeFace::dominant(position);
+        let dominant = ClimateZone::dominant(position);
         for edge in PerimeterEdge::all() {
             let bevel = self.topology.bevel(dominant, edge, self.half_size, self.margin);
             if bevel.contains(position) {

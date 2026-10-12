@@ -1,5 +1,5 @@
 use glam::{Mat4, Vec3};
-use crate::basis::OrientationBasis;
+use crate::horizon::ViewFrame;
 
 /// Kinematic posture defining the vertical eye level offset for standing and crouching.
 #[derive(Clone, Copy, Debug)]
@@ -32,14 +32,14 @@ impl AvatarPosture {
         Self::new(updated)
     }
 
-    /// Computes view matrix using orientation basis and encapsulated eye elevation offset.
-    pub fn view_matrix(&self, basis: &OrientationBasis, position: Vec3) -> Mat4 {
-        basis.view_matrix_at(position, self.elevation)
+    /// Computes view matrix using view frame and encapsulated eye elevation offset.
+    pub fn view_matrix(&self, frame: &dyn ViewFrame, position: Vec3) -> Mat4 {
+        frame.view_matrix_at(position, self.elevation)
     }
 
     /// Verifies whether the avatar is currently in a crouched state.
     #[cfg(test)]
-    pub fn is_crouching(&self) -> bool {
+    pub fn crouched(&self) -> bool {
         self.elevation < 0.6
     }
 }

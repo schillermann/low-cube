@@ -34,8 +34,7 @@ All git commit messages in this repository must strictly follow the **Convention
 Upon the prompt `create git message`, execute the following steps in sequence before generating the commit message:
 1. **Version Increment**: Increment the version number following Semantic Versioning across crate manifests (`crates/*/Cargo.toml`).
 2. **Changelog Update**: Update `CHANGELOG.md` according to Keep a Changelog conventions, promoting unreleased items under the new version header with the current date.
-3. **Line Count Verification**: Check the line counts of modified and newly created files to ensure no file exceeds the 200-line limit.
-4. **Message Generation**: Generate the commit message following the format and types specified above.
+3. **Message Generation**: Generate the commit message following the format and types specified above.
 
 ---
 
@@ -58,6 +57,9 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
 - **Interfaces Everywhere**: Code against clean, focused interfaces / traits. Objects must be decoupled and swappable.
 - **Clean Constructors**: Primary constructors do nothing except assign arguments to internal fields. No I/O, heavy calculations, or side effects during construction.
 - **Composition & Decorators**: Favor object composition and decorators over class inheritance.
-- **Small Files (Max 200 Lines)**: No source code file may exceed 200 lines of code. Classes, traits, and modules must be small, highly cohesive, and focused on a single responsibility. Split larger files into dedicated, decoupled object files. Verification of modified files' line counts is performed upon the prompt `create git message`.
+- **Small Files (Max 200 Lines)**: No source code file may exceed 200 lines of code. Classes, traits, and modules must be small, highly cohesive, and focused on a single responsibility. Split larger files into dedicated, decoupled object files. Verification of modified files' line counts is performed immediately after every code change.
 - **No "-er" in Names (Declarative Naming)**: Never name classes, structs, or traits with "-er" or "-or" agent suffixes (e.g., Manager, Controller, Helper, Handler, Renderer, Compiler, Uploader, Receiver, Bootstrapper, Player). Objects must be named as declarative nouns representing what they ARE, never procedural workers or action executors (what they DO).
 - **No Generic or Vague Names (`Standard`, `Default`, `Common`, `Base`, etc.)**: Never use generic, lazy, or vague words such as `Standard`, `Default`, `Common`, `Base`, `Simple`, `Generic`, `Abstract`, or `Data` in names of project-owned classes, structs, traits, methods, or modules. Names must be specific, expressive domain nouns representing what the entity is in its model. (Required external crate traits like `std::default::Default` or `std::fmt::Display` are exempt when implementing upstream interfaces).
+- **No Dead Code**: Never leave unused code or suppress dead code compiler warnings with `#[allow(dead_code)]`. If code is unneeded, delete it immediately without compromise.
+- **No `is_` Prefix for Methods/Functions**: In Elegant Objects, boolean-returning methods must never be prefixed with `is_` (or `has_`). Use declarative adjectives, predicates, or nouns directly (e.g., `passable()`, `unobstructed()`, `precipice()`, `floor_contact()`, `cliff_impact()`, `crouching()`, `expanded()`, `in_zone()`, `reciprocal_to()`, `walkable_with()`).
+

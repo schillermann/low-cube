@@ -1,11 +1,12 @@
 use glam::{Mat4, Quat, Vec3};
 use world::PlanetaryWorld;
-use crate::basis::OrientationBasis;
+use crate::heading::SurfaceHeading;
+use crate::horizon::{CameraHorizon, HorizonTilt};
 use crate::controls::KeyboardControls;
 use crate::flight::GravitationalFlight;
 #[cfg(test)]
 use crate::flight::SurfaceFlight;
-use crate::lens::PerspectiveLens;
+use crate::lens::{PerspectiveLens, ProjectionLens};
 use crate::order::LocomotionOrder;
 use crate::orientation::{InvertibleLook, MouseLook, SensitivityLook};
 use crate::posture::AvatarPosture;
@@ -22,30 +23,33 @@ pub trait Avatar {
 /// Fully encapsulated player entity composed of position, gravity alignment, ViewOrientation, PerspectiveLens, GravitationalFlight, and AvatarPosture.
 pub struct PlanetaryAvatar {
     position: Vec3,
-    surface_up: Vec3,
+    surface_rot: Quat,
     look: InvertibleLook,
     lens: PerspectiveLens,
     flight: Box<dyn GravitationalFlight>,
     posture: AvatarPosture,
+    tilt_radians: f32,
 }
 
 impl PlanetaryAvatar {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
         position: Vec3,
-        surface_up: Vec3,
+        surface_rot: Quat,
         look: InvertibleLook,
         lens: PerspectiveLens,
         flight: Box<dyn GravitationalFlight>,
         posture: AvatarPosture,
+        tilt_radians: f32,
     ) -> Self {
         Self {
             position,
-            surface_up,
+            surface_rot,
             look,
             lens,
             flight,
             posture,
+            tilt_radians,
         }
     }
 
@@ -53,11 +57,12 @@ impl PlanetaryAvatar {
     pub fn with_flight(initial_position: Vec3, flight: Box<dyn GravitationalFlight>) -> Self {
         Self::new(
             initial_position,
-            Vec3::Y,
+            Quat::IDENTITY,
             InvertibleLook::direct(Box::new(SensitivityLook::calibrated(Box::new(MouseLook::idle())))),
             PerspectiveLens::human_eye(),
             flight,
             AvatarPosture::standing(),
+            0.0,
         )
     }
 
@@ -67,12 +72,19 @@ impl PlanetaryAvatar {
         Self::with_flight(initial_position, Box::new(SurfaceFlight::terrestrial(1.0)))
     }
 
-    fn reorient_surface(&mut self, target_up: Vec3) {
-        let rot_to_target = Quat::from_rotation_arc(self.surface_up, target_up);
-        self.surface_up = rot_to_target.slerp(Quat::IDENTITY, 0.85) * self.surface_up;
-        if self.surface_up.dot(target_up) > 0.999 {
-            self.surface_up = target_up;
+    fn surface_up(&self) -> Vec3 {
+        self.surface_rot * Vec3::Y
+    }
+
+    fn reorient_surface(&mut self, target_up: Vec3, dt: f32) {
+        let current_up = self.surface_up();
+        if current_up.dot(target_up) > 0.9999 {
+            return;
         }
+        let rot_to_target = Quat::from_rotation_arc(current_up, target_up);
+        let factor = 1.0 - (-1.5 * dt).exp();
+        let step_rot = Quat::IDENTITY.slerp(rot_to_target, factor);
+        self.surface_rot = (step_rot * self.surface_rot).normalize();
     }
 }
 
@@ -91,22 +103,25 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
-        self.reorient_surface(world.surface_up_at(self.position));
+        self.reorient_surface(world.surface_up_at(self.position), dt);
 
         let mut order = LocomotionOrder::idle();
-        let basis = OrientationBasis::aligned(self.surface_up, &self.look);
-        basis.drive_locomotion(controls, &mut order);
+        let heading = SurfaceHeading::aligned(self.surface_rot, &self.look);
+        heading.drive_locomotion(controls, &mut order);
 
+        let surface_up = self.surface_up();
         order.dispatch_jump(&mut *self.flight);
         self.posture = order.advance_posture(self.posture, dt);
         self.lens = order.advance_lens(self.lens, dt);
-        self.position = order.advance_flight(&mut *self.flight, dt, self.position, self.surface_up, 6.0, world);
+        self.tilt_radians *= 1.0 - (8.0 * dt).min(1.0);
+        self.position = order.advance_flight(&mut *self.flight, dt, self.position, surface_up, 6.0, world);
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
-        let basis = OrientationBasis::aligned(self.surface_up, &self.look);
+        let horizon = CameraHorizon::aligned(self.surface_rot, &self.look);
+        let frame = HorizonTilt::new(&horizon, self.tilt_radians);
         let proj = self.lens.projection_matrix(aspect);
-        let view = self.posture.view_matrix(&basis, self.position);
+        let view = self.posture.view_matrix(&frame, self.position);
         proj * view
     }
 }

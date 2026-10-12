@@ -1,0 +1,75 @@
+use glam::Vec3;
+use world::PlanetaryWorld;
+use crate::threshold::StepThreshold;
+
+mod decorator;
+#[cfg(test)]
+mod tests;
+
+pub use decorator::{
+    AerialTrial, DeflectedStride, RestingStride, StrideResolution, WalkTrial,
+};
+
+/// Tangential stride across a planetary surface resolving ground walking and aerial obstacle deflection.
+#[derive(Clone, Copy, Debug)]
+pub struct SurfaceStride {
+    stride: Vec3,
+    surface_up: Vec3,
+}
+
+impl SurfaceStride {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(stride: Vec3, surface_up: Vec3) -> Self {
+        Self { stride, surface_up }
+    }
+
+    fn axial_decomposition(&self) -> (Vec3, Vec3) {
+        let n = self.surface_up.abs();
+        let (a, b) = if n.y >= n.x && n.y >= n.z {
+            (Vec3::new(self.stride.x, 0.0, 0.0), Vec3::new(0.0, 0.0, self.stride.z))
+        } else if n.x >= n.y && n.x >= n.z {
+            (Vec3::new(0.0, self.stride.y, 0.0), Vec3::new(0.0, 0.0, self.stride.z))
+        } else {
+            (Vec3::new(self.stride.x, 0.0, 0.0), Vec3::new(0.0, self.stride.y, 0.0))
+        };
+        if a.length_squared() >= b.length_squared() { (a, b) } else { (b, a) }
+    }
+
+    /// Resolves ground traversal destination, smoothly deflecting along obstacles via decorator chain.
+    pub fn resolve_ground(&self, origin: Vec3, eye: f32, limit: StepThreshold, world: &dyn PlanetaryWorld) -> Vec3 {
+        let (first, second) = self.axial_decomposition();
+        let resting = Box::new(RestingStride::new(world.constrain_to_surface(origin, eye)));
+        let lateral = Box::new(DeflectedStride::new(
+            Box::new(WalkTrial::new(origin, second, self.surface_up, eye, limit, world)),
+            resting,
+        ));
+        let primary = Box::new(DeflectedStride::new(
+            Box::new(WalkTrial::new(origin, first, self.surface_up, eye, limit, world)),
+            lateral,
+        ));
+        let direct = DeflectedStride::new(
+            Box::new(WalkTrial::new(origin, self.stride, self.surface_up, eye, limit, world)),
+            primary,
+        );
+        direct.resolve()
+    }
+
+    /// Resolves aerial motion destination, deflecting laterally along vertical cliff faces via decorator chain.
+    pub fn resolve_aerial(&self, origin: Vec3, vert: Vec3, eye: f32, limit: StepThreshold, world: &dyn PlanetaryWorld) -> Vec3 {
+        let (first, second) = self.axial_decomposition();
+        let resting = Box::new(RestingStride::new(origin + vert));
+        let lateral = Box::new(DeflectedStride::new(
+            Box::new(AerialTrial::new(origin, second, vert, self.surface_up, eye, limit, world)),
+            resting,
+        ));
+        let primary = Box::new(DeflectedStride::new(
+            Box::new(AerialTrial::new(origin, first, vert, self.surface_up, eye, limit, world)),
+            lateral,
+        ));
+        let direct = DeflectedStride::new(
+            Box::new(AerialTrial::new(origin, self.stride, vert, self.surface_up, eye, limit, world)),
+            primary,
+        );
+        direct.resolve()
+    }
+}

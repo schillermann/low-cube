@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{Face, MeshTarget};
-use super::{CubeFace, FacePerimeter, PerimeterCrossing, PlanetaryTopology, SeamFold};
+use super::{ClimateZone, FacePerimeter, PerimeterCrossing, PlanetaryTopology, SeamFold};
 
 /// Decorator enabling seamless 90° coordinate folding across outer perimeter boundaries.
 pub struct FoldedFace {
@@ -27,13 +27,18 @@ impl FoldedFace {
         }
     }
 
-    /// Secondary constructor decorating an existing face for a canonical cubic face.
-    pub fn on_cube(origin: Box<dyn Face>, face: CubeFace, half_size: f32) -> Self {
+    /// Secondary constructor decorating an existing face for a canonical climate zone.
+    pub fn in_zone(origin: Box<dyn Face>, zone: ClimateZone, half_size: f32) -> Self {
         let topology = PlanetaryTopology::cubic(half_size);
         let perimeter = FacePerimeter::square(half_size);
-        let seams = topology.seams_for(face);
-        let frame = face.surface_frame(half_size);
+        let seams = topology.seams_for(zone);
+        let frame = zone.surface_frame(half_size);
         Self::new(origin, frame, perimeter, seams)
+    }
+
+    /// Backwards-compatible alias for in_zone.
+    pub fn on_cube(origin: Box<dyn Face>, zone: ClimateZone, half_size: f32) -> Self {
+        Self::in_zone(origin, zone, half_size)
     }
 }
 

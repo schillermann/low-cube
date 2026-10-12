@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{
-    Block, CubeFace, Face, GravityField, MeshTarget, PlanarFace, PlanetaryWorld,
+    Block, ClimateZone, Face, GravityField, MeshTarget, PlanarFace, PlanetaryWorld,
     StoneBlock, SurfaceFrame, VoxelCluster, WedgeHeading,
 };
 use crate::flight::{GravitationalFlight, SurfaceFlight};
@@ -12,7 +12,7 @@ struct ObstacleWorld {
 
 impl ObstacleWorld {
     fn with_block(block: Box<dyn Block>) -> Self {
-        let face = Box::new(PlanarFace::on_cube(CubeFace::Top, Vec3::ONE, 8.0, 16));
+        let face = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ONE, 8.0, 16));
         let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
         let cluster = VoxelCluster::new(face, frame, vec![block]);
         Self { cluster }

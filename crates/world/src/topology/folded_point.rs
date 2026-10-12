@@ -1,22 +1,22 @@
 use glam::Vec3;
-use super::CubeFace;
+use super::climate_zone::ClimateZone;
 
-/// Encapsulated 3D spatial position folded onto a destination planetary face.
+/// Encapsulated 3D spatial position folded onto a destination planetary climate zone.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FoldedPoint {
-    face: CubeFace,
+    zone: ClimateZone,
     point: Vec3,
 }
 
 impl FoldedPoint {
-    /// Primary constructor assigning destination face and folded spatial position directly.
-    pub fn new(face: CubeFace, point: Vec3) -> Self {
-        Self { face, point }
+    /// Primary constructor assigning destination climate zone and folded spatial position directly.
+    pub fn new(zone: ClimateZone, point: Vec3) -> Self {
+        Self { zone, point }
     }
 
-    /// Destination cubic face of the folded point.
-    pub fn face(&self) -> CubeFace {
-        self.face
+    /// Destination climate zone of the folded point.
+    pub fn zone(&self) -> ClimateZone {
+        self.zone
     }
 
     /// 3D spatial position in world coordinates.
@@ -24,19 +24,19 @@ impl FoldedPoint {
         self.point
     }
 
-    /// Surface normal of the destination face.
+    /// Surface normal of the destination climate zone.
     pub fn surface_up(&self) -> Vec3 {
-        self.face.normal()
+        self.zone.normal()
     }
 
-    /// Pull direction of planetary gravity on the destination face.
+    /// Pull direction of planetary gravity in the destination climate zone.
     pub fn pull_direction(&self) -> Vec3 {
-        -self.face.normal()
+        -self.zone.normal()
     }
 
-    /// Predicate verifying whether this folded point resides on the given face.
-    pub fn is_on_face(&self, face: CubeFace) -> bool {
-        self.face == face
+    /// Predicate verifying whether this folded point resides in the given climate zone.
+    pub fn in_zone(&self, zone: ClimateZone) -> bool {
+        self.zone == zone
     }
 
     /// Euclidean distance from this point to an arbitrary spatial target.
@@ -44,8 +44,8 @@ impl FoldedPoint {
         (self.point - target).length()
     }
 
-    /// Feeds encapsulated face and point into a consumer without extracting raw data ("Tell, Don't Ask").
-    pub fn transfer<T>(&self, consumer: impl FnOnce(CubeFace, Vec3) -> T) -> T {
-        consumer(self.face, self.point)
+    /// Feeds encapsulated climate zone and point into a consumer without extracting raw data ("Tell, Don't Ask").
+    pub fn transfer<T>(&self, consumer: impl FnOnce(ClimateZone, Vec3) -> T) -> T {
+        consumer(self.zone, self.point)
     }
 }

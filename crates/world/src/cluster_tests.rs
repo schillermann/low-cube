@@ -1,11 +1,11 @@
 use glam::Vec3;
-use crate::{Block, CubeFace, Face, PlanarFace, StoneBlock};
+use crate::{Block, ClimateZone, Face, PlanarFace, StoneBlock};
 use crate::cluster::VoxelCluster;
 use crate::frame::SurfaceFrame;
 
 #[test]
 fn test_voxel_cluster_decorates_face() {
-    let face = Box::new(PlanarFace::on_cube(CubeFace::Top, Vec3::ONE, 8.0, 16));
+    let face = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ONE, 8.0, 16));
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
     let blocks: Vec<Box<dyn Block>> = vec![
         Box::new(StoneBlock::cube(0, 0, 0.0)),

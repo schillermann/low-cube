@@ -54,12 +54,12 @@ pub enum PerimeterCrossing {
 
 impl PerimeterCrossing {
     /// True if coordinates lie within or on the perimeter boundary.
-    pub fn is_interior(&self) -> bool {
+    pub fn interior(&self) -> bool {
         matches!(self, Self::Interior)
     }
 
     /// True if coordinates cross beyond an outer perimeter boundary.
-    pub fn is_crossing(&self) -> bool {
+    pub fn crossing(&self) -> bool {
         matches!(self, Self::Crossing { .. })
     }
 

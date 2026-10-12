@@ -11,8 +11,8 @@
 | **Foundation** | Planetary Baseline & Face Physics | `world`, `client` | Completed | 4/4 |
 | **Phase 1** | Planetary Topology & Edge Neighborhoods | `world` | Completed | 4/4 |
 | **Phase 2** | Seam Surface Geometry & Coordinate Folding | `world` | Completed | 4/4 |
-| **Phase 3** | Locomotion Kinematics & Edge Traversal | `client` | Planned | 0/4 |
-| **Phase 4** | Continuous Viewport Orientation & Horizon Tilt | `client` | Planned | 0/4 |
+| **Phase 3** | Locomotion Kinematics & Edge Traversal | `client` | Completed | 4/4 |
+| **Phase 4** | Continuous Viewport Orientation & Horizon Tilt | `client` | Completed | 4/4 |
 | **Phase 5** | Ballistic Edge Flight & Gravitational Wells | `client`, `world` | Planned | 0/3 |
 | **Phase 6** | Integration, Planetary Loop Verification & Polish | `client`, `world` | Planned | 0/3 |
 
@@ -39,20 +39,20 @@
 - [x] Comprehensive unit tests verifying no clamping/pinning at corner coordinates (e.g. $(0, 17, 17)$) ([`corner_tests`](../crates/world/src/topology/corner_tests.rs), [`bevel_tests`](../crates/world/src/topology/bevel_tests.rs)).
 
 ### Phase 3: Locomotion Kinematics & Edge Traversal (`client` crate)
-- [ ] Implement `FoldedStride` translating tangential velocity across 90° seam folds.
-- [ ] Implement `SeamClearance` distinguishing open-air drops from continuous 90° corner transitions.
-- [ ] Adapt [`WalkTrial`](../crates/client/src/stride.rs) and [`SurfaceStride`](../crates/client/src/stride.rs) for continuous ground traversal over edges.
-- [ ] Define edge behavior for [`SneakGait`](../crates/client/src/gait.rs) (cliff arrest vs. edge peering).
+- [x] Implement `FoldedStride` translating tangential velocity across 90° seam folds.
+- [x] Implement polymorphic [`SurfaceClearance`](../crates/client/src/threshold.rs) distinguishing open-air drops from continuous 90° corner transitions without procedural boolean flags.
+- [x] Adapt [`WalkTrial`](../crates/client/src/stride.rs) and [`SurfaceStride`](../crates/client/src/stride.rs) for continuous ground traversal over edges.
+- [x] Define edge behavior for [`SneakGait`](../crates/client/src/gait/mod.rs) preserving cliff arrest on elevated blocks while permitting seam traversal.
 
 ### Phase 4: Continuous Viewport Orientation & Horizon Tilt (`client` crate)
-- [ ] Implement `ParallelTransportBasis` replacing reference branch singularity (`up.y.abs() < 0.9`).
-- [ ] Implement `HorizonTilt` encapsulating smooth camera horizon roll during seam traversal.
-- [ ] Preserve avatar pitch and yaw angles relative to the local horizon during edge crossings.
-- [ ] Posture unit tests verifying singularity-free view matrices across all 12 edges and 8 vertices.
+- [x] Implement `ParallelTransportBasis` replacing reference branch singularity (`up.y.abs() < 0.9`) ([`OrientationBasis::parallel_transport`](../crates/client/src/basis.rs)).
+- [x] Preserve avatar pitch and yaw angles relative to the local horizon during edge crossings.
+- [x] Implement [`HorizonTilt`](../crates/client/src/horizon.rs) encapsulating smooth camera horizon roll during seam traversal.
+- [x] Posture unit tests verifying singularity-free view matrices across all 12 edges and 8 vertices ([`tilt_tests`](../crates/client/src/tilt_tests.rs)).
 
 ### Phase 5: Ballistic Edge Flight & Gravitational Wells (`client` & `world` crates)
 - [ ] Extend [`AirborneFlight`](../crates/client/src/phase.rs) for parabolic edge leaps landing on adjacent faces.
-- [ ] Implement `CentripetalGravity` calculating angular gravity in edge transition wedges.
+- [x] Implement centripetal gravity well falloff decorator ([`CentripetalWorld`](../crates/world/src/centripetal_world.rs)).
 - [ ] Flight unit tests verifying smooth mid-air edge trajectories without velocity discontinuity.
 
 ### Phase 6: Integration, Planetary Loop Verification & Polish

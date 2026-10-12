@@ -1,7 +1,7 @@
 use glam::Vec3;
 
 mod bevel;
-mod cube_face;
+mod climate_zone;
 mod folded_face;
 mod folded_point;
 mod perimeter;
@@ -14,7 +14,8 @@ mod corner_tests;
 mod tests;
 
 pub use bevel::{BevelTransition, SeamBevel};
-pub use cube_face::CubeFace;
+pub use climate_zone::ClimateZone;
+pub type CubeFace = ClimateZone;
 pub use folded_face::FoldedFace;
 pub use folded_point::FoldedPoint;
 pub use perimeter::{FacePerimeter, PerimeterCrossing, PerimeterEdge};
@@ -22,10 +23,10 @@ pub use seam::{CoordinateFold, SeamFold};
 
 /// Interface representing topological planetary face connectivity and seam navigation.
 pub trait Topology: Send + Sync {
-    fn seam(&self, face: CubeFace, edge: PerimeterEdge) -> &SeamFold;
-    fn neighbor_of(&self, face: CubeFace, edge: PerimeterEdge) -> CubeFace;
-    fn fold_point(&self, face: CubeFace, edge: PerimeterEdge, point: Vec3) -> FoldedPoint;
-    fn fold_vector(&self, face: CubeFace, edge: PerimeterEdge, vector: Vec3) -> Vec3;
+    fn seam(&self, zone: ClimateZone, edge: PerimeterEdge) -> &SeamFold;
+    fn neighbor_of(&self, zone: ClimateZone, edge: PerimeterEdge) -> ClimateZone;
+    fn fold_point(&self, zone: ClimateZone, edge: PerimeterEdge, point: Vec3) -> FoldedPoint;
+    fn fold_vector(&self, zone: ClimateZone, edge: PerimeterEdge, vector: Vec3) -> Vec3;
 }
 
 /// Planetary topology connecting the six faces of a cubic world across 12 seam neighborhoods (24 directed folds).
@@ -41,37 +42,37 @@ impl PlanetaryTopology {
 
     /// Secondary constructor assembling the 24 directed seam folds without half-born dummy objects.
     pub fn cubic(half_size: f32) -> Self {
-        let transitions: [(CubeFace, PerimeterEdge, CubeFace, PerimeterEdge); 24] = [
-            // Top (+Y)
-            (CubeFace::Top, PerimeterEdge::PositiveU, CubeFace::Right, PerimeterEdge::PositiveV),
-            (CubeFace::Top, PerimeterEdge::NegativeU, CubeFace::Left, PerimeterEdge::PositiveV),
-            (CubeFace::Top, PerimeterEdge::PositiveV, CubeFace::Front, PerimeterEdge::PositiveV),
-            (CubeFace::Top, PerimeterEdge::NegativeV, CubeFace::Back, PerimeterEdge::PositiveV),
-            // Bottom (-Y)
-            (CubeFace::Bottom, PerimeterEdge::PositiveU, CubeFace::Right, PerimeterEdge::NegativeV),
-            (CubeFace::Bottom, PerimeterEdge::NegativeU, CubeFace::Left, PerimeterEdge::NegativeV),
-            (CubeFace::Bottom, PerimeterEdge::PositiveV, CubeFace::Back, PerimeterEdge::NegativeV),
-            (CubeFace::Bottom, PerimeterEdge::NegativeV, CubeFace::Front, PerimeterEdge::NegativeV),
-            // Right (+X)
-            (CubeFace::Right, PerimeterEdge::PositiveU, CubeFace::Back, PerimeterEdge::NegativeU),
-            (CubeFace::Right, PerimeterEdge::NegativeU, CubeFace::Front, PerimeterEdge::PositiveU),
-            (CubeFace::Right, PerimeterEdge::PositiveV, CubeFace::Top, PerimeterEdge::PositiveU),
-            (CubeFace::Right, PerimeterEdge::NegativeV, CubeFace::Bottom, PerimeterEdge::PositiveU),
-            // Left (-X)
-            (CubeFace::Left, PerimeterEdge::PositiveU, CubeFace::Front, PerimeterEdge::NegativeU),
-            (CubeFace::Left, PerimeterEdge::NegativeU, CubeFace::Back, PerimeterEdge::PositiveU),
-            (CubeFace::Left, PerimeterEdge::PositiveV, CubeFace::Top, PerimeterEdge::NegativeU),
-            (CubeFace::Left, PerimeterEdge::NegativeV, CubeFace::Bottom, PerimeterEdge::NegativeU),
-            // Front (+Z)
-            (CubeFace::Front, PerimeterEdge::PositiveU, CubeFace::Right, PerimeterEdge::NegativeU),
-            (CubeFace::Front, PerimeterEdge::NegativeU, CubeFace::Left, PerimeterEdge::PositiveU),
-            (CubeFace::Front, PerimeterEdge::PositiveV, CubeFace::Top, PerimeterEdge::PositiveV),
-            (CubeFace::Front, PerimeterEdge::NegativeV, CubeFace::Bottom, PerimeterEdge::NegativeV),
-            // Back (-Z)
-            (CubeFace::Back, PerimeterEdge::PositiveU, CubeFace::Left, PerimeterEdge::NegativeU),
-            (CubeFace::Back, PerimeterEdge::NegativeU, CubeFace::Right, PerimeterEdge::PositiveU),
-            (CubeFace::Back, PerimeterEdge::PositiveV, CubeFace::Top, PerimeterEdge::NegativeV),
-            (CubeFace::Back, PerimeterEdge::NegativeV, CubeFace::Bottom, PerimeterEdge::PositiveV),
+        let transitions: [(ClimateZone, PerimeterEdge, ClimateZone, PerimeterEdge); 24] = [
+            // Temperate (+Y)
+            (ClimateZone::Temperate, PerimeterEdge::PositiveU, ClimateZone::Desert, PerimeterEdge::PositiveV),
+            (ClimateZone::Temperate, PerimeterEdge::NegativeU, ClimateZone::Arctic, PerimeterEdge::PositiveV),
+            (ClimateZone::Temperate, PerimeterEdge::PositiveV, ClimateZone::Jungle, PerimeterEdge::PositiveV),
+            (ClimateZone::Temperate, PerimeterEdge::NegativeV, ClimateZone::Steppe, PerimeterEdge::PositiveV),
+            // Volcanic (-Y)
+            (ClimateZone::Volcanic, PerimeterEdge::PositiveU, ClimateZone::Desert, PerimeterEdge::NegativeV),
+            (ClimateZone::Volcanic, PerimeterEdge::NegativeU, ClimateZone::Arctic, PerimeterEdge::NegativeV),
+            (ClimateZone::Volcanic, PerimeterEdge::PositiveV, ClimateZone::Steppe, PerimeterEdge::NegativeV),
+            (ClimateZone::Volcanic, PerimeterEdge::NegativeV, ClimateZone::Jungle, PerimeterEdge::NegativeV),
+            // Desert (+X)
+            (ClimateZone::Desert, PerimeterEdge::PositiveU, ClimateZone::Steppe, PerimeterEdge::NegativeU),
+            (ClimateZone::Desert, PerimeterEdge::NegativeU, ClimateZone::Jungle, PerimeterEdge::PositiveU),
+            (ClimateZone::Desert, PerimeterEdge::PositiveV, ClimateZone::Temperate, PerimeterEdge::PositiveU),
+            (ClimateZone::Desert, PerimeterEdge::NegativeV, ClimateZone::Volcanic, PerimeterEdge::PositiveU),
+            // Arctic (-X)
+            (ClimateZone::Arctic, PerimeterEdge::PositiveU, ClimateZone::Jungle, PerimeterEdge::NegativeU),
+            (ClimateZone::Arctic, PerimeterEdge::NegativeU, ClimateZone::Steppe, PerimeterEdge::PositiveU),
+            (ClimateZone::Arctic, PerimeterEdge::PositiveV, ClimateZone::Temperate, PerimeterEdge::NegativeU),
+            (ClimateZone::Arctic, PerimeterEdge::NegativeV, ClimateZone::Volcanic, PerimeterEdge::NegativeU),
+            // Jungle (+Z)
+            (ClimateZone::Jungle, PerimeterEdge::PositiveU, ClimateZone::Desert, PerimeterEdge::NegativeU),
+            (ClimateZone::Jungle, PerimeterEdge::NegativeU, ClimateZone::Arctic, PerimeterEdge::PositiveU),
+            (ClimateZone::Jungle, PerimeterEdge::PositiveV, ClimateZone::Temperate, PerimeterEdge::PositiveV),
+            (ClimateZone::Jungle, PerimeterEdge::NegativeV, ClimateZone::Volcanic, PerimeterEdge::NegativeV),
+            // Steppe (-Z)
+            (ClimateZone::Steppe, PerimeterEdge::PositiveU, ClimateZone::Arctic, PerimeterEdge::NegativeU),
+            (ClimateZone::Steppe, PerimeterEdge::NegativeU, ClimateZone::Desert, PerimeterEdge::PositiveU),
+            (ClimateZone::Steppe, PerimeterEdge::PositiveV, ClimateZone::Temperate, PerimeterEdge::NegativeV),
+            (ClimateZone::Steppe, PerimeterEdge::NegativeV, ClimateZone::Volcanic, PerimeterEdge::PositiveV),
         ];
 
         let folds = std::array::from_fn(|slot| {
@@ -87,37 +88,37 @@ impl PlanetaryTopology {
         self.folds.len()
     }
 
-    /// Derives the four seam folds for a given canonical face.
-    pub fn seams_for(&self, face: CubeFace) -> [SeamFold; 4] {
+    /// Derives the four seam folds for a given climate zone.
+    pub fn seams_for(&self, zone: ClimateZone) -> [SeamFold; 4] {
         [
-            *self.seam(face, PerimeterEdge::PositiveU),
-            *self.seam(face, PerimeterEdge::NegativeU),
-            *self.seam(face, PerimeterEdge::PositiveV),
-            *self.seam(face, PerimeterEdge::NegativeV),
+            *self.seam(zone, PerimeterEdge::PositiveU),
+            *self.seam(zone, PerimeterEdge::NegativeU),
+            *self.seam(zone, PerimeterEdge::PositiveV),
+            *self.seam(zone, PerimeterEdge::NegativeV),
         ]
     }
 
-    /// Derives the seam bevel transition zone for a face and edge.
-    pub fn bevel(&self, face: CubeFace, edge: PerimeterEdge, half_size: f32, margin: f32) -> SeamBevel {
-        self.seam(face, edge).bevel(half_size, margin)
+    /// Derives the seam bevel transition zone for a climate zone and edge.
+    pub fn bevel(&self, zone: ClimateZone, edge: PerimeterEdge, half_size: f32, margin: f32) -> SeamBevel {
+        self.seam(zone, edge).bevel(half_size, margin)
     }
 }
 
 impl Topology for PlanetaryTopology {
-    fn seam(&self, face: CubeFace, edge: PerimeterEdge) -> &SeamFold {
-        let slot = face.index() * 4 + edge.index();
+    fn seam(&self, zone: ClimateZone, edge: PerimeterEdge) -> &SeamFold {
+        let slot = zone.index() * 4 + edge.index();
         &self.folds[slot]
     }
 
-    fn neighbor_of(&self, face: CubeFace, edge: PerimeterEdge) -> CubeFace {
-        self.seam(face, edge).destination()
+    fn neighbor_of(&self, zone: ClimateZone, edge: PerimeterEdge) -> ClimateZone {
+        self.seam(zone, edge).destination()
     }
 
-    fn fold_point(&self, face: CubeFace, edge: PerimeterEdge, point: Vec3) -> FoldedPoint {
-        self.seam(face, edge).fold_step(point)
+    fn fold_point(&self, zone: ClimateZone, edge: PerimeterEdge, point: Vec3) -> FoldedPoint {
+        self.seam(zone, edge).fold_step(point)
     }
 
-    fn fold_vector(&self, face: CubeFace, edge: PerimeterEdge, vector: Vec3) -> Vec3 {
-        self.seam(face, edge).fold_vector(vector)
+    fn fold_vector(&self, zone: ClimateZone, edge: PerimeterEdge, vector: Vec3) -> Vec3 {
+        self.seam(zone, edge).fold_vector(vector)
     }
 }

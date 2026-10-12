@@ -96,17 +96,17 @@ fn test_sprint_gait_pacing_and_lens_expansion() {
     assert_eq!(sprint.pace_distance(10.0), 16.0);
 
     let mut lens = PerspectiveLens::human_eye();
-    assert!(!lens.is_expanded());
+    assert!(!lens.expanded());
 
     for _ in 0..30 {
         lens = sprint.shape_lens(lens, 1.0 / 60.0);
     }
-    assert!(lens.is_expanded());
+    assert!(lens.expanded());
 
     for _ in 0..30 {
         lens = walk.shape_lens(lens, 1.0 / 60.0);
     }
-    assert!(!lens.is_expanded());
+    assert!(!lens.expanded());
 }
 
 #[test]

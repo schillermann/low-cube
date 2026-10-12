@@ -28,41 +28,61 @@ impl StepThreshold {
     }
 
     /// Determines whether an altitude penetration corresponds to a collision with a vertical cliff face.
-    pub fn is_cliff_impact(&self, altitude: f32) -> bool {
+    pub fn cliff_impact(&self, altitude: f32) -> bool {
         altitude < -self.limit
     }
 }
 
-/// Clearance altitude between a 3D spatial position and the planetary surface.
-#[derive(Clone, Copy, Debug)]
-pub struct SurfaceClearance {
-    altitude: f32,
+use world::PlanetaryWorld;
+
+/// Polymorphic clearance between a 3D spatial position and the planetary surface.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SurfaceClearance {
+    Planar(f32),
+    FoldedSeam,
 }
 
 impl SurfaceClearance {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(altitude: f32) -> Self {
-        Self { altitude }
-    }
-
-    /// Secondary constructor measuring clearance between a point and the constrained surface.
-    pub fn between(point: Vec3, surface_point: Vec3, surface_up: Vec3) -> Self {
-        Self::new((point - surface_point).dot(surface_up))
+    /// Evaluates clearance between candidate motion and constrained surface across planetary seams.
+    pub fn between(
+        origin: Vec3,
+        candidate: Vec3,
+        surface_pos: Vec3,
+        surface_up: Vec3,
+        world: &dyn PlanetaryWorld,
+    ) -> Self {
+        let dest_up = world.surface_up_at(surface_pos);
+        if surface_up.dot(dest_up) < 0.7 {
+            let chord_distance = (surface_pos - origin).length();
+            if chord_distance < 3.5 {
+                return Self::FoldedSeam;
+            }
+        }
+        Self::Planar((candidate - surface_pos).dot(surface_up))
     }
 
     /// Determines whether the position is suspended above open air over a precipice.
-    pub fn is_precipice(&self) -> bool {
-        self.altitude > 1e-4
+    pub fn precipice(&self) -> bool {
+        match self {
+            Self::Planar(altitude) => *altitude > 1e-4,
+            Self::FoldedSeam => false,
+        }
     }
 
     /// Checks whether the position makes valid contact with the walkable ground floor.
-    pub fn is_floor_contact(&self, threshold: StepThreshold) -> bool {
-        threshold.permits_floor_contact(self.altitude)
+    pub fn floor_contact(&self, threshold: StepThreshold) -> bool {
+        match self {
+            Self::Planar(altitude) => threshold.permits_floor_contact(*altitude),
+            Self::FoldedSeam => true,
+        }
     }
 
     /// Checks whether the position penetrates deeply into a vertical cliff wall.
-    pub fn is_cliff_impact(&self, threshold: StepThreshold) -> bool {
-        threshold.is_cliff_impact(self.altitude)
+    pub fn cliff_impact(&self, threshold: StepThreshold) -> bool {
+        match self {
+            Self::Planar(altitude) => threshold.cliff_impact(*altitude),
+            Self::FoldedSeam => false,
+        }
     }
 }
 
@@ -85,7 +105,7 @@ impl SurfaceStep {
     }
 
     /// Determines whether this step can be climbed smoothly without jumping.
-    pub fn is_walkable_with(&self, threshold: StepThreshold) -> bool {
+    pub fn walkable_with(&self, threshold: StepThreshold) -> bool {
         let elevation_gain = (self.target - self.origin).dot(self.surface_up);
         threshold.permits_rise(elevation_gain)
     }
