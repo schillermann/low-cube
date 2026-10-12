@@ -149,7 +149,9 @@ impl SessionAssembly for SessionLaunch {
 
         let pipeline = Box::new(ForwardPipeline::daylight());
 
-        let avatar = Box::new(PlanetaryAvatar::at(Vec3::new(0.0, 9.0, 0.0)));
+        let half = (self.world_blocks as f32) * 0.5;
+        let spawn_position = planet.constrain_to_surface(Vec3::new(0.0, half + 1.0, 0.0), 1.0);
+        let avatar = Box::new(PlanetaryAvatar::at(spawn_position));
         let controls = Box::new(KeyMotion::idle());
 
         Box::new(GameSession::new(

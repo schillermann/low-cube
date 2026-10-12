@@ -1,15 +1,37 @@
 use glam::Vec3;
 
+mod biome;
+mod block;
+mod cluster;
 mod face;
+mod frame;
+mod gallery;
+mod mountain;
+mod null_face;
 mod planet;
-mod relief;
 
 #[cfg(test)]
-mod tests;
+mod cluster_tests;
+#[cfg(test)]
+mod gallery_tests;
+#[cfg(test)]
+mod gravity_tests;
+#[cfg(test)]
+mod mountain_tests;
 
+pub use biome::BiomedCubeWorld;
+pub use block::{
+    Block, CornerHeading, CuboidShape, DirtBlock, FormBlock, GridCell,
+    PyramidPeak, RampWedge, RidgeCorner, SandBlock, SnowBlock, StairFlight,
+    StoneBlock, ValleyCorner, VoxelShape, WedgeHeading,
+};
+pub use cluster::VoxelCluster;
 pub use face::PlanarFace;
-pub use planet::{BiomedCubeWorld, CubePlanet, NullFace};
-pub use relief::{ReliefFace, RidgeElevation, TerrainElevation};
+pub use frame::SurfaceFrame;
+pub use gallery::BlockGallery;
+pub use mountain::VoxelMountain;
+pub use null_face::NullFace;
+pub use planet::CubePlanet;
 
 /// Encapsulated geometric quad entity with vertices, normal, and surface color.
 #[derive(Clone, Copy, Debug)]
