@@ -84,21 +84,6 @@ impl FormBlock {
         base
     }
 
-    /// Emits mesh quads for this form using the specified material color.
-    pub fn emit_form(
-        &self,
-        frame: &SurfaceFrame,
-        color: Vec3,
-        target: &mut dyn MeshTarget,
-    ) {
-        self.shape.emit_shape(
-            self.cell,
-            self.base_elevation,
-            frame,
-            color,
-            target,
-        );
-    }
 }
 
 impl Block for FormBlock {
@@ -107,6 +92,12 @@ impl Block for FormBlock {
     }
 
     fn emit_surface(&self, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
-        self.emit_form(frame, Vec3::new(0.5, 0.5, 0.5), target);
+        self.shape.emit_shape(
+            self.cell,
+            self.base_elevation,
+            frame,
+            Vec3::ONE,
+            target,
+        );
     }
 }

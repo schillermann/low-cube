@@ -21,7 +21,7 @@ fn test_mountain_slope_and_summit_elevations() {
     let on_summit = planet.constrain_to_surface(Vec3::new(0.5, 5.0, 4.5), 1.0);
     assert!((on_summit.y - 11.5).abs() < 1e-4);
 
-    // Tangent coordinate unconstrained past edge
+    // Coordinates crossing edge fold seamlessly onto adjacent Front face (+Z)
     let over_edge = planet.constrain_to_surface(Vec3::new(0.0, 9.0, 8.5), 1.0);
-    assert_eq!(over_edge.z, 8.5);
+    assert_eq!(over_edge, Vec3::new(0.0, 7.5, 9.0));
 }

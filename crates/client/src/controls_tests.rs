@@ -67,3 +67,43 @@ fn test_unified_locomotion_messaging() {
     motion.drive_locomotion(Vec3::Z, Vec3::X, &mut target);
     assert!(target.sneaked);
 }
+
+#[test]
+fn test_locomotion_and_control_decorators() {
+    use crate::controls::{DampedLocomotionTarget, GroundedLocomotionTarget, MutedControls, TallyLocomotionTarget};
+
+    let mut base_target = MockLocomotionTarget {
+        traveled: None,
+        jumped: false,
+        sneaked: false,
+    };
+
+    // Test Tally, Grounded, and Damped decorator composition
+    {
+        let mut grounded = GroundedLocomotionTarget::new(&mut base_target);
+        let mut tally = TallyLocomotionTarget::new(&mut grounded);
+        let mut damped = DampedLocomotionTarget::new(&mut tally, 0.5);
+
+        damped.travel(Vec3::new(10.0, 0.0, 0.0));
+        damped.jump();
+        damped.sneak();
+        damped.sprint();
+
+        assert_eq!(tally.travels(), 1);
+        assert_eq!(tally.jumps(), 1);
+        assert_eq!(tally.sneaks(), 1);
+        assert_eq!(tally.sprints(), 1);
+    }
+
+    assert_eq!(base_target.traveled, Some(Vec3::new(5.0, 0.0, 0.0)));
+    assert!(!base_target.jumped); // Grounded suppressed jump
+    assert!(base_target.sneaked);
+
+    // Test MutedControls decorator
+    let mut motion = KeyMotion::idle();
+    motion.register_key(KeyCode::KeyW, true);
+    let muted = MutedControls::new(Box::new(motion));
+    base_target.traveled = None;
+    muted.drive_locomotion(Vec3::Z, Vec3::X, &mut base_target);
+    assert!(base_target.traveled.is_none());
+}

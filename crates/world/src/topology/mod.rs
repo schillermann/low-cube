@@ -1,13 +1,21 @@
 use glam::Vec3;
 
+mod bevel;
 mod cube_face;
+mod folded_face;
 mod folded_point;
 mod perimeter;
 mod seam;
 #[cfg(test)]
+mod bevel_tests;
+#[cfg(test)]
+mod corner_tests;
+#[cfg(test)]
 mod tests;
 
+pub use bevel::{BevelTransition, SeamBevel};
 pub use cube_face::CubeFace;
+pub use folded_face::FoldedFace;
 pub use folded_point::FoldedPoint;
 pub use perimeter::{FacePerimeter, PerimeterCrossing, PerimeterEdge};
 pub use seam::{CoordinateFold, SeamFold};
@@ -78,6 +86,21 @@ impl PlanetaryTopology {
     pub fn fold_count(&self) -> usize {
         self.folds.len()
     }
+
+    /// Derives the four seam folds for a given canonical face.
+    pub fn seams_for(&self, face: CubeFace) -> [SeamFold; 4] {
+        [
+            *self.seam(face, PerimeterEdge::PositiveU),
+            *self.seam(face, PerimeterEdge::NegativeU),
+            *self.seam(face, PerimeterEdge::PositiveV),
+            *self.seam(face, PerimeterEdge::NegativeV),
+        ]
+    }
+
+    /// Derives the seam bevel transition zone for a face and edge.
+    pub fn bevel(&self, face: CubeFace, edge: PerimeterEdge, half_size: f32, margin: f32) -> SeamBevel {
+        self.seam(face, edge).bevel(half_size, margin)
+    }
 }
 
 impl Topology for PlanetaryTopology {
@@ -87,7 +110,7 @@ impl Topology for PlanetaryTopology {
     }
 
     fn neighbor_of(&self, face: CubeFace, edge: PerimeterEdge) -> CubeFace {
-        self.seam(face, edge).destination_face()
+        self.seam(face, edge).destination()
     }
 
     fn fold_point(&self, face: CubeFace, edge: PerimeterEdge, point: Vec3) -> FoldedPoint {

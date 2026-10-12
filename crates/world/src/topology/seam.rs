@@ -4,6 +4,7 @@ use crate::frame::SurfaceFrame;
 use super::cube_face::CubeFace;
 use super::folded_point::FoldedPoint;
 use super::perimeter::PerimeterEdge;
+use super::Topology;
 
 /// Interface for geometric coordinate and vector folding across seam boundaries.
 pub trait CoordinateFold: Send + Sync {
@@ -80,14 +81,19 @@ impl SeamFold {
             && self.destination_edge == other.source_edge
     }
 
+    /// Derives smooth normal bevel transition geometry across this seam fold.
+    pub fn bevel(&self, half_size: f32, margin: f32) -> super::bevel::SeamBevel {
+        super::bevel::SeamBevel::between(self.source, self.destination, half_size, margin)
+    }
+
     /// Destination face onto which motion unfolds across the seam.
-    pub fn destination_face(&self) -> CubeFace {
+    pub fn destination(&self) -> CubeFace {
         self.destination
     }
 
-    /// Reciprocal outer edge boundary on the destination face.
-    pub fn destination_edge(&self) -> PerimeterEdge {
-        self.destination_edge
+    /// Resolves the reciprocal return fold across this seam within the planetary topology.
+    pub fn reciprocal_on<'a>(&self, topology: &'a super::PlanetaryTopology) -> &'a SeamFold {
+        topology.seam(self.destination, self.destination_edge)
     }
 
     /// Folds a 3D position across the seam by rotating 90° around the seam axis.

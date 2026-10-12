@@ -2,10 +2,12 @@ use glam::{Mat4, Quat, Vec3};
 use world::PlanetaryWorld;
 use crate::basis::OrientationBasis;
 use crate::controls::KeyboardControls;
-use crate::flight::{GravitationalFlight, SurfaceFlight};
+use crate::flight::GravitationalFlight;
+#[cfg(test)]
+use crate::flight::SurfaceFlight;
 use crate::lens::PerspectiveLens;
 use crate::order::LocomotionOrder;
-use crate::orientation::{MouseLook, ViewOrientation};
+use crate::orientation::{InvertibleLook, MouseLook, SensitivityLook};
 use crate::posture::AvatarPosture;
 
 /// Interface for player avatars acting within planetary gravity.
@@ -21,7 +23,7 @@ pub trait Avatar {
 pub struct PlanetaryAvatar {
     position: Vec3,
     surface_up: Vec3,
-    look: Box<dyn ViewOrientation>,
+    look: InvertibleLook,
     lens: PerspectiveLens,
     flight: Box<dyn GravitationalFlight>,
     posture: AvatarPosture,
@@ -32,7 +34,7 @@ impl PlanetaryAvatar {
     pub fn new(
         position: Vec3,
         surface_up: Vec3,
-        look: Box<dyn ViewOrientation>,
+        look: InvertibleLook,
         lens: PerspectiveLens,
         flight: Box<dyn GravitationalFlight>,
         posture: AvatarPosture,
@@ -52,7 +54,7 @@ impl PlanetaryAvatar {
         Self::new(
             initial_position,
             Vec3::Y,
-            Box::new(MouseLook::idle()),
+            InvertibleLook::direct(Box::new(SensitivityLook::calibrated(Box::new(MouseLook::idle())))),
             PerspectiveLens::human_eye(),
             flight,
             AvatarPosture::standing(),
@@ -60,7 +62,7 @@ impl PlanetaryAvatar {
     }
 
     /// Secondary constructor initializing avatar at an initial position with default terrestrial flight.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn at(initial_position: Vec3) -> Self {
         Self::with_flight(initial_position, Box::new(SurfaceFlight::terrestrial(1.0)))
     }
@@ -76,22 +78,23 @@ impl PlanetaryAvatar {
 
 impl Avatar for PlanetaryAvatar {
     fn rotate_view(&mut self, dx: f32, dy: f32) {
+        use crate::orientation::ViewOrientation;
         self.look.rotate(dx, dy);
     }
 
     fn toggle_invert_y(&mut self) {
-        self.look.toggle_invert_y();
+        self.look.toggle_y();
     }
 
     fn toggle_invert_x(&mut self) {
-        self.look.toggle_invert_x();
+        self.look.toggle_x();
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
         self.reorient_surface(world.surface_up_at(self.position));
 
         let mut order = LocomotionOrder::idle();
-        let basis = OrientationBasis::aligned(self.surface_up, self.look.as_ref());
+        let basis = OrientationBasis::aligned(self.surface_up, &self.look);
         basis.drive_locomotion(controls, &mut order);
 
         order.dispatch_jump(&mut *self.flight);
@@ -101,7 +104,7 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
-        let basis = OrientationBasis::aligned(self.surface_up, self.look.as_ref());
+        let basis = OrientationBasis::aligned(self.surface_up, &self.look);
         let proj = self.lens.projection_matrix(aspect);
         let view = self.posture.view_matrix(&basis, self.position);
         proj * view

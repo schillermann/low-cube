@@ -101,4 +101,3 @@ impl Face for PlanarFace {
         }
     }
 }
-

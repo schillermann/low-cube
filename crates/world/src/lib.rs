@@ -1,41 +1,56 @@
 use glam::Vec3;
 
+mod beveled_world;
 mod biome;
 mod block;
 mod cluster;
+mod elevated_face;
 mod face;
 mod frame;
 mod gallery;
+mod mesh_target;
 mod mountain;
 mod null_face;
 mod planet;
+mod tinted_face;
 mod topology;
 
 #[cfg(test)]
+mod beveled_world_tests;
+#[cfg(test)]
 mod cluster_tests;
+#[cfg(test)]
+mod face_decorators_tests;
 #[cfg(test)]
 mod gallery_tests;
 #[cfg(test)]
 mod gravity_tests;
 #[cfg(test)]
+mod mesh_target_tests;
+#[cfg(test)]
 mod mountain_tests;
 
+pub use beveled_world::BeveledWorld;
 pub use biome::BiomedCubeWorld;
 pub use block::{
-    Block, CornerHeading, CuboidShape, DirtBlock, FormBlock, GridCell,
+    Block, CornerHeading, CuboidShape, DirtBlock, ElevatedShape, FormBlock, GridCell,
     PyramidPeak, RampWedge, RidgeCorner, SandBlock, SnowBlock, StairFlight,
-    StoneBlock, ValleyCorner, VoxelShape, WedgeHeading,
+    StoneBlock, MaterialBlock, ValleyCorner, VoxelShape, WedgeHeading,
 };
 pub use cluster::VoxelCluster;
+pub use elevated_face::ElevatedFace;
 pub use face::PlanarFace;
 pub use frame::SurfaceFrame;
 pub use gallery::BlockGallery;
+pub use mesh_target::{ColoredMeshTarget, CountedMeshTarget, OffsetMeshTarget, TintedMeshTarget};
 pub use mountain::VoxelMountain;
 pub use null_face::NullFace;
 pub use planet::CubePlanet;
+pub use tinted_face::TintedFace;
 pub use topology::{
-    CoordinateFold, CubeFace, FacePerimeter, FoldedPoint, PerimeterCrossing,
-    PerimeterEdge, PlanetaryTopology, SeamFold, Topology,
+    BevelTransition, CoordinateFold, CubeFace, FacePerimeter, FoldedFace,
+    FoldedPoint, PerimeterCrossing, PerimeterEdge, PlanetaryTopology, SeamBevel,
+    SeamFold, Topology,
 };
 
 /// Encapsulated geometric quad entity with vertices, normal, and surface color.

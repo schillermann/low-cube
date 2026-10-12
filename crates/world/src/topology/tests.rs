@@ -16,7 +16,6 @@ fn test_face_perimeter_crossing_evaluation_and_clamping() {
 
     let inside = perimeter.crossing_point(&frame, Vec3::new(0.0, 8.0, 0.0));
     assert!(inside.is_interior());
-    assert_eq!(inside.overshoot(), 0.0);
 
     let cross_u = perimeter.crossing_at(HALF_SIZE + 0.75, 2.0);
     assert!(cross_u.is_crossing());
@@ -28,13 +27,13 @@ fn test_face_perimeter_crossing_evaluation_and_clamping() {
     assert!((overshoot - 0.75).abs() < 1e-5);
 
     let cross_neg_u = perimeter.crossing_at(-HALF_SIZE - 0.5, 2.0);
-    assert_eq!(cross_neg_u.edge(), Some(PerimeterEdge::NegativeU));
+    assert_eq!(cross_neg_u.dispatch(|| unreachable!(), |e, _| e), PerimeterEdge::NegativeU);
 
     let cross_v = perimeter.crossing_at(2.0, HALF_SIZE + 0.25);
-    assert_eq!(cross_v.edge(), Some(PerimeterEdge::PositiveV));
+    assert_eq!(cross_v.dispatch(|| unreachable!(), |e, _| e), PerimeterEdge::PositiveV);
 
     let cross_neg_v = perimeter.crossing_at(2.0, -HALF_SIZE - 0.3);
-    assert_eq!(cross_neg_v.edge(), Some(PerimeterEdge::NegativeV));
+    assert_eq!(cross_neg_v.dispatch(|| unreachable!(), |e, _| e), PerimeterEdge::NegativeV);
 
     assert_eq!(perimeter.clamp(12.0, -15.0), (HALF_SIZE, -HALF_SIZE));
 }
@@ -49,9 +48,7 @@ fn test_all_12_undirected_edge_neighborhoods_reciprocity() {
             let seam = topology.seam(face, edge);
             assert!(seam.connects(face, edge));
 
-            let neighbor = seam.destination_face();
-            let return_edge = seam.destination_edge();
-            let return_seam = topology.seam(neighbor, return_edge);
+            let return_seam = seam.reciprocal_on(&topology);
 
             assert!(seam.is_reciprocal_to(return_seam));
             assert!(return_seam.is_reciprocal_to(seam));
@@ -96,7 +93,7 @@ fn test_normal_vector_90_degree_switch_across_all_24_folds() {
         for edge in PerimeterEdge::all() {
             let seam = topology.seam(face, edge);
             let rotated_normal = seam.fold_vector(face.normal());
-            let target_normal = seam.destination_face().normal();
+            let target_normal = seam.destination().normal();
 
             assert!(
                 (rotated_normal - target_normal).length() < 1e-4,

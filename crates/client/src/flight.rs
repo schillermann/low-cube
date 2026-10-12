@@ -53,7 +53,7 @@ impl SurfaceFlight {
     }
 
     /// Secondary constructor initializing in grounded state with authentic Earth gravity and realistic human leap.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn terrestrial(eye_height: f32) -> Self {
         Self::calibrated(0.522, 9.81, eye_height)
     }

@@ -10,7 +10,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **Foundation** | Planetary Baseline & Face Physics | `world`, `client` | Completed | 4/4 |
 | **Phase 1** | Planetary Topology & Edge Neighborhoods | `world` | Completed | 4/4 |
-| **Phase 2** | Seam Surface Geometry & Coordinate Folding | `world` | Planned | 0/4 |
+| **Phase 2** | Seam Surface Geometry & Coordinate Folding | `world` | Completed | 4/4 |
 | **Phase 3** | Locomotion Kinematics & Edge Traversal | `client` | Planned | 0/4 |
 | **Phase 4** | Continuous Viewport Orientation & Horizon Tilt | `client` | Planned | 0/4 |
 | **Phase 5** | Ballistic Edge Flight & Gravitational Wells | `client`, `world` | Planned | 0/3 |
@@ -33,10 +33,10 @@
 - [x] Comprehensive unit tests verifying coordinate continuity across all 12 edge transitions ([`topology::tests`](../crates/world/src/topology/tests.rs)).
 
 ### Phase 2: Seam Surface Geometry & Coordinate Folding (`world` crate)
-- [ ] Define `FoldedPoint` transforming spatial positions across 90° edge folds onto destination frames.
-- [ ] Implement `SeamBevel` encapsulating edge seam geometry and continuous surface normal transitions.
-- [ ] Refactor [`PlanarFace::constrain`](../crates/world/src/face.rs) to delegate perimeter crossings to `SeamFold`.
-- [ ] Comprehensive unit tests verifying no clamping/pinning at corner coordinates (e.g. $(0, 17, 17)$).
+- [x] Define [`FoldedPoint`](../crates/world/src/topology/folded_point.rs) transforming spatial positions across 90° edge folds onto destination frames.
+- [x] Implement [`SeamBevel`](../crates/world/src/topology/bevel.rs) encapsulating edge seam geometry and continuous surface normal transitions.
+- [x] Refactor [`PlanarFace::constrain`](../crates/world/src/face.rs) to delegate perimeter crossings to `SeamFold`.
+- [x] Comprehensive unit tests verifying no clamping/pinning at corner coordinates (e.g. $(0, 17, 17)$) ([`corner_tests`](../crates/world/src/topology/corner_tests.rs), [`bevel_tests`](../crates/world/src/topology/bevel_tests.rs)).
 
 ### Phase 3: Locomotion Kinematics & Edge Traversal (`client` crate)
 - [ ] Implement `FoldedStride` translating tangential velocity across 90° seam folds.

@@ -4,6 +4,14 @@ use winit::keyboard::KeyCode;
 use crate::cadence::{RestingCadence, SprintCadence, TransitioningCadence};
 use crate::clock::{MonotonicTime, SystemClock};
 
+#[cfg(test)]
+mod decorator;
+
+#[cfg(test)]
+pub use decorator::{
+    DampedLocomotionTarget, GroundedLocomotionTarget, MutedControls, TallyLocomotionTarget,
+};
+
 /// Interface for receiving unified locomotion messages ("Tell, Don't Ask").
 pub trait LocomotionTarget {
     fn travel(&mut self, direction: Vec3);

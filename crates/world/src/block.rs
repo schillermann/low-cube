@@ -1,6 +1,7 @@
 mod cell;
 mod corner;
 mod cuboid;
+mod elevated_shape;
 mod form;
 mod material;
 mod pyramid;
@@ -16,8 +17,9 @@ mod tests;
 pub use cell::GridCell;
 pub use corner::CornerHeading;
 pub use cuboid::CuboidShape;
+pub use elevated_shape::ElevatedShape;
 pub use form::FormBlock;
-pub use material::{DirtBlock, SandBlock, SnowBlock, StoneBlock};
+pub use material::{DirtBlock, MaterialBlock, SandBlock, SnowBlock, StoneBlock};
 pub use pyramid::PyramidPeak;
 pub use ridge::RidgeCorner;
 pub use shape::VoxelShape;

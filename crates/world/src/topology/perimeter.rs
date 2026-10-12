@@ -74,22 +74,6 @@ impl PerimeterCrossing {
             Self::Crossing { edge, overshoot } => on_crossing(*edge, *overshoot),
         }
     }
-
-    /// Exceeded perimeter edge, if any.
-    pub fn edge(&self) -> Option<PerimeterEdge> {
-        match self {
-            Self::Interior => None,
-            Self::Crossing { edge, .. } => Some(*edge),
-        }
-    }
-
-    /// Distance exceeding the perimeter boundary.
-    pub fn overshoot(&self) -> f32 {
-        match self {
-            Self::Interior => 0.0,
-            Self::Crossing { overshoot, .. } => *overshoot,
-        }
-    }
 }
 
 /// Encapsulated four-edged perimeter boundary of a planar face in tangent space.

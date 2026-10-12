@@ -1,23 +1,23 @@
 use glam::Vec3;
-use crate::MeshTarget;
-use crate::frame::SurfaceFrame;
 use crate::block::{Block, CornerHeading, FormBlock, WedgeHeading};
+use crate::frame::SurfaceFrame;
+use crate::MeshTarget;
+use super::material_block::MaterialBlock;
 
-/// Material block composed of fertile earth and soil, derived from a FormBlock.
+/// Material entity decorating form blocks with fertile brown earth loam color.
 pub struct DirtBlock {
-    form: FormBlock,
-    color: Vec3,
+    decorated: MaterialBlock,
 }
 
 impl DirtBlock {
-    /// Primary constructor decorating a FormBlock with dirt material.
-    pub fn new(form: FormBlock, color: Vec3) -> Self {
-        Self { form, color }
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(decorated: MaterialBlock) -> Self {
+        Self { decorated }
     }
 
-    /// Secondary constructor with standard brown soil color.
+    /// Secondary constructor decorating a form block with fertile brown earth loam color.
     pub fn natural(form: FormBlock) -> Self {
-        Self::new(form, Vec3::new(0.48, 0.35, 0.22))
+        Self::new(MaterialBlock::new(Box::new(form), Vec3::new(0.48, 0.35, 0.22)))
     }
 
     pub fn cube(grid_u: i32, grid_v: i32, base: f32) -> Self {
@@ -50,11 +50,18 @@ impl DirtBlock {
 }
 
 impl Block for DirtBlock {
-    fn constrain_surface(&self, base: Vec3, u: f32, v: f32, frame: &SurfaceFrame, distance: f32) -> Vec3 {
-        self.form.constrain_surface(base, u, v, frame, distance)
+    fn constrain_surface(
+        &self,
+        base: Vec3,
+        u: f32,
+        v: f32,
+        frame: &SurfaceFrame,
+        distance: f32,
+    ) -> Vec3 {
+        self.decorated.constrain_surface(base, u, v, frame, distance)
     }
 
     fn emit_surface(&self, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
-        self.form.emit_form(frame, self.color, target);
+        self.decorated.emit_surface(frame, target);
     }
 }

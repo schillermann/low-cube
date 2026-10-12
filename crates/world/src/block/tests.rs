@@ -55,3 +55,14 @@ fn test_material_blocks_derived_from_forms() {
     let on_stair_upper = stone_stair.constrain_surface(Vec3::new(2.5, 9.0, 1.75), 2.5, 1.75, &frame, 1.0);
     assert_eq!(on_stair_upper.y, 10.0);
 }
+
+#[test]
+fn test_elevated_shape_decorator() {
+    use super::{CuboidShape, ElevatedShape, VoxelShape};
+
+    let shape = Box::new(CuboidShape::half_slab());
+    let elevated = ElevatedShape::new(shape, 1.0);
+
+    // Half slab (0.5m) elevated by 1.0m -> elevation 1.5m
+    assert_eq!(elevated.elevation_at(0.5, 0.5), 1.5);
+}

@@ -1,28 +1,28 @@
 use glam::Vec3;
-use crate::MeshTarget;
-use crate::frame::SurfaceFrame;
 use crate::block::{Block, CornerHeading, FormBlock, WedgeHeading};
+use crate::frame::SurfaceFrame;
+use crate::MeshTarget;
+use super::material_block::MaterialBlock;
 
-/// Material block composed of durable alpine stone, derived from a FormBlock.
+/// Material entity decorating form blocks with durable alpine stone granite or shale color.
 pub struct StoneBlock {
-    form: FormBlock,
-    color: Vec3,
+    decorated: MaterialBlock,
 }
 
 impl StoneBlock {
-    /// Primary constructor decorating a FormBlock with stone material.
-    pub fn new(form: FormBlock, color: Vec3) -> Self {
-        Self { form, color }
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(decorated: MaterialBlock) -> Self {
+        Self { decorated }
     }
 
     /// Secondary constructor with standard alpine gray granite stone.
     pub fn natural(form: FormBlock) -> Self {
-        Self::new(form, Vec3::new(0.48, 0.50, 0.46))
+        Self::new(MaterialBlock::new(Box::new(form), Vec3::new(0.48, 0.50, 0.46)))
     }
 
     /// Secondary constructor for dark shale rock.
     pub fn dark(form: FormBlock) -> Self {
-        Self::new(form, Vec3::new(0.35, 0.42, 0.35))
+        Self::new(MaterialBlock::new(Box::new(form), Vec3::new(0.35, 0.42, 0.35)))
     }
 
     pub fn cube(grid_u: i32, grid_v: i32, base: f32) -> Self {
@@ -79,11 +79,18 @@ impl StoneBlock {
 }
 
 impl Block for StoneBlock {
-    fn constrain_surface(&self, base: Vec3, u: f32, v: f32, frame: &SurfaceFrame, distance: f32) -> Vec3 {
-        self.form.constrain_surface(base, u, v, frame, distance)
+    fn constrain_surface(
+        &self,
+        base: Vec3,
+        u: f32,
+        v: f32,
+        frame: &SurfaceFrame,
+        distance: f32,
+    ) -> Vec3 {
+        self.decorated.constrain_surface(base, u, v, frame, distance)
     }
 
     fn emit_surface(&self, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
-        self.form.emit_form(frame, self.color, target);
+        self.decorated.emit_surface(frame, target);
     }
 }
