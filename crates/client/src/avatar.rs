@@ -6,6 +6,7 @@ use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::lens::PerspectiveLens;
 use crate::order::LocomotionOrder;
 use crate::orientation::{MouseLook, ViewOrientation};
+use crate::posture::AvatarPosture;
 
 /// Interface for player avatars acting within planetary gravity.
 pub trait Avatar {
@@ -16,13 +17,14 @@ pub trait Avatar {
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
 }
 
-/// Fully encapsulated player entity composed of position, gravity alignment, ViewOrientation, PerspectiveLens, and GravitationalFlight.
+/// Fully encapsulated player entity composed of position, gravity alignment, ViewOrientation, PerspectiveLens, GravitationalFlight, and AvatarPosture.
 pub struct PlanetaryAvatar {
     position: Vec3,
     surface_up: Vec3,
     look: Box<dyn ViewOrientation>,
     lens: PerspectiveLens,
     flight: Box<dyn GravitationalFlight>,
+    posture: AvatarPosture,
 }
 
 impl PlanetaryAvatar {
@@ -33,6 +35,7 @@ impl PlanetaryAvatar {
         look: Box<dyn ViewOrientation>,
         lens: PerspectiveLens,
         flight: Box<dyn GravitationalFlight>,
+        posture: AvatarPosture,
     ) -> Self {
         Self {
             position,
@@ -40,6 +43,7 @@ impl PlanetaryAvatar {
             look,
             lens,
             flight,
+            posture,
         }
     }
 
@@ -51,6 +55,7 @@ impl PlanetaryAvatar {
             Box::new(MouseLook::idle()),
             PerspectiveLens::human_eye(),
             Box::new(SurfaceFlight::terrestrial(1.0)),
+            AvatarPosture::standing(),
         )
     }
 
@@ -84,15 +89,14 @@ impl Avatar for PlanetaryAvatar {
         basis.drive_locomotion(controls, &mut order);
 
         order.dispatch_jump(&mut *self.flight);
-        let stride = order.surface_stride(self.surface_up, 6.0 * dt);
-
-        self.position = self.flight.advance(dt, self.position, stride, self.surface_up, world);
+        self.posture = order.advance_posture(self.posture, dt);
+        self.position = order.advance_flight(&mut *self.flight, dt, self.position, self.surface_up, 6.0, world);
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
         let basis = OrientationBasis::aligned(self.surface_up, self.look.as_ref());
         let proj = self.lens.projection_matrix(aspect);
-        let view = basis.view_matrix_at(self.position, 0.8);
+        let view = self.posture.view_matrix(&basis, self.position);
         proj * view
     }
 }

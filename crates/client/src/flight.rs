@@ -1,5 +1,6 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
+use crate::gait::LocomotionGait;
 use crate::phase::{FlightContext, FlightPhase, GroundedFlight};
 
 /// Interface representing vertical flight and gravitational physics on a planetary surface.
@@ -10,6 +11,7 @@ pub trait GravitationalFlight: Send + Sync {
         dt: f32,
         position: Vec3,
         stride: Vec3,
+        gait: &dyn LocomotionGait,
         surface_up: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> Vec3;
@@ -60,6 +62,7 @@ impl GravitationalFlight for SurfaceFlight {
         dt: f32,
         position: Vec3,
         stride: Vec3,
+        gait: &dyn LocomotionGait,
         surface_up: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> Vec3 {
@@ -70,6 +73,7 @@ impl GravitationalFlight for SurfaceFlight {
             surface_up,
             self.eye_height,
             self.gravity,
+            gait,
             world,
         );
         self.phase.advance(&context).apply(&mut self.phase)

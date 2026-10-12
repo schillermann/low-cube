@@ -6,6 +6,7 @@ use winit::keyboard::KeyCode;
 pub trait LocomotionTarget {
     fn travel(&mut self, direction: Vec3);
     fn jump(&mut self);
+    fn sneak(&mut self);
 }
 
 /// Interface representing player keyboard navigation state.
@@ -71,6 +72,12 @@ impl KeyboardControls for KeyMotion {
 
         if self.active_keys.contains(&KeyCode::Space) {
             target.jump();
+        }
+
+        if self.active_keys.contains(&KeyCode::ShiftLeft)
+            || self.active_keys.contains(&KeyCode::ShiftRight)
+        {
+            target.sneak();
         }
     }
 }

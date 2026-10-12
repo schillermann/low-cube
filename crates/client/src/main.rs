@@ -3,11 +3,13 @@ mod avatar;
 mod basis;
 mod controls;
 mod flight;
+mod gait;
 mod launch;
 mod lens;
 mod order;
 mod orientation;
 mod phase;
+mod posture;
 mod session;
 mod stride;
 mod surface;
@@ -19,6 +21,8 @@ mod controls_tests;
 mod flight_tests;
 #[cfg(test)]
 mod mountain_tests;
+#[cfg(test)]
+mod posture_tests;
 #[cfg(test)]
 mod threshold_tests;
 #[cfg(test)]
@@ -33,7 +37,7 @@ fn main() {
     event_loop.set_control_flow(ControlFlow::Poll);
 
     let launch = SessionLaunch::configured(
-        "Low-Cube [WASD: Move, Space: Jump, Mouse: Look, I: Invert Y, O: Invert X, Esc: Exit]",
+        "Low-Cube [WASD: Move, Space: Jump, Shift: Sneak, Mouse: Look, I: Invert Y, O: Invert X, Esc: Exit]",
         1280.0,
         720.0,
         32,

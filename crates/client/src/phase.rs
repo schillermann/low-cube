@@ -1,5 +1,6 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
+use crate::gait::LocomotionGait;
 use crate::stride::SurfaceStride;
 use crate::threshold::{StepThreshold, SurfaceClearance};
 
@@ -11,6 +12,7 @@ pub struct FlightContext<'a> {
     surface_up: Vec3,
     eye_height: f32,
     gravity: f32,
+    gait: &'a dyn LocomotionGait,
     world: &'a dyn PlanetaryWorld,
 }
 
@@ -23,6 +25,7 @@ impl<'a> FlightContext<'a> {
         surface_up: Vec3,
         eye_height: f32,
         gravity: f32,
+        gait: &'a dyn LocomotionGait,
         world: &'a dyn PlanetaryWorld,
     ) -> Self {
         Self {
@@ -32,6 +35,7 @@ impl<'a> FlightContext<'a> {
             surface_up,
             eye_height,
             gravity,
+            gait,
             world,
         }
     }
@@ -72,6 +76,10 @@ impl<'a> FlightContext<'a> {
     pub fn resolve_aerial_stride(&self, vertical_step: Vec3, threshold: StepThreshold) -> Vec3 {
         SurfaceStride::new(self.stride, self.surface_up)
             .resolve_aerial(self.position, vertical_step, self.eye_height, threshold, self.world)
+    }
+
+    pub fn resolve_precipice(&self, threshold: StepThreshold, horizontal: Vec3) -> FlightProgress {
+        self.gait.resolve_precipice(self, threshold, horizontal)
     }
 }
 
@@ -128,8 +136,7 @@ impl FlightPhase for GroundedFlight {
         let clearance = ctx.clearance(horizontal, surface_pos);
 
         if clearance.is_precipice() {
-            // Walking off an edge into open air initiates airborne descent
-            FlightProgress::new(Box::new(AirborneFlight::new(0.0, self.threshold)), horizontal)
+            ctx.resolve_precipice(self.threshold, horizontal)
         } else {
             let next_pos = ctx.resolve_ground_stride(self.threshold);
             FlightProgress::new(Box::new(GroundedFlight::new(self.threshold)), next_pos)

@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-12
+
+### Added
+- Sneak locomotion activated by `Shift` (`ShiftLeft` / `ShiftRight`) with 35% movement pacing.
+- Edge cliff protection restraining the avatar from stepping off elevated blocks while sneaking, while allowing smooth lateral sliding along ledge perimeters.
+- Crouch kinematics with smooth avatar viewpoint lowering from standing eye level (0.8) to crouched eye level (0.45).
+- Pure OOP `LocomotionGait` trait (`WalkGait` and `SneakGait`) encapsulating gait-specific pacing, posture shaping, and precipice resolution without getters, setters, or procedural branching.
+- Pure OOP `AvatarPosture` encapsulating eye-level transitions and orientation basis view matrix generation.
+- Polymorphic `LeapIntent` (`RestingLeap` and `ActiveLeap`) eliminating primitive boolean jump request flags from `LocomotionOrder`.
+- Comprehensive test coverage for sneak edge restraint, posture transitions, crouch view matrices, and shift key controls.
+- Updated gameplay demonstration screenshot in `docs/images/gameplay.png`.
+
 ## [0.4.0] - 2026-10-12
 
 ### Added
