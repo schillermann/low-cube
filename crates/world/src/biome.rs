@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{
-    BlockGallery, CubePlanet, Face, GravityField, MeshTarget, NullFace,
+    BlockGallery, CubeFace, CubePlanet, Face, GravityField, MeshTarget, NullFace,
     PlanarFace, PlanetaryWorld, VoxelMountain,
 };
 
@@ -18,10 +18,8 @@ impl BiomedCubeWorld {
     /// Secondary constructor assembling distinct biome faces.
     pub fn of_size(size_blocks: u32) -> Self {
         let half = (size_blocks as f32) * 0.5;
-        let top_face = Box::new(PlanarFace::new(
-            Vec3::Y,
-            Vec3::X,
-            Vec3::Z,
+        let top_face = Box::new(PlanarFace::on_cube(
+            CubeFace::Top,
             Vec3::new(0.28, 0.65, 0.25),
             half,
             size_blocks,
@@ -33,46 +31,36 @@ impl BiomedCubeWorld {
             // Top (+Y): Temperate Green with Alpine Mountain and Block Gallery
             top_face,
             // Bottom (-Y): Volcanic Dark Red
-            Box::new(PlanarFace::new(
-                Vec3::NEG_Y,
-                Vec3::X,
-                Vec3::NEG_Z,
+            Box::new(PlanarFace::on_cube(
+                CubeFace::Bottom,
                 Vec3::new(0.35, 0.18, 0.18),
                 half,
                 size_blocks,
             )),
             // Right (+X): Desert Sand
-            Box::new(PlanarFace::new(
-                Vec3::X,
-                Vec3::NEG_Z,
-                Vec3::Y,
+            Box::new(PlanarFace::on_cube(
+                CubeFace::Right,
                 Vec3::new(0.85, 0.75, 0.35),
                 half,
                 size_blocks,
             )),
             // Left (-X): Arctic Ice
-            Box::new(PlanarFace::new(
-                Vec3::NEG_X,
-                Vec3::Z,
-                Vec3::Y,
+            Box::new(PlanarFace::on_cube(
+                CubeFace::Left,
                 Vec3::new(0.75, 0.88, 0.95),
                 half,
                 size_blocks,
             )),
             // Front (+Z): Jungle Emerald
-            Box::new(PlanarFace::new(
-                Vec3::Z,
-                Vec3::X,
-                Vec3::Y,
+            Box::new(PlanarFace::on_cube(
+                CubeFace::Front,
                 Vec3::new(0.12, 0.45, 0.22),
                 half,
                 size_blocks,
             )),
             // Back (-Z): Arid Steppe Brown
-            Box::new(PlanarFace::new(
-                Vec3::NEG_Z,
-                Vec3::NEG_X,
-                Vec3::Y,
+            Box::new(PlanarFace::on_cube(
+                CubeFace::Back,
                 Vec3::new(0.68, 0.48, 0.32),
                 half,
                 size_blocks,

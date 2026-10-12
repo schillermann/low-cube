@@ -9,6 +9,7 @@ mod gallery;
 mod mountain;
 mod null_face;
 mod planet;
+mod topology;
 
 #[cfg(test)]
 mod cluster_tests;
@@ -32,6 +33,10 @@ pub use gallery::BlockGallery;
 pub use mountain::VoxelMountain;
 pub use null_face::NullFace;
 pub use planet::CubePlanet;
+pub use topology::{
+    CoordinateFold, CubeFace, FacePerimeter, FoldedPoint, PerimeterCrossing,
+    PerimeterEdge, PlanetaryTopology, SeamFold, Topology,
+};
 
 /// Encapsulated geometric quad entity with vertices, normal, and surface color.
 #[derive(Clone, Copy, Debug)]

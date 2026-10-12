@@ -9,7 +9,7 @@
 | Phase | Title | Scope | Status | Progress |
 | :--- | :--- | :--- | :--- | :--- |
 | **Foundation** | Planetary Baseline & Face Physics | `world`, `client` | Completed | 4/4 |
-| **Phase 1** | Planetary Topology & Edge Neighborhoods | `world` | Planned | 0/4 |
+| **Phase 1** | Planetary Topology & Edge Neighborhoods | `world` | Completed | 4/4 |
 | **Phase 2** | Seam Surface Geometry & Coordinate Folding | `world` | Planned | 0/4 |
 | **Phase 3** | Locomotion Kinematics & Edge Traversal | `client` | Planned | 0/4 |
 | **Phase 4** | Continuous Viewport Orientation & Horizon Tilt | `client` | Planned | 0/4 |
@@ -27,10 +27,10 @@
 - [x] Intrafacial obstacle sliding, slab climbing, and sneak cliff arrest ([`SurfaceStride`](../crates/client/src/stride.rs)).
 
 ### Phase 1: Planetary Topology & Edge Neighborhoods (`world` crate)
-- [ ] Define `FacePerimeter` encapsulating 4 outer edge thresholds $(+U, -U, +V, -V)$.
-- [ ] Implement `SeamFold` encapsulating 90° rotation and coordinate mapping across seams.
-- [ ] Implement `PlanetaryTopology` connecting 6 faces across 12 seam neighborhoods.
-- [ ] Comprehensive unit tests verifying coordinate continuity across all 12 edge transitions.
+- [x] Define [`FacePerimeter`](../crates/world/src/topology/perimeter.rs) encapsulating 4 outer edge thresholds $(+U, -U, +V, -V)$.
+- [x] Implement [`SeamFold`](../crates/world/src/topology/seam.rs) encapsulating 90° rotation and coordinate mapping across seams.
+- [x] Implement [`PlanetaryTopology`](../crates/world/src/topology/mod.rs) connecting 6 faces across 12 seam neighborhoods.
+- [x] Comprehensive unit tests verifying coordinate continuity across all 12 edge transitions ([`topology::tests`](../crates/world/src/topology/tests.rs)).
 
 ### Phase 2: Seam Surface Geometry & Coordinate Folding (`world` crate)
 - [ ] Define `FoldedPoint` transforming spatial positions across 90° edge folds onto destination frames.

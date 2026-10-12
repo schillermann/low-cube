@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{Face, MeshTarget, Quad};
+use crate::{CubeFace, Face, MeshTarget, Quad};
 
 /// Pure geometric planar face operating strictly on coordinate bases without integer switches.
 pub struct PlanarFace {
@@ -29,6 +29,18 @@ impl PlanarFace {
             half_size,
             divisions,
         }
+    }
+
+    /// Secondary constructor creating a planar face from a canonical cubic planetary face.
+    pub fn on_cube(face: CubeFace, color: Vec3, half_size: f32, divisions: u32) -> Self {
+        Self::new(
+            face.normal(),
+            face.tangent(),
+            face.bitangent(),
+            color,
+            half_size,
+            divisions,
+        )
     }
 }
 
