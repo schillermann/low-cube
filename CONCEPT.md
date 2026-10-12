@@ -12,11 +12,22 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 
 ## 2. World Structure & Physics
 
-### 2.1 Cubic Planetary Topology
-- **Dimensions**: Exactly $256 \times 256 \times 256$ blocks per cube world.
-- **Indestructible Planetary Core**: A dense, unbreakable central core at the heart of the cube prevents players from mining straight through the world and serves as the gravitational anchor.
+### 2.1 Cubic Planetary Topology & Variable Dimensions
+- **Variable World Dimensions**: Cube worlds vary in scale across the multiverse, ranging from Pocket Moonlets ($128 \times 128 \times 128$ blocks), Moons ($256^3$), and Dwarf Worlds ($512^3$), up to the Standard Terrestrial World ($1024 \times 1024 \times 1024$ blocks) designed for 50-player community civilizations, and rare super-dense Mega-Cubes ($2048^3$).
+- **The Hollow Core & 1-Block Indestructible Core Shell**:
+  - The deep interior of each planetary cube is **hollow** (*The Hollow Core*), drastically minimizing memory footprint by representing the massive inner abyss as empty void (0-byte null chunks).
+  - The boundary separating the minable geological crust from the hollow core is an **indestructible 1-block core shell** (*Bedrock Shell*).
+  - This impenetrable, single-block foundation layer prevents players from falling into the internal void, serves as the rigid gravitational anchor, and provides the unbreakable bedrock foundation for structural stability (Section 2.3).
 - **Face-Based Biomes**: Each of the 6 faces represents a distinct climate zone (e.g., Arctic, Desert, Temperate Forest, Volcanic, Jungle, Arid Steppe).
-- **World-Variable Gravity**: Different cube worlds possess unique gravity constants (e.g., low-gravity moon cubes with floaty jumps vs. super-dense high-gravity worlds).
+- **World-Variable Gravity & Scale-Derived Jump Dynamics**:
+  - Planetary surface gravity and vertical jump height scale dynamically with cube world size.
+  - The Standard Terrestrial World ($L_{\text{baseline}} = 1024^3$) defines the Earth baseline ($g = 9.81\,\text{m/s}^2$) with an authentic human vertical leap ($h \approx 0.5\,\text{m}$, $v_0 \approx 3.2\,\text{m/s}$) onto $50\,\text{cm}$ rock shelves (slabs).
+  - Jump height scales inversely with cube dimension ($h(L) = h_{\text{baseline}} \cdot \frac{L_{\text{baseline}}}{L}$):
+    - *Pocket Moonlets ($128^3$)*: Micro-gravity ($g \approx 1.23\,\text{m/s}^2$) with soaring floaty leaps ($h \approx 4.0\,\text{m}$).
+    - *Moons & Outposts ($256^3$)*: Low gravity ($g \approx 2.45\,\text{m/s}^2$) with high $2.0\,\text{m}$ leaps over wide chasms.
+    - *Dwarf Worlds ($512^3$)*: Half-gravity ($g \approx 4.90\,\text{m/s}^2$) permitting direct $1.0\,\text{m}$ jumps onto full blocks.
+    - *Standard Earth World ($1024^3$)*: Authentic Earth gravity ($g = 9.81\,\text{m/s}^2$) with realistic $0.5\,\text{m}$ jumps.
+    - *Mega-Worlds ($2048^3$)*: Heavy gravity ($g \approx 19.6\,\text{m/s}^2$) with restricted jump heights ($h \le 0.25\,\text{m}$), enforcing the construction of 90° rail networks, cable winches, and engineered ramp switchbacks.
 
 ### 2.2 Edge Gravity & 90° Seam Traversal
 - **Player & Camera Orientation**: Approaching and stepping over a cube edge smoothly reorients the player coordinate system and camera by 90° toward the new face's gravitational plane.
@@ -41,6 +52,13 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 - **Fire**: Spreads through combustible vegetation and wooden structures.
 - **Thermodynamics**: Lava meeting water solidifies into stone or obsidian.
 
+### 2.6 Micro-Topology & Multi-Form Voxel Shapes (Ramps, Wedges & Slabs)
+- **The Anti-Pogo Principle**: Natural terrain is not a jagged staircase of 1-meter cliffs. Low-Cube eliminates the need for constant, repetitive jump-spamming to navigate hills and mountains.
+- **Faceted Slopes & Wedges ($45^\circ$ Ramps)**: Climbable mountain flanks, ridges, sand dunes, and rail beds feature sloped blocks (Wedges) that avatars walk up smoothly and continuously without jumping.
+- **Rock Shelves & Half-Steps ($0.5\,\text{m}$ Slabs)**: Terraced ledges, foothills, and rock steps calibrate exactly to the realistic human jump height ($0.5\,\text{m}$), rewarding intentional pathfinding.
+- **Vertical Precipices ($1\,\text{m}$ Full Cubes)**: True cliffs and sheer rock faces represent genuine physical obstacles that require switchback paths, carving stairs, or structural ladders.
+- **Faceted Flat-Shaded Aesthetic**: Angled geometric facets catch directional sunlight, producing sharp, sculptural low-poly terrain contours.
+
 ---
 
 ## 3. Survival, Ecology & Combat
@@ -54,11 +72,12 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 ### 3.2 Diurnal Shift & Edge-Based Sun Mechanics
 - **Directional Sunlight**: A directional celestial light source illuminates the cube, causing 2–3 faces to experience daytime while opposite faces remain in darkness.
 - **Fleeing into Daylight**: Players on a night-shrouded face can physically escape nocturnal predators by traveling across a 90° edge onto a sunlit face.
-- **Creature Archetypes**:
+- **Creature Archetypes & Fauna**:
   - **Swimming**: Aquatic wildlife and deep-water predators.
   - **Crawling**: Burrowing insects, spiders, and subterranean creepers.
-  - **Walking**: Bipedal/quadrupedal wildlife, grazers, and nocturnal hunter beasts.
+  - **Walking & Mounts**: Bipedal/quadrupedal wildlife, grazers, nocturnal hunter beasts, and large domesticable beasts (pack quadrupeds, heavy horned striders, and desert saurians) that players can tame, harness, and ride.
   - **Flying**: Aerial predators and scavenger birds.
+- **Domestication & Taming**: Craftable saddles, reins, and feed allow players to domesticate large wild beasts, anchoring them at bases or utilizing them as active mounts.
 - **Spawn Suppression**: Torches, campfires, and placeable lamps emit light zones that actively suppress hostile creature spawns within their illumination radius.
 
 ### 3.3 Death & Respawn
@@ -87,6 +106,7 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 - **Locking & Permissions**: Doors integrate with player access controls to secure private bases and outposts against unauthorized access in multiplayer.
 
 ### 4.5 Transportation & Infrastructure
+- **Steerable Mounts & Beasts of Burden**: Players can craft saddles and bridles to mount and directly steer large domesticated beasts. Mounts provide biome-adapted cross-face mobility (effortlessly ascending $45^\circ$ mountain wedges, wading deep rivers), expanded mobile storage via saddlebags, and mounted combat capabilities. When ridden over 90° cube seams, mounts smoothly reorient into the adjacent face's gravitational plane.
 - **90° Rail Networks**: Placeable rails, switches, and minecarts/trains capable of traversing terrain, slopes, and bending over 90° cube edges. Enables seamless high-speed cargo and player transport across adjacent faces.
 - **Vehicles**: Craftable land vehicles (rovers) and aerial vehicles for cross-face exploration.
 
@@ -107,6 +127,6 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 
 ### 5.2 Server & Network Architecture
 - **Dedicated Client-Server**: Authoritative server for both dedicated multiplayer and local single-player loopback.
-- **Process Model**: One server process manages one $256^3$ cube world.
+- **Process Model**: One server process manages one cube world instance (ranging from $128^3$ moonlets to $1024^3$ terrestrial worlds, up to $2048^3$ mega-worlds).
 - **Ring Gate Handoff**: Stepping through a portal triggers an authoritative client transfer to the destination world's server instance during the tunnel animation.
 - **Capacity**: Up to 50 concurrent players per world instance.

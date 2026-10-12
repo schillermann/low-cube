@@ -1,10 +1,14 @@
 mod app;
 mod avatar;
 mod controls;
+mod flight;
 mod launch;
 mod orientation;
 mod session;
 mod surface;
+
+#[cfg(test)]
+mod tests;
 
 use winit::event_loop::{ControlFlow, EventLoop};
 use app::LowCubeApp;
@@ -15,7 +19,7 @@ fn main() {
     event_loop.set_control_flow(ControlFlow::Poll);
 
     let launch = SessionLaunch::configured(
-        "Low-Cube [WASD: Move, Mouse: Look, I: Invert Y, O: Invert X, Esc: Exit]",
+        "Low-Cube [WASD: Move, Space: Jump, Mouse: Look, I: Invert Y, O: Invert X, Esc: Exit]",
         1280.0,
         720.0,
         16,

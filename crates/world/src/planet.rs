@@ -1,5 +1,7 @@
 use glam::Vec3;
-use crate::{Face, GravityField, MeshTarget, PlanarFace, PlanetaryWorld};
+use crate::{
+    Face, GravityField, MeshTarget, PlanarFace, PlanetaryWorld, ReliefFace, RidgeElevation,
+};
 
 /// Null Object pattern implementation for Face.
 pub struct NullFace;
@@ -83,14 +85,15 @@ impl BiomedCubeWorld {
     pub fn of_size(size_blocks: u32) -> Self {
         let half = (size_blocks as f32) * 0.5;
         let faces: Vec<Box<dyn Face>> = vec![
-            // Top (+Y): Temperate Green
-            Box::new(PlanarFace::new(
+            // Top (+Y): Temperate Green with Climbable Alpine Ridge
+            Box::new(ReliefFace::new(
                 Vec3::Y,
                 Vec3::X,
                 Vec3::Z,
                 Vec3::new(0.28, 0.65, 0.25),
                 half,
                 size_blocks,
+                Box::new(RidgeElevation::alpine(0.0, 4.0)),
             )),
             // Bottom (-Y): Volcanic Dark Red
             Box::new(PlanarFace::new(

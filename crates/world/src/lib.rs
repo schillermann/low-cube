@@ -2,12 +2,14 @@ use glam::Vec3;
 
 mod face;
 mod planet;
+mod relief;
 
 #[cfg(test)]
 mod tests;
 
 pub use face::PlanarFace;
 pub use planet::{BiomedCubeWorld, CubePlanet, NullFace};
+pub use relief::{ReliefFace, RidgeElevation, TerrainElevation};
 
 /// Encapsulated geometric quad entity with vertices, normal, and surface color.
 #[derive(Clone, Copy, Debug)]

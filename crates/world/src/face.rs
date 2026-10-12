@@ -54,8 +54,8 @@ impl Face for PlanarFace {
     }
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
-        let u = point.dot(self.tangent).clamp(-self.half_size, self.half_size);
-        let v = point.dot(self.bitangent).clamp(-self.half_size, self.half_size);
+        let u = point.dot(self.tangent);
+        let v = point.dot(self.bitangent);
         let h = self.half_size + distance;
 
         self.normal * h + self.tangent * u + self.bitangent * v

@@ -1,6 +1,7 @@
 use glam::{Mat4, Quat, Vec3};
 use world::PlanetaryWorld;
-use crate::controls::KeyboardControls;
+use crate::controls::{KeyboardControls, LocomotionTarget};
+use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::orientation::{MouseLook, ViewOrientation};
 
 /// Interface for player avatars acting within planetary gravity.
@@ -68,9 +69,12 @@ impl OrientationBasis {
         Self::new(forward, right, up)
     }
 
-    fn resolve_tangent_motion(&self, controls: &dyn KeyboardControls) -> Vec3 {
-        let raw_move = controls.resolve_motion(self.forward, self.right);
-        raw_move - self.up * raw_move.dot(self.up)
+    fn drive_locomotion(
+        &self,
+        controls: &dyn KeyboardControls,
+        target: &mut dyn LocomotionTarget,
+    ) {
+        controls.drive_locomotion(self.forward, self.right, target);
     }
 
     fn view_matrix_at(&self, position: Vec3, eye_height: f32) -> Mat4 {
@@ -80,12 +84,13 @@ impl OrientationBasis {
     }
 }
 
-/// Fully encapsulated player entity composed of position, gravity alignment, ViewOrientation, and PerspectiveLens.
+/// Fully encapsulated player entity composed of position, gravity alignment, ViewOrientation, PerspectiveLens, and GravitationalFlight.
 pub struct PlanetaryAvatar {
     position: Vec3,
     surface_up: Vec3,
     look: Box<dyn ViewOrientation>,
     lens: PerspectiveLens,
+    flight: Box<dyn GravitationalFlight>,
 }
 
 impl PlanetaryAvatar {
@@ -95,12 +100,14 @@ impl PlanetaryAvatar {
         surface_up: Vec3,
         look: Box<dyn ViewOrientation>,
         lens: PerspectiveLens,
+        flight: Box<dyn GravitationalFlight>,
     ) -> Self {
         Self {
             position,
             surface_up,
             look,
             lens,
+            flight,
         }
     }
 
@@ -111,7 +118,29 @@ impl PlanetaryAvatar {
             Vec3::Y,
             Box::new(MouseLook::idle()),
             PerspectiveLens::human_eye(),
+            Box::new(SurfaceFlight::terrestrial(1.0)),
         )
+    }
+
+    fn reorient_surface(&mut self, target_up: Vec3) {
+        let rot_to_target = Quat::from_rotation_arc(self.surface_up, target_up);
+        self.surface_up = rot_to_target.slerp(Quat::IDENTITY, 0.85) * self.surface_up;
+        if self.surface_up.dot(target_up) > 0.999 {
+            self.surface_up = target_up;
+        }
+    }
+}
+
+impl LocomotionTarget for PlanetaryAvatar {
+    fn travel(&mut self, direction: Vec3) {
+        let tangent = direction - self.surface_up * direction.dot(self.surface_up);
+        if tangent.length_squared() > 1e-4 {
+            self.position += tangent.normalize() * (6.0 * (1.0 / 60.0));
+        }
+    }
+
+    fn jump(&mut self) {
+        self.flight.jump();
     }
 }
 
@@ -129,21 +158,12 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
-        let target_up = world.surface_up_at(self.position);
-
-        let rot_to_target = Quat::from_rotation_arc(self.surface_up, target_up);
-        self.surface_up = rot_to_target.slerp(Quat::IDENTITY, 0.85) * self.surface_up;
-        if self.surface_up.dot(target_up) > 0.999 {
-            self.surface_up = target_up;
-        }
+        self.reorient_surface(world.surface_up_at(self.position));
 
         let basis = OrientationBasis::aligned(self.surface_up, self.look.as_ref());
-        let tangent_move = basis.resolve_tangent_motion(controls);
-        if tangent_move.length_squared() > 1e-4 {
-            self.position += tangent_move.normalize() * (6.0 * dt);
-        }
+        basis.drive_locomotion(controls, self);
 
-        self.position = world.constrain_to_surface(self.position, 1.0);
+        self.position = self.flight.advance(dt, self.position, self.surface_up, world);
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
