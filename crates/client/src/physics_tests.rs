@@ -20,7 +20,7 @@ fn evaluate_leap(physics: &dyn PlanetaryPhysics) -> f32 {
     for _ in 0..5 {
         pos = flight.advance(1.0 / 60.0, pos, stride, &WalkGait::upright(), Vec3::Y, &world);
     }
-    for _ in 0..60 {
+    for _ in 0..120 {
         pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, &world);
     }
     pos.y
@@ -33,20 +33,20 @@ fn test_earth_physics_clears_half_meter_shelf() {
 }
 
 #[test]
-fn test_low_jump_height_fails_to_clear_shelf() {
-    let final_y = evaluate_leap(&TunedPhysics::new(0.2, 9.81));
+fn test_heavy_gravity_fails_to_clear_shelf() {
+    let final_y = evaluate_leap(&TunedPhysics::new(35.0));
     assert_eq!(final_y, 9.0);
 }
 
 #[test]
-fn test_high_jump_height_clears_shelf() {
-    let final_y = evaluate_leap(&TunedPhysics::new(1.0, 9.81));
+fn test_low_gravity_clears_shelf() {
+    let final_y = evaluate_leap(&TunedPhysics::new(5.0));
     assert_eq!(final_y, 9.5);
 }
 
 #[test]
 fn test_argument_physics_parses_separate_value() {
-    let args = vec!["--jump-height".to_string(), "0.2".to_string()];
+    let args = vec!["--gravity".to_string(), "35".to_string()];
     let physics = ArgumentPhysics::new(args, Box::new(EarthPhysics::new()));
     let final_y = evaluate_leap(&physics);
     assert_eq!(final_y, 9.0);
@@ -54,7 +54,7 @@ fn test_argument_physics_parses_separate_value() {
 
 #[test]
 fn test_argument_physics_parses_inline_value() {
-    let args = vec!["--jump-height=0.2".to_string()];
+    let args = vec!["--gravity=35".to_string()];
     let physics = ArgumentPhysics::new(args, Box::new(EarthPhysics::new()));
     let final_y = evaluate_leap(&physics);
     assert_eq!(final_y, 9.0);
@@ -77,10 +77,10 @@ fn test_environment_physics_fallback_when_vars_unset() {
 
 #[test]
 fn test_file_physics_reads_custom_configuration() {
-    let temp_path = std::env::temp_dir().join("test_server_jump_elegant.toml");
+    let temp_path = std::env::temp_dir().join("test_server_gravity_elegant.toml");
     fs::write(
         &temp_path,
-        "# Test config\n[physics]\njump_height = 0.2\ngravity = 9.81\n",
+        "# Test config\n[physics]\ngravity = 35\n",
     )
     .expect("Failed to write temporary test config");
 

@@ -1,9 +1,11 @@
 # Low-Cube Server Configuration
 
 [physics]
-# Configurable vertical jump height in meters (default: 0.522m for authentic Earth human leap onto 50cm slabs).
-# Jump height is decoupled from world-cube dimensions.
-jump_height = 0.522
+# Planetary gravity (default: 10 for Earth gravity).
+# Jump height derives automatically from gravity:
+# - gravity = 10 : Standard Earth gravity (jump height ~0.5m, clears 50cm slabs)
+# - gravity = 5  : Low gravity (jump height ~1.0m, clears full 1-meter blocks)
+# - gravity = 2  : Moon gravity (jump height ~2.5m, long floaty leaps)
+# - gravity = 20 : High gravity (jump height ~0.25m, heavy steps)
+gravity = 10
 
-# Planetary gravity acceleration in m/s^2 (default: 9.81 m/s^2 for authentic Earth gravitation).
-gravity = 9.81

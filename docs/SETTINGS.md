@@ -1,18 +1,20 @@
 # Server & Game Settings Guide
 
-This guide explains how players and server operators can customize world physics and gameplay settings for **Low-Cube**.
+This guide explains how players and server operators can customize world physics and server settings for **Low-Cube**.
 
 ---
 
 ## 1. Overview
 
-In *Low-Cube*, jump height and gravitational acceleration are **completely decoupled from the planetary world-cube dimensions**. Whether running a compact $128^3$ outpost or a massive $1024^3$ terrestrial world, players can customize their movement physics.
+In *Low-Cube*, world physics is kept deliberately simple and intuitive: **only planetary `gravity` is configured**.
 
-By default, every server runs with **Earth Gravity**:
-- **Gravity**: $9.81\,\text{m/s}^2$
-- **Jump Height**: $0.522\,\text{m}$ (initial vertical leap $v_0 \approx 3.20\,\text{m/s}$)
+Players and server operators never need to solve math problems or calculate decimal numbers. The player's jump height is automatically and naturally derived from the world's gravity:
+- **Constant Jump Impulse**: The human character always exerts the same muscular jump impulse.
+- **Natural Scaling**: Lower gravity automatically lets players leap higher and stay airborne longer; higher gravity pulls players down quickly with short, heavy hops.
 
-This default allows players to climb natural $50\,\text{cm}$ rock shelves and slabs without being able to leap directly over vertical 1-meter stone cliffs.
+By default, every server runs with **Earth Gravity (`10`)**:
+- Allows vaulting onto natural $50\,\text{cm}$ rock shelves and slabs.
+- Full 1-meter cliffs require constructed steps, ramps, or lower gravity.
 
 ---
 
@@ -23,14 +25,12 @@ Place a `server.toml` file in the same directory as the game executable (`low-cu
 ### Example `server.toml`
 
 ```toml
-# Low-Cube Server & World Settings
+# Low-Cube Server Configuration
 
 [physics]
-# Peak vertical jump height in meters (default: 0.522)
-jump_height = 0.522
-
-# Planetary gravitational acceleration in m/s^2 (default: 9.81)
-gravity = 9.81
+# Planetary gravity (default: 10 for Earth gravity)
+# Lower values increase jump height; higher values reduce jump height.
+gravity = 10
 ```
 
 ---
@@ -43,54 +43,53 @@ Settings can also be adjusted via command-line flags or environment variables wi
 1. **Command-Line Arguments** (highest priority)
 2. **Environment Variables**
 3. **`server.toml` Configuration File**
-4. **Earth Gravity Defaults** (lowest priority fallback)
+4. **Earth Gravity Baseline (`10`)** (fallback)
 
 ### Command-Line Arguments
-Pass flags when launching the game or server executable:
+Pass the `--gravity` flag when launching the executable:
 
 - **Linux**:
   ```bash
-  # Custom jump height (1.0 meter)
-  ./low-cube-linux --jump-height 1.0
+  # Standard Earth gravity
+  ./low-cube-linux --gravity 10
 
-  # Custom jump height and custom gravity
-  ./low-cube-linux --jump-height 1.5 --gravity 9.81
+  # Low gravity world (high jumps onto 1m blocks)
+  ./low-cube-linux --gravity 5
   ```
 
 - **Windows**:
   ```powershell
-  # Custom jump height (1.0 meter)
-  .\low-cube-windows.exe --jump-height 1.0
+  # Standard Earth gravity
+  .\low-cube-windows.exe --gravity 10
 
-  # Custom jump height and custom gravity
-  .\low-cube-windows.exe --jump-height 1.5 --gravity 9.81
+  # Low gravity world (high jumps onto 1m blocks)
+  .\low-cube-windows.exe --gravity 5
   ```
 
 ### Environment Variables
-Set environment variables before starting the executable:
+Set the `LOW_CUBE_GRAVITY` environment variable before starting the executable:
 
 - **Linux**:
   ```bash
-  LOW_CUBE_JUMP_HEIGHT=1.0 LOW_CUBE_GRAVITY=9.81 ./low-cube-linux
+  LOW_CUBE_GRAVITY=5 ./low-cube-linux
   ```
 
 - **Windows (PowerShell)**:
   ```powershell
-  $env:LOW_CUBE_JUMP_HEIGHT = "1.0"
-  $env:LOW_CUBE_GRAVITY = "9.81"
+  $env:LOW_CUBE_GRAVITY = "5"
   .\low-cube-windows.exe
   ```
 
 ---
 
-## 4. Popular Gameplay Presets
+## 4. Planetary Presets
 
-Here are recommended configuration values for different play styles:
+No decimals required—simply pick an integer that matches your desired world experience:
 
-| Preset | `jump_height` | `gravity` | Description |
+| Preset | `gravity` | Derived Jump Height | Description |
 |---|---|---|---|
-| **Earth Baseline (Default)** | `0.522` | `9.81` | Authentic human leap; clears 50cm slabs, requires ramps for 1m cliffs. |
-| **High Mobility** | `1.0` | `9.81` | Direct jumps onto full 1-meter blocks without requiring slabs or ramps. |
-| **Lunar Low-Gravity** | `2.5` | `1.62` | Floaty, high-altitude jumps suitable for moonlet exploration. |
-| **Hardcore Realism** | `0.35` | `9.81` | Restricted jump clearance; demands switchbacks and constructed ladders. |
-| **Super-Jump Parkour** | `4.0` | `9.81` | Leaping across wide ravines and chasms. |
+| **Earth Standard (Default)** | `10` | $\approx 0.5\,\text{m}$ | Authentic human leap; clears 50cm slabs, requires ramps for 1m cliffs. |
+| **High Mobility** | `5` | $\approx 1.0\,\text{m}$ | Direct leaps onto full 1-meter blocks without requiring ramps. |
+| **Lunar Low-G** | `2` | $\approx 2.5\,\text{m}$ | High, floaty jumps suitable for crater and canyon exploration. |
+| **Asteroid / Microgravity** | `1` | $\approx 5.0\,\text{m}$ | Extreme low gravity; soaring leaps into the sky. |
+| **Heavy World** | `20` | $\approx 0.25\,\text{m}$ | Heavy steps; climbing even low ledges demands stairs and ladders. |

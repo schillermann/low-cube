@@ -8,7 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
-## [0.7.0] - 2026-10-12
+## [0.8.0] - 2026-10-12
+
+### Changed
+- Simplified server physics configuration to a single intuitive `gravity` parameter using clean whole integers without decimals.
+- Derived avatar jump height dynamically and naturally from planetary gravity ($h = \frac{5.12}{g}$), preserving constant human leap muscle impulse.
+- Replaced verbose Server & World Configuration section in `README.md` with direct link to the dedicated settings guide.
+- Streamlined Windows pre-built binary launch instructions in `README.md` to direct double-clicking.
+- Rewrote `docs/SETTINGS.md` into a dedicated settings guide featuring integer planetary presets (`10`, `5`, `2`, `1`, `20`), configuration template, and precedence order.
+- Updated `FilePhysics`, `ArgumentPhysics`, and `EnvironmentPhysics` to parse only `gravity` and eliminate redundant `jump_height` parameters.
+- Updated `CONCEPT.md` and `server.toml` to align with the single-parameter integer gravity model.
 
 ### Added
 - Decoupled planetary jump height and gravity from world-cube dimensions across all world scales.

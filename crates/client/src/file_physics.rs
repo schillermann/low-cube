@@ -34,23 +34,16 @@ impl FilePhysics {
             })
     }
 
-    fn read_values(&self) -> Option<(f32, f32)> {
+    fn read_gravity(&self) -> Option<f32> {
         let content = fs::read_to_string(&self.path).ok()?;
-        let jump = Self::property_in_text(&content, "jump_height");
-        let gravity = Self::property_in_text(&content, "gravity");
-
-        if jump.is_some() || gravity.is_some() {
-            Some((jump.unwrap_or(0.522), gravity.unwrap_or(9.81)))
-        } else {
-            None
-        }
+        Self::property_in_text(&content, "gravity")
     }
 }
 
 impl PlanetaryPhysics for FilePhysics {
     fn surface_flight(&self, eye_height: f32) -> Box<dyn GravitationalFlight> {
-        if let Some((height, grav)) = self.read_values() {
-            TunedPhysics::new(height, grav).surface_flight(eye_height)
+        if let Some(grav) = self.read_gravity() {
+            TunedPhysics::new(grav).surface_flight(eye_height)
         } else {
             self.fallback.surface_flight(eye_height)
         }

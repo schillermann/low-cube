@@ -35,13 +35,8 @@ impl ArgumentPhysics {
 
 impl PlanetaryPhysics for ArgumentPhysics {
     fn surface_flight(&self, eye_height: f32) -> Box<dyn GravitationalFlight> {
-        let jump = self.value_of("--jump-height");
-        let gravity = self.value_of("--gravity");
-
-        if jump.is_some() || gravity.is_some() {
-            let height = jump.unwrap_or(0.522);
-            let grav = gravity.unwrap_or(9.81);
-            TunedPhysics::new(height, grav).surface_flight(eye_height)
+        if let Some(gravity) = self.value_of("--gravity") {
+            TunedPhysics::new(gravity).surface_flight(eye_height)
         } else {
             self.fallback.surface_flight(eye_height)
         }

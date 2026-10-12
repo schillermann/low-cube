@@ -124,15 +124,14 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 - **Dedicated Client-Server**: Authoritative server for both dedicated multiplayer and local single-player loopback.
 - **Process Model**: One server process manages one cube world instance (ranging from $128^3$ moonlets to $1024^3$ terrestrial worlds, up to $2048^3$ mega-worlds).
 - **Capacity**: Up to 50 concurrent players per world instance.
-- **Server Physics & Jump Configuration**:
+- **Server Physics & Gravity Configuration**:
   - The dedicated server authoritatively governs player flight kinematics and trajectory physics.
-  - Server operators configure jump height and gravity via `server.toml` (in the server working directory):
+  - Server operators configure planetary gravity via `server.toml` (in the server working directory):
     ```toml
     [physics]
-    # Vertical jump height in meters (default: 0.522m for human leap onto rock slabs)
-    jump_height = 0.522
-    # Planetary gravity acceleration in m/s^2 (default: 9.81 m/s^2 for Earth gravitation)
-    gravity = 9.81
+    # Planetary gravity (default: 10 for standard Earth gravity)
+    # Jump height derives automatically from gravity (lower gravity -> higher jumps)
+    gravity = 10
     ```
-  - Options can also be overridden via command-line flags (`--jump-height <METERS>`, `--gravity <M/S2>`) or environment variables (`LOW_CUBE_JUMP_HEIGHT`, `LOW_CUBE_GRAVITY`). See the [Server & Game Settings Guide](docs/SETTINGS.md) for full configuration details and gameplay presets.
+  - Options can also be overridden via command-line flags (`--gravity <INTEGER>`) or environment variables (`LOW_CUBE_GRAVITY`). See the [Server & Game Settings Guide](docs/SETTINGS.md) for full configuration details and planetary presets.
 
