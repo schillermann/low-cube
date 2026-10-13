@@ -18,15 +18,15 @@ impl CentripetalWorld {
         }
     }
 
-    /// Evaluates blending weight based on elevation above the cubic planetary half-size.
+    /// Evaluates blending weight based on elevation above the cubic planetary surface.
     fn blend_weight(&self, position: Vec3) -> f32 {
-        let radial_dist = position.length();
-        let surface_radius = self.half_size;
-        let altitude = radial_dist - surface_radius;
-        if altitude <= 0.0 {
+        let cube_dist = position.x.abs().max(position.y.abs()).max(position.z.abs());
+        let altitude = cube_dist - self.half_size;
+        let elevated = altitude - 1.0;
+        if elevated <= 0.0 {
             0.0
         } else {
-            let t = (altitude / self.blend_margin).clamp(0.0, 1.0);
+            let t = (elevated / self.blend_margin).clamp(0.0, 1.0);
             t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
         }
     }

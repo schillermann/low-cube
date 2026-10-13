@@ -4,39 +4,83 @@ use crate::controls::LocomotionTarget;
 use crate::flight::GravitationalFlight;
 use crate::gait::{LocomotionGait, SneakGait, SprintGait, WalkGait};
 use crate::lens::PerspectiveLens;
+use crate::phase::{FlightContext, FlightProgress};
 use crate::posture::AvatarPosture;
+use crate::threshold::StepThreshold;
 
 /// Polymorphic intention to initiate vertical leap flight.
-pub trait LeapIntent: Send + Sync {
-    fn apply(&self, flight: &mut dyn GravitationalFlight);
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LeapIntent {
+    Resting,
+    Active,
 }
 
-/// Inactive leap state maintaining current flight phase.
-pub struct RestingLeap;
-
-impl LeapIntent for RestingLeap {
-    fn apply(&self, _flight: &mut dyn GravitationalFlight) {}
+impl LeapIntent {
+    pub fn apply(&self, flight: &mut dyn GravitationalFlight) {
+        match self {
+            Self::Resting => {}
+            Self::Active => flight.jump(),
+        }
+    }
 }
 
-/// Active leap command triggering instantaneous upward leap impulse.
-pub struct ActiveLeap;
+/// Active locomotion gait mode selecting between walking, sneaking, and sprinting.
+#[derive(Clone, Copy, Debug)]
+pub enum ActiveGait {
+    Walk(WalkGait),
+    Sneak(SneakGait),
+    Sprint(SprintGait),
+}
 
-impl LeapIntent for ActiveLeap {
-    fn apply(&self, flight: &mut dyn GravitationalFlight) {
-        flight.jump();
+impl LocomotionGait for ActiveGait {
+    fn pace_distance(&self, distance: f32) -> f32 {
+        match self {
+            Self::Walk(g) => g.pace_distance(distance),
+            Self::Sneak(g) => g.pace_distance(distance),
+            Self::Sprint(g) => g.pace_distance(distance),
+        }
+    }
+
+    fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {
+        match self {
+            Self::Walk(g) => g.shape_posture(posture, dt),
+            Self::Sneak(g) => g.shape_posture(posture, dt),
+            Self::Sprint(g) => g.shape_posture(posture, dt),
+        }
+    }
+
+    fn shape_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens {
+        match self {
+            Self::Walk(g) => g.shape_lens(lens, dt),
+            Self::Sneak(g) => g.shape_lens(lens, dt),
+            Self::Sprint(g) => g.shape_lens(lens, dt),
+        }
+    }
+
+    fn resolve_precipice(
+        &self,
+        ctx: &FlightContext,
+        threshold: StepThreshold,
+        horizontal: Vec3,
+    ) -> FlightProgress {
+        match self {
+            Self::Walk(g) => g.resolve_precipice(ctx, threshold, horizontal),
+            Self::Sneak(g) => g.resolve_precipice(ctx, threshold, horizontal),
+            Self::Sprint(g) => g.resolve_precipice(ctx, threshold, horizontal),
+        }
     }
 }
 
 /// Encapsulated navigational order commanded by input controls for a single simulation step.
 pub struct LocomotionOrder {
     direction: Vec3,
-    leap: Box<dyn LeapIntent>,
-    gait: Box<dyn LocomotionGait>,
+    leap: LeapIntent,
+    gait: ActiveGait,
 }
 
 impl LocomotionOrder {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(direction: Vec3, leap: Box<dyn LeapIntent>, gait: Box<dyn LocomotionGait>) -> Self {
+    pub fn new(direction: Vec3, leap: LeapIntent, gait: ActiveGait) -> Self {
         Self {
             direction,
             leap,
@@ -46,7 +90,7 @@ impl LocomotionOrder {
 
     /// Secondary constructor initializing with idle state and walking gait.
     pub fn idle() -> Self {
-        Self::new(Vec3::ZERO, Box::new(RestingLeap), Box::new(WalkGait::upright()))
+        Self::new(Vec3::ZERO, LeapIntent::Resting, ActiveGait::Walk(WalkGait::upright()))
     }
 
     /// Computes the horizontal stride aligned with a surface normal for a given distance scaled by gait pace.
@@ -86,7 +130,7 @@ impl LocomotionOrder {
         world: &dyn PlanetaryWorld,
     ) -> Vec3 {
         let stride = self.surface_stride(surface_up, base_speed * dt);
-        flight.advance(dt, position, stride, self.gait.as_ref(), surface_up, world)
+        flight.advance(dt, position, stride, &self.gait, surface_up, world)
     }
 }
 
@@ -96,14 +140,14 @@ impl LocomotionTarget for LocomotionOrder {
     }
 
     fn jump(&mut self) {
-        self.leap = Box::new(ActiveLeap);
+        self.leap = LeapIntent::Active;
     }
 
     fn sneak(&mut self) {
-        self.gait = Box::new(SneakGait::crouching());
+        self.gait = ActiveGait::Sneak(SneakGait::crouching());
     }
 
     fn sprint(&mut self) {
-        self.gait = Box::new(SprintGait::swift());
+        self.gait = ActiveGait::Sprint(SprintGait::swift());
     }
 }

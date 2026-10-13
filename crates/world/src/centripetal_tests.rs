@@ -6,10 +6,16 @@ fn test_centripetal_world_delegates_to_surface_at_ground_level() {
     let base = Box::new(BiomedCubeWorld::of_size(16));
     let centripetal = CentripetalWorld::new(base, 8.0, 10.0);
 
-    // On top face (+Y) at ground level (Y = 8.0)
+    // On top face (+Y) at ground level (Y = 8.0), including near edges and corners
     let ground_pos = Vec3::new(0.0, 8.0, 0.0);
     assert_eq!(centripetal.surface_up_at(ground_pos), Vec3::Y);
     assert_eq!(centripetal.pull_direction_at(ground_pos), Vec3::NEG_Y);
+
+    let near_edge = Vec3::new(7.9, 8.0, 0.0);
+    assert_eq!(centripetal.surface_up_at(near_edge), Vec3::Y);
+
+    let near_corner = Vec3::new(7.9, 8.0, 7.9);
+    assert_eq!(centripetal.surface_up_at(near_corner), Vec3::Y);
 }
 
 #[test]

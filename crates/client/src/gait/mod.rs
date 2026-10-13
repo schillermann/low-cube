@@ -1,12 +1,8 @@
 use glam::Vec3;
 use crate::lens::PerspectiveLens;
-use crate::phase::{AirborneFlight, FlightContext, FlightProgress};
+use crate::phase::{AirborneFlight, FlightContext, FlightPhase, FlightProgress, GroundedFlight};
 use crate::posture::AvatarPosture;
 use crate::threshold::StepThreshold;
-
-mod decorator;
-
-pub use decorator::{CliffGuardedGait, CrouchingGait, DynamicLensGait, PacedGait};
 
 /// Locomotion gait determining pacing scale, posture shaping, and precipice crossing behavior.
 pub trait LocomotionGait: Send + Sync {
@@ -22,6 +18,7 @@ pub trait LocomotionGait: Send + Sync {
 }
 
 /// Upright walking gait moving at standard pace and stepping off ledges into free flight.
+#[derive(Clone, Copy, Debug)]
 pub struct WalkGait {
     elevation: f32,
     fov_radians: f32,
@@ -56,81 +53,97 @@ impl LocomotionGait for WalkGait {
         threshold: StepThreshold,
         horizontal: Vec3,
     ) -> FlightProgress {
-        FlightProgress::new(Box::new(AirborneFlight::new(0.0, threshold)), horizontal)
+        FlightProgress::new(FlightPhase::Airborne(AirborneFlight::new(0.0, threshold)), horizontal)
     }
 }
 
-/// Careful sneaking gait composed of cliff-guard, crouched posture, and reduced pacing decorators.
+/// Careful sneaking gait composed of cliff-guard, crouched posture, and reduced pacing.
+#[derive(Clone, Copy, Debug)]
 pub struct SneakGait {
-    decorated: CliffGuardedGait,
+    pace_factor: f32,
+    elevation: f32,
+    fov_radians: f32,
 }
 
 impl SneakGait {
-    pub fn new(decorated: CliffGuardedGait) -> Self {
-        Self { decorated }
+    pub fn new(pace_factor: f32, elevation: f32, fov_radians: f32) -> Self {
+        Self {
+            pace_factor,
+            elevation,
+            fov_radians,
+        }
     }
 
     pub fn crouching() -> Self {
-        Self::new(CliffGuardedGait::new(Box::new(CrouchingGait::new(
-            Box::new(PacedGait::new(Box::new(WalkGait::upright()), 0.35)),
-            0.45,
-        ))))
+        Self::new(0.35, 0.45, 65.0f32.to_radians())
     }
 }
 
 impl LocomotionGait for SneakGait {
     fn pace_distance(&self, distance: f32) -> f32 {
-        self.decorated.pace_distance(distance)
+        distance * self.pace_factor
     }
 
     fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {
-        self.decorated.shape_posture(posture, dt)
+        posture.transition_to(self.elevation, dt)
     }
 
     fn shape_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens {
-        self.decorated.shape_lens(lens, dt)
+        lens.transition_to(self.fov_radians, dt)
     }
 
-    fn resolve_precipice(&self, ctx: &FlightContext, threshold: StepThreshold, horizontal: Vec3) -> FlightProgress {
-        self.decorated.resolve_precipice(ctx, threshold, horizontal)
+    fn resolve_precipice(
+        &self,
+        ctx: &FlightContext,
+        threshold: StepThreshold,
+        _horizontal: Vec3,
+    ) -> FlightProgress {
+        let arrested = ctx.resolve_ground_stride(threshold);
+        FlightProgress::new(FlightPhase::Grounded(GroundedFlight::new(threshold)), arrested)
     }
 }
 
-/// High-speed sprinting gait composed of dynamic lens expansion and accelerated pacing decorators.
+/// High-speed sprinting gait composed of dynamic lens expansion and accelerated pacing.
+#[derive(Clone, Copy, Debug)]
 pub struct SprintGait {
-    decorated: PacedGait,
+    pace_factor: f32,
+    elevation: f32,
+    fov_radians: f32,
 }
 
 impl SprintGait {
-    pub fn new(decorated: PacedGait) -> Self {
-        Self { decorated }
+    pub fn new(pace_factor: f32, elevation: f32, fov_radians: f32) -> Self {
+        Self {
+            pace_factor,
+            elevation,
+            fov_radians,
+        }
     }
 
     pub fn swift() -> Self {
-        Self::new(PacedGait::new(
-            Box::new(DynamicLensGait::new(
-                Box::new(WalkGait::upright()),
-                78.0f32.to_radians(),
-            )),
-            1.6,
-        ))
+        Self::new(1.6, 0.8, 78.0f32.to_radians())
     }
 }
 
 impl LocomotionGait for SprintGait {
     fn pace_distance(&self, distance: f32) -> f32 {
-        self.decorated.pace_distance(distance)
+        distance * self.pace_factor
     }
 
     fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {
-        self.decorated.shape_posture(posture, dt)
+        posture.transition_to(self.elevation, dt)
     }
 
     fn shape_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens {
-        self.decorated.shape_lens(lens, dt)
+        lens.transition_to(self.fov_radians, dt)
     }
 
-    fn resolve_precipice(&self, ctx: &FlightContext, threshold: StepThreshold, horizontal: Vec3) -> FlightProgress {
-        self.decorated.resolve_precipice(ctx, threshold, horizontal)
+    fn resolve_precipice(
+        &self,
+        _ctx: &FlightContext,
+        threshold: StepThreshold,
+        horizontal: Vec3,
+    ) -> FlightProgress {
+        FlightProgress::new(FlightPhase::Airborne(AirborneFlight::new(0.0, threshold)), horizontal)
     }
 }

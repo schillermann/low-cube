@@ -24,6 +24,7 @@ pub trait Avatar {
 pub struct PlanetaryAvatar {
     position: Vec3,
     surface_rot: Quat,
+    camera_rot: Quat,
     look: InvertibleLook,
     lens: PerspectiveLens,
     flight: Box<dyn GravitationalFlight>,
@@ -36,6 +37,7 @@ impl PlanetaryAvatar {
     pub fn new(
         position: Vec3,
         surface_rot: Quat,
+        camera_rot: Quat,
         look: InvertibleLook,
         lens: PerspectiveLens,
         flight: Box<dyn GravitationalFlight>,
@@ -45,6 +47,7 @@ impl PlanetaryAvatar {
         Self {
             position,
             surface_rot,
+            camera_rot,
             look,
             lens,
             flight,
@@ -57,6 +60,7 @@ impl PlanetaryAvatar {
     pub fn with_flight(initial_position: Vec3, flight: Box<dyn GravitationalFlight>) -> Self {
         Self::new(
             initial_position,
+            Quat::IDENTITY,
             Quat::IDENTITY,
             InvertibleLook::direct(Box::new(SensitivityLook::calibrated(Box::new(MouseLook::idle())))),
             PerspectiveLens::human_eye(),
@@ -78,13 +82,27 @@ impl PlanetaryAvatar {
 
     fn reorient_surface(&mut self, target_up: Vec3, dt: f32) {
         let current_up = self.surface_up();
-        if current_up.dot(target_up) > 0.9999 {
+        let dot = current_up.dot(target_up);
+        if dot <= 0.9999 {
+            let rot_to_target = Quat::from_rotation_arc(current_up, target_up);
+            let step_rot = if dot < 0.7 {
+                rot_to_target
+            } else {
+                let factor = 1.0 - (-8.0 * dt).exp();
+                Quat::IDENTITY.slerp(rot_to_target, factor)
+            };
+            self.surface_rot = (step_rot * self.surface_rot).normalize();
+        }
+        self.converge_camera(dt);
+    }
+
+    fn converge_camera(&mut self, dt: f32) {
+        if self.camera_rot.dot(self.surface_rot).abs() > 0.9999 {
+            self.camera_rot = self.surface_rot;
             return;
         }
-        let rot_to_target = Quat::from_rotation_arc(current_up, target_up);
-        let factor = 1.0 - (-1.5 * dt).exp();
-        let step_rot = Quat::IDENTITY.slerp(rot_to_target, factor);
-        self.surface_rot = (step_rot * self.surface_rot).normalize();
+        let factor = 1.0 - (-4.0 * dt).exp();
+        self.camera_rot = self.camera_rot.slerp(self.surface_rot, factor).normalize();
     }
 }
 
@@ -103,22 +121,22 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
-        self.reorient_surface(world.surface_up_at(self.position), dt);
+        let terrain_up = world.surface_up_at(self.position);
+        self.reorient_surface(terrain_up, dt);
 
         let mut order = LocomotionOrder::idle();
         let heading = SurfaceHeading::aligned(self.surface_rot, &self.look);
         heading.drive_locomotion(controls, &mut order);
 
-        let surface_up = self.surface_up();
         order.dispatch_jump(&mut *self.flight);
         self.posture = order.advance_posture(self.posture, dt);
         self.lens = order.advance_lens(self.lens, dt);
         self.tilt_radians *= 1.0 - (8.0 * dt).min(1.0);
-        self.position = order.advance_flight(&mut *self.flight, dt, self.position, surface_up, 6.0, world);
+        self.position = order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, 6.0, world);
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
-        let horizon = CameraHorizon::aligned(self.surface_rot, &self.look);
+        let horizon = CameraHorizon::aligned(self.camera_rot, &self.look);
         let frame = HorizonTilt::new(&horizon, self.tilt_radians);
         let proj = self.lens.projection_matrix(aspect);
         let view = self.posture.view_matrix(&frame, self.position);

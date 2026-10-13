@@ -24,7 +24,17 @@ mod surface;
 mod threshold;
 
 #[cfg(test)]
+mod allocation_audit;
+#[cfg(test)]
+#[global_allocator]
+static ALLOCATOR: allocation_audit::TrackingAllocator = allocation_audit::TrackingAllocator;
+
+#[cfg(test)]
+mod ballistic_tests;
+#[cfg(test)]
 mod cadence_tests;
+#[cfg(test)]
+mod circuit_tests;
 #[cfg(test)]
 mod controls_tests;
 #[cfg(test)]
@@ -43,6 +53,8 @@ mod threshold_tests;
 mod tilt_tests;
 #[cfg(test)]
 mod traversal_tests;
+#[cfg(test)]
+mod visual_tests;
 
 use winit::event_loop::{ControlFlow, EventLoop};
 use app::LowCubeApp;

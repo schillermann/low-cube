@@ -51,6 +51,13 @@ impl BiomedCubeWorld {
         let base = Box::new(Self::of_size(size_blocks));
         crate::BeveledWorld::decorating(base, half, margin)
     }
+
+    /// Secondary constructor decorating the world with beveled seams and centripetal gravity falloff.
+    pub fn centripetal(size_blocks: u32, bevel_margin: f32, blend_margin: f32) -> crate::CentripetalWorld {
+        let half = (size_blocks as f32) * 0.5;
+        let beveled = Box::new(Self::beveled(size_blocks, bevel_margin));
+        crate::CentripetalWorld::new(beveled, half, blend_margin)
+    }
 }
 
 impl GravityField for BiomedCubeWorld {

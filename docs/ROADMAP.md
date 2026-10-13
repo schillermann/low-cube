@@ -13,8 +13,8 @@
 | **Phase 2** | Seam Surface Geometry & Coordinate Folding | `world` | Completed | 4/4 |
 | **Phase 3** | Locomotion Kinematics & Edge Traversal | `client` | Completed | 4/4 |
 | **Phase 4** | Continuous Viewport Orientation & Horizon Tilt | `client` | Completed | 4/4 |
-| **Phase 5** | Ballistic Edge Flight & Gravitational Wells | `client`, `world` | Planned | 0/3 |
-| **Phase 6** | Integration, Planetary Loop Verification & Polish | `client`, `world` | Planned | 0/3 |
+| **Phase 5** | Ballistic Edge Flight & Gravitational Wells | `client`, `world` | Completed | 3/3 |
+| **Phase 6** | Integration, Planetary Loop Verification & Polish | `client`, `world` | Completed | 3/3 |
 
 ---
 
@@ -24,7 +24,7 @@
 - [x] Discrete 6-faced cubic planetoid with distinct biomes ([`BiomedCubeWorld`](../crates/world/src/biome.rs)).
 - [x] Gravitational pull and surface-up vector calculation per face ([`CubePlanet`](../crates/world/src/planet.rs)).
 - [x] Avatar surface reorientation via Slerp alignment ([`PlanetaryAvatar::reorient_surface`](../crates/client/src/avatar.rs)).
-- [x] Intrafacial obstacle sliding, slab climbing, and sneak cliff arrest ([`SurfaceStride`](../crates/client/src/stride.rs)).
+- [x] Intrafacial obstacle sliding, slab climbing, and sneak cliff arrest ([`SurfaceStride`](../crates/client/src/stride/mod.rs)).
 
 ### Phase 1: Planetary Topology & Edge Neighborhoods (`world` crate)
 - [x] Define [`FacePerimeter`](../crates/world/src/topology/perimeter.rs) encapsulating 4 outer edge thresholds $(+U, -U, +V, -V)$.
@@ -41,7 +41,7 @@
 ### Phase 3: Locomotion Kinematics & Edge Traversal (`client` crate)
 - [x] Implement `FoldedStride` translating tangential velocity across 90° seam folds.
 - [x] Implement polymorphic [`SurfaceClearance`](../crates/client/src/threshold.rs) distinguishing open-air drops from continuous 90° corner transitions without procedural boolean flags.
-- [x] Adapt [`WalkTrial`](../crates/client/src/stride.rs) and [`SurfaceStride`](../crates/client/src/stride.rs) for continuous ground traversal over edges.
+- [x] Adapt [`WalkTrial`](../crates/client/src/stride/decorator.rs) and [`SurfaceStride`](../crates/client/src/stride/mod.rs) for continuous ground traversal over edges.
 - [x] Define edge behavior for [`SneakGait`](../crates/client/src/gait/mod.rs) preserving cliff arrest on elevated blocks while permitting seam traversal.
 
 ### Phase 4: Continuous Viewport Orientation & Horizon Tilt (`client` crate)
@@ -51,14 +51,14 @@
 - [x] Posture unit tests verifying singularity-free view matrices across all 12 edges and 8 vertices ([`tilt_tests`](../crates/client/src/tilt_tests.rs)).
 
 ### Phase 5: Ballistic Edge Flight & Gravitational Wells (`client` & `world` crates)
-- [ ] Extend [`AirborneFlight`](../crates/client/src/phase.rs) for parabolic edge leaps landing on adjacent faces.
+- [x] Extend [`AirborneFlight`](../crates/client/src/phase/mod.rs) for parabolic edge leaps landing on adjacent faces.
 - [x] Implement centripetal gravity well falloff decorator ([`CentripetalWorld`](../crates/world/src/centripetal_world.rs)).
-- [ ] Flight unit tests verifying smooth mid-air edge trajectories without velocity discontinuity.
+- [x] Flight unit tests verifying smooth mid-air edge trajectories without velocity discontinuity ([`ballistic_tests.rs`](../crates/client/src/ballistic_tests.rs)).
 
 ### Phase 6: Integration, Planetary Loop Verification & Polish
-- [ ] Automated end-to-end test: Avatar completes a 360° planetary circuit and returns to start position.
-- [ ] Visual verification of directional lighting, shadow continuity, and biome transitions at seams.
-- [ ] Performance audit: Zero runtime allocations in hot simulation loop and strict 200-line file limits.
+- [x] Automated end-to-end test: Avatar completes a 360° planetary circuit and returns to start position ([`circuit_tests.rs`](../crates/client/src/circuit_tests.rs)).
+- [x] Visual verification of directional lighting, shadow continuity, and biome transitions at seams ([`visual_tests.rs`](../crates/client/src/visual_tests.rs)).
+- [x] Performance audit: Zero runtime allocations in hot simulation loop and strict 200-line file limits ([`allocation_audit.rs`](../crates/client/src/allocation_audit.rs)).
 
 ---
 

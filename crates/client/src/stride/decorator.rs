@@ -131,12 +131,12 @@ impl StrideResolution for RestingStride {
 
 /// Decorator attempting a trial step and delegating to fallback resolution when obstructed.
 pub struct DeflectedStride<'a> {
-    trial: Box<dyn StrideTrial + 'a>,
-    fallback: Box<dyn StrideResolution + 'a>,
+    trial: &'a dyn StrideTrial,
+    fallback: &'a dyn StrideResolution,
 }
 
 impl<'a> DeflectedStride<'a> {
-    pub fn new(trial: Box<dyn StrideTrial + 'a>, fallback: Box<dyn StrideResolution + 'a>) -> Self {
+    pub fn new(trial: &'a dyn StrideTrial, fallback: &'a dyn StrideResolution) -> Self {
         Self { trial, fallback }
     }
 }
