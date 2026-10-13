@@ -64,6 +64,42 @@ impl FormBlock {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(StairFlight::new(heading)))
     }
 
+    /// Secondary constructor for a gentle 2:1 lower ramp wedge (0.0m to 0.5m).
+    pub fn gentle_lower_wedge(grid_u: i32, grid_v: i32, base: f32, heading: WedgeHeading) -> Self {
+        Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::gentle_wedge::GentleWedge::lower(heading)))
+    }
+
+    /// Secondary constructor for a gentle 2:1 upper ramp wedge (0.5m to 1.0m).
+    pub fn gentle_upper_wedge(grid_u: i32, grid_v: i32, base: f32, heading: WedgeHeading) -> Self {
+        Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::gentle_wedge::GentleWedge::upper(heading)))
+    }
+
+    /// Secondary constructor for a gentle 2:1 lower convex ridge corner.
+    pub fn gentle_lower_ridge(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::gentle_ridge::GentleRidge::lower(heading)))
+    }
+
+    /// Secondary constructor for a gentle 2:1 upper convex ridge corner.
+    pub fn gentle_upper_ridge(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::gentle_ridge::GentleRidge::upper(heading)))
+    }
+
+    /// Secondary constructor for a gentle 2:1 lower concave valley corner.
+    pub fn gentle_lower_valley(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::gentle_valley::GentleValley::lower(heading)))
+    }
+
+    /// Secondary constructor for a gentle 2:1 upper concave valley corner.
+    pub fn gentle_upper_valley(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::gentle_valley::GentleValley::upper(heading)))
+    }
+
+    /// Secondary constructor for a stepped staircase corner.
+    pub fn stair_corner(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading, concave: bool) -> Self {
+        Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::stair_corner::StairCorner::new(heading, concave)))
+    }
+
+
     /// Constrains a surface position if the tangential coordinates fall within this form.
     pub fn constrain_surface(
         &self,

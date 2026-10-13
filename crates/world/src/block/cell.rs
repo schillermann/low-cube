@@ -14,6 +14,11 @@ impl GridCell {
         Self { grid_u, grid_v }
     }
 
+    /// Delivers the discrete integer coordinates to a consumer closure ("Tell, Don't Ask").
+    pub fn feed_coordinates<R>(&self, consumer: impl FnOnce(i32, i32) -> R) -> R {
+        consumer(self.grid_u, self.grid_v)
+    }
+
     pub fn u_bounds(&self) -> (f32, f32) {
         (self.grid_u as f32, (self.grid_u + 1) as f32)
     }

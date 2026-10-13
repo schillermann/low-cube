@@ -1,9 +1,13 @@
 use glam::Vec3;
-use crate::{BiomedCubeWorld, PlanetaryWorld};
+use crate::{ClimateZone, CubePlanet, FoldedFace, NullFace, PlanarFace, PlanetaryWorld, VoxelMountain};
 
 #[test]
 fn test_mountain_slope_and_summit_elevations() {
-    let planet = BiomedCubeWorld::of_size(16);
+    let half = 8.0;
+    let base = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ZERO, half, 16));
+    let mountain = Box::new(VoxelMountain::alpine(base, half));
+    let folded = Box::new(FoldedFace::in_zone(mountain, ClimateZone::Temperate, half));
+    let planet = CubePlanet::new(vec![folded], Box::new(NullFace));
 
     // Flat ground at spawn point (u = 0.0, v = 0.0 -> base floor is 8.0 + 1.0 = 9.0)
     let supported = planet.constrain_to_surface(Vec3::new(0.0, 5.0, 0.0), 1.0);

@@ -9,8 +9,8 @@ use raw_window_handle::HasWindowHandle;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowAttributes;
 
-use crate::world_choice::{ArgumentWorld, VolumeAssembly, WorldAssembly};
 use engine::{CpuMeshBatch, ForwardPipeline, VoxelShaderSource};
+use world::{BiomedCubeWorld, PlanetaryWorld};
 use crate::avatar::PlanetaryAvatar;
 use crate::controls::KeyMotion;
 use crate::physics::PlanetaryPhysics;
@@ -113,7 +113,6 @@ impl HostEnvironment for GlHostEnvironment {
 /// Environment assembly mechanism for constructing GameSession.
 pub struct SessionLaunch {
     host_env: Box<dyn HostEnvironment>,
-    world_assembly: Box<dyn WorldAssembly>,
     world_blocks: u32,
     physics: Box<dyn PlanetaryPhysics>,
 }
@@ -122,13 +121,11 @@ impl SessionLaunch {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
         host_env: Box<dyn HostEnvironment>,
-        world_assembly: Box<dyn WorldAssembly>,
         world_blocks: u32,
         physics: Box<dyn PlanetaryPhysics>,
     ) -> Self {
         Self {
             host_env,
-            world_assembly,
             world_blocks,
             physics,
         }
@@ -138,7 +135,6 @@ impl SessionLaunch {
     pub fn configured(title: &'static str, width: f64, height: f64, world_blocks: u32) -> Self {
         Self::new(
             Box::new(GlHostEnvironment::new(title, width, height)),
-            Box::new(ArgumentWorld::process(Box::new(VolumeAssembly))),
             world_blocks,
             Box::new(ServerPhysics::assembled()),
         )
@@ -150,7 +146,7 @@ impl SessionAssembly for SessionLaunch {
         let surface = self.host_env.attach(event_loop);
         surface.capture_cursor();
 
-        let planet = self.world_assembly.assemble_world(self.world_blocks);
+        let planet: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(self.world_blocks, 1.0));
 
         let mut cpu_buf = CpuMeshBatch::empty();
         planet.emit_surface(&mut cpu_buf);

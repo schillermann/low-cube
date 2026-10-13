@@ -10,10 +10,13 @@ mod elevated_face;
 mod face;
 mod frame;
 mod gallery;
+mod landscape;
 mod mesh_target;
 mod mountain;
+mod noise;
 mod null_face;
 mod planet;
+mod relief;
 mod tinted_face;
 mod topology;
 
@@ -38,10 +41,12 @@ pub use beveled_world::BeveledWorld;
 pub use biome::BiomedCubeWorld;
 pub use centripetal_world::CentripetalWorld;
 pub use block::{
-    Block, CornerHeading, CuboidShape, DirtBlock, ElevatedShape, FormBlock, GridCell,
-    PyramidPeak, RampWedge, RidgeCorner, SandBlock, SnowBlock, StairFlight,
-    StoneBlock, MaterialBlock, ValleyCorner, VoxelShape, WedgeHeading,
+    Block, CornerHeading, CuboidShape, DirtBlock, ElevatedShape, FormBlock,
+    GentleRidge, GentleValley, GentleWedge, GridCell, PyramidPeak, RampWedge,
+    RidgeCorner, SandBlock, SnowBlock, StairCorner, StairFlight, StoneBlock,
+    MaterialBlock, ValleyCorner, VoxelShape, WedgeHeading,
 };
+
 pub use chunk::{
     BedrockShell, FacetedVolume, MonolithVolume, PlanetaryCrust,
     PlanetaryNeighborhood, SparsePlanetaryGrid, StratifiedVolume, VoidNeighborhood,
@@ -53,10 +58,13 @@ pub use elevated_face::ElevatedFace;
 pub use face::PlanarFace;
 pub use frame::SurfaceFrame;
 pub use gallery::BlockGallery;
+pub use landscape::{DesertDunes, GlacialMassif, JungleKarst, SteppeTerrace, VolcanicCaldera};
 pub use mesh_target::{ColoredMeshTarget, CountedMeshTarget, OffsetMeshTarget, TintedMeshTarget};
 pub use mountain::VoxelMountain;
+pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
 pub use planet::CubePlanet;
+pub use relief::{CavitySpan, FacetedReliefFace, NullCavity, ReliefElevation, ReliefFacet, ReliefPalette, SubterraneanCavity, ZonedCavity};
 pub use tinted_face::TintedFace;
 pub use topology::{
     BevelTransition, ClimateZone, CoordinateFold, CubeFace, FacePerimeter, FoldedFace,

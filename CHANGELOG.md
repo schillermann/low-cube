@@ -8,6 +8,30 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-13
+
+### Added
+- Procedural planetary relief generation in `crates/world/src/relief/` (`ReliefElevation`, `ZonedRelief`, `ReliefFace`, `ReliefFacet`, `ReliefCorner`, `ReliefPalette`, `ReliefStrata`, `ReliefCavity`) generating continuous, watertight terrain facets and slopes.
+- Coherent gradient noise engine in `crates/world/src/noise/` (`SpatialFrequency`, `CoherentNoise`, `DomainWarp`, `FractalHarmonics`) providing continuous multi-octave 3D frequency sampling.
+- Distinct biome landscape topologies in `crates/world/src/landscape/`:
+  - `GlacialMassif` (Alpine horns, arêtes, and cirque basins in Arctic)
+  - `VolcanicCaldera` (Summit crater, caldera rim, and basalt lava flows in Volcanic)
+  - `KarstTowers` (Limestone tower karst pillars and river valleys in Jungle)
+  - `SteppeTerrace` (Stratified mesas and terraced plateaus in Steppe)
+  - `DesertDunes` (Barchan sand dunes, slip faces, and interdune corridors in Desert)
+- Slope and corner block forms in `crates/world/src/block/`:
+  - `GentleWedge` (half-pitch gentle slope along primary axes)
+  - `GentleRidge` (diagonal ridge corner connecting gentle slopes)
+  - `GentleValley` (concave diagonal valley corner connecting gentle slopes)
+  - `StairCorner` (stepped corner block)
+- Ridge and valley diagonal corner generation in `ReliefCorner` with closed manifold facets and slope surface collision height in `ZonedRelief`.
+- Test suites in `relief/tests.rs`, `noise/tests.rs`, and `landscape/tests.rs`.
+
+### Changed
+- Refactored `crates/client/src/launch.rs` and `main.rs` to launch directly with zoned procedural relief planet mesh assembly.
+- Streamlined `Biome` in `crates/world/src/biome.rs` to configure distinct biome-specific relief surfaces and stratum color palettes.
+- Purged `crates/client/src/world_choice.rs`.
+
 ## [0.13.0] - 2026-10-13
 
 ### Added

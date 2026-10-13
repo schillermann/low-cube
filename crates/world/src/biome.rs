@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
-    BlockGallery, ClimateZone, CubePlanet, Face, FoldedFace, GravityField, MeshTarget,
-    NullFace, PlanarFace, PlanetaryWorld, VoxelMountain,
+    ClimateZone, CubePlanet, Face, FacetedReliefFace, FoldedFace,
+    GravityField, MeshTarget, NullFace, PlanetaryWorld,
 };
 
 /// Multi-biome cubic planetary world decorator.
@@ -15,31 +15,35 @@ impl BiomedCubeWorld {
         Self { planet }
     }
 
-    /// Secondary constructor assembling distinct biome climate zones with pure decorators.
+    /// Secondary constructor assembling pure procedural multi-biome planetary terrain.
     pub fn of_size(size_blocks: u32) -> Self {
         let half = (size_blocks as f32) * 0.5;
-        let assemble_face = |zone: ClimateZone, color: Vec3| -> Box<dyn Face> {
-            let base = Box::new(PlanarFace::in_zone(zone, color, half, size_blocks));
-            Box::new(FoldedFace::in_zone(base, zone, half))
-        };
 
-        let temperate_face = Box::new(PlanarFace::in_zone(
-            ClimateZone::Temperate,
-            Vec3::new(0.28, 0.65, 0.25),
-            half,
-            size_blocks,
-        ));
-        let temperate_face = Box::new(VoxelMountain::alpine(temperate_face, half));
-        let temperate_face = Box::new(BlockGallery::parallel_lines(temperate_face, half));
+        let temperate_face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, half, size_blocks));
         let temperate_face = Box::new(FoldedFace::in_zone(temperate_face, ClimateZone::Temperate, half));
+
+        let volcanic_face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Volcanic, half, size_blocks));
+        let volcanic_face = Box::new(FoldedFace::in_zone(volcanic_face, ClimateZone::Volcanic, half));
+
+        let desert_face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Desert, half, size_blocks));
+        let desert_face = Box::new(FoldedFace::in_zone(desert_face, ClimateZone::Desert, half));
+
+        let arctic_face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Arctic, half, size_blocks));
+        let arctic_face = Box::new(FoldedFace::in_zone(arctic_face, ClimateZone::Arctic, half));
+
+        let jungle_face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Jungle, half, size_blocks));
+        let jungle_face = Box::new(FoldedFace::in_zone(jungle_face, ClimateZone::Jungle, half));
+
+        let steppe_face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Steppe, half, size_blocks));
+        let steppe_face = Box::new(FoldedFace::in_zone(steppe_face, ClimateZone::Steppe, half));
 
         let faces: Vec<Box<dyn Face>> = vec![
             temperate_face,
-            assemble_face(ClimateZone::Volcanic, Vec3::new(0.35, 0.18, 0.18)),
-            assemble_face(ClimateZone::Desert, Vec3::new(0.85, 0.75, 0.35)),
-            assemble_face(ClimateZone::Arctic, Vec3::new(0.75, 0.88, 0.95)),
-            assemble_face(ClimateZone::Jungle, Vec3::new(0.12, 0.45, 0.22)),
-            assemble_face(ClimateZone::Steppe, Vec3::new(0.68, 0.48, 0.32)),
+            volcanic_face,
+            desert_face,
+            arctic_face,
+            jungle_face,
+            steppe_face,
         ];
 
         Self::new(Box::new(CubePlanet::new(faces, Box::new(NullFace))))

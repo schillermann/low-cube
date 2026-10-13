@@ -40,7 +40,7 @@ fn test_material_blocks_derived_from_forms() {
 
     // SnowBlock derived from ridge corner
     let snow_ridge = SnowBlock::ridge_corner(0, 1, 0.0, CornerHeading::NorthEast);
-    let on_ridge = snow_ridge.constrain_surface(Vec3::new(0.5, 9.0, 1.5), 0.5, 1.5, &frame, 1.0);
+    let on_ridge = snow_ridge.constrain_surface(Vec3::new(0.75, 9.0, 1.75), 0.75, 1.75, &frame, 1.0);
     assert!((on_ridge.y - 9.5).abs() < 1e-4);
 
     // SnowBlock derived from pyramidal peak (0.5m height, 45° slope)
@@ -66,3 +66,40 @@ fn test_elevated_shape_decorator() {
     // Half slab (0.5m) elevated by 1.0m -> elevation 1.5m
     assert_eq!(elevated.elevation_at(0.5, 0.5), 1.5);
 }
+
+#[test]
+fn test_gentle_wedge_and_corner_shapes() {
+    use super::{GentleRidge, GentleValley, GentleWedge, StairCorner, VoxelShape};
+
+    // Lower gentle wedge: rises 0.0 to 0.5 along North (+V)
+    let lower_wedge = GentleWedge::lower(WedgeHeading::North);
+    assert_eq!(lower_wedge.elevation_at(0.5, 0.0), 0.0);
+    assert_eq!(lower_wedge.elevation_at(0.5, 0.5), 0.25);
+    assert_eq!(lower_wedge.elevation_at(0.5, 1.0), 0.5);
+
+    // Upper gentle wedge: rises 0.5 to 1.0 along North (+V)
+    let upper_wedge = GentleWedge::upper(WedgeHeading::North);
+    assert_eq!(upper_wedge.elevation_at(0.5, 0.0), 0.5);
+    assert_eq!(upper_wedge.elevation_at(0.5, 0.5), 0.75);
+    assert_eq!(upper_wedge.elevation_at(0.5, 1.0), 1.0);
+
+    // Gentle ridge corner: convex lower (0.0 to 0.5)
+    let lower_ridge = GentleRidge::lower(CornerHeading::NorthEast);
+    assert_eq!(lower_ridge.elevation_at(0.0, 0.0), 0.0);
+    assert_eq!(lower_ridge.elevation_at(1.0, 1.0), 0.5);
+
+    // Gentle valley corner: concave lower (0.0 to 0.5)
+    let lower_valley = GentleValley::lower(CornerHeading::NorthEast);
+    assert_eq!(lower_valley.elevation_at(0.0, 0.0), 0.0);
+    assert_eq!(lower_valley.elevation_at(1.0, 0.0), 0.5);
+
+    // Stair corner: outer convex and inner concave
+    let convex_stair = StairCorner::convex(CornerHeading::NorthEast);
+    assert_eq!(convex_stair.elevation_at(0.2, 0.2), 0.5);
+    assert_eq!(convex_stair.elevation_at(0.8, 0.8), 1.0);
+
+    let concave_stair = StairCorner::concave(CornerHeading::NorthEast);
+    assert_eq!(concave_stair.elevation_at(0.2, 0.2), 0.5);
+    assert_eq!(concave_stair.elevation_at(0.8, 0.2), 1.0);
+}
+

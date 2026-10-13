@@ -30,39 +30,18 @@ impl VoxelShape for RidgeCorner {
         color: Vec3,
         target: &mut dyn MeshTarget,
     ) {
-        let (u0, u1) = cell.u_bounds();
-        let (v0, v1) = cell.v_bounds();
-
-        let (h0, h1, h2, h3) = match self.heading {
-            CornerHeading::NorthEast => (0.0, 0.0, 1.0, 0.0),
-            CornerHeading::NorthWest => (0.0, 0.0, 0.0, 1.0),
-            CornerHeading::SouthEast => (0.0, 1.0, 0.0, 0.0),
-            CornerHeading::SouthWest => (1.0, 0.0, 0.0, 0.0),
-        };
-
-        let p0 = frame.point_at(u0, v0, base_elevation + h0);
-        let p1 = frame.point_at(u1, v0, base_elevation + h1);
-        let p2 = frame.point_at(u1, v1, base_elevation + h2);
-        let p3 = frame.point_at(u0, v1, base_elevation + h3);
-
-        let norm_a = (p1 - p0).cross(p2 - p0).normalize();
-        let norm_b = (p2 - p0).cross(p3 - p0).normalize();
-        target.push_quad(Quad::new(p0, p1, p2, p2, norm_a, color));
-        target.push_quad(Quad::new(p0, p2, p3, p3, norm_b, color));
-
         let [b0, b1, b2, b3] = cell.corner_points(frame, base_elevation);
-
-        if h1 > 0.0 || h2 > 0.0 {
-            target.push_quad(Quad::new(b1, b2, p2, p1, frame.tangent(), color));
-        }
-        if h2 > 0.0 || h3 > 0.0 {
-            target.push_quad(Quad::new(p3, p2, b2, b3, frame.bitangent(), color));
-        }
-        if h0 > 0.0 || h3 > 0.0 {
-            target.push_quad(Quad::new(b3, b0, p0, p3, -frame.tangent(), color));
-        }
-        if h0 > 0.0 || h1 > 0.0 {
-            target.push_quad(Quad::new(b0, b1, p1, p0, -frame.bitangent(), color));
-        }
+        let (b_peak, b_1, b_2, w1, w2) = match self.heading {
+            CornerHeading::NorthEast => (b2, b1, b3, frame.tangent(), frame.bitangent()),
+            CornerHeading::NorthWest => (b3, b2, b0, frame.bitangent(), -frame.tangent()),
+            CornerHeading::SouthEast => (b1, b0, b2, -frame.bitangent(), frame.tangent()),
+            CornerHeading::SouthWest => (b0, b3, b1, -frame.tangent(), -frame.bitangent()),
+        };
+        let p_peak = b_peak + frame.normal() * 1.0;
+        let slope_norm = (p_peak - b_1).cross(b_2 - b_1).normalize();
+        target.push_quad(Quad::new(b_1, p_peak, b_2, b_2, slope_norm, color));
+        target.push_quad(Quad::new(b_1, b_peak, p_peak, p_peak, w1, color));
+        target.push_quad(Quad::new(p_peak, b_peak, b_2, b_2, w2, color));
+        target.push_quad(Quad::new(b_1, b_2, b_peak, b_peak, -frame.normal(), color));
     }
 }

@@ -22,7 +22,6 @@ mod session;
 mod stride;
 mod surface;
 mod threshold;
-mod world_choice;
 
 #[cfg(test)]
 mod allocation_audit;
@@ -63,6 +62,16 @@ use winit::event_loop::{ControlFlow, EventLoop};
 use app::LowCubeApp;
 use launch::SessionLaunch;
 
+fn world_scale() -> u32 {
+    std::env::args()
+        .find_map(|arg| {
+            arg.strip_prefix("--blocks=")
+                .and_then(|val| val.parse::<u32>().ok())
+        })
+        .unwrap_or(128)
+}
+
+
 fn main() {
     let event_loop = EventLoop::new().expect("Failed to create EventLoop");
     event_loop.set_control_flow(ControlFlow::Poll);
@@ -71,7 +80,7 @@ fn main() {
         "Low-Cube [WASD: Move, Double-W: Sprint, Space: Jump, Shift: Sneak, Mouse: Look, I: Invert Y, O: Invert X, Esc: Exit]",
         1280.0,
         720.0,
-        32,
+        world_scale(),
     );
     let mut app = LowCubeApp::launching(Box::new(launch));
     event_loop.run_app(&mut app).expect("Application run failed");

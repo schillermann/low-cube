@@ -1,9 +1,12 @@
 use glam::Vec3;
-use crate::{BiomedCubeWorld, PlanetaryWorld};
+use crate::{BlockGallery, ClimateZone, CubePlanet, NullFace, PlanarFace, PlanetaryWorld};
 
 #[test]
 fn test_block_gallery_parallel_lines_exhibition() {
-    let world = BiomedCubeWorld::of_size(32);
+    let half = 16.0;
+    let base = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ZERO, half, 32));
+    let gallery = Box::new(BlockGallery::parallel_lines(base, half));
+    let world = CubePlanet::new(vec![gallery], Box::new(NullFace));
 
     // Stone Line (u = -3): Stone Cube at v = -8 -> base floor 16.0 + 1.0 (cube) + 1.0 (player) = 18.0
     let on_stone_cube = world.constrain_to_surface(Vec3::new(-2.5, 20.0, -7.5), 1.0);

@@ -10,10 +10,10 @@ pub enum CornerHeading {
 impl CornerHeading {
     pub fn ridge_elevation(&self, u: f32, v: f32) -> f32 {
         match self {
-            Self::NorthEast => u.min(v),
-            Self::NorthWest => (1.0 - u).min(v),
-            Self::SouthEast => u.min(1.0 - v),
-            Self::SouthWest => (1.0 - u).min(1.0 - v),
+            Self::NorthEast => (u + v - 1.0).max(0.0),
+            Self::NorthWest => (v - u).max(0.0),
+            Self::SouthEast => (u - v).max(0.0),
+            Self::SouthWest => (1.0 - u - v).max(0.0),
         }
     }
 
