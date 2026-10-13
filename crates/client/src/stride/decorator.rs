@@ -15,6 +15,7 @@ pub struct WalkTrial<'a> {
     up: Vec3,
     eye: f32,
     limit: StepThreshold,
+    seam_allowed: bool,
     world: &'a dyn PlanetaryWorld,
 }
 
@@ -25,6 +26,7 @@ impl<'a> WalkTrial<'a> {
         up: Vec3,
         eye: f32,
         limit: StepThreshold,
+        seam_allowed: bool,
         world: &'a dyn PlanetaryWorld,
     ) -> Self {
         Self {
@@ -33,6 +35,7 @@ impl<'a> WalkTrial<'a> {
             up,
             eye,
             limit,
+            seam_allowed,
             world,
         }
     }
@@ -46,7 +49,7 @@ impl<'a> StrideTrial for WalkTrial<'a> {
         let candidate = self.origin + self.step;
         let surface_pos = self.world.constrain_to_surface(candidate, self.eye);
         let clearance = SurfaceClearance::between(self.origin, candidate, surface_pos, self.up, self.world);
-        !clearance.precipice()
+        clearance.passable_with(self.seam_allowed)
             && SurfaceStep::new(self.origin, surface_pos, self.up).walkable_with(self.limit)
     }
 

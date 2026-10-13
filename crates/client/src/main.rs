@@ -22,6 +22,7 @@ mod session;
 mod stride;
 mod surface;
 mod threshold;
+mod world_choice;
 
 #[cfg(test)]
 mod allocation_audit;
@@ -33,6 +34,8 @@ static ALLOCATOR: allocation_audit::TrackingAllocator = allocation_audit::Tracki
 mod ballistic_tests;
 #[cfg(test)]
 mod cadence_tests;
+#[cfg(test)]
+mod chunk_traversal_tests;
 #[cfg(test)]
 mod circuit_tests;
 #[cfg(test)]

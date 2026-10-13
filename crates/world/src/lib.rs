@@ -4,6 +4,7 @@ mod beveled_world;
 mod biome;
 mod block;
 mod centripetal_world;
+mod chunk;
 mod cluster;
 mod elevated_face;
 mod face;
@@ -40,6 +41,12 @@ pub use block::{
     Block, CornerHeading, CuboidShape, DirtBlock, ElevatedShape, FormBlock, GridCell,
     PyramidPeak, RampWedge, RidgeCorner, SandBlock, SnowBlock, StairFlight,
     StoneBlock, MaterialBlock, ValleyCorner, VoxelShape, WedgeHeading,
+};
+pub use chunk::{
+    BedrockShell, FacetedVolume, MonolithVolume, PlanetaryCrust,
+    PlanetaryNeighborhood, SparsePlanetaryGrid, StratifiedVolume, VoidNeighborhood,
+    VoidVolume, VolumeCoord, VolumePlanet, VoxelBarrier, VoxelCoord,
+    VoxelNeighborhood, VoxelVolume, VOLUME_EDGE_LENGTH, VOXEL_COUNT_PER_VOLUME,
 };
 pub use cluster::VoxelCluster;
 pub use elevated_face::ElevatedFace;

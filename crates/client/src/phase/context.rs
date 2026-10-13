@@ -73,9 +73,18 @@ impl<'a> FlightContext<'a> {
         SurfaceClearance::between(self.position, point, surface_point, self.surface_up, self.world)
     }
 
+    pub fn permits_seam_fold(&self) -> bool {
+        self.gait.permits_seam_fold()
+    }
+
     pub fn resolve_ground_stride(&self, threshold: StepThreshold) -> Vec3 {
-        SurfaceStride::new(self.stride, self.surface_up)
-            .resolve_ground(self.position, self.eye_height, threshold, self.world)
+        SurfaceStride::new(self.stride, self.surface_up).resolve_ground(
+            self.position,
+            self.eye_height,
+            threshold,
+            self.permits_seam_fold(),
+            self.world,
+        )
     }
 
     pub fn resolve_precipice(&self, threshold: StepThreshold, horizontal: Vec3) -> FlightProgress {

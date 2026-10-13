@@ -8,7 +8,20 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
-## [0.12.0] - 2026-10-13
+## [0.13.0] - 2026-10-13
+
+### Added
+- 3D volume-partitioned cubic planet architecture (`VolumePlanet`, `SparsePlanetaryGrid`, `VoxelVolume`, `StratifiedVolume`, `MonolithVolume`, `VoidVolume`) with multi-layer surface voxel crusts across all 6 faces.
+- Impenetrable bedrock containment shell (`BedrockShell`, `VoxelBarrier`, `PlanetaryCrust`) sealing the 0-byte hollow core void.
+- Greedy meshing (`GreedyMesh`, `emit_volume_mesh`) with cross-volume boundary occlusion culling across internal and external seams.
+- Integrated `PlanetaryTopology` seam coordinate folding into `VolumePlanet::constrain_to_surface`, enabling seamless 90° edge traversal and continuous 360° circuits on voxel worlds.
+- Sneak cliff-arrest policy (`permits_seam_fold`) at 90° planetary cube seams preventing accidental edge crossings and camera flips, while enabling lateral sliding along edges.
+- Polymorphic world assembly (`WorldAssembly`, `VolumeAssembly`, `BiomedAssembly`, `ArgumentWorld`), setting `VolumePlanet` as the default world when launching the client.
+- Integration test suite in `crates/client/src/chunk_traversal_tests.rs` verifying voxel planet locomotion, jumping, edge crossing, and sneak cliff arrest.
+
+### Changed
+- Purged all legacy aliases and shims (`VoidChunk`, `UniformChunk`, `StratifiedChunk`, `FacetedChunk`, `ChunkCoord`, `Chunk`, etc.), strictly standardizing the domain model around `VolumePlanet`, `VoxelVolume`, `VolumeCoord`, and `VoxelCoord`.
+- Replaced vague constructor `BedrockShell::standard_shell` with expressive domain constructor `BedrockShell::boundary`.
 
 ### Added
 - Completed Roadmap Phases 4, 5, and 6: Decoupled camera horizon convergence, ballistic flight, 360° circuit verification, visual continuity, and performance audit.

@@ -9,6 +9,7 @@ pub trait LocomotionGait: Send + Sync {
     fn pace_distance(&self, distance: f32) -> f32;
     fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture;
     fn shape_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens;
+    fn permits_seam_fold(&self) -> bool;
     fn resolve_precipice(
         &self,
         ctx: &FlightContext,
@@ -45,6 +46,10 @@ impl LocomotionGait for WalkGait {
 
     fn shape_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens {
         lens.transition_to(self.fov_radians, dt)
+    }
+
+    fn permits_seam_fold(&self) -> bool {
+        true
     }
 
     fn resolve_precipice(
@@ -92,6 +97,10 @@ impl LocomotionGait for SneakGait {
         lens.transition_to(self.fov_radians, dt)
     }
 
+    fn permits_seam_fold(&self) -> bool {
+        false
+    }
+
     fn resolve_precipice(
         &self,
         ctx: &FlightContext,
@@ -136,6 +145,10 @@ impl LocomotionGait for SprintGait {
 
     fn shape_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens {
         lens.transition_to(self.fov_radians, dt)
+    }
+
+    fn permits_seam_fold(&self) -> bool {
+        true
     }
 
     fn resolve_precipice(

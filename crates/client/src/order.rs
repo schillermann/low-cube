@@ -57,6 +57,14 @@ impl LocomotionGait for ActiveGait {
         }
     }
 
+    fn permits_seam_fold(&self) -> bool {
+        match self {
+            Self::Walk(g) => g.permits_seam_fold(),
+            Self::Sneak(g) => g.permits_seam_fold(),
+            Self::Sprint(g) => g.permits_seam_fold(),
+        }
+    }
+
     fn resolve_precipice(
         &self,
         ctx: &FlightContext,

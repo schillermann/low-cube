@@ -23,20 +23,23 @@ fn test_threshold_detects_floor_and_cliff() {
 fn test_clearance_semantics() {
     let threshold = StepThreshold::human_stride();
     let floor = SurfaceClearance::Planar(0.0);
-    assert!(!floor.precipice());
+    assert!(floor.passable_with(true));
+    assert!(floor.passable_with(false));
     assert!(floor.floor_contact(threshold));
     assert!(!floor.cliff_impact(threshold));
 
     let cliff = SurfaceClearance::Planar(-0.5);
-    assert!(!cliff.precipice());
+    assert!(cliff.passable_with(true));
     assert!(!cliff.floor_contact(threshold));
     assert!(cliff.cliff_impact(threshold));
 
     let drop = SurfaceClearance::Planar(0.1);
-    assert!(drop.precipice());
+    assert!(!drop.passable_with(true));
+    assert!(!drop.passable_with(false));
 
     let seam = SurfaceClearance::FoldedSeam;
-    assert!(!seam.precipice());
+    assert!(seam.passable_with(true));
+    assert!(!seam.passable_with(false));
     assert!(seam.floor_contact(threshold));
     assert!(!seam.cliff_impact(threshold));
 }

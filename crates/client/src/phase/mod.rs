@@ -53,7 +53,7 @@ impl GroundedFlight {
         let surface_pos = ctx.constrain_surface(horizontal);
         let clearance = ctx.clearance(horizontal, surface_pos);
 
-        if clearance.precipice() {
+        if !clearance.passable_with(ctx.permits_seam_fold()) {
             ctx.resolve_precipice(self.threshold, horizontal)
         } else {
             let next_pos = ctx.resolve_ground_stride(self.threshold);

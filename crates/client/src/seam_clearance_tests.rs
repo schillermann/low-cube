@@ -3,7 +3,7 @@ use world::{BiomedCubeWorld, GravityField, PlanetaryWorld};
 use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 use crate::flight::{GravitationalFlight, SurfaceFlight};
-use crate::gait::WalkGait;
+use crate::gait::{SneakGait, WalkGait};
 use crate::threshold::{StepThreshold, SurfaceClearance};
 
 struct ContinuousForwardControls;
@@ -24,7 +24,8 @@ fn test_seam_clearance_identifies_90_degree_fold() {
     let surface_pos = world.constrain_to_surface(candidate, 1.0);
 
     let clearance = SurfaceClearance::between(origin, candidate, surface_pos, Vec3::Y, &world);
-    assert!(!clearance.precipice());
+    assert!(clearance.passable_with(true));
+    assert!(!clearance.passable_with(false));
     assert!(clearance.floor_contact(StepThreshold::human_stride()));
     assert!(!clearance.cliff_impact(StepThreshold::human_stride()));
 }
@@ -81,4 +82,36 @@ fn test_avatar_step_motion_continuous_across_seam() {
             assert!(view_proj.col(col)[row].is_finite());
         }
     }
+}
+
+#[test]
+fn test_sneak_at_seam_prevents_edge_crossing() {
+    let world = BiomedCubeWorld::beveled(32, 0.5);
+    let mut flight = SurfaceFlight::terrestrial(1.0);
+    // At x = 15.95 on top face (+Y, normal Vec3::Y), 5cm away from edge at x = 16.0
+    let start_pos = Vec3::new(15.95, 17.0, 0.0);
+    let stride = Vec3::new(0.1, 0.0, 0.0);
+
+    // Sneaking gait must stop at the planetary cube edge and prevent crossing onto +X face
+    let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &SneakGait::crouching(), Vec3::Y, &world);
+
+    assert_eq!(next_pos.x, start_pos.x);
+    assert_eq!(next_pos.y, start_pos.y);
+    assert_eq!(next_pos.z, start_pos.z);
+}
+
+#[test]
+fn test_sneak_at_seam_diagonal_slides_along_edge() {
+    let world = BiomedCubeWorld::beveled(32, 0.5);
+    let mut flight = SurfaceFlight::terrestrial(1.0);
+    let start_pos = Vec3::new(15.95, 17.0, 0.0);
+    // Moving diagonally: +X (towards seam) and +Z (along seam)
+    let stride = Vec3::new(0.1, 0.0, 0.1);
+
+    let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &SneakGait::crouching(), Vec3::Y, &world);
+
+    // X motion over edge is arrested, Z motion parallel to edge proceeds safely
+    assert_eq!(next_pos.x, start_pos.x);
+    assert!(next_pos.z > start_pos.z);
+    assert_eq!(next_pos.y, start_pos.y);
 }

@@ -61,11 +61,11 @@ impl SurfaceClearance {
         Self::Planar((candidate - surface_pos).dot(surface_up))
     }
 
-    /// Determines whether the position is suspended above open air over a precipice.
-    pub fn precipice(&self) -> bool {
+    /// Checks whether this surface clearance represents passable ground under a given seam traversal policy.
+    pub fn passable_with(&self, seam_allowed: bool) -> bool {
         match self {
-            Self::Planar(altitude) => *altitude > 1e-4,
-            Self::FoldedSeam => false,
+            Self::Planar(altitude) => *altitude <= 1e-4,
+            Self::FoldedSeam => seam_allowed,
         }
     }
 

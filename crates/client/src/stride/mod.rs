@@ -36,14 +36,21 @@ impl SurfaceStride {
     }
 
     /// Resolves ground traversal destination, smoothly deflecting along obstacles via decorator chain.
-    pub fn resolve_ground(&self, origin: Vec3, eye: f32, limit: StepThreshold, world: &dyn PlanetaryWorld) -> Vec3 {
+    pub fn resolve_ground(
+        &self,
+        origin: Vec3,
+        eye: f32,
+        limit: StepThreshold,
+        seam_allowed: bool,
+        world: &dyn PlanetaryWorld,
+    ) -> Vec3 {
         let (first, second) = self.axial_decomposition();
         let resting = RestingStride::new(world.constrain_to_surface(origin, eye));
-        let trial_second = WalkTrial::new(origin, second, self.surface_up, eye, limit, world);
+        let trial_second = WalkTrial::new(origin, second, self.surface_up, eye, limit, seam_allowed, world);
         let lateral = DeflectedStride::new(&trial_second, &resting);
-        let trial_first = WalkTrial::new(origin, first, self.surface_up, eye, limit, world);
+        let trial_first = WalkTrial::new(origin, first, self.surface_up, eye, limit, seam_allowed, world);
         let primary = DeflectedStride::new(&trial_first, &lateral);
-        let trial_direct = WalkTrial::new(origin, self.stride, self.surface_up, eye, limit, world);
+        let trial_direct = WalkTrial::new(origin, self.stride, self.surface_up, eye, limit, seam_allowed, world);
         let direct = DeflectedStride::new(&trial_direct, &primary);
         direct.resolve()
     }
