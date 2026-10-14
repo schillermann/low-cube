@@ -32,6 +32,10 @@ impl VoxelShape for StairFlight {
         }
     }
 
+    fn shape_color(&self) -> Vec3 {
+        Vec3::new(0.1, 0.95, 0.2)
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,

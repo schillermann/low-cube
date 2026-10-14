@@ -34,6 +34,10 @@ impl VoxelShape for PyramidPeak {
         (edge_dist * 2.0).clamp(0.0, 1.0) * self.height
     }
 
+    fn shape_color(&self) -> Vec3 {
+        Vec3::new(0.75, 0.2, 1.0)
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,

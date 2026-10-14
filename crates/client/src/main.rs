@@ -10,6 +10,7 @@ mod flight;
 mod gait;
 mod heading;
 mod horizon;
+mod host_env;
 mod launch;
 mod lens;
 mod order;
@@ -71,16 +72,27 @@ fn world_scale() -> u32 {
         .unwrap_or(128)
 }
 
+fn tron_active() -> bool {
+    std::env::args().any(|arg| arg == "--tron" || arg == "tron")
+}
 
 fn main() {
     let event_loop = EventLoop::new().expect("Failed to create EventLoop");
     event_loop.set_control_flow(ControlFlow::Poll);
 
-    let launch = SessionLaunch::configured(
-        "Low-Cube [WASD: Move, Double-W: Sprint, Space: Jump, Shift: Sneak, Mouse: Look, I: Invert Y, O: Invert X, Esc: Exit]",
+    let tron = tron_active();
+    let title = if tron {
+        "Low-Cube [TRON Wireframe] [WASD: Move, Double-W: Sprint, Space: Jump, Shift: Sneak, T: Toggle Tron, Esc: Exit]"
+    } else {
+        "Low-Cube [WASD: Move, Double-W: Sprint, Space: Jump, Shift: Sneak, T: Toggle Tron, Esc: Exit]"
+    };
+
+    let launch = SessionLaunch::with_tron(
+        title,
         1280.0,
         720.0,
         world_scale(),
+        tron,
     );
     let mut app = LowCubeApp::launching(Box::new(launch));
     event_loop.run_app(&mut app).expect("Application run failed");

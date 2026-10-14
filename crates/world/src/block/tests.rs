@@ -103,3 +103,23 @@ fn test_gentle_wedge_and_corner_shapes() {
     assert_eq!(concave_stair.elevation_at(0.8, 0.2), 1.0);
 }
 
+#[test]
+fn test_voxel_shapes_have_distinct_signature_colors() {
+    use super::{CuboidShape, RampWedge, RidgeCorner, ValleyCorner, PyramidPeak, StairFlight, VoxelShape};
+    let cube = CuboidShape::full_cube();
+    let slab = CuboidShape::half_slab();
+    let wedge = RampWedge::new(WedgeHeading::North);
+    let ridge = RidgeCorner::new(CornerHeading::NorthEast);
+    let valley = ValleyCorner::new(CornerHeading::NorthEast);
+    let peak = PyramidPeak::slope_aligned();
+    let stair = StairFlight::new(WedgeHeading::North);
+
+    assert_eq!(cube.shape_color(), Vec3::new(0.0, 0.9, 1.0));
+    assert_eq!(slab.shape_color(), Vec3::new(0.1, 0.95, 0.7));
+    assert_eq!(wedge.shape_color(), Vec3::new(1.0, 0.55, 0.0));
+    assert_eq!(ridge.shape_color(), Vec3::new(1.0, 0.0, 0.8));
+    assert_eq!(valley.shape_color(), Vec3::new(1.0, 0.95, 0.0));
+    assert_eq!(peak.shape_color(), Vec3::new(0.75, 0.2, 1.0));
+    assert_eq!(stair.shape_color(), Vec3::new(0.1, 0.95, 0.2));
+}
+

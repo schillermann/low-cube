@@ -1,12 +1,21 @@
 use glam::{Mat4, Vec3};
 
 mod buffer;
+mod line_buffer;
 mod pipeline;
 mod shader;
+mod tron_pipeline;
+mod tron_shader;
+
+#[cfg(test)]
+mod tron_tests;
 
 pub use buffer::{CpuMeshBatch, GlMesh};
+pub use line_buffer::{CpuLineBatch, CpuTronBatch, GlLineMesh, TronMesh};
 pub use pipeline::ForwardPipeline;
 pub use shader::{VoxelProgram, VoxelShaderSource};
+pub use tron_pipeline::TronPipeline;
+pub use tron_shader::{TronProgram, TronShaderSource};
 
 /// Interface for GPU-renderable mesh objects.
 pub trait Mesh {

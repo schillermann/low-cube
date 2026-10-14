@@ -6,6 +6,7 @@ use crate::frame::SurfaceFrame;
 /// Interface for predefined multi-form voxel geometries.
 pub trait VoxelShape: Send + Sync {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32;
+    fn shape_color(&self) -> Vec3;
     fn emit_shape(
         &self,
         cell: GridCell,

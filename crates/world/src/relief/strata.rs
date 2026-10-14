@@ -37,10 +37,8 @@ impl ReliefStrata {
         let mut cavern_span: Option<CavitySpan> = None;
         cavity.inspect_cavity(u, v, &mut |span| cavern_span = Some(span));
 
-        let (surf_col, cave_floor_col, cave_wall_col, cave_ceil_col) =
-            palette.inspect_subterranean(|f, w, c| {
-                palette.inspect_surface(|s| (s, f, w, c))
-            });
+        let (cave_floor_col, cave_wall_col, cave_ceil_col) =
+            palette.inspect_subterranean(|f, w, c| (f, w, c));
 
         if let Some(span) = cavern_span {
             let (floor, ceil) = span.inspect(|f, c| (f, c));
@@ -52,7 +50,7 @@ impl ReliefStrata {
 
         self.facet.emit_facet(
             cell, frame, relief, half_blocks,
-            surf_col, cave_wall_col, target,
+            palette, target,
         );
     }
 

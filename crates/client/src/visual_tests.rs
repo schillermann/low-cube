@@ -118,3 +118,33 @@ fn test_shadow_continuity_faces_in_umbra_clamp_smoothly_to_ambient() {
     let side_light = compute_lighting(side_normal, sun_dir);
     assert_eq!(side_light, 0.35, "Faces grazing sunlight must smoothly transition to ambient");
 }
+
+#[test]
+fn test_tron_wireframe_world_emission_contains_distinct_shape_colors_and_warning_cliffs() {
+    let size = 64;
+    let world = BiomedCubeWorld::beveled_tron(size, 1.0);
+    let mut accumulator = QuadAccumulator::new();
+    world.emit_surface(&mut accumulator);
+
+    assert!(accumulator.quads.len() > 0, "Tron world must emit quads for wireframe batching");
+
+    let colors: Vec<Vec3> = accumulator.quads.iter().map(|q| q.transfer(|_, _, _, _, _, color| color)).collect();
+    let mut unique_cols: Vec<Vec3> = Vec::new();
+    for c in &colors {
+        if !unique_cols.iter().any(|u| (u - c).length() < 1e-3) {
+            unique_cols.push(*c);
+        }
+    }
+
+    // Verify neon cyan flat surfaces exist
+    let has_cyan_surfaces = colors.iter().any(|c| (c - Vec3::new(0.0, 0.9, 1.0)).length() < 1e-3);
+    assert!(has_cyan_surfaces, "Tron world must emit cyan lines for flat surfaces");
+
+    // Verify warning red cliff walls exist where elevations mismatch
+    let has_warning_cliffs = colors.iter().any(|c| (c - Vec3::new(1.0, 0.1, 0.1)).length() < 1e-3);
+    assert!(has_warning_cliffs, "Tron world must emit warning red cliff lines for vertical mismatches");
+
+    // Verify neon amber ramps exist
+    let has_amber_ramps = colors.iter().any(|c| (c - Vec3::new(1.0, 0.55, 0.0)).length() < 1e-3);
+    assert!(has_amber_ramps, "Tron world must emit amber lines for climbable ramps");
+}

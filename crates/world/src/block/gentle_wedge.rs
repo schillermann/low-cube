@@ -49,6 +49,14 @@ impl VoxelShape for GentleWedge {
         self.start_elevation + frac * (self.end_elevation - self.start_elevation)
     }
 
+    fn shape_color(&self) -> Vec3 {
+        if self.start_elevation < 0.25 {
+            Vec3::new(0.25, 0.75, 1.0)
+        } else {
+            Vec3::new(0.1, 0.45, 1.0)
+        }
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,

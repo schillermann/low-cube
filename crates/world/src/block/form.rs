@@ -142,7 +142,7 @@ impl Block for FormBlock {
             self.cell,
             self.base_elevation,
             frame,
-            Vec3::ONE,
+            self.shape.shape_color(),
             target,
         );
     }

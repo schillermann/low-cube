@@ -31,6 +31,14 @@ impl VoxelShape for CuboidShape {
         self.height
     }
 
+    fn shape_color(&self) -> Vec3 {
+        if self.height >= 0.9 {
+            Vec3::new(0.0, 0.9, 1.0)
+        } else {
+            Vec3::new(0.1, 0.95, 0.7)
+        }
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,

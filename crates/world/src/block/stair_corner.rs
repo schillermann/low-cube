@@ -38,6 +38,14 @@ impl VoxelShape for StairCorner {
         if t < 0.5 { 0.5 } else { 1.0 }
     }
 
+    fn shape_color(&self) -> Vec3 {
+        if self.concave {
+            Vec3::new(0.7, 0.95, 0.0)
+        } else {
+            Vec3::new(0.5, 0.95, 0.1)
+        }
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,

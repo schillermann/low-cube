@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-14
+
+### Added
+- Diagnostic Tron wireframe rendering mode (`--tron` CLI argument and in-game toggle key `T`) rendering terrain and block geometries purely as glowing unlit neon vector lines against a pitch-black cosmic void.
+- Emissive diagnostic signature colors for all 15 block shapes (`VoxelShape::shape_color`) enabling immediate visual classification of cuboids, ramps, diagonal ridge/valley corners, stairs, pyramids, and gentle slopes.
+- Elevation discontinuity and seam mismatch diagnostics: non-matching adjoining blocks and vertical cliff steps emit high-contrast warning red lines (`#FF1744`).
+- Tron GPU rendering pipeline (`TronPipeline`, `TronShaderSource`, `TronProgram`) with black occlusion face pass via polygon offset preventing see-through backfaces, paired with emissive line mesh drawing (`glow::LINES`).
+- CPU wireframe line batching (`CpuLineBatch`, `CpuTronBatch`, `GlLineMesh`, `TronMesh`).
+- Faceted relief Tron palettes in `ReliefPalette::tron()` and `FacetedReliefFace::tron` for planetary cube terrain.
+- Decoupled OpenGL host environment initialization into `GlHostEnvironment` (`crates/client/src/host_env.rs`) maintaining strict single-responsibility and file line limits.
+- Comprehensive Tron wireframe color and mismatch reference documentation in `docs/BLOCKS.md`.
+
 ## [0.15.0] - 2026-10-14
 
 ### Added

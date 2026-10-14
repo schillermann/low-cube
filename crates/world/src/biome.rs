@@ -49,10 +49,33 @@ impl BiomedCubeWorld {
         Self::new(Box::new(CubePlanet::new(faces, Box::new(NullFace))))
     }
 
+    /// Secondary constructor assembling planetary terrain in Tron wireframe visualization mode.
+    pub fn tron(size_blocks: u32) -> Self {
+        let half = (size_blocks as f32) * 0.5;
+
+        let faces: Vec<Box<dyn Face>> = vec![
+            Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Temperate, half, size_blocks)), ClimateZone::Temperate, half)),
+            Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Volcanic, half, size_blocks)), ClimateZone::Volcanic, half)),
+            Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Desert, half, size_blocks)), ClimateZone::Desert, half)),
+            Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Arctic, half, size_blocks)), ClimateZone::Arctic, half)),
+            Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Jungle, half, size_blocks)), ClimateZone::Jungle, half)),
+            Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Steppe, half, size_blocks)), ClimateZone::Steppe, half)),
+        ];
+
+        Self::new(Box::new(CubePlanet::new(faces, Box::new(NullFace))))
+    }
+
     /// Secondary constructor decorating the multi-biome world with continuous seam normal transitions.
     pub fn beveled(size_blocks: u32, margin: f32) -> crate::BeveledWorld {
         let half = (size_blocks as f32) * 0.5;
         let base = Box::new(Self::of_size(size_blocks));
+        crate::BeveledWorld::decorating(base, half, margin)
+    }
+
+    /// Secondary constructor decorating the Tron wireframe world with beveled seam normal transitions.
+    pub fn beveled_tron(size_blocks: u32, margin: f32) -> crate::BeveledWorld {
+        let half = (size_blocks as f32) * 0.5;
+        let base = Box::new(Self::tron(size_blocks));
         crate::BeveledWorld::decorating(base, half, margin)
     }
 

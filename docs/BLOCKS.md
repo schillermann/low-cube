@@ -113,3 +113,57 @@ To inspect and list blocks or to render new documentation images after code chan
   ```bash
   ./scripts/block_catalog.py render-all docs/images/blocks/
   ```
+
+---
+
+## 5. Tron Wireframe Mode & Diagnostic Geometry Colors (`--tron`)
+
+Low-Cube features a dedicated **Tron wireframe diagnostic mode** designed to visualize block geometries, facet alignments, and identify non-matching or discontinuous blocks at a glance.
+
+In this mode, terrain and block geometry are rendered exclusively as glowing neon vector lines (`glow::LINES`) set against a pitch-black cosmic void (`#030305`), utilizing an invisible black occlusion pass with polygon offset so subterranean and back-facing geometry remain occluded.
+
+### Shape Diagnostic Colors
+
+Every geometric shape in [`VoxelShape`](file:///home/mario/code/low-cube/crates/world/src/block/shape.rs) and facet in [`ReliefPalette`](file:///home/mario/code/low-cube/crates/world/src/relief/palette.rs) emits a unique diagnostic neon color:
+
+| Shape / Facet ID | Geometric Entity | Hex Color | `Vec3` RGB | Visual Signature | Diagnostic Purpose |
+|---|---|---|---|---|---|
+| `cube` / Flat Facet | [`CuboidShape::cube`](file:///home/mario/code/low-cube/crates/world/src/block/cuboid.rs) | `#00E5FF` | `Vec3(0.00, 0.90, 1.00)` | Neon Cyan | Standard horizontal plateau and full cubic blocks. |
+| `slab` | [`CuboidShape::slab`](file:///home/mario/code/low-cube/crates/world/src/block/cuboid.rs) | `#1DE9B6` | `Vec3(0.10, 0.95, 0.70)` | Mint Aquamarine | $0.5\,\text{m}$ half-step intermediate plateaus. |
+| `wedge` / Ramp Facet | [`RampWedge`](file:///home/mario/code/low-cube/crates/world/src/block/wedge.rs) | `#FF9100` | `Vec3(1.00, 0.55, 0.00)` | Neon Amber / Orange | $45^\circ$ (1:1) standard incline slopes. |
+| `ridge_corner` / Ridge Facet | [`RidgeCorner`](file:///home/mario/code/low-cube/crates/world/src/block/ridge.rs) | `#FF007F` | `Vec3(1.00, 0.00, 0.80)` | Neon Magenta | $45^\circ$ convex outer corners joining slopes. |
+| `valley_corner` / Valley Facet | [`ValleyCorner`](file:///home/mario/code/low-cube/crates/world/src/block/valley.rs) | `#FFEA00` | `Vec3(1.00, 0.95, 0.00)` | Neon Yellow | $45^\circ$ concave inner corners joining slopes. |
+| `stair` | [`StairFlight`](file:///home/mario/code/low-cube/crates/world/src/block/stair.rs) | `#00E676` | `Vec3(0.10, 0.95, 0.20)` | Neon Green | 2-step straight climbing stairs. |
+| `stair_corner_convex` | [`StairCorner`](file:///home/mario/code/low-cube/crates/world/src/block/stair_corner.rs) | `#76FF03` | `Vec3(0.50, 0.95, 0.10)` | Lime Green | Convex outer 90° corner stairs. |
+| `stair_corner_concave` | [`StairCorner`](file:///home/mario/code/low-cube/crates/world/src/block/stair_corner.rs) | `#AEEA00` | `Vec3(0.70, 0.95, 0.00)` | Bright Chartreuse | Concave inner 90° corner stairs. |
+| `peak` | [`PyramidPeak`](file:///home/mario/code/low-cube/crates/world/src/block/pyramid.rs) | `#D500F9` | `Vec3(0.75, 0.20, 1.00)` | Electric Violet | 4-sided pyramid summits. |
+| `gentle_lower_wedge` | [`GentleWedge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_wedge.rs) | `#40C4FF` | `Vec3(0.25, 0.75, 1.00)` | Sky Blue | Lower segment of shallow 2:1 ramps ($0.0 \to 0.5\,\text{m}$). |
+| `gentle_upper_wedge` | [`GentleWedge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_wedge.rs) | `#2979FF` | `Vec3(0.10, 0.45, 1.00)` | Royal Blue | Upper segment of shallow 2:1 ramps ($0.5 \to 1.0\,\text{m}$). |
+| `gentle_lower_ridge` | [`GentleRidge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_ridge.rs) | `#FF5252` | `Vec3(1.00, 0.35, 0.35)` | Coral Pink | Lower outer diagonal corner of shallow ramps. |
+| `gentle_upper_ridge` | [`GentleRidge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_ridge.rs) | `#FF1744` | `Vec3(1.00, 0.15, 0.30)` | Deep Coral | Upper outer diagonal corner of shallow ramps. |
+| `gentle_lower_valley` | [`GentleValley`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_valley.rs) | `#FFD600` | `Vec3(1.00, 0.85, 0.20)` | Goldenrod | Lower inner diagonal corner of shallow ramps. |
+| `gentle_upper_valley` | [`GentleValley`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_valley.rs) | `#FFAB00` | `Vec3(1.00, 0.70, 0.00)` | Deep Gold | Upper inner diagonal corner of shallow ramps. |
+| Planetary Chamfer | [`ReliefPalette::tron`](file:///home/mario/code/low-cube/crates/world/src/relief/palette.rs) | `#FFFFFF` | `Vec3(1.00, 1.00, 1.00)` | Polar White | Beveled 45° boundary chamfers at cubic planet seams. |
+| **Step Drops / Mismatch Cliffs** | [`FacetedReliefFace`](file:///home/mario/code/low-cube/crates/world/src/relief/face.rs) | `#FF1744` | `Vec3(1.00, 0.10, 0.10)` | **Warning Red** | **Non-matching block seams & vertical drops.** |
+
+---
+
+### Mismatch & Discontinuity Diagnostics
+
+When surveying procedural terrain or player structures in Tron mode:
+- **Continuous, Watertight Transitions**: Adjacent blocks that share elevations and slopes blend with matching contour lines (e.g. Cyan plateau leading into Amber ramps and Magenta ridge corners).
+- **Non-Matching Seams & Abrupt Steps**: Any elevation step or cliff drop where adjacent blocks do not match elevations emits vertical **Warning Red** (`#FF1744`) edges. This highlights impassable drop-offs, missing slope transitions, or misaligned block forms instantly across the landscape.
+
+---
+
+### Usage & Keybindings
+
+- **CLI Flag**:
+  Launch the client directly in Tron wireframe mode:
+  ```bash
+  cargo run -- tron
+  # or
+  cargo run -- --tron
+  ```
+- **Runtime Toggle**:
+  Press <kbd>T</kbd> at any time during gameplay to toggle seamlessly between full daylight shaded rendering and Tron diagnostic wireframe mode.

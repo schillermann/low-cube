@@ -22,6 +22,10 @@ impl VoxelShape for RidgeCorner {
         self.heading.ridge_elevation(local_u, local_v)
     }
 
+    fn shape_color(&self) -> Vec3 {
+        Vec3::new(1.0, 0.0, 0.8)
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,

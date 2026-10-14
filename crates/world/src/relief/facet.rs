@@ -3,7 +3,7 @@ use crate::{MeshTarget, Quad};
 use crate::block::GridCell;
 use crate::frame::SurfaceFrame;
 
-use super::{ReliefCorner, ReliefElevation};
+use super::{ReliefCorner, ReliefElevation, ReliefPalette};
 
 /// Encapsulated geometric facet evaluating 1-block climbable ramps, corners, seam chamfers, and side walls.
 pub struct ReliefFacet {
@@ -17,17 +17,17 @@ impl ReliefFacet {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn emit_facet(
         &self,
         cell: GridCell,
         frame: &SurfaceFrame,
         relief: &dyn ReliefElevation,
         half_blocks: i32,
-        surf_col: Vec3,
-        wall_col: Vec3,
+        palette: &ReliefPalette,
         target: &mut dyn MeshTarget,
     ) {
+        let (surf_col, ramp_col, ridge_col, valley_col, chamfer_col, cliff_col) =
+            palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let h = relief.elevation_at(u, v);
         let hn = relief.elevation_at(u, v + 1);
@@ -44,22 +44,22 @@ impl ReliefFacet {
         let tw = u0 as i32 <= -half_blocks;
 
         if h == 0 && (tn || ts || te || tw) {
-            self.emit_chamfer(u0, u1, v0, v1, tn, ts, te, tw, frame, surf_col, target);
+            self.emit_chamfer(u0, u1, v0, v1, tn, ts, te, tw, frame, chamfer_col, target);
             return;
         }
 
         let (dn, ds, de, dw) = (h - hn, h - hs, h - he, h - hw);
 
-        if dn == 1 && ds <= 0 && de <= 0 && dw <= 0 { self.emit_ramp(u0, u1, v0, v1, top_h, 0, frame, surf_col, target); return; }
-        if ds == 1 && dn <= 0 && de <= 0 && dw <= 0 { self.emit_ramp(u0, u1, v0, v1, top_h, 1, frame, surf_col, target); return; }
-        if de == 1 && dn <= 0 && ds <= 0 && dw <= 0 { self.emit_ramp(u0, u1, v0, v1, top_h, 2, frame, surf_col, target); return; }
-        if dw == 1 && dn <= 0 && ds <= 0 && de <= 0 { self.emit_ramp(u0, u1, v0, v1, top_h, 3, frame, surf_col, target); return; }
+        if dn == 1 && ds <= 0 && de <= 0 && dw <= 0 { self.emit_ramp(u0, u1, v0, v1, top_h, 0, frame, ramp_col, target); return; }
+        if ds == 1 && dn <= 0 && de <= 0 && dw <= 0 { self.emit_ramp(u0, u1, v0, v1, top_h, 1, frame, ramp_col, target); return; }
+        if de == 1 && dn <= 0 && ds <= 0 && dw <= 0 { self.emit_ramp(u0, u1, v0, v1, top_h, 2, frame, ramp_col, target); return; }
+        if dw == 1 && dn <= 0 && ds <= 0 && de <= 0 { self.emit_ramp(u0, u1, v0, v1, top_h, 3, frame, ramp_col, target); return; }
 
         // Convex ridge corners (outward slopes)
-        if dn == 1 && de == 1 && ds <= 0 && dw <= 0 { self.corner.emit_ridge(u0, u1, v0, v1, top_h, 0, frame, surf_col, target); return; }
-        if dn == 1 && dw == 1 && ds <= 0 && de <= 0 { self.corner.emit_ridge(u0, u1, v0, v1, top_h, 1, frame, surf_col, target); return; }
-        if ds == 1 && de == 1 && dn <= 0 && dw <= 0 { self.corner.emit_ridge(u0, u1, v0, v1, top_h, 2, frame, surf_col, target); return; }
-        if ds == 1 && dw == 1 && dn <= 0 && de <= 0 { self.corner.emit_ridge(u0, u1, v0, v1, top_h, 3, frame, surf_col, target); return; }
+        if dn == 1 && de == 1 && ds <= 0 && dw <= 0 { self.corner.emit_ridge(u0, u1, v0, v1, top_h, 0, frame, ridge_col, target); return; }
+        if dn == 1 && dw == 1 && ds <= 0 && de <= 0 { self.corner.emit_ridge(u0, u1, v0, v1, top_h, 1, frame, ridge_col, target); return; }
+        if ds == 1 && de == 1 && dn <= 0 && dw <= 0 { self.corner.emit_ridge(u0, u1, v0, v1, top_h, 2, frame, ridge_col, target); return; }
+        if ds == 1 && dw == 1 && dn <= 0 && de <= 0 { self.corner.emit_ridge(u0, u1, v0, v1, top_h, 3, frame, ridge_col, target); return; }
 
         // Concave valley corners (two inward slopes replacing flat blocks between sloped blocks)
         if dn <= 0 && ds <= 0 && de <= 0 && dw <= 0 {
@@ -67,13 +67,13 @@ impl ReliefFacet {
             let hsw = relief.elevation_at(u - 1, v - 1);
             let hne = relief.elevation_at(u + 1, v + 1);
             let hnw = relief.elevation_at(u - 1, v + 1);
-            if hse < h && hs == h && he == h { self.corner.emit_valley(u0, u1, v0, v1, top_h, 0, frame, surf_col, target); return; }
-            if hsw < h && hs == h && hw == h { self.corner.emit_valley(u0, u1, v0, v1, top_h, 1, frame, surf_col, target); return; }
-            if hne < h && hn == h && he == h { self.corner.emit_valley(u0, u1, v0, v1, top_h, 2, frame, surf_col, target); return; }
-            if hnw < h && hn == h && hw == h { self.corner.emit_valley(u0, u1, v0, v1, top_h, 3, frame, surf_col, target); return; }
+            if hse < h && hs == h && he == h { self.corner.emit_valley(u0, u1, v0, v1, top_h, 0, frame, valley_col, target); return; }
+            if hsw < h && hs == h && hw == h { self.corner.emit_valley(u0, u1, v0, v1, top_h, 1, frame, valley_col, target); return; }
+            if hne < h && hn == h && he == h { self.corner.emit_valley(u0, u1, v0, v1, top_h, 2, frame, valley_col, target); return; }
+            if hnw < h && hn == h && hw == h { self.corner.emit_valley(u0, u1, v0, v1, top_h, 3, frame, valley_col, target); return; }
         }
 
-        self.emit_flat(u0, u1, v0, v1, top_h, h, hn, hs, he, hw, frame, surf_col, wall_col, target);
+        self.emit_flat(u0, u1, v0, v1, top_h, h, hn, hs, he, hw, frame, surf_col, cliff_col, target);
     }
 
     fn emit_ramp(

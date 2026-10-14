@@ -25,6 +25,10 @@ impl VoxelShape for ElevatedShape {
         self.shape.elevation_at(local_u, local_v) + self.elevation_offset
     }
 
+    fn shape_color(&self) -> Vec3 {
+        self.shape.shape_color()
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,

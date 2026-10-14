@@ -17,9 +17,13 @@ pub trait Session {
 /// Fully initialized active game session with code-free primary constructor.
 pub struct GameSession {
     surface: Box<dyn PlatformSurface>,
-    pipeline: Box<dyn GraphicPipeline>,
-    shader: Box<dyn ShaderProgram>,
-    mesh: Box<dyn Mesh>,
+    primary_pipeline: Box<dyn GraphicPipeline>,
+    primary_shader: Box<dyn ShaderProgram>,
+    primary_mesh: Box<dyn Mesh>,
+    tron_pipeline: Box<dyn GraphicPipeline>,
+    tron_shader: Box<dyn ShaderProgram>,
+    tron_mesh: Box<dyn Mesh>,
+    tron_active: bool,
     world: Box<dyn PlanetaryWorld>,
     avatar: Box<dyn Avatar>,
     controls: Box<dyn KeyboardControls>,
@@ -27,20 +31,29 @@ pub struct GameSession {
 
 impl GameSession {
     /// Primary constructor doing zero computation or I/O.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         surface: Box<dyn PlatformSurface>,
-        pipeline: Box<dyn GraphicPipeline>,
-        shader: Box<dyn ShaderProgram>,
-        mesh: Box<dyn Mesh>,
+        primary_pipeline: Box<dyn GraphicPipeline>,
+        primary_shader: Box<dyn ShaderProgram>,
+        primary_mesh: Box<dyn Mesh>,
+        tron_pipeline: Box<dyn GraphicPipeline>,
+        tron_shader: Box<dyn ShaderProgram>,
+        tron_mesh: Box<dyn Mesh>,
+        tron_active: bool,
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
         controls: Box<dyn KeyboardControls>,
     ) -> Self {
         Self {
             surface,
-            pipeline,
-            shader,
-            mesh,
+            primary_pipeline,
+            primary_shader,
+            primary_mesh,
+            tron_pipeline,
+            tron_shader,
+            tron_mesh,
+            tron_active,
             world,
             avatar,
             controls,
@@ -83,6 +96,11 @@ impl Session for GameSession {
                             self.avatar.toggle_invert_x();
                         }
                     }
+                    KeyCode::KeyT => {
+                        if pressed {
+                            self.tron_active = !self.tron_active;
+                        }
+                    }
                     KeyCode::Escape => event_loop.exit(),
                     _ => self.controls.register_key(code, pressed),
                 }
@@ -91,10 +109,24 @@ impl Session for GameSession {
                 let dt = 1.0 / 60.0;
                 self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
 
+                let (pipeline, shader, mesh) = if self.tron_active {
+                    (
+                        self.tron_pipeline.as_ref(),
+                        self.tron_shader.as_ref(),
+                        self.tron_mesh.as_ref(),
+                    )
+                } else {
+                    (
+                        self.primary_pipeline.as_ref(),
+                        self.primary_shader.as_ref(),
+                        self.primary_mesh.as_ref(),
+                    )
+                };
+
                 self.surface.render_frame(
-                    self.pipeline.as_ref(),
-                    self.shader.as_ref(),
-                    self.mesh.as_ref(),
+                    pipeline,
+                    shader,
+                    mesh,
                     self.avatar.as_ref(),
                 );
             }

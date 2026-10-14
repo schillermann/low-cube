@@ -102,6 +102,13 @@ impl FacetedReliefFace {
 
         Self::new(frame, relief, cavity, palette, strata, divisions)
     }
+
+    /// Secondary constructor assembling a relief face calibrated for Tron wireframe visualization.
+    pub fn tron(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
+        let mut face = Self::in_zone(zone, half_size, divisions);
+        face.palette = ReliefPalette::tron();
+        face
+    }
 }
 
 impl Face for FacetedReliefFace {

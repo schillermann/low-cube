@@ -21,6 +21,20 @@ fn test_relief_palette_biome_differentiation() {
     assert_ne!(temp_surf, volc_surf, "Different biomes must have distinct palettes");
 }
 
+#[test]
+fn test_tron_palette_distinct_colors_for_facets_and_mismatches() {
+    let tron = ReliefPalette::tron();
+    let (surf, ramp, ridge, valley, chamfer, cliff) =
+        tron.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
+
+    assert_ne!(surf, ramp, "Cube flat and ramp must have distinct colors");
+    assert_ne!(ramp, ridge, "Ramp and ridge corner must have distinct colors");
+    assert_ne!(ridge, valley, "Ridge and valley corner must have distinct colors");
+    assert_ne!(cliff, surf, "Vertical cliff drop must have warning color distinct from surface");
+    assert_eq!(cliff, Vec3::new(1.0, 0.1, 0.1), "Mismatched cliff walls must glow warning red");
+    assert_eq!(chamfer, Vec3::new(1.0, 1.0, 1.0), "Planet seam chamfers must be white");
+}
+
 struct QuadCollector;
 
 impl crate::MeshTarget for QuadCollector {
@@ -134,22 +148,24 @@ fn test_beveled_slope_and_corner_emission() {
     let mut collector = QuadCollector;
     let mut counter = CountedMeshTarget::new(&mut collector);
 
+    let palette = ReliefPalette::uniform(Vec3::ONE, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+
     // 1-block drop to North: emits 45° ramp quad
     let cell_ramp = crate::block::GridCell::new(0, 0);
     let ramp_relief = TestRelief(|u, v| if (u, v) == (0, 1) { 1 } else { 2 });
-    facet.emit_facet(cell_ramp, &frame, &ramp_relief, 16, Vec3::ONE, Vec3::ZERO, &mut counter);
+    facet.emit_facet(cell_ramp, &frame, &ramp_relief, 16, &palette, &mut counter);
     assert_eq!(counter.count(), 1);
 
     // 1-block drop to North and East: emits 2 triangular corner quads
     let cell_corner = crate::block::GridCell::new(1, 0);
     let corner_relief = TestRelief(|u, v| if (u, v) == (1, 1) || (u, v) == (2, 0) { 1 } else { 2 });
-    facet.emit_facet(cell_corner, &frame, &corner_relief, 16, Vec3::ONE, Vec3::ZERO, &mut counter);
+    facet.emit_facet(cell_corner, &frame, &corner_relief, 16, &palette, &mut counter);
     assert_eq!(counter.count(), 3);
 
     // 1-block lower diagonal at South-East: replaces flat block with 2 inward slope quads
     let cell_valley = crate::block::GridCell::new(2, 0);
     let valley_relief = TestRelief(|u, v| if (u, v) == (3, -1) { 1 } else { 2 });
-    facet.emit_facet(cell_valley, &frame, &valley_relief, 16, Vec3::ONE, Vec3::ZERO, &mut counter);
+    facet.emit_facet(cell_valley, &frame, &valley_relief, 16, &palette, &mut counter);
     assert_eq!(counter.count(), 5);
 }
 
@@ -159,11 +175,12 @@ fn test_seam_chamfer_emission_at_world_border() {
     let facet = ReliefFacet::new();
     let mut collector = QuadCollector;
     let mut counter = CountedMeshTarget::new(&mut collector);
+    let palette = ReliefPalette::uniform(Vec3::ONE, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
 
     // Border cell touching North seam (v1 = 16)
     let border_cell = crate::block::GridCell::new(0, 15);
     let border_relief = TestRelief(|_, _| 0);
-    facet.emit_facet(border_cell, &frame, &border_relief, 16, Vec3::ONE, Vec3::ZERO, &mut counter);
+    facet.emit_facet(border_cell, &frame, &border_relief, 16, &palette, &mut counter);
     assert_eq!(counter.count(), 2);
 }
 

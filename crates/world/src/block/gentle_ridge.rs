@@ -39,6 +39,14 @@ impl VoxelShape for GentleRidge {
         self.start_elevation + frac * (self.end_elevation - self.start_elevation)
     }
 
+    fn shape_color(&self) -> Vec3 {
+        if self.start_elevation < 0.25 {
+            Vec3::new(1.0, 0.35, 0.35)
+        } else {
+            Vec3::new(1.0, 0.15, 0.3)
+        }
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,

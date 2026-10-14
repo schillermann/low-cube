@@ -5,7 +5,7 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, WindowSurface};
 use winit::window::Window;
 
-use engine::{CpuMeshBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
+use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
 
 use crate::avatar::Avatar;
 
@@ -14,6 +14,7 @@ pub trait PlatformSurface {
     fn resize(&mut self, width: u32, height: u32);
     fn capture_cursor(&self);
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh>;
+    fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh>;
     fn compile_shader(&self, source: &dyn ShaderSource) -> Box<dyn ShaderProgram>;
     fn render_frame(
         &self,
@@ -76,6 +77,10 @@ impl PlatformSurface for GlPlatformSurface {
     }
 
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh> {
+        unsafe { batch.upload(&self.gl) }
+    }
+
+    fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh> {
         unsafe { batch.upload(&self.gl) }
     }
 

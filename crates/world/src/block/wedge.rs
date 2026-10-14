@@ -59,6 +59,10 @@ impl VoxelShape for RampWedge {
         self.heading.elevation_at(local_u, local_v)
     }
 
+    fn shape_color(&self) -> Vec3 {
+        Vec3::new(1.0, 0.55, 0.0)
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,
