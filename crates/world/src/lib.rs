@@ -41,7 +41,7 @@ pub use beveled_world::BeveledWorld;
 pub use biome::BiomedCubeWorld;
 pub use centripetal_world::CentripetalWorld;
 pub use block::{
-    Block, CornerHeading, CuboidShape, DirtBlock, ElevatedShape, FormBlock,
+    Block, CornerHeading, CuboidShape, DiagonalSlope, DirtBlock, ElevatedShape, FormBlock,
     GentleRidge, GentleValley, GentleWedge, GridCell, PyramidPeak, RampWedge,
     RidgeCorner, SandBlock, SnowBlock, StairCorner, StairFlight, StoneBlock,
     MaterialBlock, ValleyCorner, VoxelShape, WedgeHeading,

@@ -64,7 +64,11 @@ impl SessionAssembly for SessionLaunch {
         let surface = self.host_env.attach(event_loop);
         surface.capture_cursor();
 
-        let planet: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(self.world_blocks, 1.0));
+        let planet: Box<dyn PlanetaryWorld> = if self.tron_active {
+            Box::new(BiomedCubeWorld::beveled_tron(self.world_blocks, 1.0))
+        } else {
+            Box::new(BiomedCubeWorld::beveled(self.world_blocks, 1.0))
+        };
 
         // Primary daylight rendering assets
         let mut cpu_buf = CpuMeshBatch::empty();

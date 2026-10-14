@@ -1,6 +1,7 @@
 mod cell;
 mod corner;
 mod cuboid;
+mod diagonal_slope;
 mod elevated_shape;
 mod form;
 mod gentle_ridge;
@@ -21,6 +22,7 @@ mod tests;
 pub use cell::GridCell;
 pub use corner::CornerHeading;
 pub use cuboid::CuboidShape;
+pub use diagonal_slope::DiagonalSlope;
 pub use elevated_shape::ElevatedShape;
 pub use form::FormBlock;
 pub use gentle_ridge::GentleRidge;

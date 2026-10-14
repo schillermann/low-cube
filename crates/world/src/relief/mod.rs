@@ -7,7 +7,11 @@ mod palette;
 mod strata;
 
 #[cfg(test)]
+mod corner_seam_tests;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod watertight_tests;
 
 pub use cavity::{CavitySpan, NullCavity, SubterraneanCavity, ZonedCavity};
 pub use corner::ReliefCorner;

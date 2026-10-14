@@ -53,8 +53,11 @@ impl BiomedCubeWorld {
     pub fn tron(size_blocks: u32) -> Self {
         let half = (size_blocks as f32) * 0.5;
 
+        let temperate_relief = Box::new(FacetedReliefFace::tron(ClimateZone::Temperate, half, size_blocks));
+        let temperate_face = Box::new(FoldedFace::in_zone(temperate_relief, ClimateZone::Temperate, half));
+
         let faces: Vec<Box<dyn Face>> = vec![
-            Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Temperate, half, size_blocks)), ClimateZone::Temperate, half)),
+            temperate_face,
             Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Volcanic, half, size_blocks)), ClimateZone::Volcanic, half)),
             Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Desert, half, size_blocks)), ClimateZone::Desert, half)),
             Box::new(FoldedFace::in_zone(Box::new(FacetedReliefFace::tron(ClimateZone::Arctic, half, size_blocks)), ClimateZone::Arctic, half)),

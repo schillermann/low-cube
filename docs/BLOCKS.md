@@ -143,6 +143,7 @@ Every geometric shape in [`VoxelShape`](file:///home/mario/code/low-cube/crates/
 | `gentle_upper_ridge` | [`GentleRidge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_ridge.rs) | `#FF1744` | `Vec3(1.00, 0.15, 0.30)` | Deep Coral | Upper outer diagonal corner of shallow ramps. |
 | `gentle_lower_valley` | [`GentleValley`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_valley.rs) | `#FFD600` | `Vec3(1.00, 0.85, 0.20)` | Goldenrod | Lower inner diagonal corner of shallow ramps. |
 | `gentle_upper_valley` | [`GentleValley`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_valley.rs) | `#FFAB00` | `Vec3(1.00, 0.70, 0.00)` | Deep Gold | Upper inner diagonal corner of shallow ramps. |
+| `diagonal_slope` | [`DiagonalSlope`](file:///home/mario/code/low-cube/crates/world/src/block/diagonal_slope.rs) | `#408CFF` | `Vec3(0.25, 0.55, 1.00)` | Electric Azure | $45^\circ$ continuous smooth diagonal ramp slope without protruding peaks. |
 | Planetary Chamfer | [`ReliefPalette::tron`](file:///home/mario/code/low-cube/crates/world/src/relief/palette.rs) | `#FFFFFF` | `Vec3(1.00, 1.00, 1.00)` | Polar White | Beveled 45° boundary chamfers at cubic planet seams. |
 | **Step Drops / Mismatch Cliffs** | [`FacetedReliefFace`](file:///home/mario/code/low-cube/crates/world/src/relief/face.rs) | `#FF1744` | `Vec3(1.00, 0.10, 0.10)` | **Warning Red** | **Non-matching block seams & vertical drops.** |
 
@@ -167,3 +168,6 @@ When surveying procedural terrain or player structures in Tron mode:
   ```
 - **Runtime Toggle**:
   Press <kbd>T</kbd> at any time during gameplay to toggle seamlessly between full daylight shaded rendering and Tron diagnostic wireframe mode.
+
+---
+

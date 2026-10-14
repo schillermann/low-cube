@@ -8,6 +8,20 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-14
+
+### Added
+- Diagonal slope block form (`DiagonalSlope`) and typed constructors (`diagonal_slope_ne`, `diagonal_slope_nw`, `diagonal_slope_se`, `diagonal_slope_sw`) across all material blocks (`DirtBlock`, `SandBlock`, `SnowBlock`, `StoneBlock`) providing 45-degree diagonal slopes with watertight boundary triangles.
+- Watertight wall sealing regression test suite in `crates/world/src/relief/watertight_tests.rs` and corner seam test suite in `crates/world/src/relief/corner_seam_tests.rs`.
+
+### Fixed
+- Watertight relief mesh sealing between Full-Cube blocks and all non-flush adjacent shapes (ramp wedges, valley corners, ridge corners, and seam chamfers), preventing see-through gaps into cube interiors.
+- Preserved sub-second client launch latency with zero-cost plateau early-exit and short-circuited boundary seam elevation lookups.
+
+### Changed
+- Updated gameplay demonstration screenshot in `docs/images/gameplay.png` and `README.md`.
+- Documented diagonal slope block forms in `docs/BLOCKS.md`.
+
 ## [0.16.0] - 2026-10-14
 
 ### Added

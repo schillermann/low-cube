@@ -147,4 +147,12 @@ fn test_tron_wireframe_world_emission_contains_distinct_shape_colors_and_warning
     // Verify neon amber ramps exist
     let has_amber_ramps = colors.iter().any(|c| (c - Vec3::new(1.0, 0.55, 0.0)).length() < 1e-3);
     assert!(has_amber_ramps, "Tron world must emit amber lines for climbable ramps");
+
+    // Verify neon magenta ridge corners exist
+    let has_magenta_ridges = colors.iter().any(|c| (c - Vec3::new(1.0, 0.0, 0.8)).length() < 1e-3);
+    assert!(has_magenta_ridges, "Tron world must emit neon magenta lines for Grat-Außenecken");
+
+    // Verify neon yellow valley corners exist
+    let has_yellow_valleys = colors.iter().any(|c| (c - Vec3::new(1.0, 0.95, 0.0)).length() < 1e-3);
+    assert!(has_yellow_valleys, "Tron world must emit neon yellow lines for Kehl-Innenecken");
 }

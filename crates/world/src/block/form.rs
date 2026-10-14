@@ -59,6 +59,11 @@ impl FormBlock {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(PyramidPeak::slope_aligned()))
     }
 
+    /// Secondary constructor for a 45° smooth diagonal ramp slope form.
+    pub fn diagonal_slope(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::diagonal_slope::DiagonalSlope::new(heading)))
+    }
+
     /// Secondary constructor for a two-tiered stepped staircase form.
     pub fn stair(grid_u: i32, grid_v: i32, base: f32, heading: WedgeHeading) -> Self {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(StairFlight::new(heading)))

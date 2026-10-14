@@ -65,6 +65,14 @@ impl StoneBlock {
         Self::dark(FormBlock::valley_corner(grid_u, grid_v, base, heading))
     }
 
+    pub fn diagonal_slope(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::natural(FormBlock::diagonal_slope(grid_u, grid_v, base, heading))
+    }
+
+    pub fn dark_diagonal_slope(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::dark(FormBlock::diagonal_slope(grid_u, grid_v, base, heading))
+    }
+
     pub fn peak(grid_u: i32, grid_v: i32, base: f32) -> Self {
         Self::natural(FormBlock::peak(grid_u, grid_v, base))
     }

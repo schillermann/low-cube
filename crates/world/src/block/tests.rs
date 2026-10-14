@@ -123,3 +123,17 @@ fn test_voxel_shapes_have_distinct_signature_colors() {
     assert_eq!(stair.shape_color(), Vec3::new(0.1, 0.95, 0.2));
 }
 
+#[test]
+fn test_diagonal_slope_shape_elevation_and_constraint() {
+    use super::{CornerHeading, DiagonalSlope, VoxelShape};
+    let slope_ne = DiagonalSlope::new(CornerHeading::NorthEast);
+    assert_eq!(slope_ne.elevation_at(0.0, 0.0), 0.0);
+    assert_eq!(slope_ne.elevation_at(0.5, 0.5), 0.5);
+    assert_eq!(slope_ne.elevation_at(1.0, 1.0), 1.0);
+
+    let slope_sw = DiagonalSlope::new(CornerHeading::SouthWest);
+    assert_eq!(slope_sw.elevation_at(1.0, 1.0), 0.0);
+    assert_eq!(slope_sw.elevation_at(0.5, 0.5), 0.5);
+    assert_eq!(slope_sw.elevation_at(0.0, 0.0), 1.0);
+}
+
