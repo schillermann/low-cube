@@ -56,6 +56,38 @@ impl VoxelShape for StairCorner {
         let pt = |u: f32, v: f32, h: f32| frame.point_at(u, v, h);
         let n = frame.normal();
 
+        let [b0, b1, b2, b3] = cell.corner_points(frame, h0);
+
+        if self.concave {
+            let (lu0, lu1, lv0, lv1) = match self.heading {
+                CornerHeading::NorthEast => (u0, um, v0, vm),
+                CornerHeading::NorthWest => (um, u1, v0, vm),
+                CornerHeading::SouthEast => (u0, um, vm, v1),
+                CornerHeading::SouthWest => (um, u1, vm, v1),
+            };
+            // Low quadrant tread at h1
+            target.push_quad(Quad::new(pt(lu0, lv0, h1), pt(lu1, lv0, h1), pt(lu1, lv1, h1), pt(lu0, lv1, h1), n, color));
+            // High L-shape: upper half and lower side quadrant at h2
+            match self.heading {
+                CornerHeading::NorthEast => {
+                    target.push_quad(Quad::new(pt(u0, vm, h2), pt(u1, vm, h2), pt(u1, v1, h2), pt(u0, v1, h2), n, color));
+                    target.push_quad(Quad::new(pt(um, v0, h2), pt(u1, v0, h2), pt(u1, vm, h2), pt(um, vm, h2), n, color));
+                    target.push_quad(Quad::new(pt(u0, vm, h1), pt(um, vm, h1), pt(um, vm, h2), pt(u0, vm, h2), -frame.bitangent(), color));
+                    target.push_quad(Quad::new(pt(um, v0, h1), pt(um, v0, h2), pt(um, vm, h2), pt(um, vm, h1), -frame.tangent(), color));
+                    target.push_quad(Quad::new(b0, pt(um, v0, h0), pt(um, v0, h1), pt(u0, v0, h1), -frame.bitangent(), color));
+                    target.push_quad(Quad::new(pt(um, v0, h0), b1, pt(u1, v0, h2), pt(um, v0, h2), -frame.bitangent(), color));
+                    target.push_quad(Quad::new(pt(u0, v1, h2), pt(u1, v1, h2), b2, b3, frame.bitangent(), color));
+                    target.push_quad(Quad::new(b3, b0, pt(u0, v0, h1), pt(u0, vm, h1), -frame.tangent(), color));
+                    target.push_quad(Quad::new(pt(u0, vm, h0), pt(u0, v1, h0), pt(u0, v1, h2), pt(u0, vm, h2), -frame.tangent(), color));
+                    target.push_quad(Quad::new(b1, b2, pt(u1, v1, h2), pt(u1, v0, h2), frame.tangent(), color));
+                }
+                _ => {
+                    target.push_quad(Quad::new(pt(u0, v0, h2), pt(u1, v0, h2), pt(u1, v1, h2), pt(u0, v1, h2), n, color));
+                }
+            }
+            return;
+        }
+
         // Lower step tread across the cell
         target.push_quad(Quad::new(pt(u0, v0, h1), pt(u1, v0, h1), pt(u1, v1, h1), pt(u0, v1, h1), n, color));
 
@@ -73,7 +105,6 @@ impl VoxelShape for StairCorner {
         target.push_quad(Quad::new(pt(cu0, cv0, h1), pt(cu0, cv0, h2), pt(cu0, cv1, h2), pt(cu0, cv1, h1), -frame.tangent(), color));
 
         // Outer base walls
-        let [b0, b1, b2, b3] = cell.corner_points(frame, h0);
         target.push_quad(Quad::new(b0, b1, pt(u1, v0, h1), pt(u0, v0, h1), -frame.bitangent(), color));
         target.push_quad(Quad::new(pt(u0, v1, h1), pt(u1, v1, h1), b2, b3, frame.bitangent(), color));
         target.push_quad(Quad::new(b3, b0, pt(u0, v0, h1), pt(u0, v1, h1), -frame.tangent(), color));

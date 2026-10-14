@@ -58,6 +58,7 @@ For environment setup, building, running, and testing instructions, see the [Dev
 ## Documentation
 
 - [Game Concept](CONCEPT.md)
+- [Block Catalog & Geometry Reference](docs/BLOCKS.md)
 - [Development Roadmap](docs/ROADMAP.md)
 - [Server & Game Settings Guide](docs/SETTINGS.md)
 - [Developer Guide](docs/DEVELOPMENT.md)

@@ -8,7 +8,19 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
-## [0.14.0] - 2026-10-13
+## [0.15.0] - 2026-10-14
+
+### Added
+- Complete shape constructors across all typed material blocks (`DirtBlock`, `SandBlock`, `SnowBlock`, `StoneBlock`) supporting gentle lower/upper wedges, gentle ridge/valley corners, and stair corners (`stair_corner_convex`, `stair_corner_concave`).
+- Concave stepped inner corner mesh generation in `StairCorner::emit_shape`.
+- Block geometry exporter in `crates/world/examples/export_blocks.rs`.
+- Interactive block catalog and snapshot CLI in `scripts/block_catalog.py` providing listing (`list`, `list --forms`, `list --materials`), single-block rendering (`render`), and batch rendering (`render-all`).
+- Comprehensive block catalog and geometry reference documentation in `docs/BLOCKS.md` with visual matrix across all materials and shapes.
+- High-resolution (512x512 with 2x SSAA and alpha transparency) snapshot images for all 105 available blocks in `docs/images/blocks/`.
+- Markdown-only commit workflow exception and line-count exemption in `AGENTS.md`, alongside CI `paths-ignore` filter in `.github/workflows/release.yml`.
+
+### Changed
+- Linked block catalog documentation in `README.md`.
 
 ### Added
 - Procedural planetary relief generation in `crates/world/src/relief/` (`ReliefElevation`, `ZonedRelief`, `ReliefFace`, `ReliefFacet`, `ReliefCorner`, `ReliefPalette`, `ReliefStrata`, `ReliefCavity`) generating continuous, watertight terrain facets and slopes.

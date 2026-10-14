@@ -99,6 +99,16 @@ impl FormBlock {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::stair_corner::StairCorner::new(heading, concave)))
     }
 
+    /// Secondary constructor for an outer convex stepped staircase corner.
+    pub fn stair_corner_convex(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::stair_corner(grid_u, grid_v, base, heading, false)
+    }
+
+    /// Secondary constructor for an inner concave stepped staircase corner.
+    pub fn stair_corner_concave(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::stair_corner(grid_u, grid_v, base, heading, true)
+    }
+
 
     /// Constrains a surface position if the tangential coordinates fall within this form.
     pub fn constrain_surface(

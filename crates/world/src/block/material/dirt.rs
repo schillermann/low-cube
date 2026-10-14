@@ -47,6 +47,42 @@ impl DirtBlock {
     pub fn stair(grid_u: i32, grid_v: i32, base: f32, heading: WedgeHeading) -> Self {
         Self::natural(FormBlock::stair(grid_u, grid_v, base, heading))
     }
+
+    pub fn gentle_lower_wedge(grid_u: i32, grid_v: i32, base: f32, heading: WedgeHeading) -> Self {
+        Self::natural(FormBlock::gentle_lower_wedge(grid_u, grid_v, base, heading))
+    }
+
+    pub fn gentle_upper_wedge(grid_u: i32, grid_v: i32, base: f32, heading: WedgeHeading) -> Self {
+        Self::natural(FormBlock::gentle_upper_wedge(grid_u, grid_v, base, heading))
+    }
+
+    pub fn gentle_lower_ridge(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::natural(FormBlock::gentle_lower_ridge(grid_u, grid_v, base, heading))
+    }
+
+    pub fn gentle_upper_ridge(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::natural(FormBlock::gentle_upper_ridge(grid_u, grid_v, base, heading))
+    }
+
+    pub fn gentle_lower_valley(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::natural(FormBlock::gentle_lower_valley(grid_u, grid_v, base, heading))
+    }
+
+    pub fn gentle_upper_valley(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::natural(FormBlock::gentle_upper_valley(grid_u, grid_v, base, heading))
+    }
+
+    pub fn stair_corner(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading, concave: bool) -> Self {
+        Self::natural(FormBlock::stair_corner(grid_u, grid_v, base, heading, concave))
+    }
+
+    pub fn stair_corner_convex(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::natural(FormBlock::stair_corner_convex(grid_u, grid_v, base, heading))
+    }
+
+    pub fn stair_corner_concave(grid_u: i32, grid_v: i32, base: f32, heading: CornerHeading) -> Self {
+        Self::natural(FormBlock::stair_corner_concave(grid_u, grid_v, base, heading))
+    }
 }
 
 impl Block for DirtBlock {
