@@ -1,24 +1,17 @@
 use glam::Vec3;
-use crate::{Face, MeshTarget};
+use crate::Face;
 use crate::block::{
     Block, CornerHeading, DirtBlock, SandBlock, SnowBlock, StoneBlock, WedgeHeading,
 };
 use crate::cluster::VoxelCluster;
 use crate::frame::SurfaceFrame;
 
-/// Exhibition gallery showcasing all available materials in parallel lines across all block shapes.
-pub struct BlockGallery {
-    cluster: VoxelCluster,
-}
+/// Exhibition gallery factory showcasing all available materials in parallel lines across all block shapes.
+pub struct BlockGallery;
 
 impl BlockGallery {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(cluster: VoxelCluster) -> Self {
-        Self { cluster }
-    }
-
-    /// Secondary constructor assembling all materials in parallel lines with 1 block spacing.
-    pub fn parallel_lines(face: Box<dyn Face>, half_size: f32) -> Self {
+    /// Factory method assembling all materials in parallel lines with 1 block spacing.
+    pub fn parallel_lines(face: Box<dyn Face>, half_size: f32) -> VoxelCluster {
         let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, half_size);
         let mut blocks: Vec<Box<dyn Block>> = Vec::new();
 
@@ -64,28 +57,6 @@ impl BlockGallery {
         blocks.push(Box::new(SnowBlock::valley_corner(3, -3, 0.0, CornerHeading::NorthEast)));
         blocks.push(Box::new(SnowBlock::peak(3, -2, 0.0)));
 
-        Self::new(VoxelCluster::new(face, frame, blocks))
-    }
-}
-
-impl Face for BlockGallery {
-    fn matches(&self, point: Vec3) -> bool {
-        self.cluster.matches(point)
-    }
-
-    fn surface_up(&self) -> Vec3 {
-        self.cluster.surface_up()
-    }
-
-    fn pull_direction(&self) -> Vec3 {
-        self.cluster.pull_direction()
-    }
-
-    fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
-        self.cluster.constrain(point, distance)
-    }
-
-    fn emit_surface(&self, target: &mut dyn MeshTarget) {
-        self.cluster.emit_surface(target);
+        VoxelCluster::new(face, frame, blocks)
     }
 }

@@ -19,6 +19,7 @@ mod planet;
 mod relief;
 mod tinted_face;
 mod topology;
+mod tree;
 
 #[cfg(test)]
 mod beveled_world_tests;
@@ -27,7 +28,7 @@ mod centripetal_tests;
 #[cfg(test)]
 mod cluster_tests;
 #[cfg(test)]
-mod face_decorators_tests;
+mod elevation_tint_tests;
 #[cfg(test)]
 mod gallery_tests;
 #[cfg(test)]
@@ -70,6 +71,13 @@ pub use topology::{
     BevelTransition, ClimateZone, CoordinateFold, CubeFace, FacePerimeter, FoldedFace,
     FoldedPoint, PerimeterCrossing, PerimeterEdge, PlanetaryTopology, SeamBevel,
     SeamFold, Topology,
+};
+pub use tree::{
+    Arboreal, ArborealFacet, ArcticPine, ClearedPlot, ConicalSkirt, DesertSucculent,
+    ForestedFace, FullCubeGround, JungleEmergent, MeridianGround, PlantingGround,
+    PolyhedralCrown, PrismTrunk, SolidArboreal, SpawnSanctuaryGround, StandingTree,
+    SteppeAcacia, SurfaceGround, TemperateOak, TimberDepository, TimberYield,
+    TreeSpecies, VolcanicSpire, WoodlandGround, ZonedForest,
 };
 
 /// Encapsulated geometric quad entity with vertices, normal, and surface color.
@@ -117,6 +125,9 @@ pub trait GravityField {
 pub trait PlanetaryWorld: GravityField {
     fn emit_surface(&self, target: &mut dyn MeshTarget);
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3;
+    fn canopy_drag(&self, _position: Vec3) -> f32 {
+        0.0
+    }
 }
 
 /// Interface representing an individual face of a planetary body.
@@ -126,5 +137,8 @@ pub trait Face: Send + Sync {
     fn pull_direction(&self) -> Vec3;
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3;
     fn emit_surface(&self, target: &mut dyn MeshTarget);
+    fn canopy_drag(&self, _point: Vec3) -> f32 {
+        0.0
+    }
 }
 

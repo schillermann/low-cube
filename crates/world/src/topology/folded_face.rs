@@ -69,4 +69,8 @@ impl Face for FoldedFace {
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         self.origin.emit_surface(target);
     }
+
+    fn canopy_drag(&self, point: Vec3) -> f32 {
+        self.origin.canopy_drag(point)
+    }
 }

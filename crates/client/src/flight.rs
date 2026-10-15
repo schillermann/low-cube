@@ -1,7 +1,10 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
 use crate::gait::LocomotionGait;
-use crate::phase::{FlightContext, FlightPhase, GroundedFlight};
+use crate::phase::{
+    AsymmetricGravity, CanopyBraking, FlightContext, FlightPhase, GroundedFlight,
+    InclinePace, SkiLaunch, SlopeSurfing,
+};
 
 /// Interface representing vertical flight and gravitational physics on a planetary surface.
 pub trait GravitationalFlight: Send + Sync {
@@ -21,8 +24,13 @@ pub trait GravitationalFlight: Send + Sync {
 pub struct SurfaceFlight {
     phase: FlightPhase,
     jump_strength: f32,
-    gravity: f32,
+    gravity: AsymmetricGravity,
+    canopy: CanopyBraking,
+    surfing: SlopeSurfing,
+    ski_launch: SkiLaunch,
+    incline: InclinePace,
     eye_height: f32,
+    jump_requested: bool,
 }
 
 impl SurfaceFlight {
@@ -30,14 +38,23 @@ impl SurfaceFlight {
     pub fn new(
         phase: FlightPhase,
         jump_strength: f32,
-        gravity: f32,
+        gravity: AsymmetricGravity,
+        canopy: CanopyBraking,
+        surfing: SlopeSurfing,
+        ski_launch: SkiLaunch,
+        incline: InclinePace,
         eye_height: f32,
     ) -> Self {
         Self {
             phase,
             jump_strength,
             gravity,
+            canopy,
+            surfing,
+            ski_launch,
+            incline,
             eye_height,
+            jump_requested: false,
         }
     }
 
@@ -47,7 +64,11 @@ impl SurfaceFlight {
         Self::new(
             FlightPhase::Grounded(GroundedFlight::human()),
             jump_strength,
-            gravity,
+            AsymmetricGravity::terrestrial(gravity),
+            CanopyBraking::calibrated(),
+            SlopeSurfing::calibrated(),
+            SkiLaunch::calibrated(),
+            InclinePace::calibrated(),
             eye_height,
         )
     }
@@ -61,7 +82,7 @@ impl SurfaceFlight {
 
 impl GravitationalFlight for SurfaceFlight {
     fn jump(&mut self) {
-        self.phase = self.phase.jump(self.jump_strength);
+        self.jump_requested = true;
     }
 
     fn advance(
@@ -73,13 +94,30 @@ impl GravitationalFlight for SurfaceFlight {
         surface_up: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> Vec3 {
+        if self.jump_requested {
+            self.jump_requested = false;
+            let (launch_speed, launch_momentum) = self.ski_launch.evaluate_launch(
+                self.jump_strength,
+                stride,
+                surface_up,
+                position,
+                dt,
+                self.eye_height,
+                world,
+            );
+            self.phase = self.phase.launch(launch_speed, launch_momentum);
+        }
+
         let context = FlightContext::new(
             dt,
             position,
             stride,
             surface_up,
             self.eye_height,
-            self.gravity,
+            &self.gravity,
+            self.canopy,
+            self.surfing,
+            self.incline,
             gait,
             world,
         );

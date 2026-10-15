@@ -8,6 +8,26 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-15
+
+### Added
+- Climate-adapted procedural low-poly tree and forestry system (`Arboreal`, `TreeSpecies`, `StandingTree`, `ClearedPlot`) across all six planetary biomes (`TemperateOak`, `ArcticPine`, `JungleEmergent`, `DesertSucculent`, `SteppeAcacia`, `VolcanicSpire`).
+- Solid physical trunk collision and direct timber harvesting lifecycle with haptic strikes, wood particle bursts, and instant zero-stump vanishing to direct inventory deposit.
+- Forestry decorator pipeline (`PlantingGround`, `FullCubeGround`, `WoodlandGround`, `MeridianGround`, `SpawnSanctuaryGround`, `ForestedFace`) providing flat-cube ground support checks, climate density modulation, and spawn sanctuary protection.
+- Aerodynamic canopy drag physics (`CanopyBraking`) softening vertical falls and enabling high-altitude tree canopy navigation.
+- Asymmetric slope pacing (`InclinePace`) modulating stride vectors across uphill inclines (-25% penalty) and downhill declines (+35% boost) across all gaits (walking, sneaking, and sprinting).
+- Comprehensive planetary climate zones documentation in `docs/CLIMATES.md` with in-game photography, hazard profiles, and geological breakdown.
+- Tree catalog and forestry reference documentation in `docs/TREES.md`.
+- Interactive Python tree visualization script in `scripts/tree_catalog.py`.
+- In-game climate zone screenshots in `docs/images/climates/` (Temperate, Arctic, Desert, Jungle, Steppe, Volcanic).
+
+### Changed
+- Refactored material blocks (`DirtBlock`, `SandBlock`, `SnowBlock`, `StoneBlock`) from fake inheritance wrapper structs into clean factories producing the canonical `MaterialBlock` decorator directly.
+- Refactored landscape entities (`VolcanicCaldera`, `DesertDunes`, `GlacialMassif`, `JungleKarst`, `SteppeTerrace`, `VoxelMountain`, `BlockGallery`) from simulated subclasses into direct `VoxelCluster` decorator factories, eliminating double-boxing and forwarding boilerplate.
+- Refactored `BiomedCubeWorld` into a factory assembling `CubePlanet` and its surrounding decorators directly.
+- Embedded 6-climate showcase slideshow grid and documentation links into `README.md`.
+- Renamed internal decorator implementation files (`decorator.rs` -> `modulation.rs`, `trial.rs`) to eliminate design pattern jargon.
+
 ## [0.18.0] - 2026-10-15
 
 ### Added

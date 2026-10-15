@@ -35,4 +35,8 @@ impl Face for TintedFace {
         let mut tinted_target = TintedMeshTarget::new(target, self.tint);
         self.face.emit_surface(&mut tinted_target);
     }
+
+    fn canopy_drag(&self, point: Vec3) -> f32 {
+        self.face.canopy_drag(point)
+    }
 }

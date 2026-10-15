@@ -3,7 +3,11 @@ use world::PlanetaryWorld;
 use crate::gait::LocomotionGait;
 use crate::stride::SurfaceStride;
 use crate::threshold::{StepThreshold, SurfaceClearance};
-use super::FlightPhase;
+use super::canopy::CanopyBraking;
+use super::gravity::FlightGravity;
+use super::incline::InclinePace;
+use super::progress::FlightProgress;
+use super::slope::SlopeSurfing;
 
 /// Unified physical simulation context for a flight phase transition.
 pub struct FlightContext<'a> {
@@ -12,7 +16,10 @@ pub struct FlightContext<'a> {
     stride: Vec3,
     surface_up: Vec3,
     eye_height: f32,
-    gravity: f32,
+    gravity: &'a dyn FlightGravity,
+    canopy: CanopyBraking,
+    surfing: SlopeSurfing,
+    incline: InclinePace,
     gait: &'a dyn LocomotionGait,
     world: &'a dyn PlanetaryWorld,
 }
@@ -25,24 +32,21 @@ impl<'a> FlightContext<'a> {
         stride: Vec3,
         surface_up: Vec3,
         eye_height: f32,
-        gravity: f32,
+        gravity: &'a dyn FlightGravity,
+        canopy: CanopyBraking,
+        surfing: SlopeSurfing,
+        incline: InclinePace,
         gait: &'a dyn LocomotionGait,
         world: &'a dyn PlanetaryWorld,
     ) -> Self {
         Self {
-            dt,
-            position,
-            stride,
-            surface_up,
-            eye_height,
-            gravity,
-            gait,
-            world,
+            dt, position, stride, surface_up, eye_height,
+            gravity, canopy, surfing, incline, gait, world,
         }
     }
 
-    pub fn active_stride(&self) -> bool {
-        self.stride.length_squared() > 1e-6
+    pub fn dt(&self) -> f32 {
+        self.dt
     }
 
     pub fn commanded_velocity(&self) -> Vec3 {
@@ -50,14 +54,6 @@ impl<'a> FlightContext<'a> {
             self.stride / self.dt
         } else {
             Vec3::ZERO
-        }
-    }
-
-    pub fn candidate_horizontal(&self) -> Vec3 {
-        if self.active_stride() {
-            self.position + self.stride
-        } else {
-            self.position
         }
     }
 
@@ -77,26 +73,82 @@ impl<'a> FlightContext<'a> {
         self.gait.permits_seam_fold()
     }
 
+    pub fn resolve_precipice(&self, threshold: StepThreshold, horizontal: Vec3) -> FlightProgress {
+        self.gait.resolve_precipice(self, threshold, horizontal)
+    }
+
+    pub fn gravitational_acceleration(&self, vertical_speed: f32) -> f32 {
+        self.gravity.delta_velocity(vertical_speed, self.dt)
+    }
+
+    pub fn brake_canopy(&self, vertical_speed: f32) -> f32 {
+        let drag = self.world.canopy_drag(self.position);
+        self.canopy.brake_fall(vertical_speed, drag, self.dt)
+    }
+
+    pub fn evaluate_touchdown(&self, impact_speed: f32, landing_pos: Vec3) -> Vec3 {
+        self.surfing.evaluate_touchdown(
+            impact_speed,
+            self.stride,
+            self.surface_up,
+            landing_pos,
+            self.eye_height,
+            self.world,
+        )
+    }
+
+    pub fn damp_surf_momentum(&self, momentum: Vec3) -> Vec3 {
+        self.surfing.damp_momentum(momentum, self.dt)
+    }
+
+    pub fn damp_aerial_momentum(&self, momentum: Vec3) -> Vec3 {
+        if momentum.length_squared() > 1e-4 {
+            momentum * (1.0 - (0.5 * self.dt).min(1.0))
+        } else {
+            Vec3::ZERO
+        }
+    }
+
+    pub fn paced_ground_stride(&self) -> Vec3 {
+        self.incline.pace_stride(
+            self.stride,
+            self.position,
+            self.surface_up,
+            self.eye_height,
+            self.world,
+        )
+    }
+
+    pub fn candidate_point(&self, stride: Vec3) -> Vec3 {
+        if stride.length_squared() > 1e-6 {
+            self.position + stride
+        } else {
+            self.position
+        }
+    }
+
     pub fn resolve_ground_stride(&self, threshold: StepThreshold) -> Vec3 {
-        SurfaceStride::new(self.stride, self.surface_up).resolve_ground(
+        self.resolve_paced_stride(self.stride, Vec3::ZERO, threshold)
+    }
+
+    pub fn resolve_paced_stride(
+        &self,
+        stride: Vec3,
+        momentum: Vec3,
+        threshold: StepThreshold,
+    ) -> Vec3 {
+        let effective_stride = if momentum.length_squared() > 1e-4 {
+            stride + momentum * self.dt
+        } else {
+            stride
+        };
+        SurfaceStride::new(effective_stride, self.surface_up).resolve_ground(
             self.position,
             self.eye_height,
             threshold,
             self.permits_seam_fold(),
             self.world,
         )
-    }
-
-    pub fn resolve_precipice(&self, threshold: StepThreshold, horizontal: Vec3) -> FlightProgress {
-        self.gait.resolve_precipice(self, threshold, horizontal)
-    }
-
-    pub fn gravity_velocity_delta(&self) -> f32 {
-        self.gravity * self.dt
-    }
-
-    pub fn dt(&self) -> f32 {
-        self.dt
     }
 
     pub fn reorient_edge_flight(&self, vertical_speed: f32) -> (Vec3, f32, Vec3) {
@@ -121,24 +173,5 @@ impl<'a> FlightContext<'a> {
     ) -> Vec3 {
         SurfaceStride::new(stride, surface_up)
             .resolve_aerial(self.position, vertical_step, self.eye_height, threshold, self.world)
-    }
-}
-
-/// Outcome of a flight phase transition containing the subsequent phase and updated position.
-pub struct FlightProgress {
-    phase: FlightPhase,
-    position: Vec3,
-}
-
-impl FlightProgress {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(phase: FlightPhase, position: Vec3) -> Self {
-        Self { phase, position }
-    }
-
-    /// Mutates the caller's active phase reference and yields the updated spatial position.
-    pub fn apply(self, flight: &mut FlightPhase) -> Vec3 {
-        *flight = self.phase;
-        self.position
     }
 }

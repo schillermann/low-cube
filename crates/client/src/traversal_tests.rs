@@ -1,10 +1,10 @@
 use glam::Vec3;
 use world::{
-    Block, ClimateZone, Face, GravityField, MeshTarget, PlanarFace, PlanetaryWorld,
-    StoneBlock, SurfaceFrame, VoxelCluster, WedgeHeading,
+    BiomedCubeWorld, Block, ClimateZone, Face, GravityField, MeshTarget, PlanarFace,
+    PlanetaryWorld, StoneBlock, SurfaceFrame, VoxelCluster, WedgeHeading,
 };
 use crate::flight::{GravitationalFlight, SurfaceFlight};
-use crate::gait::{SneakGait, WalkGait};
+use crate::gait::{SneakGait, SprintGait, WalkGait};
 
 struct ObstacleWorld {
     cluster: VoxelCluster,
@@ -154,3 +154,39 @@ fn test_sneak_paces_stride_distance() {
     assert_eq!(walk_stride.x, 1.0);
     assert!((sneak_stride.x - 0.35).abs() < 1e-5);
 }
+
+#[test]
+fn test_sprint_jump_over_ramp_wedge_does_not_get_stuck() {
+    let world = ObstacleWorld::with_block(Box::new(StoneBlock::wedge(0, 0, 0.0, WedgeHeading::North)));
+    let mut flight = SurfaceFlight::terrestrial(1.0);
+    let mut pos = world.constrain_to_surface(Vec3::new(0.5, 5.0, 0.1), 1.0);
+    flight.jump();
+    let stride = Vec3::new(0.0, 0.0, 0.2); // sprint stride
+    for _ in 0..30 {
+        pos = flight.advance(1.0 / 60.0, pos, stride, &SprintGait::swift(), Vec3::Y, &world);
+    }
+    assert!(pos.z > 2.0, "Avatar must traverse across and beyond the ramp wedge without hanging, got z = {}", pos.z);
+}
+
+#[test]
+fn test_sprint_jump_on_biomed_cube_world_slopes() {
+    let world = BiomedCubeWorld::of_size(32);
+    let mut flight = SurfaceFlight::terrestrial(1.0);
+    let mut pos = world.constrain_to_surface(Vec3::new(4.5, 20.0, 4.5), 1.0);
+    flight.jump();
+    let stride = Vec3::new(0.0, 0.0, 0.2);
+    for frame in 0..40 {
+        pos = flight.advance(1.0 / 60.0, pos, stride, &SprintGait::swift(), Vec3::Y, &world);
+        let ground = world.constrain_to_surface(pos, 1.0);
+        assert!(
+            pos.y >= ground.y - 0.01,
+            "Frame {}: pos.y ({}) must not penetrate below ground ({})",
+            frame,
+            pos.y,
+            ground.y
+        );
+    }
+    assert!(pos.z > 8.0, "Avatar must traverse forward on slopes without hanging, got z = {}", pos.z);
+}
+
+

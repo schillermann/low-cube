@@ -1,22 +1,15 @@
 use glam::Vec3;
-use crate::{Face, MeshTarget};
+use crate::Face;
 use crate::block::{Block, CornerHeading, SnowBlock, StoneBlock, WedgeHeading};
 use crate::cluster::VoxelCluster;
 use crate::frame::SurfaceFrame;
 
-/// Faceted alpine mountain massif decoratively placed onto a planetary face.
-pub struct VoxelMountain {
-    cluster: VoxelCluster,
-}
+/// Faceted alpine mountain massif factory assembling alpine peaks onto a planetary face.
+pub struct VoxelMountain;
 
 impl VoxelMountain {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(cluster: VoxelCluster) -> Self {
-        Self { cluster }
-    }
-
-    /// Secondary constructor assembling an alpine mountain massif centered at (center_u, center_v).
-    pub fn at(face: Box<dyn Face>, half_size: f32, center_u: i32, center_v: i32) -> Self {
+    /// Factory method assembling an alpine mountain massif centered at (center_u, center_v).
+    pub fn at(face: Box<dyn Face>, half_size: f32, center_u: i32, center_v: i32) -> VoxelCluster {
         let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, half_size);
         let mut blocks: Vec<Box<dyn Block>> = Vec::new();
 
@@ -66,33 +59,11 @@ impl VoxelMountain {
         // Tier 2 Summit Peak (base = 2.0, 1.0m crystalline snow pyramid apex):
         blocks.push(Box::new(SnowBlock::peak(center_u, center_v, 2.0)));
 
-        Self::new(VoxelCluster::new(face, frame, blocks))
+        VoxelCluster::new(face, frame, blocks)
     }
 
-    /// Secondary constructor assembling the alpine mountain on top face at (0, 4).
-    pub fn alpine(face: Box<dyn Face>, half_size: f32) -> Self {
+    /// Factory method assembling the alpine mountain on top face at (0, 4).
+    pub fn alpine(face: Box<dyn Face>, half_size: f32) -> VoxelCluster {
         Self::at(face, half_size, 0, 4)
-    }
-}
-
-impl Face for VoxelMountain {
-    fn matches(&self, point: Vec3) -> bool {
-        self.cluster.matches(point)
-    }
-
-    fn surface_up(&self) -> Vec3 {
-        self.cluster.surface_up()
-    }
-
-    fn pull_direction(&self) -> Vec3 {
-        self.cluster.pull_direction()
-    }
-
-    fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
-        self.cluster.constrain(point, distance)
-    }
-
-    fn emit_surface(&self, target: &mut dyn MeshTarget) {
-        self.cluster.emit_surface(target);
     }
 }

@@ -5,21 +5,14 @@ use crate::block::{
 use crate::cluster::VoxelCluster;
 use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
-use crate::{Face, MeshTarget};
+use crate::Face;
 
-/// Volcanic caldera landscape featuring an elevated crater rim and sunken magma basin valley.
-pub struct VolcanicCaldera {
-    cluster: VoxelCluster,
-}
+/// Volcanic caldera landscape factory assembling an elevated crater rim and sunken magma basin valley.
+pub struct VolcanicCaldera;
 
 impl VolcanicCaldera {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(cluster: VoxelCluster) -> Self {
-        Self { cluster }
-    }
-
-    /// Secondary constructor assembling a volcanic caldera centered at local (center_u, center_v).
-    pub fn at(face: Box<dyn Face>, frame: SurfaceFrame, center_u: i32, center_v: i32) -> Self {
+    /// Factory method assembling a volcanic caldera centered at local (center_u, center_v).
+    pub fn at(face: Box<dyn Face>, frame: SurfaceFrame, center_u: i32, center_v: i32) -> VoxelCluster {
         let mut blocks: Vec<Box<dyn Block>> = Vec::new();
 
         // Tier 0 Outer Rim slopes (base = 0.0, height = 1.0, 5x5 footprint)
@@ -55,34 +48,12 @@ impl VolcanicCaldera {
         let lava_form = Box::new(FormBlock::slab(center_u, center_v, 0.0));
         blocks.push(Box::new(MaterialBlock::new(lava_form, lava_color)));
 
-        Self::new(VoxelCluster::new(face, frame, blocks))
+        VoxelCluster::new(face, frame, blocks)
     }
 
-    /// Secondary constructor assembling volcanic caldera onto a canonical climate zone face.
-    pub fn in_zone(face: Box<dyn Face>, zone: ClimateZone, half_size: f32) -> Self {
+    /// Factory method assembling volcanic caldera onto a canonical climate zone face.
+    pub fn in_zone(face: Box<dyn Face>, zone: ClimateZone, half_size: f32) -> VoxelCluster {
         let frame = zone.surface_frame(half_size);
         Self::at(face, frame, 3, 3)
-    }
-}
-
-impl Face for VolcanicCaldera {
-    fn matches(&self, point: Vec3) -> bool {
-        self.cluster.matches(point)
-    }
-
-    fn surface_up(&self) -> Vec3 {
-        self.cluster.surface_up()
-    }
-
-    fn pull_direction(&self) -> Vec3 {
-        self.cluster.pull_direction()
-    }
-
-    fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
-        self.cluster.constrain(point, distance)
-    }
-
-    fn emit_surface(&self, target: &mut dyn MeshTarget) {
-        self.cluster.emit_surface(target);
     }
 }

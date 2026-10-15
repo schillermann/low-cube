@@ -11,7 +11,15 @@
 ## The World of Low-Cube
 
 ### Six Faces, Six Worlds
-Every cube world features six distinct faces, each with its own climate, terrain, and hazards. From frozen tundras and scorched deserts to dense jungles and volcanic crags, each side presents unique survival challenges and raw resources.
+Every cube world features six distinct faces, each with its own climate, terrain, hazards, and native flora. From frozen tundras and scorched deserts to dense jungles and volcanic crags, each side presents unique survival challenges and raw resources.
+
+| [Temperate](docs/CLIMATES.md#temperate-y-face) | [Arctic](docs/CLIMATES.md#arctic--x-face) | [Desert](docs/CLIMATES.md#desert-x-face) |
+| :---: | :---: | :---: |
+| [![Temperate](docs/images/climates/temperate.png)](docs/CLIMATES.md#temperate-y-face) | [![Arctic](docs/images/climates/arctic.png)](docs/CLIMATES.md#arctic--x-face) | [![Desert](docs/images/climates/desert.png)](docs/CLIMATES.md#desert-x-face) |
+| [Jungle](docs/CLIMATES.md#jungle-z-face) | [Steppe](docs/CLIMATES.md#steppe--z-face) | [Volcanic](docs/CLIMATES.md#volcanic--y-face) |
+| [![Jungle](docs/images/climates/jungle.png)](docs/CLIMATES.md#jungle-z-face) | [![Steppe](docs/images/climates/steppe.png)](docs/CLIMATES.md#steppe--z-face) | [![Volcanic](docs/images/climates/volcanic.png)](docs/CLIMATES.md#volcanic--y-face) |
+
+*Explore detailed topography, native flora, and hazard profiles in the [Planetary Climate Zones & Biomes](docs/CLIMATES.md) reference.*
 
 ### Defy Gravity
 Walk right up to the edge of the world and step over. Watch the horizon tilt as gravity seamlessly pivots 90 degrees beneath your feet. Throw arrows, pour water, or drop boulders off the edge and see them curve around the planetary corner into the adjacent gravitational field.
@@ -58,7 +66,9 @@ For environment setup, building, running, and testing instructions, see the [Dev
 ## Documentation
 
 - [Game Concept](CONCEPT.md)
+- [Planetary Climate Zones & Biomes](docs/CLIMATES.md)
 - [Block Catalog & Geometry Reference](docs/BLOCKS.md)
+- [Tree Catalog & Forestry Reference](docs/TREES.md)
 - [Development Roadmap](docs/ROADMAP.md)
 - [Server & Game Settings Guide](docs/SETTINGS.md)
 - [Developer Guide](docs/DEVELOPMENT.md)

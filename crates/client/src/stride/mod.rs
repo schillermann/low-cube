@@ -2,11 +2,11 @@ use glam::Vec3;
 use world::PlanetaryWorld;
 use crate::threshold::StepThreshold;
 
-mod decorator;
+mod trial;
 #[cfg(test)]
 mod tests;
 
-pub use decorator::{
+pub use trial::{
     AerialTrial, DeflectedStride, RestingStride, StrideResolution, WalkTrial,
 };
 

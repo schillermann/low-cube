@@ -74,4 +74,8 @@ impl PlanetaryWorld for BeveledWorld {
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         self.world.emit_surface(target);
     }
+
+    fn canopy_drag(&self, position: Vec3) -> f32 {
+        self.world.canopy_drag(position)
+    }
 }

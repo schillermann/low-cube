@@ -31,6 +31,11 @@ impl StepThreshold {
     pub fn cliff_impact(&self, altitude: f32) -> bool {
         altitude < -self.limit
     }
+
+    /// Verifies whether an elevation change is within continuous slope traversal limits.
+    pub fn permits_slope(&self, elevation_change: f32) -> bool {
+        elevation_change.abs() <= self.limit
+    }
 }
 
 use world::PlanetaryWorld;
@@ -104,9 +109,25 @@ impl SurfaceStep {
         }
     }
 
+    /// Determines the elevation rise or drop along this step.
+    pub fn elevation_gain(&self) -> f32 {
+        (self.target - self.origin).dot(self.surface_up)
+    }
+
     /// Determines whether this step can be climbed smoothly without jumping.
     pub fn walkable_with(&self, threshold: StepThreshold) -> bool {
-        let elevation_gain = (self.target - self.origin).dot(self.surface_up);
-        threshold.permits_rise(elevation_gain)
+        threshold.permits_rise(self.elevation_gain())
+    }
+
+    /// Computes the normalized slope gradient clamped to a unit slope ratio.
+    pub fn gradient(&self) -> f32 {
+        let rise = self.elevation_gain();
+        let horizontal = self.target - self.origin - self.surface_up * rise;
+        let run = horizontal.length();
+        if run > 1e-4 {
+            (rise / run).clamp(-1.0, 1.0)
+        } else {
+            0.0
+        }
     }
 }

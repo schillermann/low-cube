@@ -5,10 +5,10 @@ use crate::cadence::{RestingCadence, SprintCadence, TransitioningCadence};
 use crate::clock::{MonotonicTime, SystemClock};
 
 #[cfg(test)]
-mod decorator;
+mod modulation;
 
 #[cfg(test)]
-pub use decorator::{
+pub use modulation::{
     DampedLocomotionTarget, GroundedLocomotionTarget, MutedControls, TallyLocomotionTarget,
 };
 

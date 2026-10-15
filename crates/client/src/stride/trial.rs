@@ -102,11 +102,22 @@ impl<'a> StrideTrial for AerialTrial<'a> {
         let candidate = self.origin + self.tangent + self.vertical;
         let surface_pos = self.world.constrain_to_surface(candidate, self.eye);
         let clearance = SurfaceClearance::between(self.origin, candidate, surface_pos, self.up, self.world);
-        !clearance.cliff_impact(self.limit)
+        if !clearance.cliff_impact(self.limit) {
+            return true;
+        }
+        let origin_surf = self.world.constrain_to_surface(self.origin, self.eye);
+        SurfaceStep::new(origin_surf, surface_pos, self.up).walkable_with(self.limit)
     }
 
     fn destination(&self) -> Vec3 {
-        self.origin + self.tangent + self.vertical
+        let candidate = self.origin + self.tangent + self.vertical;
+        let surface_pos = self.world.constrain_to_surface(candidate, self.eye);
+        let penetration = (surface_pos - candidate).dot(self.up);
+        if penetration > 0.0 {
+            candidate + self.up * penetration
+        } else {
+            candidate
+        }
     }
 }
 

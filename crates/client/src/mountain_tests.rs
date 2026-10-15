@@ -52,7 +52,7 @@ fn test_jump_clears_mountain_entrance_shelf() {
     for _ in 0..5 {
         pos = flight.advance(1.0 / 60.0, pos, stride, &WalkGait::upright(), Vec3::Y, world.as_ref());
     }
-    for _ in 0..25 {
+    for _ in 0..55 {
         pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, world.as_ref());
     }
 

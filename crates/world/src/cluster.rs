@@ -47,4 +47,8 @@ impl Face for VoxelCluster {
             block.emit_surface(&self.frame, target);
         }
     }
+
+    fn canopy_drag(&self, point: Vec3) -> f32 {
+        self.face.canopy_drag(point)
+    }
 }

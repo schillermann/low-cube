@@ -62,31 +62,35 @@ impl LocomotionGait for WalkGait {
     }
 }
 
-/// Careful sneaking gait composed of cliff-guard, crouched posture, and reduced pacing.
+/// Careful sneaking gait decorating an underlying locomotion gait with crouch posture and cliff arrest.
 #[derive(Clone, Copy, Debug)]
-pub struct SneakGait {
+pub struct SneakGait<G: LocomotionGait = WalkGait> {
+    origin: G,
     pace_factor: f32,
     elevation: f32,
-    fov_radians: f32,
 }
 
-impl SneakGait {
-    pub fn new(pace_factor: f32, elevation: f32, fov_radians: f32) -> Self {
+impl<G: LocomotionGait> SneakGait<G> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(origin: G, pace_factor: f32, elevation: f32) -> Self {
         Self {
+            origin,
             pace_factor,
             elevation,
-            fov_radians,
         }
-    }
-
-    pub fn crouching() -> Self {
-        Self::new(0.35, 0.45, 65.0f32.to_radians())
     }
 }
 
-impl LocomotionGait for SneakGait {
+impl SneakGait<WalkGait> {
+    /// Secondary constructor wrapping standard upright gait in crouching posture.
+    pub fn crouching() -> Self {
+        Self::new(WalkGait::upright(), 0.35, 0.45)
+    }
+}
+
+impl<G: LocomotionGait> LocomotionGait for SneakGait<G> {
     fn pace_distance(&self, distance: f32) -> f32 {
-        distance * self.pace_factor
+        self.origin.pace_distance(distance) * self.pace_factor
     }
 
     fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {
@@ -94,7 +98,7 @@ impl LocomotionGait for SneakGait {
     }
 
     fn shape_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens {
-        lens.transition_to(self.fov_radians, dt)
+        self.origin.shape_lens(lens, dt)
     }
 
     fn permits_seam_fold(&self) -> bool {
@@ -112,35 +116,39 @@ impl LocomotionGait for SneakGait {
     }
 }
 
-/// High-speed sprinting gait composed of dynamic lens expansion and accelerated pacing.
+/// High-speed sprinting gait decorating an underlying locomotion gait with dynamic lens expansion and swift pace.
 #[derive(Clone, Copy, Debug)]
-pub struct SprintGait {
+pub struct SprintGait<G: LocomotionGait = WalkGait> {
+    origin: G,
     pace_factor: f32,
-    elevation: f32,
     fov_radians: f32,
 }
 
-impl SprintGait {
-    pub fn new(pace_factor: f32, elevation: f32, fov_radians: f32) -> Self {
+impl<G: LocomotionGait> SprintGait<G> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(origin: G, pace_factor: f32, fov_radians: f32) -> Self {
         Self {
+            origin,
             pace_factor,
-            elevation,
             fov_radians,
         }
     }
+}
 
+impl SprintGait<WalkGait> {
+    /// Secondary constructor wrapping standard upright gait in swift sprint pacing.
     pub fn swift() -> Self {
-        Self::new(1.6, 0.8, 78.0f32.to_radians())
+        Self::new(WalkGait::upright(), 1.6, 78.0f32.to_radians())
     }
 }
 
-impl LocomotionGait for SprintGait {
+impl<G: LocomotionGait> LocomotionGait for SprintGait<G> {
     fn pace_distance(&self, distance: f32) -> f32 {
-        distance * self.pace_factor
+        self.origin.pace_distance(distance) * self.pace_factor
     }
 
     fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {
-        posture.transition_to(self.elevation, dt)
+        self.origin.shape_posture(posture, dt)
     }
 
     fn shape_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens {
@@ -148,15 +156,15 @@ impl LocomotionGait for SprintGait {
     }
 
     fn permits_seam_fold(&self) -> bool {
-        true
+        self.origin.permits_seam_fold()
     }
 
     fn resolve_precipice(
         &self,
-        _ctx: &FlightContext,
+        ctx: &FlightContext,
         threshold: StepThreshold,
         horizontal: Vec3,
     ) -> FlightProgress {
-        FlightProgress::new(FlightPhase::Airborne(AirborneFlight::new(0.0, threshold)), horizontal)
+        self.origin.resolve_precipice(ctx, threshold, horizontal)
     }
 }

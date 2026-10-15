@@ -1,5 +1,5 @@
 use glam::Vec3;
-use super::decorator::{DeflectedStride, RestingStride, StrideResolution, StrideTrial};
+use super::trial::{DeflectedStride, RestingStride, StrideResolution, StrideTrial};
 
 struct MockTrial {
     passable: bool,

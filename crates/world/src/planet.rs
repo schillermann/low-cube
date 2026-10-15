@@ -43,4 +43,8 @@ impl PlanetaryWorld for CubePlanet {
             face.emit_surface(target);
         }
     }
+
+    fn canopy_drag(&self, position: Vec3) -> f32 {
+        self.active_face(position).canopy_drag(position)
+    }
 }

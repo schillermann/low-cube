@@ -102,8 +102,8 @@ fn test_circuit_on_of_size_world() {
             }
         }
 
-        // Before reaching edge, view pitch is strictly level along the face
-        if frame < 100 || (frame > 220 && frame < 400) {
+        // Before reaching edge and after camera convergence on next face, view pitch is strictly level along the face
+        if frame < 100 || (frame > 230 && frame < 390) {
             let fwd = (inv.project_point3(Vec3::new(0.0, 0.0, 1.0)) - cam_pos).normalize();
             let up = world.surface_up_at(cam_pos);
             let pitch_angle = fwd.dot(up).asin().to_degrees();

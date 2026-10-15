@@ -35,4 +35,8 @@ impl Face for ElevatedFace {
         let mut offset_target = OffsetMeshTarget::new(target, self.face.surface_up() * self.elevation);
         self.face.emit_surface(&mut offset_target);
     }
+
+    fn canopy_drag(&self, point: Vec3) -> f32 {
+        self.face.canopy_drag(point)
+    }
 }
