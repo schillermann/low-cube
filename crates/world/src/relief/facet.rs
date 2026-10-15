@@ -44,12 +44,16 @@ impl ReliefFacet {
         let tw = u0 as i32 <= -half_blocks;
 
         let corners = if h == 0 && (tn || ts || te || tw) {
+            let cu0 = if tw { u0 + 0.5 } else { u0 };
+            let cu1 = if te { u1 - 0.5 } else { u1 };
+            let cv0 = if ts { v0 + 0.5 } else { v0 };
+            let cv1 = if tn { v1 - 0.5 } else { v1 };
             let h0 = if ts || tw { -0.5 } else { 0.0 };
             let h1 = if ts || te { -0.5 } else { 0.0 };
             let h2 = if tn || te { -0.5 } else { 0.0 };
             let h3 = if tn || tw { -0.5 } else { 0.0 };
-            let (p0, p1) = (frame.point_at(u0, v0, h0), frame.point_at(u1, v0, h1));
-            let (p2, p3) = (frame.point_at(u1, v1, h2), frame.point_at(u0, v1, h3));
+            let (p0, p1) = (frame.point_at(cu0, cv0, h0), frame.point_at(cu1, cv0, h1));
+            let (p2, p3) = (frame.point_at(cu1, cv1, h2), frame.point_at(cu0, cv1, h3));
             self.corner.push_corner_pair(p0, p1, p2, p3, chamfer_col, target);
             [h0, h1, h2, h3]
         } else {

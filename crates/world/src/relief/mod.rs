@@ -12,6 +12,8 @@ mod corner_seam_tests;
 mod tests;
 #[cfg(test)]
 mod watertight_tests;
+#[cfg(test)]
+mod wedge_seam_tests;
 
 pub use cavity::{CavitySpan, NullCavity, SubterraneanCavity, ZonedCavity};
 pub use corner::ReliefCorner;

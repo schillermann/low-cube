@@ -4,11 +4,49 @@
 
 ---
 
-## Active Roadmap: Milestone 2 — Voxel Chunk Architecture, Hollow Core & Greedy Meshing
+## Active Roadmap: Milestone 3 — Flush 2-Row Wedge Seams, Corner Caps & Edge-Inward Terrain
 
-> **Objective**: Transition from procedural planar face surfaces to a scalable, high-performance 3D voxel chunk architecture supporting variable planetary dimensions ($128^3$ to $2048^3$), zero-memory hollow core voids, indestructible bedrock shells, and greedy meshing with coplanar face culling.
+> **Objective**: Eliminate all geometry interpenetration at the 12 planetary seams and 8 corners by establishing flush 2-row wedge boundary seams (`RampWedge`) with biome-differentiated materials, tri-chamfered corner caps, and edge-to-inward terrain heightfield anchoring.
 
 ### Progress Summary
+
+| Phase | Title | Scope | Status | Progress |
+| :--- | :--- | :--- | :--- | :--- |
+| **Phase 1** | Flush 2-Row Wedge Seam Geometry | `world` | Completed | 3/3 |
+| **Phase 2** | 3-Way Tri-Chamfer Corner Caps | `world` | Completed | 3/3 |
+| **Phase 3** | Edge-to-Inward Gradient Calibration | `world` | In Progress | 1/3 |
+| **Phase 4** | Destructible Voxel-Chunk Wedge Population | `world` | Pending | 0/3 |
+
+### Phase Breakdown & Task Tracking
+
+#### Phase 1: Flush 2-Row Wedge Seam Geometry (`world` crate)
+- [x] Align seam boundary chamfer coordinates to the symmetric midpoint line ($u \pm 0.5, v \pm 0.5$) in [`ReliefFacet::emit_facet`](../crates/world/src/relief/facet.rs).
+- [x] Eliminate interpenetrating polygon intersections between adjacent faces across all 12 seams.
+- [x] Unit tests verifying zero-gap, zero-overlap flush contact along seam boundaries ([`wedge_seam_tests.rs`](../crates/world/src/relief/wedge_seam_tests.rs)).
+
+#### Phase 2: 3-Way Tri-Chamfer Corner Caps (`world` crate)
+- [x] Align 8 cube vertex cells to meet at the exact triple-point $(H - 0.5, H - 0.5, H - 0.5)$ in [`ReliefCorner::push_corner_pair`](../crates/world/src/relief/corner.rs).
+- [x] Ensure seamless 3-way octant transition between orthogonal wedge rows.
+- [x] Unit tests verifying 3-way vertex convergence across all 8 corners ([`wedge_seam_tests.rs`](../crates/world/src/relief/wedge_seam_tests.rs)).
+
+#### Phase 3: Edge-to-Inward Gradient Calibration (`world` crate)
+- [x] Anchor seam row 0 and transition row 1 to base elevation 0 in [`ZonedRelief`](../crates/world/src/relief/elevation.rs).
+- [ ] Calibrate smooth Hermite/cubic transition for row 2 to prevent jagged cliff steps adjacent to seam wedges.
+- [ ] Traversal test verifying uninterrupted avatar walking across all 12 wedge-beveled seams.
+
+#### Phase 4: Destructible Voxel-Chunk Wedge Population (`world` crate)
+- [ ] Populate border voxels of [`VolumePlanet`](../crates/world/src/chunk/world.rs) with typed [`RampWedge`](../crates/world/src/block/wedge.rs) blocks.
+- [ ] Populate corner voxels with 3-way corner block forms ([`RidgeCorner`](../crates/world/src/block/corner.rs)).
+- [ ] Integrate mining item drops for wedge and corner blocks upon destruction.
+
+---
+
+## Completed Roadmaps
+
+<details>
+<summary><strong>Milestone 2: Voxel Chunk Architecture, Hollow Core & Greedy Meshing (Completed in v0.16.0)</strong></summary>
+
+### 1. Progress Summary
 
 | Phase | Title | Scope | Status | Progress |
 | :--- | :--- | :--- | :--- | :--- |
@@ -19,9 +57,7 @@
 | **Phase 5** | Planetary Chunk Topology & 90° Seam Alignment | `world` | Completed | 3/3 |
 | **Phase 6** | Session Integration, Scalability & Performance Benchmarks | `client`, `world` | Completed | 4/4 |
 
----
-
-### Phase Breakdown & Task Tracking
+### 2. Phase Breakdown & Task Tracking
 
 #### Phase 1: Chunk Domain & Sparse Planetary Grid (`world` crate)
 - [x] Define [`Chunk`](../crates/world/src/chunk/mod.rs) behavioral trait encapsulating voxel queries and mesh emission without exposing internal arrays.
@@ -57,6 +93,8 @@
 - [x] Scale verification: instantiate $128^3$ (Moonlet), $512^3$ (Dwarf), and $1024^3$ (Terrestrial) worlds, confirming stable memory footprint ($>82\%$ to $>90.9\%$ void savings) ([`world_tests.rs`](../crates/world/src/chunk/world_tests.rs)).
 - [x] Automated end-to-end traversal test: Avatar walks and jumps across chunk-backed planetary faces and 90° seams ([`chunk_traversal_tests.rs`](../crates/client/src/chunk_traversal_tests.rs)).
 - [x] Performance audit: confirmed 60+ FPS and zero hot-loop allocations adhering strictly to file line limits ($\le 200$ lines).
+
+</details>
 
 ---
 

@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-15
+
+### Added
+- Flush 2-row wedge seam alignment across all 12 planetary cube seams, terminating slope coordinates at the symmetric midpoint boundary line ($u \pm 0.5, v \pm 0.5$) with zero gap and zero polygon overlap.
+- 3-way tri-chamfer corner cap convergence across all 8 cube vertices, joining orthogonal edge wedge rows at the shared triple point ($H - 0.5, H - 0.5, H - 0.5$).
+- Seam wedge verification test suite in `crates/world/src/relief/wedge_seam_tests.rs` testing flush edge contact, corner cap convergence, and biome-differentiated palette preservation.
+- Active Milestone 3 roadmap in `docs/ROADMAP.md` tracking flush 2-row wedge seams, corner caps, and edge-inward terrain heightfield anchoring.
+
+### Fixed
+- Eliminated geometry interpenetration and nested polygon clipping between adjacent planetary cube faces along 90-degree seams.
+
 ## [0.17.0] - 2026-10-14
 
 ### Added
