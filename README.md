@@ -2,8 +2,6 @@
 
 > *Survive. Build. Defy gravity across the faces of cubic worlds.*
 
-![Low-Cube Gameplay](docs/images/gameplay.png)
-
 **Low-Cube** is a voxel survival sandbox set on freestanding, cubic planetary worlds adrift in space. Step onto a world where gravity bends around 90-degree edges, each face hosts a unique climate, and survival demands wit, shelter, and resourcefulness.
 
 ---
