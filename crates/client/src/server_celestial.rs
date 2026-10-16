@@ -19,7 +19,7 @@ impl ServerCelestial {
     pub fn assembled() -> Self {
         Self::new(Box::new(
             ArgumentCelestial::process(Box::new(
-                EnvironmentCelestial::new(Box::new(
+                EnvironmentCelestial::process(Box::new(
                     FileCelestial::server(Box::new(
                         TerrestrialCadence::new(),
                     )),

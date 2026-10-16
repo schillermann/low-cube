@@ -4,6 +4,7 @@ layout(location = 0) in vec2 in_position;
 uniform mat4 u_inv_view_proj;
 
 out vec3 v_ray_dir;
+out vec3 v_cam_pos;
 
 void main() {
     vec4 near_pt = u_inv_view_proj * vec4(in_position, -1.0, 1.0);
@@ -11,18 +12,25 @@ void main() {
     vec3 p_near = near_pt.xyz / near_pt.w;
     vec3 p_far = far_pt.xyz / far_pt.w;
     v_ray_dir = p_far - p_near;
+    v_cam_pos = p_near;
     gl_Position = vec4(in_position, 1.0, 1.0);
 }
 "#;
 
 pub const FIRMAMENT_FRAGMENT_SRC: &str = r#"#version 330 core
 in vec3 v_ray_dir;
+in vec3 v_cam_pos;
 
 uniform vec3 u_sun_dir;
 uniform vec3 u_local_up;
 uniform vec4 u_sky_color;
 uniform float u_night_factor;
+uniform float u_aurora_factor;
 uniform vec3 u_celestial_pole;
+uniform float u_time;
+uniform float u_face_half;
+uniform float u_aurora_radius;
+uniform float u_ceiling_altitude;
 
 out vec4 frag_color;
 
@@ -72,6 +80,43 @@ float lunar_basin(vec2 p, vec2 c, float r) {
     return -(1.0 - smoothstep(0.15, 0.95, d)) * 0.22;
 }
 
+vec3 polar_aurora(vec3 dir, vec3 cam_pos, vec3 local_up, float aurora_factor, float time) {
+    if (aurora_factor <= 0.01 || dir.x >= -0.01) return vec3(0.0);
+    float above_horizon = smoothstep(0.0, 0.12, dot(dir, local_up));
+    if (above_horizon <= 0.0) return vec3(0.0);
+
+    float t = (-(u_face_half + u_ceiling_altitude) - cam_pos.x) / dir.x;
+    if (t <= 0.0) return vec3(0.0);
+
+    vec3 hit = cam_pos + t * dir;
+    float face_dist = max(abs(hit.y), abs(hit.z));
+    float face_cutoff = smoothstep(u_face_half, u_face_half * 0.85, face_dist);
+    if (face_cutoff <= 0.001) return vec3(0.0);
+
+    vec2 p = hit.yz / u_aurora_radius;
+    float dist = length(p);
+    float ring = smoothstep(0.12, 0.45, dist) * smoothstep(1.35, 0.80, dist);
+    if (ring <= 0.005) return vec3(0.0);
+
+    float angle = atan(p.y, p.x);
+    float drift = time * 0.20;
+    float wave1 = sin(angle * 5.0 + drift) * 0.12 + sin(angle * 11.0 - drift * 1.6) * 0.05;
+    float ribbon1 = abs(dist - 0.90 + wave1);
+    float fold1 = pow(sin(angle * 24.0 + dist * 14.0 + drift * 2.2) * 0.5 + 0.5, 3.0) * 0.8 + 0.2;
+    float curtain1 = exp(-ribbon1 * 8.0) * fold1;
+
+    float wave2 = sin(angle * 7.0 - drift * 0.7) * 0.14;
+    float ribbon2 = abs(dist - 1.20 + wave2);
+    float fold2 = pow(sin(angle * 30.0 - dist * 10.0 + drift * 1.4) * 0.5 + 0.5, 2.5) * 0.7 + 0.3;
+    float curtain2 = exp(-ribbon2 * 10.0) * fold2 * 0.6;
+
+    vec3 green = vec3(0.08, 0.96, 0.46);
+    vec3 violet = vec3(0.62, 0.18, 0.92);
+    vec3 spectral = mix(green, violet, clamp((dist - 0.75) * 1.5, 0.0, 1.0));
+
+    return spectral * ((curtain1 + curtain2) * ring * face_cutoff) * (aurora_factor * above_horizon * 1.8);
+}
+
 void main() {
     vec3 dir = normalize(v_ray_dir);
 
@@ -114,9 +159,11 @@ void main() {
         moon_body = vec3(0.85, 0.88, 0.94) * clamp(surface, 0.32, 0.98);
     }
 
-    // Occlude stars behind solid celestial bodies (moon and sun)
+    // Occlude stars and aurora behind solid celestial bodies (moon and sun)
     float star_occ = (1.0 - moon_visible) * (1.0 - sun_disc * sun_above);
     vec3 night_sky = u_sky_color.rgb + vec3(stars(dir) * u_night_factor * star_occ * 1.5);
+    vec3 aurora = polar_aurora(dir, v_cam_pos, u_local_up, u_aurora_factor, u_time);
+    night_sky += aurora * (1.0 - moon_visible);
 
     // Completely opaque lunar body composited over firmament
     vec3 sky_with_moon = mix(night_sky, moon_body, moon_visible);

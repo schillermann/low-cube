@@ -1,6 +1,6 @@
 # Server & Game Settings Guide
 
-This guide explains how players and server operators can customize world physics and server settings for **Low-Cube**.
+This guide explains how players and server operators can customize world physics, day/night cycles, and nocturnal atmospheric phenomena for **Low-Cube**.
 
 ---
 
@@ -8,7 +8,13 @@ This guide explains how players and server operators can customize world physics
 
 In *Low-Cube*, world parameters are kept deliberately simple and intuitive:
 - **Planetary Gravity (`gravity`)**: Governs jump height and airborne trajectory.
-- **Day/Night Cycle Duration (`day_cycle_seconds`)**: Sets the length of a complete planetary day and night rotation (default: `1200` seconds / 20 minutes).
+- **Day/Night Cycle Duration (`cycle`)**: Sets the length of a complete planetary day and night rotation in minutes (default: `20` minutes; plain number in minutes, set to `0` for permanent noon).
+- **Polar Lights Schedule (`[aurora]`)**: Governs the nocturnal appearance of waving green and violet aurora curtains over the Arctic face:
+  - `nightly`: Appears every night throughout nocturnal hours (default baseline).
+  - `off`: Permanently disabled (starry night sky remains fully active without auroras).
+  - `rare`: Appears rarely (approx. 1 in 5 nights / 20% chance).
+  - `normal`: Appears regularly (approx. every 2nd night / 50% chance).
+  - `frequent`: Appears frequently (approx. 4 in 5 nights / 80% chance).
 
 ### The Principle of Static Configuration & Server Restart
 
@@ -36,10 +42,15 @@ Place a `server.toml` file in the same directory as the game executable (`low-cu
 gravity = 10
 
 [world]
-# Duration of a full planetary day/night rotation in seconds.
-# Default: 1200 (20 minutes: 10 min daylight, 7 min night, 3 min twilight transitions).
+# Duration of a full planetary day/night rotation in minutes.
+# Default: 20 (20 minutes: 10 min daylight, 7 min night, 3 min twilight transitions).
 # Set to 0 to freeze the sun at permanent noon.
-day_cycle_seconds = 1200
+cycle = 20
+
+[aurora]
+# Nocturnal polar lights over Arctic.
+# Supported modes: "nightly", "off", "rare", "normal", "frequent"
+mode = "nightly"
 ```
 
 ---
@@ -52,53 +63,72 @@ Settings can also be adjusted via command-line flags or environment variables wi
 1. **Command-Line Arguments** (highest priority)
 2. **Environment Variables**
 3. **`server.toml` Configuration File**
-4. **Terrestrial Baselines** (fallback: `gravity = 10`, `day_cycle_seconds = 1200`)
-
+4. **Baselines** (fallback: `gravity = 10`, `cycle = 20`, `aurora = "nightly"`)
 
 ### Command-Line Arguments
 Pass configuration flags when launching the executable:
 
 | Flag | Format | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `--day-cycle`<br>`--day-cycle-seconds` | `--day-cycle <seconds>`<br>`--day-cycle-seconds=<seconds>` | `1200` (20 min) | Duration of a complete day/night cycle in seconds. Set to `0` to freeze the sun at permanent noon. |
+| `--cycle` | `--cycle <minutes>` | `20` | Duration of a complete day/night cycle in minutes. Set to `0` to freeze the sun at permanent noon. |
 | `--gravity` | `--gravity <value>` | `10` | Planetary surface gravity. Lower values increase jump height; higher values reduce jump height. |
+| `--aurora` | `--aurora <mode>`<br>`--aurora=<mode>` | `nightly` | Aurora schedule: `nightly`, `off`, `rare`, `normal`, or `frequent`. |
 
 - **Linux**:
   ```bash
   # Standard Earth gravity and 20-minute day cycle
-  ./low-cube-linux --gravity 10 --day-cycle 1200
+  ./low-cube-linux --gravity 10 --cycle 20
 
-  # Low gravity world with fast 10-minute day cycle
-  ./low-cube-linux --gravity 5 --day-cycle 600
+  # Quick 5-minute day cycle
+  ./low-cube-linux --cycle 5
 
-  # Permanent daylight (frozen sun at noon)
-  ./low-cube-linux --day-cycle 0
+  # Aurora disabled
+  ./low-cube-linux --aurora off
+
+  # Rare polar lights
+  ./low-cube-linux --aurora rare
+
+  # Frequent polar lights
+  ./low-cube-linux --aurora frequent
   ```
 
 - **Windows**:
   ```powershell
   # Standard Earth gravity and 20-minute day cycle
-  .\low-cube-windows.exe --gravity 10 --day-cycle 1200
+  .\low-cube-windows.exe --gravity 10 --cycle 20
 
-  # Low gravity world with fast 10-minute day cycle
-  .\low-cube-windows.exe --gravity 5 --day-cycle 600
+  # Quick 5-minute day cycle
+  .\low-cube-windows.exe --cycle 5
 
-  # Permanent daylight (frozen sun at noon)
-  .\low-cube-windows.exe --day-cycle 0
+  # Aurora disabled
+  .\low-cube-windows.exe --aurora off
+
+  # Rare polar lights
+  .\low-cube-windows.exe --aurora rare
+
+  # Frequent polar lights
+  .\low-cube-windows.exe --aurora frequent
   ```
 
 ### Environment Variables
 Set configuration environment variables before starting the executable:
 
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `LOW_CUBE_GRAVITY` | `10` | Planetary surface gravity. |
+| `LOW_CUBE_CYCLE` | `20` | Duration of full day/night cycle in minutes. |
+| `LOW_CUBE_AURORA` | `nightly` | Aurora schedule (`nightly`, `off`, `rare`, `normal`, `frequent`). |
+
 - **Linux**:
   ```bash
-  LOW_CUBE_GRAVITY=5 LOW_CUBE_DAY_CYCLE=600 ./low-cube-linux
+  LOW_CUBE_AURORA=rare ./low-cube-linux
+  LOW_CUBE_AURORA=frequent ./low-cube-linux
+  LOW_CUBE_AURORA=off ./low-cube-linux
   ```
 
 - **Windows (PowerShell)**:
   ```powershell
-  $env:LOW_CUBE_GRAVITY = "5"
-  $env:LOW_CUBE_DAY_CYCLE = "600"
+  $env:LOW_CUBE_AURORA = "rare"
   .\low-cube-windows.exe
   ```
 
@@ -115,3 +145,15 @@ No decimals required—simply pick an integer that matches your desired world ex
 | **Lunar Low-G** | `2` | $\approx 2.5\,\text{m}$ | High, floaty jumps suitable for crater and canyon exploration. |
 | **Asteroid / Microgravity** | `1` | $\approx 5.0\,\text{m}$ | Extreme low gravity; soaring leaps into the sky. |
 | **Heavy World** | `20` | $\approx 0.25\,\text{m}$ | Heavy steps; climbing even low ledges demands stairs and ladders. |
+
+---
+
+## 5. Arctic Aurora Modes
+
+| Mode | Frequency | Occurrence | Description |
+| :--- | :--- | :--- | :--- |
+| `nightly` | Every night | $100\%$ | Active throughout nocturnal hours ($0.50 \dots 1.00$). Intensity smoothly follows the night factor. Stars and lunar features render alongside the polar ribbons. |
+| `off` | Disabled | $0\%$ | Aurora curtains are completely dormant. Stars and the moon remain visible at full brilliance. |
+| `rare`<br>(*selten*) | Seldom | $\approx 20\%$ ($1\text{ in }5\text{ nights}$) | Polar lights appear rarely on select nights. |
+| `normal` | Regular | $\approx 50\%$ ($\text{every }2\text{nd night}$) | Balanced natural frequency. |
+| `frequent`<br>(*häufig*) | Often | $\approx 80\%$ ($4\text{ in }5\text{ nights}$) | Polar lights appear on most nights. |

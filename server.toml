@@ -9,3 +9,17 @@
 # - gravity = 20 : High gravity (jump height ~0.25m, heavy steps)
 gravity = 10
 
+[world]
+# Day/night cycle rotation in minutes (default: 20 min).
+# Set to 0 to freeze the sun at permanent noon.
+cycle = 20
+
+[aurora]
+# Nocturnal polar lights over Arctic.
+# Supported modes:
+# - "nightly"  : Active every night (default baseline)
+# - "off"      : Permanently disabled; starry night sky remains active without aurora curtains
+# - "rare"     : Appears rarely (~1 in 5 nights)
+# - "normal"   : Appears regularly (~every 2nd night)
+# - "frequent" : Appears frequently (~4 in 5 nights)
+mode = "nightly"

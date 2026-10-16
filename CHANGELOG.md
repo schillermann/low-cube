@@ -8,6 +8,21 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-16
+
+### Added
+- Nocturnal Arctic polar lights (auroras) with dynamic waving green and violet curtains constrained to the Arctic face (`AuroraCanopy`, `CalibratedCanopy`, `VoidCanopy`).
+- Server-configurable aurora scheduling via `[aurora]` section in `server.toml`, `--aurora` CLI flag, and `LOW_CUBE_AURORA` env var, supporting `nightly`, `off`, `rare`, `normal`, and `frequent` modes (`AuroraCadence`, `NightlyAuroraCadence`, `DormantAuroraCadence`, `StochasticAuroraCadence`, `ServerAurora`, `FileAurora`, `ArgumentAurora`, `EnvironmentAurora`).
+- Server-configurable day/night cycle duration in minutes via `cycle = <minutes>` in `server.toml`, `--cycle <minutes>` CLI flag, and `LOW_CUBE_CYCLE=<minutes>` env var (`CycleDuration`, `ServerCelestial`, `FileCelestial`, `ArgumentCelestial`, `EnvironmentCelestial`).
+- In-game screenshot capturing nocturnal polar lights over the Arctic face in `docs/images/climates/arctic-night.png`.
+
+### Changed
+- Refactored `TunedCadence` into a pure `CelestialCadence` decorator delegating sun trajectory and sky coloring to inner origin.
+- Refactored `StochasticAuroraCadence` into a pure `AuroraCadence` decorator modulating base nocturnal activity.
+- Refactored `FileCelestial`, `ArgumentCelestial`, and `EnvironmentCelestial` to evaluate configuration once at startup, eliminating runtime disk I/O, regex/string scanning, and per-frame heap allocations in the 60 FPS animation loop.
+- Eliminated static utility functions in favor of encapsulated domain objects (`StochasticHash`) and message passing (`Vec4::lerp`).
+- Updated `docs/SETTINGS.md` and `server.toml` to document minute-based cycle durations and polar light settings.
+
 ## [0.20.0] - 2026-10-16
 
 ### Added

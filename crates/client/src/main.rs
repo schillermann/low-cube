@@ -1,14 +1,20 @@
 mod app;
+mod argument_aurora;
 mod argument_celestial;
 mod argument_physics;
+mod aurora_cadence;
+mod aurora_canopy;
 mod avatar;
 mod cadence;
 mod celestial;
 mod clock;
 mod controls;
+mod cycle_duration;
 mod diurnal_pipeline;
+mod environment_aurora;
 mod environment_celestial;
 mod environment_physics;
+mod file_aurora;
 mod file_celestial;
 mod file_physics;
 mod firmament;
@@ -26,6 +32,7 @@ mod orientation;
 mod phase;
 mod physics;
 mod posture;
+mod server_aurora;
 mod server_celestial;
 mod server_physics;
 mod session;
@@ -39,6 +46,8 @@ mod allocation_audit;
 #[global_allocator]
 static ALLOCATOR: allocation_audit::TrackingAllocator = allocation_audit::TrackingAllocator;
 
+#[cfg(test)]
+mod aurora_tests;
 #[cfg(test)]
 mod ballistic_tests;
 #[cfg(test)]

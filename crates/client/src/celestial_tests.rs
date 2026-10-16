@@ -49,11 +49,11 @@ fn test_terrestrial_cadence_sky_color_transitions() {
 
 #[test]
 fn test_tuned_cadence_custom_duration_and_frozen_time() {
-    let custom = TunedCadence::new(600.0);
+    let custom = TunedCadence::terrestrial(600.0);
     assert_eq!(custom.duration_seconds(), 600.0);
     assert!((custom.day_progress(150.0) - 0.25).abs() < 1e-4);
 
-    let frozen = TunedCadence::new(0.0);
+    let frozen = TunedCadence::terrestrial(0.0);
     assert_eq!(frozen.duration_seconds(), 0.0);
     assert_eq!(frozen.day_progress(100.0), 0.25, "Frozen cadence must maintain stationary noon");
 }
@@ -61,17 +61,17 @@ fn test_tuned_cadence_custom_duration_and_frozen_time() {
 #[test]
 fn test_file_celestial_reads_duration_and_handles_missing_file() {
     let temp_path = format!("{}/test_server_celestial.toml", std::env::temp_dir().display());
-    fs::write(&temp_path, "[world]\nday_cycle_seconds = 450\n").unwrap();
+    fs::write(&temp_path, "[world]\ncycle = 10\n").unwrap();
 
-    let file_cadence = FileCelestial::new(
-        temp_path.clone(),
+    let file_cadence = FileCelestial::from_path(
+        &temp_path,
         Box::new(TerrestrialCadence::new()),
     );
-    assert_eq!(file_cadence.duration_seconds(), 450.0);
+    assert_eq!(file_cadence.duration_seconds(), 600.0);
     let _ = fs::remove_file(temp_path);
 
-    let missing = FileCelestial::new(
-        "non_existent_file.toml".to_string(),
+    let missing = FileCelestial::from_path(
+        "non_existent_file.toml",
         Box::new(TerrestrialCadence::new()),
     );
     assert_eq!(missing.duration_seconds(), 1200.0);
@@ -81,28 +81,45 @@ fn test_file_celestial_reads_duration_and_handles_missing_file() {
 fn test_argument_celestial_parses_cli_flags() {
     let args = vec![
         "low-cube".to_string(),
-        "--day-cycle".to_string(),
-        "300".to_string(),
+        "--cycle".to_string(),
+        "5".to_string(),
     ];
-    let arg_cadence = ArgumentCelestial::new(args, Box::new(TerrestrialCadence::new()));
+    let arg_cadence = ArgumentCelestial::from_arguments(&args, Box::new(TerrestrialCadence::new()));
     assert_eq!(arg_cadence.duration_seconds(), 300.0);
 
     let equals_args = vec![
         "low-cube".to_string(),
-        "--day-cycle-seconds=500".to_string(),
+        "--cycle=10".to_string(),
     ];
-    let equals_cadence = ArgumentCelestial::new(equals_args, Box::new(TerrestrialCadence::new()));
-    assert_eq!(equals_cadence.duration_seconds(), 500.0);
+    let equals_cadence = ArgumentCelestial::from_arguments(&equals_args, Box::new(TerrestrialCadence::new()));
+    assert_eq!(equals_cadence.duration_seconds(), 600.0);
+
+    let minutes_args = vec![
+        "low-cube".to_string(),
+        "--cycle=20".to_string(),
+    ];
+    let min_cadence = ArgumentCelestial::from_arguments(&minutes_args, Box::new(TerrestrialCadence::new()));
+    assert_eq!(min_cadence.duration_seconds(), 1200.0);
 
     let empty_args = vec!["low-cube".to_string()];
-    let empty_cadence = ArgumentCelestial::new(empty_args, Box::new(TerrestrialCadence::new()));
+    let empty_cadence = ArgumentCelestial::from_arguments(&empty_args, Box::new(TerrestrialCadence::new()));
     assert_eq!(empty_cadence.duration_seconds(), 1200.0);
 }
 
 #[test]
+fn test_cycle_duration_parsing() {
+    use crate::cycle_duration::CycleDuration;
+    assert_eq!(CycleDuration::parse("20").unwrap().seconds(), 1200.0);
+    assert_eq!(CycleDuration::parse("10").unwrap().seconds(), 600.0);
+    assert_eq!(CycleDuration::parse("5").unwrap().seconds(), 300.0);
+    assert_eq!(CycleDuration::parse("0").unwrap().seconds(), 0.0);
+    assert!(CycleDuration::parse("invalid").is_none());
+}
+
+#[test]
 fn test_environment_celestial_fallback_when_unset() {
-    let env_cadence = EnvironmentCelestial::new(Box::new(TerrestrialCadence::new()));
-    if std::env::var("LOW_CUBE_DAY_CYCLE").is_err() {
+    let env_cadence = EnvironmentCelestial::process(Box::new(TerrestrialCadence::new()));
+    if std::env::var("LOW_CUBE_CYCLE").is_err() {
         assert_eq!(env_cadence.duration_seconds(), 1200.0);
     }
 }
@@ -122,4 +139,21 @@ fn test_diurnal_pipeline_construction() {
     let clock = Box::new(FrozenClock::new(now));
     let pipeline = DiurnalPipeline::headless(cadence, clock, now);
     assert_eq!(std::mem::size_of_val(&pipeline) > 0, true);
+}
+
+#[test]
+fn test_void_firmament_construction() {
+    use crate::firmament::{VoidFirmament, VoidMesh};
+    let void_sky = VoidFirmament::new();
+    let mesh = VoidMesh::new();
+    assert_eq!(std::mem::size_of_val(&void_sky), 0);
+    assert_eq!(std::mem::size_of_val(&mesh), 0);
+}
+
+#[test]
+fn test_firmament_shader_contains_aurora_and_time() {
+    use crate::firmament_glsl::FIRMAMENT_FRAGMENT_SRC;
+    assert!(FIRMAMENT_FRAGMENT_SRC.contains("u_time"));
+    assert!(FIRMAMENT_FRAGMENT_SRC.contains("polar_aurora"));
+    assert!(FIRMAMENT_FRAGMENT_SRC.contains("u_night_factor"));
 }

@@ -3,9 +3,13 @@ use glam::{Mat4, Quat, Vec3};
 use glow::HasContext;
 
 use engine::{GraphicPipeline, Mesh, ShaderProgram};
+use crate::aurora_cadence::AuroraCadence;
+use crate::aurora_canopy::AuroraCanopy;
 use crate::celestial::CelestialCadence;
 use crate::clock::{MonotonicTime, SystemClock};
 use crate::firmament::{GlFirmamentQuad, SkyFirmament};
+#[cfg(test)]
+use crate::aurora_cadence::NightlyAuroraCadence;
 #[cfg(test)]
 use crate::firmament::{VoidFirmament, VoidMesh};
 use crate::gl_firmament::GlFirmament;
@@ -13,6 +17,7 @@ use crate::gl_firmament::GlFirmament;
 /// Graphic pipeline dynamically driving terrain lighting and celestial firmament display.
 pub struct DiurnalPipeline {
     cadence: Box<dyn CelestialCadence>,
+    aurora: Box<dyn AuroraCadence>,
     clock: Box<dyn MonotonicTime>,
     epoch: Instant,
     sky: Box<dyn SkyFirmament>,
@@ -23,6 +28,7 @@ impl DiurnalPipeline {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
         cadence: Box<dyn CelestialCadence>,
+        aurora: Box<dyn AuroraCadence>,
         clock: Box<dyn MonotonicTime>,
         epoch: Instant,
         sky: Box<dyn SkyFirmament>,
@@ -30,6 +36,7 @@ impl DiurnalPipeline {
     ) -> Self {
         Self {
             cadence,
+            aurora,
             clock,
             epoch,
             sky,
@@ -46,6 +53,7 @@ impl DiurnalPipeline {
     ) -> Self {
         Self::new(
             cadence,
+            Box::new(NightlyAuroraCadence::new()),
             clock,
             epoch,
             Box::new(VoidFirmament::new()),
@@ -54,12 +62,17 @@ impl DiurnalPipeline {
     }
 
     /// Secondary constructor compiling active firmament shader and uploading quad geometry.
-    pub unsafe fn gl(cadence: Box<dyn CelestialCadence>, gl: &glow::Context) -> Self {
+    pub unsafe fn gl(
+        cadence: Box<dyn CelestialCadence>,
+        aurora: Box<dyn AuroraCadence>,
+        canopy: Box<dyn AuroraCanopy>,
+        gl: &glow::Context,
+    ) -> Self {
         let clock = Box::new(SystemClock::new());
         let epoch = clock.current_instant();
-        let sky = Box::new(GlFirmament::compiled(gl));
+        let sky = Box::new(GlFirmament::compiled(canopy, gl));
         let sky_mesh = GlFirmamentQuad::uploaded(gl);
-        Self::new(cadence, clock, epoch, sky, sky_mesh)
+        Self::new(cadence, aurora, clock, epoch, sky, sky_mesh)
     }
 }
 
@@ -84,6 +97,7 @@ impl GraphicPipeline for DiurnalPipeline {
         let celestial_pole = surface_rot * Vec3::Z;
 
         let night_factor = (-local_sun.y / 0.15).clamp(0.0, 1.0);
+        let aurora_factor = self.aurora.activity(progress, elapsed, night_factor);
 
         unsafe {
             gl.clear_color(
@@ -107,6 +121,8 @@ impl GraphicPipeline for DiurnalPipeline {
             local_up,
             clear_color,
             night_factor,
+            aurora_factor,
+            elapsed as f32,
             self.sky_mesh.as_ref(),
         );
     }

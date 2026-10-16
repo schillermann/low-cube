@@ -7,6 +7,8 @@ use winit::window::Window;
 
 use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
 
+use crate::aurora_cadence::AuroraCadence;
+use crate::aurora_canopy::AuroraCanopy;
 use crate::avatar::Avatar;
 use crate::celestial::CelestialCadence;
 use crate::diurnal_pipeline::DiurnalPipeline;
@@ -18,7 +20,12 @@ pub trait PlatformSurface {
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh>;
     fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh>;
     fn compile_shader(&self, source: &dyn ShaderSource) -> Box<dyn ShaderProgram>;
-    fn assemble_diurnal_pipeline(&self, cadence: Box<dyn CelestialCadence>) -> Box<dyn GraphicPipeline>;
+    fn assemble_diurnal_pipeline(
+        &self,
+        cadence: Box<dyn CelestialCadence>,
+        aurora: Box<dyn AuroraCadence>,
+        canopy: Box<dyn AuroraCanopy>,
+    ) -> Box<dyn GraphicPipeline>;
     fn render_frame(
         &self,
         pipeline: &dyn GraphicPipeline,
@@ -91,8 +98,13 @@ impl PlatformSurface for GlPlatformSurface {
         unsafe { source.compile(&self.gl) }
     }
 
-    fn assemble_diurnal_pipeline(&self, cadence: Box<dyn CelestialCadence>) -> Box<dyn GraphicPipeline> {
-        unsafe { Box::new(DiurnalPipeline::gl(cadence, &self.gl)) }
+    fn assemble_diurnal_pipeline(
+        &self,
+        cadence: Box<dyn CelestialCadence>,
+        aurora: Box<dyn AuroraCadence>,
+        canopy: Box<dyn AuroraCanopy>,
+    ) -> Box<dyn GraphicPipeline> {
+        unsafe { Box::new(DiurnalPipeline::gl(cadence, aurora, canopy, &self.gl)) }
     }
 
     fn render_frame(

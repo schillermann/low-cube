@@ -13,6 +13,8 @@ pub trait SkyFirmament: Send + Sync {
         local_up: Vec3,
         sky_color: Vec4,
         night_factor: f32,
+        aurora_factor: f32,
+        time: f32,
         mesh: &dyn Mesh,
     );
 }
@@ -40,6 +42,8 @@ impl SkyFirmament for VoidFirmament {
         _local_up: Vec3,
         _sky_color: Vec4,
         _night_factor: f32,
+        _aurora_factor: f32,
+        _time: f32,
         _mesh: &dyn Mesh,
     ) {}
 }

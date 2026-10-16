@@ -6,11 +6,14 @@ use engine::{
     VoxelShaderSource,
 };
 use world::{BiomedCubeWorld, PlanetaryWorld};
+use crate::aurora_cadence::AuroraCadence;
+use crate::aurora_canopy::CalibratedCanopy;
 use crate::avatar::PlanetaryAvatar;
 use crate::celestial::CelestialCadence;
 use crate::controls::KeyMotion;
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
 use crate::physics::PlanetaryPhysics;
+use crate::server_aurora::ServerAurora;
 use crate::server_celestial::ServerCelestial;
 use crate::server_physics::ServerPhysics;
 use crate::session::{GameSession, Session};
@@ -26,6 +29,7 @@ pub struct SessionLaunch {
     world_blocks: u32,
     physics: Box<dyn PlanetaryPhysics>,
     celestial: Box<dyn CelestialCadence>,
+    aurora: Box<dyn AuroraCadence>,
     tron_active: bool,
 }
 
@@ -36,6 +40,7 @@ impl SessionLaunch {
         world_blocks: u32,
         physics: Box<dyn PlanetaryPhysics>,
         celestial: Box<dyn CelestialCadence>,
+        aurora: Box<dyn AuroraCadence>,
         tron_active: bool,
     ) -> Self {
         Self {
@@ -43,6 +48,7 @@ impl SessionLaunch {
             world_blocks,
             physics,
             celestial,
+            aurora,
             tron_active,
         }
     }
@@ -55,11 +61,14 @@ impl SessionLaunch {
         world_blocks: u32,
         tron_active: bool,
     ) -> Self {
+        let celestial = Box::new(ServerCelestial::assembled());
+        let aurora = Box::new(ServerAurora::assembled(celestial.duration_seconds()));
         Self::new(
             Box::new(GlHostEnvironment::new(title, width, height)),
             world_blocks,
             Box::new(ServerPhysics::assembled()),
-            Box::new(ServerCelestial::assembled()),
+            celestial,
+            aurora,
             tron_active,
         )
     }
@@ -81,7 +90,12 @@ impl SessionAssembly for SessionLaunch {
         planet.emit_surface(&mut cpu_buf);
         let primary_mesh = surface.upload_mesh(&cpu_buf);
         let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
-        let primary_pipeline = surface.assemble_diurnal_pipeline(self.celestial.clone_cadence());
+        let canopy = Box::new(CalibratedCanopy::planetary(self.world_blocks));
+        let primary_pipeline = surface.assemble_diurnal_pipeline(
+            self.celestial.clone_cadence(),
+            self.aurora.clone_cadence(),
+            canopy,
+        );
 
         // Tron wireframe rendering assets
         let tron_world = BiomedCubeWorld::beveled_tron(self.world_blocks, 1.0);

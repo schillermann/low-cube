@@ -10,11 +10,6 @@ pub trait CelestialCadence: Send + Sync {
     fn clone_cadence(&self) -> Box<dyn CelestialCadence>;
 }
 
-fn interpolate_vector(a: Vec4, b: Vec4, t: f32) -> Vec4 {
-    let clamped_t = t.clamp(0.0, 1.0);
-    a * (1.0 - clamped_t) + b * clamped_t
-}
-
 /// Baseline planetary cadence with standard 20-minute (1200 seconds) planetary rotation.
 pub struct TerrestrialCadence;
 
@@ -53,11 +48,11 @@ impl CelestialCadence for TerrestrialCadence {
         if height > 0.15 {
             day_blue
         } else if height >= 0.0 {
-            let t = height / 0.15;
-            interpolate_vector(sunset_gold, day_blue, t)
+            let t = (height / 0.15).clamp(0.0, 1.0);
+            sunset_gold.lerp(day_blue, t)
         } else if height >= -0.15 {
-            let t = (height + 0.15) / 0.15;
-            interpolate_vector(space_black, sunset_gold, t)
+            let t = ((height + 0.15) / 0.15).clamp(0.0, 1.0);
+            space_black.lerp(sunset_gold, t)
         } else {
             space_black
         }
@@ -68,15 +63,21 @@ impl CelestialCadence for TerrestrialCadence {
     }
 }
 
-/// Custom configured celestial cadence with explicit cycle duration.
+/// Custom configured celestial cadence decorator with explicit cycle duration.
 pub struct TunedCadence {
     duration: f32,
+    origin: Box<dyn CelestialCadence>,
 }
 
 impl TunedCadence {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(duration: f32) -> Self {
-        Self { duration }
+    pub fn new(duration: f32, origin: Box<dyn CelestialCadence>) -> Self {
+        Self { duration, origin }
+    }
+
+    /// Secondary constructor decorating standard terrestrial cadence.
+    pub fn terrestrial(duration: f32) -> Self {
+        Self::new(duration, Box::new(TerrestrialCadence::new()))
     }
 }
 
@@ -97,15 +98,14 @@ impl CelestialCadence for TunedCadence {
     }
 
     fn sun_direction(&self, progress: f32) -> Vec3 {
-        let angle = progress * TAU;
-        Vec3::new(angle.cos(), angle.sin(), 0.35).normalize()
+        self.origin.sun_direction(progress)
     }
 
     fn sky_color(&self, progress: f32) -> Vec4 {
-        TerrestrialCadence::new().sky_color(progress)
+        self.origin.sky_color(progress)
     }
 
     fn clone_cadence(&self) -> Box<dyn CelestialCadence> {
-        Box::new(Self::new(self.duration))
+        Box::new(Self::new(self.duration, self.origin.clone_cadence()))
     }
 }

@@ -1,10 +1,11 @@
 use glam::{Mat4, Vec3, Vec4};
 use glow::HasContext;
 use engine::Mesh;
+use crate::aurora_canopy::AuroraCanopy;
 use crate::firmament::SkyFirmament;
 use crate::firmament_glsl::{FIRMAMENT_FRAGMENT_SRC, FIRMAMENT_VERTEX_SRC};
 
-/// GPU shader program rendering the celestial vault with Sun, Moon, and Stars.
+/// GPU shader program rendering the celestial vault with Sun, Moon, Stars, and Arctic Aurora.
 pub struct GlFirmament {
     program: glow::Program,
     u_inv_view_proj: glow::UniformLocation,
@@ -13,6 +14,12 @@ pub struct GlFirmament {
     u_local_up: glow::UniformLocation,
     u_sky_color: glow::UniformLocation,
     u_night_factor: glow::UniformLocation,
+    u_aurora_factor: glow::UniformLocation,
+    u_time: glow::UniformLocation,
+    u_face_half: glow::UniformLocation,
+    u_aurora_radius: glow::UniformLocation,
+    u_ceiling_altitude: glow::UniformLocation,
+    canopy: Box<dyn AuroraCanopy>,
 }
 
 impl GlFirmament {
@@ -25,6 +32,12 @@ impl GlFirmament {
         u_local_up: glow::UniformLocation,
         u_sky_color: glow::UniformLocation,
         u_night_factor: glow::UniformLocation,
+        u_aurora_factor: glow::UniformLocation,
+        u_time: glow::UniformLocation,
+        u_face_half: glow::UniformLocation,
+        u_aurora_radius: glow::UniformLocation,
+        u_ceiling_altitude: glow::UniformLocation,
+        canopy: Box<dyn AuroraCanopy>,
     ) -> Self {
         Self {
             program,
@@ -34,11 +47,17 @@ impl GlFirmament {
             u_local_up,
             u_sky_color,
             u_night_factor,
+            u_aurora_factor,
+            u_time,
+            u_face_half,
+            u_aurora_radius,
+            u_ceiling_altitude,
+            canopy,
         }
     }
 
     /// Secondary constructor compiling embedded firmament shader sources.
-    pub unsafe fn compiled(gl: &glow::Context) -> Self {
+    pub unsafe fn compiled(canopy: Box<dyn AuroraCanopy>, gl: &glow::Context) -> Self {
         let vs = gl.create_shader(glow::VERTEX_SHADER).expect("VS create failed");
         gl.shader_source(vs, FIRMAMENT_VERTEX_SRC);
         gl.compile_shader(vs);
@@ -70,8 +89,27 @@ impl GlFirmament {
         let u_local_up = gl.get_uniform_location(program, "u_local_up").expect("missing u_local_up");
         let u_sky_color = gl.get_uniform_location(program, "u_sky_color").expect("missing u_sky_color");
         let u_night_factor = gl.get_uniform_location(program, "u_night_factor").expect("missing u_night_factor");
+        let u_aurora_factor = gl.get_uniform_location(program, "u_aurora_factor").expect("missing u_aurora_factor");
+        let u_time = gl.get_uniform_location(program, "u_time").expect("missing u_time");
+        let u_face_half = gl.get_uniform_location(program, "u_face_half").expect("missing u_face_half");
+        let u_aurora_radius = gl.get_uniform_location(program, "u_aurora_radius").expect("missing u_aurora_radius");
+        let u_ceiling_altitude = gl.get_uniform_location(program, "u_ceiling_altitude").expect("missing u_ceiling_altitude");
 
-        Self::new(program, u_inv_view_proj, u_sun_dir, u_celestial_pole, u_local_up, u_sky_color, u_night_factor)
+        Self::new(
+            program,
+            u_inv_view_proj,
+            u_sun_dir,
+            u_celestial_pole,
+            u_local_up,
+            u_sky_color,
+            u_night_factor,
+            u_aurora_factor,
+            u_time,
+            u_face_half,
+            u_aurora_radius,
+            u_ceiling_altitude,
+            canopy,
+        )
     }
 }
 
@@ -85,6 +123,8 @@ impl SkyFirmament for GlFirmament {
         local_up: Vec3,
         sky_color: Vec4,
         night_factor: f32,
+        aurora_factor: f32,
+        time: f32,
         mesh: &dyn Mesh,
     ) {
         unsafe {
@@ -95,6 +135,9 @@ impl SkyFirmament for GlFirmament {
             gl.uniform_3_f32(Some(&self.u_local_up), local_up.x, local_up.y, local_up.z);
             gl.uniform_4_f32(Some(&self.u_sky_color), sky_color.x, sky_color.y, sky_color.z, sky_color.w);
             gl.uniform_1_f32(Some(&self.u_night_factor), night_factor);
+            gl.uniform_1_f32(Some(&self.u_aurora_factor), aurora_factor);
+            gl.uniform_1_f32(Some(&self.u_time), time);
+            self.canopy.bind_canopy(gl, &self.u_face_half, &self.u_aurora_radius, &self.u_ceiling_altitude);
             gl.depth_mask(false);
             gl.depth_func(glow::LEQUAL);
             mesh.draw(gl);
