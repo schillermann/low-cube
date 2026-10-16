@@ -1,13 +1,21 @@
 mod app;
+mod argument_celestial;
 mod argument_physics;
 mod avatar;
 mod cadence;
+mod celestial;
 mod clock;
 mod controls;
+mod diurnal_pipeline;
+mod environment_celestial;
 mod environment_physics;
+mod file_celestial;
 mod file_physics;
+mod firmament;
+mod firmament_glsl;
 mod flight;
 mod gait;
+mod gl_firmament;
 mod heading;
 mod horizon;
 mod host_env;
@@ -18,6 +26,7 @@ mod orientation;
 mod phase;
 mod physics;
 mod posture;
+mod server_celestial;
 mod server_physics;
 mod session;
 mod stride;
@@ -34,6 +43,8 @@ static ALLOCATOR: allocation_audit::TrackingAllocator = allocation_audit::Tracki
 mod ballistic_tests;
 #[cfg(test)]
 mod cadence_tests;
+#[cfg(test)]
+mod celestial_tests;
 #[cfg(test)]
 mod chunk_traversal_tests;
 #[cfg(test)]

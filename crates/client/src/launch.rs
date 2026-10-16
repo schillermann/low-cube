@@ -2,14 +2,16 @@ use glam::Vec3;
 use winit::event_loop::ActiveEventLoop;
 
 use engine::{
-    CpuMeshBatch, CpuTronBatch, ForwardPipeline, TronPipeline, TronShaderSource,
+    CpuMeshBatch, CpuTronBatch, TronPipeline, TronShaderSource,
     VoxelShaderSource,
 };
 use world::{BiomedCubeWorld, PlanetaryWorld};
 use crate::avatar::PlanetaryAvatar;
+use crate::celestial::CelestialCadence;
 use crate::controls::KeyMotion;
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
 use crate::physics::PlanetaryPhysics;
+use crate::server_celestial::ServerCelestial;
 use crate::server_physics::ServerPhysics;
 use crate::session::{GameSession, Session};
 
@@ -23,6 +25,7 @@ pub struct SessionLaunch {
     host_env: Box<dyn HostEnvironment>,
     world_blocks: u32,
     physics: Box<dyn PlanetaryPhysics>,
+    celestial: Box<dyn CelestialCadence>,
     tron_active: bool,
 }
 
@@ -32,12 +35,14 @@ impl SessionLaunch {
         host_env: Box<dyn HostEnvironment>,
         world_blocks: u32,
         physics: Box<dyn PlanetaryPhysics>,
+        celestial: Box<dyn CelestialCadence>,
         tron_active: bool,
     ) -> Self {
         Self {
             host_env,
             world_blocks,
             physics,
+            celestial,
             tron_active,
         }
     }
@@ -54,6 +59,7 @@ impl SessionLaunch {
             Box::new(GlHostEnvironment::new(title, width, height)),
             world_blocks,
             Box::new(ServerPhysics::assembled()),
+            Box::new(ServerCelestial::assembled()),
             tron_active,
         )
     }
@@ -70,12 +76,12 @@ impl SessionAssembly for SessionLaunch {
             Box::new(BiomedCubeWorld::beveled(self.world_blocks, 1.0))
         };
 
-        // Primary daylight rendering assets
+        // Primary diurnal daylight and nocturnal rendering pipeline
         let mut cpu_buf = CpuMeshBatch::empty();
         planet.emit_surface(&mut cpu_buf);
         let primary_mesh = surface.upload_mesh(&cpu_buf);
         let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
-        let primary_pipeline = Box::new(ForwardPipeline::daylight());
+        let primary_pipeline = surface.assemble_diurnal_pipeline(self.celestial.clone_cadence());
 
         // Tron wireframe rendering assets
         let tron_world = BiomedCubeWorld::beveled_tron(self.world_blocks, 1.0);

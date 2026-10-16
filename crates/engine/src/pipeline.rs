@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec3, Vec4};
+use glam::{Mat4, Quat, Vec3, Vec4};
 use glow::HasContext;
 use crate::{GraphicPipeline, Mesh, ShaderProgram};
 
@@ -39,6 +39,7 @@ impl GraphicPipeline for ForwardPipeline {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         view_proj: &Mat4,
+        _surface_rot: Quat,
     ) {
         unsafe {
             gl.clear_color(

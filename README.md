@@ -9,21 +9,24 @@
 ## The World of Low-Cube
 
 ### Six Faces, Six Worlds
-Every cube world features six distinct faces, each with its own climate, terrain, hazards, and native flora. From frozen tundras and scorched deserts to dense jungles and volcanic crags, each side presents unique survival challenges and raw resources.
+Every cube world features six distinct faces, each with its own climate, terrain, hazards, and native flora. From frozen tundras and scorched deserts to dense jungles and volcanic crags, each side presents unique survival challenges and raw resources bathed in dynamic solar and lunar illumination.
 
-| [Temperate](docs/CLIMATES.md#temperate-y-face) | [Arctic](docs/CLIMATES.md#arctic--x-face) | [Desert](docs/CLIMATES.md#desert-x-face) |
-| :---: | :---: | :---: |
-| [![Temperate](docs/images/climates/temperate.png)](docs/CLIMATES.md#temperate-y-face) | [![Arctic](docs/images/climates/arctic.png)](docs/CLIMATES.md#arctic--x-face) | [![Desert](docs/images/climates/desert.png)](docs/CLIMATES.md#desert-x-face) |
-| [Jungle](docs/CLIMATES.md#jungle-z-face) | [Steppe](docs/CLIMATES.md#steppe--z-face) | [Volcanic](docs/CLIMATES.md#volcanic--y-face) |
-| [![Jungle](docs/images/climates/jungle.png)](docs/CLIMATES.md#jungle-z-face) | [![Steppe](docs/images/climates/steppe.png)](docs/CLIMATES.md#steppe--z-face) | [![Volcanic](docs/images/climates/volcanic.png)](docs/CLIMATES.md#volcanic--y-face) |
+| Face | Climate Zone | Day (Solar Firmament) | Night (Lunar & Stars) |
+| :---: | :---: | :---: | :---: |
+| **+Y** | [Temperate](docs/CLIMATES.md#temperate-y-face) | [![Temperate Day](docs/images/climates/temperate-day.png)](docs/CLIMATES.md#temperate-y-face) | [![Temperate Night](docs/images/climates/temperate-night.png)](docs/CLIMATES.md#temperate-y-face) |
+| **-X** | [Arctic](docs/CLIMATES.md#arctic--x-face) | [![Arctic Day](docs/images/climates/arctic-day.png)](docs/CLIMATES.md#arctic--x-face) | [![Arctic Night](docs/images/climates/arctic-night.png)](docs/CLIMATES.md#arctic--x-face) |
+| **+X** | [Desert](docs/CLIMATES.md#desert-x-face) | [![Desert Day](docs/images/climates/desert-day.png)](docs/CLIMATES.md#desert-x-face) | [![Desert Night](docs/images/climates/desert-night.png)](docs/CLIMATES.md#desert-x-face) |
+| **+Z** | [Jungle](docs/CLIMATES.md#jungle-z-face) | [![Jungle Day](docs/images/climates/jungle-day.png)](docs/CLIMATES.md#jungle-z-face) | [![Jungle Night](docs/images/climates/jungle-night.png)](docs/CLIMATES.md#jungle-z-face) |
+| **-Z** | [Steppe](docs/CLIMATES.md#steppe--z-face) | [![Steppe Day](docs/images/climates/steppe-day.png)](docs/CLIMATES.md#steppe--z-face) | [![Steppe Night](docs/images/climates/steppe-night.png)](docs/CLIMATES.md#steppe--z-face) |
+| **-Y** | [Volcanic](docs/CLIMATES.md#volcanic--y-face) | [![Volcanic Day](docs/images/climates/volcanic-day.png)](docs/CLIMATES.md#volcanic--y-face) | [![Volcanic Night](docs/images/climates/volcanic-night.png)](docs/CLIMATES.md#volcanic--y-face) |
 
 *Explore detailed topography, native flora, and hazard profiles in the [Planetary Climate Zones & Biomes](docs/CLIMATES.md) reference.*
 
 ### Defy Gravity
 Walk right up to the edge of the world and step over. Watch the horizon tilt as gravity seamlessly pivots 90 degrees beneath your feet. Throw arrows, pour water, or drop boulders off the edge and see them curve around the planetary corner into the adjacent gravitational field.
 
-### Outrun the Night
-As the sun circles the planet, light only touches a few faces at a time while the rest are plunged into darkness. When the shadows fall, aggressive predators emerge from the caves and skies to hunt. If your shelter isn't ready, your best defense might be to grab your gear, sprint to the nearest edge, and leap into the dawn of a sunlit face.
+### Dynamic Day/Night Cycle & Celestial Vault
+As the golden sun arcs across the celestial vault and slips beneath the horizon, warm atmospheric twilight yields to an expansive cosmic starfield illuminated by the cratered lunar sphere. With day length fully configurable (default: 20 minutes, see [Settings](docs/SETTINGS.md)), light touches only parts of the planet at a time while others freeze in nocturnal shadow. When darkness falls, aggressive predators emerge to hunt. If your shelter isn't fortified, your best recourse may be to sprint to the nearest edge and leap into the dawn of a sunlit face.
 
 ### Realistic Building & Structural Integrity
 Say goodbye to floating islands and gravity-defying dirt towers. Every block in *Low-Cube* relies on structural support. Build load-bearing pillars, sturdy walls, and reinforced roofs—push your architecture too far without a solid foundation, and your fortress will collapse under its own weight.

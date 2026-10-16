@@ -6,15 +6,18 @@ This guide explains how players and server operators can customize world physics
 
 ## 1. Overview
 
-In *Low-Cube*, world physics is kept deliberately simple and intuitive: **only planetary `gravity` is configured**.
+In *Low-Cube*, world parameters are kept deliberately simple and intuitive:
+- **Planetary Gravity (`gravity`)**: Governs jump height and airborne trajectory.
+- **Day/Night Cycle Duration (`day_cycle_seconds`)**: Sets the length of a complete planetary day and night rotation (default: `1200` seconds / 20 minutes).
 
-Players and server operators never need to solve math problems or calculate decimal numbers. The player's jump height is automatically and naturally derived from the world's gravity:
-- **Constant Jump Impulse**: The human character always exerts the same muscular jump impulse.
-- **Natural Scaling**: Lower gravity automatically lets players leap higher and stay airborne longer; higher gravity pulls players down quickly with short, heavy hops.
+### The Principle of Static Configuration & Server Restart
 
-By default, every server runs with **Earth Gravity (`10`)**:
-- Allows vaulting onto natural $50\,\text{cm}$ rock shelves and slabs.
-- Full 1-meter cliffs require constructed steps, ramps, or lower gravity.
+All server configurations follow the **Principle of Static Configuration on Startup**:
+- **Mandatory Restart**: Any modification to `server.toml`, command-line flags, or environment variables **strictly requires a server restart** to take effect.
+- **Why Restart is Required**:
+  1. **Strict Immutability & Zero Runtime Overhead**: Parameters are read once at startup and encapsulated into immutable domain objects. This eliminates locks (`Mutex`/`RwLock`), cache misses, and continuous disk I/O in the hot simulation and rendering loops.
+  2. **Multiplayer Determinism & Desync Prevention**: Clients receive fixed session parameters upon joining. Mid-game modifications would cause visual glitches, sudden lighting teleportation, or client-server desynchronization.
+  3. **Fail-Fast Safety**: Configuration errors, invalid numbers, or malformed syntax are intercepted immediately at boot time, preventing corrupt state or unexpected crashes during active gameplay.
 
 ---
 
@@ -31,6 +34,12 @@ Place a `server.toml` file in the same directory as the game executable (`low-cu
 # Planetary gravity (default: 10 for Earth gravity)
 # Lower values increase jump height; higher values reduce jump height.
 gravity = 10
+
+[world]
+# Duration of a full planetary day/night rotation in seconds.
+# Default: 1200 (20 minutes: 10 min daylight, 7 min night, 3 min twilight transitions).
+# Set to 0 to freeze the sun at permanent noon.
+day_cycle_seconds = 1200
 ```
 
 ---
@@ -43,40 +52,53 @@ Settings can also be adjusted via command-line flags or environment variables wi
 1. **Command-Line Arguments** (highest priority)
 2. **Environment Variables**
 3. **`server.toml` Configuration File**
-4. **Earth Gravity Baseline (`10`)** (fallback)
+4. **Terrestrial Baselines** (fallback: `gravity = 10`, `day_cycle_seconds = 1200`)
+
 
 ### Command-Line Arguments
-Pass the `--gravity` flag when launching the executable:
+Pass configuration flags when launching the executable:
+
+| Flag | Format | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--day-cycle`<br>`--day-cycle-seconds` | `--day-cycle <seconds>`<br>`--day-cycle-seconds=<seconds>` | `1200` (20 min) | Duration of a complete day/night cycle in seconds. Set to `0` to freeze the sun at permanent noon. |
+| `--gravity` | `--gravity <value>` | `10` | Planetary surface gravity. Lower values increase jump height; higher values reduce jump height. |
 
 - **Linux**:
   ```bash
-  # Standard Earth gravity
-  ./low-cube-linux --gravity 10
+  # Standard Earth gravity and 20-minute day cycle
+  ./low-cube-linux --gravity 10 --day-cycle 1200
 
-  # Low gravity world (high jumps onto 1m blocks)
-  ./low-cube-linux --gravity 5
+  # Low gravity world with fast 10-minute day cycle
+  ./low-cube-linux --gravity 5 --day-cycle 600
+
+  # Permanent daylight (frozen sun at noon)
+  ./low-cube-linux --day-cycle 0
   ```
 
 - **Windows**:
   ```powershell
-  # Standard Earth gravity
-  .\low-cube-windows.exe --gravity 10
+  # Standard Earth gravity and 20-minute day cycle
+  .\low-cube-windows.exe --gravity 10 --day-cycle 1200
 
-  # Low gravity world (high jumps onto 1m blocks)
-  .\low-cube-windows.exe --gravity 5
+  # Low gravity world with fast 10-minute day cycle
+  .\low-cube-windows.exe --gravity 5 --day-cycle 600
+
+  # Permanent daylight (frozen sun at noon)
+  .\low-cube-windows.exe --day-cycle 0
   ```
 
 ### Environment Variables
-Set the `LOW_CUBE_GRAVITY` environment variable before starting the executable:
+Set configuration environment variables before starting the executable:
 
 - **Linux**:
   ```bash
-  LOW_CUBE_GRAVITY=5 ./low-cube-linux
+  LOW_CUBE_GRAVITY=5 LOW_CUBE_DAY_CYCLE=600 ./low-cube-linux
   ```
 
 - **Windows (PowerShell)**:
   ```powershell
   $env:LOW_CUBE_GRAVITY = "5"
+  $env:LOW_CUBE_DAY_CYCLE = "600"
   .\low-cube-windows.exe
   ```
 

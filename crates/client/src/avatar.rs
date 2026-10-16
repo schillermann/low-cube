@@ -18,6 +18,7 @@ pub trait Avatar {
     fn toggle_invert_x(&mut self);
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
+    fn surface_rotation(&self) -> Quat;
 }
 
 /// Fully encapsulated player entity composed of position, gravity alignment, ViewOrientation, PerspectiveLens, GravitationalFlight, and AvatarPosture.
@@ -141,5 +142,9 @@ impl Avatar for PlanetaryAvatar {
         let proj = self.lens.projection_matrix(aspect);
         let view = self.posture.view_matrix(&frame, self.position);
         proj * view
+    }
+
+    fn surface_rotation(&self) -> Quat {
+        self.surface_rot
     }
 }

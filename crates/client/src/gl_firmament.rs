@@ -1,0 +1,105 @@
+use glam::{Mat4, Vec3, Vec4};
+use glow::HasContext;
+use engine::Mesh;
+use crate::firmament::SkyFirmament;
+use crate::firmament_glsl::{FIRMAMENT_FRAGMENT_SRC, FIRMAMENT_VERTEX_SRC};
+
+/// GPU shader program rendering the celestial vault with Sun, Moon, and Stars.
+pub struct GlFirmament {
+    program: glow::Program,
+    u_inv_view_proj: glow::UniformLocation,
+    u_sun_dir: glow::UniformLocation,
+    u_celestial_pole: glow::UniformLocation,
+    u_local_up: glow::UniformLocation,
+    u_sky_color: glow::UniformLocation,
+    u_night_factor: glow::UniformLocation,
+}
+
+impl GlFirmament {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(
+        program: glow::Program,
+        u_inv_view_proj: glow::UniformLocation,
+        u_sun_dir: glow::UniformLocation,
+        u_celestial_pole: glow::UniformLocation,
+        u_local_up: glow::UniformLocation,
+        u_sky_color: glow::UniformLocation,
+        u_night_factor: glow::UniformLocation,
+    ) -> Self {
+        Self {
+            program,
+            u_inv_view_proj,
+            u_sun_dir,
+            u_celestial_pole,
+            u_local_up,
+            u_sky_color,
+            u_night_factor,
+        }
+    }
+
+    /// Secondary constructor compiling embedded firmament shader sources.
+    pub unsafe fn compiled(gl: &glow::Context) -> Self {
+        let vs = gl.create_shader(glow::VERTEX_SHADER).expect("VS create failed");
+        gl.shader_source(vs, FIRMAMENT_VERTEX_SRC);
+        gl.compile_shader(vs);
+        if !gl.get_shader_compile_status(vs) {
+            panic!("Firmament VS error: {}", gl.get_shader_info_log(vs));
+        }
+
+        let fs = gl.create_shader(glow::FRAGMENT_SHADER).expect("FS create failed");
+        gl.shader_source(fs, FIRMAMENT_FRAGMENT_SRC);
+        gl.compile_shader(fs);
+        if !gl.get_shader_compile_status(fs) {
+            panic!("Firmament FS error: {}", gl.get_shader_info_log(fs));
+        }
+
+        let program = gl.create_program().expect("Program create failed");
+        gl.attach_shader(program, vs);
+        gl.attach_shader(program, fs);
+        gl.link_program(program);
+        if !gl.get_program_link_status(program) {
+            panic!("Firmament link error: {}", gl.get_program_info_log(program));
+        }
+
+        gl.delete_shader(vs);
+        gl.delete_shader(fs);
+
+        let u_inv_view_proj = gl.get_uniform_location(program, "u_inv_view_proj").expect("missing u_inv_view_proj");
+        let u_sun_dir = gl.get_uniform_location(program, "u_sun_dir").expect("missing u_sun_dir");
+        let u_celestial_pole = gl.get_uniform_location(program, "u_celestial_pole").expect("missing u_celestial_pole");
+        let u_local_up = gl.get_uniform_location(program, "u_local_up").expect("missing u_local_up");
+        let u_sky_color = gl.get_uniform_location(program, "u_sky_color").expect("missing u_sky_color");
+        let u_night_factor = gl.get_uniform_location(program, "u_night_factor").expect("missing u_night_factor");
+
+        Self::new(program, u_inv_view_proj, u_sun_dir, u_celestial_pole, u_local_up, u_sky_color, u_night_factor)
+    }
+}
+
+impl SkyFirmament for GlFirmament {
+    fn draw_firmament(
+        &self,
+        gl: &glow::Context,
+        inv_view_proj: &Mat4,
+        sun_dir: Vec3,
+        celestial_pole: Vec3,
+        local_up: Vec3,
+        sky_color: Vec4,
+        night_factor: f32,
+        mesh: &dyn Mesh,
+    ) {
+        unsafe {
+            gl.use_program(Some(self.program));
+            gl.uniform_matrix_4_f32_slice(Some(&self.u_inv_view_proj), false, &inv_view_proj.to_cols_array());
+            gl.uniform_3_f32(Some(&self.u_sun_dir), sun_dir.x, sun_dir.y, sun_dir.z);
+            gl.uniform_3_f32(Some(&self.u_celestial_pole), celestial_pole.x, celestial_pole.y, celestial_pole.z);
+            gl.uniform_3_f32(Some(&self.u_local_up), local_up.x, local_up.y, local_up.z);
+            gl.uniform_4_f32(Some(&self.u_sky_color), sky_color.x, sky_color.y, sky_color.z, sky_color.w);
+            gl.uniform_1_f32(Some(&self.u_night_factor), night_factor);
+            gl.depth_mask(false);
+            gl.depth_func(glow::LEQUAL);
+            mesh.draw(gl);
+            gl.depth_mask(true);
+            gl.depth_func(glow::LESS);
+        }
+    }
+}

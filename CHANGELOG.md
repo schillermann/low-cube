@@ -8,7 +8,21 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
-## [0.19.0] - 2026-10-15
+## [0.20.0] - 2026-10-16
+
+### Added
+- Dynamic diurnal day/night cycle and celestial vault rendering pipeline (`DiurnalPipeline`, `CelestialCadence`, `TerrestrialCadence`, `TunedCadence`).
+- Celestial sky vault shader (`GlFirmament`, `firmament_glsl.rs`) rendering a fiery sun with atmospheric extinction and corona, twinkling starfield, and an opaque, cratered lunar sphere.
+- High-contrast multi-scale procedural crater field generator (`crater_field`, `lunar_basin`) modeling large dark basalt maria (Oceanus Procellarum, Imbrium, Serenitatis, Tranquillitatis, Crisium), medium impact craters with raised rims, dense micro-craterlets, and Tycho impact ejecta rays.
+- Complete star occlusion behind solid celestial bodies (moon and sun) and solid lunar body compositing, preventing stars from shining through the moon.
+- Stable celestial pole alignment (`u_celestial_pole`) preventing gimbal flips, rotation snaps, or singularity distortions as the moon traverses the zenith.
+- Server-configurable day/night cadence supporting CLI flags (`--day-cycle <seconds>`, `--day-cycle-seconds=<seconds>`), environment variable (`LOW_CUBE_DAY_CYCLE`), and configuration file (`server.toml`), defaulting to 1200 seconds (20 minutes).
+- Principle of Static Configuration on Startup documented in `docs/SETTINGS.md`.
+- In-game day and night comparison gallery across all 6 biomes in `docs/CLIMATES.md` and `README.md`.
+
+### Changed
+- Extended `GraphicPipeline::render` signature and `Avatar::surface_rotation` to pass current planetary surface rotation for horizon and celestial alignment.
+- Split firmament GLSL shader sources into dedicated `firmament_glsl.rs` to maintain strict adherence to the 200-line ceiling rule.
 
 ### Added
 - Climate-adapted procedural low-poly tree and forestry system (`Arboreal`, `TreeSpecies`, `StandingTree`, `ClearedPlot`) across all six planetary biomes (`TemperateOak`, `ArcticPine`, `JungleEmergent`, `DesertSucculent`, `SteppeAcacia`, `VolcanicSpire`).

@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Quat, Vec3};
 
 mod buffer;
 mod line_buffer;
@@ -40,5 +40,6 @@ pub trait GraphicPipeline {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         view_proj: &Mat4,
+        surface_rot: Quat,
     );
 }

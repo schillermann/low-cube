@@ -61,6 +61,16 @@ Launch directly from the repository root using `cargo`:
   cargo run --release
   ```
 
+- **Custom Day/Night Cycle & World Settings** (pass flags after `--`):
+  ```bash
+  # Fast 60-second day/night cycle for celestial testing
+  cargo run -p client -- --day-cycle 60
+
+  # Low gravity world with 10-minute cycle
+  cargo run -p client -- --gravity 5 --day-cycle 600
+  ```
+  *See the [Server & Game Settings Guide](SETTINGS.md) for full configuration options.*
+
 ---
 
 ## Running Tests

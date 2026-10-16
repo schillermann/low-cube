@@ -8,6 +8,8 @@ use winit::window::Window;
 use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
 
 use crate::avatar::Avatar;
+use crate::celestial::CelestialCadence;
+use crate::diurnal_pipeline::DiurnalPipeline;
 
 /// Interface for platform window and display surface operations.
 pub trait PlatformSurface {
@@ -16,6 +18,7 @@ pub trait PlatformSurface {
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh>;
     fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh>;
     fn compile_shader(&self, source: &dyn ShaderSource) -> Box<dyn ShaderProgram>;
+    fn assemble_diurnal_pipeline(&self, cadence: Box<dyn CelestialCadence>) -> Box<dyn GraphicPipeline>;
     fn render_frame(
         &self,
         pipeline: &dyn GraphicPipeline,
@@ -88,6 +91,10 @@ impl PlatformSurface for GlPlatformSurface {
         unsafe { source.compile(&self.gl) }
     }
 
+    fn assemble_diurnal_pipeline(&self, cadence: Box<dyn CelestialCadence>) -> Box<dyn GraphicPipeline> {
+        unsafe { Box::new(DiurnalPipeline::gl(cadence, &self.gl)) }
+    }
+
     fn render_frame(
         &self,
         pipeline: &dyn GraphicPipeline,
@@ -96,7 +103,7 @@ impl PlatformSurface for GlPlatformSurface {
         avatar: &dyn Avatar,
     ) {
         let view_proj = avatar.view_projection_matrix(self.aspect_ratio());
-        pipeline.render(&self.gl, shader, mesh, &view_proj);
+        pipeline.render(&self.gl, shader, mesh, &view_proj, avatar.surface_rotation());
         self.gl_surface.swap_buffers(&self.gl_context).expect("Buffer swap failed");
         self.window.request_redraw();
     }
