@@ -62,10 +62,8 @@ fn test_avatar_completes_360_degree_planetary_circuit() {
                     visited_desert = true;
                 }
             }
-            ClimateZone::Temperate => {
-                if visited_desert {
-                    returned_to_temperate = true;
-                }
+            ClimateZone::Temperate if visited_desert => {
+                returned_to_temperate = true;
             }
             _ => {}
         }
@@ -120,7 +118,7 @@ fn test_circuit_on_of_size_world() {
             ClimateZone::Arctic => visited_arctic = true,
             ClimateZone::Volcanic => if visited_arctic { visited_volcanic = true; },
             ClimateZone::Desert => if visited_volcanic { visited_desert = true; },
-            ClimateZone::Temperate => if visited_desert { returned_to_temperate = true; },
+            ClimateZone::Temperate if visited_desert => returned_to_temperate = true,
             _ => {}
         }
     }

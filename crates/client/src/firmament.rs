@@ -4,6 +4,7 @@ use engine::Mesh;
 
 /// Abstraction for rendering the celestial sky vault.
 pub trait SkyFirmament: Send + Sync {
+    #[allow(clippy::too_many_arguments)]
     fn draw_firmament(
         &self,
         gl: &glow::Context,

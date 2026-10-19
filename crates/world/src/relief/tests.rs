@@ -74,7 +74,7 @@ fn test_zoned_cavity_and_relief_direct_sampling() {
         3,
     );
     let h = relief.elevation_at(2, 2);
-    assert!(h >= 0 && h <= 3);
+    assert!((0..=3).contains(&h));
 
     let cave_noise = Box::new(CoherentNoise::new(456, 0.1));
     let cavity = ZonedCavity::new(

@@ -11,6 +11,7 @@ use super::timber_yield::TimberYield;
 pub struct ArcticPine;
 
 impl ArcticPine {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self
     }
@@ -52,7 +53,7 @@ impl TreeSpecies for ArcticPine {
     }
 
     fn canopy_drag(&self, distance: f32, relative_height: f32) -> f32 {
-        if relative_height >= 0.6 && relative_height <= 4.5 {
+        if (0.6..=4.5).contains(&relative_height) {
             let max_radius = 1.8 * (1.0 - (relative_height - 0.6) / 4.0);
             if distance <= max_radius.max(0.3) {
                 return 0.85;

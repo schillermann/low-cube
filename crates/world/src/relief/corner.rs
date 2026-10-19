@@ -7,10 +7,12 @@ pub struct ReliefCorner;
 
 impl ReliefCorner {
     /// Primary constructor doing nothing except instantiating state.
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn emit_ridge(
         &self, u0: f32, u1: f32, v0: f32, v1: f32, top_h: f32, mode: usize,
         frame: &SurfaceFrame, surf_col: Vec3, target: &mut dyn MeshTarget,
@@ -65,6 +67,7 @@ impl ReliefCorner {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn emit_valley(
         &self, u0: f32, u1: f32, v0: f32, v1: f32, top_h: f32, mode: usize,
         frame: &SurfaceFrame, surf_col: Vec3, target: &mut dyn MeshTarget,

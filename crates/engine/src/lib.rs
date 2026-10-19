@@ -1,6 +1,7 @@
 use glam::{Mat4, Quat, Vec3};
 
 mod buffer;
+mod composite_mesh;
 mod line_buffer;
 mod pipeline;
 mod shader;
@@ -11,7 +12,8 @@ mod tron_shader;
 mod tron_tests;
 
 pub use buffer::{CpuMeshBatch, GlMesh};
-pub use line_buffer::{CpuLineBatch, CpuTronBatch, GlLineMesh, TronMesh};
+pub use composite_mesh::{CompositeMesh, TronMesh};
+pub use line_buffer::{CpuLineBatch, CpuTronBatch, GlLineMesh};
 pub use pipeline::ForwardPipeline;
 pub use shader::{VoxelProgram, VoxelShaderSource};
 pub use tron_pipeline::TronPipeline;
@@ -24,6 +26,8 @@ pub trait Mesh {
 
 /// Interface for compiling shader sources into GPU shader programs.
 pub trait ShaderSource {
+    /// # Safety
+    /// Requires a valid, current OpenGL context.
     unsafe fn compile(&self, gl: &glow::Context) -> Box<dyn ShaderProgram>;
 }
 

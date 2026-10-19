@@ -1,5 +1,6 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
+use crate::envelope::{BodyEnvelope, PhysicalEnvelope};
 use crate::threshold::{StepThreshold, SurfaceClearance, SurfaceStep};
 
 /// Polymorphic trial step candidate evaluated against planetary terrain.
@@ -49,8 +50,18 @@ impl<'a> StrideTrial for WalkTrial<'a> {
         let candidate = self.origin + self.step;
         let surface_pos = self.world.constrain_to_surface(candidate, self.eye);
         let clearance = SurfaceClearance::between(self.origin, candidate, surface_pos, self.up, self.world);
+        let envelope = BodyEnvelope::youth();
         clearance.passable_with(self.seam_allowed)
             && SurfaceStep::new(self.origin, surface_pos, self.up).walkable_with(self.limit)
+            && envelope.unobstructed_ground(
+                candidate,
+                surface_pos,
+                self.step,
+                self.up,
+                self.eye,
+                self.limit,
+                self.world,
+            )
     }
 
     fn destination(&self) -> Vec3 {
@@ -102,11 +113,23 @@ impl<'a> StrideTrial for AerialTrial<'a> {
         let candidate = self.origin + self.tangent + self.vertical;
         let surface_pos = self.world.constrain_to_surface(candidate, self.eye);
         let clearance = SurfaceClearance::between(self.origin, candidate, surface_pos, self.up, self.world);
-        if !clearance.cliff_impact(self.limit) {
-            return true;
-        }
-        let origin_surf = self.world.constrain_to_surface(self.origin, self.eye);
-        SurfaceStep::new(origin_surf, surface_pos, self.up).walkable_with(self.limit)
+        let envelope = BodyEnvelope::youth();
+        let center_ok = if !clearance.cliff_impact(self.limit) {
+            true
+        } else {
+            let origin_surf = self.world.constrain_to_surface(self.origin, self.eye);
+            SurfaceStep::new(origin_surf, surface_pos, self.up).walkable_with(self.limit)
+        };
+        center_ok
+            && envelope.unobstructed_aerial(
+                self.origin,
+                candidate,
+                self.tangent,
+                self.up,
+                self.eye,
+                self.limit,
+                self.world,
+            )
     }
 
     fn destination(&self) -> Vec3 {

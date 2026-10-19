@@ -1,4 +1,5 @@
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Quat, Vec3};
+use crate::attire::{BodyPose, StrideRhythm, YouthPhysique};
 use crate::horizon::ViewFrame;
 
 /// Kinematic posture defining the vertical eye level offset for standing and crouching.
@@ -35,6 +36,24 @@ impl AvatarPosture {
     /// Computes view matrix using view frame and encapsulated eye elevation offset.
     pub fn view_matrix(&self, frame: &dyn ViewFrame, position: Vec3) -> Mat4 {
         frame.view_matrix_at(position, self.elevation)
+    }
+
+    /// Assembles a kinematic BodyPose using this posture's encapsulated eye elevation.
+    pub fn body_pose(
+        &self,
+        position: Vec3,
+        surface_rot: Quat,
+        view_rot: Quat,
+        rhythm: StrideRhythm,
+    ) -> BodyPose {
+        BodyPose::new(
+            position,
+            surface_rot,
+            view_rot,
+            self.elevation,
+            rhythm,
+            YouthPhysique::SlenderSquire,
+        )
     }
 
     /// Verifies whether the avatar is currently in a crouched state.

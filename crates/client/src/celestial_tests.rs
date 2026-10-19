@@ -138,7 +138,7 @@ fn test_diurnal_pipeline_construction() {
     let now = Instant::now();
     let clock = Box::new(FrozenClock::new(now));
     let pipeline = DiurnalPipeline::headless(cadence, clock, now);
-    assert_eq!(std::mem::size_of_val(&pipeline) > 0, true);
+    assert!(std::mem::size_of_val(&pipeline) > 0);
 }
 
 #[test]

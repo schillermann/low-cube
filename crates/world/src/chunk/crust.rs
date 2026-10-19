@@ -30,7 +30,7 @@ impl PlanetaryCrust {
 
     /// Crust thickness in discrete 16-block volume increments.
     pub fn crust_depth_volumes(&self) -> usize {
-        (self.crust_depth_blocks + VOLUME_EDGE_LENGTH - 1) / VOLUME_EDGE_LENGTH
+        self.crust_depth_blocks.div_ceil(VOLUME_EDGE_LENGTH)
     }
 
     /// Half-extent of the inner hollow core void in spatial meters.

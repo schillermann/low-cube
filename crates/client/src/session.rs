@@ -3,7 +3,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
 use world::PlanetaryWorld;
-use engine::{GraphicPipeline, Mesh, ShaderProgram};
+use engine::{CompositeMesh, CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram};
 use crate::avatar::Avatar;
 use crate::controls::KeyboardControls;
 use crate::surface::PlatformSurface;
@@ -102,33 +102,38 @@ impl Session for GameSession {
                         }
                     }
                     KeyCode::Escape => event_loop.exit(),
-                    _ => self.controls.register_key(code, pressed),
+                    _ => {
+                        if !pressed || !self.avatar.dispatch_wardrobe_key(code) {
+                            self.controls.register_key(code, pressed);
+                        }
+                    }
                 }
             }
             WindowEvent::RedrawRequested => {
                 let dt = 1.0 / 60.0;
                 self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
 
-                let (pipeline, shader, mesh) = if self.tron_active {
-                    (
+                if self.tron_active {
+                    let mut avatar_tron = CpuTronBatch::empty();
+                    self.avatar.emit_appearance(&mut avatar_tron);
+                    let composed = CompositeMesh::new(self.tron_mesh.as_ref(), &avatar_tron);
+                    self.surface.render_frame(
                         self.tron_pipeline.as_ref(),
                         self.tron_shader.as_ref(),
-                        self.tron_mesh.as_ref(),
-                    )
+                        &composed,
+                        self.avatar.as_ref(),
+                    );
                 } else {
-                    (
+                    let mut avatar_batch = CpuMeshBatch::empty();
+                    self.avatar.emit_appearance(&mut avatar_batch);
+                    let composed = CompositeMesh::new(self.primary_mesh.as_ref(), &avatar_batch);
+                    self.surface.render_frame(
                         self.primary_pipeline.as_ref(),
                         self.primary_shader.as_ref(),
-                        self.primary_mesh.as_ref(),
-                    )
-                };
-
-                self.surface.render_frame(
-                    pipeline,
-                    shader,
-                    mesh,
-                    self.avatar.as_ref(),
-                );
+                        &composed,
+                        self.avatar.as_ref(),
+                    );
+                }
             }
 
             _ => {}

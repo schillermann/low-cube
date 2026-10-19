@@ -38,7 +38,15 @@ impl CpuMeshBatch {
         Self::new(Vec::new(), Vec::new())
     }
 
+    /// # Safety
+    /// Requires a valid, current OpenGL context.
     pub unsafe fn upload(&self, gl: &glow::Context) -> Box<dyn Mesh> {
+        Box::new(self.upload_gl(gl))
+    }
+
+    /// # Safety
+    /// Requires a valid, current OpenGL context.
+    pub unsafe fn upload_gl(&self, gl: &glow::Context) -> GlMesh {
         let vao = gl.create_vertex_array().expect("Failed to create VAO");
         let vbo = gl.create_buffer().expect("Failed to create VBO");
         let ebo = gl.create_buffer().expect("Failed to create EBO");
@@ -72,7 +80,20 @@ impl CpuMeshBatch {
 
         gl.bind_vertex_array(None);
 
-        Box::new(GlMesh::new(vao, vbo, ebo, self.indices.len() as i32))
+        GlMesh::new(vao, vbo, ebo, self.indices.len() as i32)
+    }
+}
+
+impl Mesh for CpuMeshBatch {
+    fn draw(&self, gl: &glow::Context) {
+        if self.indices.is_empty() {
+            return;
+        }
+        unsafe {
+            let mesh = self.upload_gl(gl);
+            mesh.draw(gl);
+            mesh.dispose(gl);
+        }
     }
 }
 
@@ -103,8 +124,8 @@ impl MeshTarget for CpuMeshBatch {
 /// Encapsulated GPU Mesh implementing Mesh with a clean, code-free primary constructor.
 pub struct GlMesh {
     vao: glow::VertexArray,
-    _vbo: glow::Buffer,
-    _ebo: glow::Buffer,
+    vbo: glow::Buffer,
+    ebo: glow::Buffer,
     index_count: i32,
 }
 
@@ -117,10 +138,18 @@ impl GlMesh {
     ) -> Self {
         Self {
             vao,
-            _vbo: vbo,
-            _ebo: ebo,
+            vbo,
+            ebo,
             index_count,
         }
+    }
+
+    /// # Safety
+    /// Requires a valid, current OpenGL context and live GPU handles.
+    pub unsafe fn dispose(&self, gl: &glow::Context) {
+        gl.delete_vertex_array(self.vao);
+        gl.delete_buffer(self.vbo);
+        gl.delete_buffer(self.ebo);
     }
 }
 

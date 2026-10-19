@@ -1,14 +1,16 @@
 use glam::{Mat4, Quat, Vec3};
-use world::PlanetaryWorld;
-use crate::heading::SurfaceHeading;
-use crate::horizon::{CameraHorizon, HorizonTilt};
+use winit::keyboard::KeyCode;
+use world::{MeshTarget, PlanetaryWorld};
+use crate::attire::{BodyPose, SightMode, StrideRhythm, Wardrobe, YouthAttire};
 use crate::controls::KeyboardControls;
 use crate::flight::GravitationalFlight;
 #[cfg(test)]
 use crate::flight::SurfaceFlight;
+use crate::heading::SurfaceHeading;
+use crate::horizon::{CameraHorizon, HorizonTilt};
 use crate::lens::{PerspectiveLens, ProjectionLens};
 use crate::order::LocomotionOrder;
-use crate::orientation::{InvertibleLook, MouseLook, SensitivityLook};
+use crate::orientation::{InvertibleLook, MouseLook, SensitivityLook, ViewOrientation};
 use crate::posture::AvatarPosture;
 
 /// Interface for player avatars acting within planetary gravity.
@@ -16,12 +18,14 @@ pub trait Avatar {
     fn rotate_view(&mut self, dx: f32, dy: f32);
     fn toggle_invert_y(&mut self);
     fn toggle_invert_x(&mut self);
+    fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool;
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
     fn surface_rotation(&self) -> Quat;
+    fn emit_appearance(&self, target: &mut dyn MeshTarget);
 }
 
-/// Fully encapsulated player entity composed of position, gravity alignment, ViewOrientation, PerspectiveLens, GravitationalFlight, and AvatarPosture.
+/// Fully encapsulated player entity composed of position, gravity alignment, look, lens, flight, posture, and medieval attire.
 pub struct PlanetaryAvatar {
     position: Vec3,
     surface_rot: Quat,
@@ -31,10 +35,14 @@ pub struct PlanetaryAvatar {
     flight: Box<dyn GravitationalFlight>,
     posture: AvatarPosture,
     tilt_radians: f32,
+    rhythm: StrideRhythm,
+    attire: YouthAttire,
+    sight: SightMode,
 }
 
 impl PlanetaryAvatar {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         position: Vec3,
         surface_rot: Quat,
@@ -44,21 +52,22 @@ impl PlanetaryAvatar {
         flight: Box<dyn GravitationalFlight>,
         posture: AvatarPosture,
         tilt_radians: f32,
+        rhythm: StrideRhythm,
+        attire: YouthAttire,
+        sight: SightMode,
     ) -> Self {
         Self {
-            position,
-            surface_rot,
-            camera_rot,
-            look,
-            lens,
-            flight,
-            posture,
-            tilt_radians,
+            position, surface_rot, camera_rot, look, lens,
+            flight, posture, tilt_radians, rhythm, attire, sight,
         }
     }
 
-    /// Secondary constructor initializing avatar with explicit gravitational flight mechanics.
-    pub fn with_flight(initial_position: Vec3, flight: Box<dyn GravitationalFlight>) -> Self {
+    /// Secondary constructor initializing avatar with explicit gravitational flight and medieval attire.
+    pub fn with_attire(
+        initial_position: Vec3,
+        flight: Box<dyn GravitationalFlight>,
+        attire: YouthAttire,
+    ) -> Self {
         Self::new(
             initial_position,
             Quat::IDENTITY,
@@ -68,13 +77,32 @@ impl PlanetaryAvatar {
             flight,
             AvatarPosture::standing(),
             0.0,
+            StrideRhythm::idle(),
+            attire,
+            SightMode::FirstPersonSight,
         )
     }
 
-    /// Secondary constructor initializing avatar at an initial position with default terrestrial flight.
+    /// Secondary constructor initializing avatar with explicit gravitational flight mechanics.
+    #[cfg(test)]
+    pub fn with_flight(initial_position: Vec3, flight: Box<dyn GravitationalFlight>) -> Self {
+        Self::with_attire(initial_position, flight, YouthAttire::squire())
+    }
+
+    /// Secondary constructor initializing avatar at an initial position with terrestrial flight.
     #[cfg(test)]
     pub fn at(initial_position: Vec3) -> Self {
         Self::with_flight(initial_position, Box::new(SurfaceFlight::terrestrial(1.0)))
+    }
+
+    fn current_pose(&self) -> BodyPose {
+        let view_rot = self.look.combine_with_surface(self.camera_rot);
+        self.posture.body_pose(
+            self.position,
+            self.camera_rot,
+            view_rot,
+            self.rhythm,
+        )
     }
 
     fn surface_up(&self) -> Vec3 {
@@ -109,7 +137,6 @@ impl PlanetaryAvatar {
 
 impl Avatar for PlanetaryAvatar {
     fn rotate_view(&mut self, dx: f32, dy: f32) {
-        use crate::orientation::ViewOrientation;
         self.look.rotate(dx, dy);
     }
 
@@ -119,6 +146,18 @@ impl Avatar for PlanetaryAvatar {
 
     fn toggle_invert_x(&mut self) {
         self.look.toggle_x();
+    }
+
+    fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
+        if code == KeyCode::KeyM {
+            self.sight = self.sight.toggle();
+            return true;
+        }
+        if let Some(updated) = self.attire.cycled_by_key(code) {
+            self.attire = updated;
+            return true;
+        }
+        false
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
@@ -133,18 +172,26 @@ impl Avatar for PlanetaryAvatar {
         self.posture = order.advance_posture(self.posture, dt);
         self.lens = order.advance_lens(self.lens, dt);
         self.tilt_radians *= 1.0 - (8.0 * dt).min(1.0);
-        self.position = order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, 6.0, world);
+        let next_pos = order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, 6.0, world);
+        self.rhythm = self.rhythm.advance(self.position, next_pos, terrain_up, dt);
+        self.position = next_pos;
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
         let horizon = CameraHorizon::aligned(self.camera_rot, &self.look);
         let frame = HorizonTilt::new(&horizon, self.tilt_radians);
         let proj = self.lens.projection_matrix(aspect);
-        let view = self.posture.view_matrix(&frame, self.position);
+        let pose = self.current_pose();
+        let view = self.sight.view_matrix(&frame, self.posture, self.position, &pose);
         proj * view
     }
 
     fn surface_rotation(&self) -> Quat {
         self.surface_rot
+    }
+
+    fn emit_appearance(&self, target: &mut dyn MeshTarget) {
+        let pose = self.current_pose();
+        self.attire.emit(&pose, self.sight, target);
     }
 }

@@ -11,6 +11,7 @@ pub struct ReliefFacet {
 }
 
 impl ReliefFacet {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             corner: ReliefCorner::new(),
@@ -159,6 +160,7 @@ impl ReliefFacet {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn emit_ramp(
         &self, u0: f32, u1: f32, v0: f32, v1: f32, top_h: f32, mode: usize,
         frame: &SurfaceFrame, surf_col: Vec3, target: &mut dyn MeshTarget,

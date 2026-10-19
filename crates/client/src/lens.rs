@@ -23,9 +23,9 @@ impl PerspectiveLens {
         }
     }
 
-    /// Secondary constructor with standard first-person field of view.
+    /// Secondary constructor with first-person field of view and close clipping clearance.
     pub fn human_eye() -> Self {
-        Self::new(65.0f32.to_radians(), 0.1, 200.0)
+        Self::new(65.0f32.to_radians(), 0.03, 200.0)
     }
 
     /// Smoothly transitions field of view towards a target angle across elapsed time.

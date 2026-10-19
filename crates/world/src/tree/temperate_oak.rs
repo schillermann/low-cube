@@ -11,6 +11,7 @@ use super::timber_yield::TimberYield;
 pub struct TemperateOak;
 
 impl TemperateOak {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self
     }
@@ -50,7 +51,7 @@ impl TreeSpecies for TemperateOak {
     }
 
     fn canopy_drag(&self, distance: f32, relative_height: f32) -> f32 {
-        if relative_height >= 1.8 && relative_height <= 4.8 && distance <= 2.2 {
+        if (1.8..=4.8).contains(&relative_height) && distance <= 2.2 {
             0.90
         } else {
             0.0

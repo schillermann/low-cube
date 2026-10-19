@@ -26,6 +26,7 @@ pub struct FlightContext<'a> {
 
 impl<'a> FlightContext<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         dt: f32,
         position: Vec3,

@@ -2,6 +2,7 @@ mod app;
 mod argument_aurora;
 mod argument_celestial;
 mod argument_physics;
+mod attire;
 mod aurora_cadence;
 mod aurora_canopy;
 mod avatar;
@@ -11,6 +12,7 @@ mod clock;
 mod controls;
 mod cycle_duration;
 mod diurnal_pipeline;
+mod envelope;
 mod environment_aurora;
 mod environment_celestial;
 mod environment_physics;
@@ -102,9 +104,9 @@ fn main() {
 
     let tron = tron_active();
     let title = if tron {
-        "Low-Cube [TRON Wireframe] [WASD: Move, Double-W: Sprint, Space: Jump, Shift: Sneak, T: Toggle Tron, Esc: Exit]"
+        "Low-Cube [TRON] [WASD: Move, Space: Jump, Shift: Sneak, M: Mirror, 1-7: Attire, H: Relic, T: Tron, Esc: Exit]"
     } else {
-        "Low-Cube [WASD: Move, Double-W: Sprint, Space: Jump, Shift: Sneak, T: Toggle Tron, Esc: Exit]"
+        "Low-Cube [WASD: Move, Space: Jump, Shift: Sneak, M: Mirror, 1-7: Attire, H: Relic, T: Tron, Esc: Exit]"
     };
 
     let launch = SessionLaunch::with_tron(

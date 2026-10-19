@@ -6,6 +6,7 @@ use engine::{
     VoxelShaderSource,
 };
 use world::{BiomedCubeWorld, PlanetaryWorld};
+use crate::attire::{AttireProfile, FileAttire};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::CalibratedCanopy;
 use crate::avatar::PlanetaryAvatar;
@@ -108,7 +109,8 @@ impl SessionAssembly for SessionLaunch {
         let half = (self.world_blocks as f32) * 0.5;
         let spawn_position = planet.constrain_to_surface(Vec3::new(0.0, half + 1.0, 0.0), 1.0);
         let flight = self.physics.surface_flight(1.0);
-        let avatar = Box::new(PlanetaryAvatar::with_flight(spawn_position, flight));
+        let attire = FileAttire::profile().load_or_squire();
+        let avatar = Box::new(PlanetaryAvatar::with_attire(spawn_position, flight, attire));
         let controls = Box::new(KeyMotion::idle());
 
         Box::new(GameSession::new(

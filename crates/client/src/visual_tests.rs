@@ -57,7 +57,7 @@ fn test_directional_lighting_continuity_across_all_12_seam_transitions() {
                 let light = compute_lighting(normal, sun_dir);
 
                 assert!(
-                    light >= 0.35 && light <= 1.0,
+                    (0.35..=1.0).contains(&light),
                     "Lighting intensity must stay strictly within ambient and peak bounds: {light}"
                 );
 
@@ -126,7 +126,7 @@ fn test_tron_wireframe_world_emission_contains_distinct_shape_colors_and_warning
     let mut accumulator = QuadAccumulator::new();
     world.emit_surface(&mut accumulator);
 
-    assert!(accumulator.quads.len() > 0, "Tron world must emit quads for wireframe batching");
+    assert!(!accumulator.quads.is_empty(), "Tron world must emit quads for wireframe batching");
 
     let colors: Vec<Vec3> = accumulator.quads.iter().map(|q| q.transfer(|_, _, _, _, _, color| color)).collect();
     let mut unique_cols: Vec<Vec3> = Vec::new();

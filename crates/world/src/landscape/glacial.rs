@@ -10,31 +10,28 @@ pub struct GlacialMassif;
 impl GlacialMassif {
     /// Factory method assembling a glacial massif centered at local (center_u, center_v).
     pub fn at(face: Box<dyn Face>, frame: SurfaceFrame, center_u: i32, center_v: i32) -> VoxelCluster {
-        let mut blocks: Vec<Box<dyn Block>> = Vec::new();
-
-        // Western Glacial Horn (granite base with crystalline snow peak)
-        blocks.push(Box::new(StoneBlock::cube(center_u - 1, center_v + 1, 0.0)));
-        blocks.push(Box::new(SnowBlock::peak(center_u - 1, center_v + 1, 1.0)));
-        blocks.push(Box::new(SnowBlock::ridge_corner(center_u - 2, center_v + 1, 0.0, CornerHeading::NorthEast)));
-        blocks.push(Box::new(SnowBlock::wedge(center_u - 1, center_v + 2, 0.0, WedgeHeading::South)));
-
-        // Eastern Glacial Horn
-        blocks.push(Box::new(StoneBlock::cube(center_u + 1, center_v + 1, 0.0)));
-        blocks.push(Box::new(SnowBlock::peak(center_u + 1, center_v + 1, 1.0)));
-        blocks.push(Box::new(SnowBlock::ridge_corner(center_u + 2, center_v + 1, 0.0, CornerHeading::NorthWest)));
-        blocks.push(Box::new(SnowBlock::wedge(center_u + 1, center_v + 2, 0.0, WedgeHeading::South)));
-
-        // Glacial Cirque Valley (sunken icy amphitheater trough)
-        blocks.push(Box::new(SnowBlock::valley_corner(center_u, center_v + 1, 0.0, CornerHeading::NorthEast)));
-        blocks.push(Box::new(SnowBlock::valley_corner(center_u, center_v - 1, 0.0, CornerHeading::SouthWest)));
-        blocks.push(Box::new(SnowBlock::slab(center_u, center_v, 0.0)));
-        blocks.push(Box::new(SnowBlock::slab(center_u - 1, center_v, 0.0)));
-        blocks.push(Box::new(SnowBlock::slab(center_u + 1, center_v, 0.0)));
-
-        // Terminal Moraine Approach Slopes
-        blocks.push(Box::new(SnowBlock::wedge(center_u - 1, center_v - 2, 0.0, WedgeHeading::North)));
-        blocks.push(Box::new(SnowBlock::wedge(center_u, center_v - 2, 0.0, WedgeHeading::North)));
-        blocks.push(Box::new(SnowBlock::wedge(center_u + 1, center_v - 2, 0.0, WedgeHeading::North)));
+        let blocks: Vec<Box<dyn Block>> = vec![
+            // Western Glacial Horn (granite base with crystalline snow peak)
+            Box::new(StoneBlock::cube(center_u - 1, center_v + 1, 0.0)),
+            Box::new(SnowBlock::peak(center_u - 1, center_v + 1, 1.0)),
+            Box::new(SnowBlock::ridge_corner(center_u - 2, center_v + 1, 0.0, CornerHeading::NorthEast)),
+            Box::new(SnowBlock::wedge(center_u - 1, center_v + 2, 0.0, WedgeHeading::South)),
+            // Eastern Glacial Horn
+            Box::new(StoneBlock::cube(center_u + 1, center_v + 1, 0.0)),
+            Box::new(SnowBlock::peak(center_u + 1, center_v + 1, 1.0)),
+            Box::new(SnowBlock::ridge_corner(center_u + 2, center_v + 1, 0.0, CornerHeading::NorthWest)),
+            Box::new(SnowBlock::wedge(center_u + 1, center_v + 2, 0.0, WedgeHeading::South)),
+            // Glacial Cirque Valley (sunken icy amphitheater trough)
+            Box::new(SnowBlock::valley_corner(center_u, center_v + 1, 0.0, CornerHeading::NorthEast)),
+            Box::new(SnowBlock::valley_corner(center_u, center_v - 1, 0.0, CornerHeading::SouthWest)),
+            Box::new(SnowBlock::slab(center_u, center_v, 0.0)),
+            Box::new(SnowBlock::slab(center_u - 1, center_v, 0.0)),
+            Box::new(SnowBlock::slab(center_u + 1, center_v, 0.0)),
+            // Terminal Moraine Approach Slopes
+            Box::new(SnowBlock::wedge(center_u - 1, center_v - 2, 0.0, WedgeHeading::North)),
+            Box::new(SnowBlock::wedge(center_u, center_v - 2, 0.0, WedgeHeading::North)),
+            Box::new(SnowBlock::wedge(center_u + 1, center_v - 2, 0.0, WedgeHeading::North)),
+        ];
 
         VoxelCluster::new(face, frame, blocks)
     }

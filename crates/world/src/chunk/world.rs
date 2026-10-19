@@ -34,7 +34,7 @@ impl VolumePlanet {
 
     /// Secondary constructor assembling a volume-partitioned planet for given block dimensions.
     pub fn of_size(side_blocks: u32) -> Self {
-        let side_volumes = (side_blocks as usize + VOLUME_EDGE_LENGTH - 1) / VOLUME_EDGE_LENGTH;
+        let side_volumes = (side_blocks as usize).div_ceil(VOLUME_EDGE_LENGTH);
         let crust = PlanetaryCrust::calibrated(side_blocks as usize);
         let mut grid = SparsePlanetaryGrid::planetary(side_volumes, crust.crust_depth_volumes());
 

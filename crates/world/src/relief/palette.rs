@@ -17,6 +17,7 @@ pub struct ReliefPalette {
 
 impl ReliefPalette {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         surface: Vec3,
         subterranean_floor: Vec3,

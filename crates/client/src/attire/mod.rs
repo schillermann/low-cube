@@ -1,0 +1,170 @@
+use winit::keyboard::KeyCode;
+use world::MeshTarget;
+
+mod crown;
+mod file_attire;
+mod footwear;
+mod garments;
+mod hands;
+mod limb;
+mod palette;
+mod pose;
+mod relic;
+#[cfg(test)]
+mod tests;
+
+pub use crown::{CrownStyle, SightMode};
+pub use file_attire::{AttireProfile, FileAttire};
+pub use footwear::FootwearStyle;
+pub use garments::{GirdleStyle, TunicStyle};
+pub use hands::VambraceStyle;
+pub use palette::{ComplexionSwatch, PigmentSwatch, YouthPhysique};
+pub use pose::{BodyPose, StrideRhythm};
+pub use relic::HeldRelic;
+
+/// Interface for avatar wardrobe appearance emission.
+pub trait Wardrobe {
+    fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget);
+}
+
+/// Immutable medieval youth character appearance combining body traits, garments, dyes, and held relic.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct YouthAttire {
+    tunic: TunicStyle,
+    vambrace: VambraceStyle,
+    girdle: GirdleStyle,
+    footwear: FootwearStyle,
+    crown: CrownStyle,
+    relic: HeldRelic,
+    pigment: PigmentSwatch,
+    complexion: ComplexionSwatch,
+    physique: YouthPhysique,
+}
+
+impl YouthAttire {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        tunic: TunicStyle,
+        vambrace: VambraceStyle,
+        girdle: GirdleStyle,
+        footwear: FootwearStyle,
+        crown: CrownStyle,
+        relic: HeldRelic,
+        pigment: PigmentSwatch,
+        complexion: ComplexionSwatch,
+        physique: YouthPhysique,
+    ) -> Self {
+        Self {
+            tunic,
+            vambrace,
+            girdle,
+            footwear,
+            crown,
+            relic,
+            pigment,
+            complexion,
+            physique,
+        }
+    }
+
+    /// Secondary constructor assembling a youthful medieval squire in linen doublet and cuffed boots.
+    pub fn squire() -> Self {
+        Self::new(
+            TunicStyle::LinenDoublet,
+            VambraceStyle::RawhideWraps,
+            GirdleStyle::KnottedCord,
+            FootwearStyle::CuffedBoots,
+            CrownStyle::TousledMop,
+            HeldRelic::EmptyPalm,
+            PigmentSwatch::UnbleachedLinen,
+            ComplexionSwatch::Birch,
+            YouthPhysique::SlenderSquire,
+        )
+    }
+
+    pub fn with_next_tunic(self) -> Self {
+        Self { tunic: self.tunic.next(), ..self }
+    }
+
+    pub fn with_next_vambrace(self) -> Self {
+        Self { vambrace: self.vambrace.next(), ..self }
+    }
+
+    pub fn with_next_girdle(self) -> Self {
+        Self { girdle: self.girdle.next(), ..self }
+    }
+
+    pub fn with_next_footwear(self) -> Self {
+        Self { footwear: self.footwear.next(), ..self }
+    }
+
+    pub fn with_next_crown(self) -> Self {
+        Self { crown: self.crown.next(), ..self }
+    }
+
+    pub fn with_next_relic(self) -> Self {
+        Self { relic: self.relic.next(), ..self }
+    }
+
+    pub fn with_next_pigment(self) -> Self {
+        Self { pigment: self.pigment.next(), ..self }
+    }
+
+    pub fn with_next_complexion(self) -> Self {
+        Self {
+            complexion: self.complexion.next(),
+            physique: self.physique.next(),
+            ..self
+        }
+    }
+
+    /// Returns a new immutable YouthAttire when the key corresponds to a wardrobe customization slot.
+    pub fn cycled_by_key(self, code: KeyCode) -> Option<Self> {
+        let updated = match code {
+            KeyCode::Digit1 => self.with_next_tunic(),
+            KeyCode::Digit2 => self.with_next_vambrace(),
+            KeyCode::Digit3 => self.with_next_girdle(),
+            KeyCode::Digit4 => self.with_next_footwear(),
+            KeyCode::Digit5 => self.with_next_crown(),
+            KeyCode::Digit6 => self.with_next_pigment(),
+            KeyCode::Digit7 => self.with_next_complexion(),
+            KeyCode::KeyH | KeyCode::Digit8 => self.with_next_relic(),
+            _ => return None,
+        };
+        FileAttire::profile().save(&updated);
+        Some(updated)
+    }
+
+    pub fn multiplayer_bytes(&self) -> [u8; 9] {
+        [
+            self.tunic.code(),
+            self.vambrace.code(),
+            self.girdle.code(),
+            self.footwear.code(),
+            self.crown.code(),
+            self.relic.code(),
+            self.pigment.code(),
+            self.complexion.code(),
+            self.physique.code(),
+        ]
+    }
+
+    /// Emits complete multiplayer peer avatar (including head, hair/hood, shoulders, body, and held item).
+    #[cfg(test)]
+    pub fn emit_peer(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
+        self.emit(pose, SightMode::LookingGlassSight, target);
+    }
+}
+
+impl Wardrobe for YouthAttire {
+    /// Emits avatar geometry according to SightMode using polymorphic garment objects.
+    fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
+        let scaled_pose = pose.with_physique(self.physique);
+        self.tunic.emit(&scaled_pose, self.pigment, target);
+        self.girdle.emit(&scaled_pose, target);
+        self.footwear.emit(&scaled_pose, self.pigment, target);
+        self.vambrace.emit(&scaled_pose, self.complexion, self.pigment, self.relic, target);
+        sight.emit_crown(self.crown, &scaled_pose, self.complexion, self.pigment, target);
+    }
+}

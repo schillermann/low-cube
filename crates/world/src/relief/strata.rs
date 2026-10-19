@@ -54,6 +54,7 @@ impl ReliefStrata {
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn emit_cavern(
         &self,
         cell: GridCell,

@@ -44,7 +44,7 @@ fn test_calibrated_canopy_medium_world_scales_between_bounds() {
 
     canopy.transfer(|half, radius, ceiling| {
         assert_eq!(half, 64.0);
-        assert!(radius >= 14.0 && radius <= 96.0);
+        assert!((14.0..=96.0).contains(&radius));
         assert!((radius - 38.4).abs() < 1e-4);
         assert_eq!(ceiling, 25.6);
     });

@@ -10,6 +10,7 @@ use super::timber_yield::TimberYield;
 pub struct VolcanicSpire;
 
 impl VolcanicSpire {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self
     }

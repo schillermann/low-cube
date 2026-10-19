@@ -35,6 +35,7 @@ pub struct SurfaceFlight {
 
 impl SurfaceFlight {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         phase: FlightPhase,
         jump_strength: f32,

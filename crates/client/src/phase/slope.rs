@@ -25,6 +25,7 @@ impl SkiLaunch {
     }
 
     /// Evaluates ramp inclination and yields a natural launch kick and carried forward momentum.
+    #[allow(clippy::too_many_arguments)]
     pub fn evaluate_launch(
         &self,
         jump_strength: f32,

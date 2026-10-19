@@ -78,6 +78,11 @@ A minimalist, high-performance voxel survival sandbox set on discrete cubic plan
 ### 3.3 Death & Respawn
 - **Life Capsule**: A craftable, deployable personal module that anchors the player's biometric data. Placing or activating a Life Capsule sets/updates the player's active respawn point upon death.
 
+### 3.4 Avatar Embodiment & Medieval Wardrobe Customization
+- **Medieval Youth Archetype**: Players inhabit a faceted low-poly medieval youth / squire (*Junger Knappe / Lehrling*) harmonized with the non-textured polyhedral world aesthetic.
+- **First-Person Body Awareness & Looking-Glass Mirror**: Looking down in First-Person reveals the flat-front tunic, belt, chausses, knees, muscular calves, and boots stepping across the terrain alongside outstretched 5-finger articulated hands. Pressing **`M`** toggles the frontal Looking-Glass Mirror view (matching full multiplayer peer rendering with head, hair, or medieval hood).
+- **Live Wardrobe & Persistent Profile (`character.toml`)**: Players customize tunics (`1`), forearm bracers (`2`), waist girdles (`3`), footwear (`4`), hair/headgear (`5`), natural cloth dyes (`6`), skin complexion & stature build (`7`), and held relics (`8` / `H`), persisted locally to `character.toml` and synchronized across multiplayer in a compact 9-byte packet. See the [Character Concept & Wardrobe Customization Reference](docs/CHARACTER.md) for full details.
+
 ---
 
 ## 4. Progression, Crafting & Logistics

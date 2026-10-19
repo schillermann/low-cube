@@ -11,6 +11,7 @@ use super::timber_yield::TimberYield;
 pub struct DesertSucculent;
 
 impl DesertSucculent {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self
     }
@@ -58,7 +59,7 @@ impl TreeSpecies for DesertSucculent {
     }
 
     fn canopy_drag(&self, distance: f32, relative_height: f32) -> f32 {
-        if relative_height >= 1.5 && relative_height <= 3.2 && distance <= 1.2 {
+        if (1.5..=3.2).contains(&relative_height) && distance <= 1.2 {
             0.60
         } else {
             0.0

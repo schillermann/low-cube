@@ -76,6 +76,7 @@ impl TunedCadence {
     }
 
     /// Secondary constructor decorating standard terrestrial cadence.
+    #[cfg(test)]
     pub fn terrestrial(duration: f32) -> Self {
         Self::new(duration, Box::new(TerrestrialCadence::new()))
     }

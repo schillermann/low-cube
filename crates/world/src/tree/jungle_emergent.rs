@@ -11,6 +11,7 @@ use super::timber_yield::TimberYield;
 pub struct JungleEmergent;
 
 impl JungleEmergent {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self
     }
@@ -49,7 +50,7 @@ impl TreeSpecies for JungleEmergent {
     }
 
     fn canopy_drag(&self, distance: f32, relative_height: f32) -> f32 {
-        if relative_height >= 3.8 && relative_height <= 5.8 && distance <= 2.8 {
+        if (3.8..=5.8).contains(&relative_height) && distance <= 2.8 {
             0.95
         } else {
             0.0

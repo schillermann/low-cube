@@ -11,6 +11,7 @@ use super::timber_yield::TimberYield;
 pub struct SteppeAcacia;
 
 impl SteppeAcacia {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self
     }
@@ -51,7 +52,7 @@ impl TreeSpecies for SteppeAcacia {
     }
 
     fn canopy_drag(&self, distance: f32, relative_height: f32) -> f32 {
-        if relative_height >= 2.8 && relative_height <= 4.5 && distance <= 2.6 {
+        if (2.8..=4.5).contains(&relative_height) && distance <= 2.6 {
             0.85
         } else {
             0.0

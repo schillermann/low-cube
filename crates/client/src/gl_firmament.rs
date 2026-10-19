@@ -24,6 +24,7 @@ pub struct GlFirmament {
 
 impl GlFirmament {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         program: glow::Program,
         u_inv_view_proj: glow::UniformLocation,

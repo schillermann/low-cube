@@ -8,6 +8,23 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-19
+
+### Added
+- Faceted low-poly medieval youth / squire avatar system (`Wardrobe`, `YouthAttire`, `BodyPose`, `StrideRhythm`, `LimbFrame`, `FacetedSolid`, `TaperedPrism`, `AxialLimb`) with full First-Person Body Awareness and Multiplayer / Looking-Glass Mirror (`M`) rendering (`SightMode`).
+- Articulated 5-finger hands with 3 phalanges per finger, natural anatomical wrist inflection, collinear forearm-to-wrist frame alignment, and gait-responsive finger curl (`VambraceStyle`, `BodyPose::finger_curl`).
+- Constant-length 3D trigonometric leg joint chain (`BodyPose::leg_joints`) with human swing-through flexion, forward step extension, 3D knee perspective flare, wide hip sockets, sculpted thighs, knee garters, muscular calf bellies, and medieval boots (`FootwearStyle`).
+- Live wardrobe customization hotkeys (`1`–`8`, `H`, `M`) across upper tunics (`TunicStyle`), forearm bracers (`VambraceStyle`), waist girdles (`GirdleStyle`), footwear (`FootwearStyle`), hair and headgear (`CrownStyle`), natural cloth dyes (`PigmentSwatch`), skin complexions (`ComplexionSwatch`), stature builds (`YouthPhysique`), and held relics (`HeldRelic`).
+- Persistent TOML character profile storage (`character.toml`) and deterministic 9-byte multiplayer wire codec (`AttireProfile`, `FileAttire`).
+- Octagonal physical body collision envelope (`BodyEnvelope`) preventing First-Person camera and upper torso clipping into solid block walls while preserving smooth wall sliding.
+- Dynamic per-frame avatar mesh compositing over static world geometry (`CompositeMesh`, `GpuBuffer::render_combined`, `LineBuffer::render_combined`).
+- Comprehensive character concept and wardrobe customization documentation in `docs/CHARACTER.md` with showcase illustrations in `docs/images/character/`.
+
+### Changed
+- Forward-sloped torso geometry (`TunicStyle::emit`, `GirdleStyle::emit`) with recessed collarbone yoke and wide flared hip skirt so the upper chest never occludes the waist or hips when looking down from First-Person.
+- Partitioned forearm and bracer geometry (`BareForearms`, `RawhideWraps`, `SplintedVambraces`) into non-overlapping axial segments to eliminate skin Z-fighting through leather wraps.
+- Completed Pure OOP / Elegant Objects refactoring across `client`, `engine`, and `world` crates and resolved all compiler and Clippy warnings.
+
 ## [0.21.0] - 2026-10-16
 
 ### Added
