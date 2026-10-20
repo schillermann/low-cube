@@ -12,11 +12,14 @@ use crate::aurora_canopy::AuroraCanopy;
 use crate::avatar::Avatar;
 use crate::celestial::CelestialCadence;
 use crate::diurnal_pipeline::DiurnalPipeline;
+use crate::menu::{ScreenPoint, SessionModal};
 
 /// Interface for platform window and display surface operations.
 pub trait PlatformSurface {
     fn resize(&mut self, width: u32, height: u32);
     fn capture_cursor(&self);
+    fn release_cursor(&self);
+    fn normalize_cursor(&self, x: f64, y: f64) -> ScreenPoint;
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh>;
     fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh>;
     fn compile_shader(&self, source: &dyn ShaderSource) -> Box<dyn ShaderProgram>;
@@ -32,6 +35,8 @@ pub trait PlatformSurface {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         avatar: &dyn Avatar,
+        overlay_shader: &dyn ShaderProgram,
+        modal: &dyn SessionModal,
     );
 }
 
@@ -86,6 +91,18 @@ impl PlatformSurface for GlPlatformSurface {
         self.window.set_cursor_visible(false);
     }
 
+    fn release_cursor(&self) {
+        let _ = self.window.set_cursor_grab(winit::window::CursorGrabMode::None);
+        self.window.set_cursor_visible(true);
+    }
+
+    fn normalize_cursor(&self, x: f64, y: f64) -> ScreenPoint {
+        let size = self.window.inner_size();
+        let w = size.width.max(1) as f32;
+        let h = size.height.max(1) as f32;
+        ScreenPoint::new((x as f32 / w) * 2.0 - 1.0, 1.0 - (y as f32 / h) * 2.0)
+    }
+
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh> {
         unsafe { batch.upload(&self.gl) }
     }
@@ -113,11 +130,14 @@ impl PlatformSurface for GlPlatformSurface {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         avatar: &dyn Avatar,
+        overlay_shader: &dyn ShaderProgram,
+        modal: &dyn SessionModal,
     ) {
-        let view_proj = avatar.view_projection_matrix(self.aspect_ratio());
+        let aspect = self.aspect_ratio();
+        let view_proj = avatar.view_projection_matrix(aspect);
         pipeline.render(&self.gl, shader, mesh, &view_proj, avatar.surface_rotation());
+        modal.draw_layer(&self.gl, overlay_shader, aspect);
         self.gl_surface.swap_buffers(&self.gl_context).expect("Buffer swap failed");
         self.window.request_redraw();
     }
 }
-

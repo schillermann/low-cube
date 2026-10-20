@@ -7,24 +7,53 @@ pub enum ComplexionSwatch {
     Meadow,
     Amber,
     Umber,
+    Porcelain,
+    Olive,
+    Bronze,
+    Ebony,
 }
 
 impl ComplexionSwatch {
-    pub fn next(self) -> Self {
+    pub fn all() -> [Self; 8] {
+        [
+            Self::Birch,
+            Self::Meadow,
+            Self::Amber,
+            Self::Umber,
+            Self::Porcelain,
+            Self::Olive,
+            Self::Bronze,
+            Self::Ebony,
+        ]
+    }
+
+    pub fn label(self) -> &'static str {
         match self {
-            Self::Birch => Self::Meadow,
-            Self::Meadow => Self::Amber,
-            Self::Amber => Self::Umber,
-            Self::Umber => Self::Birch,
+            Self::Birch => "BIRCH",
+            Self::Meadow => "MEADOW",
+            Self::Amber => "AMBER",
+            Self::Umber => "UMBER",
+            Self::Porcelain => "PORCELAIN",
+            Self::Olive => "OLIVE",
+            Self::Bronze => "BRONZE",
+            Self::Ebony => "EBONY",
         }
     }
 
+    pub fn next(self) -> Self {
+        Self::from_code(self.code() + 1)
+    }
+
     pub fn from_code(code: u8) -> Self {
-        match code % 4 {
+        match code % 8 {
             0 => Self::Birch,
             1 => Self::Meadow,
             2 => Self::Amber,
-            _ => Self::Umber,
+            3 => Self::Umber,
+            4 => Self::Porcelain,
+            5 => Self::Olive,
+            6 => Self::Bronze,
+            _ => Self::Ebony,
         }
     }
 
@@ -34,6 +63,10 @@ impl ComplexionSwatch {
             Self::Meadow => 1,
             Self::Amber => 2,
             Self::Umber => 3,
+            Self::Porcelain => 4,
+            Self::Olive => 5,
+            Self::Bronze => 6,
+            Self::Ebony => 7,
         }
     }
 
@@ -43,6 +76,10 @@ impl ComplexionSwatch {
             Self::Meadow => Vec3::new(0.84, 0.66, 0.52),
             Self::Amber => Vec3::new(0.72, 0.53, 0.39),
             Self::Umber => Vec3::new(0.48, 0.33, 0.24),
+            Self::Porcelain => Vec3::new(0.96, 0.85, 0.76),
+            Self::Olive => Vec3::new(0.78, 0.63, 0.46),
+            Self::Bronze => Vec3::new(0.61, 0.42, 0.28),
+            Self::Ebony => Vec3::new(0.32, 0.21, 0.15),
         }
     }
 }
@@ -123,49 +160,5 @@ impl PigmentSwatch {
             Self::ForestMoss | Self::SaddleHide => Vec3::new(0.42, 0.45, 0.38),
             _ => Vec3::new(0.36, 0.38, 0.42),
         }
-    }
-}
-
-/// Youthful stature build variations scaling shoulder and limb proportions.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum YouthPhysique {
-    SlenderSquire,
-    AgileScout,
-    SturdyApprentice,
-}
-
-impl YouthPhysique {
-    pub fn next(self) -> Self {
-        match self {
-            Self::SlenderSquire => Self::AgileScout,
-            Self::AgileScout => Self::SturdyApprentice,
-            Self::SturdyApprentice => Self::SlenderSquire,
-        }
-    }
-
-    pub fn from_code(code: u8) -> Self {
-        match code % 3 {
-            0 => Self::SlenderSquire,
-            1 => Self::AgileScout,
-            _ => Self::SturdyApprentice,
-        }
-    }
-
-    pub fn code(self) -> u8 {
-        match self {
-            Self::SlenderSquire => 0,
-            Self::AgileScout => 1,
-            Self::SturdyApprentice => 2,
-        }
-    }
-
-    /// Scales a lateral anatomical measure according to this youthful physique ("Tell, Don't Ask").
-    pub fn scale(self, measure: f32) -> f32 {
-        let factor = match self {
-            Self::SlenderSquire => 0.94,
-            Self::AgileScout => 1.0,
-            Self::SturdyApprentice => 1.08,
-        };
-        measure * factor
     }
 }

@@ -30,6 +30,7 @@ mod horizon;
 mod host_env;
 mod launch;
 mod lens;
+mod menu;
 mod order;
 mod orientation;
 mod phase;
@@ -108,9 +109,9 @@ fn main() {
 
     let tron = tron_active();
     let title = if tron {
-        "Low-Cube [TRON] [WASD: Move, E: Pick Up, Q: Throw, M: Mirror, 1-7: Attire, G/H: Left/Right Hand, T: Tron, Esc: Exit]"
+        "Low-Cube [TRON] [WASD: Move, E: Pick Up, Q: Throw, M: Mirror, 1-7: Attire, G/H: Left/Right Hand, T: Tron, Esc: Menu]"
     } else {
-        "Low-Cube [WASD: Move, E: Pick Up, Q: Throw, M: Mirror, 1-7: Attire, G/H: Left/Right Hand, T: Tron, Esc: Exit]"
+        "Low-Cube [WASD: Move, E: Pick Up, Q: Throw, M: Mirror, 1-7: Attire, G/H: Left/Right Hand, T: Tron, Esc: Menu]"
     };
 
     let launch = SessionLaunch::with_tron(

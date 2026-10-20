@@ -12,6 +12,7 @@ use crate::posture::AvatarPosture;
 pub trait FigureTroupe {
     fn step(&mut self, dt: f32);
     fn trigger_strike(&mut self);
+    fn apply_attire(&mut self, attire: YouthAttire);
     fn sync_wardrobe(&mut self, code: KeyCode);
     fn sync_relic(&mut self, relics: (HeldRelic, HeldRelic));
     fn emit(&self, target: &mut dyn MeshTarget);
@@ -33,33 +34,26 @@ impl GaitFigure {
         Self { position, surface_rot, view_rot, rhythm, angular_pace }
     }
 
-    /// Secondary constructor for a standing figure with subtle idle breathing animation (Stehen).
     pub fn standing_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self {
         Self::new(position, surface_rot, view_rot, StrideRhythm::idle(), 1.5)
     }
 
-    /// Secondary constructor for a walking figure with steady stride swing (Gehen).
     pub fn walking_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self {
         Self::new(position, surface_rot, view_rot, StrideRhythm::walking(), 8.4)
     }
 
-    /// Secondary constructor for a running figure with athletic sprint cadence and clenched fists (Laufen).
     pub fn running_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self {
         Self::new(position, surface_rot, view_rot, StrideRhythm::running(), 14.2)
     }
 
-    /// Returns a new GaitFigure with its animation phase advanced by dt.
     pub fn step(self, dt: f32) -> Self {
-        let next_rhythm = self.rhythm.step_cycle(self.angular_pace, dt);
-        Self::new(self.position, self.surface_rot, self.view_rot, next_rhythm, self.angular_pace)
+        Self::new(self.position, self.surface_rot, self.view_rot, self.rhythm.step_cycle(self.angular_pace, dt), self.angular_pace)
     }
 
-    /// Returns a new GaitFigure initiating a synchronized axe strike.
     pub fn trigger_strike(self) -> Self {
         Self::new(self.position, self.surface_rot, self.view_rot, self.rhythm.trigger_strike(), self.angular_pace)
     }
 
-    /// Emits complete third-person character appearance (head, hair/hood, torso, limbs, boots, relic).
     pub fn emit(&self, attire: &YouthAttire, target: &mut dyn MeshTarget) {
         let pose = AvatarPosture::standing().body_pose(self.position, self.surface_rot, self.view_rot, self.rhythm);
         attire.emit(&pose, SightMode::LookingGlassSight, target);
@@ -78,32 +72,23 @@ impl SpawnTroupe {
         Self { figures, attire }
     }
 
-    /// Secondary constructor placing three figures (Stehen, Gehen, Laufen) in front of the spawn point facing the player.
     pub fn near_spawn(spawn_position: Vec3, world: &dyn PlanetaryWorld, attire: YouthAttire) -> Self {
         let spawn_up = world.surface_up_at(spawn_position);
         let spawn_rot = Quat::from_rotation_arc(Vec3::Y, spawn_up);
-        let forward = spawn_rot * Vec3::NEG_Z;
-        let right = spawn_rot * Vec3::X;
+        let (forward, right) = (spawn_rot * Vec3::NEG_Z, spawn_rot * Vec3::X);
 
         let place = |lateral_offset: f32| -> (Vec3, Quat, Quat) {
-            let candidate = spawn_position + right * lateral_offset + forward * 2.8;
-            let grounded = world.constrain_to_surface(candidate, 1.0);
-            let up = world.surface_up_at(grounded);
-            let surface_rot = Quat::from_rotation_arc(Vec3::Y, up);
-            let view_rot = surface_rot * Quat::from_rotation_y(PI);
-            (grounded, surface_rot, view_rot)
+            let grounded = world.constrain_to_surface(spawn_position + right * lateral_offset + forward * 2.8, 1.0);
+            let surface_rot = Quat::from_rotation_arc(Vec3::Y, world.surface_up_at(grounded));
+            (grounded, surface_rot, surface_rot * Quat::from_rotation_y(PI))
         };
 
-        let (pos_stand, rot_stand, view_stand) = place(-1.15);
-        let (pos_walk, rot_walk, view_walk) = place(0.0);
-        let (pos_run, rot_run, view_run) = place(1.15);
+        let (p0, r0, v0) = place(-1.15);
+        let (p1, r1, v1) = place(0.0);
+        let (p2, r2, v2) = place(1.15);
 
         Self::new(
-            [
-                GaitFigure::standing_at(pos_stand, rot_stand, view_stand),
-                GaitFigure::walking_at(pos_walk, rot_walk, view_walk),
-                GaitFigure::running_at(pos_run, rot_run, view_run),
-            ],
+            [GaitFigure::standing_at(p0, r0, v0), GaitFigure::walking_at(p1, r1, v1), GaitFigure::running_at(p2, r2, v2)],
             attire,
         )
     }
@@ -120,10 +105,10 @@ impl FigureTroupe for SpawnTroupe {
         }
     }
 
+    fn apply_attire(&mut self, attire: YouthAttire) { self.attire = attire; }
+
     fn sync_wardrobe(&mut self, code: KeyCode) {
-        if let Some(updated) = self.attire.with_wardrobe_key(code) {
-            self.attire = updated;
-        }
+        if let Some(updated) = self.attire.with_wardrobe_key(code) { self.attire = updated; }
     }
 
     fn sync_relic(&mut self, relics: (HeldRelic, HeldRelic)) { self.attire = self.attire.with_relics(relics.0, relics.1); }
@@ -146,7 +131,6 @@ impl TroupeAvatar {
         Self { origin, troupe, axe }
     }
 
-    /// Secondary constructor decorating an Avatar with the three showcase figures and interactive axe near spawn.
     pub fn near_spawn(origin: Box<dyn Avatar>, spawn_position: Vec3, world: &dyn PlanetaryWorld, attire: YouthAttire) -> Self {
         Self::new(
             origin,
@@ -166,10 +150,13 @@ impl Avatar for TroupeAvatar {
         self.troupe.trigger_strike();
     }
 
+    fn apply_attire(&mut self, attire: YouthAttire) {
+        self.origin.apply_attire(attire);
+        self.troupe.apply_attire(attire);
+    }
+
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
-        if self.axe.register_key(code) {
-            return true;
-        }
+        if self.axe.register_key(code) { return true; }
         self.troupe.sync_wardrobe(code);
         self.origin.dispatch_wardrobe_key(code)
     }

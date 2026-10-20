@@ -1,14 +1,17 @@
 use winit::keyboard::KeyCode;
 use world::MeshTarget;
 
+mod accoutrement;
 mod crown;
 mod file_attire;
 mod footwear;
 mod garments;
 mod hands;
+mod headgear;
 mod limb;
 mod palette;
 mod pose;
+mod proportion;
 mod relic;
 mod sight;
 #[cfg(test)]
@@ -19,9 +22,10 @@ pub use file_attire::{AttireProfile, FileAttire};
 pub use footwear::FootwearStyle;
 pub use garments::{GirdleStyle, TunicStyle};
 pub use hands::VambraceStyle;
-pub use limb::LimbFrame;
-pub use palette::{ComplexionSwatch, PigmentSwatch, YouthPhysique};
+pub use limb::{FacetedSolid, LimbFrame, TaperedPrism};
+pub use palette::{ComplexionSwatch, PigmentSwatch};
 pub use pose::{BodyPose, StrideRhythm};
+pub use proportion::{BodyRegion, PartProportion, YouthPhysique};
 pub use relic::{HeldRelic, MartialStyle};
 pub use sight::SightMode;
 
@@ -48,7 +52,7 @@ pub struct YouthAttire {
 impl YouthAttire {
     /// Primary constructor doing nothing except assigning arguments to fields.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub const fn new(
         tunic: TunicStyle,
         vambrace: VambraceStyle,
         girdle: GirdleStyle,
@@ -75,7 +79,7 @@ impl YouthAttire {
     }
 
     /// Secondary constructor assembling a youthful medieval squire in linen doublet and cuffed boots.
-    pub fn squire() -> Self {
+    pub const fn squire() -> Self {
         Self::new(
             TunicStyle::LinenDoublet,
             VambraceStyle::RawhideWraps,
@@ -98,6 +102,24 @@ impl YouthAttire {
     pub fn with_next_relic(self) -> Self { Self { relic: self.relic.next(), ..self } }
     pub fn with_next_offhand(self) -> Self { Self { offhand: self.offhand.next(), ..self } }
     pub fn with_relics(self, relic: HeldRelic, offhand: HeldRelic) -> Self { Self { relic, offhand, ..self } }
+    pub fn with_complexion(self, complexion: ComplexionSwatch) -> Self { Self { complexion, ..self } }
+    pub fn with_physique(self, physique: YouthPhysique) -> Self { Self { physique, ..self } }
+
+    pub fn with_adjusted_region(self, region: BodyRegion, delta_size: i8, delta_girth: i8) -> Self {
+        Self { physique: self.physique.adjusted(region, delta_size, delta_girth), ..self }
+    }
+
+    pub fn region_proportion(&self, region: BodyRegion) -> PartProportion {
+        self.physique.region_proportion(region)
+    }
+
+    pub fn region_bytes(&self) -> [u8; 4] {
+        self.physique.region_bytes()
+    }
+
+    pub fn selected_complexion(&self, candidate: ComplexionSwatch) -> bool {
+        self.complexion == candidate
+    }
 
     pub fn armed(&self) -> bool {
         !matches!(self.relic.martial_style(), MartialStyle::Unarmed) || !matches!(self.offhand.martial_style(), MartialStyle::Unarmed)

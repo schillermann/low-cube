@@ -13,6 +13,7 @@ use crate::avatar::PlanetaryAvatar;
 use crate::celestial::CelestialCadence;
 use crate::controls::KeyMotion;
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
+use crate::menu::EscapeMenu;
 use crate::physics::PlanetaryPhysics;
 use crate::server_aurora::ServerAurora;
 use crate::server_celestial::ServerCelestial;
@@ -119,6 +120,7 @@ impl SessionAssembly for SessionLaunch {
             attire,
         ));
         let controls = Box::new(KeyMotion::idle());
+        let modal = Box::new(EscapeMenu::closed());
 
         Box::new(GameSession::new(
             surface,
@@ -132,6 +134,7 @@ impl SessionAssembly for SessionLaunch {
             planet,
             avatar,
             controls,
+            modal,
         ))
     }
 }

@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-20
+
+### Added
+- Interactive in-game `Esc` modal menu (`EscapeMenu`, `SessionModal`, `ModalDirective`) with `RESUME GAME`, `CHARACTER`, and `QUIT GAME` buttons, keyboard shortcuts, and cursor release/re-capture.
+- Full-height 3D Character Studio (`WardrobeStudio`, `TurntableStage`, `StudioAnimation`, `PixelStamp`, `ScreenPoint`, `ScreenBounds`) rendering a single centered character figure on a stone pedestal at `z = 4.65` with 360-degree mouse-drag and button/key turntable rotation (`< ROTATE`, `FRONT`, `ROTATE >`) and automatic sequential demonstration of all 6 animations (`StandingIdle`, `WalkingStride`, `RunningSprint`, `CrouchingSneak`, `AxeCleave`, `SwordSlash`).
+- Six fundamentally distinct Polygon-City-style character body archetypes (`AvatarArchetype`: `Knight`, `Ranger`, `Woodsman`, `Blacksmith`, `Sentinel`, `Noble`) with bespoke 3D silhouette architecture (`PolygonAccoutrement`, `PolygonHeadgear`) including sallet visors, hooded cloaks, blacksmith aprons, tower shields, and velvet capes.
+- Independent per-body-part `SIZE` (length/height) and `THICKNESS` (width/girth) customization (`BodyRegion`: `Head`, `Torso`, `Arms`, `Legs`, `PartProportion`, `YouthPhysique`) with real-time 3D joint chain and bone-length scaling (`BodyPose`).
+- Expanded skin complexion palette (`ComplexionSwatch`) with 8 selectable skin tones (`Birch`, `Meadow`, `Amber`, `Umber`, `Porcelain`, `Olive`, `Bronze`, `Ebony`) and dedicated clothing selection controls (`TUNIC`, `SLEEVES`, `BELT`, `BOOTS`, `HEADGEAR`, `DYE COLOR`) alongside a single `BACK` navigation button.
+
+### Changed
+- Extended `FileAttire` (`character.toml`) and deterministic 16-byte wire serialization to persist per-region `SIZE` and `THICKNESS` proportions and expanded wardrobe variants.
+
 ## [0.23.0] - 2026-10-20
 
 ### Added

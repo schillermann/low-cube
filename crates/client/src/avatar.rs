@@ -20,6 +20,7 @@ pub trait Avatar {
     fn toggle_invert_y(&mut self);
     fn toggle_invert_x(&mut self);
     fn trigger_strike(&mut self);
+    fn apply_attire(&mut self, attire: YouthAttire);
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool;
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
     fn sync_relic_site(&mut self, site: &mut dyn RelicSite, dt: f32, world: &dyn PlanetaryWorld) -> Option<(HeldRelic, HeldRelic)>;
@@ -133,6 +134,10 @@ impl Avatar for PlanetaryAvatar {
         if self.attire.armed() {
             self.rhythm = self.rhythm.trigger_strike();
         }
+    }
+
+    fn apply_attire(&mut self, attire: YouthAttire) {
+        self.attire = attire;
     }
 
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {

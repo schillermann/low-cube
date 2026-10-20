@@ -6,6 +6,7 @@ use world::PlanetaryWorld;
 use engine::{CompositeMesh, CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram};
 use crate::avatar::Avatar;
 use crate::controls::KeyboardControls;
+use crate::menu::{ModalDirective, SessionModal};
 use crate::surface::PlatformSurface;
 
 /// Interface representing an active, interactive display session.
@@ -27,6 +28,7 @@ pub struct GameSession {
     world: Box<dyn PlanetaryWorld>,
     avatar: Box<dyn Avatar>,
     controls: Box<dyn KeyboardControls>,
+    modal: Box<dyn SessionModal>,
 }
 
 impl GameSession {
@@ -44,6 +46,7 @@ impl GameSession {
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
         controls: Box<dyn KeyboardControls>,
+        modal: Box<dyn SessionModal>,
     ) -> Self {
         Self {
             surface,
@@ -57,6 +60,7 @@ impl GameSession {
             world,
             avatar,
             controls,
+            modal,
         }
     }
 }
@@ -70,12 +74,24 @@ impl Session for GameSession {
             WindowEvent::Resized(size) => {
                 self.surface.resize(size.width, size.height);
             }
-            WindowEvent::MouseInput {
-                state: ElementState::Pressed,
-                ..
-            } => {
-                self.surface.capture_cursor();
-                self.avatar.trigger_strike();
+            WindowEvent::CursorMoved { position, .. } => {
+                let point = self.surface.normalize_cursor(position.x, position.y);
+                self.modal.move_cursor(point);
+            }
+            WindowEvent::MouseInput { state, .. } => {
+                if self.modal.open() {
+                    if state == ElementState::Pressed {
+                        let directive = self.modal.press_mouse(self.surface.as_ref(), self.avatar.as_mut());
+                        if matches!(directive, ModalDirective::ExitGame) {
+                            event_loop.exit();
+                        }
+                    } else {
+                        self.modal.release_mouse();
+                    }
+                } else if state == ElementState::Pressed {
+                    self.surface.capture_cursor();
+                    self.avatar.trigger_strike();
+                }
             }
             WindowEvent::KeyboardInput {
                 event: KeyEvent {
@@ -86,23 +102,22 @@ impl Session for GameSession {
                 ..
             } => {
                 let pressed = state == ElementState::Pressed;
+                if code == KeyCode::Escape {
+                    if pressed {
+                        self.modal.toggle_escape(self.surface.as_ref());
+                    }
+                    return;
+                }
+                if self.modal.open() {
+                    if pressed {
+                        self.modal.handle_key(code, self.avatar.as_mut());
+                    }
+                    return;
+                }
                 match code {
-                    KeyCode::KeyI => {
-                        if pressed {
-                            self.avatar.toggle_invert_y();
-                        }
-                    }
-                    KeyCode::KeyO => {
-                        if pressed {
-                            self.avatar.toggle_invert_x();
-                        }
-                    }
-                    KeyCode::KeyT => {
-                        if pressed {
-                            self.tron_active = !self.tron_active;
-                        }
-                    }
-                    KeyCode::Escape => event_loop.exit(),
+                    KeyCode::KeyI => if pressed { self.avatar.toggle_invert_y(); },
+                    KeyCode::KeyO => if pressed { self.avatar.toggle_invert_x(); },
+                    KeyCode::KeyT => if pressed { self.tron_active = !self.tron_active; },
                     _ => {
                         if !pressed || !self.avatar.dispatch_wardrobe_key(code) {
                             self.controls.register_key(code, pressed);
@@ -112,7 +127,11 @@ impl Session for GameSession {
             }
             WindowEvent::RedrawRequested => {
                 let dt = 1.0 / 60.0;
-                self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
+                if self.modal.open() {
+                    self.modal.step(dt);
+                } else {
+                    self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
+                }
 
                 if self.tron_active {
                     let mut avatar_tron = CpuTronBatch::empty();
@@ -123,6 +142,8 @@ impl Session for GameSession {
                         self.tron_shader.as_ref(),
                         &composed,
                         self.avatar.as_ref(),
+                        self.primary_shader.as_ref(),
+                        self.modal.as_ref(),
                     );
                 } else {
                     let mut avatar_batch = CpuMeshBatch::empty();
@@ -133,17 +154,20 @@ impl Session for GameSession {
                         self.primary_shader.as_ref(),
                         &composed,
                         self.avatar.as_ref(),
+                        self.primary_shader.as_ref(),
+                        self.modal.as_ref(),
                     );
                 }
             }
-
             _ => {}
         }
     }
 
     fn handle_device_event(&mut self, event: DeviceEvent) {
-        if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
-            self.avatar.rotate_view(dx as f32, dy as f32);
+        if !self.modal.open() {
+            if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
+                self.avatar.rotate_view(dx as f32, dy as f32);
+            }
         }
     }
 }

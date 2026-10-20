@@ -3,7 +3,8 @@ use super::crown::CrownStyle;
 use super::footwear::FootwearStyle;
 use super::garments::{GirdleStyle, TunicStyle};
 use super::hands::VambraceStyle;
-use super::palette::{ComplexionSwatch, PigmentSwatch, YouthPhysique};
+use super::palette::{ComplexionSwatch, PigmentSwatch};
+use super::proportion::YouthPhysique;
 use super::relic::HeldRelic;
 use super::YouthAttire;
 
@@ -64,15 +65,26 @@ impl AttireProfile for FileAttire {
             self.code_in_text(&content, "complexion").unwrap_or(0),
             self.code_in_text(&content, "physique").unwrap_or(0),
         ];
-        self.decode_multiplayer(bytes)
+        let mut attire = self.decode_multiplayer(bytes);
+        if let (Some(c), Some(t), Some(a), Some(l)) = (
+            self.code_in_text(&content, "crown_body"),
+            self.code_in_text(&content, "torso_body"),
+            self.code_in_text(&content, "arm_body"),
+            self.code_in_text(&content, "leg_body"),
+        ) {
+            attire = attire.with_physique(YouthPhysique::from_region_bytes([c, t, a, l]));
+        }
+        attire
     }
 
     /// Persists the player's customized medieval attire to the TOML profile, failing fast on I/O errors.
     fn save(&self, attire: &YouthAttire) {
         let bytes = self.encode_multiplayer(attire);
+        let regions = attire.region_bytes();
         let text = format!(
-            "# Medieval Youth Avatar Profile\n[character]\ntunic = {}\nvambrace = {}\ngirdle = {}\nfootwear = {}\ncrown = {}\nrelic = {}\npigment = {}\ncomplexion = {}\nphysique = {}\n",
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8]
+            "# Medieval Youth Avatar Profile\n[character]\ntunic = {}\nvambrace = {}\ngirdle = {}\nfootwear = {}\ncrown = {}\nrelic = {}\npigment = {}\ncomplexion = {}\nphysique = {}\ncrown_body = {}\ntorso_body = {}\narm_body = {}\nleg_body = {}\n",
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8],
+            regions[0], regions[1], regions[2], regions[3]
         );
         fs::write(&self.path, text).expect("Failed to persist YouthAttire profile to disk");
     }
