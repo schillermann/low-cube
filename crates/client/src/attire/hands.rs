@@ -4,6 +4,7 @@ use super::limb::{AxialLimb, FacetedSolid, LimbFrame};
 use super::palette::{ComplexionSwatch, PigmentSwatch};
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
+use super::sight::SightMode;
 
 /// Medieval forearm and glove style visible in the first-person field of view and multiplayer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,144 +39,110 @@ impl VambraceStyle {
         }
     }
 
-    /// Emits both left and right forearms, wrist gear, relaxed curved hands, and held relic.
+    /// Emits both left and right upper arms, forearms, wrist gear, curved hands, and held relics in both hands.
     pub fn emit(
         self,
         pose: &BodyPose,
+        sight: SightMode,
         complexion: ComplexionSwatch,
         pigment: PigmentSwatch,
-        relic: HeldRelic,
+        relics: (HeldRelic, HeldRelic),
         target: &mut dyn MeshTarget,
     ) {
-        let base_frame = pose.hand_frame();
         let skin = complexion.skin();
         let hide = Vec3::new(0.42, 0.26, 0.15);
         let dark_hide = Vec3::new(0.28, 0.17, 0.10);
-        let down = pose.downward_gaze();
         let world_frame = LimbFrame::new(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::Z);
 
         for side in [-1.0f32, 1.0f32] {
-            let (sway_x, arc_y, arc_z, swing_pitch, swing_yaw) = pose.forearm_swing(side);
-            let spread_x = side * (pose.scale(0.195) + down * 0.05) + sway_x;
-            let raw_frame = base_frame
-                .shifted(spread_x, -0.220 + arc_y, 0.30 + arc_z)
-                .yawed(side * 0.13 + swing_yaw)
-                .pitched(-0.04 + swing_pitch);
-
-            // Align arm_frame with the exact forearm vector so the hand never bends outward at the wrist
-            let elbow_pt = pose.elbow_offset(side);
-            let shoulder_world = pose.shoulder_socket(side);
-            let wrist_world = raw_frame.point(0.0, 0.0, 0.0);
-            let elbow_world = raw_frame.point(elbow_pt.x, elbow_pt.y, elbow_pt.z);
-            let forearm_vec = wrist_world - elbow_world;
-            let forearm_len = forearm_vec.length();
-            let forearm_dir = forearm_vec / forearm_len;
-            let raw_up = raw_frame.point(0.0, 1.0, 0.0) - wrist_world;
-            let hand_right = forearm_dir.cross(raw_up).normalize();
-            let hand_up = hand_right.cross(forearm_dir).normalize();
-            let arm_frame = LimbFrame::new(wrist_world, hand_right, hand_up, forearm_dir);
+            let hand_relic = if side > 0.0 { relics.0 } else { relics.1 };
+            let holding = hand_relic.gripped();
+            let martial = hand_relic.martial_style();
+            let (shoulder_world, elbow_world, arm_frame, forearm_len) = sight.arm_joints(pose, side, holding, martial);
+            let upper_dir = (elbow_world - shoulder_world).normalize_or_zero();
+            let wrist_world = arm_frame.point(0.0, 0.0, 0.0);
+            let forearm_dir = (wrist_world - elbow_world).normalize_or_zero();
+            let forearm_up = (arm_frame.point(1.0, 0.0, 0.0) - wrist_world).cross(forearm_dir).normalize_or_zero();
+            let forearm_frame = LimbFrame::new(wrist_world, forearm_dir.cross(forearm_up).normalize_or_zero(), forearm_up, forearm_dir);
 
             AxialLimb::new(
                 shoulder_world,
-                elbow_world,
-                pose.scale(0.048),
-                pose.scale(0.039),
+                elbow_world + upper_dir * 0.012,
+                pose.scale(0.056),
+                pose.scale(0.044),
                 pigment.cloth(),
             )
             .emit(&world_frame, true, target);
 
-            // Polymorphic forearm and bracer emission with zero overlapping skin geometry
-            let palm_col = match self {
+            // Polymorphic forearm and bracer: wristband stops cleanly behind the wrist (-0.018) with a wrist bridge into the palm
+            let (wrist_col, palm_col) = match self {
                 Self::BareForearms => {
-                    AxialLimb::new(
-                        Vec3::new(0.0, 0.0, -forearm_len),
-                        Vec3::new(0.0, 0.0, -0.004),
-                        pose.scale(0.039),
-                        pose.scale(0.021),
-                        skin,
-                    )
-                    .emit(&arm_frame, true, target);
-                    skin
+                    AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len - 0.010), Vec3::new(0.0, 0.0, -0.014), pose.scale(0.042), pose.scale(0.027), skin)
+                        .emit(&forearm_frame, true, target);
+                    (skin, skin)
                 }
                 Self::RawhideWraps => {
-                    AxialLimb::new(
-                        Vec3::new(0.0, 0.0, -forearm_len),
-                        Vec3::new(0.0, 0.0, -forearm_len * 0.56),
-                        pose.scale(0.039),
-                        pose.scale(0.032),
-                        skin,
-                    )
-                    .emit(&arm_frame, true, target);
-                    AxialLimb::new(
-                        Vec3::new(0.0, 0.0, -forearm_len * 0.58),
-                        Vec3::new(0.0, 0.0, -0.004),
-                        pose.scale(0.036),
-                        pose.scale(0.024),
-                        dark_hide,
-                    )
-                    .emit(&arm_frame, true, target);
-                    skin
+                    AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len - 0.010), Vec3::new(0.0, 0.0, -forearm_len * 0.56), pose.scale(0.042), pose.scale(0.035), skin)
+                        .emit(&forearm_frame, true, target);
+                    AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len * 0.58), Vec3::new(0.0, 0.0, -0.018), pose.scale(0.039), pose.scale(0.029), dark_hide)
+                        .emit(&forearm_frame, true, target);
+                    (skin, skin)
                 }
                 Self::StuddedVambraces => {
-                    AxialLimb::new(
-                        Vec3::new(0.0, 0.0, -forearm_len),
-                        Vec3::new(0.0, 0.0, -forearm_len * 0.56),
-                        pose.scale(0.039),
-                        pose.scale(0.032),
-                        pigment.trim(),
-                    )
-                    .emit(&arm_frame, true, target);
-                    AxialLimb::new(
-                        Vec3::new(0.0, 0.0, -forearm_len * 0.58),
-                        Vec3::new(0.0, 0.0, -0.004),
-                        pose.scale(0.036),
-                        pose.scale(0.024),
-                        hide,
-                    )
-                    .emit(&arm_frame, true, target);
-                    hide
+                    AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len - 0.010), Vec3::new(0.0, 0.0, -forearm_len * 0.56), pose.scale(0.042), pose.scale(0.035), pigment.trim())
+                        .emit(&forearm_frame, true, target);
+                    AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len * 0.58), Vec3::new(0.0, 0.0, -0.018), pose.scale(0.039), pose.scale(0.029), hide)
+                        .emit(&forearm_frame, true, target);
+                    (hide, hide)
                 }
             };
 
-            // Flared vertical palm stepping out in height (+/-Y) from the narrow wrist, pointing straight along +Z
+            // Exposed wrist joint (-0.020..0.004) connecting forearm/bracer seamlessly into the tapered palm (0.0..0.064)
+            AxialLimb::new(Vec3::new(0.0, 0.0, -0.020), Vec3::new(0.0, 0.0, 0.004), pose.scale(0.026), pose.scale(0.022), wrist_col)
+                .emit(&forearm_frame, true, target);
             AxialLimb::new(
-                Vec3::new(0.0, 0.016, 0.0),
-                Vec3::new(0.0, 0.020, 0.066),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 0.064),
+                pose.scale(0.022),
+                pose.scale(0.010),
+                palm_col,
+            ).emit(&arm_frame, true, target);
+            AxialLimb::new(
+                Vec3::new(0.0, 0.011, -0.004),
+                Vec3::new(0.0, 0.019, 0.065),
+                pose.scale(0.021),
+                pose.scale(0.010),
+                palm_col,
+            ).emit(&arm_frame, true, target);
+            AxialLimb::new(
+                Vec3::new(0.0, -0.011, -0.004),
+                Vec3::new(0.0, -0.017, 0.060),
                 pose.scale(0.020),
-                pose.scale(0.018),
-                palm_col,
-            ).emit(&arm_frame, true, target);
-            AxialLimb::new(
-                Vec3::new(0.0, -0.015, 0.0),
-                Vec3::new(0.0, -0.018, 0.062),
-                pose.scale(0.019),
-                pose.scale(0.016),
+                pose.scale(0.009),
                 palm_col,
             ).emit(&arm_frame, true, target);
 
-            // Compact thumb (~4cm) sticking out upward/inward when not running, and locking over the fist when running
-            let curl = pose.finger_curl(side, side > 0.0 && relic.gripped());
+            // Tapered thumb (~4cm) narrowing toward the tip and wrapping around the inner side of the grip channel
+            let curl = pose.finger_curl(side, holding);
             let open = (1.0 - curl).clamp(0.0, 1.0);
-            let thumb_knuckle = Vec3::new(side * 0.004, 0.022, 0.032);
-            let thumb_mid = thumb_knuckle + Vec3::new(-side * (0.006 * open + 0.010 * curl), 0.018 * open + 0.004 * curl, 0.016);
-            let thumb_tip = thumb_mid + Vec3::new(-side * (0.010 * open + 0.018 * curl), 0.014 * open - 0.012 * curl, 0.014 * open + 0.006 * curl);
-            AxialLimb::new(thumb_knuckle, thumb_mid, 0.0115, 0.010, palm_col).emit(&arm_frame, false, target);
-            AxialLimb::new(thumb_mid, thumb_tip, 0.010, 0.0085, skin).emit(&arm_frame, true, target);
+            let thumb_knuckle = Vec3::new(-side * 0.004, 0.022, 0.028);
+            let thumb_mid = thumb_knuckle + Vec3::new(-side * (0.006 * open + 0.026 * curl), 0.018 * open - 0.002 * curl, 0.014);
+            let thumb_tip = thumb_mid + Vec3::new(-side * (0.010 * open + 0.014 * curl), 0.014 * open - 0.014 * curl, 0.014);
+            AxialLimb::new(thumb_knuckle, thumb_mid, 0.0110, 0.0078, palm_col).emit(&arm_frame, false, target);
+            AxialLimb::new(thumb_mid, thumb_tip, 0.0078, 0.0042, skin).emit(&arm_frame, true, target);
 
-            // 4 longer vertical fingers aligned straight with the palm, folding inward into a fist when running
+            // 4 tapered fingers narrowing from knuckle (0.0094) through mid-joint (0.0066) to slender fingertips (0.0036)
             for f in 0..4 {
                 let t = (f as f32) / 3.0;
                 let len_scale = if f == 1 || f == 2 { 1.0 } else { 0.90 };
-                let knuckle = Vec3::new(0.0, 0.024 - t * 0.044, 0.066 - t * 0.005);
-                let mid_joint = knuckle + Vec3::new(-side * (0.008 + 0.028 * curl), 0.002 * (1.0 - curl), 0.048 * len_scale * (1.0 - 0.68 * curl));
-                let tip = mid_joint + Vec3::new(-side * 0.018 * (1.0 - 0.65 * curl), -0.005 * (0.20 + curl), 0.042 * len_scale * (0.85 - 1.50 * curl));
-                AxialLimb::new(knuckle, mid_joint, 0.0096, 0.0084, skin).emit(&arm_frame, true, target);
-                AxialLimb::new(mid_joint, tip, 0.0084, 0.0072, skin).emit(&arm_frame, true, target);
+                let knuckle = Vec3::new(0.0, 0.023 - t * 0.042, 0.064 - t * 0.005);
+                let mid_joint = knuckle + Vec3::new(-side * (0.008 + 0.020 * curl), 0.002 * open, (0.048 * open + 0.014 * curl) * len_scale);
+                let tip = mid_joint + Vec3::new(-side * (0.018 * open + 0.018 * curl), -0.004 * open, (0.036 * open - 0.026 * curl) * len_scale);
+                AxialLimb::new(knuckle, mid_joint, 0.0094, 0.0066, skin).emit(&arm_frame, true, target);
+                AxialLimb::new(mid_joint, tip, 0.0066, 0.0036, skin).emit(&arm_frame, true, target);
             }
 
-            if side > 0.0 {
-                relic.emit_in_palm(&arm_frame, target);
-            }
+            hand_relic.emit_in_palm(side, &arm_frame, target);
         }
     }
 }

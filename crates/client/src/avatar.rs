@@ -1,7 +1,8 @@
 use glam::{Mat4, Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, SightMode, StrideRhythm, Wardrobe, YouthAttire};
+use crate::attire::{BodyPose, HeldRelic, SightMode, StrideRhythm, Wardrobe, YouthAttire};
+use crate::axe::RelicSite;
 use crate::controls::KeyboardControls;
 use crate::flight::GravitationalFlight;
 #[cfg(test)]
@@ -18,8 +19,10 @@ pub trait Avatar {
     fn rotate_view(&mut self, dx: f32, dy: f32);
     fn toggle_invert_y(&mut self);
     fn toggle_invert_x(&mut self);
+    fn trigger_strike(&mut self);
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool;
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
+    fn sync_relic_site(&mut self, site: &mut dyn RelicSite, dt: f32, world: &dyn PlanetaryWorld) -> Option<(HeldRelic, HeldRelic)>;
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
     fn surface_rotation(&self) -> Quat;
     fn emit_appearance(&self, target: &mut dyn MeshTarget);
@@ -44,42 +47,20 @@ impl PlanetaryAvatar {
     /// Primary constructor doing nothing except assigning arguments to fields.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        position: Vec3,
-        surface_rot: Quat,
-        camera_rot: Quat,
-        look: InvertibleLook,
-        lens: PerspectiveLens,
-        flight: Box<dyn GravitationalFlight>,
-        posture: AvatarPosture,
-        tilt_radians: f32,
-        rhythm: StrideRhythm,
-        attire: YouthAttire,
-        sight: SightMode,
+        position: Vec3, surface_rot: Quat, camera_rot: Quat, look: InvertibleLook, lens: PerspectiveLens,
+        flight: Box<dyn GravitationalFlight>, posture: AvatarPosture, tilt_radians: f32,
+        rhythm: StrideRhythm, attire: YouthAttire, sight: SightMode,
     ) -> Self {
-        Self {
-            position, surface_rot, camera_rot, look, lens,
-            flight, posture, tilt_radians, rhythm, attire, sight,
-        }
+        Self { position, surface_rot, camera_rot, look, lens, flight, posture, tilt_radians, rhythm, attire, sight }
     }
 
     /// Secondary constructor initializing avatar with explicit gravitational flight and medieval attire.
-    pub fn with_attire(
-        initial_position: Vec3,
-        flight: Box<dyn GravitationalFlight>,
-        attire: YouthAttire,
-    ) -> Self {
+    pub fn with_attire(initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: YouthAttire) -> Self {
         Self::new(
-            initial_position,
-            Quat::IDENTITY,
-            Quat::IDENTITY,
+            initial_position, Quat::IDENTITY, Quat::IDENTITY,
             InvertibleLook::direct(Box::new(SensitivityLook::calibrated(Box::new(MouseLook::idle())))),
-            PerspectiveLens::human_eye(),
-            flight,
-            AvatarPosture::standing(),
-            0.0,
-            StrideRhythm::idle(),
-            attire,
-            SightMode::FirstPersonSight,
+            PerspectiveLens::human_eye(), flight, AvatarPosture::standing(), 0.0,
+            StrideRhythm::idle(), attire, SightMode::FirstPersonSight,
         )
     }
 
@@ -148,6 +129,12 @@ impl Avatar for PlanetaryAvatar {
         self.look.toggle_x();
     }
 
+    fn trigger_strike(&mut self) {
+        if self.attire.armed() {
+            self.rhythm = self.rhythm.trigger_strike();
+        }
+    }
+
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
         if code == KeyCode::KeyM {
             self.sight = self.sight.toggle();
@@ -175,6 +162,15 @@ impl Avatar for PlanetaryAvatar {
         let next_pos = order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, 6.0, world);
         self.rhythm = self.rhythm.advance(self.position, next_pos, terrain_up, dt);
         self.position = next_pos;
+    }
+
+    fn sync_relic_site(&mut self, site: &mut dyn RelicSite, dt: f32, world: &dyn PlanetaryWorld) -> Option<(HeldRelic, HeldRelic)> {
+        let view_rot = self.look.combine_with_surface(self.surface_rot);
+        let changed = site.step_near_avatar(self.position, self.surface_rot, view_rot, dt, world);
+        if let Some((right, left)) = changed {
+            self.attire = self.attire.with_relics(right, left);
+        }
+        changed
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {

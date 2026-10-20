@@ -132,15 +132,22 @@ fn test_first_person_omits_head_while_multiplayer_and_mirror_include_crown() {
 }
 
 #[test]
-fn test_hands_visible_in_forward_view_and_body_visible_when_looking_down() {
+fn test_hands_raised_only_when_holding_item_and_body_visible_when_looking_down() {
     let start = Vec3::new(0.0, 9.0, 0.0);
     let mut avatar = PlanetaryAvatar::at(start);
 
-    let mut ledger = QuadLedger::empty();
-    avatar.emit_appearance(&mut ledger);
+    let mut empty_ledger = QuadLedger::empty();
+    avatar.emit_appearance(&mut empty_ledger);
     let vp_level = avatar.view_projection_matrix(16.0 / 9.0);
-    let visible_level = ledger.visible_in_frustum(vp_level);
-    assert!(visible_level > 0, "Hands must be visible in first-person level view");
+    let visible_empty_level = empty_ledger.visible_in_frustum(vp_level);
+    assert_eq!(visible_empty_level, 0, "Empty hands must hang at the sides and not obstruct level forward view");
+
+    // Equip a held item (KeyH): right hand must now be held up in level view
+    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyH));
+    let mut held_ledger = QuadLedger::empty();
+    avatar.emit_appearance(&mut held_ledger);
+    let visible_held_level = held_ledger.visible_in_frustum(vp_level);
+    assert!(visible_held_level > 0, "Holding an item must raise the hand into first-person level view");
 
     // Look down towards feet (positive dy rotates pitch downwards)
     avatar.rotate_view(0.0, 350.0);
@@ -149,7 +156,7 @@ fn test_hands_visible_in_forward_view_and_body_visible_when_looking_down() {
     avatar.emit_appearance(&mut down_ledger);
     let visible_down = down_ledger.visible_in_frustum(vp_down);
     assert!(
-        visible_down > visible_level,
+        visible_down > visible_held_level,
         "Looking down must bring torso, belt, legs, and boots into the camera view frustum"
     );
 }

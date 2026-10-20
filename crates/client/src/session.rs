@@ -75,6 +75,7 @@ impl Session for GameSession {
                 ..
             } => {
                 self.surface.capture_cursor();
+                self.avatar.trigger_strike();
             }
             WindowEvent::KeyboardInput {
                 event: KeyEvent {

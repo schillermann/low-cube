@@ -55,8 +55,8 @@ impl FootwearStyle {
             let knee_above = hip_pt.lerp(knee_pt, 0.85);
             let calf_belly = knee_pt.lerp(ankle_pt, 0.36) + Vec3::new(side * 0.005, 0.0, -0.014);
 
-            // Full athletic thigh filling the wide hip socket and tapering into the knee
-            AxialLimb::new(hip_pt, knee_above, pose.scale(0.092), pose.scale(0.068), hose_col)
+            // Athletic thigh emerging cleanly beneath the tunic skirt and tapering into the knee
+            AxialLimb::new(hip_pt, knee_above, pose.scale(0.078), pose.scale(0.066), hose_col)
                 .emit(&frame, true, target);
 
             // Distinct knee joint & garter wrap marking the articulation point

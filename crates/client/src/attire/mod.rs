@@ -10,24 +10,27 @@ mod limb;
 mod palette;
 mod pose;
 mod relic;
+mod sight;
 #[cfg(test)]
 mod tests;
 
-pub use crown::{CrownStyle, SightMode};
+pub use crown::CrownStyle;
 pub use file_attire::{AttireProfile, FileAttire};
 pub use footwear::FootwearStyle;
 pub use garments::{GirdleStyle, TunicStyle};
 pub use hands::VambraceStyle;
+pub use limb::LimbFrame;
 pub use palette::{ComplexionSwatch, PigmentSwatch, YouthPhysique};
 pub use pose::{BodyPose, StrideRhythm};
-pub use relic::HeldRelic;
+pub use relic::{HeldRelic, MartialStyle};
+pub use sight::SightMode;
 
 /// Interface for avatar wardrobe appearance emission.
 pub trait Wardrobe {
     fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget);
 }
 
-/// Immutable medieval youth character appearance combining body traits, garments, dyes, and held relic.
+/// Immutable medieval youth character appearance combining body traits, garments, dyes, and dual-hand held relics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct YouthAttire {
     tunic: TunicStyle,
@@ -36,6 +39,7 @@ pub struct YouthAttire {
     footwear: FootwearStyle,
     crown: CrownStyle,
     relic: HeldRelic,
+    offhand: HeldRelic,
     pigment: PigmentSwatch,
     complexion: ComplexionSwatch,
     physique: YouthPhysique,
@@ -51,6 +55,7 @@ impl YouthAttire {
         footwear: FootwearStyle,
         crown: CrownStyle,
         relic: HeldRelic,
+        offhand: HeldRelic,
         pigment: PigmentSwatch,
         complexion: ComplexionSwatch,
         physique: YouthPhysique,
@@ -62,6 +67,7 @@ impl YouthAttire {
             footwear,
             crown,
             relic,
+            offhand,
             pigment,
             complexion,
             physique,
@@ -77,34 +83,24 @@ impl YouthAttire {
             FootwearStyle::CuffedBoots,
             CrownStyle::TousledMop,
             HeldRelic::EmptyPalm,
+            HeldRelic::EmptyPalm,
             PigmentSwatch::UnbleachedLinen,
             ComplexionSwatch::Birch,
             YouthPhysique::SlenderSquire,
         )
     }
 
-    pub fn with_next_tunic(self) -> Self {
-        Self { tunic: self.tunic.next(), ..self }
-    }
+    pub fn with_next_tunic(self) -> Self { Self { tunic: self.tunic.next(), ..self } }
+    pub fn with_next_vambrace(self) -> Self { Self { vambrace: self.vambrace.next(), ..self } }
+    pub fn with_next_girdle(self) -> Self { Self { girdle: self.girdle.next(), ..self } }
+    pub fn with_next_footwear(self) -> Self { Self { footwear: self.footwear.next(), ..self } }
+    pub fn with_next_crown(self) -> Self { Self { crown: self.crown.next(), ..self } }
+    pub fn with_next_relic(self) -> Self { Self { relic: self.relic.next(), ..self } }
+    pub fn with_next_offhand(self) -> Self { Self { offhand: self.offhand.next(), ..self } }
+    pub fn with_relics(self, relic: HeldRelic, offhand: HeldRelic) -> Self { Self { relic, offhand, ..self } }
 
-    pub fn with_next_vambrace(self) -> Self {
-        Self { vambrace: self.vambrace.next(), ..self }
-    }
-
-    pub fn with_next_girdle(self) -> Self {
-        Self { girdle: self.girdle.next(), ..self }
-    }
-
-    pub fn with_next_footwear(self) -> Self {
-        Self { footwear: self.footwear.next(), ..self }
-    }
-
-    pub fn with_next_crown(self) -> Self {
-        Self { crown: self.crown.next(), ..self }
-    }
-
-    pub fn with_next_relic(self) -> Self {
-        Self { relic: self.relic.next(), ..self }
+    pub fn armed(&self) -> bool {
+        !matches!(self.relic.martial_style(), MartialStyle::Unarmed) || !matches!(self.offhand.martial_style(), MartialStyle::Unarmed)
     }
 
     pub fn with_next_pigment(self) -> Self {
@@ -119,8 +115,8 @@ impl YouthAttire {
         }
     }
 
-    /// Returns a new immutable YouthAttire when the key corresponds to a wardrobe customization slot.
-    pub fn cycled_by_key(self, code: KeyCode) -> Option<Self> {
+    /// Returns a new immutable YouthAttire when the key corresponds to a wardrobe customization slot without disk I/O.
+    pub fn with_wardrobe_key(self, code: KeyCode) -> Option<Self> {
         let updated = match code {
             KeyCode::Digit1 => self.with_next_tunic(),
             KeyCode::Digit2 => self.with_next_vambrace(),
@@ -130,8 +126,15 @@ impl YouthAttire {
             KeyCode::Digit6 => self.with_next_pigment(),
             KeyCode::Digit7 => self.with_next_complexion(),
             KeyCode::KeyH | KeyCode::Digit8 => self.with_next_relic(),
+            KeyCode::KeyG | KeyCode::Digit9 => self.with_next_offhand(),
             _ => return None,
         };
+        Some(updated)
+    }
+
+    /// Returns a new immutable YouthAttire and persists it when the key corresponds to a wardrobe customization slot.
+    pub fn cycled_by_key(self, code: KeyCode) -> Option<Self> {
+        let updated = self.with_wardrobe_key(code)?;
         FileAttire::profile().save(&updated);
         Some(updated)
     }
@@ -143,7 +146,7 @@ impl YouthAttire {
             self.girdle.code(),
             self.footwear.code(),
             self.crown.code(),
-            self.relic.code(),
+            self.relic.code() + self.offhand.code() * 6,
             self.pigment.code(),
             self.complexion.code(),
             self.physique.code(),
@@ -164,7 +167,7 @@ impl Wardrobe for YouthAttire {
         self.tunic.emit(&scaled_pose, self.pigment, target);
         self.girdle.emit(&scaled_pose, target);
         self.footwear.emit(&scaled_pose, self.pigment, target);
-        self.vambrace.emit(&scaled_pose, self.complexion, self.pigment, self.relic, target);
+        self.vambrace.emit(&scaled_pose, sight, self.complexion, self.pigment, (self.relic, self.offhand), target);
         sight.emit_crown(self.crown, &scaled_pose, self.complexion, self.pigment, target);
     }
 }

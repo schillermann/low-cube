@@ -6,6 +6,7 @@ mod attire;
 mod aurora_cadence;
 mod aurora_canopy;
 mod avatar;
+mod axe;
 mod cadence;
 mod celestial;
 mod clock;
@@ -41,6 +42,7 @@ mod session;
 mod stride;
 mod surface;
 mod threshold;
+mod troupe;
 
 #[cfg(test)]
 mod allocation_audit;
@@ -79,6 +81,8 @@ mod tilt_tests;
 #[cfg(test)]
 mod traversal_tests;
 #[cfg(test)]
+mod troupe_tests;
+#[cfg(test)]
 mod visual_tests;
 
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -104,9 +108,9 @@ fn main() {
 
     let tron = tron_active();
     let title = if tron {
-        "Low-Cube [TRON] [WASD: Move, Space: Jump, Shift: Sneak, M: Mirror, 1-7: Attire, H: Relic, T: Tron, Esc: Exit]"
+        "Low-Cube [TRON] [WASD: Move, E: Pick Up, Q: Throw, M: Mirror, 1-7: Attire, G/H: Left/Right Hand, T: Tron, Esc: Exit]"
     } else {
-        "Low-Cube [WASD: Move, Space: Jump, Shift: Sneak, M: Mirror, 1-7: Attire, H: Relic, T: Tron, Esc: Exit]"
+        "Low-Cube [WASD: Move, E: Pick Up, Q: Throw, M: Mirror, 1-7: Attire, G/H: Left/Right Hand, T: Tron, Esc: Exit]"
     };
 
     let launch = SessionLaunch::with_tron(

@@ -27,9 +27,13 @@ impl CameraHorizon {
 
 impl ViewFrame for CameraHorizon {
     fn view_matrix_at(&self, position: Vec3, eye_height: f32) -> Mat4 {
-        let up = self.surface_rot * Vec3::Y;
-        let forward = self.view_rot * Vec3::NEG_Z;
-        let eye = position + up * eye_height;
+        let up = (self.surface_rot * Vec3::Y).normalize();
+        let forward = (self.view_rot * Vec3::NEG_Z).normalize();
+        let right = (self.view_rot * Vec3::X).normalize();
+        let flat_fwd = up.cross(right).normalize();
+        let down = (-forward.dot(up)).clamp(0.0, 1.0);
+        let forward_offset = 0.09 + down * 0.07;
+        let eye = position + up * eye_height + flat_fwd * forward_offset;
         let target = eye + forward;
         Mat4::look_at_rh(eye, target, up)
     }

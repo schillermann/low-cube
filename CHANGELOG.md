@@ -8,6 +8,21 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-20
+
+### Added
+- Spawn showcase figure troupe (`FigureTroupe`, `SpawnTroupe`, `GaitFigure`, `TroupeAvatar`) placing three animated character instances in front of the spawn point facing the player to demonstrate standing (*Stehen*), walking (*Gehen*), and running (*Laufen*) gaits with zero runtime heap allocations.
+- Interactive medieval ground weapons near spawn (`RelicSite`, `FieldAxe`, `FieldRelic`) featuring an authentic medieval bearded felling axe (`HeldRelic::WoodmanAxe`) and a medieval knightly sword (`HeldRelic::KnightlySword` with wheel pommel, leather grip, cruciform crossguard, and double-edged blade with fuller).
+- Dual-hand item holding (`YouthAttire` with `relic` for right hand and `offhand` for left hand, hotkeys `8`/`H` and `9`/`G`, plus `E` pickup and `Q` ballistic throw) allowing the avatar to hold and wield items in both hands simultaneously in First-Person and Third-Person views.
+- Weapon-specific mouse-click martial animations (`MartialStyle::LumberjackCleave` and `MartialStyle::SwordplaySlash`, `StrideRhythm::trigger_strike`, `cleave_arc`, `cleave_surge`) featuring a full-arm lateral woodcutter felling swing (*seitlicher Schwung*) with forward upper-arm surge and inward-and-forward axe shaft inclination stopping at the body center line (`x >= 0.0`), alongside a distinct diagonal sword cross-slash.
+- Dedicated `SightMode` module (`crates/client/src/attire/sight.rs`) and troupe/weapon test suite (`crates/client/src/troupe_tests.rs`).
+
+### Changed
+- Refined 3D anatomical character proportions: broad-shouldered V-taper torso (`TunicStyle::emit`), 3-tier sculpted head with full rear-cranium hair/headgear coverage (`CrownStyle::emit`), hip sockets aligned cleanly at the tunic skirt hem (`y = 0.78 m`) to prevent thigh-torso clipping, and low running elbows (`>= 0.20 m` below shoulders) with slight lateral abduction.
+- Seamless wrist-to-palm transition and tapered hand geometry (`VambraceStyle::emit`) with wristbands (`RawhideWraps`, `StuddedVambraces`) terminating cleanly behind the wrist joint (`z = -0.018 m`), tapered palm and 4-cm thumb, and demand-driven First-Person hand raising (`SightMode::arm_joints`) so empty hands hang naturally at the sides.
+- Pulled First-Person camera eye position slightly forward (`CameraHorizon`, `BodyPose::eye_origin`) and expanded `BodyEnvelope` radius (`0.30 m`) for clear downward foot visibility without chest occlusion.
+- Updated `docs/CHARACTER.md` with spawn showcase troupe, dual-wielding controls, interactive ground weapons, and martial kinematics documentation.
+
 ## [0.22.0] - 2026-10-19
 
 ### Added

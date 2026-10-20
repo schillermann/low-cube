@@ -44,7 +44,7 @@ impl BodyEnvelope {
 
     /// Secondary constructor calibrated for a youthful medieval avatar stature.
     pub fn youth() -> Self {
-        Self::new(0.22, 1.8)
+        Self::new(0.32, 1.8)
     }
 }
 
