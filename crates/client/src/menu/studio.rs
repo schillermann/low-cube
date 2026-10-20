@@ -145,7 +145,7 @@ impl WardrobeStudio {
         }
 
         ScreenBounds::new(0.45, -0.81, 0.97, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
-        PixelStamp::caption(gold).emit_centered("BODY PARTS SIZE / THICKNESS", 0.71, 0.75, target);
+        PixelStamp::caption(gold).emit_centered("BODY PARTS", 0.71, 0.75, target);
         for (idx, region) in BodyRegion::all().iter().enumerate() {
             let (top, s_dec, s_bar, s_inc, g_dec, g_bar, g_inc) = Self::region_rows(idx);
             let prop = self.attire.region_proportion(*region);

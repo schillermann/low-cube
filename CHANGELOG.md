@@ -8,6 +8,21 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-20
+
+### Added
+- Independent left-hand and right-hand weapon strike routing (`MouseButton::Left` for left offhand, `MouseButton::Right` for right relic, `StrideRhythm::trigger_left_strike`, `StrideRhythm::trigger_right_strike`, `BodyPose::with_strikes`) with centered HUD aiming crosshair.
+- Calibrated 3-phase axe and sword strike kinematics (`BodyPose::axe_joints`, `BodyPose::sword_joints`, `BodyPose::wrist_snap`, `HeldRelic::hand_roll`) featuring downward wrist hinge flexion, overhead semicircular axe cleave (`wind` -> `bow` -> `strike`) with outward hand/axe-head roll touching the crosshair at apex, and tucked-elbow diagonal sword cross-slash aligning the sword tip directly with the crosshair.
+- Four-phase two-legged jumping animation (`BodyPose::with_leap`, `AvatarPosture::advance_leap`, `GaitFigure::jumping_at`, `StudioAnimation::JumpingLeap`) modeling deep takeoff knee crouch, airborne full straight-leg backward extension, landing knee absorption, upright recovery, and $C^1$-continuous arm swing across the player avatar, the 4th spawn showcase figure (`SpawnTroupe`), and the 7-animation 3D Character Studio turntable (`TurntableStage`).
+- Character Studio showcase screenshot (`docs/images/character/character-studio.png`) and expanded English documentation in `docs/CHARACTER.md` and `README.md`.
+
+### Changed
+- Decoupled First-Person camera `eye_origin` from `leap` posture flex (`BodyPose`) and anchored anatomical torso/head vertical proportions above `hip_elevation()` (`TunicStyle::emit`, `GirdleStyle::emit`, `PolygonAccoutrement::emit`) so crouching and jumping bend only the knees without squashing the torso or detaching the head.
+- Shortened Character Studio right-hand panel title (`CharacterStudio`) to `"BODY PARTS"` so the header fits cleanly inside the border box.
+
+### Fixed
+- Resolved sprint-jump slope collision hang (`BodyEnvelope::unobstructed_aerial`, `BodyEnvelope::unobstructed_ground`, `AerialTrial::destination`) by evaluating radial clearance in two `0.16 m` half-steps and letting `AirborneFlight::advance` detect and land cleanly on inclined terrain up to `2:1` (`63°`).
+
 ## [0.24.0] - 2026-10-20
 
 ### Added

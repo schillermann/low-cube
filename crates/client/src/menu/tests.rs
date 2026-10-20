@@ -60,6 +60,9 @@ fn test_escape_key_opens_menu_and_character_stage_shows_full_height_single_perso
     let mut menu = EscapeMenu::closed();
 
     assert!(!menu.open() && surface.cursor_captured());
+    let mut crosshair_ui = QuadCapture::empty();
+    menu.emit_ui(&mut crosshair_ui);
+    assert_eq!(crosshair_ui.count(), 10, "Gameplay HUD must render a 5-part framed crosshair in the screen center");
     menu.toggle_escape(&surface);
     assert!(menu.open() && !surface.cursor_captured());
 

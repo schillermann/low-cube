@@ -131,3 +131,39 @@ fn test_avatar_expands_fov_when_sprinting() {
     let restored_matrix = avatar.view_projection_matrix(16.0 / 9.0);
     assert!((normal_matrix.col(0)[0] - restored_matrix.col(0)[0]).abs() < 1e-3);
 }
+
+#[test]
+fn test_player_avatar_leap_posture_crouches_extends_and_lands() {
+    let dt = 1.0 / 60.0;
+    let rhythm = crate::attire::StrideRhythm::idle();
+    let mut posture = AvatarPosture::standing();
+    let stand_pose = posture.body_pose(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY, rhythm);
+
+    // Takeoff: rapid upward velocity smoothly bends knees across initial launch frames
+    for _ in 0..4 {
+        posture = posture.advance_leap(Vec3::ZERO, Vec3::new(0.0, 3.0 * dt, 0.0), Vec3::Y, dt);
+    }
+    let takeoff_pose = posture.body_pose(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY, rhythm);
+    assert!(takeoff_pose.crouch_compression() > 0.25);
+
+    // Mid-air flight (including crossing zero velocity at the apex): legs extend smoothly backward without snapping
+    for i in 0..24 {
+        let v_up = 1.8 - (i as f32) * 0.15;
+        posture = posture.advance_leap(Vec3::ZERO, Vec3::new(0.0, v_up * dt, 0.0), Vec3::Y, dt);
+    }
+    let air_pose = posture.body_pose(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY, rhythm);
+    assert!(air_pose.leg_joints(1.0).1.z < stand_pose.leg_joints(1.0).1.z - 0.08);
+    assert_eq!(air_pose.eye_origin(), stand_pose.eye_origin(), "First-person eye_origin must remain locked to camera during jump");
+
+    // Touchdown: landing smoothly bends knees and then recovers to upright stand
+    for _ in 0..6 {
+        posture = posture.advance_leap(Vec3::ZERO, Vec3::ZERO, Vec3::Y, dt);
+    }
+    let land_pose = posture.body_pose(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY, rhythm);
+    assert!(land_pose.crouch_compression() > 0.25);
+    for _ in 0..50 {
+        posture = posture.advance_leap(Vec3::ZERO, Vec3::ZERO, Vec3::Y, dt);
+    }
+    let recovered_pose = posture.body_pose(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY, rhythm);
+    assert!(recovered_pose.crouch_compression() < 0.01);
+}

@@ -1,4 +1,4 @@
-use winit::event::{DeviceEvent, ElementState, KeyEvent, WindowEvent};
+use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -78,7 +78,7 @@ impl Session for GameSession {
                 let point = self.surface.normalize_cursor(position.x, position.y);
                 self.modal.move_cursor(point);
             }
-            WindowEvent::MouseInput { state, .. } => {
+            WindowEvent::MouseInput { state, button, .. } => {
                 if self.modal.open() {
                     if state == ElementState::Pressed {
                         let directive = self.modal.press_mouse(self.surface.as_ref(), self.avatar.as_mut());
@@ -90,7 +90,11 @@ impl Session for GameSession {
                     }
                 } else if state == ElementState::Pressed {
                     self.surface.capture_cursor();
-                    self.avatar.trigger_strike();
+                    match button {
+                        MouseButton::Left => self.avatar.trigger_left_strike(),
+                        MouseButton::Right => self.avatar.trigger_right_strike(),
+                        _ => {}
+                    }
                 }
             }
             WindowEvent::KeyboardInput {

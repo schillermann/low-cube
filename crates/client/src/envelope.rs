@@ -63,19 +63,20 @@ impl PhysicalEnvelope for BodyEnvelope {
         if tangent.length_squared() <= 1e-6 {
             return true;
         }
-        let probe = candidate + tangent.normalize() * self.radius;
-        let probe_surface = world.constrain_to_surface(probe, eye);
-        let probe_up = world.surface_up_at(probe_surface);
-        if up.dot(probe_up) < 0.7 {
+        let dir = tangent.normalize();
+        let mid_surface = world.constrain_to_surface(candidate + dir * (self.radius * 0.5), eye);
+        let probe_surface = world.constrain_to_surface(candidate + dir * self.radius, eye);
+        if up.dot(world.surface_up_at(probe_surface)) < 0.7 {
             return true;
         }
-        let step_ahead = SurfaceStep::new(surface_pos, probe_surface, up);
-        step_ahead.walkable_with(limit) && (probe_surface - surface_pos).dot(up) < self.height
+        SurfaceStep::new(surface_pos, mid_surface, up).walkable_with(limit)
+            && SurfaceStep::new(mid_surface, probe_surface, up).walkable_with(limit)
+            && (probe_surface - surface_pos).dot(up) < self.height
     }
 
     fn unobstructed_aerial(
         &self,
-        origin: Vec3,
+        _origin: Vec3,
         candidate: Vec3,
         tangent: Vec3,
         up: Vec3,
@@ -86,13 +87,18 @@ impl PhysicalEnvelope for BodyEnvelope {
         if tangent.length_squared() <= 1e-6 {
             return true;
         }
-        let probe = candidate + tangent.normalize() * self.radius;
+        let candidate_surf = world.constrain_to_surface(candidate, eye);
+        let base = if (candidate_surf - candidate).dot(up) > 0.0 { candidate_surf } else { candidate };
+        let dir = tangent.normalize();
+        let mid = base + dir * (self.radius * 0.5);
+        let probe = base + dir * self.radius;
+        let mid_surface = world.constrain_to_surface(mid, eye);
         let probe_surface = world.constrain_to_surface(probe, eye);
-        let clearance = SurfaceClearance::between(origin, probe, probe_surface, up, world);
+        let clearance = SurfaceClearance::between(base, probe, probe_surface, up, world);
         if !clearance.cliff_impact(limit) {
             return true;
         }
-        let origin_surf = world.constrain_to_surface(origin, eye);
-        SurfaceStep::new(origin_surf, probe_surface, up).walkable_with(limit)
+        SurfaceStep::new(candidate_surf, mid_surface, up).walkable_with(limit)
+            && SurfaceStep::new(mid_surface, probe_surface, up).walkable_with(limit)
     }
 }

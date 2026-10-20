@@ -133,14 +133,7 @@ impl<'a> StrideTrial for AerialTrial<'a> {
     }
 
     fn destination(&self) -> Vec3 {
-        let candidate = self.origin + self.tangent + self.vertical;
-        let surface_pos = self.world.constrain_to_surface(candidate, self.eye);
-        let penetration = (surface_pos - candidate).dot(self.up);
-        if penetration > 0.0 {
-            candidate + self.up * penetration
-        } else {
-            candidate
-        }
+        self.origin + self.tangent + self.vertical
     }
 }
 

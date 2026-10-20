@@ -22,6 +22,16 @@ impl ScreenPoint {
     pub fn horizontal_delta(self, previous: Self) -> f32 {
         self.x - previous.x
     }
+
+    /// Emits a high-contrast centered reticle crosshair with a center dot and four radial ticks.
+    pub fn emit_crosshair(self, target: &mut dyn MeshTarget) {
+        let (core, rim) = (Vec3::new(0.96, 0.94, 0.84), Vec3::new(0.08, 0.10, 0.14));
+        ScreenBounds::new(self.x - 0.0028, self.y - 0.0048, self.x + 0.0028, self.y + 0.0048).emit_framed(core, rim, 0.0014, target);
+        ScreenBounds::new(self.x - 0.022, self.y - 0.0022, self.x - 0.008, self.y + 0.0022).emit_framed(core, rim, 0.0014, target);
+        ScreenBounds::new(self.x + 0.008, self.y - 0.0022, self.x + 0.022, self.y + 0.0022).emit_framed(core, rim, 0.0014, target);
+        ScreenBounds::new(self.x - 0.0014, self.y - 0.036, self.x + 0.0014, self.y - 0.013).emit_framed(core, rim, 0.0014, target);
+        ScreenBounds::new(self.x - 0.0014, self.y + 0.013, self.x + 0.0014, self.y + 0.036).emit_framed(core, rim, 0.0014, target);
+    }
 }
 
 /// Axis-aligned Normalized Device Coordinate rectangle capable of hit-testing and self-drawing.

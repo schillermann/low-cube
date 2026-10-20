@@ -46,11 +46,10 @@ impl TunicStyle {
     /// Emits the full-volume 3D athletic torso, flared tunic skirt, shoulder caps, and Polygon-style body details.
     pub fn emit(self, pose: &BodyPose, pigment: PigmentSwatch, target: &mut dyn MeshTarget) {
         let frame = pose.torso_frame();
-        let crouch = pose.crouch_compression();
         let hip_y = pose.hip_elevation();
-        let waist_y = pose.torso_span(0.26 - crouch * 0.12);
-        let chest_y = pose.torso_span(0.54 - crouch * 0.30);
-        let sternum_y = pose.torso_span(0.72 - crouch * 0.42);
+        let waist_y = pose.torso_span(0.26);
+        let chest_y = pose.torso_span(0.54);
+        let sternum_y = pose.torso_span(0.72);
 
         let cloth = pigment.cloth();
         let trim = pigment.trim();
@@ -165,7 +164,7 @@ impl GirdleStyle {
     /// Emits the 3D waist belt, brass buckle, pouches, and Polygon-style back/hip gear.
     pub fn emit(self, pose: &BodyPose, target: &mut dyn MeshTarget) {
         let frame = pose.torso_frame();
-        let waist_y = pose.torso_span(0.26 - pose.crouch_compression() * 0.12);
+        let waist_y = pose.torso_span(0.26);
         let hide = Vec3::new(0.34, 0.21, 0.12);
         let brass = Vec3::new(0.78, 0.62, 0.24);
         let vest = Vec3::new(0.46, 0.28, 0.16);

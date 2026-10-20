@@ -159,11 +159,14 @@ fn test_sneak_paces_stride_distance() {
 fn test_sprint_jump_over_ramp_wedge_does_not_get_stuck() {
     let world = ObstacleWorld::with_block(Box::new(StoneBlock::wedge(0, 0, 0.0, WedgeHeading::North)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    let mut pos = world.constrain_to_surface(Vec3::new(0.5, 5.0, 0.1), 1.0);
+    // Start on flat ground before the ramp (z = -0.60) so the jump lands mid-slope on the wedge
+    let mut pos = world.constrain_to_surface(Vec3::new(0.5, 5.0, -0.60), 1.0);
     flight.jump();
-    let stride = Vec3::new(0.0, 0.0, 0.2); // sprint stride
-    for _ in 0..30 {
+    let stride = Vec3::new(0.0, 0.0, 0.16);
+    for _ in 0..35 {
+        let prev_z = pos.z;
         pos = flight.advance(1.0 / 60.0, pos, stride, &SprintGait::swift(), Vec3::Y, &world);
+        assert!(pos.z > prev_z + 0.05, "Sprint jump onto ramp slope must never stall, stalled at z = {}", pos.z);
     }
     assert!(pos.z > 2.0, "Avatar must traverse across and beyond the ramp wedge without hanging, got z = {}", pos.z);
 }

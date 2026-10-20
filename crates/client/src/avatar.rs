@@ -19,7 +19,8 @@ pub trait Avatar {
     fn rotate_view(&mut self, dx: f32, dy: f32);
     fn toggle_invert_y(&mut self);
     fn toggle_invert_x(&mut self);
-    fn trigger_strike(&mut self);
+    fn trigger_left_strike(&mut self);
+    fn trigger_right_strike(&mut self);
     fn apply_attire(&mut self, attire: YouthAttire);
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool;
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
@@ -79,17 +80,10 @@ impl PlanetaryAvatar {
 
     fn current_pose(&self) -> BodyPose {
         let view_rot = self.look.combine_with_surface(self.camera_rot);
-        self.posture.body_pose(
-            self.position,
-            self.camera_rot,
-            view_rot,
-            self.rhythm,
-        )
+        self.posture.body_pose(self.position, self.camera_rot, view_rot, self.rhythm)
     }
 
-    fn surface_up(&self) -> Vec3 {
-        self.surface_rot * Vec3::Y
-    }
+    fn surface_up(&self) -> Vec3 { self.surface_rot * Vec3::Y }
 
     fn reorient_surface(&mut self, target_up: Vec3, dt: f32) {
         let current_up = self.surface_up();
@@ -118,27 +112,19 @@ impl PlanetaryAvatar {
 }
 
 impl Avatar for PlanetaryAvatar {
-    fn rotate_view(&mut self, dx: f32, dy: f32) {
-        self.look.rotate(dx, dy);
+    fn rotate_view(&mut self, dx: f32, dy: f32) { self.look.rotate(dx, dy); }
+    fn toggle_invert_y(&mut self) { self.look.toggle_y(); }
+    fn toggle_invert_x(&mut self) { self.look.toggle_x(); }
+
+    fn trigger_left_strike(&mut self) {
+        if self.attire.left_armed() { self.rhythm = self.rhythm.trigger_left_strike(); }
     }
 
-    fn toggle_invert_y(&mut self) {
-        self.look.toggle_y();
+    fn trigger_right_strike(&mut self) {
+        if self.attire.right_armed() { self.rhythm = self.rhythm.trigger_right_strike(); }
     }
 
-    fn toggle_invert_x(&mut self) {
-        self.look.toggle_x();
-    }
-
-    fn trigger_strike(&mut self) {
-        if self.attire.armed() {
-            self.rhythm = self.rhythm.trigger_strike();
-        }
-    }
-
-    fn apply_attire(&mut self, attire: YouthAttire) {
-        self.attire = attire;
-    }
+    fn apply_attire(&mut self, attire: YouthAttire) { self.attire = attire; }
 
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
         if code == KeyCode::KeyM {
@@ -165,6 +151,7 @@ impl Avatar for PlanetaryAvatar {
         self.lens = order.advance_lens(self.lens, dt);
         self.tilt_radians *= 1.0 - (8.0 * dt).min(1.0);
         let next_pos = order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, 6.0, world);
+        self.posture = self.posture.advance_leap(self.position, next_pos, terrain_up, dt);
         self.rhythm = self.rhythm.advance(self.position, next_pos, terrain_up, dt);
         self.position = next_pos;
     }

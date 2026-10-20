@@ -16,11 +16,10 @@ impl PolygonAccoutrement {
         pigment: PigmentSwatch,
         target: &mut dyn MeshTarget,
     ) {
-        let crouch = pose.crouch_compression();
         let hip_y = pose.hip_elevation();
-        let waist_y = pose.torso_span(0.26 - crouch * 0.12);
-        let chest_y = pose.torso_span(0.54 - crouch * 0.30);
-        let sternum_y = pose.torso_span(0.72 - crouch * 0.42);
+        let waist_y = pose.torso_span(0.26);
+        let chest_y = pose.torso_span(0.54);
+        let sternum_y = pose.torso_span(0.72);
         let cloth = pigment.cloth();
         let trim = pigment.trim();
         let steel = Vec3::new(0.66, 0.70, 0.76);
@@ -107,9 +106,8 @@ impl PolygonAccoutrement {
         frame: &LimbFrame,
         target: &mut dyn MeshTarget,
     ) {
-        let crouch = pose.crouch_compression();
-        let waist_y = pose.torso_span(0.26 - crouch * 0.12);
-        let chest_y = pose.torso_span(0.54 - crouch * 0.30);
+        let waist_y = pose.torso_span(0.26);
+        let chest_y = pose.torso_span(0.54);
         let leather = Vec3::new(0.38, 0.23, 0.13);
         let dark_hide = Vec3::new(0.25, 0.15, 0.09);
         let brass = Vec3::new(0.84, 0.68, 0.24);

@@ -61,9 +61,9 @@ impl HeldRelic {
 
     pub fn martial_style(self) -> MartialStyle {
         match self {
-            Self::WoodmanAxe => MartialStyle::LumberjackCleave,
-            Self::KnightlySword => MartialStyle::SwordplaySlash,
-            Self::EmptyPalm | Self::QuarriedStone | Self::TimberTorch | Self::WoodenMallet => MartialStyle::Unarmed,
+            Self::EmptyPalm => MartialStyle::Unarmed,
+            Self::QuarriedStone | Self::WoodenMallet | Self::WoodmanAxe => MartialStyle::LumberjackCleave,
+            Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,
         }
     }
 
@@ -73,7 +73,7 @@ impl HeldRelic {
         match self {
             Self::EmptyPalm => {}
             Self::QuarriedStone => {
-                TaperedPrism::new(4, Vec3::new(gx - 0.015, -0.02, gz), Vec3::new(gx - 0.015, 0.09, gz), 0.048, 0.048, 0.048, 0.048, Vec3::new(0.55, 0.56, 0.58))
+                TaperedPrism::new(4, Vec3::new(gx - side * 0.015, -0.02, gz), Vec3::new(gx - side * 0.015, 0.09, gz), 0.048, 0.048, 0.048, 0.048, Vec3::new(0.55, 0.56, 0.58))
                     .emit(frame, true, target);
             }
             Self::TimberTorch => {

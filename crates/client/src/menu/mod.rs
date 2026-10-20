@@ -140,7 +140,7 @@ impl SessionModal for EscapeMenu {
 
     fn emit_ui(&self, target: &mut dyn MeshTarget) {
         match self.phase {
-            ModalPhase::Gameplay => {}
+            ModalPhase::Gameplay => ScreenPoint::center().emit_crosshair(target),
             ModalPhase::EscapePause => self.emit_pause_panel(target),
             ModalPhase::CharacterWardrobe => self.studio.emit_overlay(target),
         }
@@ -151,7 +151,6 @@ impl SessionModal for EscapeMenu {
     }
 
     fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, aspect: f32) {
-        if matches!(self.phase, ModalPhase::Gameplay) { return; }
         if matches!(self.phase, ModalPhase::CharacterWardrobe) {
             let mut stage_batch = CpuMeshBatch::empty();
             self.emit_studio(&mut stage_batch);

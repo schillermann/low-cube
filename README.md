@@ -25,6 +25,13 @@ Every cube world features six distinct faces, each with its own climate, terrain
 ### Defy Gravity
 Walk right up to the edge of the world and step over. Watch the horizon tilt as gravity seamlessly pivots 90 degrees beneath your feet. Throw arrows, pour water, or drop boulders off the edge and see them curve around the planetary corner into the adjacent gravitational field.
 
+### 3D Character Studio & Dual-Wielding Combat
+Press **`Esc`** to open the interactive **Character Studio**, customize your avatar across six medieval archetypes, eight skin complexions, clothing styles, and per-body-part **Size** & **Thickness** sliders on a 360° turntable, and wield weapons in both hands (**Left Click** / **Right Click**):
+
+[![3D Character Studio & Customization](docs/images/character/character-studio.png)](docs/CHARACTER.md)
+
+*See the [Character Concept & Wardrobe Customization Reference](docs/CHARACTER.md) for full details.*
+
 ### Dynamic Day/Night Cycle & Celestial Vault
 As the golden sun arcs across the celestial vault and slips beneath the horizon, warm atmospheric twilight yields to an expansive cosmic starfield illuminated by the cratered lunar sphere and shimmering polar auroras (*Aurora Borealis*) dancing across the nocturnal Arctic sky. With day length fully configurable (default: 20 minutes, see [Settings](docs/SETTINGS.md)), light touches only parts of the planet at a time while others freeze in nocturnal shadow. When darkness falls, aggressive predators emerge to hunt. If your shelter isn't fortified, your best recourse may be to sprint to the nearest edge and leap into the dawn of a sunlit face.
 

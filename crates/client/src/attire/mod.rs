@@ -121,9 +121,9 @@ impl YouthAttire {
         self.complexion == candidate
     }
 
-    pub fn armed(&self) -> bool {
-        !matches!(self.relic.martial_style(), MartialStyle::Unarmed) || !matches!(self.offhand.martial_style(), MartialStyle::Unarmed)
-    }
+    pub fn right_armed(&self) -> bool { !matches!(self.relic.martial_style(), MartialStyle::Unarmed) }
+    pub fn left_armed(&self) -> bool { !matches!(self.offhand.martial_style(), MartialStyle::Unarmed) }
+    pub fn armed(&self) -> bool { self.right_armed() || self.left_armed() }
 
     pub fn with_next_pigment(self) -> Self {
         Self { pigment: self.pigment.next(), ..self }
