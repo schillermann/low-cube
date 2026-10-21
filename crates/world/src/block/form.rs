@@ -29,12 +29,12 @@ impl FormBlock {
         }
     }
 
-    /// Secondary constructor for a 1.0m full cube form.
+    /// Secondary constructor for a 0.5m full cube form.
     pub fn cube(grid_u: i32, grid_v: i32, base: f32) -> Self {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(CuboidShape::full_cube()))
     }
 
-    /// Secondary constructor for a 0.5m shelf slab form.
+    /// Secondary constructor for a 0.25m shelf slab form.
     pub fn slab(grid_u: i32, grid_v: i32, base: f32) -> Self {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(CuboidShape::half_slab()))
     }
@@ -54,7 +54,7 @@ impl FormBlock {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(ValleyCorner::new(heading)))
     }
 
-    /// Secondary constructor for a 45° slope-aligned pyramidal apex peak form (0.5m height).
+    /// Secondary constructor for a 45° slope-aligned pyramidal apex peak form (0.25m height).
     pub fn peak(grid_u: i32, grid_v: i32, base: f32) -> Self {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(PyramidPeak::slope_aligned()))
     }
@@ -69,12 +69,12 @@ impl FormBlock {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(StairFlight::new(heading)))
     }
 
-    /// Secondary constructor for a gentle 2:1 lower ramp wedge (0.0m to 0.5m).
+    /// Secondary constructor for a gentle 2:1 lower ramp wedge (0.0m to 0.25m).
     pub fn gentle_lower_wedge(grid_u: i32, grid_v: i32, base: f32, heading: WedgeHeading) -> Self {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::gentle_wedge::GentleWedge::lower(heading)))
     }
 
-    /// Secondary constructor for a gentle 2:1 upper ramp wedge (0.5m to 1.0m).
+    /// Secondary constructor for a gentle 2:1 upper ramp wedge (0.25m to 0.5m).
     pub fn gentle_upper_wedge(grid_u: i32, grid_v: i32, base: f32, heading: WedgeHeading) -> Self {
         Self::new(GridCell::new(grid_u, grid_v), base, Box::new(super::gentle_wedge::GentleWedge::upper(heading)))
     }

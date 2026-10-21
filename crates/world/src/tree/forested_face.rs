@@ -42,10 +42,10 @@ impl ForestedFace {
             let ground = SpawnSanctuaryGround::new(meridian_ground, zone, 4.5);
 
             let border_margin = 4.0;
-            let min_coord = (-(half_size - border_margin)).floor() as i32;
-            let max_coord = (half_size - border_margin).floor() as i32;
+            let min_coord = (-(half_size - border_margin) * 2.0).floor() as i32;
+            let max_coord = ((half_size - border_margin) * 2.0).floor() as i32;
 
-            let step = if half_size >= 48.0 { 4 } else { 3 };
+            let step = if half_size >= 48.0 { 8 } else { 6 };
 
             let mut cell_u = min_coord;
             while cell_u <= max_coord {
@@ -53,8 +53,8 @@ impl ForestedFace {
                 while cell_v <= max_coord {
                     let hash = cell_u.wrapping_mul(73856093) ^ cell_v.wrapping_mul(19349663);
                     if ground.receptive(cell_u, cell_v, hash) {
-                        let tree_u = (cell_u as f32) + 0.5;
-                        let tree_v = (cell_v as f32) + 0.5;
+                        let tree_u = (cell_u as f32) * 0.5 + 0.25;
+                        let tree_v = (cell_v as f32) * 0.5 + 0.25;
                         let elevation = ground.ground_elevation(cell_u, cell_v);
                         trees.push(forest.plant(frame, tree_u, tree_v, elevation));
                     }

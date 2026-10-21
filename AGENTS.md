@@ -32,11 +32,11 @@ All git commit messages in this repository must strictly follow the **Convention
 
 ### Workflow: `create git message`
 Upon the prompt `create git message`, check the modified files:
-- **Markdown-Only Exception**: If only Markdown files (`*.md`) were modified, do NOT execute version increment or changelog update. Directly generate the commit message (typically of type `docs`).
+- **Markdown-Only Exception**: If only Markdown files (`*.md`) were modified, do NOT execute version increment or changelog update. Directly stage the files (`git add -A`) and execute the commit via CLI (`git commit -m ...`) using the generated commit message (typically of type `docs`).
 - **Standard Sequence** (when any code, assets, or non-Markdown files are modified):
   1. **Version Increment**: Increment the version number following Semantic Versioning across crate manifests (`crates/*/Cargo.toml`).
   2. **Changelog Update**: Update `CHANGELOG.md` according to Keep a Changelog conventions, promoting unreleased items under the new version header with the current date.
-  3. **Message Generation**: Generate the commit message following the format and types specified above.
+  3. **Message Generation & CLI Commit**: Generate the commit message following the format and types specified above, stage all modified and untracked files (`git add -A`), and commit them directly via CLI (`git commit`).
 
 ### CI Pipeline Conventions
 - **Markdown-Only Filter**: All CI/CD build and release workflows in `.github/workflows/` must configure `paths-ignore: ['**/*.md']` to prevent redundant builds and artifact releases when only documentation files are modified.

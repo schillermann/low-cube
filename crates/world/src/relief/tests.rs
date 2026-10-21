@@ -110,8 +110,8 @@ fn test_scale_64_mountain_elevation_reaches_authentic_height() {
         }
     }
     assert!(
-        max_observed_h >= 6.0,
-        "Scale 64 volcanic face must generate mountain heights of at least 6 blocks, observed {max_observed_h}"
+        max_observed_h >= 3.0,
+        "Scale 64 volcanic face must generate mountain heights of at least 6 half-meter blocks (3.0m), observed {max_observed_h}"
     );
 }
 

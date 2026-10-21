@@ -19,6 +19,7 @@ impl VoxelMountain {
             if u == 0 {
                 // Rock slab step with smooth vertical edges at the beginning of the mountain
                 blocks.push(Box::new(StoneBlock::dark_slab(center_u, center_v - 2, 0.0)));
+                blocks.push(Box::new(StoneBlock::dark_slab(center_u, center_v - 2, 0.25)));
             } else {
                 blocks.push(Box::new(StoneBlock::dark_wedge(center_u + u, center_v - 2, 0.0, WedgeHeading::North)));
             }
@@ -41,23 +42,23 @@ impl VoxelMountain {
             }
         }
 
-        // Tier 1 (base = 1.0, 3x3 footprint from -1 to +1):
-        blocks.push(Box::new(StoneBlock::wedge(center_u, center_v + 1, 1.0, WedgeHeading::South)));
-        blocks.push(Box::new(StoneBlock::wedge(center_u, center_v - 1, 1.0, WedgeHeading::North)));
-        blocks.push(Box::new(StoneBlock::wedge(center_u + 1, center_v, 1.0, WedgeHeading::West)));
-        blocks.push(Box::new(StoneBlock::wedge(center_u - 1, center_v, 1.0, WedgeHeading::East)));
+        // Tier 1 (base = 0.5, 3x3 footprint from -1 to +1):
+        blocks.push(Box::new(StoneBlock::wedge(center_u, center_v + 1, 0.5, WedgeHeading::South)));
+        blocks.push(Box::new(StoneBlock::wedge(center_u, center_v - 1, 0.5, WedgeHeading::North)));
+        blocks.push(Box::new(StoneBlock::wedge(center_u + 1, center_v, 0.5, WedgeHeading::West)));
+        blocks.push(Box::new(StoneBlock::wedge(center_u - 1, center_v, 0.5, WedgeHeading::East)));
 
         // Tier 1 Corners:
-        blocks.push(Box::new(StoneBlock::ridge_corner(center_u + 1, center_v + 1, 1.0, CornerHeading::SouthWest)));
-        blocks.push(Box::new(StoneBlock::ridge_corner(center_u - 1, center_v + 1, 1.0, CornerHeading::SouthEast)));
-        blocks.push(Box::new(StoneBlock::ridge_corner(center_u + 1, center_v - 1, 1.0, CornerHeading::NorthWest)));
-        blocks.push(Box::new(StoneBlock::ridge_corner(center_u - 1, center_v - 1, 1.0, CornerHeading::NorthEast)));
+        blocks.push(Box::new(StoneBlock::ridge_corner(center_u + 1, center_v + 1, 0.5, CornerHeading::SouthWest)));
+        blocks.push(Box::new(StoneBlock::ridge_corner(center_u - 1, center_v + 1, 0.5, CornerHeading::SouthEast)));
+        blocks.push(Box::new(StoneBlock::ridge_corner(center_u + 1, center_v - 1, 0.5, CornerHeading::NorthWest)));
+        blocks.push(Box::new(StoneBlock::ridge_corner(center_u - 1, center_v - 1, 0.5, CornerHeading::NorthEast)));
 
         // Tier 1 Interior Core:
-        blocks.push(Box::new(StoneBlock::cube(center_u, center_v, 1.0)));
+        blocks.push(Box::new(StoneBlock::cube(center_u, center_v, 0.5)));
 
-        // Tier 2 Summit Peak (base = 2.0, 1.0m crystalline snow pyramid apex):
-        blocks.push(Box::new(SnowBlock::peak(center_u, center_v, 2.0)));
+        // Tier 2 Summit Peak (base = 1.0, crystalline snow pyramid apex):
+        blocks.push(Box::new(SnowBlock::peak(center_u, center_v, 1.0)));
 
         VoxelCluster::new(face, frame, blocks)
     }

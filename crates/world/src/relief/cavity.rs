@@ -86,15 +86,17 @@ impl ZonedCavity {
 
 impl SubterraneanCavity for ZonedCavity {
     fn inspect_cavity(&self, u: i32, v: i32, consumer: &mut dyn FnMut(CavitySpan)) {
+        let wu = (u as f32) * 0.5;
+        let wv = (v as f32) * 0.5;
         let in_spawn = if self.half_size >= 24.0 {
-            u.abs() <= 2 && v.abs() <= 2
+            wu.abs() <= 2.0 && wv.abs() <= 2.0
         } else {
-            u.abs() <= 1 || v.abs() <= 1
+            wu.abs() <= 1.0 || wv.abs() <= 1.0
         };
         if in_spawn {
             return;
         }
-        let sample = self.sample_at(u as f32, v as f32, -1.0);
+        let sample = self.sample_at(wu, wv, -1.0);
         if sample.abs() < self.threshold {
             consumer(CavitySpan::new(-2.0, -1.0));
         }

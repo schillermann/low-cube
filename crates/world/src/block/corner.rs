@@ -28,19 +28,19 @@ impl CornerHeading {
 
     pub fn slope_elevation(&self, u: f32, v: f32) -> f32 {
         match self {
-            Self::NorthEast => (u + v) * 0.5,
-            Self::NorthWest => (1.0 - u + v) * 0.5,
-            Self::SouthEast => (u + 1.0 - v) * 0.5,
-            Self::SouthWest => (2.0 - u - v) * 0.5,
+            Self::NorthEast => (u + v) * 0.25,
+            Self::NorthWest => (1.0 - u + v) * 0.25,
+            Self::SouthEast => (u + 1.0 - v) * 0.25,
+            Self::SouthWest => (2.0 - u - v) * 0.25,
         }
     }
 
     pub fn corner_heights(&self) -> (f32, f32, f32, f32) {
         match self {
-            Self::NorthEast => (0.0, 0.5, 1.0, 0.5),
-            Self::NorthWest => (0.5, 0.0, 0.5, 1.0),
-            Self::SouthEast => (0.5, 1.0, 0.5, 0.0),
-            Self::SouthWest => (1.0, 0.5, 0.0, 0.5),
+            Self::NorthEast => (0.0, 0.25, 0.5, 0.25),
+            Self::NorthWest => (0.25, 0.0, 0.25, 0.5),
+            Self::SouthEast => (0.25, 0.5, 0.25, 0.0),
+            Self::SouthWest => (0.5, 0.25, 0.0, 0.25),
         }
     }
 }

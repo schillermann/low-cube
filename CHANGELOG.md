@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-21
+
+### Added
+- Rendered 12 high-resolution 3D character portraits (`docs/images/character/{knight,valkyrie,ranger,huntress,woodsman,herbalist,blacksmith,weaver,sentinel,shieldmaid,noble,lady}.png`) and added a complete male and female **Character Archetypes Gallery** with descriptions in `docs/CHARACTER.md`.
+
+### Changed
+- Scaled all full-cube and non-full-cube block shapes (`CuboidBlock`, `WedgeBlock`, `GentleWedgeBlock`, `GentleRidgeBlock`, `GentleValleyBlock`, `RidgeCornerBlock`, `ValleyCornerBlock`, `PyramidBlock`, `StairBlock`, `StairCornerBlock`, `GridCell`, `FormBlock`) to half size (`0.5m × 0.5m × 0.5m` with `0.25m` slabs/steps and `0.125m` quarter-height increments) and adapted planetary relief (`ElevatedFacet`, `ElevationStrata`, `SeamCorner`, `SubterraneanCavity`), biome factory (`BiomedWorld`), forestry ground checks (`FullCubeGround`, `MeridianGround`, `SpawnGround`, `SurfaceGround`, `WoodlandGround`, `ForestedFace`), and mountain/biome landscapes accordingly.
+- Refined the female bust in `TunicStyle::emit` and `PolygonAccoutrement::emit_tunic_details` into a clearly recognizable, non-pointy, continuous clothed 3-tier bust with a subtle center indentation (`x = 0.0`) and underbust bodice framing across all archetypes.
+- Removed the `Architectural Design` section from `docs/CHARACTER.md` and updated the `create git message` workflow in `AGENTS.md` to stage all files and execute the commit via CLI.
+
 ## [0.26.0] - 2026-10-21
 
 ### Added

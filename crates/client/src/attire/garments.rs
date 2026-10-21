@@ -84,11 +84,22 @@ impl TunicStyle {
             .emit(&frame, true, target);
 
         if fem {
-            TaperedPrism::new(8, Vec3::new(0.0, chest_y - pose.torso_size(0.09), 0.032), Vec3::new(0.0, chest_y + pose.torso_size(0.05), 0.022), pose.scale(0.152), pose.torso_depth(0.076), pose.scale(0.162), pose.torso_depth(0.088), chest_col)
-                .emit(&frame, true, target);
+            let under_col = chest_col * 0.72;
+            let upper_col = (chest_col * 1.08).min(Vec3::ONE);
+            let y0 = chest_y - pose.torso_size(0.115);
+            let y1 = chest_y - pose.torso_size(0.068);
+            let y2 = chest_y + pose.torso_size(0.018);
+            let y_top = chest_y + pose.torso_size(0.078);
             for side in [-1.0f32, 1.0f32] {
-                let bx = side * pose.scale(0.066);
-                TaperedPrism::new(6, Vec3::new(bx, chest_y - pose.torso_size(0.07), 0.052), Vec3::new(bx, chest_y + pose.torso_size(0.05), 0.042), pose.scale(0.078), pose.torso_depth(0.068), pose.scale(0.068), pose.torso_depth(0.058), chest_col)
+                let bx = side * pose.scale(0.058);
+                // Overlapping underbust bodice curve creating a continuous lower contour with a subtle center dip
+                TaperedPrism::new(8, Vec3::new(bx * 0.93, y0, 0.018), Vec3::new(bx, y1, 0.052), pose.scale(0.092), pose.torso_depth(0.048), pose.scale(0.102), pose.torso_depth(0.068), under_col)
+                    .emit(&frame, false, target);
+                // Wide overlapping rounded bust front (continuous across chest, non-pointy, slightly indented at x = 0)
+                TaperedPrism::new(8, Vec3::new(bx, y1, 0.052), Vec3::new(bx, y2, 0.058), pose.scale(0.102), pose.torso_depth(0.068), pose.scale(0.104), pose.torso_depth(0.072), chest_col)
+                    .emit(&frame, false, target);
+                // Soft upper bust slope tapering smoothly back to the upper chest
+                TaperedPrism::new(8, Vec3::new(bx, y2, 0.058), Vec3::new(bx * 0.90, y_top, 0.022), pose.scale(0.104), pose.torso_depth(0.072), pose.scale(0.092), pose.torso_depth(0.050), upper_col)
                     .emit(&frame, true, target);
             }
         }

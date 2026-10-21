@@ -19,7 +19,7 @@ impl ValleyCorner {
 
 impl VoxelShape for ValleyCorner {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        self.heading.valley_elevation(local_u, local_v)
+        self.heading.valley_elevation(local_u, local_v) * 0.5
     }
 
     fn shape_color(&self) -> Vec3 {
@@ -38,10 +38,10 @@ impl VoxelShape for ValleyCorner {
         let (v0, v1) = cell.v_bounds();
 
         let (h0, h1, h2, h3) = match self.heading {
-            CornerHeading::NorthEast => (0.0, 1.0, 1.0, 1.0),
-            CornerHeading::NorthWest => (1.0, 0.0, 1.0, 1.0),
-            CornerHeading::SouthEast => (1.0, 1.0, 0.0, 1.0),
-            CornerHeading::SouthWest => (1.0, 1.0, 1.0, 0.0),
+            CornerHeading::NorthEast => (0.0, 0.5, 0.5, 0.5),
+            CornerHeading::NorthWest => (0.5, 0.0, 0.5, 0.5),
+            CornerHeading::SouthEast => (0.5, 0.5, 0.0, 0.5),
+            CornerHeading::SouthWest => (0.5, 0.5, 0.5, 0.0),
         };
 
         let p0 = frame.point_at(u0, v0, base_elevation + h0);

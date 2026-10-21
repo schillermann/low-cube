@@ -27,13 +27,15 @@ impl PolygonAccoutrement {
         let brass = Vec3::new(0.86, 0.70, 0.26);
         let leather = Vec3::new(0.42, 0.26, 0.15);
 
+        let fem = pose.feminine();
         match style {
             TunicStyle::LinenDoublet => {
-                // Noble gold chain of office across chest and tailored peplum tabs
+                // Noble gold chain of office resting above the bust cleavage
+                let chain_y = if fem { chest_y + pose.torso_size(0.06) } else { chest_y - 0.06 };
                 for side in [-1.0f32, 1.0f32] {
                     AxialLimb::new(
                         Vec3::new(side * pose.scale(0.18), sternum_y - 0.08, -0.010),
-                        Vec3::new(0.0, chest_y - 0.06, 0.056),
+                        Vec3::new(0.0, chain_y, 0.056),
                         0.014,
                         0.016,
                         brass,
@@ -42,10 +44,10 @@ impl PolygonAccoutrement {
                 }
             }
             TunicStyle::QuiltedJerkin => {
-                // Woodsman leather suspenders with brass buckles and heavy work apron
+                // Woodsman leather suspenders framing the chest with brass buckles
                 for side in [-1.0f32, 1.0f32] {
-                    let sx = side * pose.scale(0.115);
-                    TaperedPrism::new(4, Vec3::new(sx, waist_y, 0.048), Vec3::new(sx * 1.15, sternum_y - 0.06, -0.015), 0.022, 0.012, 0.024, 0.012, leather)
+                    let sx = side * pose.scale(if fem { 0.145 } else { 0.115 });
+                    TaperedPrism::new(4, Vec3::new(sx, waist_y, 0.048), Vec3::new(sx * 1.10, sternum_y - 0.06, -0.015), 0.022, 0.012, 0.024, 0.012, leather)
                         .emit(frame, true, target);
                     TaperedPrism::new(4, Vec3::new(sx, chest_y - 0.02, 0.054), Vec3::new(sx, chest_y + 0.02, 0.054), 0.026, 0.014, 0.026, 0.014, brass)
                         .emit(frame, true, target);
@@ -53,11 +55,12 @@ impl PolygonAccoutrement {
             }
             TunicStyle::PeasantShirt => {
                 // Ranger diagonal chest baldric strap and long split trail coat tails
+                let strap_z = if fem { 0.082 } else { 0.048 };
                 AxialLimb::new(
                     Vec3::new(-pose.scale(0.19), sternum_y - 0.06, -0.018),
-                    Vec3::new(pose.scale(0.15), waist_y + 0.02, 0.048),
-                    0.022,
-                    0.022,
+                    Vec3::new(pose.scale(0.15), waist_y + 0.02, strap_z),
+                    0.020,
+                    0.020,
                     leather,
                 )
                 .emit(frame, true, target);
@@ -69,8 +72,8 @@ impl PolygonAccoutrement {
             }
             TunicStyle::PlateCuirass => {
                 // Armored Knight or Valkyrie sculpted steel plackart, multi-tiered pauldrons, and flowing back cape
-                let fem = pose.feminine();
-                TaperedPrism::new(6, Vec3::new(0.0, waist_y + 0.02, -0.020), Vec3::new(0.0, chest_y + 0.04, -0.028), pose.scale(if fem { 0.114 } else { 0.165 }), pose.torso_depth(0.102), pose.scale(if fem { 0.188 } else { 0.228 }), pose.torso_depth(0.128), steel)
+                let plackart_top = if fem { chest_y - pose.torso_size(0.10) } else { chest_y + 0.04 };
+                TaperedPrism::new(6, Vec3::new(0.0, waist_y + 0.02, -0.020), Vec3::new(0.0, plackart_top, -0.028), pose.scale(if fem { 0.110 } else { 0.165 }), pose.torso_depth(0.092), pose.scale(if fem { 0.152 } else { 0.228 }), pose.torso_depth(if fem { 0.104 } else { 0.128 }), steel)
                     .emit(frame, true, target);
                 for side in [-1.0f32, 1.0f32] {
                     let px = side * pose.scale(if fem { 0.192 } else { 0.245 });
@@ -84,10 +87,11 @@ impl PolygonAccoutrement {
                     .emit(frame, true, target);
             }
             TunicStyle::ForgeApron => {
-                // Blacksmith heavy heat-shielded leather apron from chest to knees + riveted shoulder guard
-                TaperedPrism::new(6, Vec3::new(0.0, hip_y - 0.24, 0.045), Vec3::new(0.0, chest_y + 0.05, 0.042), pose.scale(0.185), 0.025, pose.scale(0.155), 0.022, leather)
+                // Blacksmith heavy heat-shielded leather apron (underbust corset apron for Weaver) + riveted shoulder guard
+                let apron_top = if fem { chest_y - pose.torso_size(0.10) } else { chest_y + 0.05 };
+                TaperedPrism::new(6, Vec3::new(0.0, hip_y - 0.24, 0.045), Vec3::new(0.0, apron_top, 0.042), pose.scale(0.185), 0.025, pose.scale(if fem { 0.125 } else { 0.155 }), 0.022, leather)
                     .emit(frame, true, target);
-                TaperedPrism::new(6, Vec3::new(pose.scale(0.235), sternum_y - 0.14, -0.066), Vec3::new(pose.scale(0.215), sternum_y + 0.02, -0.066), pose.scale(0.095), pose.torso_depth(0.095), pose.scale(0.082), pose.torso_depth(0.085), dark_steel)
+                TaperedPrism::new(6, Vec3::new(pose.scale(if fem { 0.195 } else { 0.235 }), sternum_y - 0.14, -0.066), Vec3::new(pose.scale(if fem { 0.180 } else { 0.215 }), sternum_y + 0.02, -0.066), pose.scale(if fem { 0.072 } else { 0.095 }), pose.torso_depth(0.085), pose.scale(if fem { 0.064 } else { 0.082 }), pose.torso_depth(0.075), dark_steel)
                     .emit(frame, true, target);
             }
             TunicStyle::HeraldicTabard => {

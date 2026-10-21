@@ -51,12 +51,14 @@ impl ZonedRelief {
 
 impl ReliefElevation for ZonedRelief {
     fn elevation_at(&self, u: i32, v: i32) -> i32 {
-        let r = (u as f32).hypot(v as f32);
+        let wu = (u as f32) * 0.5;
+        let wv = (v as f32) * 0.5;
+        let r = wu.hypot(wv);
         let spawn_range = if self.half_size >= 48.0 { 16.0 } else if self.half_size >= 24.0 { 10.0 } else { 4.0 };
         let spawn_weight = ((r - 2.5) / spawn_range).clamp(0.0, 1.0);
         let spawn_smooth = spawn_weight * spawn_weight * (3.0 - 2.0 * spawn_weight);
 
-        let edge_dist = (self.half_size - (u as f32).abs()).min(self.half_size - (v as f32).abs());
+        let edge_dist = (self.half_size - wu.abs()).min(self.half_size - wv.abs());
         let border_weight = ((edge_dist - 1.5) / 8.0).clamp(0.0, 1.0);
         let border_smooth = border_weight * border_weight * (3.0 - 2.0 * border_weight);
 
@@ -65,7 +67,7 @@ impl ReliefElevation for ZonedRelief {
             return 0;
         }
 
-        let s = self.sample_at(u as f32, v as f32);
+        let s = self.sample_at(wu, wv);
         let normalized = (s + 1.0) * 0.5;
         let range = (self.max_elevation - self.min_elevation) as f32;
         let raw = (normalized * range * weight).round() as i32;
@@ -74,12 +76,12 @@ impl ReliefElevation for ZonedRelief {
 
 
     fn surface_height_at(&self, u: f32, v: f32) -> f32 {
-        let cell_u = u.floor() as i32;
-        let cell_v = v.floor() as i32;
+        let cell_u = (u * 2.0).floor() as i32;
+        let cell_v = (v * 2.0).floor() as i32;
         let h = self.elevation_at(cell_u, cell_v);
 
-        let frac_u = (u - cell_u as f32).clamp(0.0, 1.0);
-        let frac_v = (v - cell_v as f32).clamp(0.0, 1.0);
+        let frac_u = (u * 2.0 - cell_u as f32).clamp(0.0, 1.0);
+        let frac_v = (v * 2.0 - cell_v as f32).clamp(0.0, 1.0);
 
 
         let hn = self.elevation_at(cell_u, cell_v + 1);
@@ -89,29 +91,29 @@ impl ReliefElevation for ZonedRelief {
 
         let (dn, ds, de, dw) = (h - hn, h - hs, h - he, h - hw);
         if dn == 1 && ds <= 0 && de <= 0 && dw <= 0 {
-            return (h as f32) - frac_v;
+            return ((h as f32) - frac_v) * 0.5;
         }
         if ds == 1 && dn <= 0 && de <= 0 && dw <= 0 {
-            return (h as f32) - (1.0 - frac_v);
+            return ((h as f32) - (1.0 - frac_v)) * 0.5;
         }
         if de == 1 && dn <= 0 && ds <= 0 && dw <= 0 {
-            return (h as f32) - frac_u;
+            return ((h as f32) - frac_u) * 0.5;
         }
         if dw == 1 && dn <= 0 && ds <= 0 && de <= 0 {
-            return (h as f32) - (1.0 - frac_u);
+            return ((h as f32) - (1.0 - frac_u)) * 0.5;
         }
 
         if dn == 1 && de == 1 && ds <= 0 && dw <= 0 {
-            return (h as f32) - (frac_u + frac_v).min(1.0);
+            return ((h as f32) - (frac_u + frac_v).min(1.0)) * 0.5;
         }
         if dn == 1 && dw == 1 && ds <= 0 && de <= 0 {
-            return (h as f32) - ((1.0 - frac_u) + frac_v).min(1.0);
+            return ((h as f32) - ((1.0 - frac_u) + frac_v).min(1.0)) * 0.5;
         }
         if ds == 1 && de == 1 && dn <= 0 && dw <= 0 {
-            return (h as f32) - (frac_u + (1.0 - frac_v)).min(1.0);
+            return ((h as f32) - (frac_u + (1.0 - frac_v)).min(1.0)) * 0.5;
         }
         if ds == 1 && dw == 1 && dn <= 0 && de <= 0 {
-            return (h as f32) - ((1.0 - frac_u) + (1.0 - frac_v)).min(1.0);
+            return ((h as f32) - ((1.0 - frac_u) + (1.0 - frac_v)).min(1.0)) * 0.5;
         }
 
         if dn <= 0 && ds <= 0 && de <= 0 && dw <= 0 {
@@ -120,22 +122,19 @@ impl ReliefElevation for ZonedRelief {
             let hne = self.elevation_at(cell_u + 1, cell_v + 1);
             let hnw = self.elevation_at(cell_u - 1, cell_v + 1);
             if hse < h && hs == h && he == h {
-                return (h as f32) - frac_u.min(1.0 - frac_v);
+                return ((h as f32) - frac_u.min(1.0 - frac_v)) * 0.5;
             }
             if hsw < h && hs == h && hw == h {
-                return (h as f32) - (1.0 - frac_u).min(1.0 - frac_v);
+                return ((h as f32) - (1.0 - frac_u).min(1.0 - frac_v)) * 0.5;
             }
             if hne < h && hn == h && he == h {
-                return (h as f32) - frac_u.min(frac_v);
+                return ((h as f32) - frac_u.min(frac_v)) * 0.5;
             }
             if hnw < h && hn == h && hw == h {
-                return (h as f32) - (1.0 - frac_u).min(frac_v);
+                return ((h as f32) - (1.0 - frac_u).min(frac_v)) * 0.5;
             }
         }
 
-        h as f32
+        (h as f32) * 0.5
     }
-
-
-
 }

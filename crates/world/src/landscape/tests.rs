@@ -20,9 +20,9 @@ fn test_volcanic_caldera_elevations_and_rim() {
     let caldera = VolcanicCaldera::in_zone(base, ClimateZone::Volcanic, half);
     let frame = ClimateZone::Volcanic.surface_frame(half);
 
-    let test_pt = frame.point_at(3.0, 1.0, 0.0);
+    let test_pt = frame.point_at(1.75, 0.75, 0.0);
     let constrained = caldera.constrain(test_pt, 1.0);
-    assert!(frame.height_of(constrained) > half);
+    assert!(frame.height_of(constrained) > half + 1.0);
 
     let mut counter = QuadCounter { count: 0 };
     caldera.emit_surface(&mut counter);
@@ -36,9 +36,9 @@ fn test_desert_dunes_slopes_and_valley() {
     let dunes = DesertDunes::in_zone(base, ClimateZone::Desert, half);
     let frame = ClimateZone::Desert.surface_frame(half);
 
-    let peak_pt = frame.point_at(3.5, 4.5, 0.0);
+    let peak_pt = frame.point_at(1.75, 2.25, 0.0);
     let constrained = dunes.constrain(peak_pt, 1.0);
-    assert!(frame.height_of(constrained) >= half + 1.0);
+    assert!(frame.height_of(constrained) >= half + 1.5);
 
     let mut counter = QuadCounter { count: 0 };
     dunes.emit_surface(&mut counter);
@@ -52,9 +52,9 @@ fn test_glacial_massif_horns_and_cirque() {
     let glacial = GlacialMassif::in_zone(base, ClimateZone::Arctic, half);
     let frame = ClimateZone::Arctic.surface_frame(half);
 
-    let horn_pt = frame.point_at(2.5, 4.5, 0.0);
+    let horn_pt = frame.point_at(1.25, 2.25, 0.0);
     let constrained = glacial.constrain(horn_pt, 1.0);
-    assert!(frame.height_of(constrained) >= half + 1.0);
+    assert!(frame.height_of(constrained) >= half + 1.5);
 
     let mut counter = QuadCounter { count: 0 };
     glacial.emit_surface(&mut counter);
@@ -68,9 +68,9 @@ fn test_jungle_karst_towers_and_river_valley() {
     let karst = JungleKarst::in_zone(base, ClimateZone::Jungle, half);
     let frame = ClimateZone::Jungle.surface_frame(half);
 
-    let pinnacle_pt = frame.point_at(2.5, 4.5, 0.0);
+    let pinnacle_pt = frame.point_at(1.25, 2.25, 0.0);
     let constrained = karst.constrain(pinnacle_pt, 1.0);
-    assert!(frame.height_of(constrained) >= half + 1.0);
+    assert!(frame.height_of(constrained) >= half + 1.5);
 
     let mut counter = QuadCounter { count: 0 };
     karst.emit_surface(&mut counter);
@@ -84,9 +84,9 @@ fn test_steppe_terrace_mesa_and_coulee() {
     let terrace = SteppeTerrace::in_zone(base, ClimateZone::Steppe, half);
     let frame = ClimateZone::Steppe.surface_frame(half);
 
-    let mesa_pt = frame.point_at(4.5, 4.5, 0.0);
+    let mesa_pt = frame.point_at(2.25, 2.25, 0.0);
     let constrained = terrace.constrain(mesa_pt, 1.0);
-    assert!(frame.height_of(constrained) > half);
+    assert!(frame.height_of(constrained) > half + 1.0);
 
     let mut counter = QuadCounter { count: 0 };
     terrace.emit_surface(&mut counter);

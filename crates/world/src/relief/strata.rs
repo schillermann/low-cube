@@ -33,7 +33,7 @@ impl ReliefStrata {
         target: &mut dyn MeshTarget,
     ) {
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
-        let top_h = relief.elevation_at(u, v) as f32;
+        let top_h = (relief.elevation_at(u, v) as f32) * 0.5;
         let mut cavern_span: Option<CavitySpan> = None;
         cavity.inspect_cavity(u, v, &mut |span| cavern_span = Some(span));
 
@@ -42,7 +42,7 @@ impl ReliefStrata {
 
         if let Some(span) = cavern_span {
             let (floor, ceil) = span.inspect(|f, c| (f, c));
-            let effective_ceil = ceil.min(top_h - 1.0);
+            let effective_ceil = ceil.min(top_h - 0.5);
             if effective_ceil > floor {
                 self.emit_cavern(cell, frame, floor, effective_ceil, cave_floor_col, cave_wall_col, cave_ceil_col, target);
             }

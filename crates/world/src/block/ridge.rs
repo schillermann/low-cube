@@ -19,7 +19,7 @@ impl RidgeCorner {
 
 impl VoxelShape for RidgeCorner {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        self.heading.ridge_elevation(local_u, local_v)
+        self.heading.ridge_elevation(local_u, local_v) * 0.5
     }
 
     fn shape_color(&self) -> Vec3 {
@@ -41,7 +41,7 @@ impl VoxelShape for RidgeCorner {
             CornerHeading::SouthEast => (b1, b0, b2, -frame.bitangent(), frame.tangent()),
             CornerHeading::SouthWest => (b0, b3, b1, -frame.tangent(), -frame.bitangent()),
         };
-        let p_peak = b_peak + frame.normal() * 1.0;
+        let p_peak = b_peak + frame.normal() * 0.5;
         let slope_norm = (p_peak - b_1).cross(b_2 - b_1).normalize();
         target.push_quad(Quad::new(b_1, p_peak, b_2, b_2, slope_norm, color));
         target.push_quad(Quad::new(b_1, b_peak, p_peak, p_peak, w1, color));

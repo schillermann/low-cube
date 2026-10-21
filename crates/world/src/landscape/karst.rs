@@ -13,12 +13,12 @@ impl JungleKarst {
         let blocks: Vec<Box<dyn Block>> = vec![
             // Northwestern Karst Tower (granite base, loam summit, ascending stairs)
             Box::new(StoneBlock::cube(center_u - 1, center_v + 1, 0.0)),
-            Box::new(DirtBlock::cube(center_u - 1, center_v + 1, 1.0)),
+            Box::new(DirtBlock::cube(center_u - 1, center_v + 1, 0.5)),
             Box::new(DirtBlock::stair(center_u - 1, center_v + 2, 0.0, WedgeHeading::South)),
             Box::new(DirtBlock::ridge_corner(center_u - 2, center_v + 1, 0.0, CornerHeading::NorthEast)),
             // Southeastern Karst Tower
             Box::new(StoneBlock::cube(center_u + 1, center_v - 1, 0.0)),
-            Box::new(DirtBlock::cube(center_u + 1, center_v - 1, 1.0)),
+            Box::new(DirtBlock::cube(center_u + 1, center_v - 1, 0.5)),
             Box::new(DirtBlock::stair(center_u + 1, center_v - 2, 0.0, WedgeHeading::North)),
             Box::new(DirtBlock::ridge_corner(center_u + 2, center_v - 1, 0.0, CornerHeading::SouthWest)),
             // Karst Gorge Valley (incised tropical canyon flanked by valley corners)

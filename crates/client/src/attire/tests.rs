@@ -94,13 +94,13 @@ impl KeyboardControls for WalkEastControls {
 
 #[test]
 fn test_body_envelope_prevents_camera_from_clipping_into_block_wall() {
-    // Solid 1x1x1 stone cube occupies x in [1.0, 2.0], z in [0.0, 1.0]
+    // Solid 0.5x0.5x0.5 stone cube occupies x in [0.5, 1.0], z in [0.0, 0.5]
     let world = WallTestWorld::with_cube_at(1, 0);
-    let start = world.constrain_to_surface(Vec3::new(0.2, 5.0, 0.5), 1.0);
+    let start = world.constrain_to_surface(Vec3::new(0.0, 5.0, 0.25), 1.0);
     let mut avatar = PlanetaryAvatar::at(start);
     let controls = WalkEastControls;
 
-    // Walk continuously towards the block wall at x = 1.0 for 60 frames
+    // Walk continuously towards the block wall at x = 0.5 for 60 frames
     for _ in 0..60 {
         avatar.step_motion(1.0 / 60.0, &controls, &world);
     }
@@ -108,8 +108,8 @@ fn test_body_envelope_prevents_camera_from_clipping_into_block_wall() {
     let view_proj = avatar.view_projection_matrix(16.0 / 9.0);
     let cam_pos = view_proj.inverse().project_point3(Vec3::ZERO);
 
-    // Camera must stop outside the block wall (x = 1.0) with safe clearance > 0.15m
-    let wall_clearance = 1.0 - cam_pos.x;
+    // Camera must stop outside the block wall (x = 0.5) with safe clearance > 0.15m
+    let wall_clearance = 0.5 - cam_pos.x;
     assert!(wall_clearance >= 0.15, "Avatar camera must maintain safe body clearance, got {}", wall_clearance);
 }
 

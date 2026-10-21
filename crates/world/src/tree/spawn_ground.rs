@@ -30,8 +30,8 @@ impl<'a> PlantingGround for SpawnSanctuaryGround<'a> {
         }
 
         if self.zone == ClimateZone::Temperate {
-            let u = (cell_u as f32) + 0.5;
-            let v = (cell_v as f32) + 0.5;
+            let u = (cell_u as f32) * 0.5 + 0.25;
+            let v = (cell_v as f32) * 0.5 + 0.25;
             u.hypot(v) >= self.sanctuary_radius
         } else {
             true

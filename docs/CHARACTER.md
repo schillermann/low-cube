@@ -45,8 +45,9 @@ Pressing **`Escape`** during gameplay releases the mouse cursor and opens the mo
     5. `JumpingLeap`
     6. `AxeCleave`
     7. `SwordSlash`
-- **Left Panel — Character Body, Skin Color & Clothing**:
-  - **Character Body Archetypes ([`AvatarArchetype`](../crates/client/src/menu/archetype.rs))**: 6 distinct medieval archetypes (`KNIGHT`, `RANGER`, `WOODSMAN`, `BLACKSMITH`, `SENTINEL`, `NOBLE`), each configuring unique 3D armor/garments, headgear, back gear, and anatomy proportions.
+- **Left Panel — Character Body, Gender, Skin Color & Clothing**:
+  - **Character Body Archetypes ([`AvatarArchetype`](../crates/client/src/menu/archetype.rs))**: 6 distinct medieval archetypes, each available in both **Male** (`KNIGHT`, `RANGER`, `WOODSMAN`, `BLACKSMITH`, `SENTINEL`, `NOBLE`) and **Female** (`VALKYRIE`, `HUNTRESS`, `HERBALIST`, `WEAVER`, `SHIELDMAID`, `LADY`) variants with unique 3D garments, headgear, back gear, and anatomy proportions.
+  - **Gender Selection (`MALE` / `FEMALE`)**: Switches between athletic V-taper masculine proportions and hourglass A-line feminine proportions with a continuous, rounded, center-indented clothed bust contour and braided/crowned hairstyles.
   - **Skin Color ([`ComplexionSwatch`](../crates/client/src/attire/palette.rs))**: 8 selectable skin tones (`BIRCH`, `MEADOW`, `AMBER`, `UMBER`, `PORCELAIN`, `OLIVE`, `BRONZE`, `EBONY`).
   - **Clothing**: Interactive buttons to cycle `TUNIC`, `SLEEVES`, `BELT`, `BOOTS`, `HEADGEAR`, and `DYE COLOR`.
 - **Right Panel — Body Parts (`SIZE` & `THICKNESS`)**:
@@ -54,7 +55,67 @@ Pressing **`Escape`** during gameplay releases the mouse cursor and opens the mo
 
 ---
 
-## 3. Wardrobe Hotkeys, Dual-Wielding & Interactive Weapons
+## 3. Character Archetypes Gallery (Male & Female)
+
+All 6 archetypes in [`AvatarArchetype`](../crates/client/src/menu/archetype.rs) provide tailored male and female appearances:
+
+### 3.1 Knight & Valkyrie (`AvatarArchetype::Knight`)
+
+| **KNIGHT** (Male) | **VALKYRIE** (Female) |
+| :---: | :---: |
+| ![Knight](images/character/knight.png) | ![Valkyrie](images/character/valkyrie.png) |
+
+- **KNIGHT**: Clad in a full steel **Plate Cuirass** with multi-tiered steel and brass pauldrons, a **Visored Helm** with crimson crest plume, **Plate Gauntlets**, **Knightly Belt** with steel tassets, **Plate Greaves**, and a flowing **Madder Crimson** cape (`Porcelain` complexion, broad-shouldered knightly build).
+- **VALKYRIE**: Wears a golden-winged **Valkyrie Diadem** with long golden braids (`VisoredHelm` feminine variant), a sculpted steel **Plate Cuirass** with an underbust steel plackart and contoured metallic bust, **Plate Gauntlets**, **Knightly Belt** with hip tassets, **Plate Greaves**, and an **Ochre Gold** A-line skirt and cape (`Porcelain` complexion).
+
+### 3.2 Ranger & Huntress (`AvatarArchetype::Ranger`)
+
+| **RANGER** (Male) | **HUNTRESS** (Female) |
+| :---: | :---: |
+| ![Ranger](images/character/ranger.png) | ![Huntress](images/character/huntress.png) |
+
+- **RANGER**: Outfitted for woodland stealth in a **Forest Moss Peasant Shirt** with split trail coat tails and diagonal leather baldric strap, a **Medieval Gugel** hood with face mask and feather, **Rawhide Wraps**, **Pouched Girdle** with a strapped **Back Quiver** and feathered arrows, and soft leather **Turnshoes** (`Meadow` complexion, agile long-legged build).
+- **HUNTRESS**: Features a **Forest Moss** feathered hunting cap with twin shoulder-length braids (`MedievalGugel` feminine variant), a tailored **Peasant Shirt** with a contoured bust and diagonal leather baldric strap, **Rawhide Wraps**, **Pouched Girdle** with **Back Quiver**, and **Turnshoes** (`Meadow` complexion).
+
+### 3.3 Woodsman & Herbalist (`AvatarArchetype::Woodsman`)
+
+| **WOODSMAN** (Male) | **HERBALIST** (Female) |
+| :---: | :---: |
+| ![Woodsman](images/character/woodsman.png) | ![Herbalist](images/character/herbalist.png) |
+
+- **WOODSMAN**: Built for heavy timber work with a **Russet Bark Quilted Jerkin** and brass-buckled leather suspenders, a **Merchant Cap** with a full beard, **Bare Forearms** with leather wrist straps, an **Unbelted Waist** carrying a heavy **Timber Backpack** with bedroll, and **Laced Boots** (`Amber` complexion, stocky muscular build).
+- **HERBALIST**: Wears a **Russet Bark** headband with long braided locks (`MerchantCap` feminine variant), a fitted **Quilted Jerkin** with wide-set leather suspenders framing the bust, **Bare Forearms**, a **Timber Backpack** with bedroll, and **Laced Boots** (`Birch` complexion).
+
+### 3.4 Blacksmith & Weaver (`AvatarArchetype::Blacksmith`)
+
+| **BLACKSMITH** (Male) | **WEAVER** (Female) |
+| :---: | :---: |
+| ![Blacksmith](images/character/blacksmith.png) | ![Weaver](images/character/weaver.png) |
+
+- **BLACKSMITH**: Protected against forge heat by a **Charcoal Slate** tunic beneath a heavy full-chest leather **Forge Apron** and asymmetrical riveted dark-steel shoulder guard, **Smith Goggles** resting on the brow with a braided forge beard, heavy **Forge Gloves**, **Forge Belt** with iron hammer loop and tool pouch, and steel-toed **Forge Boots** (`Umber` complexion, heavy-set brawny physique).
+- **WEAVER**: Styled with a high artisan topknot bun and golden hairband (`SmithGoggles` feminine variant), a **Madder Crimson** bodice with **Puffed Sleeves**, an underbust leather **Forge Apron** and shoulder guard, **Knotted Cord** girdle with side pouch, and **Turnshoes** (`Amber` complexion).
+
+### 3.5 Sentinel & Shieldmaid (`AvatarArchetype::Sentinel`)
+
+| **SENTINEL** (Male) | **SHIELDMAID** (Female) |
+| :---: | :---: |
+| ![Sentinel](images/character/sentinel.png) | ![Shieldmaid](images/character/shieldmaid.png) |
+
+- **SENTINEL**: A steadfast garrison guard wearing an **Ochre Gold Heraldic Tabard** over a dark-steel chainmail skirt and steel gorget, a wide-brimmed steel **Kettle Helm** with cheek guards and mustache, **Studded Vambraces**, **Garrison Belt** with buckle and rations pouch, and **Garrison Boots** (`Bronze` complexion, sturdy compact build).
+- **SHIELDMAID**: Wears a steel-and-gold warrior circlet with long dark braids (`KettleHelm` feminine variant), a **Woad Indigo Heraldic Tabard** with steel gorget and chainmail skirt hem, **Studded Vambraces**, **Garrison Belt**, and **Garrison Boots** (`Bronze` complexion).
+
+### 3.6 Noble & Lady (`AvatarArchetype::Noble`)
+
+| **NOBLE** (Male) | **LADY** (Female) |
+| :---: | :---: |
+| ![Noble](images/character/noble.png) | ![Lady](images/character/lady.png) |
+
+- **NOBLE**: Dressed in courtly **Woad Indigo Linen Doublet** with a gold chain of office across the chest, **Puffed Sleeves** with gold cuffs, a feathered **Squire Crop** beret with goatee, **Knotted Cord** belt with crimson velvet coin purse, and gold-trimmed **Cuffed Boots** (`Birch` complexion, balanced slender build).
+- **LADY**: Adorned with a golden **Royal Coronet** and flowing silk veil (`SquireCrop` feminine variant), a **Madder Crimson Linen Doublet** and A-line courtly gown with a high gold collar chain above the bust, **Puffed Sleeves**, **Knotted Cord** belt with velvet purse, and **Cuffed Boots** (`Porcelain` complexion).
+
+---
+
+## 4. Wardrobe Hotkeys, Dual-Wielding & Interactive Weapons
 
 Players can also customize their character live during gameplay using keyboard hotkeys or pick up medieval weapons resting on the ground near spawn. Every wardrobe change is immediately persisted to `character.toml` via [`FileAttire`](../crates/client/src/attire/file_attire.rs) and encoded into a compact 9-byte array (`[u8; 9]`) for multiplayer synchronization.
 
@@ -70,6 +131,7 @@ Players can also customize their character live during gameplay using keyboard h
 | **`7`** | **Complexion & Stature** | [`ComplexionSwatch`](../crates/client/src/attire/palette.rs)<br>[`YouthPhysique`](../crates/client/src/attire/proportion.rs) | **8 Skin Tones**: Birch, Meadow, Amber, Umber, Porcelain, Olive, Bronze, Ebony<br>**Per-Region Proportions**: Head, Torso, Arms, and Legs (`SIZE` & `THICKNESS`) |
 | **`8` / `H`** | **Right-Hand Relic** | [`HeldRelic`](../crates/client/src/attire/relic.rs) | • `0`: **Empty Palm** • `1`: **Quarried Stone** • `2`: **Timber Torch**<br>• `3`: **Wooden Mallet** • `4`: **Woodman Axe** • `5`: **Knightly Sword** |
 | **`9` / `G`** | **Left-Hand Relic** | [`HeldRelic`](../crates/client/src/attire/relic.rs) | Independent cycling of all 6 [`HeldRelic`](../crates/client/src/attire/relic.rs) items in the left hand (`offhand`) for full dual-wielding. |
+| **`F`** | **Gender Toggle** | [`YouthPhysique`](../crates/client/src/attire/proportion.rs) | Toggles between **Male** and **Female** character anatomy, garments, and headgear variants. |
 | **`E`** | **Pick Up Weapon** | [`FieldAxe`](../crates/client/src/axe.rs) | Picks up the medieval **Woodman Axe** or **Knightly Sword** near spawn into the next free hand (right hand first, then left hand). |
 | **`Q`** | **Throw Weapon** | [`FieldAxe`](../crates/client/src/axe.rs) | Throws a wielded weapon forward on a ballistic arc with planetary gravity and spin until it lands back on the terrain. |
 | **Left Click** | **Left-Hand Strike** | [`Avatar::trigger_left_strike`](../crates/client/src/avatar.rs) | Strikes with the weapon/tool held in the **left hand** (`offhand`), converging onto the center crosshair. |
@@ -78,9 +140,9 @@ Players can also customize their character live during gameplay using keyboard h
 
 ---
 
-## 4. Biomechanics, Proportions & Martial Kinematics
+## 5. Biomechanics, Proportions & Martial Kinematics
 
-### 4.1 Seamless Wrist, Tapered Hand & Dual-Hand Grip ([`VambraceStyle::emit`](../crates/client/src/attire/hands.rs))
+### 5.1 Seamless Wrist, Tapered Hand & Dual-Hand Grip ([`VambraceStyle::emit`](../crates/client/src/attire/hands.rs))
 - **Decoupled Forearm & Hand Frames**: The forearm and bracer (`forearm_frame`) align strictly along the bone vector from `elbow_world` to `wrist_world`, while the hand (`arm_frame`) pivots naturally at the wrist joint (`-0.020..0.004 m`) and flows seamlessly into the palm (`0.0..0.064 m`) without gaps.
 - **Downward Wrist Hinge (`wrist_snap`)**: During an axe or sword strike, the hand hinges downward at the wrist (`LimbFrame::pitched(wrist_snap)`) so the weapon tilts forward for extended reach toward trees or opponents.
 - **Tapered Palm, Thumb & Fingers**: The palm narrows from wrist (`0.022 m`) to knuckles (`0.010 m`), the thumb (`~4 cm`) tapers from `0.0110 m` to `0.0042 m`, and the 4 fingers taper across two phalanges from `0.0094 m` through `0.0066 m` to slender fingertips (`0.0036 m`).
@@ -89,7 +151,7 @@ Players can also customize their character live during gameplay using keyboard h
   - **Sprinting (`0.96`)**: Elbows stay low (`>= 0.20 m` below shoulders) while abducting slightly outward laterally, and all 5 fingers clench into an athletic running fist.
   - **Holding a Relic (`0.88`)**: Left and/or right hand fingers wrap firmly around the grip pocket (`gx = -side * 0.025 m`, `gz = 0.054 m`).
 
-### 4.2 Weapon-Specific Martial Animations ([`MartialStyle`](../crates/client/src/attire/relic.rs), [`BodyPose::external_arm`](../crates/client/src/attire/pose.rs), [`BodyPose::first_person_arm`](../crates/client/src/attire/pose.rs))
+### 5.2 Weapon-Specific Martial Animations ([`MartialStyle`](../crates/client/src/attire/relic.rs), [`BodyPose::external_arm`](../crates/client/src/attire/pose.rs), [`BodyPose::first_person_arm`](../crates/client/src/attire/pose.rs))
 - **Medieval Woodman's Axe (`HeldRelic::WoodmanAxe` -> `MartialStyle::LumberjackCleave`)**:
   - Modeled after a historical medieval bearded felling axe with a curved ash-wood helve (`38 cm`), forged iron socket with poll, downward-hooked beard, and convex honed steel cutting edge.
   - **Overhead Semicircular Swing & Outward Hand Roll**: Striking lifts the forearm high upward during wind-up (`wind`) and swings it with momentum in a smooth semicircular arc (`bow` -> `strike`) downward while rotating the hand and axe head laterally outward (`roll_y`), bringing the cutting edge directly onto the center HUD crosshair at full strike (`c = 0.68`).
@@ -97,22 +159,22 @@ Players can also customize their character live during gameplay using keyboard h
   - Modeled with an octagonal iron wheel pommel, leather-bound grip, cruciform crossguard, and a double-edged steel blade (`68 cm`) with a central fuller tapering to an acute point.
   - **Tucked-Elbow Forward Slash to Crosshair**: Striking keeps the elbow tucked inward (`elbow_x` never flares outward) while driving the forearm forward and snapping the wrist downward (`wrist_snap = 1.32 rad`) so the sword tip tilts far forward and touches the exact center of the HUD crosshair (`< 5 mm` deviation) at full strike.
 
-### 4.3 Two-Legged Jumping Kinematics & V-Taper Torso ([`BodyPose::leg_joints`](../crates/client/src/attire/pose.rs), [`AvatarPosture::advance_leap`](../crates/client/src/posture.rs))
+### 5.3 Two-Legged Jumping Kinematics & V-Taper Torso ([`BodyPose::leg_joints`](../crates/client/src/attire/pose.rs), [`AvatarPosture::advance_leap`](../crates/client/src/posture.rs))
 - **Four-Phase Athletic Jump Cycle**: Both for the player (`AvatarPosture::advance_leap`), the 4th spawn showcase character (`GaitFigure::jumping_at`), and the Character Studio (`StudioAnimation::JumpingLeap`), jumping executes a smooth $C^1$-continuous 4-phase sequence:
   1. **Takeoff Knee Bend**: Both hips and knees flex deeply (`> 70°` knee bend, lowering the pelvis while keeping the torso at full anatomical height and feet planted on the ground).
   2. **Airborne Extension**: Both legs extend straight and slightly backward (`theta_hip < 0`, `theta_knee -> 0`) with plantarflexed toes while leaping upward/forward and smoothly swinging the arms.
   3. **Landing Cushion**: Touchdown compresses both knees deeply again to absorb impact.
   4. **Upright Recovery**: Smoothly straightens back to the standing posture while keeping the neck and head (`BodyPose::crown_frame`) welded to the shoulders at all times.
 
-### 4.4 Physical Body Envelope ([`BodyEnvelope`](../crates/client/src/envelope.rs))
+### 5.4 Physical Body Envelope ([`BodyEnvelope`](../crates/client/src/envelope.rs))
 - Wraps the planetary surface constraint with an 8-point horizontal octagon (`radius = 0.30 m`) around the avatar's waist and chest (`+0.35 m` above feet).
-- Prevents the First-Person camera and upper torso from clipping into `1×1×1` solid walls or tree trunks while preserving smooth lateral wall-sliding.
+- Prevents the First-Person camera and upper torso from clipping into `0.5×0.5×0.5` solid walls or tree trunks while preserving smooth lateral wall-sliding.
 
 ---
 
-## 5. Profile Persistence (`character.toml`) & Multiplayer Codec
+## 6. Profile Persistence (`character.toml`) & Multiplayer Codec
 
-Whenever a wardrobe key (`1`–`9`, `G`, or `H`) is pressed, [`FileAttire`](../crates/client/src/attire/file_attire.rs) saves the configuration to `character.toml` in the working directory:
+Whenever a wardrobe key (`1`–`9`, `F`, `G`, or `H`) is pressed, [`FileAttire`](../crates/client/src/attire/file_attire.rs) saves the configuration to `character.toml` in the working directory:
 
 ```toml
 # Medieval Youth Avatar Profile
@@ -129,108 +191,3 @@ physique = 0
 ```
 
 Both the right-hand `relic` (`0..=5`) and left-hand `offhand` (`0..=5`) are packed into the `relic` byte as `relic.code() + offhand.code() * 6` (`0..36`). For network transmission between multiplayer peers, [`AttireProfile::encode_multiplayer`](../crates/client/src/attire/file_attire.rs) serializes the entire appearance into a deterministic 9-byte packet (`[u8; 9]`), which peers decode into an immutable [`YouthAttire`](../crates/client/src/attire/mod.rs) value object and render via `SightMode::LookingGlassSight`.
-
----
-
-## 6. Architectural Design (Pure OOP & Elegant Objects)
-
-In compliance with [AGENTS.md](../AGENTS.md), all character, studio, troupe, and relic site entities are immutable or encapsulated domain objects that communicate via trait interfaces (`Wardrobe`, `AttireProfile`, `FacetedSolid`, `FigureTroupe`, `RelicSite`, `SessionModal`) without getters, setters, or procedural utility classes:
-
-```mermaid
-classDiagram
-    class Wardrobe {
-        <<interface>>
-        +emit(pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget)
-    }
-
-    class SessionModal {
-        <<interface>>
-        +open() bool
-        +toggle_escape(surface: &dyn PlatformSurface)
-        +press_mouse(surface: &dyn PlatformSurface, avatar: &mut dyn Avatar) ModalDirective
-        +step(dt: f32)
-        +emit_ui(target: &mut dyn MeshTarget)
-        +emit_studio(target: &mut dyn MeshTarget)
-    }
-
-    class FigureTroupe {
-        <<interface>>
-        +step(dt: f32)
-        +trigger_left_strike()
-        +trigger_right_strike()
-        +apply_attire(attire: YouthAttire)
-        +sync_wardrobe(code: KeyCode)
-        +sync_relic(relics: (HeldRelic, HeldRelic))
-        +emit(target: &mut dyn MeshTarget)
-    }
-
-    class RelicSite {
-        <<interface>>
-        +register_key(code: KeyCode) bool
-        +step_near_avatar(avatar_pos: Vec3, surface_rot: Quat, view_rot: Quat, dt: f32, world: &dyn PlanetaryWorld) Option~(HeldRelic, HeldRelic)~
-        +emit(target: &mut dyn MeshTarget)
-    }
-
-    class EscapeMenu {
-        -phase: ModalPhase
-        -pointer: ScreenPoint
-        -studio: WardrobeStudio
-    }
-
-    class WardrobeStudio {
-        -attire: YouthAttire
-        -archetype: AvatarArchetype
-        -stage: TurntableStage
-        -pointer: ScreenPoint
-        -dragging: bool
-    }
-
-    class YouthAttire {
-        -tunic: TunicStyle
-        -vambrace: VambraceStyle
-        -girdle: GirdleStyle
-        -footwear: FootwearStyle
-        -crown: CrownStyle
-        -relic: HeldRelic
-        -offhand: HeldRelic
-        -pigment: PigmentSwatch
-        -complexion: ComplexionSwatch
-        -physique: YouthPhysique
-        +with_wardrobe_key(code: KeyCode) Option~YouthAttire~
-        +cycled_by_key(code: KeyCode) Option~YouthAttire~
-        +emit(pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget)
-    }
-
-    class BodyPose {
-        -position: Vec3
-        -surface_rot: Quat
-        -view_rot: Quat
-        -eye_height: f32
-        -leap: f32
-        -rhythm: StrideRhythm
-        -physique: YouthPhysique
-        +torso_frame() LimbFrame
-        +crown_frame() LimbFrame
-        +leg_joints(side: f32) (Vec3, Vec3, Vec3, Vec3)
-        +external_arm(side: f32, holding: bool, martial: MartialStyle) (Vec3, Vec3, LimbFrame, f32)
-        +first_person_arm(side: f32, martial: MartialStyle) (Vec3, Vec3, LimbFrame, f32)
-    }
-
-    class SpawnTroupe {
-        -figures: [GaitFigure; 4]
-        -attire: YouthAttire
-    }
-
-    class FieldAxe {
-        -relics: [FieldRelic; 2]
-        -command: RelicCommand
-    }
-
-    Wardrobe <|.. YouthAttire
-    SessionModal <|.. EscapeMenu
-    EscapeMenu *-- WardrobeStudio
-    FigureTroupe <|.. SpawnTroupe
-    RelicSite <|.. FieldAxe
-    YouthAttire --> BodyPose : scales & emits along
-    SpawnTroupe --> YouthAttire : synchronizes & renders
-```

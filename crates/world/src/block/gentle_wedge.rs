@@ -22,23 +22,23 @@ impl GentleWedge {
         }
     }
 
-    /// Secondary constructor for lower half of a 2-block run (0.0m to 0.5m).
+    /// Secondary constructor for lower half of a 2-block run (0.0m to 0.25m).
     pub fn lower(heading: WedgeHeading) -> Self {
-        Self::new(heading, 0.0, 0.5)
+        Self::new(heading, 0.0, 0.25)
     }
 
-    /// Secondary constructor for upper half of a 2-block run (0.5m to 1.0m).
+    /// Secondary constructor for upper half of a 2-block run (0.25m to 0.5m).
     pub fn upper(heading: WedgeHeading) -> Self {
-        Self::new(heading, 0.5, 1.0)
+        Self::new(heading, 0.25, 0.5)
     }
 
     fn slope_normal(&self, frame: &SurfaceFrame) -> Vec3 {
-        let rise = self.end_elevation - self.start_elevation;
+        let gradient = (self.end_elevation - self.start_elevation) * 2.0;
         match self.heading {
-            WedgeHeading::North => (frame.normal() - frame.bitangent() * rise).normalize(),
-            WedgeHeading::South => (frame.normal() + frame.bitangent() * rise).normalize(),
-            WedgeHeading::East => (frame.normal() - frame.tangent() * rise).normalize(),
-            WedgeHeading::West => (frame.normal() + frame.tangent() * rise).normalize(),
+            WedgeHeading::North => (frame.normal() - frame.bitangent() * gradient).normalize(),
+            WedgeHeading::South => (frame.normal() + frame.bitangent() * gradient).normalize(),
+            WedgeHeading::East => (frame.normal() - frame.tangent() * gradient).normalize(),
+            WedgeHeading::West => (frame.normal() + frame.tangent() * gradient).normalize(),
         }
     }
 }
@@ -50,7 +50,7 @@ impl VoxelShape for GentleWedge {
     }
 
     fn shape_color(&self) -> Vec3 {
-        if self.start_elevation < 0.25 {
+        if self.start_elevation < 0.125 {
             Vec3::new(0.25, 0.75, 1.0)
         } else {
             Vec3::new(0.1, 0.45, 1.0)

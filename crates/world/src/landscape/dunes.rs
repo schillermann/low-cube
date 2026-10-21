@@ -19,10 +19,10 @@ impl DesertDunes {
         blocks.push(Box::new(SandBlock::ridge_corner(center_u + 2, center_v + 2, 0.0, CornerHeading::SouthWest)));
         blocks.push(Box::new(SandBlock::ridge_corner(center_u - 2, center_v + 2, 0.0, CornerHeading::SouthEast)));
 
-        // Golden Dune Summit (tier 1 elevation 1.0)
-        blocks.push(Box::new(SandBlock::peak(center_u, center_v + 1, 1.0)));
-        blocks.push(Box::new(SandBlock::slab(center_u - 1, center_v + 1, 1.0)));
-        blocks.push(Box::new(SandBlock::slab(center_u + 1, center_v + 1, 1.0)));
+        // Golden Dune Summit (tier 1 elevation 0.5)
+        blocks.push(Box::new(SandBlock::peak(center_u, center_v + 1, 0.5)));
+        blocks.push(Box::new(SandBlock::slab(center_u - 1, center_v + 1, 0.5)));
+        blocks.push(Box::new(SandBlock::slab(center_u + 1, center_v + 1, 0.5)));
 
         // Incised Desert Wadi Valley (flanked by valley corners)
         blocks.push(Box::new(SandBlock::valley_corner(center_u + 1, center_v, 0.0, CornerHeading::SouthWest)));

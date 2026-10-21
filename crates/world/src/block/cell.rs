@@ -20,11 +20,11 @@ impl GridCell {
     }
 
     pub fn u_bounds(&self) -> (f32, f32) {
-        (self.grid_u as f32, (self.grid_u + 1) as f32)
+        ((self.grid_u as f32) * 0.5, ((self.grid_u + 1) as f32) * 0.5)
     }
 
     pub fn v_bounds(&self) -> (f32, f32) {
-        (self.grid_v as f32, (self.grid_v + 1) as f32)
+        ((self.grid_v as f32) * 0.5, ((self.grid_v + 1) as f32) * 0.5)
     }
 
     pub fn corner_points(&self, frame: &SurfaceFrame, elevation: f32) -> [Vec3; 4] {
@@ -45,8 +45,11 @@ impl GridCell {
     }
 
     pub fn local_fraction(&self, u: f32, v: f32) -> (f32, f32) {
-        let (u0, _) = self.u_bounds();
-        let (v0, _) = self.v_bounds();
-        ((u - u0).clamp(0.0, 1.0), (v - v0).clamp(0.0, 1.0))
+        let (u0, u1) = self.u_bounds();
+        let (v0, v1) = self.v_bounds();
+        (
+            ((u - u0) / (u1 - u0)).clamp(0.0, 1.0),
+            ((v - v0) / (v1 - v0)).clamp(0.0, 1.0),
+        )
     }
 }

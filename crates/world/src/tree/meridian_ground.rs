@@ -22,8 +22,8 @@ impl<'a> PlantingGround for MeridianGround<'a> {
             return false;
         }
 
-        let u = (cell_u as f32) + 0.5;
-        let v = (cell_v as f32) + 0.5;
+        let u = (cell_u as f32) * 0.5 + 0.25;
+        let v = (cell_v as f32) * 0.5 + 0.25;
         u.abs() >= self.corridor_clearance && v.abs() >= self.corridor_clearance
     }
 

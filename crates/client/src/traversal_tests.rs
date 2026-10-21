@@ -41,13 +41,13 @@ impl PlanetaryWorld for ObstacleWorld {
 fn test_walk_into_solid_cube_blocked() {
     let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    // At x = 0.95, z = 0.5: just in front of the SolidCube at grid (1, 0)
-    let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.5), 1.0);
+    // At x = 0.45, z = 0.25: just in front of the SolidCube at grid (1, 0) spanning x in [0.5, 1.0]
+    let start_pos = world.constrain_to_surface(Vec3::new(0.45, 5.0, 0.25), 1.0);
     let stride = Vec3::new(0.1, 0.0, 0.0);
 
     let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &WalkGait::upright(), Vec3::Y, &world);
 
-    // Blocked by the sheer 1.0m vertical cube wall
+    // Blocked by the sheer 0.5m vertical cube wall
     assert_eq!(next_pos.x, start_pos.x);
     assert_eq!(next_pos.y, start_pos.y);
 }
@@ -56,8 +56,8 @@ fn test_walk_into_solid_cube_blocked() {
 fn test_walk_up_ramp_wedge_smoothly() {
     let world = ObstacleWorld::with_block(Box::new(StoneBlock::wedge(0, 0, 0.0, WedgeHeading::North)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    // At x = 0.5, z = 0.1: on the 45° RampWedge rising along +Z
-    let start_pos = world.constrain_to_surface(Vec3::new(0.5, 5.0, 0.1), 1.0);
+    // At x = 0.25, z = 0.1: on the 45° RampWedge rising along +Z
+    let start_pos = world.constrain_to_surface(Vec3::new(0.25, 5.0, 0.1), 1.0);
     let stride = Vec3::new(0.0, 0.0, 0.1);
 
     let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &WalkGait::upright(), Vec3::Y, &world);
@@ -71,8 +71,8 @@ fn test_walk_up_ramp_wedge_smoothly() {
 fn test_walk_into_wall_while_strafing_preserves_lateral_motion() {
     let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    // At x = 0.95, z = 0.5: in front of the SolidCube at grid (1, 0)
-    let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.5), 1.0);
+    // At x = 0.45, z = 0.15: in front of the SolidCube at grid (1, 0)
+    let start_pos = world.constrain_to_surface(Vec3::new(0.45, 5.0, 0.15), 1.0);
     // Running against the wall (+X) while dodging/strafing sideways (+Z)
     let stride = Vec3::new(0.1, 0.0, 0.1);
 
@@ -88,14 +88,14 @@ fn test_walk_into_wall_while_strafing_preserves_lateral_motion() {
 fn test_walk_off_elevated_block_falls_when_not_sneaking() {
     let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    // On the 1.0m cube at x = 1.95, z = 0.5 (edge is at x = 2.0, elevation 10.0)
-    let start_pos = world.constrain_to_surface(Vec3::new(1.95, 5.0, 0.5), 1.0);
-    assert_eq!(start_pos.y, 10.0);
+    // On the 0.5m cube at x = 0.95, z = 0.25 (edge is at x = 1.0, elevation 9.5)
+    let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.25), 1.0);
+    assert_eq!(start_pos.y, 9.5);
     let stride = Vec3::new(0.1, 0.0, 0.0);
 
     // Walking normally without sneaking steps over the edge into open air
     let step_pos = flight.advance(1.0 / 60.0, start_pos, stride, &WalkGait::upright(), Vec3::Y, &world);
-    assert!(step_pos.x > 2.0);
+    assert!(step_pos.x > 1.0);
 
     // Subsequent flight steps experience gravitational fall down to ground (y = 9.0)
     let mut pos = step_pos;
@@ -109,9 +109,9 @@ fn test_walk_off_elevated_block_falls_when_not_sneaking() {
 fn test_sneak_on_elevated_block_prevents_falling() {
     let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    // On the 1.0m cube at x = 1.95, z = 0.5 (edge is at x = 2.0, elevation 10.0)
-    let start_pos = world.constrain_to_surface(Vec3::new(1.95, 5.0, 0.5), 1.0);
-    assert_eq!(start_pos.y, 10.0);
+    // On the 0.5m cube at x = 0.95, z = 0.25 (edge is at x = 1.0, elevation 9.5)
+    let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.25), 1.0);
+    assert_eq!(start_pos.y, 9.5);
     let stride = Vec3::new(0.1, 0.0, 0.0);
 
     // Sneaking gait prevents falling off the edge of the elevated block
@@ -126,7 +126,7 @@ fn test_sneak_on_elevated_block_prevents_falling() {
 fn test_sneak_on_elevated_block_diagonal_slides_along_edge() {
     let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    let start_pos = world.constrain_to_surface(Vec3::new(1.95, 5.0, 0.5), 1.0);
+    let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.15), 1.0);
     let stride = Vec3::new(0.1, 0.0, 0.1);
 
     let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &SneakGait::crouching(), Vec3::Y, &world);
@@ -160,7 +160,7 @@ fn test_sprint_jump_over_ramp_wedge_does_not_get_stuck() {
     let world = ObstacleWorld::with_block(Box::new(StoneBlock::wedge(0, 0, 0.0, WedgeHeading::North)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // Start on flat ground before the ramp (z = -0.60) so the jump lands mid-slope on the wedge
-    let mut pos = world.constrain_to_surface(Vec3::new(0.5, 5.0, -0.60), 1.0);
+    let mut pos = world.constrain_to_surface(Vec3::new(0.25, 5.0, -0.60), 1.0);
     flight.jump();
     let stride = Vec3::new(0.0, 0.0, 0.16);
     for _ in 0..35 {

@@ -45,8 +45,8 @@ impl<'a> PlantingGround for WoodlandGround<'a> {
             return false;
         }
 
-        let u = (cell_u as f32) + 0.5;
-        let v = (cell_v as f32) + 0.5;
+        let u = (cell_u as f32) * 0.5 + 0.25;
+        let v = (cell_v as f32) * 0.5 + 0.25;
         let sample = self.frequency.sample(Vec3::new(u, v, 0.0));
         let roll = (hash % 100).abs();
 

@@ -31,11 +31,11 @@ impl VolcanicCaldera {
         blocks.push(Box::new(StoneBlock::dark_ridge_corner(center_u + 2, center_v - 2, 0.0, CornerHeading::NorthWest)));
         blocks.push(Box::new(StoneBlock::dark_ridge_corner(center_u - 2, center_v - 2, 0.0, CornerHeading::NorthEast)));
 
-        // Tier 1 Crater Rim Crest (elevation 1.0)
-        blocks.push(Box::new(StoneBlock::dark_slab(center_u, center_v + 1, 1.0)));
-        blocks.push(Box::new(StoneBlock::dark_slab(center_u, center_v - 1, 1.0)));
-        blocks.push(Box::new(StoneBlock::dark_slab(center_u + 1, center_v, 1.0)));
-        blocks.push(Box::new(StoneBlock::dark_slab(center_u - 1, center_v, 1.0)));
+        // Tier 1 Crater Rim Crest (elevation 0.5)
+        blocks.push(Box::new(StoneBlock::dark_slab(center_u, center_v + 1, 0.5)));
+        blocks.push(Box::new(StoneBlock::dark_slab(center_u, center_v - 1, 0.5)));
+        blocks.push(Box::new(StoneBlock::dark_slab(center_u + 1, center_v, 0.5)));
+        blocks.push(Box::new(StoneBlock::dark_slab(center_u - 1, center_v, 0.5)));
 
         // Inner Caldera Valley Corners descending to the magma basin
         blocks.push(Box::new(StoneBlock::dark_valley_corner(center_u + 1, center_v + 1, 0.0, CornerHeading::SouthWest)));

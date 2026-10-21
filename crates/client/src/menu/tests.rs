@@ -47,6 +47,10 @@ impl QuadCapture {
     fn count(&self) -> usize { self.quads.len() }
     fn positions(&self) -> Vec<Vec3> { self.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect() }
     fn colors(&self) -> Vec<Vec3> { self.quads.iter().map(|q| q.transfer(|_, _, _, _, _, col| col)).collect() }
+    fn bust_projection(&self) -> f32 {
+        self.quads.iter().flat_map(|q| q.transfer(|v0, v1, v2, v3, _, _| [v0, v1, v2, v3]))
+            .filter(|v| (0.26..=0.44).contains(&v.y) && v.x.abs() <= 0.08).map(|v| -v.z).fold(0.0_f32, f32::max)
+    }
 }
 
 impl MeshTarget for QuadCapture {
@@ -123,7 +127,7 @@ fn test_single_character_cycles_all_animations_and_archetypes_differ_fundamental
         let (mut m_male, mut m_fem) = (QuadCapture::empty(), QuadCapture::empty());
         archetypes[i].attire().emit(&pose, SightMode::LookingGlassSight, &mut m_male);
         archetypes[i].female_attire().emit(&pose, SightMode::LookingGlassSight, &mut m_fem);
-        assert_ne!(m_male.positions(), m_fem.positions());
+        assert!(m_fem.bust_projection() > m_male.bust_projection() + 0.035, "Female bust must project clearly forward for {:?}", archetypes[i]);
         for j in (i + 1)..archetypes.len() {
             let (mut m_j, mut f_j) = (QuadCapture::empty(), QuadCapture::empty());
             archetypes[j].attire().emit(&pose, SightMode::LookingGlassSight, &mut m_j);

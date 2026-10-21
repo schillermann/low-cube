@@ -15,7 +15,7 @@ impl SteppeTerrace {
             Box::new(DirtBlock::slab(center_u + 1, center_v + 1, 0.0)),
             Box::new(DirtBlock::slab(center_u + 2, center_v + 1, 0.0)),
             Box::new(StoneBlock::slab(center_u + 1, center_v + 2, 0.0)),
-            Box::new(StoneBlock::dark_slab(center_u + 2, center_v + 2, 0.5)),
+            Box::new(StoneBlock::dark_slab(center_u + 2, center_v + 2, 0.25)),
             Box::new(DirtBlock::wedge(center_u + 1, center_v + 3, 0.0, WedgeHeading::South)),
             Box::new(DirtBlock::ridge_corner(center_u + 2, center_v + 3, 0.0, CornerHeading::SouthWest)),
             // Sunken Coulee Canyon Valley (flanked by valley corners)

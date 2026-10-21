@@ -20,27 +20,27 @@ impl ReliefCorner {
         let (p0, p1, p2, p3) = match mode {
             0 => (
                 frame.point_at(u0, v0, top_h),
-                frame.point_at(u1, v0, top_h - 1.0),
-                frame.point_at(u1, v1, top_h - 1.0),
-                frame.point_at(u0, v1, top_h - 1.0),
+                frame.point_at(u1, v0, top_h - 0.5),
+                frame.point_at(u1, v1, top_h - 0.5),
+                frame.point_at(u0, v1, top_h - 0.5),
             ),
             1 => (
-                frame.point_at(u0, v0, top_h - 1.0),
+                frame.point_at(u0, v0, top_h - 0.5),
                 frame.point_at(u1, v0, top_h),
-                frame.point_at(u1, v1, top_h - 1.0),
-                frame.point_at(u0, v1, top_h - 1.0),
+                frame.point_at(u1, v1, top_h - 0.5),
+                frame.point_at(u0, v1, top_h - 0.5),
             ),
             2 => (
-                frame.point_at(u0, v0, top_h - 1.0),
-                frame.point_at(u1, v0, top_h - 1.0),
-                frame.point_at(u1, v1, top_h - 1.0),
+                frame.point_at(u0, v0, top_h - 0.5),
+                frame.point_at(u1, v0, top_h - 0.5),
+                frame.point_at(u1, v1, top_h - 0.5),
                 frame.point_at(u0, v1, top_h),
             ),
             _ => (
-                frame.point_at(u0, v0, top_h - 1.0),
-                frame.point_at(u1, v0, top_h - 1.0),
+                frame.point_at(u0, v0, top_h - 0.5),
+                frame.point_at(u1, v0, top_h - 0.5),
                 frame.point_at(u1, v1, top_h),
-                frame.point_at(u0, v1, top_h - 1.0),
+                frame.point_at(u0, v1, top_h - 0.5),
             ),
         };
         match mode {
@@ -73,10 +73,10 @@ impl ReliefCorner {
         frame: &SurfaceFrame, surf_col: Vec3, target: &mut dyn MeshTarget,
     ) {
         let (h0, h1, h2, h3) = match mode {
-            0 => (top_h, top_h - 1.0, top_h, top_h),
-            1 => (top_h - 1.0, top_h, top_h, top_h),
-            2 => (top_h, top_h, top_h - 1.0, top_h),
-            _ => (top_h, top_h, top_h, top_h - 1.0),
+            0 => (top_h, top_h - 0.5, top_h, top_h),
+            1 => (top_h - 0.5, top_h, top_h, top_h),
+            2 => (top_h, top_h, top_h - 0.5, top_h),
+            _ => (top_h, top_h, top_h, top_h - 0.5),
         };
         let (p0, p1) = (frame.point_at(u0, v0, h0), frame.point_at(u1, v0, h1));
         let (p2, p3) = (frame.point_at(u1, v1, h2), frame.point_at(u0, v1, h3));

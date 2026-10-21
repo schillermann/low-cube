@@ -22,14 +22,14 @@ impl GentleRidge {
         }
     }
 
-    /// Secondary constructor for lower half of a 2-block run (0.0m to 0.5m).
+    /// Secondary constructor for lower half of a 2-block run (0.0m to 0.25m).
     pub fn lower(heading: CornerHeading) -> Self {
-        Self::new(heading, 0.0, 0.5)
+        Self::new(heading, 0.0, 0.25)
     }
 
-    /// Secondary constructor for upper half of a 2-block run (0.5m to 1.0m).
+    /// Secondary constructor for upper half of a 2-block run (0.25m to 0.5m).
     pub fn upper(heading: CornerHeading) -> Self {
-        Self::new(heading, 0.5, 1.0)
+        Self::new(heading, 0.25, 0.5)
     }
 }
 
@@ -40,7 +40,7 @@ impl VoxelShape for GentleRidge {
     }
 
     fn shape_color(&self) -> Vec3 {
-        if self.start_elevation < 0.25 {
+        if self.start_elevation < 0.125 {
             Vec3::new(1.0, 0.35, 0.35)
         } else {
             Vec3::new(1.0, 0.15, 0.3)

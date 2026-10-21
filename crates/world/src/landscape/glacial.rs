@@ -13,12 +13,12 @@ impl GlacialMassif {
         let blocks: Vec<Box<dyn Block>> = vec![
             // Western Glacial Horn (granite base with crystalline snow peak)
             Box::new(StoneBlock::cube(center_u - 1, center_v + 1, 0.0)),
-            Box::new(SnowBlock::peak(center_u - 1, center_v + 1, 1.0)),
+            Box::new(SnowBlock::peak(center_u - 1, center_v + 1, 0.5)),
             Box::new(SnowBlock::ridge_corner(center_u - 2, center_v + 1, 0.0, CornerHeading::NorthEast)),
             Box::new(SnowBlock::wedge(center_u - 1, center_v + 2, 0.0, WedgeHeading::South)),
             // Eastern Glacial Horn
             Box::new(StoneBlock::cube(center_u + 1, center_v + 1, 0.0)),
-            Box::new(SnowBlock::peak(center_u + 1, center_v + 1, 1.0)),
+            Box::new(SnowBlock::peak(center_u + 1, center_v + 1, 0.5)),
             Box::new(SnowBlock::ridge_corner(center_u + 2, center_v + 1, 0.0, CornerHeading::NorthWest)),
             Box::new(SnowBlock::wedge(center_u + 1, center_v + 2, 0.0, WedgeHeading::South)),
             // Glacial Cirque Valley (sunken icy amphitheater trough)

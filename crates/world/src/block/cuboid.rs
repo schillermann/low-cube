@@ -15,14 +15,14 @@ impl CuboidShape {
         Self { height }
     }
 
-    /// Secondary constructor for a 1.0m full cube block.
+    /// Secondary constructor for a 0.5m full cube block.
     pub fn full_cube() -> Self {
-        Self::new(1.0)
+        Self::new(0.5)
     }
 
-    /// Secondary constructor for a 0.5m rock shelf slab.
+    /// Secondary constructor for a 0.25m rock shelf slab.
     pub fn half_slab() -> Self {
-        Self::new(0.5)
+        Self::new(0.25)
     }
 }
 
@@ -32,7 +32,7 @@ impl VoxelShape for CuboidShape {
     }
 
     fn shape_color(&self) -> Vec3 {
-        if self.height >= 0.9 {
+        if self.height >= 0.45 {
             Vec3::new(0.0, 0.9, 1.0)
         } else {
             Vec3::new(0.1, 0.95, 0.7)

@@ -27,14 +27,14 @@ impl<'a> FullCubeGround<'a> {
     }
 
     fn flat_cube(&self, cell_u: i32, cell_v: i32) -> bool {
-        let u0 = cell_u as f32;
-        let v0 = cell_v as f32;
+        let u0 = (cell_u as f32) * 0.5;
+        let v0 = (cell_v as f32) * 0.5;
         let probes = [
-            (u0 + 0.15, v0 + 0.15),
-            (u0 + 0.85, v0 + 0.15),
-            (u0 + 0.15, v0 + 0.85),
-            (u0 + 0.85, v0 + 0.85),
-            (u0 + 0.50, v0 + 0.50),
+            (u0 + 0.075, v0 + 0.075),
+            (u0 + 0.425, v0 + 0.075),
+            (u0 + 0.075, v0 + 0.425),
+            (u0 + 0.425, v0 + 0.425),
+            (u0 + 0.25, v0 + 0.25),
         ];
 
         let mut base_elev = 0.0;
@@ -44,7 +44,8 @@ impl<'a> FullCubeGround<'a> {
             let elev = self.frame.height_of(surface_pt) - self.half_size;
 
             if i == 0 {
-                if elev < 0.0 || (elev - elev.round()).abs() > 0.02 {
+                let half_blocks = elev * 2.0;
+                if elev < 0.0 || (half_blocks - half_blocks.round()).abs() > 0.04 {
                     return false;
                 }
                 base_elev = elev;

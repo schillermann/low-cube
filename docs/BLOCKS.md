@@ -13,23 +13,23 @@ Examples: `dirt_stair`, `stone_wedge`, `sand_gentle_lower_wedge`, `dark_stone_cu
 
 ## 1. Available Block Shapes (15 Shapes)
 
-| Shape ID | Shape Name | Height / Incline | Climbing Physics (Earth, $g=10$) | Image |
+| Shape ID | Shape Name | Footprint / Height | Climbing Physics (Earth, $g=10$) | Image |
 |---|---|---|---|:---:|
-| `cube` | **Full Cube** | $1.0\,\text{m}$ (vertical 90°) | Impassable wall; requires a low-G jump or ramps/stairs. | <img src="images/blocks/form_cube.png" width="96" alt="Full Cube" /> |
-| `slab` | **Half Slab** | $0.5\,\text{m}$ (plateau) | Directly scalable (human step height under standard gravity). | <img src="images/blocks/form_slab.png" width="96" alt="Half Slab" /> |
-| `wedge` | **Ramp Wedge (45°)** | $0.0 \to 1.0\,\text{m}$ (1:1 incline) | Smoothly walkable without jumping impulse. | <img src="images/blocks/form_wedge.png" width="96" alt="Ramp Wedge" /> |
-| `ridge_corner` | **Ridge Corner (45°)** | $0.0 \to 1.0\,\text{m}$ (diagonal ridge) | Convex corner joining two 45° ramps. | <img src="images/blocks/form_ridge_corner.png" width="96" alt="Ridge Corner" /> |
-| `valley_corner` | **Valley Corner (45°)** | $0.0 \to 1.0\,\text{m}$ (diagonal valley) | Concave inner corner joining two 45° ramps. | <img src="images/blocks/form_valley_corner.png" width="96" alt="Valley Corner" /> |
-| `peak` | **Pyramid Peak** | $0.5\,\text{m}$ (45° peak) | 4-sided pyramid peak as a natural summit point. | <img src="images/blocks/form_peak.png" width="96" alt="Pyramid Peak" /> |
-| `stair` | **Stair Flight** | $2 \times 0.5\,\text{m}$ steps | Comfortable 2-step climb to full block height. | <img src="images/blocks/form_stair.png" width="96" alt="Stair Flight" /> |
-| `stair_corner_convex` | **Convex Stair Corner** | $2 \times 0.5\,\text{m}$ steps | 90° exterior corner for stairways. | <img src="images/blocks/form_stair_corner_convex.png" width="96" alt="Convex Stair Corner" /> |
-| `stair_corner_concave` | **Concave Stair Corner** | $2 \times 0.5\,\text{m}$ steps | 90° interior corner for winding stairways. | <img src="images/blocks/form_stair_corner_concave.png" width="96" alt="Concave Stair Corner" /> |
-| `gentle_lower_wedge` | **Gentle Lower Wedge** | $0.0 \to 0.5\,\text{m}$ (2:1 incline) | Gentle shallow slope leading to first plateau or half slab. | <img src="images/blocks/form_gentle_lower_wedge.png" width="96" alt="Gentle Lower Wedge" /> |
-| `gentle_upper_wedge` | **Gentle Upper Wedge** | $0.5 \to 1.0\,\text{m}$ (2:1 incline) | Continuation of the gentle slope to full block height. | <img src="images/blocks/form_gentle_upper_wedge.png" width="96" alt="Gentle Upper Wedge" /> |
-| `gentle_lower_ridge` | **Gentle Lower Ridge** | $0.0 \to 0.5\,\text{m}$ (2:1 incline) | Shallow outer corner for gentle terrain ridges. | <img src="images/blocks/form_gentle_lower_ridge.png" width="96" alt="Gentle Lower Ridge" /> |
-| `gentle_upper_ridge` | **Gentle Upper Ridge** | $0.5 \to 1.0\,\text{m}$ (2:1 incline) | Upper outer corner for gentle terrain ridges. | <img src="images/blocks/form_gentle_upper_ridge.png" width="96" alt="Gentle Upper Ridge" /> |
-| `gentle_lower_valley` | **Gentle Lower Valley** | $0.0 \to 0.5\,\text{m}$ (2:1 incline) | Shallow inner corner for gentle terrain hollows. | <img src="images/blocks/form_gentle_lower_valley.png" width="96" alt="Gentle Lower Valley" /> |
-| `gentle_upper_valley` | **Gentle Upper Valley** | $0.5 \to 1.0\,\text{m}$ (2:1 incline) | Upper inner corner for gentle terrain hollows. | <img src="images/blocks/form_gentle_upper_valley.png" width="96" alt="Gentle Upper Valley" /> |
+| `cube` | **Full Cube** | $0.5 \times 0.5 \times 0.5\,\text{m}$ (vertical 90°) | Impassable wall on foot; cleared by a standard jump or ramps/stairs. | <img src="images/blocks/form_cube.png" width="96" alt="Full Cube" /> |
+| `slab` | **Half Slab** | $0.5 \times 0.5 \times 0.25\,\text{m}$ (plateau) | Directly scalable (human step height under standard gravity). | <img src="images/blocks/form_slab.png" width="96" alt="Half Slab" /> |
+| `wedge` | **Ramp Wedge (45°)** | $0.0 \to 0.5\,\text{m}$ (1:1 incline) | Smoothly walkable without jumping impulse. | <img src="images/blocks/form_wedge.png" width="96" alt="Ramp Wedge" /> |
+| `ridge_corner` | **Ridge Corner (45°)** | $0.0 \to 0.5\,\text{m}$ (diagonal ridge) | Convex corner joining two 45° ramps. | <img src="images/blocks/form_ridge_corner.png" width="96" alt="Ridge Corner" /> |
+| `valley_corner` | **Valley Corner (45°)** | $0.0 \to 0.5\,\text{m}$ (diagonal valley) | Concave inner corner joining two 45° ramps. | <img src="images/blocks/form_valley_corner.png" width="96" alt="Valley Corner" /> |
+| `peak` | **Pyramid Peak** | $0.25\,\text{m}$ (45° peak) | 4-sided pyramid peak as a natural summit point. | <img src="images/blocks/form_peak.png" width="96" alt="Pyramid Peak" /> |
+| `stair` | **Stair Flight** | $2 \times 0.25\,\text{m}$ steps | Comfortable 2-step climb to full block height ($0.5\,\text{m}$). | <img src="images/blocks/form_stair.png" width="96" alt="Stair Flight" /> |
+| `stair_corner_convex` | **Convex Stair Corner** | $2 \times 0.25\,\text{m}$ steps | 90° exterior corner for stairways. | <img src="images/blocks/form_stair_corner_convex.png" width="96" alt="Convex Stair Corner" /> |
+| `stair_corner_concave` | **Concave Stair Corner** | $2 \times 0.25\,\text{m}$ steps | 90° interior corner for winding stairways. | <img src="images/blocks/form_stair_corner_concave.png" width="96" alt="Concave Stair Corner" /> |
+| `gentle_lower_wedge` | **Gentle Lower Wedge** | $0.0 \to 0.25\,\text{m}$ (2:1 incline) | Gentle shallow slope leading to first plateau or half slab. | <img src="images/blocks/form_gentle_lower_wedge.png" width="96" alt="Gentle Lower Wedge" /> |
+| `gentle_upper_wedge` | **Gentle Upper Wedge** | $0.25 \to 0.5\,\text{m}$ (2:1 incline) | Continuation of the gentle slope to full block height ($0.5\,\text{m}$). | <img src="images/blocks/form_gentle_upper_wedge.png" width="96" alt="Gentle Upper Wedge" /> |
+| `gentle_lower_ridge` | **Gentle Lower Ridge** | $0.0 \to 0.25\,\text{m}$ (2:1 incline) | Shallow outer corner for gentle terrain ridges. | <img src="images/blocks/form_gentle_lower_ridge.png" width="96" alt="Gentle Lower Ridge" /> |
+| `gentle_upper_ridge` | **Gentle Upper Ridge** | $0.25 \to 0.5\,\text{m}$ (2:1 incline) | Upper outer corner for gentle terrain ridges. | <img src="images/blocks/form_gentle_upper_ridge.png" width="96" alt="Gentle Upper Ridge" /> |
+| `gentle_lower_valley` | **Gentle Lower Valley** | $0.0 \to 0.25\,\text{m}$ (2:1 incline) | Shallow inner corner for gentle terrain hollows. | <img src="images/blocks/form_gentle_lower_valley.png" width="96" alt="Gentle Lower Valley" /> |
+| `gentle_upper_valley` | **Gentle Upper Valley** | $0.25 \to 0.5\,\text{m}$ (2:1 incline) | Upper inner corner for gentle terrain hollows. | <img src="images/blocks/form_gentle_upper_valley.png" width="96" alt="Gentle Upper Valley" /> |
 
 ---
 
@@ -129,7 +129,7 @@ Every geometric shape in [`VoxelShape`](file:///home/mario/code/low-cube/crates/
 | Shape / Facet ID | Geometric Entity | Hex Color | `Vec3` RGB | Visual Signature | Diagnostic Purpose |
 |---|---|---|---|---|---|
 | `cube` / Flat Facet | [`CuboidShape::cube`](file:///home/mario/code/low-cube/crates/world/src/block/cuboid.rs) | `#00E5FF` | `Vec3(0.00, 0.90, 1.00)` | Neon Cyan | Standard horizontal plateau and full cubic blocks. |
-| `slab` | [`CuboidShape::slab`](file:///home/mario/code/low-cube/crates/world/src/block/cuboid.rs) | `#1DE9B6` | `Vec3(0.10, 0.95, 0.70)` | Mint Aquamarine | $0.5\,\text{m}$ half-step intermediate plateaus. |
+| `slab` | [`CuboidShape::slab`](file:///home/mario/code/low-cube/crates/world/src/block/cuboid.rs) | `#1DE9B6` | `Vec3(0.10, 0.95, 0.70)` | Mint Aquamarine | $0.25\,\text{m}$ half-step intermediate plateaus. |
 | `wedge` / Ramp Facet | [`RampWedge`](file:///home/mario/code/low-cube/crates/world/src/block/wedge.rs) | `#FF9100` | `Vec3(1.00, 0.55, 0.00)` | Neon Amber / Orange | $45^\circ$ (1:1) standard incline slopes. |
 | `ridge_corner` / Ridge Facet | [`RidgeCorner`](file:///home/mario/code/low-cube/crates/world/src/block/ridge.rs) | `#FF007F` | `Vec3(1.00, 0.00, 0.80)` | Neon Magenta | $45^\circ$ convex outer corners joining slopes. |
 | `valley_corner` / Valley Facet | [`ValleyCorner`](file:///home/mario/code/low-cube/crates/world/src/block/valley.rs) | `#FFEA00` | `Vec3(1.00, 0.95, 0.00)` | Neon Yellow | $45^\circ$ concave inner corners joining slopes. |
@@ -137,8 +137,8 @@ Every geometric shape in [`VoxelShape`](file:///home/mario/code/low-cube/crates/
 | `stair_corner_convex` | [`StairCorner`](file:///home/mario/code/low-cube/crates/world/src/block/stair_corner.rs) | `#76FF03` | `Vec3(0.50, 0.95, 0.10)` | Lime Green | Convex outer 90° corner stairs. |
 | `stair_corner_concave` | [`StairCorner`](file:///home/mario/code/low-cube/crates/world/src/block/stair_corner.rs) | `#AEEA00` | `Vec3(0.70, 0.95, 0.00)` | Bright Chartreuse | Concave inner 90° corner stairs. |
 | `peak` | [`PyramidPeak`](file:///home/mario/code/low-cube/crates/world/src/block/pyramid.rs) | `#D500F9` | `Vec3(0.75, 0.20, 1.00)` | Electric Violet | 4-sided pyramid summits. |
-| `gentle_lower_wedge` | [`GentleWedge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_wedge.rs) | `#40C4FF` | `Vec3(0.25, 0.75, 1.00)` | Sky Blue | Lower segment of shallow 2:1 ramps ($0.0 \to 0.5\,\text{m}$). |
-| `gentle_upper_wedge` | [`GentleWedge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_wedge.rs) | `#2979FF` | `Vec3(0.10, 0.45, 1.00)` | Royal Blue | Upper segment of shallow 2:1 ramps ($0.5 \to 1.0\,\text{m}$). |
+| `gentle_lower_wedge` | [`GentleWedge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_wedge.rs) | `#40C4FF` | `Vec3(0.25, 0.75, 1.00)` | Sky Blue | Lower segment of shallow 2:1 ramps ($0.0 \to 0.25\,\text{m}$). |
+| `gentle_upper_wedge` | [`GentleWedge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_wedge.rs) | `#2979FF` | `Vec3(0.10, 0.45, 1.00)` | Royal Blue | Upper segment of shallow 2:1 ramps ($0.25 \to 0.5\,\text{m}$). |
 | `gentle_lower_ridge` | [`GentleRidge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_ridge.rs) | `#FF5252` | `Vec3(1.00, 0.35, 0.35)` | Coral Pink | Lower outer diagonal corner of shallow ramps. |
 | `gentle_upper_ridge` | [`GentleRidge`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_ridge.rs) | `#FF1744` | `Vec3(1.00, 0.15, 0.30)` | Deep Coral | Upper outer diagonal corner of shallow ramps. |
 | `gentle_lower_valley` | [`GentleValley`](file:///home/mario/code/low-cube/crates/world/src/block/gentle_valley.rs) | `#FFD600` | `Vec3(1.00, 0.85, 0.20)` | Goldenrod | Lower inner diagonal corner of shallow ramps. |

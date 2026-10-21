@@ -35,7 +35,7 @@ impl VoxelShape for StairCorner {
         } else {
             self.heading.ridge_elevation(local_u, local_v)
         };
-        if t < 0.5 { 0.5 } else { 1.0 }
+        if t < 0.5 { 0.25 } else { 0.5 }
     }
 
     fn shape_color(&self) -> Vec3 {
@@ -59,8 +59,8 @@ impl VoxelShape for StairCorner {
         let um = (u0 + u1) * 0.5;
         let vm = (v0 + v1) * 0.5;
         let h0 = base_elevation;
-        let h1 = base_elevation + 0.5;
-        let h2 = base_elevation + 1.0;
+        let h1 = base_elevation + 0.25;
+        let h2 = base_elevation + 0.5;
         let pt = |u: f32, v: f32, h: f32| frame.point_at(u, v, h);
         let n = frame.normal();
 

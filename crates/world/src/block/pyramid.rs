@@ -15,14 +15,14 @@ impl PyramidPeak {
         Self { height }
     }
 
-    /// Secondary constructor with 45° slope inclination matching ramp wedges (height = 0.5m).
+    /// Secondary constructor with 45° slope inclination matching ramp wedges (height = 0.25m).
     pub fn slope_aligned() -> Self {
-        Self::new(0.5)
+        Self::new(0.25)
     }
 
-    /// Secondary constructor for a 1.0m steep apex peak.
+    /// Secondary constructor for a 0.5m steep apex peak.
     pub fn steep() -> Self {
-        Self::new(1.0)
+        Self::new(0.5)
     }
 }
 

@@ -50,9 +50,9 @@ def load_catalog_data():
 def render_block_image(block_entry, output_path, size=512, supersample=2):
     """Render a single block with isometric projection and daylight shading."""
     render_size = size * supersample
-    scale = render_size * 0.42
+    scale = render_size * 0.84
 
-    target = (0.5, 0.5, 0.5)
+    target = (0.25, 0.25, 0.25)
     dist = 3.5
     elev = math.radians(28.0)
     azim = math.radians(35.0)

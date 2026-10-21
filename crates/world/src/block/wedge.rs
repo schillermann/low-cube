@@ -25,10 +25,10 @@ impl WedgeHeading {
 
     pub fn corner_heights(&self) -> (f32, f32, f32, f32) {
         match self {
-            Self::North => (0.0, 0.0, 1.0, 1.0),
-            Self::South => (1.0, 1.0, 0.0, 0.0),
-            Self::East => (0.0, 1.0, 1.0, 0.0),
-            Self::West => (1.0, 0.0, 0.0, 1.0),
+            Self::North => (0.0, 0.0, 0.5, 0.5),
+            Self::South => (0.5, 0.5, 0.0, 0.0),
+            Self::East => (0.0, 0.5, 0.5, 0.0),
+            Self::West => (0.5, 0.0, 0.0, 0.5),
         }
     }
 
@@ -56,7 +56,7 @@ impl RampWedge {
 
 impl VoxelShape for RampWedge {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        self.heading.elevation_at(local_u, local_v)
+        self.heading.elevation_at(local_u, local_v) * 0.5
     }
 
     fn shape_color(&self) -> Vec3 {

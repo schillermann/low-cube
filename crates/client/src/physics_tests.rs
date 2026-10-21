@@ -15,7 +15,7 @@ fn evaluate_leap(physics: &dyn PlanetaryPhysics) -> f32 {
     let world = CubePlanet::new(vec![mountain], Box::new(NullFace));
     let mut flight = physics.surface_flight(1.0);
 
-    let start_pos = world.constrain_to_surface(Vec3::new(0.5, 5.0, 1.95), 1.0);
+    let start_pos = world.constrain_to_surface(Vec3::new(0.25, 5.0, 0.85), 1.0);
     let stride = Vec3::new(0.0, 0.0, 0.1);
 
     flight.jump();

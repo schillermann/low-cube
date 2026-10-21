@@ -26,7 +26,7 @@ impl<'a> PlantingGround for SurfaceGround<'a> {
     }
 
     fn ground_elevation(&self, cell_u: i32, cell_v: i32) -> f32 {
-        let probe = self.frame.point_at((cell_u as f32) + 0.5, (cell_v as f32) + 0.5, 0.0);
+        let probe = self.frame.point_at((cell_u as f32) * 0.5 + 0.25, (cell_v as f32) * 0.5 + 0.25, 0.0);
         let surface_point = self.origin.constrain(probe, 0.0);
         self.frame.height_of(surface_point) - self.half_size
     }
