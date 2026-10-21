@@ -42,10 +42,10 @@ pub use beveled_world::BeveledWorld;
 pub use biome::BiomedCubeWorld;
 pub use centripetal_world::CentripetalWorld;
 pub use block::{
-    Block, CornerHeading, CuboidShape, DiagonalSlope, DirtBlock, ElevatedShape, FormBlock,
-    GentleRidge, GentleValley, GentleWedge, GridCell, PyramidPeak, RampWedge,
-    RidgeCorner, SandBlock, SnowBlock, StairCorner, StairFlight, StoneBlock,
-    MaterialBlock, ValleyCorner, VoxelShape, WedgeHeading,
+    Block, BlockMold, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope, DirtBlock,
+    ElevatedShape, FormBlock, GentleRidge, GentleValley, GentleWedge, GridCell, MaterialBlock,
+    MoldArchetype, PyramidPeak, RampWedge, RidgeCorner, SandBlock, SnowBlock, StairCorner,
+    StairFlight, StoneBlock, ValleyCorner, VoxelShape, WedgeHeading,
 };
 
 pub use chunk::{
@@ -137,7 +137,13 @@ pub trait PlanetaryWorld: GravityField {
     fn loosen_surface(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> bool {
         false
     }
-    fn place_surface_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3) -> bool {
+    fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.place_molded_surface_block(eye, direction, avatar_pos, BlockMold::cube())
+    }
+    fn place_molded_surface_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool {
+        false
+    }
+    fn step_surface(&mut self, _dt: f32) -> bool {
         false
     }
     fn face_count(&self) -> usize {
@@ -168,7 +174,13 @@ pub trait Face: Send + Sync {
     fn loosen(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> bool {
         false
     }
-    fn place_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3) -> bool {
+    fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.place_molded_block(eye, direction, avatar_pos, BlockMold::cube())
+    }
+    fn place_molded_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool {
+        false
+    }
+    fn step_surface(&mut self, _dt: f32) -> bool {
         false
     }
 }

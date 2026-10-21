@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{GravityField, MeshTarget, PlanetaryWorld};
+use crate::{BlockMold, GravityField, MeshTarget, PlanetaryWorld};
 
 /// Decorator blending surface normal gravity with spherical radial core pull at elevated altitudes ("Tell, Don't Ask").
 pub struct CentripetalWorld {
@@ -71,6 +71,14 @@ impl PlanetaryWorld for CentripetalWorld {
 
     fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
         self.world.place_surface_block(eye, direction, avatar_pos)
+    }
+
+    fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
+        self.world.place_molded_surface_block(eye, direction, avatar_pos, mold)
+    }
+
+    fn step_surface(&mut self, dt: f32) -> bool {
+        self.world.step_surface(dt)
     }
 
     fn face_count(&self) -> usize {

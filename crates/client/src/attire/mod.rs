@@ -11,6 +11,7 @@ mod headgear;
 mod limb;
 mod palette;
 mod pose;
+mod pouch;
 mod proportion;
 mod relic;
 mod sight;
@@ -25,6 +26,7 @@ pub use hands::VambraceStyle;
 pub use limb::{FacetedSolid, LimbFrame, TaperedPrism};
 pub use palette::{ComplexionSwatch, PigmentSwatch};
 pub use pose::{BodyPose, StrideRhythm};
+pub use pouch::{BeltSatchel, HipPouch};
 pub use proportion::{BodyRegion, PartProportion, YouthPhysique};
 pub use relic::{HeldRelic, MartialStyle};
 pub use sight::SightMode;
@@ -168,16 +170,22 @@ impl YouthAttire {
     pub fn emit_peer(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
         self.emit(pose, SightMode::LookingGlassSight, target);
     }
+
+    /// Emits avatar geometry with dual hip pouches, stowed tools, and per-hand palm-molded blocks.
+    pub fn emit_satchel(&self, pose: &BodyPose, sight: SightMode, satchel: BeltSatchel, target: &mut dyn MeshTarget) {
+        let scaled_pose = pose.with_physique(self.physique);
+        self.tunic.emit(&scaled_pose, self.pigment, target);
+        self.girdle.emit(&scaled_pose, target);
+        satchel.emit_on_waist(&scaled_pose, target);
+        self.footwear.emit(&scaled_pose, self.pigment, target);
+        self.vambrace.emit(&scaled_pose, sight, self.complexion, self.pigment, (self.relic, self.offhand), satchel, target);
+        sight.emit_crown(self.crown, &scaled_pose, self.complexion, self.pigment, target);
+    }
 }
 
 impl Wardrobe for YouthAttire {
     /// Emits avatar geometry according to SightMode using polymorphic garment objects.
     fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
-        let scaled_pose = pose.with_physique(self.physique);
-        self.tunic.emit(&scaled_pose, self.pigment, target);
-        self.girdle.emit(&scaled_pose, target);
-        self.footwear.emit(&scaled_pose, self.pigment, target);
-        self.vambrace.emit(&scaled_pose, sight, self.complexion, self.pigment, (self.relic, self.offhand), target);
-        sight.emit_crown(self.crown, &scaled_pose, self.complexion, self.pigment, target);
+        self.emit_satchel(pose, sight, BeltSatchel::empty(), target);
     }
 }

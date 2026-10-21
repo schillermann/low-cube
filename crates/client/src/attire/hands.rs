@@ -3,6 +3,7 @@ use world::MeshTarget;
 use super::limb::{AxialLimb, FacetedSolid, LimbFrame};
 use super::palette::{ComplexionSwatch, PigmentSwatch};
 use super::pose::BodyPose;
+use super::pouch::BeltSatchel;
 use super::relic::HeldRelic;
 use super::sight::SightMode;
 
@@ -44,7 +45,8 @@ impl VambraceStyle {
         }
     }
 
-    /// Emits both left and right upper arms, forearms, wrist gear, curved hands, and held relics.
+    /// Emits both arms, hands, and held relics with the active palm block mold.
+    #[allow(clippy::too_many_arguments)]
     pub fn emit(
         self,
         pose: &BodyPose,
@@ -52,6 +54,7 @@ impl VambraceStyle {
         complexion: ComplexionSwatch,
         pigment: PigmentSwatch,
         relics: (HeldRelic, HeldRelic),
+        satchel: BeltSatchel,
         target: &mut dyn MeshTarget,
     ) {
         let skin = complexion.skin();
@@ -137,15 +140,17 @@ impl VambraceStyle {
                 }
             };
 
-            // Wrist joint and tapered palm
+            // Wrist joint and hollowed/cupped palm when cradling a block
+            let cradle = matches!(martial, super::relic::MartialStyle::PalmCradle);
+            let cup = if cradle { -side * 0.006 } else { 0.0 };
             AxialLimb::new(Vec3::new(0.0, 0.0, -0.020), Vec3::new(0.0, 0.0, 0.004), pose.arm_girth(0.026), pose.arm_girth(0.022), wrist_col).emit(&forearm_frame, true, target);
-            AxialLimb::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.064), pose.arm_girth(0.022), pose.arm_girth(0.010), palm_col).emit(&arm_frame, true, target);
-            AxialLimb::new(Vec3::new(0.0, 0.011, -0.004), Vec3::new(0.0, 0.019, 0.065), pose.arm_girth(0.021), pose.arm_girth(0.010), palm_col).emit(&arm_frame, true, target);
-            AxialLimb::new(Vec3::new(0.0, -0.011, -0.004), Vec3::new(0.0, -0.017, 0.060), pose.arm_girth(0.020), pose.arm_girth(0.009), palm_col).emit(&arm_frame, true, target);
+            AxialLimb::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(-cup * 0.5, 0.0, 0.064), pose.arm_girth(0.022), pose.arm_girth(0.010), palm_col).emit(&arm_frame, true, target);
+            AxialLimb::new(Vec3::new(0.0, 0.011, -0.004), Vec3::new(cup, 0.021, 0.065), pose.arm_girth(0.021), pose.arm_girth(0.010), palm_col).emit(&arm_frame, true, target);
+            AxialLimb::new(Vec3::new(0.0, -0.011, -0.004), Vec3::new(cup, -0.019, 0.060), pose.arm_girth(0.020), pose.arm_girth(0.009), palm_col).emit(&arm_frame, true, target);
 
-            let curl = pose.finger_curl(side, holding);
+            let curl = pose.finger_curl(side, holding, martial);
             let open = (1.0 - curl).clamp(0.0, 1.0);
-            let thumb_knuckle = Vec3::new(-side * 0.004, 0.022, 0.028);
+            let thumb_knuckle = Vec3::new(-side * 0.004, if cradle { 0.028 } else { 0.022 }, 0.028);
             let thumb_mid = thumb_knuckle + Vec3::new(-side * (0.006 * open + 0.026 * curl), 0.018 * open - 0.002 * curl, 0.014);
             let thumb_tip = thumb_mid + Vec3::new(-side * (0.010 * open + 0.014 * curl), 0.014 * open - 0.014 * curl, 0.014);
             AxialLimb::new(thumb_knuckle, thumb_mid, 0.0110, 0.0078, palm_col).emit(&arm_frame, false, target);
@@ -154,14 +159,14 @@ impl VambraceStyle {
             for f in 0..4 {
                 let t = (f as f32) / 3.0;
                 let len_scale = if f == 1 || f == 2 { 1.0 } else { 0.90 };
-                let knuckle = Vec3::new(0.0, 0.023 - t * 0.042, 0.064 - t * 0.005);
+                let knuckle = Vec3::new(cup, 0.023 - t * 0.042, 0.064 - t * 0.005);
                 let mid_joint = knuckle + Vec3::new(-side * (0.008 + 0.020 * curl), 0.002 * open, (0.048 * open + 0.014 * curl) * len_scale);
                 let tip = mid_joint + Vec3::new(-side * (0.018 * open + 0.018 * curl), -0.004 * open, (0.036 * open - 0.026 * curl) * len_scale);
                 AxialLimb::new(knuckle, mid_joint, 0.0094, 0.0066, skin).emit(&arm_frame, true, target);
                 AxialLimb::new(mid_joint, tip, 0.0066, 0.0036, skin).emit(&arm_frame, true, target);
             }
 
-            hand_relic.emit_in_palm(side, &arm_frame, target);
+            satchel.emit_in_palm(side, hand_relic, &arm_frame, target);
         }
     }
 }

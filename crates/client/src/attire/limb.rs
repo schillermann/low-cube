@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 use glam::Vec3;
-use world::{MeshTarget, Quad};
+use world::{BlockMold, MeshTarget, Quad};
 
 /// Local 3D anatomical coordinate frame for positioning faceted limbs and garments.
 #[derive(Clone, Copy, Debug)]
@@ -46,6 +46,18 @@ impl LimbFrame {
         let next_right = (self.right * c + self.forward * s).normalize();
         let next_fwd = (self.forward * c - self.right * s).normalize();
         Self::new(self.origin, next_right, self.up, next_fwd)
+    }
+
+    /// Emits a palm-molded block inside this limb frame aligned with the hand's forward placement axis.
+    pub fn emit_molded_block(&self, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
+        let center = self.point(local_origin.x, local_origin.y, local_origin.z);
+        mold.emit_miniature(center, self.right, self.up, self.forward, scale, side_col, top_col, target);
+    }
+
+    /// Emits a palm-molded block resting upright on the hollow upturned surface of the left or right palm.
+    pub fn emit_cradled_block(&self, side: f32, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
+        let center = self.point(local_origin.x, local_origin.y, local_origin.z);
+        mold.emit_miniature(center, self.up * side, -self.right * side, self.forward, scale, side_col, top_col, target);
     }
 }
 

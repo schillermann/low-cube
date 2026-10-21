@@ -1,14 +1,16 @@
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{FacetedSolid, HeldRelic, LimbFrame, StrideRhythm, TaperedPrism, YouthAttire};
+use crate::attire::{
+    BeltSatchel, BodyPose, FacetedSolid, HeldRelic, HipPouch, LimbFrame, SightMode, StrideRhythm,
+    TaperedPrism, YouthAttire,
+};
 
 const EXCAVATION_THRESHOLD: u32 = 8;
 
-/// Immutable per-hand block inventory and excavation progress state ("Tell, Don't Ask").
+/// Immutable dual-hand block inventory, hip pouches, per-hand block molds, and excavation progress state ("Tell, Don't Ask").
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PalmEarthworks {
-    right_blocks: u32,
-    left_blocks: u32,
+    satchel: BeltSatchel,
     dig_progress: u32,
     held_mask: u8,
     dig_site: Vec3,
@@ -17,37 +19,57 @@ pub struct PalmEarthworks {
 
 impl PalmEarthworks {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(right_blocks: u32, left_blocks: u32, dig_progress: u32, held_mask: u8, dig_site: Vec3, splash_active: bool) -> Self {
-        Self { right_blocks, left_blocks, dig_progress, held_mask, dig_site, splash_active }
+    pub const fn new(
+        satchel: BeltSatchel, dig_progress: u32, held_mask: u8, dig_site: Vec3, splash_active: bool,
+    ) -> Self {
+        Self { satchel, dig_progress, held_mask, dig_site, splash_active }
     }
 
-    /// Secondary constructor initializing empty hands with zero digging progress.
-    pub const fn empty() -> Self { Self::new(0, 0, 0, 0, Vec3::ZERO, false) }
+    /// Secondary constructor initializing empty hands and hip pouches with forward full-cube molds.
+    pub const fn empty() -> Self { Self::new(BeltSatchel::empty(), 0, 0, Vec3::ZERO, false) }
 
-    /// Synchronizes block counts when attire relics are cycled or loaded.
+    pub fn mold_next_form(self, attire: YouthAttire) -> Self {
+        Self::new(self.satchel.map_mold(attire, HipPouch::mold_next_form), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+    }
+
+    pub fn mold_prev_form(self, attire: YouthAttire) -> Self {
+        Self::new(self.satchel.map_mold(attire, HipPouch::mold_prev_form), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+    }
+
+    pub fn turn_mold_clockwise(self, attire: YouthAttire) -> Self {
+        Self::new(self.satchel.map_mold(attire, HipPouch::turn_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+    }
+
+    pub fn turn_mold_counter_clockwise(self, attire: YouthAttire) -> Self {
+        Self::new(self.satchel.map_mold(attire, HipPouch::turn_counter_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+    }
+
+    /// Emits the avatar wardrobe with dual hip pouches, stowed tools, and per-hand sculpted blocks.
+    pub fn emit_attire(&self, attire: &YouthAttire, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
+        attire.emit_satchel(pose, sight, self.satchel, target);
+    }
+
+    /// Synchronizes hand block counts when attire relics are cycled or loaded while preserving hip pouches.
     pub fn reconcile_attire(self, attire: YouthAttire) -> Self {
-        let (right, left) = attire.held_pair();
-        let next_right = if right.placeable_block() { self.right_blocks.max(1) } else { 0 };
-        let next_left = if left.placeable_block() { self.left_blocks.max(1) } else { 0 };
-        Self::new(next_right, next_left, self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+        Self::new(self.satchel.reconcile_attire(attire), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
 
-    /// Preserves held earth blocks in free hands when ground weapon sites synchronize.
+    /// Preserves held and pocketed earth blocks and stowed tools when ground weapon sites synchronize.
     pub fn merge_site_relics(self, attire: YouthAttire, site_pair: (HeldRelic, HeldRelic)) -> (Self, YouthAttire) {
-        let right = if site_pair.0.free_palm() && self.right_blocks > 0 { HeldRelic::ExcavatedEarth } else { site_pair.0 };
-        let left = if site_pair.1.free_palm() && self.left_blocks > 0 { HeldRelic::ExcavatedEarth } else { site_pair.1 };
-        let updated = attire.with_relics(right, left);
-        (self.reconcile_attire(updated), updated)
+        let (next_satchel, updated) = self.satchel.merge_site_relics(attire, site_pair);
+        (Self::new(next_satchel, self.dig_progress, self.held_mask, self.dig_site, self.splash_active), updated)
     }
 
-    /// Triggers hand swing animation according to free palms, tools, or weapons.
+    /// Stows the held block or tool/weapon into the side's hip pouch to free the hand, or draws it back when empty.
+    pub fn toggle_hand_pocket(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
+        let (next_satchel, next_attire, changed) = self.satchel.toggle_pocket(side, attire);
+        (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), next_attire, changed)
+    }
+
     pub fn trigger_hand_swing(attire: YouthAttire, rhythm: StrideRhythm, side: f32) -> StrideRhythm {
         let (right, left) = attire.held_pair();
-        if right.free_palm() && left.free_palm() {
-            return rhythm.trigger_right_strike().trigger_left_strike();
-        }
-        let active = if side > 0.0 { right } else { left };
-        let other = if side > 0.0 { left } else { right };
+        if right.free_palm() && left.free_palm() { return rhythm.trigger_right_strike().trigger_left_strike(); }
+        let (active, other) = if side > 0.0 { (right, left) } else { (left, right) };
         if active.gripped() || active.free_palm() {
             if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() }
         } else if other.free_palm() {
@@ -57,13 +79,11 @@ impl PalmEarthworks {
         }
     }
 
-    /// Emits soil clods erupting outward and upward on a ballistic arc directly above the dug block.
     pub fn emit_debris(&self, view_dir: Vec3, surface_up: Vec3, rhythm: StrideRhythm, target: &mut dyn MeshTarget) {
         let t = rhythm.strike_progress();
         if !self.splash_active || t <= 0.01 { return; }
         let right = view_dir.cross(surface_up).normalize_or_zero();
-        let fwd = surface_up.cross(right).normalize_or_zero();
-        let frame = LimbFrame::new(self.dig_site, right, surface_up, fwd);
+        let frame = LimbFrame::new(self.dig_site, right, surface_up, surface_up.cross(right).normalize_or_zero());
         let spray = [
             (-0.85, 0.42, 0.30, 0.24, 0.019, 0.00), (0.78, 0.55, 0.34, 0.28, 0.022, 0.04),
             (-0.35, -0.88, 0.26, 0.20, 0.017, 0.08), (0.46, -0.82, 0.32, 0.25, 0.020, 0.02),
@@ -89,13 +109,11 @@ impl PalmEarthworks {
         world.constrain_to_surface(eye + dir, 0.0)
     }
 
-    /// Cancels any partial digging progress and removes surface fissures when the mouse button is released.
     pub fn release_hand(self, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> (Self, bool) {
         let cleared = if self.dig_progress > 0 { world.loosen_surface(eye, view_dir, 0) } else { false };
-        (Self::new(self.right_blocks, self.left_blocks, 0, 0, self.dig_site, false), cleared)
+        (Self::new(self.satchel, 0, 0, self.dig_site, false), cleared)
     }
 
-    /// Automatically triggers the next digging strike while the mouse button remains held down.
     #[allow(clippy::too_many_arguments)]
     pub fn continue_digging(
         self, attire: YouthAttire, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, avatar_pos: Vec3, world: &mut dyn PlanetaryWorld,
@@ -105,29 +123,22 @@ impl PalmEarthworks {
         }
         let prev = self.dig_progress;
         let side = if self.held_mask & 1 != 0 { 1.0 } else { -1.0 };
-        let (next, next_attire, next_rhythm, excavated) =
-            self.act_with_hand(side, attire, rhythm, eye, view_dir, avatar_pos, world);
+        let (next, next_attire, next_rhythm, excavated) = self.act_with_hand(side, attire, rhythm, eye, view_dir, avatar_pos, world);
         (next, next_attire, next_rhythm, excavated || next.dig_progress != prev)
     }
 
-    /// Executes block placement if the chosen hand holds a block, or digs earth with hands/spade.
     #[allow(clippy::too_many_arguments)]
     pub fn act_with_hand(
         self, side: f32, attire: YouthAttire, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, avatar_pos: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> (Self, YouthAttire, StrideRhythm, bool) {
         let state = self.reconcile_attire(attire);
         let (right, left) = attire.held_pair();
-        let active = if side > 0.0 { right } else { left };
-        let other = if side > 0.0 { left } else { right };
-        let bit = if side > 0.0 { 1u8 } else { 2u8 };
+        let (active, other, bit) = if side > 0.0 { (right, left, 1u8) } else { (left, right, 2u8) };
 
         if active.placeable_block() {
             let next_rhythm = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
-            if world.place_surface_block(eye, view_dir, avatar_pos) {
-                let (next_state, next_attire) = state.consume_placed_block(side, attire);
-                return (next_state, next_attire, next_rhythm, true);
-            }
-            return (Self::new(state.right_blocks, state.left_blocks, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false);
+            let (next_satchel, next_attire, placed) = state.satchel.place_from_hand(side, attire, eye, view_dir, avatar_pos, world);
+            return (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), next_attire, next_rhythm, placed);
         }
 
         let (effort, next_mask, recipient_side, next_rhythm) = if active.spade_blade() {
@@ -137,60 +148,30 @@ impl PalmEarthworks {
         } else if right.free_palm() && left.free_palm() {
             let combined = state.held_mask | bit;
             if combined == 3 {
-                let step_effort = if state.held_mask == 3 { 2 } else { 1 };
-                (step_effort, 3, side, rhythm.trigger_right_strike().trigger_left_strike())
+                (if state.held_mask == 3 { 2 } else { 1 }, 3, side, rhythm.trigger_right_strike().trigger_left_strike())
             } else {
-                let swing = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
-                (1, bit, side, swing)
+                (1, bit, side, if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() })
             }
         } else if active.free_palm() {
-            let swing = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
-            (1, bit, side, swing)
+            (1, bit, side, if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() })
         } else {
-            let swing = Self::trigger_hand_swing(attire, rhythm, side);
-            return (Self::new(state.right_blocks, state.left_blocks, 0, 0, Vec3::ZERO, false), attire, swing, false);
+            return (Self::new(state.satchel, 0, 0, Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), false);
         };
 
         let site = Self::locate_dig_site(eye, view_dir, world);
         let progress = state.dig_progress + effort;
         if progress >= EXCAVATION_THRESHOLD {
             if world.excavate_surface(eye, view_dir) {
-                let (next_state, next_attire) = state.collect_excavated_block(recipient_side, site, attire);
-                return (next_state, next_attire, next_rhythm, true);
+                let (next_satchel, next_attire) = state.satchel.collect_excavated_block(recipient_side, attire);
+                return (Self::new(next_satchel, 0, 0, site, true), next_attire, next_rhythm, true);
             }
-            return (Self::new(state.right_blocks, state.left_blocks, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false);
+            return (Self::new(state.satchel, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false);
         }
 
         let stage = ((progress + 1) / 2).clamp(1, 3) as u8;
         if world.loosen_surface(eye, view_dir, stage) {
-            return (Self::new(state.right_blocks, state.left_blocks, progress, next_mask, site, true), attire, next_rhythm, false);
+            return (Self::new(state.satchel, progress, next_mask, site, true), attire, next_rhythm, false);
         }
-        (Self::new(state.right_blocks, state.left_blocks, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false)
-    }
-
-    fn collect_excavated_block(self, side: f32, site: Vec3, attire: YouthAttire) -> (Self, YouthAttire) {
-        let (right, left) = attire.held_pair();
-        if side > 0.0 {
-            let next_right = self.right_blocks + 1;
-            let next_attire = attire.with_relics(HeldRelic::ExcavatedEarth, left);
-            (Self::new(next_right, self.left_blocks, 0, 0, site, true), next_attire)
-        } else {
-            let next_left = self.left_blocks + 1;
-            let next_attire = attire.with_relics(right, HeldRelic::ExcavatedEarth);
-            (Self::new(self.right_blocks, next_left, 0, 0, site, true), next_attire)
-        }
-    }
-
-    fn consume_placed_block(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire) {
-        let (right, left) = attire.held_pair();
-        if side > 0.0 {
-            let next_right = self.right_blocks.saturating_sub(1);
-            let next_relic = if next_right == 0 { HeldRelic::EmptyPalm } else { right };
-            (Self::new(next_right, self.left_blocks, 0, 0, Vec3::ZERO, false), attire.with_relics(next_relic, left))
-        } else {
-            let next_left = self.left_blocks.saturating_sub(1);
-            let next_offhand = if next_left == 0 { HeldRelic::EmptyPalm } else { left };
-            (Self::new(self.right_blocks, next_left, 0, 0, Vec3::ZERO, false), attire.with_relics(right, next_offhand))
-        }
+        (Self::new(state.satchel, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false)
     }
 }

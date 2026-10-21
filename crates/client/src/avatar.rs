@@ -1,7 +1,7 @@
 use glam::{Mat4, Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, HeldRelic, SightMode, StrideRhythm, Wardrobe, YouthAttire};
+use crate::attire::{BodyPose, HeldRelic, SightMode, StrideRhythm, YouthAttire};
 use crate::axe::RelicSite;
 use crate::controls::KeyboardControls;
 use crate::earthworks::PalmEarthworks;
@@ -24,6 +24,8 @@ pub trait Avatar {
     fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool;
     fn release_hand(&mut self, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn step_digging(&mut self, _world: &mut dyn PlanetaryWorld) -> bool { false }
+    fn scroll_mold(&mut self, _dy: f32, _dx: f32) {}
+    fn turn_mold_clockwise(&mut self) {}
     fn apply_attire(&mut self, attire: YouthAttire);
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool;
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
@@ -124,17 +126,27 @@ impl Avatar for PlanetaryAvatar {
         (self.earthworks, self.attire, self.rhythm) = (next_ew, next_attire, next_rhythm);
         changed
     }
+    fn scroll_mold(&mut self, dy: f32, dx: f32) {
+        if dy > 0.0 { self.earthworks = self.earthworks.mold_next_form(self.attire); } else if dy < 0.0 { self.earthworks = self.earthworks.mold_prev_form(self.attire); }
+        if dx > 0.0 { self.earthworks = self.earthworks.turn_mold_clockwise(self.attire); } else if dx < 0.0 { self.earthworks = self.earthworks.turn_mold_counter_clockwise(self.attire); }
+    }
+    fn turn_mold_clockwise(&mut self) { self.earthworks = self.earthworks.turn_mold_clockwise(self.attire); }
     fn apply_attire(&mut self, attire: YouthAttire) { self.attire = attire; self.earthworks = self.earthworks.reconcile_attire(attire); }
 
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
-        if code == KeyCode::KeyM {
-            self.sight = self.sight.toggle();
-            return true;
+        match code {
+            KeyCode::KeyM => { self.sight = self.sight.toggle(); return true; }
+            KeyCode::KeyR => { self.earthworks = self.earthworks.mold_next_form(self.attire); return true; }
+            KeyCode::KeyV => { self.earthworks = self.earthworks.turn_mold_clockwise(self.attire); return true; }
+            KeyCode::KeyC => { self.earthworks = self.earthworks.turn_mold_counter_clockwise(self.attire); return true; }
+            KeyCode::KeyQ | KeyCode::KeyE => {
+                let (ew, attire, ok) = self.earthworks.toggle_hand_pocket(if code == KeyCode::KeyE { 1.0 } else { -1.0 }, self.attire);
+                (self.earthworks, self.attire) = (ew, attire);
+                return ok;
+            }
+            _ => {}
         }
-        if let Some(updated) = self.attire.cycled_by_key(code) {
-            self.apply_attire(updated);
-            return true;
-        }
+        if let Some(updated) = self.attire.cycled_by_key(code) { self.apply_attire(updated); return true; }
         false
     }
 
@@ -176,13 +188,11 @@ impl Avatar for PlanetaryAvatar {
         proj * view
     }
 
-    fn surface_rotation(&self) -> Quat {
-        self.surface_rot
-    }
+    fn surface_rotation(&self) -> Quat { self.surface_rot }
 
     fn emit_appearance(&self, target: &mut dyn MeshTarget) {
         let pose = self.current_pose();
-        self.attire.emit(&pose, self.sight, target);
+        self.earthworks.emit_attire(&self.attire, &pose, self.sight, target);
         let view_dir = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
         self.earthworks.emit_debris(view_dir, self.surface_up(), self.rhythm, target);
     }

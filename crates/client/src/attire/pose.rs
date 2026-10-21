@@ -142,7 +142,7 @@ impl BodyPose {
         let (s, walk, run) = (phase.sin(), (self.rhythm.blend / 0.45).clamp(0.0, 1.0) * ground, ((self.rhythm.blend - 0.48) / 0.52).clamp(0.0, 1.0) * ground);
         let (breath, hold_factor) = (self.rhythm.phase.sin() * (1.0 - walk), if holding || self.striking_on(side) { (1.0 - run).max(0.35) } else { 0.0 });
         let (arc, surge) = if !matches!(martial, MartialStyle::Unarmed) || self.striking_on(side) { (self.rhythm.cleave_arc(side), self.rhythm.cleave_surge(side)) } else { (0.0, 0.0) };
-        let (wind, strike, bow, sword, spade, palm) = ((-arc).max(0.0), arc.max(0.0), (1.0 - arc * arc) * surge, matches!(martial, MartialStyle::SwordplaySlash), matches!(martial, MartialStyle::SpadeDig), matches!(martial, MartialStyle::Unarmed) && self.striking_on(side));
+        let (wind, strike, bow, sword, spade, cradle, palm) = ((-arc).max(0.0), arc.max(0.0), (1.0 - arc * arc) * surge, matches!(martial, MartialStyle::SwordplaySlash), matches!(martial, MartialStyle::SpadeDig), matches!(martial, MartialStyle::PalmCradle), matches!(martial, MartialStyle::Unarmed) && self.striking_on(side));
         let (dig, upper_len, fore_len) = (spade || palm, self.arm_size(0.26), self.arm_size(0.24));
         let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + 0.08 * hold_factor + (crouch + ext) * 0.10 + if sword { 0.0 } else if dig { 0.22 * wind + 0.08 * bow } else { 0.36 * wind + 0.42 * bow };
         let r_sag = upper_len * theta_abduct.cos();
@@ -156,10 +156,10 @@ impl BodyPose {
         let wrist = Vec3::new(elbow.x + side * (wrist_dx - (0.010 + 0.014 * walk + 0.072 * run + 0.16 * crouch + 0.035 * hold_factor)), elbow.y - fore_len * theta_forearm.cos(), elbow.z + fore_len * theta_forearm.sin() + if dig { 0.10 * bow + 0.12 * strike } else { 0.0 });
         let (shoulder_w, elbow_w, wrist_w) = (torso.point(shoulder.x, shoulder.y, shoulder.z), torso.point(elbow.x, elbow.y, elbow.z), torso.point(wrist.x, wrist.y, wrist.z));
         let (forearm_len, forearm_dir) = ((wrist_w - elbow_w).length(), (wrist_w - elbow_w).normalize());
-        let (rx, ry) = if spade { let a = 0.75 * wind + 1.95 * bow + 2.35 * strike; (a.cos(), side * a.sin()) } else if palm { (1.0, -side * (0.38 * wind + 0.72 * bow + 0.92 * strike)) } else { (1.0, side * if sword { 0.10 * hold_factor + 0.16 * wind + 0.08 * strike } else { 0.08 * hold_factor + 0.55 * crouch - 0.25 * wind - 0.55 * bow - 0.68 * strike }) };
+        let (rx, ry) = if spade { let a = 0.75 * wind + 1.95 * bow + 2.35 * strike; (a.cos(), side * a.sin()) } else if cradle { (0.22, -side * 0.97) } else if palm { (1.0, -side * (0.38 * wind + 0.72 * bow + 0.92 * strike)) } else { (1.0, side * if sword { 0.10 * hold_factor + 0.16 * wind + 0.08 * strike } else { 0.08 * hold_factor + 0.55 * crouch - 0.25 * wind - 0.55 * bow - 0.68 * strike }) };
         let hand_up = (torso.point(rx, ry, 0.0) - torso.point(0.0, 0.0, 0.0)).normalize().cross(forearm_dir).normalize();
         let wrist_yaw = side * if palm { crouch * 0.35 * (1.0 - surge - strike).max(0.0) - (0.22 * wind + 0.35 * bow + 0.42 * strike) } else { crouch * 0.35 };
-        let wrist_snap = if sword { -0.18 * wind + 1.12 * strike + 0.16 * surge } else if palm { -0.15 * wind + 0.12 * bow } else if spade { -0.12 * wind + 0.48 * bow + 0.78 * strike } else { -0.20 * wind + 0.35 * bow + 0.62 * strike };
+        let wrist_snap = if sword { -0.18 * wind + 1.12 * strike + 0.16 * surge } else if cradle { -0.14 + 0.36 * strike } else if palm { -0.15 * wind + 0.12 * bow } else if spade { -0.12 * wind + 0.48 * bow + 0.78 * strike } else { -0.20 * wind + 0.35 * bow + 0.62 * strike };
         (shoulder_w, elbow_w, LimbFrame::new(wrist_w, forearm_dir.cross(hand_up).normalize(), hand_up, forearm_dir).yawed(wrist_yaw).pitched(wrist_snap), forearm_len)
     }
 
@@ -167,7 +167,7 @@ impl BodyPose {
     pub fn first_person_arm(&self, side: f32, martial: MartialStyle) -> (Vec3, Vec3, LimbFrame, f32) {
         let (up, view_fwd, right) = ((self.surface_rot * Vec3::Y).normalize(), (self.view_rot * Vec3::NEG_Z).normalize(), (self.view_rot * Vec3::X).normalize());
         let (arc, surge) = if !matches!(martial, MartialStyle::Unarmed) || self.striking_on(side) { (self.rhythm.cleave_arc(side), self.rhythm.cleave_surge(side)) } else { (0.0, 0.0) };
-        let (wind, strike, bow, sword, spade, palm) = ((-arc).max(0.0), arc.max(0.0), (1.0 - arc * arc) * surge, matches!(martial, MartialStyle::SwordplaySlash), matches!(martial, MartialStyle::SpadeDig), matches!(martial, MartialStyle::Unarmed) && self.striking_on(side));
+        let (wind, strike, bow, sword, spade, cradle, palm) = ((-arc).max(0.0), arc.max(0.0), (1.0 - arc * arc) * surge, matches!(martial, MartialStyle::SwordplaySlash), matches!(martial, MartialStyle::SpadeDig), matches!(martial, MartialStyle::PalmCradle), matches!(martial, MartialStyle::Unarmed) && self.striking_on(side));
         let (dig, look_pitch) = (spade || palm, view_fwd.dot(up).clamp(-0.99, 0.99).asin());
         let pitch_follow = (if look_pitch >= 0.0 { 0.85 } else { 0.62 }) * (1.0 - strike) + strike;
         let eye_frame = LimbFrame::new(self.eye_origin(), right, up, up.cross(right).normalize()).pitched(-look_pitch * pitch_follow);
@@ -183,13 +183,14 @@ impl BodyPose {
         let elbow_local = Vec3::new(side * (0.028 + 0.038 * run + if sword { -0.015 * wind - 0.02 * strike } else if dig { 0.06 * wind + 0.02 * bow - 0.04 * strike } else { 0.05 * wind + 0.06 * bow }), -0.155 - 0.010 * run - if dig { 0.02 * strike } else { 0.06 * wind - 0.02 * strike }, -0.155 + 0.010 * run + 0.04 * wind + 0.02 * strike);
         let (wrist_w, elbow_w) = (raw_frame.point(0.0, 0.0, 0.0), raw_frame.point(elbow_local.x, elbow_local.y, elbow_local.z));
         let (forearm_len, hand_dir) = ((wrist_w - elbow_w).length(), (wrist_w - raw_frame.point(side * 0.015, 0.035 - if sword || dig { 0.0 } else { 0.14 * wind + 0.05 * bow }, -0.22)).normalize());
-        let (rx, ry) = if spade { let a = 0.75 * wind + 1.95 * bow + 2.35 * strike; (a.cos(), side * a.sin()) } else if palm { (1.0, -side * (0.38 * wind + 0.72 * bow + 0.92 * strike)) } else { (1.0, side * if sword { 0.10 + 0.16 * wind - 0.04 * strike } else { 0.08 - 0.35 * wind - 0.62 * bow - 0.7853 * strike }) };
+        let (rx, ry) = if spade { let a = 0.75 * wind + 1.95 * bow + 2.35 * strike; (a.cos(), side * a.sin()) } else if cradle { (0.22, -side * 0.97) } else if palm { (1.0, -side * (0.38 * wind + 0.72 * bow + 0.92 * strike)) } else { (1.0, side * if sword { 0.10 + 0.16 * wind - 0.04 * strike } else { 0.08 - 0.35 * wind - 0.62 * bow - 0.7853 * strike }) };
         let hand_up = (raw_frame.point(rx, ry, 0.0) - wrist_w).cross(hand_dir).normalize();
-        let wrist_snap = if sword { -0.18 * wind + 1.32 * strike } else if spade { -0.12 * wind + 0.52 * bow + 0.85 * strike } else if palm { -0.15 * wind + 0.25 * bow + 0.35 * strike } else { -0.22 * wind + 0.34 * bow + 0.550 * strike };
+        let wrist_snap = if sword { -0.18 * wind + 1.32 * strike } else if cradle { -0.16 + 0.38 * strike } else if spade { -0.12 * wind + 0.52 * bow + 0.85 * strike } else if palm { -0.15 * wind + 0.25 * bow + 0.35 * strike } else { -0.22 * wind + 0.34 * bow + 0.550 * strike };
         (shoulder_w, elbow_w, LimbFrame::new(wrist_w, hand_dir.cross(hand_up).normalize(), hand_up, hand_dir).pitched(wrist_snap), forearm_len)
     }
 
-    pub fn finger_curl(&self, side: f32, holding_relic: bool) -> f32 {
+    pub fn finger_curl(&self, side: f32, holding_relic: bool, martial: MartialStyle) -> f32 {
+        if matches!(martial, MartialStyle::PalmCradle) { return 0.34; }
         if holding_relic { return 0.88; }
         let (walk, run, phase) = ((self.rhythm.blend / 0.45).clamp(0.0, 1.0), ((self.rhythm.blend - 0.48) / 0.52).clamp(0.0, 1.0), if side > 0.0 { self.rhythm.phase } else { self.rhythm.phase + std::f32::consts::PI });
         (0.18 + 0.07 * walk + 0.70 * run + phase.sin().max(0.0) * 0.06 * run).clamp(0.18, 0.96)

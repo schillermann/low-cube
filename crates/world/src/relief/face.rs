@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 use glam::Vec3;
-use crate::block::GridCell;
+use crate::block::{BlockMold, GridCell};
 use crate::frame::SurfaceFrame;
 use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics};
 use crate::topology::ClimateZone;
@@ -8,8 +8,9 @@ use crate::{Face, MeshTarget, Quad};
 use super::cavity::{NullCavity, SubterraneanCavity};
 use super::elevation::{ReliefElevation, ZonedRelief};
 use super::palette::ReliefPalette;
+use super::sight_ray::SurfaceSightRay;
 use super::strata::ReliefStrata;
-use super::terraced::{SurfaceSightRay, TerracedRelief};
+use super::terraced::TerracedRelief;
 
 struct RowQuadTarget<'a>(&'a mut Vec<Quad>);
 
@@ -39,14 +40,9 @@ impl FacetedReliefFace {
         let strata = ReliefStrata::new();
 
         let seed_offset = match zone {
-            ClimateZone::Temperate => 101,
-            ClimateZone::Volcanic => 202,
-            ClimateZone::Desert => 303,
-            ClimateZone::Arctic => 404,
-            ClimateZone::Jungle => 505,
-            ClimateZone::Steppe => 606,
+            ClimateZone::Temperate => 101, ClimateZone::Volcanic => 202, ClimateZone::Desert => 303,
+            ClimateZone::Arctic => 404, ClimateZone::Jungle => 505, ClimateZone::Steppe => 606,
         };
-
         let freq = if half_size >= 48.0 { 0.025 } else { 0.04 };
         let base_noise = Box::new(CoherentNoise::new(seed_offset, freq));
         let harmonics = Box::new(FractalHarmonics::new(base_noise, 3, 0.5, 2.0));
@@ -56,21 +52,13 @@ impl FacetedReliefFace {
 
         let (min_elev, max_elev) = if half_size >= 48.0 {
             match zone {
-                ClimateZone::Volcanic => (0, 16),
-                ClimateZone::Arctic => (0, 14),
-                ClimateZone::Steppe => (0, 10),
-                ClimateZone::Temperate => (0, 9),
-                ClimateZone::Jungle => (-1, 8),
-                ClimateZone::Desert => (0, 7),
+                ClimateZone::Volcanic => (0, 16), ClimateZone::Arctic => (0, 14), ClimateZone::Steppe => (0, 10),
+                ClimateZone::Temperate => (0, 9), ClimateZone::Jungle => (-1, 8), ClimateZone::Desert => (0, 7),
             }
         } else if half_size >= 24.0 {
             match zone {
-                ClimateZone::Volcanic => (0, 12),
-                ClimateZone::Arctic => (0, 10),
-                ClimateZone::Steppe => (0, 8),
-                ClimateZone::Temperate => (0, 7),
-                ClimateZone::Jungle => (-1, 6),
-                ClimateZone::Desert => (0, 5),
+                ClimateZone::Volcanic => (0, 12), ClimateZone::Arctic => (0, 10), ClimateZone::Steppe => (0, 8),
+                ClimateZone::Temperate => (0, 7), ClimateZone::Jungle => (-1, 6), ClimateZone::Desert => (0, 5),
             }
         } else {
             match zone {
@@ -188,12 +176,24 @@ impl Face for FacetedReliefFace {
     }
 
     fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.place_molded_block(eye, direction, avatar_pos, BlockMold::cube())
+    }
+
+    fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let half = (self.divisions as i32) / 2;
         if let Some((cu, cv)) = SurfaceSightRay::new(eye, direction).placement_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5, avatar_pos) {
-            let changed = self.relief.stack_cell(cu, cv);
+            let shape = mold.shape_for(direction, &self.frame);
+            let changed = self.relief.stack_molded_cell(cu, cv, shape, mold.full_height_flat());
             if changed { self.refresh_rows(cv, half); }
             return changed;
         }
         false
+    }
+
+    fn step_surface(&mut self, dt: f32) -> bool {
+        let half = (self.divisions as i32) / 2;
+        let rows = self.relief.step_grass(dt);
+        for &cv in &rows { self.refresh_rows(cv, half); }
+        !rows.is_empty()
     }
 }

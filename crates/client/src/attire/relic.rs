@@ -1,11 +1,12 @@
 use glam::Vec3;
-use world::MeshTarget;
+use world::{BlockMold, MeshTarget};
 use super::limb::{FacetedSolid, LimbFrame, TaperedPrism};
 
 /// Polymorphic martial action style bound to the held relic.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MartialStyle {
     Unarmed,
+    PalmCradle,
     LumberjackCleave,
     SwordplaySlash,
     SpadeDig,
@@ -83,23 +84,25 @@ impl HeldRelic {
     pub fn martial_style(self) -> MartialStyle {
         match self {
             Self::EmptyPalm => MartialStyle::Unarmed,
+            Self::ExcavatedEarth | Self::QuarriedStone => MartialStyle::PalmCradle,
             Self::IronSpade => MartialStyle::SpadeDig,
-            Self::QuarriedStone
-            | Self::WoodenMallet
-            | Self::WoodmanAxe
-            | Self::ExcavatedEarth => MartialStyle::LumberjackCleave,
+            Self::WoodenMallet | Self::WoodmanAxe => MartialStyle::LumberjackCleave,
             Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,
         }
     }
 
     /// Emits the relic seated inside the hollow grip pocket of the left or right palm (gx = -side * 0.025, gz = 0.054).
     pub fn emit_in_palm(self, side: f32, frame: &LimbFrame, target: &mut dyn MeshTarget) {
+        self.emit_molded_in_palm(side, BlockMold::cube(), frame, target);
+    }
+
+    /// Emits the relic in the palm, sculpting placeable blocks resting inside the upturned hollow palm.
+    pub fn emit_molded_in_palm(self, side: f32, mold: BlockMold, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let (gx, gz) = (-side * 0.025, 0.054);
         match self {
             Self::EmptyPalm => {}
             Self::QuarriedStone => {
-                TaperedPrism::new(4, Vec3::new(gx - side * 0.015, -0.02, gz), Vec3::new(gx - side * 0.015, 0.09, gz), 0.048, 0.048, 0.048, 0.048, Vec3::new(0.55, 0.56, 0.58))
-                    .emit(frame, true, target);
+                frame.emit_cradled_block(side, Vec3::new(-side * 0.015, 0.001, 0.046), mold, 0.068, Vec3::new(0.50, 0.51, 0.53), Vec3::new(0.62, 0.64, 0.66), target);
             }
             Self::TimberTorch => {
                 TaperedPrism::hexagonal(Vec3::new(gx, -0.10, gz), Vec3::new(gx, 0.18, gz + 0.01), 0.013, 0.017, Vec3::new(0.45, 0.28, 0.14))
@@ -155,11 +158,7 @@ impl HeldRelic {
                 TaperedPrism::new(4, Vec3::new(gx, 0.345, gz + 0.016), Vec3::new(gx, 0.395, gz + 0.022), 0.006, 0.046, 0.002, 0.018, honed_edge).emit(frame, true, target);
             }
             Self::ExcavatedEarth => {
-                let (loam_earth, turf_crest) = (Vec3::new(0.48, 0.35, 0.22), Vec3::new(0.36, 0.50, 0.24));
-                TaperedPrism::new(4, Vec3::new(gx - side * 0.015, -0.02, gz), Vec3::new(gx - side * 0.015, 0.072, gz), 0.050, 0.050, 0.052, 0.052, loam_earth)
-                    .emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx - side * 0.015, 0.072, gz), Vec3::new(gx - side * 0.015, 0.095, gz), 0.053, 0.053, 0.050, 0.050, turf_crest)
-                    .emit(frame, true, target);
+                frame.emit_cradled_block(side, Vec3::new(-side * 0.015, 0.001, 0.046), mold, 0.068, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.52, 0.38, 0.24), target);
             }
         }
     }

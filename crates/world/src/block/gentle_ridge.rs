@@ -71,10 +71,20 @@ impl VoxelShape for GentleRidge {
         let p2 = frame.point_at(u1, v1, base_elevation + h2);
         let p3 = frame.point_at(u0, v1, base_elevation + h3);
 
-        let norm_a = (p1 - p0).cross(p2 - p0).normalize();
-        let norm_b = (p2 - p0).cross(p3 - p0).normalize();
-        target.push_quad(Quad::new(p0, p1, p2, p2, norm_a, color));
-        target.push_quad(Quad::new(p0, p2, p3, p3, norm_b, color));
+        match self.heading {
+            CornerHeading::NorthEast | CornerHeading::SouthWest => {
+                let norm_a = (p1 - p0).cross(p3 - p0).normalize();
+                let norm_b = (p2 - p1).cross(p3 - p1).normalize();
+                target.push_quad(Quad::new(p0, p1, p3, p3, norm_a, color));
+                target.push_quad(Quad::new(p1, p2, p3, p3, norm_b, color));
+            }
+            CornerHeading::NorthWest | CornerHeading::SouthEast => {
+                let norm_a = (p1 - p0).cross(p2 - p0).normalize();
+                let norm_b = (p2 - p0).cross(p3 - p0).normalize();
+                target.push_quad(Quad::new(p0, p1, p2, p2, norm_a, color));
+                target.push_quad(Quad::new(p0, p2, p3, p3, norm_b, color));
+            }
+        }
 
         let [b0, b1, b2, b3] = cell.corner_points(frame, base_elevation);
 

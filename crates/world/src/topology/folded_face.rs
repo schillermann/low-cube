@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
-use crate::{Face, MeshTarget};
+use crate::{BlockMold, Face, MeshTarget};
 use super::{ClimateZone, FacePerimeter, PerimeterCrossing, PlanetaryTopology, SeamFold};
 
 /// Decorator enabling seamless 90° coordinate folding across outer perimeter boundaries.
@@ -84,5 +84,13 @@ impl Face for FoldedFace {
 
     fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
         self.origin.place_block(eye, direction, avatar_pos)
+    }
+
+    fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
+        self.origin.place_molded_block(eye, direction, avatar_pos, mold)
+    }
+
+    fn step_surface(&mut self, dt: f32) -> bool {
+        self.origin.step_surface(dt)
     }
 }

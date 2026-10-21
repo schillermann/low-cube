@@ -122,8 +122,8 @@ fn test_axe_pickup_and_throw_cycle_near_spawn() {
     avatar.emit_appearance(&mut wielded_quads);
     assert!(wielded_quads.count() > initial_quads.count(), "Picking up the axe must equip it on the player and the 3 showcase characters");
 
-    // Press E a second time to pick up the KnightlySword into the left hand while keeping the WoodmanAxe in the right hand
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyE));
+    // Press Q to pick up the KnightlySword into the left hand while keeping the WoodmanAxe in the right hand
+    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyQ));
     avatar.step_motion(1.0 / 60.0, &controls, &world);
     let mut dual_quads = QuadCollector::empty();
     avatar.emit_appearance(&mut dual_quads);
@@ -143,10 +143,10 @@ fn test_axe_pickup_and_throw_cycle_near_spawn() {
     avatar.emit_appearance(&mut left_striking_quads);
     assert_ne!(vertices(&right_striking_quads), vertices(&left_striking_quads), "Left mouse strike must animate the left-hand weapon posture");
 
-    // Press Q twice to throw both held weapons back onto the ground
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyQ));
+    // Press X twice to throw both held weapons back onto the ground
+    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyX));
     avatar.step_motion(1.0 / 60.0, &controls, &world);
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyQ));
+    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyX));
     for _ in 0..45 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
     let mut thrown_quads = QuadCollector::empty();
     avatar.emit_appearance(&mut thrown_quads);

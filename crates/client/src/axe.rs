@@ -11,7 +11,7 @@ pub trait RelicSite {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum RelicCommand { Idle, Interact, Throw }
+enum RelicCommand { Idle, PickupRight, PickupLeft, Throw }
 
 #[derive(Clone, Copy, Debug)]
 enum RelicPhase {
@@ -101,12 +101,19 @@ impl RelicSite for FieldAxe {
         match code {
             KeyCode::KeyE => {
                 if self.relics.iter().any(|r| matches!(r.phase, RelicPhase::Grounded { .. })) {
-                    self.command = RelicCommand::Interact;
+                    self.command = RelicCommand::PickupRight;
                     return true;
                 }
                 false
             }
             KeyCode::KeyQ => {
+                if self.relics.iter().any(|r| matches!(r.phase, RelicPhase::Grounded { .. })) {
+                    self.command = RelicCommand::PickupLeft;
+                    return true;
+                }
+                false
+            }
+            KeyCode::KeyX => {
                 if self.relics.iter().any(|r| matches!(r.phase, RelicPhase::Wielded { .. })) {
                     self.command = RelicCommand::Throw;
                     return true;
@@ -135,8 +142,15 @@ impl RelicSite for FieldAxe {
                 let next_cd = (cooldown - dt).max(0.0);
                 let delta = avatar_pos - position;
                 let dist = (delta - up * delta.dot(up)).length();
-                if next_cd <= 0.0 && (dist <= 1.15 || (cmd == RelicCommand::Interact && dist <= 2.60)) && !changed && (right_free || left_free) {
-                    let side = if right_free { right_free = false; 1.0 } else { left_free = false; -1.0 };
+                let interact = matches!(cmd, RelicCommand::PickupRight | RelicCommand::PickupLeft) && dist <= 2.60;
+                if next_cd <= 0.0 && (dist <= 1.15 || interact) && !changed && (right_free || left_free) {
+                    let side = if cmd == RelicCommand::PickupLeft && left_free {
+                        left_free = false; -1.0
+                    } else if right_free {
+                        right_free = false; 1.0
+                    } else {
+                        left_free = false; -1.0
+                    };
                     self.relics[idx].phase = RelicPhase::Wielded { side };
                     changed = true;
                 } else {

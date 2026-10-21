@@ -18,16 +18,13 @@ pub struct ReliefFacet {
 
 impl ReliefFacet {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self { corner: ReliefCorner::new() }
-    }
+    pub fn new() -> Self { Self { corner: ReliefCorner::new() } }
 
     pub fn emit_facet(
         &self, cell: GridCell, frame: &SurfaceFrame, relief: &dyn ReliefElevation,
         half_blocks: i32, palette: &ReliefPalette, target: &mut dyn MeshTarget,
     ) {
-        let (surf_col, ramp_col, ridge_col, valley_col, chamfer_col, cliff_col) =
-            palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
+        let (surf_col, ramp_col, ridge_col, valley_col, chamfer_col, cliff_col) = palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let stage = relief.dig_stage_at(u, v);
         let (h, hn, hs, he, hw) = (relief.elevation_at(u, v), relief.elevation_at(u, v + 1), relief.elevation_at(u, v - 1), relief.elevation_at(u + 1, v), relief.elevation_at(u - 1, v));
@@ -46,10 +43,15 @@ impl ReliefFacet {
             self.corner.push_corner_pair(p0, p1, p2, p3, chamfer_col, top_out);
             ([h0, h1, h2, h3], chamfer_col)
         } else if relief.reworked_at(u, v) {
-            let col = Vec3::new(0.48, 0.35, 0.22);
-            let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
-            top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), col));
-            ([top_h, top_h, top_h, top_h], col)
+            let bare_col = Vec3::new(0.48, 0.35, 0.22);
+            let top_c = if relief.bare_dirt_at(u, v) { bare_col } else { surf_col };
+            if relief.emit_molded_top(cell, top_h - 0.5, frame, top_c, bare_col, top_out) {
+                ([top_h - 0.5; 4], top_c)
+            } else {
+                let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
+                top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), top_c));
+                ([top_h, top_h, top_h, top_h], top_c)
+            }
         } else {
             let (nhn, nhs, nhe, nhw) = (relief.natural_elevation_at(u, v + 1), relief.natural_elevation_at(u, v - 1), relief.natural_elevation_at(u + 1, v), relief.natural_elevation_at(u - 1, v));
             let (dn, ds, de, dw) = (h - nhn, h - nhs, h - nhe, h - nhw);
@@ -128,9 +130,7 @@ impl ReliefFacet {
         let surf_n = if raw_n.dot(frame.normal()) >= 0.0 { raw_n.normalize_or_zero() } else { -raw_n.normalize_or_zero() };
         let (floor_col, wall_col) = if surf_col.y > surf_col.x && surf_col.y > surf_col.z {
             (Vec3::new(0.28, 0.19, 0.11), Vec3::new(0.42, 0.29, 0.17))
-        } else {
-            palette.inspect_subterranean(|f, w, _| (f, w))
-        };
+        } else { palette.inspect_subterranean(|f, w, _| (f, w)) };
         let (up, tan, bitan) = (frame.normal() * 0.6, frame.tangent(), frame.bitangent());
         let wall_n = [(up + bitan).normalize(), (up - tan).normalize(), (up - bitan).normalize(), (up + tan).normalize()];
         for i in 0..4 {
@@ -143,13 +143,11 @@ impl ReliefFacet {
 
     #[allow(clippy::too_many_arguments)]
     fn emit_walls(
-        &self, u: i32, v: i32, u0: f32, u1: f32, v0: f32, v1: f32,
-        h: i32, hn: i32, hs: i32, he: i32, hw: i32,
-        corners: [f32; 4], relief: &dyn ReliefElevation,
-        frame: &SurfaceFrame, cliff_col: Vec3, target: &mut dyn MeshTarget,
+        &self, u: i32, v: i32, u0: f32, u1: f32, v0: f32, v1: f32, h: i32, hn: i32, hs: i32, he: i32, hw: i32,
+        corners: [f32; 4], relief: &dyn ReliefElevation, frame: &SurfaceFrame, cliff_col: Vec3, target: &mut dyn MeshTarget,
     ) {
         if h >= hn {
-            let fn_flat = relief.reworked_at(u, v + 1);
+            let fn_flat = relief.flat_reworked_at(u, v + 1);
             let bn_l = ((if !fn_flat && (hw < hn || relief.elevation_at(u - 1, v + 1) < hn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[3]);
             let bn_r = ((if !fn_flat && (he < hn || relief.elevation_at(u + 1, v + 1) < hn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[2]);
             if corners[3] > bn_l || corners[2] > bn_r {
@@ -157,7 +155,7 @@ impl ReliefFacet {
             }
         }
         if h >= hs {
-            let fs_flat = relief.reworked_at(u, v - 1);
+            let fs_flat = relief.flat_reworked_at(u, v - 1);
             let bs_l = ((if !fs_flat && (he < hs || relief.elevation_at(u + 1, v - 1) < hs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[1]);
             let bs_r = ((if !fs_flat && (hw < hs || relief.elevation_at(u - 1, v - 1) < hs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[0]);
             if corners[1] > bs_l || corners[0] > bs_r {
@@ -165,7 +163,7 @@ impl ReliefFacet {
             }
         }
         if h >= he {
-            let fe_flat = relief.reworked_at(u + 1, v);
+            let fe_flat = relief.flat_reworked_at(u + 1, v);
             let be_l = ((if !fe_flat && (hs < he || relief.elevation_at(u + 1, v - 1) < he) { he - 1 } else { he }) as f32 * 0.5).min(corners[1]);
             let be_r = ((if !fe_flat && (hn < he || relief.elevation_at(u + 1, v + 1) < he) { he - 1 } else { he }) as f32 * 0.5).min(corners[2]);
             if corners[1] > be_l || corners[2] > be_r {
@@ -173,7 +171,7 @@ impl ReliefFacet {
             }
         }
         if h >= hw {
-            let fw_flat = relief.reworked_at(u - 1, v);
+            let fw_flat = relief.flat_reworked_at(u - 1, v);
             let bw_l = ((if !fw_flat && (hn < hw || relief.elevation_at(u - 1, v + 1) < hw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[3]);
             let bw_r = ((if !fw_flat && (hs < hw || relief.elevation_at(u - 1, v - 1) < hw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[0]);
             if corners[3] > bw_l || corners[0] > bw_r {

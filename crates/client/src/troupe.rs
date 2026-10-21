@@ -150,6 +150,8 @@ impl Avatar for TroupeAvatar {
 
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.release_hand(world) }
     fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.step_digging(world) }
+    fn scroll_mold(&mut self, dy: f32, dx: f32) { self.origin.scroll_mold(dy, dx); }
+    fn turn_mold_clockwise(&mut self) { self.origin.turn_mold_clockwise(); }
 
     fn apply_attire(&mut self, attire: YouthAttire) {
         self.origin.apply_attire(attire);
@@ -157,9 +159,9 @@ impl Avatar for TroupeAvatar {
     }
 
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
-        if self.axe.register_key(code) { return true; }
         self.troupe.sync_wardrobe(code);
-        self.origin.dispatch_wardrobe_key(code)
+        if self.origin.dispatch_wardrobe_key(code) { return true; }
+        self.axe.register_key(code)
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {

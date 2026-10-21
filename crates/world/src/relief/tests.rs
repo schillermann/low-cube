@@ -182,6 +182,14 @@ fn test_seam_chamfer_emission_at_world_border() {
     let border_relief = TestRelief(|_, _| 0);
     facet.emit_facet(border_cell, &frame, &border_relief, 16, &palette, &mut counter);
     assert_eq!(counter.count(), 2);
+
+    // Grass regrowth: scales with adjacent grass count (8 neighbors ~40-95s, 1 neighbor 8x slower, 2-block-high pillar never regrows)
+    let mut terraced = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 8);
+    assert!(terraced.stack_cell(0, 0) && terraced.bare_dirt_at(0, 0));
+    assert!(terraced.stack_cell(3, 3) && terraced.stack_cell(3, 3) && terraced.bare_dirt_at(3, 3));
+    assert!(terraced.step_grass(15.0).is_empty() && terraced.bare_dirt_at(0, 0));
+    assert!(!terraced.step_grass(30.0).is_empty() && !terraced.bare_dirt_at(0, 0), "Dirt block surrounded by 8 grass blocks within 1 block height must regrow grass in ~40-95s");
+    assert!(terraced.step_grass(500.0).is_empty() && terraced.bare_dirt_at(3, 3), "Dirt block 2 blocks higher than neighboring grass must remain bare dirt");
 }
 
 

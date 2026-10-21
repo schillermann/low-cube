@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{
-    ClimateZone, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology,
+    BlockMold, ClimateZone, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology,
     PlanetaryWorld, SeamBevel,
 };
 
@@ -89,6 +89,14 @@ impl PlanetaryWorld for BeveledWorld {
 
     fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
         self.world.place_surface_block(eye, direction, avatar_pos)
+    }
+
+    fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
+        self.world.place_molded_surface_block(eye, direction, avatar_pos, mold)
+    }
+
+    fn step_surface(&mut self, dt: f32) -> bool {
+        self.world.step_surface(dt)
     }
 
     fn face_count(&self) -> usize {

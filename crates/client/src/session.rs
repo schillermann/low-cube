@@ -1,4 +1,4 @@
-use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, WindowEvent};
+use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
@@ -17,36 +17,20 @@ pub trait Session {
 
 /// Fully initialized active game session with code-free primary constructor.
 pub struct GameSession {
-    surface: Box<dyn PlatformSurface>,
-    primary_pipeline: Box<dyn GraphicPipeline>,
-    primary_shader: Box<dyn ShaderProgram>,
-    primary_mesh: PlanetaryMesh,
-    tron_pipeline: Box<dyn GraphicPipeline>,
-    tron_shader: Box<dyn ShaderProgram>,
-    tron_mesh: PlanetaryMesh,
-    tron_active: bool,
-    world: Box<dyn PlanetaryWorld>,
-    avatar: Box<dyn Avatar>,
-    controls: Box<dyn KeyboardControls>,
-    modal: Box<dyn SessionModal>,
+    surface: Box<dyn PlatformSurface>, primary_pipeline: Box<dyn GraphicPipeline>, primary_shader: Box<dyn ShaderProgram>,
+    primary_mesh: PlanetaryMesh, tron_pipeline: Box<dyn GraphicPipeline>, tron_shader: Box<dyn ShaderProgram>,
+    tron_mesh: PlanetaryMesh, tron_active: bool, world: Box<dyn PlanetaryWorld>,
+    avatar: Box<dyn Avatar>, controls: Box<dyn KeyboardControls>, modal: Box<dyn SessionModal>,
 }
 
 impl GameSession {
     /// Primary constructor doing zero computation or I/O.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        surface: Box<dyn PlatformSurface>,
-        primary_pipeline: Box<dyn GraphicPipeline>,
-        primary_shader: Box<dyn ShaderProgram>,
-        primary_mesh: PlanetaryMesh,
-        tron_pipeline: Box<dyn GraphicPipeline>,
-        tron_shader: Box<dyn ShaderProgram>,
-        tron_mesh: PlanetaryMesh,
-        tron_active: bool,
-        world: Box<dyn PlanetaryWorld>,
-        avatar: Box<dyn Avatar>,
-        controls: Box<dyn KeyboardControls>,
-        modal: Box<dyn SessionModal>,
+        surface: Box<dyn PlatformSurface>, primary_pipeline: Box<dyn GraphicPipeline>, primary_shader: Box<dyn ShaderProgram>,
+        primary_mesh: PlanetaryMesh, tron_pipeline: Box<dyn GraphicPipeline>, tron_shader: Box<dyn ShaderProgram>,
+        tron_mesh: PlanetaryMesh, tron_active: bool, world: Box<dyn PlanetaryWorld>,
+        avatar: Box<dyn Avatar>, controls: Box<dyn KeyboardControls>, modal: Box<dyn SessionModal>,
     ) -> Self {
         Self {
             surface, primary_pipeline, primary_shader, primary_mesh,
@@ -84,9 +68,7 @@ impl GameSession {
     }
 
     fn refresh_world_mesh(&mut self) {
-        for idx in 0..self.world.face_count() {
-            self.refresh_face_slice(idx);
-        }
+        for idx in 0..self.world.face_count() { self.refresh_face_slice(idx); }
     }
 }
 
@@ -119,10 +101,20 @@ impl Session for GameSession {
                             let _ = self.avatar.use_right_hand(self.world.as_mut());
                             self.refresh_modified_face();
                         }
+                        MouseButton::Middle => self.avatar.turn_mold_clockwise(),
                         _ => {}
                     }
                 } else if matches!(button, MouseButton::Left | MouseButton::Right) && self.avatar.release_hand(self.world.as_mut()) {
                     self.refresh_modified_face();
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                if !self.modal.open() {
+                    let (dx, dy) = match delta {
+                        MouseScrollDelta::LineDelta(x, y) => (x, y),
+                        MouseScrollDelta::PixelDelta(pos) => (pos.x as f32, pos.y as f32),
+                    };
+                    self.avatar.scroll_mold(dy, dx);
                 }
             }
             WindowEvent::KeyboardInput {
@@ -158,7 +150,9 @@ impl Session for GameSession {
                     self.modal.step(dt);
                 } else {
                     self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
-                    if self.avatar.step_digging(self.world.as_mut()) {
+                    let dug = self.avatar.step_digging(self.world.as_mut());
+                    let regrown = self.world.step_surface(dt);
+                    if dug || regrown {
                         self.refresh_modified_face();
                     }
                 }

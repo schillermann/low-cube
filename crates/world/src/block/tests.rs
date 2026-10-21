@@ -101,6 +101,21 @@ fn test_gentle_wedge_and_corner_shapes() {
     let concave_stair = StairCorner::concave(CornerHeading::NorthEast);
     assert_eq!(concave_stair.elevation_at(0.2, 0.2), 0.25);
     assert_eq!(concave_stair.elevation_at(0.8, 0.2), 0.5);
+
+    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
+    for heading in [CornerHeading::NorthEast, CornerHeading::NorthWest, CornerHeading::SouthEast, CornerHeading::SouthWest] {
+        for concave in [false, true] {
+            let mut null = NullSink;
+            let mut sink = crate::CountedMeshTarget::new(&mut null);
+            StairCorner::new(heading, concave).emit_shape(super::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut sink);
+            assert_eq!(sink.count(), 14, "Every convex and concave StairCorner heading must emit all 14 quads (4 treads + 2 risers + 8 outer walls)");
+        }
+    }
+}
+
+struct NullSink;
+impl crate::MeshTarget for NullSink {
+    fn push_quad(&mut self, _quad: crate::Quad) {}
 }
 
 #[test]
@@ -135,5 +150,34 @@ fn test_diagonal_slope_shape_elevation_and_constraint() {
     assert_eq!(slope_sw.elevation_at(1.0, 1.0), 0.0);
     assert_eq!(slope_sw.elevation_at(0.5, 0.5), 0.25);
     assert_eq!(slope_sw.elevation_at(0.0, 0.0), 0.5);
+}
+
+#[test]
+fn test_block_mold_cycles_all_sixteen_forms_and_rotates_all_four_directions() {
+    use super::{BlockMold, CardinalTurn, MoldArchetype};
+    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
+    let mut mold = BlockMold::cube();
+    assert!(mold.full_height_flat());
+    for expected in 1..16u8 {
+        mold = mold.next_form();
+        assert_eq!(mold, BlockMold::new(MoldArchetype::from_code(expected), CardinalTurn::Forward));
+        assert!(!mold.full_height_flat());
+    }
+    assert_eq!(mold.next_form(), BlockMold::cube());
+    assert_eq!(BlockMold::cube().prev_form(), BlockMold::new(MoldArchetype::ConcaveStairCorner, CardinalTurn::Forward));
+
+    // Verify 4-way rotation of a RampWedge along -Z (South) -> +X (East) -> +Z (North) -> -X (West)
+    let wedge_fwd = BlockMold::new(MoldArchetype::RampWedge, CardinalTurn::Forward);
+    let s_fwd = wedge_fwd.shape_for(Vec3::NEG_Z, &frame);
+    assert!((s_fwd.elevation_at(0.5, 0.0) - 0.5).abs() < 1e-4 && s_fwd.elevation_at(0.5, 1.0).abs() < 1e-4);
+
+    let s_right = wedge_fwd.turn_clockwise().shape_for(Vec3::NEG_Z, &frame);
+    assert!((s_right.elevation_at(1.0, 0.5) - 0.5).abs() < 1e-4 && s_right.elevation_at(0.0, 0.5).abs() < 1e-4);
+
+    let s_back = wedge_fwd.turn_clockwise().turn_clockwise().shape_for(Vec3::NEG_Z, &frame);
+    assert!((s_back.elevation_at(0.5, 1.0) - 0.5).abs() < 1e-4 && s_back.elevation_at(0.5, 0.0).abs() < 1e-4);
+
+    let s_left = wedge_fwd.turn_counter_clockwise().shape_for(Vec3::NEG_Z, &frame);
+    assert!((s_left.elevation_at(0.0, 0.5) - 0.5).abs() < 1e-4 && s_left.elevation_at(1.0, 0.5).abs() < 1e-4);
 }
 

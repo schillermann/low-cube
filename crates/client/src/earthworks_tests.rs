@@ -10,14 +10,11 @@ impl SurfaceLedger {
     fn empty() -> Self { Self { quads: Vec::new() } }
     fn count(&self) -> usize { self.quads.len() }
 }
-impl MeshTarget for SurfaceLedger {
-    fn push_quad(&mut self, quad: Quad) { self.quads.push(quad); }
-}
+impl MeshTarget for SurfaceLedger { fn push_quad(&mut self, quad: Quad) { self.quads.push(quad); } }
 
 #[test]
 fn test_digging_speed_one_hand_vs_two_hands_vs_spade_and_abort_on_release() {
-    let (mut world_one_hand, mut world_two_hands, mut world_spade) =
-        (BiomedCubeWorld::beveled(16, 1.0), BiomedCubeWorld::beveled(16, 1.0), BiomedCubeWorld::beveled(16, 1.0));
+    let (mut world_one_hand, mut world_two_hands, mut world_spade) = (BiomedCubeWorld::beveled(16, 1.0), BiomedCubeWorld::beveled(16, 1.0), BiomedCubeWorld::beveled(16, 1.0));
     let spawn = world_one_hand.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
 
     let mut avatar_one = PlanetaryAvatar::at(spawn);
@@ -74,11 +71,30 @@ fn test_mined_block_placed_only_with_same_hand_and_terrain_and_placed_blocks_mod
     assert!((world.constrain_to_surface(target_probe, 0.0).y - initial_height).abs() < 1e-4);
 
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world) && world.constrain_to_surface(target_probe, 0.0).y < initial_height);
+    avatar.scroll_mold(1.0, 0.0);
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyR));
+    let (mut wedge_fwd_mesh, mut wedge_right_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
+    avatar.emit_appearance(&mut wedge_fwd_mesh);
+    avatar.turn_mold_clockwise();
+    avatar.emit_appearance(&mut wedge_right_mesh);
+    let vertices = |ledger: &SurfaceLedger| -> Vec<Vec3> { ledger.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect() };
+    assert_ne!(vertices(&wedge_fwd_mesh), vertices(&wedge_right_mesh), "Rotating molded block must visibly rotate block in hand");
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyC) && avatar.use_left_hand(&mut world));
+    assert!(world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.95), 0.0).y > world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.55), 0.0).y + 0.3);
+    assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world) && avatar.use_left_hand(&mut world));
+    assert!(world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.95), 0.0).y > world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.55), 0.0).y + 0.3);
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world));
-    assert!(world.constrain_to_surface(target_probe, 0.0).y < initial_height && avatar.use_left_hand(&mut world));
+    avatar.scroll_mold(-1.0, 0.0);
+    avatar.scroll_mold(-1.0, 0.0);
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE));
+    let mut pouch_mesh = SurfaceLedger::empty();
+    avatar.emit_appearance(&mut pouch_mesh);
+    assert!(pouch_mesh.count() > empty_hands_mesh.count(), "Stowing block with Q and spade with E must render 3D hip pouch and holstered spade");
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.use_left_hand(&mut world));
 
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::EmptyPalm));
-    assert!(avatar.use_right_hand(&mut world), "Right hand holding ExcavatedEarth must place a block above terrain");
+    assert!(avatar.use_right_hand(&mut world), "Right hand holding ExcavatedEarth adds a full cube on right side's independent Cube mold");
     assert!((world.constrain_to_surface(target_probe, 0.0).y - (initial_height + 0.5)).abs() < 1e-4);
 
     assert!(!avatar.use_left_hand(&mut world) && !avatar.use_right_hand(&mut world));
@@ -121,27 +137,17 @@ fn test_spade_in_left_hand_with_empty_right_hand_excavates_sloped_block_cleanly(
         for cv in -12..-5 {
             let (u, v) = ((cu as f32) * 0.5 + 0.25, (cv as f32) * 0.5 + 0.25);
             let sample_y = world.constrain_to_surface(Vec3::new(u, 18.0, v), 0.0).y - 16.0;
-            if (0.10..0.40).contains(&sample_y.rem_euclid(0.5)) {
-                (slope_u, slope_z, slope_mid_y) = (u, v, sample_y);
-                break 'search;
-            }
+            if (0.10..0.40).contains(&sample_y.rem_euclid(0.5)) { (slope_u, slope_z, slope_mid_y) = (u, v, sample_y); break 'search; }
         }
     }
     assert!(slope_mid_y > 0.0, "Must locate a sloped ramp block on the Temperate face");
-
     let stand_pos = world.constrain_to_surface(Vec3::new(slope_u, 18.0, slope_z + 0.75), 1.0);
-    let controls = KeyMotion::idle();
-    let attire = YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::IronSpade);
+    let (controls, attire) = (KeyMotion::idle(), YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::IronSpade));
     let mut avatar = TroupeAvatar::near_spawn(Box::new(PlanetaryAvatar::at(stand_pos)), stand_pos, &world, attire);
     avatar.apply_attire(attire);
     avatar.rotate_view(0.0, 380.0);
-
-    assert!(!avatar.use_left_hand(&mut world));
-    assert!(avatar.use_left_hand(&mut world), "Spade in left hand with empty right hand must excavate the sloped block on 2nd strike");
-
-    let after_mid_y = world.constrain_to_surface(Vec3::new(slope_u, 18.0, slope_z), 0.0).y - 16.0;
-    assert!(after_mid_y < slope_mid_y, "Excavating the sloped block must lower its surface height");
-
+    assert!(!avatar.use_left_hand(&mut world) && avatar.use_left_hand(&mut world), "Spade in left hand with empty right hand must excavate the sloped block on 2nd strike");
+    assert!(world.constrain_to_surface(Vec3::new(slope_u, 18.0, slope_z), 0.0).y - 16.0 < slope_mid_y);
     assert_eq!(world.face_count(), 6, "Cube planet must expose 6 independent face slices");
     let (mut full_planet_ledger, mut modified_face_ledger) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     world.emit_surface(&mut full_planet_ledger);

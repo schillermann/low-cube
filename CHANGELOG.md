@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-21
+
+### Added
+- Persistent Palm Molding system (`BlockMold`, `MoldArchetype`, `CardinalTurn`) allowing held earth and stone blocks to be sculpted across all 16 base block forms (`MouseWheel` / `KeyR`) and rotated across all 4 cardinal directions (`MouseButton::Middle` / `KeyV` / `KeyC`) while facing the player's placement direction by default.
+- Dual-hip belt satchels and tool holsters (`HipPouch`, `BeltSatchel`, `PalmEarthworks::toggle_hand_pocket`) bound to `KeyQ` (left hand) and `KeyE` (right hand) to stow held blocks, spades, and weapons into visible 3D hip pouches that swell with stowed block count, display miniature molded block previews, auto-refill the hand while building, and retain independent left/right block molds.
+- Upturned hollow-palm cradling posture (`MartialStyle::PalmCradle`, `LimbFrame::emit_cradled_block`, `BodyPose::finger_curl`) supinating the forearm and cupping the palm, thumb, and fingers underneath held blocks.
+- Minecraft-authentic grass loss and neighbor-driven regrowth (`TerracedRelief::step_grass`, `TerracedRelief::bare_dirt_at`, `PlanetaryWorld::step_surface`) stripping grass from excavated/placed dirt blocks and regrowing grass over `40s–95s` (at 8 adjacent grass blocks within `|dh| <= 1`) scaled by neighbor count.
+
+### Fixed
+- Completed watertight 14-quad geometry for convex and concave stair corners (`StairCorner::emit_quads`) across all 4 corner headings and aligned diagonal crease triangulation on ridge and valley corners (`RidgeCorner`, `ValleyCorner`, `GentleRidge`, `GentleValley`).
+
 ## [0.29.0] - 2026-10-21
 
 ### Added

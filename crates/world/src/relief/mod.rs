@@ -4,6 +4,7 @@ mod elevation;
 mod face;
 mod facet;
 mod palette;
+mod sight_ray;
 mod strata;
 mod terraced;
 
@@ -22,7 +23,8 @@ pub use elevation::ReliefElevation;
 pub use face::FacetedReliefFace;
 pub use facet::ReliefFacet;
 pub use palette::ReliefPalette;
-pub use terraced::{SurfaceSightRay, TerracedRelief};
+pub use sight_ray::SurfaceSightRay;
+pub use terraced::TerracedRelief;
 #[cfg(test)]
 pub use elevation::ZonedRelief;
 #[cfg(test)]

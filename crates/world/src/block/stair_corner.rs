@@ -26,16 +26,31 @@ impl StairCorner {
     pub fn concave(heading: CornerHeading) -> Self {
         Self::new(heading, true)
     }
+
+    fn quadrant_heights(&self, h1: f32, h2: f32) -> [[f32; 2]; 2] {
+        if self.concave {
+            match self.heading {
+                CornerHeading::NorthEast => [[h1, h2], [h2, h2]],
+                CornerHeading::NorthWest => [[h2, h2], [h1, h2]],
+                CornerHeading::SouthEast => [[h2, h1], [h2, h2]],
+                CornerHeading::SouthWest => [[h2, h2], [h2, h1]],
+            }
+        } else {
+            match self.heading {
+                CornerHeading::NorthEast => [[h1, h1], [h1, h2]],
+                CornerHeading::NorthWest => [[h1, h2], [h1, h1]],
+                CornerHeading::SouthEast => [[h1, h1], [h2, h1]],
+                CornerHeading::SouthWest => [[h2, h1], [h1, h1]],
+            }
+        }
+    }
 }
 
 impl VoxelShape for StairCorner {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        let t = if self.concave {
-            self.heading.valley_elevation(local_u, local_v)
-        } else {
-            self.heading.ridge_elevation(local_u, local_v)
-        };
-        if t < 0.5 { 0.25 } else { 0.5 }
+        let qx = usize::from(local_u >= 0.5);
+        let qy = usize::from(local_v >= 0.5);
+        self.quadrant_heights(0.25, 0.5)[qx][qy]
     }
 
     fn shape_color(&self) -> Vec3 {
@@ -58,64 +73,35 @@ impl VoxelShape for StairCorner {
         let (v0, v1) = cell.v_bounds();
         let um = (u0 + u1) * 0.5;
         let vm = (v0 + v1) * 0.5;
+        let us = [u0, um, u1];
+        let vs = [v0, vm, v1];
         let h0 = base_elevation;
-        let h1 = base_elevation + 0.25;
-        let h2 = base_elevation + 0.5;
+        let hq = self.quadrant_heights(base_elevation + 0.25, base_elevation + 0.5);
         let pt = |u: f32, v: f32, h: f32| frame.point_at(u, v, h);
-        let n = frame.normal();
+        let (n, t, b) = (frame.normal(), frame.tangent(), frame.bitangent());
 
-        let [b0, b1, b2, b3] = cell.corner_points(frame, h0);
+        for qx in 0..2 {
+            for qy in 0..2 {
+                let (qu0, qu1, qv0, qv1, top) = (us[qx], us[qx + 1], vs[qy], vs[qy + 1], hq[qx][qy]);
+                target.push_quad(Quad::new(pt(qu0, qv0, top), pt(qu1, qv0, top), pt(qu1, qv1, top), pt(qu0, qv1, top), n, color));
 
-        if self.concave {
-            let (lu0, lu1, lv0, lv1) = match self.heading {
-                CornerHeading::NorthEast => (u0, um, v0, vm),
-                CornerHeading::NorthWest => (um, u1, v0, vm),
-                CornerHeading::SouthEast => (u0, um, vm, v1),
-                CornerHeading::SouthWest => (um, u1, vm, v1),
-            };
-            // Low quadrant tread at h1
-            target.push_quad(Quad::new(pt(lu0, lv0, h1), pt(lu1, lv0, h1), pt(lu1, lv1, h1), pt(lu0, lv1, h1), n, color));
-            // High L-shape: upper half and lower side quadrant at h2
-            match self.heading {
-                CornerHeading::NorthEast => {
-                    target.push_quad(Quad::new(pt(u0, vm, h2), pt(u1, vm, h2), pt(u1, v1, h2), pt(u0, v1, h2), n, color));
-                    target.push_quad(Quad::new(pt(um, v0, h2), pt(u1, v0, h2), pt(u1, vm, h2), pt(um, vm, h2), n, color));
-                    target.push_quad(Quad::new(pt(u0, vm, h1), pt(um, vm, h1), pt(um, vm, h2), pt(u0, vm, h2), -frame.bitangent(), color));
-                    target.push_quad(Quad::new(pt(um, v0, h1), pt(um, v0, h2), pt(um, vm, h2), pt(um, vm, h1), -frame.tangent(), color));
-                    target.push_quad(Quad::new(b0, pt(um, v0, h0), pt(um, v0, h1), pt(u0, v0, h1), -frame.bitangent(), color));
-                    target.push_quad(Quad::new(pt(um, v0, h0), b1, pt(u1, v0, h2), pt(um, v0, h2), -frame.bitangent(), color));
-                    target.push_quad(Quad::new(pt(u0, v1, h2), pt(u1, v1, h2), b2, b3, frame.bitangent(), color));
-                    target.push_quad(Quad::new(b3, b0, pt(u0, v0, h1), pt(u0, vm, h1), -frame.tangent(), color));
-                    target.push_quad(Quad::new(pt(u0, vm, h0), pt(u0, v1, h0), pt(u0, v1, h2), pt(u0, vm, h2), -frame.tangent(), color));
-                    target.push_quad(Quad::new(b1, b2, pt(u1, v1, h2), pt(u1, v0, h2), frame.tangent(), color));
+                let base_s = if qy == 0 { h0 } else { hq[qx][qy - 1] };
+                if top > base_s {
+                    target.push_quad(Quad::new(pt(qu0, qv0, base_s), pt(qu1, qv0, base_s), pt(qu1, qv0, top), pt(qu0, qv0, top), -b, color));
                 }
-                _ => {
-                    target.push_quad(Quad::new(pt(u0, v0, h2), pt(u1, v0, h2), pt(u1, v1, h2), pt(u0, v1, h2), n, color));
+                let base_n = if qy == 1 { h0 } else { hq[qx][qy + 1] };
+                if top > base_n {
+                    target.push_quad(Quad::new(pt(qu1, qv1, base_n), pt(qu0, qv1, base_n), pt(qu0, qv1, top), pt(qu1, qv1, top), b, color));
+                }
+                let base_w = if qx == 0 { h0 } else { hq[qx - 1][qy] };
+                if top > base_w {
+                    target.push_quad(Quad::new(pt(qu0, qv1, base_w), pt(qu0, qv0, base_w), pt(qu0, qv0, top), pt(qu0, qv1, top), -t, color));
+                }
+                let base_e = if qx == 1 { h0 } else { hq[qx + 1][qy] };
+                if top > base_e {
+                    target.push_quad(Quad::new(pt(qu1, qv0, base_e), pt(qu1, qv1, base_e), pt(qu1, qv1, top), pt(qu1, qv0, top), t, color));
                 }
             }
-            return;
         }
-
-        // Lower step tread across the cell
-        target.push_quad(Quad::new(pt(u0, v0, h1), pt(u1, v0, h1), pt(u1, v1, h1), pt(u0, v1, h1), n, color));
-
-        // Upper step tread elevated in the corner
-        let (cu0, cu1, cv0, cv1) = match self.heading {
-            CornerHeading::NorthEast => (um, u1, vm, v1),
-            CornerHeading::NorthWest => (u0, um, vm, v1),
-            CornerHeading::SouthEast => (um, u1, v0, vm),
-            CornerHeading::SouthWest => (u0, um, v0, vm),
-        };
-        target.push_quad(Quad::new(pt(cu0, cv0, h2), pt(cu1, cv0, h2), pt(cu1, cv1, h2), pt(cu0, cv1, h2), n, color));
-
-        // Upper step risers
-        target.push_quad(Quad::new(pt(cu0, cv0, h1), pt(cu1, cv0, h1), pt(cu1, cv0, h2), pt(cu0, cv0, h2), -frame.bitangent(), color));
-        target.push_quad(Quad::new(pt(cu0, cv0, h1), pt(cu0, cv0, h2), pt(cu0, cv1, h2), pt(cu0, cv1, h1), -frame.tangent(), color));
-
-        // Outer base walls
-        target.push_quad(Quad::new(b0, b1, pt(u1, v0, h1), pt(u0, v0, h1), -frame.bitangent(), color));
-        target.push_quad(Quad::new(pt(u0, v1, h1), pt(u1, v1, h1), b2, b3, frame.bitangent(), color));
-        target.push_quad(Quad::new(b3, b0, pt(u0, v0, h1), pt(u0, v1, h1), -frame.tangent(), color));
-        target.push_quad(Quad::new(b1, b2, pt(u1, v1, h1), pt(u1, v0, h1), frame.tangent(), color));
     }
 }

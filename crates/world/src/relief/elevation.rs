@@ -1,4 +1,7 @@
 use glam::Vec3;
+use crate::MeshTarget;
+use crate::block::{GridCell, VoxelShape};
+use crate::frame::SurfaceFrame;
 use crate::noise::SpatialFrequency;
 
 /// Behavioral interface for planetary relief elevation evaluation ("Tell, Don't Ask").
@@ -19,6 +22,26 @@ pub trait ReliefElevation: Send + Sync {
         false
     }
 
+    /// Indicates whether the discrete cell (u, v) has bare exposed soil without regrown grass.
+    fn bare_dirt_at(&self, _u: i32, _v: i32) -> bool {
+        false
+    }
+
+    /// Indicates whether the discrete cell (u, v) has a flat full-cube reworked top.
+    fn flat_reworked_at(&self, u: i32, v: i32) -> bool {
+        self.reworked_at(u, v)
+    }
+
+    /// Emits a molded voxel shape at cell if present, returning true when emitted.
+    fn emit_molded_top(&self, _cell: GridCell, _base: f32, _frame: &SurfaceFrame, _top_col: Vec3, _wall_col: Vec3, _target: &mut dyn MeshTarget) -> bool {
+        false
+    }
+
+    /// Advances grass regrowth across bare dirt cells bordering grass within 1 block height.
+    fn step_grass(&mut self, _dt: f32) -> Vec<i32> {
+        Vec::new()
+    }
+
     /// Partial digging stage (0..=3) at discrete cell (u, v) before full block excavation.
     fn dig_stage_at(&self, _u: i32, _v: i32) -> u8 {
         0
@@ -37,6 +60,11 @@ pub trait ReliefElevation: Send + Sync {
     /// Stacks one discrete block layer at (u, v).
     fn stack_cell(&mut self, _u: i32, _v: i32) -> bool {
         false
+    }
+
+    /// Stacks one molded voxel block layer at (u, v).
+    fn stack_molded_cell(&mut self, u: i32, v: i32, _shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool {
+        self.stack_cell(u, v)
     }
 }
 
