@@ -28,7 +28,7 @@ impl AvatarPosture {
     /// Secondary constructor for crouched posture in die Hocke.
     #[cfg(test)]
     pub fn crouching() -> Self {
-        Self::new(0.45)
+        Self::new(0.36)
     }
 
     /// Smoothly transitions posture towards a target elevation across elapsed time.

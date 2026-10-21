@@ -49,7 +49,7 @@ impl WardrobeStudio {
         match code {
             KeyCode::ArrowLeft | KeyCode::KeyA => { self.stage = self.stage.rotated(-0.22); true }
             KeyCode::ArrowRight | KeyCode::KeyD => { self.stage = self.stage.rotated(0.22); true }
-            KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 => {
+            KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::KeyF => {
                 if let Some(updated) = self.attire.cycled_by_key(code) { self.attire = updated; true } else { false }
             }
             _ => false,
@@ -81,7 +81,7 @@ impl WardrobeStudio {
             let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, 0.68 - ((i / 2) as f32) * 0.10);
             if ScreenBounds::new(x0, y1 - 0.08, x0 + 0.22, y1).contains(pt) {
                 self.archetype = *arch;
-                self.update_attire(arch.attire());
+                self.update_attire(arch.attire_for(self.attire.feminine()));
                 return StudioDirective::StayInStudio;
             }
         }
@@ -100,6 +100,8 @@ impl WardrobeStudio {
                 return StudioDirective::StayInStudio;
             }
         }
+        if ScreenBounds::new(-0.94, -0.74, -0.72, -0.66).contains(pt) { self.update_attire(self.archetype.attire_for(false)); return StudioDirective::StayInStudio; }
+        if ScreenBounds::new(-0.70, -0.74, -0.48, -0.66).contains(pt) { self.update_attire(self.archetype.attire_for(true)); return StudioDirective::StayInStudio; }
         for (idx, region) in BodyRegion::all().iter().enumerate() {
             let (_, s_dec, _, s_inc, g_dec, _, g_inc) = Self::region_rows(idx);
             if s_dec.contains(pt) { self.update_attire(self.attire.with_adjusted_region(*region, -1, 0)); return StudioDirective::StayInStudio; }
@@ -108,7 +110,7 @@ impl WardrobeStudio {
             if g_inc.contains(pt) { self.update_attire(self.attire.with_adjusted_region(*region, 0, 1)); return StudioDirective::StayInStudio; }
         }
         if ScreenBounds::new(0.48, -0.78, 0.94, -0.68).contains(pt) {
-            self.update_attire(self.attire.with_physique(YouthPhysique::SlenderSquire));
+            self.update_attire(self.attire.with_physique(YouthPhysique::SlenderSquire.as_feminine(self.attire.feminine())));
             return StudioDirective::StayInStudio;
         }
         if ScreenBounds::new(-0.18, -0.95, 0.18, -0.84).contains(pt) {
@@ -126,11 +128,11 @@ impl WardrobeStudio {
         ScreenBounds::new(-0.11, 0.72, 0.11, 0.81).emit_button("FRONT", self.pointer, btn_col, false, target);
         ScreenBounds::new(0.14, 0.72, 0.36, 0.81).emit_button("ROTATE >", self.pointer, btn_col, false, target);
 
-        ScreenBounds::new(-0.97, -0.66, -0.45, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
+        ScreenBounds::new(-0.97, -0.81, -0.45, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
         PixelStamp::caption(gold).emit_centered("CHARACTER BODY", -0.71, 0.75, target);
         for (i, arch) in AvatarArchetype::all().iter().enumerate() {
             let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, 0.68 - ((i / 2) as f32) * 0.10);
-            ScreenBounds::new(x0, y1 - 0.08, x0 + 0.22, y1).emit_button(arch.title(), self.pointer, btn_col, self.archetype == *arch, target);
+            ScreenBounds::new(x0, y1 - 0.08, x0 + 0.22, y1).emit_button(arch.gender_title(self.attire.feminine()), self.pointer, btn_col, self.archetype == *arch, target);
         }
         PixelStamp::caption(gold).emit_centered("SKIN COLOR", -0.71, 0.32, target);
         for (i, swatch) in ComplexionSwatch::all().iter().enumerate() {
@@ -143,6 +145,9 @@ impl WardrobeStudio {
             let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, -0.24 - ((i / 2) as f32) * 0.10);
             ScreenBounds::new(x0, y1 - 0.08, x0 + 0.22, y1).emit_button(lbl, self.pointer, btn_col, false, target);
         }
+        PixelStamp::caption(gold).emit_centered("GENDER", -0.71, -0.60, target);
+        ScreenBounds::new(-0.94, -0.74, -0.72, -0.66).emit_button("MALE", self.pointer, btn_col, !self.attire.feminine(), target);
+        ScreenBounds::new(-0.70, -0.74, -0.48, -0.66).emit_button("FEMALE", self.pointer, btn_col, self.attire.feminine(), target);
 
         ScreenBounds::new(0.45, -0.81, 0.97, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
         PixelStamp::caption(gold).emit_centered("BODY PARTS", 0.71, 0.75, target);

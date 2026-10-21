@@ -47,16 +47,16 @@ fn test_spawn_troupe_emits_three_characters_and_ground_axe_visible_from_spawn() 
     let mut troupe_collector = QuadCollector::empty();
     troupe_avatar.emit_appearance(&mut troupe_collector);
 
-    // TroupeAvatar must emit the player's first-person mesh + 4 third-person characters + grounded axe
+    // TroupeAvatar must emit the player's first-person mesh + 5 third-person characters + grounded axe
     assert!(
-        troupe_collector.count() > solo_collector.count() + 4 * peer_collector.count(),
-        "TroupeAvatar must emit first-person body, 4 complete third-person characters, and the ground axe near spawn"
+        troupe_collector.count() > solo_collector.count() + 5 * peer_collector.count(),
+        "TroupeAvatar must emit first-person body, 5 complete third-person characters, and the ground axe near spawn"
     );
 
     let vp = troupe_avatar.view_projection_matrix(16.0 / 9.0);
     assert!(
-        troupe_collector.visible_in_frustum(vp) > solo_collector.visible_in_frustum(vp) + 3 * peer_collector.count(),
-        "All four characters and the axe near spawn must stand inside the player's initial field of view"
+        troupe_collector.visible_in_frustum(vp) > solo_collector.visible_in_frustum(vp) + 4 * peer_collector.count(),
+        "All five characters and the axe near spawn must stand inside the player's initial field of view"
     );
 }
 
@@ -66,13 +66,15 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
     let attire = YouthAttire::squire();
 
     let stand = GaitFigure::standing_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
+    let sneak = GaitFigure::sneaking_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
     let walk = GaitFigure::walking_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
     let run = GaitFigure::running_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
     let jump = GaitFigure::jumping_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
 
-    let (mut stand_quads, mut walk_quads, mut run_quads, mut jump_quads) = (QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty());
+    let (mut stand_quads, mut sneak_quads, mut walk_quads, mut run_quads, mut jump_quads) = (QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty());
 
     stand.emit(&attire, &mut stand_quads);
+    sneak.emit(&attire, &mut sneak_quads);
     walk.emit(&attire, &mut walk_quads);
     run.emit(&attire, &mut run_quads);
     jump.emit(&attire, &mut jump_quads);
@@ -81,18 +83,21 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
         collector.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect()
     };
 
-    let (v_stand, v_walk, v_run, v_jump) = (extract_vertices(&stand_quads), extract_vertices(&walk_quads), extract_vertices(&run_quads), extract_vertices(&jump_quads));
-    assert_ne!(v_stand, v_walk, "Standing and walking animations must produce distinct limb postures");
+    let (v_stand, v_sneak, v_walk, v_run, v_jump) = (extract_vertices(&stand_quads), extract_vertices(&sneak_quads), extract_vertices(&walk_quads), extract_vertices(&run_quads), extract_vertices(&jump_quads));
+    assert_ne!(v_stand, v_sneak, "Standing and sneaking animations must produce distinct limb postures");
+    assert_ne!(v_sneak, v_walk, "Sneaking and walking animations must produce distinct limb postures");
     assert_ne!(v_walk, v_run, "Walking and running animations must produce distinct limb postures");
     assert_ne!(v_run, v_jump, "Running and jumping animations must produce distinct limb postures");
 
     let stand_pose = BodyPose::new(pos, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
     let crouch_pose = BodyPose::new(pos, Quat::IDENTITY, Quat::IDENTITY, 0.36, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
     let leap_pose = BodyPose::new(pos, Quat::IDENTITY, Quat::IDENTITY, 1.16, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
-    let ((_, stand_k, _, _), (_, crouch_k, _, _), (leap_h, leap_k, leap_a, _), (_, leap_left_k, _, _)) = (stand_pose.leg_joints(1.0), crouch_pose.leg_joints(1.0), leap_pose.leg_joints(1.0), leap_pose.leg_joints(-1.0));
-    assert!(crouch_k.z > stand_k.z + 0.16 && leap_k.z < leap_h.z - 0.06 && leap_a.z < leap_k.z - 0.06 && (leap_k.z - leap_left_k.z).abs() < 1e-5, "Jump must bend both knees deeply then extend both legs straight and backward");
+    let ((stand_h, stand_k, _, _), (crouch_h, crouch_k, _, _), (leap_h, leap_k, leap_a, _), (_, leap_left_k, _, _)) = (stand_pose.leg_joints(1.0), crouch_pose.leg_joints(1.0), leap_pose.leg_joints(1.0), leap_pose.leg_joints(-1.0));
+    assert!(crouch_k.z > stand_k.z + 0.18 && crouch_h.y < stand_h.y - 0.30 && leap_k.z < leap_h.z - 0.06 && leap_a.z < leap_k.z - 0.06 && (leap_k.z - leap_left_k.z).abs() < 1e-5, "Sneak and jump must bend both knees deeply and lower the hips");
+    assert!(crouch_pose.crown_frame().point(0.0, 0.0, 0.0).z < stand_pose.crown_frame().point(0.0, 0.0, 0.0).z - 0.15, "Upper body and neck must lean forward during sneaking");
     assert!((leap_pose.crown_frame().point(0.0, 0.0, 0.0).y - stand_pose.crown_frame().point(0.0, 0.0, 0.0).y).abs() < 1e-5, "Head must remain attached to the torso during a jump");
-    let (_, stand_elbow, _, _) = stand_pose.external_arm(1.0, false, MartialStyle::Unarmed);
+    let ((_, stand_elbow, stand_wrist, _), (_, crouch_elbow, crouch_wrist, _)) = (stand_pose.external_arm(1.0, false, MartialStyle::Unarmed), crouch_pose.external_arm(1.0, false, MartialStyle::Unarmed));
+    assert!(crouch_elbow.z < stand_elbow.z - 0.08 && crouch_wrist.point(0.0, 0.0, 0.0).z < crouch_elbow.z - 0.12 && crouch_wrist.point(0.0, 0.0, 0.0).z < stand_wrist.point(0.0, 0.0, 0.0).z - 0.20 && crouch_wrist.point(0.0, 0.0, 0.0).x < crouch_elbow.x - 0.05 && crouch_wrist.point(0.0, 0.0, 0.064).x < crouch_wrist.point(0.0, 0.0, 0.0).x - 0.02 && crouch_wrist.point(0.0, 0.036, 0.0).x < crouch_wrist.point(0.0, 0.0, 0.0).x - 0.005, "Sneaking arms must bend forward, angle forearms inward, and rotate hands diagonally inward");
     for step_idx in 0..16 {
         let run_pose = BodyPose::new(pos, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::new((step_idx as f32) * std::f32::consts::TAU / 16.0, 1.0), YouthPhysique::SlenderSquire);
         let (shoulder_w, elbow_w, _, _) = run_pose.external_arm(1.0, false, MartialStyle::Unarmed);

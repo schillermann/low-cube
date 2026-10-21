@@ -57,7 +57,8 @@ impl CrownStyle {
         let frame = pose.crown_frame();
         let skin = complexion.skin();
         let shade_skin = skin * 0.89;
-        let lip_col = skin * 0.72;
+        let fem = pose.feminine();
+        let lip_col = if fem { skin * Vec3::new(0.86, 0.54, 0.56) } else { skin * 0.72 };
         let sclera = Vec3::new(0.95, 0.95, 0.96);
         let iris = Vec3::new(0.14, 0.12, 0.10);
         let hair_col = Vec3::new(0.28, 0.18, 0.11);
@@ -69,14 +70,14 @@ impl CrownStyle {
         TaperedPrism::hexagonal(
             Vec3::new(0.0, hs(-0.15), hw(-0.022)),
             Vec3::new(0.0, hs(0.02), hw(-0.008)),
-            pose.crown_girth(0.056),
-            pose.crown_girth(0.050),
+            pose.crown_girth(if fem { 0.048 } else { 0.056 }),
+            pose.crown_girth(if fem { 0.044 } else { 0.050 }),
             shade_skin,
         )
         .emit(&frame, false, target);
 
-        // Tier 1: Sculpted chin and angular Polygon-style jawline tapering upward to cheekbones
-        TaperedPrism::new(8, Vec3::new(0.0, hs(-0.018), hw(0.018)), Vec3::new(0.0, hs(0.065), hw(0.008)), hw(0.052), hw(0.066), hw(0.088), hw(0.092), skin)
+        // Tier 1: Sculpted chin and jawline tapering upward to cheekbones
+        TaperedPrism::new(8, Vec3::new(0.0, hs(-0.018), hw(0.018)), Vec3::new(0.0, hs(0.065), hw(0.008)), hw(if fem { 0.042 } else { 0.052 }), hw(0.064), hw(if fem { 0.082 } else { 0.088 }), hw(0.090), skin)
             .emit(&frame, false, target);
         // Tier 2: Cheekbones and mid-face rising to pronounced brow ridge
         TaperedPrism::new(8, Vec3::new(0.0, hs(0.065), hw(0.008)), Vec3::new(0.0, hs(0.146), hw(0.010)), hw(0.088), hw(0.092), hw(0.090), hw(0.094), skin)
@@ -106,7 +107,7 @@ impl CrownStyle {
 
         // Tailored stand collar on upper torso
         let torso = pose.torso_frame();
-        let collar_y = pose.torso_span(0.72 - pose.crouch_compression() * 0.42);
+        let collar_y = pose.torso_span(0.72);
         TaperedPrism::new(
             8,
             Vec3::new(0.0, collar_y - 0.02, -0.072),

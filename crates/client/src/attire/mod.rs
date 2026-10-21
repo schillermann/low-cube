@@ -104,37 +104,23 @@ impl YouthAttire {
     pub fn with_relics(self, relic: HeldRelic, offhand: HeldRelic) -> Self { Self { relic, offhand, ..self } }
     pub fn with_complexion(self, complexion: ComplexionSwatch) -> Self { Self { complexion, ..self } }
     pub fn with_physique(self, physique: YouthPhysique) -> Self { Self { physique, ..self } }
+    pub fn with_feminine(self, feminine: bool) -> Self { Self { physique: self.physique.as_feminine(feminine), ..self } }
+    pub fn feminine(&self) -> bool { self.physique.feminine() }
 
     pub fn with_adjusted_region(self, region: BodyRegion, delta_size: i8, delta_girth: i8) -> Self {
         Self { physique: self.physique.adjusted(region, delta_size, delta_girth), ..self }
     }
 
-    pub fn region_proportion(&self, region: BodyRegion) -> PartProportion {
-        self.physique.region_proportion(region)
-    }
-
-    pub fn region_bytes(&self) -> [u8; 4] {
-        self.physique.region_bytes()
-    }
-
-    pub fn selected_complexion(&self, candidate: ComplexionSwatch) -> bool {
-        self.complexion == candidate
-    }
-
+    pub fn region_proportion(&self, region: BodyRegion) -> PartProportion { self.physique.region_proportion(region) }
+    pub fn region_bytes(&self) -> [u8; 4] { self.physique.region_bytes() }
+    pub fn selected_complexion(&self, candidate: ComplexionSwatch) -> bool { self.complexion == candidate }
     pub fn right_armed(&self) -> bool { !matches!(self.relic.martial_style(), MartialStyle::Unarmed) }
     pub fn left_armed(&self) -> bool { !matches!(self.offhand.martial_style(), MartialStyle::Unarmed) }
     pub fn armed(&self) -> bool { self.right_armed() || self.left_armed() }
-
-    pub fn with_next_pigment(self) -> Self {
-        Self { pigment: self.pigment.next(), ..self }
-    }
+    pub fn with_next_pigment(self) -> Self { Self { pigment: self.pigment.next(), ..self } }
 
     pub fn with_next_complexion(self) -> Self {
-        Self {
-            complexion: self.complexion.next(),
-            physique: self.physique.next(),
-            ..self
-        }
+        Self { complexion: self.complexion.next(), physique: self.physique.next(), ..self }
     }
 
     /// Returns a new immutable YouthAttire when the key corresponds to a wardrobe customization slot without disk I/O.
@@ -149,6 +135,7 @@ impl YouthAttire {
             KeyCode::Digit7 => self.with_next_complexion(),
             KeyCode::KeyH | KeyCode::Digit8 => self.with_next_relic(),
             KeyCode::KeyG | KeyCode::Digit9 => self.with_next_offhand(),
+            KeyCode::KeyF => self.with_feminine(!self.feminine()),
             _ => return None,
         };
         Some(updated)

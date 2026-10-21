@@ -68,7 +68,7 @@ impl StudioAnimation {
                 let s = ((elapsed % 2.2) / 2.2 * std::f32::consts::PI).sin();
                 (
                     0.0,
-                    0.80 - 0.35 * s * s,
+                    0.80 - 0.44 * s * s,
                     StrideRhythm::new((elapsed * 5.4) % TAU, 0.38),
                     *attire,
                 )

@@ -18,6 +18,7 @@ impl StrideRhythm {
     pub fn with_cleave(phase: f32, blend: f32, cleave: f32) -> Self { Self::with_dual_cleave(phase, blend, cleave, cleave) }
     pub fn new(phase: f32, blend: f32) -> Self { Self::with_dual_cleave(phase, blend, 0.0, 0.0) }
     pub fn idle() -> Self { Self::new(0.0, 0.0) }
+    pub fn sneaking() -> Self { Self::new(0.0, 0.38) }
     pub fn walking() -> Self { Self::new(0.0, 0.45) }
     pub fn running() -> Self { Self::new(0.0, 1.0) }
     pub fn trigger_right_strike(self) -> Self { Self::with_dual_cleave(self.phase, self.blend, 0.001, self.left_cleave) }
@@ -34,9 +35,7 @@ impl StrideRhythm {
         else { 0.5 * (1.0 + ((c - 0.68) / 0.32 * std::f32::consts::PI).cos()) }
     }
 
-    pub fn cleave_surge(self, side: f32) -> f32 {
-        if self.hand_cleave(side) > 0.0 { (self.hand_cleave(side) * std::f32::consts::PI).sin() } else { 0.0 }
-    }
+    pub fn cleave_surge(self, side: f32) -> f32 { if self.hand_cleave(side) > 0.0 { (self.hand_cleave(side) * std::f32::consts::PI).sin() } else { 0.0 } }
 
     /// Advances the stride phase and any active strike cycles at a constant angular pace.
     pub fn step_cycle(self, angular_rate: f32, dt: f32) -> Self {
@@ -48,9 +47,8 @@ impl StrideRhythm {
         let delta = next - previous;
         let tangent_dist = (delta - terrain_up * delta.dot(terrain_up)).length();
         let speed = if dt > 1e-5 { tangent_dist / dt } else { 0.0 };
-        let target_blend = if speed > 6.3 { 0.45 + ((speed - 6.3) / 3.8).clamp(0.0, 0.55) } else { (speed / 6.0).clamp(0.0, 1.0) * 0.45 };
-        let pace = if tangent_dist > 1e-4 { tangent_dist * 2.1 } else { dt * 1.5 };
-        let next_phase = (self.phase + pace) % std::f32::consts::TAU;
+        let target_blend = if speed > 6.3 { 0.45 + ((speed - 6.3) / 3.8).clamp(0.0, 0.55) } else if speed > 1.2 { (0.38 + (speed - 2.1).max(0.0) / 3.9 * 0.07).min(0.45) } else { (speed / 1.2).clamp(0.0, 1.0) * 0.38 };
+        let next_phase = (self.phase + if tangent_dist > 1e-4 { tangent_dist * 2.4 } else { dt * 1.5 }) % std::f32::consts::TAU;
         let next_blend = self.blend + (target_blend - self.blend) * (1.0 - (-7.0 * dt).exp());
         Self::with_dual_cleave(next_phase, next_blend, Self::step_cleave(self.right_cleave, dt), Self::step_cleave(self.left_cleave, dt))
     }
@@ -59,13 +57,7 @@ impl StrideRhythm {
 /// Kinematic pose of an avatar body on a planetary surface for first-person and multiplayer display.
 #[derive(Clone, Copy, Debug)]
 pub struct BodyPose {
-    position: Vec3,
-    surface_rot: Quat,
-    view_rot: Quat,
-    eye_height: f32,
-    leap: f32,
-    rhythm: StrideRhythm,
-    physique: YouthPhysique,
+    position: Vec3, surface_rot: Quat, view_rot: Quat, eye_height: f32, leap: f32, rhythm: StrideRhythm, physique: YouthPhysique,
 }
 
 impl BodyPose {
@@ -74,6 +66,7 @@ impl BodyPose {
     pub fn new(position: Vec3, surface_rot: Quat, view_rot: Quat, eye_height: f32, rhythm: StrideRhythm, physique: YouthPhysique) -> Self { Self::with_leap_pose(position, surface_rot, view_rot, eye_height, 0.0, rhythm, physique) }
     pub fn with_leap(self, leap: f32) -> Self { Self::with_leap_pose(self.position, self.surface_rot, self.view_rot, self.eye_height, leap, self.rhythm, self.physique) }
     pub fn with_physique(self, physique: YouthPhysique) -> Self { Self::with_leap_pose(self.position, self.surface_rot, self.view_rot, self.eye_height, self.leap, self.rhythm, physique) }
+    pub fn feminine(&self) -> bool { self.physique.feminine() }
     pub fn scale(&self, measure: f32) -> f32 { self.physique.scale(measure) }
     pub fn crown_size(&self, measure: f32) -> f32 { self.physique.crown_size(measure) }
     pub fn crown_girth(&self, measure: f32) -> f32 { self.physique.crown_girth(measure) }
@@ -84,18 +77,18 @@ impl BodyPose {
     pub fn arm_girth(&self, measure: f32) -> f32 { self.physique.arm_girth(measure) }
     pub fn leg_size(&self, measure: f32) -> f32 { self.physique.leg_size(measure) }
     pub fn leg_girth(&self, measure: f32) -> f32 { self.physique.leg_girth(measure) }
-    pub fn hip_elevation(&self) -> f32 { (0.80 - self.crouch_compression() * 0.52) + (self.leg_size(0.68) - 0.68) }
+    pub fn hip_elevation(&self) -> f32 { (0.80 - self.crouch_compression() * 0.78) + (self.leg_size(0.68) - 0.68) }
     pub fn torso_span(&self, offset_above_hip: f32) -> f32 { self.hip_elevation() + self.torso_size(offset_above_hip) }
     pub fn foot_origin(&self) -> Vec3 { self.position - (self.surface_rot * Vec3::Y) * 0.98 }
 
     /// Eye position in world space matching CameraHorizon (pulled forward in front of the torso when looking down).
     pub fn eye_origin(&self) -> Vec3 {
         let (up, view_fwd, right) = ((self.surface_rot * Vec3::Y).normalize(), (self.view_rot * Vec3::NEG_Z).normalize(), (self.view_rot * Vec3::X).normalize());
-        self.position + up * self.eye_height.clamp(0.45, 0.80) + up.cross(right).normalize() * (0.09 + (-view_fwd.dot(up)).clamp(0.0, 1.0) * 0.07)
+        self.position + up * self.eye_height.clamp(0.36, 0.80) + up.cross(right).normalize() * (0.09 + (-view_fwd.dot(up)).clamp(0.0, 1.0) * 0.07)
     }
 
-    /// Horizontal heading frame on the planetary surface for torso, belt, legs, and boots.
-    pub fn torso_frame(&self) -> LimbFrame {
+    /// Grounded surface heading frame for legs, boots, and mirror camera.
+    pub fn stance_frame(&self) -> LimbFrame {
         let (up, raw_fwd, fallback) = ((self.surface_rot * Vec3::Y).normalize(), self.view_rot * Vec3::NEG_Z, self.surface_rot * Vec3::NEG_Z);
         let flat_fwd = raw_fwd - up * raw_fwd.dot(up);
         let forward = if flat_fwd.length_squared() > 1e-4 { flat_fwd.normalize() } else { (fallback - up * fallback.dot(up)).normalize() };
@@ -104,11 +97,17 @@ impl BodyPose {
         LimbFrame::new(origin, forward.cross(up).normalize(), up, forward).yawed(twist)
     }
 
-    /// Head and neck frame aligned with horizontal torso and vertical look pitch for multiplayer/mirror view.
+    /// Upper-body frame hinged at the hips to lean the torso, belt, shoulders, and arms forward when sneaking.
+    pub fn torso_frame(&self) -> LimbFrame {
+        let (hip_y, crouch) = (self.hip_elevation(), self.crouch_compression());
+        self.stance_frame().shifted(0.0, hip_y, -0.030 - crouch * 0.22).pitched(crouch * 0.85).shifted(0.0, -hip_y, 0.030)
+    }
+
+    /// Head and neck frame aligned with forward-leaning torso and vertical look pitch for multiplayer/mirror view.
     pub fn crown_frame(&self) -> LimbFrame {
         let neck_frame = self.torso_frame().shifted(0.0, self.torso_span(0.88), -0.056);
         let (view_fwd, up) = ((self.view_rot * Vec3::NEG_Z).normalize(), (self.surface_rot * Vec3::Y).normalize());
-        neck_frame.pitched(-view_fwd.dot(up).clamp(-0.8, 0.8).asin() * 0.65)
+        neck_frame.pitched(-view_fwd.dot(up).clamp(-0.8, 0.8).asin() * 0.65 - self.crouch_compression() * 0.55)
     }
 
     /// Contralateral 3D leg joint chain (hip, knee, ankle, toe) emerging cleanly below the tunic skirt hem.
@@ -117,12 +116,12 @@ impl BodyPose {
         let (s, pass, crouch, ext) = (phase.sin(), (phase + 0.25).cos().max(0.0), self.crouch_compression(), (self.eye_height + self.leap - 0.80).clamp(0.0, 0.40));
         let ground = (1.0 - ext * 2.2).clamp(0.0, 1.0);
         let (walk, run) = ((self.rhythm.blend / 0.45).clamp(0.0, 1.0) * ground, ((self.rhythm.blend - 0.48) / 0.52).clamp(0.0, 1.0) * ground);
-        let hip = Vec3::new(side * self.scale(0.088), self.hip_elevation() - 0.02, -0.030);
+        let hip = Vec3::new(side * self.scale(0.088), self.hip_elevation() - 0.02, -0.030 - crouch * 0.22);
         let fwd_swing = if s >= 0.0 { s * (0.32 * walk + 0.20 * run) + pass * (0.05 * walk + 0.12 * run) } else { s * (0.26 * walk + 0.16 * run) };
-        let theta_hip = 0.04 + crouch * 1.45 - ext * 0.95 + fwd_swing;
-        let theta_knee = (0.08 + crouch * 2.65 - ext * 0.25 + (0.08 * walk + 0.16 * run) + pass * (0.44 * walk + 0.50 * run)).max(0.0);
+        let theta_hip = 0.04 + crouch * 2.35 - ext * 0.95 + fwd_swing;
+        let theta_knee = (0.08 + crouch * 4.25 - ext * 0.25 + (0.08 * walk + 0.16 * run) + pass * (0.44 * walk + 0.50 * run)).max(0.0);
         let (theta_shin, thigh_len, shin_len) = (theta_hip - theta_knee, self.leg_size(0.34), self.leg_size(0.34));
-        let knee_out = side * (self.scale(0.008) + pass * (0.016 * walk + 0.012 * run) + crouch * 0.024);
+        let knee_out = side * (self.scale(0.008) + pass * (0.016 * walk + 0.012 * run) + crouch * 0.042);
         let knee = Vec3::new(hip.x + knee_out, hip.y - thigh_len * theta_hip.cos(), hip.z + thigh_len * theta_hip.sin());
         let ankle_in = -side * (self.scale(0.005) + pass * (0.012 * walk + 0.010 * run));
         let ankle = Vec3::new(knee.x + ankle_in, (knee.y - shin_len * theta_shin.cos()).max(0.10), knee.z + shin_len * theta_shin.sin());
@@ -135,7 +134,7 @@ impl BodyPose {
     /// True 3D anatomical arm joint chain with forward upper-arm drive and distinct axe (lateral felling arc) vs. sword martial kinematics.
     pub fn external_arm(&self, side: f32, holding: bool, martial: MartialStyle) -> (Vec3, Vec3, LimbFrame, f32) {
         let (torso, crouch, ext) = (self.torso_frame(), self.crouch_compression(), (self.eye_height + self.leap - 0.80).clamp(0.0, 0.40));
-        let shoulder = Vec3::new(side * self.scale(0.222), self.torso_span(0.64), -0.066);
+        let shoulder = Vec3::new(side * self.scale(if self.feminine() { 0.194 } else { 0.222 }), self.torso_span(0.64), -0.066);
         let phase = if side > 0.0 { self.rhythm.phase } else { self.rhythm.phase + std::f32::consts::PI };
         let ground = (1.0 - ext * 2.0).clamp(0.0, 1.0);
         let (s, walk, run) = (phase.sin(), (self.rhythm.blend / 0.45).clamp(0.0, 1.0) * ground, ((self.rhythm.blend - 0.48) / 0.52).clamp(0.0, 1.0) * ground);
@@ -145,20 +144,20 @@ impl BodyPose {
         let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + 0.08 * hold_factor + (crouch + ext) * 0.10 + if sword { 0.0 } else { 0.36 * wind + 0.42 * bow };
         let (upper_len, fore_len) = (self.arm_size(0.26), self.arm_size(0.24));
         let r_sag = upper_len * theta_abduct.cos();
-        let upper_swing = (ext - crouch) * 0.38 * (1.0 - 0.55 * hold_factor) + if sword { -0.18 * wind + 0.62 * strike + 0.30 * surge } else { 0.38 * wind + 0.55 * bow + 0.52 * strike };
+        let upper_swing = (ext * 0.38 + crouch * 1.15) * (1.0 - 0.55 * hold_factor) + if sword { -0.18 * wind + 0.62 * strike + 0.30 * surge } else { 0.38 * wind + 0.55 * bow + 0.52 * strike };
         let theta_upper = -0.04 * (1.0 - run) + 0.22 * hold_factor + upper_swing + s * (0.26 * walk * (1.0 - 0.55 * hold_factor) + 0.16 * run);
         let elbow_x = shoulder.x + side * (upper_len * theta_abduct.sin() + if sword { -0.02 * wind - 0.03 * strike } else { 0.04 * wind + 0.05 * bow - 0.06 * strike });
         let elbow = Vec3::new(elbow_x, shoulder.y - r_sag * theta_upper.cos() + if sword { 0.0 } else { 0.08 * wind }, shoulder.z + r_sag * theta_upper.sin() + if sword { 0.12 * strike + 0.08 * surge } else { 0.08 * bow + 0.12 * strike });
-        let theta_elbow = 0.20 + 0.14 * walk + 0.88 * run + 0.92 * hold_factor + (crouch + ext) * 0.22 * (1.0 - 0.5 * hold_factor) + (if sword { 0.35 * wind - 0.55 * strike } else { 0.85 * wind - 0.15 * bow - 0.52 * strike }) + s.max(0.0) * 0.16 * walk + s * 0.12 * run + breath * 0.03;
+        let theta_elbow = 0.20 + 0.14 * walk + 0.88 * run + 0.92 * hold_factor + (crouch * 1.35 + ext * 0.22) * (1.0 - 0.5 * hold_factor) + (if sword { 0.35 * wind - 0.55 * strike } else { 0.85 * wind - 0.15 * bow - 0.52 * strike }) + s.max(0.0) * 0.16 * walk + s * 0.12 * run + breath * 0.03;
         let theta_forearm = theta_upper + theta_elbow;
         let wrist_dx = if sword { -0.02 * wind - 0.04 * strike } else { 0.04 * wind + 0.10 * bow + 0.04 * strike };
-        let wrist = Vec3::new(elbow.x + side * (wrist_dx - (0.010 + 0.014 * walk + 0.072 * run + 0.035 * hold_factor)), elbow.y - fore_len * theta_forearm.cos(), elbow.z + fore_len * theta_forearm.sin());
+        let wrist = Vec3::new(elbow.x + side * (wrist_dx - (0.010 + 0.014 * walk + 0.072 * run + 0.16 * crouch + 0.035 * hold_factor)), elbow.y - fore_len * theta_forearm.cos(), elbow.z + fore_len * theta_forearm.sin());
         let (shoulder_w, elbow_w, wrist_w) = (torso.point(shoulder.x, shoulder.y, shoulder.z), torso.point(elbow.x, elbow.y, elbow.z), torso.point(wrist.x, wrist.y, wrist.z));
         let (forearm_len, forearm_dir) = ((wrist_w - elbow_w).length(), (wrist_w - elbow_w).normalize());
-        let roll_y = side * if sword { 0.10 * hold_factor + 0.16 * wind + 0.08 * strike } else { 0.08 * hold_factor - 0.25 * wind - 0.55 * bow - 0.68 * strike };
+        let roll_y = side * if sword { 0.10 * hold_factor + 0.16 * wind + 0.08 * strike } else { 0.08 * hold_factor + 0.55 * crouch - 0.25 * wind - 0.55 * bow - 0.68 * strike };
         let hand_up = (torso.point(1.0, roll_y, 0.0) - torso.point(0.0, 0.0, 0.0)).normalize().cross(forearm_dir).normalize();
         let wrist_snap = if sword { -0.18 * wind + 1.12 * strike + 0.16 * surge } else { -0.20 * wind + 0.35 * bow + 0.62 * strike };
-        (shoulder_w, elbow_w, LimbFrame::new(wrist_w, forearm_dir.cross(hand_up).normalize(), hand_up, forearm_dir).pitched(wrist_snap), forearm_len)
+        (shoulder_w, elbow_w, LimbFrame::new(wrist_w, forearm_dir.cross(hand_up).normalize(), hand_up, forearm_dir).yawed(side * crouch * 0.35).pitched(wrist_snap), forearm_len)
     }
 
     /// View-aligned First-Person arm converging sword tip and axe blade from either hand onto the center crosshair at full strike.
@@ -193,5 +192,5 @@ impl BodyPose {
         let (walk, run, phase) = ((self.rhythm.blend / 0.45).clamp(0.0, 1.0), ((self.rhythm.blend - 0.48) / 0.52).clamp(0.0, 1.0), if side > 0.0 { self.rhythm.phase } else { self.rhythm.phase + std::f32::consts::PI });
         (0.18 + 0.07 * walk + 0.70 * run + phase.sin().max(0.0) * 0.06 * run).clamp(0.18, 0.96)
     }
-    pub fn crouch_compression(&self) -> f32 { (0.8 - (self.eye_height + self.leap)).clamp(0.0, 0.50) }
+    pub fn crouch_compression(&self) -> f32 { (0.8 - (self.eye_height + self.leap)).clamp(0.0, 0.55) }
 }

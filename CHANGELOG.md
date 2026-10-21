@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-21
+
+### Added
+- Fifth spawn showcase character with continuous sneaking animation (`GaitFigure::sneaking_at`, `StrideRhythm::sneaking`, `SpawnTroupe`) placed alongside standing, walking, running, and jumping figures.
+- Gender switch (`MALE` / `FEMALE` buttons and hotkey `F`) in the 3D Character Studio (`WardrobeStudio`, `YouthPhysique::feminine`, `YouthAttire::feminine`) with 6 dedicated female character archetypes (`AvatarArchetype::gender_title`, `AvatarArchetype::female_attire`: `VALKYRIE`, `HUNTRESS`, `HERBALIST`, `WEAVER`, `SHIELDMAID`, `LADY`).
+- Distinctly feminine 3D character anatomy and wardrobe (`TunicStyle::emit`, `Accoutrement::emit`, `CrownStyle::emit`, `PolygonHeadgear::emit`, `FootwearStyle::emit`) featuring narrower shoulders, hourglass corset waist, flared A-line skirt/dress hem, sculpted 3D bust and Valkyrie breastplate, softer facial jawline with rosy lips and eyelashes, long flowing rear hair with twin front shoulder braids, and open-faced feminine headgear (winged diadem, huntress hood, floral wreath, high ribbon bun, shieldmaiden circlet, lady tiara and veil).
+
+### Changed
+- Deepened sneaking posture kinematics (`SneakGait::crouching`, `BodyPose::hip_elevation`, `BodyPose::leg_joints`, `BodyPose::torso_frame`, `BodyPose::external_arm`, `SightMode::arm_joints`) with deeper knee flexion (`elevation = 0.36`), forward-leaning upper torso hinged from the hips, forward-bent elbows, slightly inward-angled forearms, and diagonally inward-rotated hands.
+
 ## [0.25.0] - 2026-10-20
 
 ### Added

@@ -49,7 +49,7 @@ impl FootwearStyle {
         pigment: PigmentSwatch,
         target: &mut dyn MeshTarget,
     ) {
-        let frame = pose.torso_frame();
+        let frame = pose.stance_frame();
         let hose_col = pigment.chausses();
         let garter_col = pigment.trim();
         let vest = Vec3::new(0.46, 0.28, 0.16);

@@ -84,7 +84,7 @@ impl<G: LocomotionGait> SneakGait<G> {
 impl SneakGait<WalkGait> {
     /// Secondary constructor wrapping standard upright gait in crouching posture.
     pub fn crouching() -> Self {
-        Self::new(WalkGait::upright(), 0.35, 0.45)
+        Self::new(WalkGait::upright(), 0.35, 0.36)
     }
 }
 

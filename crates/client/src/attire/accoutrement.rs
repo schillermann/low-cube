@@ -68,14 +68,16 @@ impl PolygonAccoutrement {
                 }
             }
             TunicStyle::PlateCuirass => {
-                // Armored Knight sculpted steel plackart, multi-tiered pauldrons, and flowing back cape
-                TaperedPrism::new(6, Vec3::new(0.0, waist_y + 0.02, -0.020), Vec3::new(0.0, chest_y + 0.04, -0.028), pose.scale(0.165), pose.torso_depth(0.112), pose.scale(0.228), pose.torso_depth(0.132), steel)
+                // Armored Knight or Valkyrie sculpted steel plackart, multi-tiered pauldrons, and flowing back cape
+                let fem = pose.feminine();
+                TaperedPrism::new(6, Vec3::new(0.0, waist_y + 0.02, -0.020), Vec3::new(0.0, chest_y + 0.04, -0.028), pose.scale(if fem { 0.114 } else { 0.165 }), pose.torso_depth(0.102), pose.scale(if fem { 0.188 } else { 0.228 }), pose.torso_depth(0.128), steel)
                     .emit(frame, true, target);
                 for side in [-1.0f32, 1.0f32] {
-                    let px = side * pose.scale(0.245);
-                    TaperedPrism::new(6, Vec3::new(px, sternum_y - 0.14, -0.066), Vec3::new(px * 0.92, sternum_y + 0.01, -0.066), pose.scale(0.095), pose.torso_depth(0.098), pose.scale(0.078), pose.torso_depth(0.084), steel)
+                    let px = side * pose.scale(if fem { 0.192 } else { 0.245 });
+                    let pr = if fem { 0.068 } else { 0.095 };
+                    TaperedPrism::new(6, Vec3::new(px, sternum_y - 0.12, -0.066), Vec3::new(px * 0.92, sternum_y + 0.01, -0.066), pose.scale(pr), pose.torso_depth(pr), pose.scale(pr * 0.82), pose.torso_depth(pr * 0.85), steel)
                         .emit(frame, true, target);
-                    TaperedPrism::new(6, Vec3::new(px * 1.04, sternum_y - 0.08, -0.066), Vec3::new(px * 0.96, sternum_y - 0.02, -0.066), pose.scale(0.102), pose.torso_depth(0.102), pose.scale(0.088), pose.torso_depth(0.090), brass)
+                    TaperedPrism::new(6, Vec3::new(px * 1.04, sternum_y - 0.07, -0.066), Vec3::new(px * 0.96, sternum_y - 0.01, -0.066), pose.scale(pr * 1.06), pose.torso_depth(pr * 1.06), pose.scale(pr * 0.92), pose.torso_depth(pr * 0.92), brass)
                         .emit(frame, true, target);
                 }
                 TaperedPrism::new(6, Vec3::new(0.0, 0.28, -0.22), Vec3::new(0.0, sternum_y - 0.04, -0.155), pose.scale(0.26), 0.028, pose.scale(0.19), 0.022, cloth)

@@ -119,11 +119,17 @@ fn test_single_character_cycles_all_animations_and_archetypes_differ_fundamental
     let pose = AvatarPosture::standing().body_pose(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY, StrideRhythm::idle());
     let archetypes = AvatarArchetype::all();
     for i in 0..archetypes.len() {
+        assert_ne!(archetypes[i].gender_title(false), archetypes[i].gender_title(true));
+        let (mut m_male, mut m_fem) = (QuadCapture::empty(), QuadCapture::empty());
+        archetypes[i].attire().emit(&pose, SightMode::LookingGlassSight, &mut m_male);
+        archetypes[i].female_attire().emit(&pose, SightMode::LookingGlassSight, &mut m_fem);
+        assert_ne!(m_male.positions(), m_fem.positions());
         for j in (i + 1)..archetypes.len() {
-            let (mut m_i, mut m_j) = (QuadCapture::empty(), QuadCapture::empty());
-            archetypes[i].attire().emit(&pose, SightMode::LookingGlassSight, &mut m_i);
+            let (mut m_j, mut f_j) = (QuadCapture::empty(), QuadCapture::empty());
             archetypes[j].attire().emit(&pose, SightMode::LookingGlassSight, &mut m_j);
-            assert_ne!(m_i.positions(), m_j.positions());
+            archetypes[j].female_attire().emit(&pose, SightMode::LookingGlassSight, &mut f_j);
+            assert_ne!(m_male.positions(), m_j.positions());
+            assert_ne!(m_fem.positions(), f_j.positions());
         }
     }
 }
@@ -155,17 +161,31 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
 
     let temp_path = std::env::temp_dir().join("test_studio_body_proportions.toml");
     let store = FileAttire::new(temp_path.to_str().unwrap().to_string());
-    let custom = AvatarArchetype::Blacksmith
-        .attire()
-        .with_complexion(ComplexionSwatch::Bronze)
-        .with_adjusted_region(BodyRegion::Crown, 1, -1)
-        .with_adjusted_region(BodyRegion::Arms, 2, 2);
+    let custom = AvatarArchetype::Blacksmith.female_attire().with_complexion(ComplexionSwatch::Bronze).with_adjusted_region(BodyRegion::Crown, 1, -1).with_adjusted_region(BodyRegion::Arms, 2, 2);
     store.save(&custom);
     let loaded = store.load_or_squire();
     let _ = std::fs::remove_file(&temp_path);
     assert_eq!(custom, loaded);
+    assert!(loaded.feminine());
 
     let mut studio = WardrobeStudio::from_profile();
+    let mut male_stage = QuadCapture::empty();
+    studio.emit_stage(&mut male_stage);
+
+    // Click FEMALE button on the left panel (-0.59, -0.70)
+    studio.move_pointer(ScreenPoint::new(-0.59, -0.70));
+    studio.press_pointer();
+    assert!(studio.current_attire().feminine(), "Clicking FEMALE button in Character Studio must switch character to female");
+
+    let mut female_stage = QuadCapture::empty();
+    studio.emit_stage(&mut female_stage);
+    assert_ne!(male_stage.positions(), female_stage.positions(), "Female character must emit distinct feminine anatomy and hair");
+
+    // Click MALE button (-0.83, -0.70) to restore default profile
+    studio.move_pointer(ScreenPoint::new(-0.83, -0.70));
+    studio.press_pointer();
+    assert!(!studio.current_attire().feminine(), "Clicking MALE button in Character Studio must switch character back to male");
+
     studio.move_pointer(ScreenPoint::new(0.0, 0.0));
     studio.press_pointer();
     studio.move_pointer(ScreenPoint::new(0.25, 0.0));

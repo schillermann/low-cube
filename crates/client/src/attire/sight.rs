@@ -61,7 +61,7 @@ impl SightMode {
         match self {
             Self::FirstPersonSight => posture.view_matrix(frame, position),
             Self::LookingGlassSight => {
-                let torso = pose.torso_frame();
+                let torso = pose.stance_frame();
                 let mirror_eye = torso.point(0.0, 1.20, 1.65);
                 let target = torso.point(0.0, 0.96, 0.0);
                 let up = torso.point(0.0, 1.0, 0.0) - torso.point(0.0, 0.0, 0.0);
