@@ -83,11 +83,11 @@ impl BodyPose {
     pub fn torso_span(&self, offset_above_hip: f32) -> f32 { self.hip_elevation() + self.torso_size(offset_above_hip) }
     pub fn foot_origin(&self) -> Vec3 { self.position - (self.surface_rot * Vec3::Y) * 0.98 }
 
-    /// Eye position in world space matching CameraHorizon (pulled forward in front of the torso when looking down).
     pub fn eye_origin(&self) -> Vec3 {
         let (up, view_fwd, right) = ((self.surface_rot * Vec3::Y).normalize(), (self.view_rot * Vec3::NEG_Z).normalize(), (self.view_rot * Vec3::X).normalize());
         self.position + up * self.eye_height.clamp(0.36, 0.80) + up.cross(right).normalize() * (0.09 + (-view_fwd.dot(up)).clamp(0.0, 1.0) * 0.07)
     }
+    pub fn view_frame(&self) -> LimbFrame { LimbFrame::new(self.eye_origin(), (self.view_rot * Vec3::X).normalize(), (self.view_rot * Vec3::Y).normalize(), (self.view_rot * Vec3::NEG_Z).normalize()) }
 
     /// Grounded surface heading frame for legs, boots, and mirror camera.
     pub fn stance_frame(&self) -> LimbFrame {

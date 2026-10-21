@@ -1,13 +1,14 @@
 use glam::Vec3;
-use world::{MeshTarget, PlanetaryWorld};
+use winit::keyboard::KeyCode;
+use world::{BlockMold, MeshTarget, PlanetaryWorld};
 use crate::attire::{
-    BeltSatchel, BodyPose, FacetedSolid, HeldRelic, HipPouch, LimbFrame, SightMode, StrideRhythm,
+    BeltSatchel, BodyPose, FacetedSolid, HeldRelic, LimbFrame, SightMode, StrideRhythm,
     TaperedPrism, YouthAttire,
 };
 
 const EXCAVATION_THRESHOLD: u32 = 8;
 
-/// Immutable dual-hand block inventory, hip pouches, per-hand block molds, and excavation progress state ("Tell, Don't Ask").
+/// Immutable dual-hand block inventory, satchel inspection state, per-hand block molds, and excavation progress ("Tell, Don't Ask").
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PalmEarthworks {
     satchel: BeltSatchel,
@@ -25,45 +26,62 @@ impl PalmEarthworks {
         Self { satchel, dig_progress, held_mask, dig_site, splash_active }
     }
 
-    /// Secondary constructor initializing empty hands and hip pouches with forward full-cube molds.
+    /// Secondary constructor initializing empty hands and satchel with forward full-cube molds.
     pub const fn empty() -> Self { Self::new(BeltSatchel::empty(), 0, 0, Vec3::ZERO, false) }
 
+    pub const fn satchel_open(&self) -> bool { self.satchel.open() }
+
     pub fn mold_next_form(self, attire: YouthAttire) -> Self {
-        Self::new(self.satchel.map_mold(attire, HipPouch::mold_next_form), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+        Self::new(self.satchel.map_mold(attire, BlockMold::next_form), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
 
     pub fn mold_prev_form(self, attire: YouthAttire) -> Self {
-        Self::new(self.satchel.map_mold(attire, HipPouch::mold_prev_form), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+        Self::new(self.satchel.map_mold(attire, BlockMold::prev_form), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
 
     pub fn turn_mold_clockwise(self, attire: YouthAttire) -> Self {
-        Self::new(self.satchel.map_mold(attire, HipPouch::turn_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+        Self::new(self.satchel.map_mold(attire, BlockMold::turn_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
 
     pub fn turn_mold_counter_clockwise(self, attire: YouthAttire) -> Self {
-        Self::new(self.satchel.map_mold(attire, HipPouch::turn_counter_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+        Self::new(self.satchel.map_mold(attire, BlockMold::turn_counter_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
 
-    /// Emits the avatar wardrobe with dual hip pouches, stowed tools, and per-hand sculpted blocks.
+    /// Dispatches mold, pocket stow/draw (`Q`/`E`), satchel toggle (`Tab`/`B`), and `WASD` satchel navigation keys.
+    pub fn handle_key(self, code: KeyCode, attire: YouthAttire) -> (Self, YouthAttire, bool) {
+        match code {
+            KeyCode::KeyR => (self.mold_next_form(attire), attire, true),
+            KeyCode::KeyV => (self.turn_mold_clockwise(attire), attire, true),
+            KeyCode::KeyC => (self.turn_mold_counter_clockwise(attire), attire, true),
+            KeyCode::Tab | KeyCode::KeyB => {
+                let (next_satchel, ok) = self.satchel.reconcile_attire(attire).toggle_open();
+                (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), attire, ok)
+            }
+            KeyCode::KeyQ | KeyCode::KeyE => {
+                let (next_satchel, next_attire, ok) = self.satchel.toggle_pocket(if code == KeyCode::KeyE { 1.0 } else { -1.0 }, attire);
+                (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), next_attire, ok)
+            }
+            KeyCode::KeyA | KeyCode::ArrowLeft | KeyCode::KeyD | KeyCode::ArrowRight | KeyCode::KeyW | KeyCode::ArrowUp | KeyCode::KeyS | KeyCode::ArrowDown => {
+                let dx = if matches!(code, KeyCode::KeyA | KeyCode::ArrowLeft) { -1 } else if matches!(code, KeyCode::KeyD | KeyCode::ArrowRight) { 1 } else { 0 };
+                let dy = if matches!(code, KeyCode::KeyW | KeyCode::ArrowUp) { -1 } else if matches!(code, KeyCode::KeyS | KeyCode::ArrowDown) { 1 } else { 0 };
+                let (next_satchel, ok) = self.satchel.navigate(dx, dy);
+                (Self::new(next_satchel, self.dig_progress, self.held_mask, self.dig_site, self.splash_active), attire, ok)
+            }
+            _ => (self, attire, false),
+        }
+    }
+
     pub fn emit_attire(&self, attire: &YouthAttire, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
         attire.emit_satchel(pose, sight, self.satchel, target);
     }
 
-    /// Synchronizes hand block counts when attire relics are cycled or loaded while preserving hip pouches.
     pub fn reconcile_attire(self, attire: YouthAttire) -> Self {
         Self::new(self.satchel.reconcile_attire(attire), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
 
-    /// Preserves held and pocketed earth blocks and stowed tools when ground weapon sites synchronize.
     pub fn merge_site_relics(self, attire: YouthAttire, site_pair: (HeldRelic, HeldRelic)) -> (Self, YouthAttire) {
         let (next_satchel, updated) = self.satchel.merge_site_relics(attire, site_pair);
         (Self::new(next_satchel, self.dig_progress, self.held_mask, self.dig_site, self.splash_active), updated)
-    }
-
-    /// Stows the held block or tool/weapon into the side's hip pouch to free the hand, or draws it back when empty.
-    pub fn toggle_hand_pocket(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
-        let (next_satchel, next_attire, changed) = self.satchel.toggle_pocket(side, attire);
-        (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), next_attire, changed)
     }
 
     pub fn trigger_hand_swing(attire: YouthAttire, rhythm: StrideRhythm, side: f32) -> StrideRhythm {

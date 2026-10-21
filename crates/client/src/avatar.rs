@@ -134,18 +134,9 @@ impl Avatar for PlanetaryAvatar {
     fn apply_attire(&mut self, attire: YouthAttire) { self.attire = attire; self.earthworks = self.earthworks.reconcile_attire(attire); }
 
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
-        match code {
-            KeyCode::KeyM => { self.sight = self.sight.toggle(); return true; }
-            KeyCode::KeyR => { self.earthworks = self.earthworks.mold_next_form(self.attire); return true; }
-            KeyCode::KeyV => { self.earthworks = self.earthworks.turn_mold_clockwise(self.attire); return true; }
-            KeyCode::KeyC => { self.earthworks = self.earthworks.turn_mold_counter_clockwise(self.attire); return true; }
-            KeyCode::KeyQ | KeyCode::KeyE => {
-                let (ew, attire, ok) = self.earthworks.toggle_hand_pocket(if code == KeyCode::KeyE { 1.0 } else { -1.0 }, self.attire);
-                (self.earthworks, self.attire) = (ew, attire);
-                return ok;
-            }
-            _ => {}
-        }
+        if code == KeyCode::KeyM { self.sight = self.sight.toggle(); return true; }
+        let (ew, attire, handled) = self.earthworks.handle_key(code, self.attire);
+        if handled { (self.earthworks, self.attire) = (ew, attire); return true; }
         if let Some(updated) = self.attire.cycled_by_key(code) { self.apply_attire(updated); return true; }
         false
     }
@@ -155,8 +146,10 @@ impl Avatar for PlanetaryAvatar {
         self.reorient_surface(terrain_up, dt);
 
         let mut order = LocomotionOrder::idle();
-        let heading = SurfaceHeading::aligned(self.surface_rot, &self.look);
-        heading.drive_locomotion(controls, &mut order);
+        if !self.earthworks.satchel_open() {
+            let heading = SurfaceHeading::aligned(self.surface_rot, &self.look);
+            heading.drive_locomotion(controls, &mut order);
+        }
 
         order.dispatch_jump(&mut *self.flight);
         self.posture = order.advance_posture(self.posture, dt);

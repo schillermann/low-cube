@@ -26,7 +26,7 @@ pub use hands::VambraceStyle;
 pub use limb::{FacetedSolid, LimbFrame, TaperedPrism};
 pub use palette::{ComplexionSwatch, PigmentSwatch};
 pub use pose::{BodyPose, StrideRhythm};
-pub use pouch::{BeltSatchel, HipPouch};
+pub use pouch::BeltSatchel;
 pub use proportion::{BodyRegion, PartProportion, YouthPhysique};
 pub use relic::{HeldRelic, MartialStyle};
 pub use sight::SightMode;

@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{BlockMold, MeshTarget};
-use super::limb::{FacetedSolid, LimbFrame, TaperedPrism};
+use super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
 
 /// Polymorphic martial action style bound to the held relic.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -159,6 +159,40 @@ impl HeldRelic {
             }
             Self::ExcavatedEarth => {
                 frame.emit_cradled_block(side, Vec3::new(-side * 0.015, 0.001, 0.046), mold, 0.068, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.52, 0.38, 0.24), target);
+            }
+        }
+    }
+
+    /// Emits a hollow 4-bar slot border frame with the 3D molded block or tool showcased unobstructed in front.
+    pub fn emit_in_satchel_slot(self, mold: BlockMold, rim: Vec3, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
+        let (r, t, z_rim) = (0.044, 0.0032, 0.018);
+        for (a, b) in [
+            (Vec3::new(-r, r, z_rim), Vec3::new(r, r, z_rim)),
+            (Vec3::new(-r, -r, z_rim), Vec3::new(r, -r, z_rim)),
+            (Vec3::new(-r, -r, z_rim), Vec3::new(-r, r, z_rim)),
+            (Vec3::new(r, -r, z_rim), Vec3::new(r, r, z_rim)),
+        ] {
+            AxialLimb::new(a, b, t, t, rim).emit(slot_frame, true, target);
+        }
+        let showcase = slot_frame.pitched(-0.46).yawed(0.64);
+        match self {
+            Self::EmptyPalm => {}
+            Self::ExcavatedEarth => {
+                showcase.emit_upright_block(Vec3::new(0.0, -0.027, 0.0), mold, 0.092, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.56, 0.41, 0.25), target);
+            }
+            Self::QuarriedStone => {
+                showcase.emit_upright_block(Vec3::new(0.0, -0.027, 0.0), mold, 0.092, Vec3::new(0.50, 0.51, 0.53), Vec3::new(0.66, 0.68, 0.70), target);
+            }
+            _ => {
+                let (scale, mid_y, mid_z) = match self {
+                    Self::KnightlySword => (0.095, 0.285, 0.054),
+                    Self::IronSpade => (0.132, 0.115, 0.062),
+                    Self::WoodmanAxe => (0.168, 0.052, 0.082),
+                    Self::TimberTorch => (0.195, 0.075, 0.058),
+                    _ => (0.215, 0.050, 0.054),
+                };
+                let tool_frame = slot_frame.pitched(-0.22).yawed(0.45).scaled(scale).shifted(0.025, -mid_y, -mid_z);
+                self.emit_molded_in_palm(1.0, mold, &tool_frame, target);
             }
         }
     }

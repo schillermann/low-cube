@@ -1,5 +1,9 @@
 # Low-Cube
 
+[![Download for Windows](https://img.shields.io/badge/⬇_Download_for_Windows-.exe-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/schillermann/low-cube/releases/latest/download/low-cube-windows.exe)
+[![Download for Linux](https://img.shields.io/badge/⬇_Download_for_Linux-x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/schillermann/low-cube/releases/latest/download/low-cube-linux)
+[![All Releases](https://img.shields.io/github/v/release/schillermann/low-cube?include_prereleases&label=Latest%20Build&style=for-the-badge&color=2ea44f)](https://github.com/schillermann/low-cube/releases)
+
 > *Survive. Build. Defy gravity across the faces of cubic worlds.*
 
 **Low-Cube** is a voxel survival sandbox set on freestanding, cubic planetary worlds adrift in space. Step onto a world where gravity bends around 90-degree edges, each face hosts a unique climate, and survival demands wit, shelter, and resourcefulness.

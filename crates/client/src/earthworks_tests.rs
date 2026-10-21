@@ -52,8 +52,9 @@ fn test_mined_block_placed_only_with_same_hand_and_terrain_and_placed_blocks_mod
 
     let mut avatar = PlanetaryAvatar::at(spawn);
     avatar.rotate_view(0.0, 410.0);
-    let mut empty_hands_mesh = SurfaceLedger::empty();
+    let (mut empty_hands_mesh, mut empty_satchel_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut empty_hands_mesh);
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab) && { avatar.emit_appearance(&mut empty_satchel_mesh); empty_satchel_mesh.count() > empty_hands_mesh.count() } && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
 
     assert!(!avatar.use_right_hand(&mut world) && !avatar.use_left_hand(&mut world));
     for _ in 0..2 { assert!(!avatar.use_left_hand(&mut world)); }
@@ -88,10 +89,12 @@ fn test_mined_block_placed_only_with_same_hand_and_terrain_and_placed_blocks_mod
     avatar.scroll_mold(-1.0, 0.0);
     avatar.scroll_mold(-1.0, 0.0);
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE));
-    let mut pouch_mesh = SurfaceLedger::empty();
-    avatar.emit_appearance(&mut pouch_mesh);
-    assert!(pouch_mesh.count() > empty_hands_mesh.count(), "Stowing block with Q and spade with E must render 3D hip pouch and holstered spade");
-    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.use_left_hand(&mut world));
+    let (mut closed_mesh, mut open_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
+    avatar.emit_appearance(&mut closed_mesh);
+    assert_eq!(closed_mesh.count(), empty_hands_mesh.count(), "Stowed blocks and tools must be invisible while the satchel is closed");
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab) && { avatar.emit_appearance(&mut open_mesh); open_mesh.count() > empty_hands_mesh.count() });
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ));
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyD) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.use_left_hand(&mut world));
 
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::EmptyPalm));
     assert!(avatar.use_right_hand(&mut world), "Right hand holding ExcavatedEarth adds a full cube on right side's independent Cube mold");
@@ -113,17 +116,13 @@ fn test_two_free_hands_swing_both_arms_and_troupe_avatar_excavates_and_places() 
 
     let (mut idle_mesh, mut digging_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut idle_mesh);
-    assert!(!avatar.use_left_hand(&mut world));
-    assert!(!avatar.use_right_hand(&mut world));
+    assert!(!avatar.use_left_hand(&mut world) && !avatar.use_right_hand(&mut world));
     for _ in 0..6 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
     avatar.emit_appearance(&mut digging_mesh);
-    let first_v0 = |ledger: &SurfaceLedger| -> Vec<Vec3> {
-        ledger.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect()
-    };
+    let first_v0 = |ledger: &SurfaceLedger| -> Vec<Vec3> { ledger.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect() };
     assert_ne!(first_v0(&idle_mesh), first_v0(&digging_mesh));
     for _ in 0..2 { assert!(!avatar.use_right_hand(&mut world)); }
-    assert!(avatar.use_right_hand(&mut world));
-    assert!(avatar.use_right_hand(&mut world));
+    assert!(avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world));
 }
 
 #[test]

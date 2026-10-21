@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-21
+
+### Added
+- Shared invisible satchel inventory and 3D camera-aligned inspection grid (`BeltSatchel::toggle_open`, `BeltSatchel::navigate`, `BeltSatchel::toggle_pocket`, `HeldRelic::emit_in_satchel_slot`, `BodyPose::view_frame`) toggled with `Tab` / `B` (including when empty), navigated with `W`/`A`/`S`/`D` or arrow keys while pausing locomotion, and drawn into the left (`Q`) or right (`E`) hand.
+- Hollow 4-bar slot border frames (`AxialLimb`) with upright isometric 3D block previews (`LimbFrame::emit_upright_block`) and proportionally scaled tool/weapon previews (`LimbFrame::scaled`) centered inside each satchel slot.
+- Direct 1-click download badges for Windows (`.exe`) and Linux (`x86_64`) at the top of `README.md` with `make_latest: true` in `.github/workflows/release.yml`.
+
+### Changed
+- Concealed stowed blocks and tools completely while the satchel is closed (`BeltSatchel::emit_on_waist`) instead of rendering external pouches on the avatar's waist.
+
 ## [0.30.0] - 2026-10-21
 
 ### Added

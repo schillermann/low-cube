@@ -14,12 +14,7 @@ pub struct LimbFrame {
 impl LimbFrame {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(origin: Vec3, right: Vec3, up: Vec3, forward: Vec3) -> Self {
-        Self {
-            origin,
-            right,
-            up,
-            forward,
-        }
+        Self { origin, right, up, forward }
     }
 
     /// Maps local coordinates (x: right, y: up, z: forward) into planetary world space.
@@ -30,6 +25,11 @@ impl LimbFrame {
     /// Translates the frame origin by local coordinates.
     pub fn shifted(&self, x: f32, y: f32, z: f32) -> Self {
         Self::new(self.point(x, y, z), self.right, self.up, self.forward)
+    }
+
+    /// Uniformly scales the local coordinate axes around the frame origin.
+    pub fn scaled(&self, factor: f32) -> Self {
+        Self::new(self.origin, self.right * factor, self.up * factor, self.forward * factor)
     }
 
     /// Pitches the local up and forward axes around the right axis by radians.
@@ -48,16 +48,15 @@ impl LimbFrame {
         Self::new(self.origin, next_right, self.up, next_fwd)
     }
 
-    /// Emits a palm-molded block inside this limb frame aligned with the hand's forward placement axis.
-    pub fn emit_molded_block(&self, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
-        let center = self.point(local_origin.x, local_origin.y, local_origin.z);
-        mold.emit_miniature(center, self.right, self.up, self.forward, scale, side_col, top_col, target);
-    }
-
     /// Emits a palm-molded block resting upright on the hollow upturned surface of the left or right palm.
     pub fn emit_cradled_block(&self, side: f32, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
         let center = self.point(local_origin.x, local_origin.y, local_origin.z);
         mold.emit_miniature(center, self.up * side, -self.right * side, self.forward, scale, side_col, top_col, target);
+    }
+
+    /// Emits a 3D molded block aligned directly with this frame's right, up, and forward axes.
+    pub fn emit_upright_block(&self, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
+        mold.emit_miniature(self.point(local_origin.x, local_origin.y, local_origin.z), self.right, self.up, self.forward, scale, side_col, top_col, target);
     }
 }
 
