@@ -110,14 +110,19 @@ impl Session for GameSession {
                     }
                 } else if state == ElementState::Pressed {
                     self.surface.capture_cursor();
-                    let modified = match button {
-                        MouseButton::Left => self.avatar.use_left_hand(self.world.as_mut()),
-                        MouseButton::Right => self.avatar.use_right_hand(self.world.as_mut()),
-                        _ => false,
-                    };
-                    if modified {
-                        self.refresh_modified_face();
+                    match button {
+                        MouseButton::Left => {
+                            let _ = self.avatar.use_left_hand(self.world.as_mut());
+                            self.refresh_modified_face();
+                        }
+                        MouseButton::Right => {
+                            let _ = self.avatar.use_right_hand(self.world.as_mut());
+                            self.refresh_modified_face();
+                        }
+                        _ => {}
                     }
+                } else if matches!(button, MouseButton::Left | MouseButton::Right) && self.avatar.release_hand(self.world.as_mut()) {
+                    self.refresh_modified_face();
                 }
             }
             WindowEvent::KeyboardInput {
@@ -153,6 +158,9 @@ impl Session for GameSession {
                     self.modal.step(dt);
                 } else {
                     self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
+                    if self.avatar.step_digging(self.world.as_mut()) {
+                        self.refresh_modified_face();
+                    }
                 }
 
                 if self.tron_active {

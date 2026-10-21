@@ -134,6 +134,9 @@ pub trait PlanetaryWorld: GravityField {
     fn excavate_surface(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
         false
     }
+    fn loosen_surface(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> bool {
+        false
+    }
     fn place_surface_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3) -> bool {
         false
     }
@@ -160,6 +163,9 @@ pub trait Face: Send + Sync {
         0.0
     }
     fn excavate(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
+        false
+    }
+    fn loosen(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> bool {
         false
     }
     fn place_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3) -> bool {

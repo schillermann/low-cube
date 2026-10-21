@@ -19,9 +19,19 @@ pub trait ReliefElevation: Send + Sync {
         false
     }
 
+    /// Partial digging stage (0..=3) at discrete cell (u, v) before full block excavation.
+    fn dig_stage_at(&self, _u: i32, _v: i32) -> u8 {
+        0
+    }
+
+    /// Marks partial digging progress (0..=3) at discrete cell (u, v).
+    fn mark_dig_stage(&mut self, _u: i32, _v: i32, _stage: u8) -> (i32, bool) {
+        (0, false)
+    }
+
     /// Excavates one discrete block layer at (u, v).
-    fn excavate_cell(&mut self, _u: i32, _v: i32) -> bool {
-        false
+    fn excavate_cell(&mut self, _u: i32, _v: i32) -> (i32, bool) {
+        (0, false)
     }
 
     /// Stacks one discrete block layer at (u, v).

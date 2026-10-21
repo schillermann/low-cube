@@ -8,6 +8,7 @@ pub enum MartialStyle {
     Unarmed,
     LumberjackCleave,
     SwordplaySlash,
+    SpadeDig,
 }
 
 /// Object held in the avatar's right or left hand visible in first-person and multiplayer.
@@ -19,7 +20,7 @@ pub enum HeldRelic {
     WoodenMallet,
     WoodmanAxe,
     KnightlySword,
-    IronShovel,
+    IronSpade,
     ExcavatedEarth,
 }
 
@@ -31,8 +32,8 @@ impl HeldRelic {
             Self::TimberTorch => Self::WoodenMallet,
             Self::WoodenMallet => Self::WoodmanAxe,
             Self::WoodmanAxe => Self::KnightlySword,
-            Self::KnightlySword => Self::IronShovel,
-            Self::IronShovel => Self::ExcavatedEarth,
+            Self::KnightlySword => Self::IronSpade,
+            Self::IronSpade => Self::ExcavatedEarth,
             Self::ExcavatedEarth => Self::EmptyPalm,
         }
     }
@@ -45,7 +46,7 @@ impl HeldRelic {
             3 => Self::WoodenMallet,
             4 => Self::WoodmanAxe,
             5 => Self::KnightlySword,
-            6 => Self::IronShovel,
+            6 => Self::IronSpade,
             _ => Self::ExcavatedEarth,
         }
     }
@@ -58,7 +59,7 @@ impl HeldRelic {
             Self::WoodenMallet => 3,
             Self::WoodmanAxe => 4,
             Self::KnightlySword => 5,
-            Self::IronShovel => 6,
+            Self::IronSpade => 6,
             Self::ExcavatedEarth => 7,
         }
     }
@@ -71,8 +72,8 @@ impl HeldRelic {
         matches!(self, Self::EmptyPalm)
     }
 
-    pub fn shovel_blade(self) -> bool {
-        matches!(self, Self::IronShovel)
+    pub fn spade_blade(self) -> bool {
+        matches!(self, Self::IronSpade)
     }
 
     pub fn placeable_block(self) -> bool {
@@ -82,10 +83,10 @@ impl HeldRelic {
     pub fn martial_style(self) -> MartialStyle {
         match self {
             Self::EmptyPalm => MartialStyle::Unarmed,
+            Self::IronSpade => MartialStyle::SpadeDig,
             Self::QuarriedStone
             | Self::WoodenMallet
             | Self::WoodmanAxe
-            | Self::IronShovel
             | Self::ExcavatedEarth => MartialStyle::LumberjackCleave,
             Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,
         }
@@ -142,7 +143,7 @@ impl HeldRelic {
                 TaperedPrism::new(4, Vec3::new(gx, 0.068, gz), Vec3::new(gx, 0.390, gz), 0.006, 0.011, 0.005, 0.008, fuller_steel).emit(frame, true, target);
                 TaperedPrism::new(4, Vec3::new(gx, 0.420, gz), Vec3::new(gx, 0.680, gz), 0.004, 0.020, 0.001, 0.002, honed_edge).emit(frame, true, target);
             }
-            Self::IronShovel => {
+            Self::IronSpade => {
                 let (ash_wood, worn_ash, socket_iron, spade_steel, honed_edge) = (
                     Vec3::new(0.54, 0.37, 0.20), Vec3::new(0.42, 0.28, 0.15),
                     Vec3::new(0.30, 0.33, 0.38), Vec3::new(0.54, 0.58, 0.64), Vec3::new(0.84, 0.88, 0.93),

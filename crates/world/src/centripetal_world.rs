@@ -65,6 +65,10 @@ impl PlanetaryWorld for CentripetalWorld {
         self.world.excavate_surface(eye, direction)
     }
 
+    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
+        self.world.loosen_surface(eye, direction, stage)
+    }
+
     fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
         self.world.place_surface_block(eye, direction, avatar_pos)
     }

@@ -16,10 +16,12 @@ pub enum StudioAnimation {
     JumpingLeap,
     AxeCleave,
     SwordSlash,
+    SpadeDig,
+    PalmDig,
 }
 
 impl StudioAnimation {
-    pub fn sequence() -> [Self; 7] {
+    pub fn sequence() -> [Self; 9] {
         [
             Self::StandingIdle,
             Self::WalkingStride,
@@ -28,6 +30,8 @@ impl StudioAnimation {
             Self::JumpingLeap,
             Self::AxeCleave,
             Self::SwordSlash,
+            Self::SpadeDig,
+            Self::PalmDig,
         ]
     }
 
@@ -106,6 +110,16 @@ impl StudioAnimation {
                     attire.with_relics(HeldRelic::KnightlySword, HeldRelic::EmptyPalm)
                 };
                 (0.0, 0.80, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.25, cleave), armed)
+            }
+            Self::SpadeDig => {
+                let cleave = (elapsed * 1.15).fract();
+                let armed = if attire.armed() { *attire } else { attire.with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm) };
+                (0.0, 0.68, StrideRhythm::with_dual_cleave((elapsed * 3.2) % TAU, 0.15, cleave, 0.0), armed)
+            }
+            Self::PalmDig => {
+                let cleave = (elapsed * 1.15).fract();
+                let bare = attire.with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm);
+                (0.0, 0.56, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.15, cleave), bare)
             }
         };
 

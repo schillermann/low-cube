@@ -37,62 +37,54 @@ impl GaitFigure {
         Self { position, surface_rot, view_rot, rhythm, angular_pace, leap_phase, leap_apex }
     }
 
-    pub fn standing_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self {
-        Self::new(position, surface_rot, view_rot, StrideRhythm::idle(), 1.5, 0.0, 0.0)
-    }
-
-    pub fn sneaking_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self {
-        Self::new(position, surface_rot, view_rot, StrideRhythm::sneaking(), 5.4, 0.0, -0.44)
-    }
-
-    pub fn walking_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self {
-        Self::new(position, surface_rot, view_rot, StrideRhythm::walking(), 8.4, 0.0, 0.0)
-    }
-
-    pub fn running_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self {
-        Self::new(position, surface_rot, view_rot, StrideRhythm::running(), 14.2, 0.0, 0.0)
-    }
-
-    pub fn jumping_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self {
-        Self::new(position, surface_rot, view_rot, StrideRhythm::idle(), 0.0, 0.44, 0.58)
-    }
+    pub fn standing_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self { Self::new(position, surface_rot, view_rot, StrideRhythm::idle(), 1.5, 0.0, 0.0) }
+    pub fn sneaking_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self { Self::new(position, surface_rot, view_rot, StrideRhythm::sneaking(), 5.4, 0.0, -0.44) }
+    pub fn walking_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self { Self::new(position, surface_rot, view_rot, StrideRhythm::walking(), 8.4, 0.0, 0.0) }
+    pub fn running_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self { Self::new(position, surface_rot, view_rot, StrideRhythm::running(), 14.2, 0.0, 0.0) }
+    pub fn jumping_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self { Self::new(position, surface_rot, view_rot, StrideRhythm::idle(), 0.0, 0.44, 0.58) }
+    pub fn digging_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self { Self::new(position, surface_rot, view_rot, StrideRhythm::with_dual_cleave(0.0, 0.15, 0.35, 0.0), 2.4, 0.0, -0.80) }
+    pub fn palm_digging_at(position: Vec3, surface_rot: Quat, view_rot: Quat) -> Self { Self::new(position, surface_rot, view_rot, StrideRhythm::with_cleave(0.0, 0.15, 0.35), 2.4, 0.0, -0.95) }
 
     pub fn step(self, dt: f32) -> Self {
         let next_leap = if self.leap_apex > 0.0 { (self.leap_phase + 0.52 * dt).fract() } else { 0.0 };
-        Self::new(self.position, self.surface_rot, self.view_rot, self.rhythm.step_cycle(self.angular_pace, dt), self.angular_pace, next_leap, self.leap_apex)
+        let stepped = self.rhythm.step_cycle(self.angular_pace, dt);
+        let next_rhythm = if self.leap_apex < -0.90 && stepped.strike_progress() <= 0.0 {
+            stepped.trigger_right_strike().trigger_left_strike()
+        } else if self.leap_apex < -0.60 && stepped.strike_progress() <= 0.0 {
+            stepped.trigger_right_strike()
+        } else { stepped };
+        Self::new(self.position, self.surface_rot, self.view_rot, next_rhythm, self.angular_pace, next_leap, self.leap_apex)
     }
 
-    pub fn trigger_left_strike(self) -> Self {
-        Self::new(self.position, self.surface_rot, self.view_rot, self.rhythm.trigger_left_strike(), self.angular_pace, self.leap_phase, self.leap_apex)
-    }
-
-    pub fn trigger_right_strike(self) -> Self {
-        Self::new(self.position, self.surface_rot, self.view_rot, self.rhythm.trigger_right_strike(), self.angular_pace, self.leap_phase, self.leap_apex)
-    }
+    pub fn trigger_left_strike(self) -> Self { Self::new(self.position, self.surface_rot, self.view_rot, self.rhythm.trigger_left_strike(), self.angular_pace, self.leap_phase, self.leap_apex) }
+    pub fn trigger_right_strike(self) -> Self { Self::new(self.position, self.surface_rot, self.view_rot, self.rhythm.trigger_right_strike(), self.angular_pace, self.leap_phase, self.leap_apex) }
 
     pub fn emit(&self, attire: &YouthAttire, target: &mut dyn MeshTarget) {
         let (u, up, fwd) = (self.leap_phase, (self.surface_rot * Vec3::Y).normalize(), (self.view_rot * Vec3::NEG_Z).normalize());
-        let (lift, surge, eye) = if self.leap_apex < 0.0 { (0.0, 0.0, 0.80 + self.leap_apex) }
+        let (lift, surge, eye) = if self.leap_apex < -0.90 { (0.0, 0.0, 0.56) }
+            else if self.leap_apex < -0.60 { (0.0, 0.0, 0.68) }
+            else if self.leap_apex < 0.0 { (0.0, 0.0, 0.80 + self.leap_apex) }
             else if self.leap_apex <= 0.0 || u < 0.18 { (0.0, 0.0, 0.80) }
             else if u < 0.40 { let s = ((u - 0.18) / 0.22 * PI).sin(); (0.0, 0.0, 0.80 - 0.44 * s * s) }
             else if u < 0.74 { let air = ((u - 0.40) / 0.34 * PI).sin(); (self.leap_apex * air, 0.16 * air, 0.80 + 0.36 * air * air) }
             else { let s = ((u - 0.74) / 0.26 * PI).sin(); (0.0, 0.0, 0.80 - 0.40 * s * s) };
         let pose = AvatarPosture::new(eye).body_pose(self.position + up * lift + fwd * surge, self.surface_rot, self.view_rot, self.rhythm);
-        attire.emit(&pose, SightMode::LookingGlassSight, target);
+        let staged = if self.leap_apex < -0.90 { attire.with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm) }
+            else if self.leap_apex < -0.60 && !attire.armed() { attire.with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm) }
+            else { *attire };
+        staged.emit(&pose, SightMode::LookingGlassSight, target);
     }
 }
 
-/// Quintet of animated character figures stationed near the spawn point showcasing standing, sneaking, walking, running, and jumping.
+/// Septet of animated character figures stationed near the spawn point showcasing standing, sneaking, walking, running, jumping, spade-digging, and bare-hand digging.
 pub struct SpawnTroupe {
-    figures: [GaitFigure; 5],
+    figures: [GaitFigure; 7],
     attire: YouthAttire,
 }
 
 impl SpawnTroupe {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(figures: [GaitFigure; 5], attire: YouthAttire) -> Self {
-        Self { figures, attire }
-    }
+    pub fn new(figures: [GaitFigure; 7], attire: YouthAttire) -> Self { Self { figures, attire } }
 
     pub fn near_spawn(spawn_position: Vec3, world: &dyn PlanetaryWorld, attire: YouthAttire) -> Self {
         let spawn_rot = Quat::from_rotation_arc(Vec3::Y, world.surface_up_at(spawn_position));
@@ -102,8 +94,12 @@ impl SpawnTroupe {
             let surface_rot = Quat::from_rotation_arc(Vec3::Y, world.surface_up_at(grounded));
             (grounded, surface_rot, surface_rot * Quat::from_rotation_y(PI))
         };
-        let ((p0, r0, v0), (p1, r1, v1), (p2, r2, v2), (p3, r3, v3), (p4, r4, v4)) = (place(-1.80), place(-0.90), place(0.0), place(0.90), place(1.80));
-        Self::new([GaitFigure::standing_at(p0, r0, v0), GaitFigure::sneaking_at(p1, r1, v1), GaitFigure::walking_at(p2, r2, v2), GaitFigure::running_at(p3, r3, v3), GaitFigure::jumping_at(p4, r4, v4)], attire)
+        let ((p0, r0, v0), (p1, r1, v1), (p2, r2, v2), (p3, r3, v3), (p4, r4, v4), (p5, r5, v5), (p6, r6, v6)) =
+            (place(-1.92), place(-1.28), place(-0.64), place(0.0), place(0.64), place(1.28), place(1.92));
+        Self::new([
+            GaitFigure::standing_at(p0, r0, v0), GaitFigure::sneaking_at(p1, r1, v1), GaitFigure::walking_at(p2, r2, v2),
+            GaitFigure::running_at(p3, r3, v3), GaitFigure::jumping_at(p4, r4, v4), GaitFigure::digging_at(p5, r5, v5), GaitFigure::palm_digging_at(p6, r6, v6),
+        ], attire)
     }
 }
 
@@ -151,6 +147,9 @@ impl Avatar for TroupeAvatar {
         self.troupe.trigger_right_strike();
         changed
     }
+
+    fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.release_hand(world) }
+    fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.step_digging(world) }
 
     fn apply_attire(&mut self, attire: YouthAttire) {
         self.origin.apply_attire(attire);

@@ -139,6 +139,10 @@ impl Face for ForestedFace {
         self.origin.excavate(eye, direction)
     }
 
+    fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
+        self.origin.loosen(eye, direction, stage)
+    }
+
     fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
         self.origin.place_block(eye, direction, avatar_pos)
     }

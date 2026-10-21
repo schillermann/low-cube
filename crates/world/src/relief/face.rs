@@ -14,32 +14,20 @@ use super::terraced::{SurfaceSightRay, TerracedRelief};
 struct RowQuadTarget<'a>(&'a mut Vec<Quad>);
 
 impl MeshTarget for RowQuadTarget<'_> {
-    fn push_quad(&mut self, quad: Quad) {
-        self.0.push(quad);
-    }
+    fn push_quad(&mut self, quad: Quad) { self.0.push(quad); }
 }
 
 /// Planetary relief face generating undulating climbable terrain and subterranean cavities ("Tell, Don't Ask").
 pub struct FacetedReliefFace {
-    frame: SurfaceFrame,
-    relief: Box<dyn ReliefElevation>,
-    cavity: Box<dyn SubterraneanCavity>,
-    palette: ReliefPalette,
-    strata: ReliefStrata,
-    divisions: u32,
-    cached_rows: RwLock<Vec<Vec<Quad>>>,
+    frame: SurfaceFrame, relief: Box<dyn ReliefElevation>, cavity: Box<dyn SubterraneanCavity>,
+    palette: ReliefPalette, strata: ReliefStrata, divisions: u32, cached_rows: RwLock<Vec<Vec<Quad>>>,
 }
 
 impl FacetedReliefFace {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
-        frame: SurfaceFrame,
-        relief: Box<dyn ReliefElevation>,
-        cavity: Box<dyn SubterraneanCavity>,
-        palette: ReliefPalette,
-        strata: ReliefStrata,
-        divisions: u32,
-        cached_rows: RwLock<Vec<Vec<Quad>>>,
+        frame: SurfaceFrame, relief: Box<dyn ReliefElevation>, cavity: Box<dyn SubterraneanCavity>,
+        palette: ReliefPalette, strata: ReliefStrata, divisions: u32, cached_rows: RwLock<Vec<Vec<Quad>>>,
     ) -> Self {
         Self { frame, relief, cavity, palette, strata, divisions, cached_rows }
     }
@@ -170,17 +158,42 @@ impl Face for FacetedReliefFace {
 
     fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool {
         let half = (self.divisions as i32) / 2;
-        let (cu, cv) = SurfaceSightRay::new(eye, direction).target_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5);
-        let changed = self.relief.excavate_cell(cu, cv);
-        if changed { self.refresh_rows(cv, half); }
-        changed
+        if let Some((cu, cv)) = SurfaceSightRay::new(eye, direction).target_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5) {
+            let (prev_v, changed) = self.relief.excavate_cell(cu, cv);
+            if changed {
+                if prev_v != cv { self.refresh_rows(prev_v, half); }
+                self.refresh_rows(cv, half);
+            }
+            return changed;
+        }
+        false
+    }
+
+    fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
+        let half = (self.divisions as i32) / 2;
+        if stage == 0 {
+            let (prev_v, changed) = self.relief.mark_dig_stage(0, 0, 0);
+            if changed { self.refresh_rows(prev_v, half); }
+            return changed;
+        }
+        if let Some((cu, cv)) = SurfaceSightRay::new(eye, direction).target_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5) {
+            let (prev_v, changed) = self.relief.mark_dig_stage(cu, cv, stage);
+            if changed {
+                if prev_v != cv { self.refresh_rows(prev_v, half); }
+                self.refresh_rows(cv, half);
+            }
+            return changed;
+        }
+        false
     }
 
     fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
         let half = (self.divisions as i32) / 2;
-        let (cu, cv) = SurfaceSightRay::new(eye, direction).placement_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5, avatar_pos);
-        let changed = self.relief.stack_cell(cu, cv);
-        if changed { self.refresh_rows(cv, half); }
-        changed
+        if let Some((cu, cv)) = SurfaceSightRay::new(eye, direction).placement_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5, avatar_pos) {
+            let changed = self.relief.stack_cell(cu, cv);
+            if changed { self.refresh_rows(cv, half); }
+            return changed;
+        }
+        false
     }
 }

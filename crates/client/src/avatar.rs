@@ -22,6 +22,8 @@ pub trait Avatar {
     fn toggle_invert_x(&mut self);
     fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool;
     fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool;
+    fn release_hand(&mut self, _world: &mut dyn PlanetaryWorld) -> bool { false }
+    fn step_digging(&mut self, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn apply_attire(&mut self, attire: YouthAttire);
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool;
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
@@ -110,6 +112,18 @@ impl Avatar for PlanetaryAvatar {
     fn toggle_invert_x(&mut self) { self.look.toggle_x(); }
     fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(-1.0, world) }
     fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(1.0, world) }
+    fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let (eye, dir) = (self.current_pose().eye_origin(), (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize());
+        let (next_ew, cleared) = self.earthworks.release_hand(eye, dir, world);
+        self.earthworks = next_ew;
+        cleared
+    }
+    fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let (eye, dir) = (self.current_pose().eye_origin(), (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize());
+        let (next_ew, next_attire, next_rhythm, changed) = self.earthworks.continue_digging(self.attire, self.rhythm, eye, dir, self.position, world);
+        (self.earthworks, self.attire, self.rhythm) = (next_ew, next_attire, next_rhythm);
+        changed
+    }
     fn apply_attire(&mut self, attire: YouthAttire) { self.attire = attire; self.earthworks = self.earthworks.reconcile_attire(attire); }
 
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
@@ -169,5 +183,7 @@ impl Avatar for PlanetaryAvatar {
     fn emit_appearance(&self, target: &mut dyn MeshTarget) {
         let pose = self.current_pose();
         self.attire.emit(&pose, self.sight, target);
+        let view_dir = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
+        self.earthworks.emit_debris(view_dir, self.surface_up(), self.rhythm, target);
     }
 }

@@ -7,10 +7,7 @@ use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::controls::KeyMotion;
 use crate::troupe::{FigureTroupe, GaitFigure, SpawnTroupe, TroupeAvatar};
 
-struct QuadCollector {
-    quads: Vec<Quad>,
-}
-
+struct QuadCollector { quads: Vec<Quad> }
 impl QuadCollector {
     fn empty() -> Self { Self { quads: Vec::new() } }
     fn count(&self) -> usize { self.quads.len() }
@@ -47,16 +44,16 @@ fn test_spawn_troupe_emits_three_characters_and_ground_axe_visible_from_spawn() 
     let mut troupe_collector = QuadCollector::empty();
     troupe_avatar.emit_appearance(&mut troupe_collector);
 
-    // TroupeAvatar must emit the player's first-person mesh + 5 third-person characters + grounded axe
+    // TroupeAvatar must emit the player's first-person mesh + 7 third-person characters + grounded axe
     assert!(
-        troupe_collector.count() > solo_collector.count() + 5 * peer_collector.count(),
-        "TroupeAvatar must emit first-person body, 5 complete third-person characters, and the ground axe near spawn"
+        troupe_collector.count() > solo_collector.count() + 7 * peer_collector.count(),
+        "TroupeAvatar must emit first-person body, 7 complete third-person characters (including spade and bare-hand digging), and the ground axe near spawn"
     );
 
     let vp = troupe_avatar.view_projection_matrix(16.0 / 9.0);
     assert!(
-        troupe_collector.visible_in_frustum(vp) > solo_collector.visible_in_frustum(vp) + 4 * peer_collector.count(),
-        "All five characters and the axe near spawn must stand inside the player's initial field of view"
+        troupe_collector.visible_in_frustum(vp) > solo_collector.visible_in_frustum(vp) + 6 * peer_collector.count(),
+        "All seven characters and the axe near spawn must stand inside the player's initial field of view"
     );
 }
 
@@ -72,12 +69,7 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
     let jump = GaitFigure::jumping_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
 
     let (mut stand_quads, mut sneak_quads, mut walk_quads, mut run_quads, mut jump_quads) = (QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty());
-
-    stand.emit(&attire, &mut stand_quads);
-    sneak.emit(&attire, &mut sneak_quads);
-    walk.emit(&attire, &mut walk_quads);
-    run.emit(&attire, &mut run_quads);
-    jump.emit(&attire, &mut jump_quads);
+    stand.emit(&attire, &mut stand_quads); sneak.emit(&attire, &mut sneak_quads); walk.emit(&attire, &mut walk_quads); run.emit(&attire, &mut run_quads); jump.emit(&attire, &mut jump_quads);
 
     let extract_vertices = |collector: &QuadCollector| -> Vec<Vec3> {
         collector.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect()
@@ -165,8 +157,7 @@ fn test_axe_pickup_and_throw_cycle_near_spawn() {
     let ((_, rest_elbow, rest_wrist, _), (_, axe_elbow, axe_wrist, _)) = (rest_pose.external_arm(1.0, true, MartialStyle::LumberjackCleave), swing_pose.external_arm(1.0, true, MartialStyle::LumberjackCleave));
     let ((_, _, fp_axe_wrist, _), (_, sword_elbow, sword_wrist, _)) = (swing_pose.first_person_arm(1.0, MartialStyle::LumberjackCleave), swing_pose.external_arm(1.0, true, MartialStyle::SwordplaySlash));
     assert!(rest_elbow.z - axe_elbow.z > 0.12 && rest_elbow.z - sword_elbow.z > 0.12, "Upper arm elbow must surge forward during both axe and sword swings");
-    let (ext_head, fp_head) = (axe_wrist.point(-0.025, 0.24, 0.054), fp_axe_wrist.point(-0.025, 0.24, 0.054));
-    let fp_left_head = swing_pose.first_person_arm(-1.0, MartialStyle::LumberjackCleave).2.point(0.025, 0.24, 0.054);
+    let (ext_head, fp_head, fp_left_head) = (axe_wrist.point(-0.025, 0.24, 0.054), fp_axe_wrist.point(-0.025, 0.24, 0.054), swing_pose.first_person_arm(-1.0, MartialStyle::LumberjackCleave).2.point(0.025, 0.24, 0.054));
     let (ext_wrist, fp_wrist, sword_tip) = (axe_wrist.point(0.0, 0.0, 0.0), fp_axe_wrist.point(0.0, 0.0, 0.0), sword_wrist.point(-0.025, 0.68, 0.054));
     assert!(axe_wrist.point(0.0, 0.0, 0.064).y - ext_wrist.y < rest_wrist.point(0.0, 0.0, 0.064).y - rest_wrist.point(0.0, 0.0, 0.0).y, "Hand must hinge downward at the wrist during a strike");
     assert!(axe_wrist.point(0.0, 0.036, 0.0).x - ext_wrist.x > rest_wrist.point(0.0, 0.036, 0.0).x - rest_wrist.point(0.0, 0.0, 0.0).x + 0.01, "Hand and axe must rotate outward together during an axe strike");
@@ -177,9 +168,15 @@ fn test_axe_pickup_and_throw_cycle_near_spawn() {
     assert!(axe_blade_hit.x.abs() < 0.005 && axe_blade_hit.y.abs() < 0.005 && sword_tip_hit.x.abs() < 0.005 && sword_tip_hit.y.abs() < 0.005, "Axe blade and sword tip must aim precisely at the center crosshair at full strike");
     let wind_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::with_cleave(0.0, 0.0, 0.34), YouthPhysique::SlenderSquire);
     let ((_, wind_axe_elbow, wind_axe_wrist, _), (_, wind_sword_elbow, _, _)) = (wind_pose.external_arm(1.0, true, MartialStyle::LumberjackCleave), wind_pose.external_arm(1.0, true, MartialStyle::SwordplaySlash));
+    let ((_, wind_spade_elbow, wind_spade_w, _), (_, _, mid_spade_w, _), (_, strike_spade_elbow, strike_spade_w, _)) = (wind_pose.external_arm(1.0, true, MartialStyle::SpadeDig), mid_pose.external_arm(1.0, true, MartialStyle::SpadeDig), full_pose.external_arm(1.0, true, MartialStyle::SpadeDig));
+    let ((_, wind_palm_elbow, _, _), (_, strike_palm_elbow, palm_r_w, _), (_, _, palm_l_w, _)) = (wind_pose.external_arm(1.0, false, MartialStyle::Unarmed), full_pose.external_arm(1.0, false, MartialStyle::Unarmed), full_pose.external_arm(-1.0, false, MartialStyle::Unarmed));
     let (wind_w, mid_w, full_w) = (wind_pose.first_person_arm(1.0, MartialStyle::LumberjackCleave).2.point(0.0, 0.0, 0.0), mid_pose.first_person_arm(1.0, MartialStyle::LumberjackCleave).2.point(0.0, 0.0, 0.0), fp_full_axe.point(0.0, 0.0, 0.0));
     assert!(wind_axe_wrist.point(0.0, 0.0, 0.0).y > wind_axe_elbow.y + 0.12 && mid_w.x > wind_w.x + 0.05 && mid_w.x > full_w.x + 0.25 && wind_w.y > mid_w.y && mid_w.y > full_w.y && (full_w.z - mid_w.z).abs() < 0.02, "Axe swing must raise forearm upward and sweep downward in a semicircular arc without shooting forward");
-    assert!(sword_elbow.x <= rest_elbow.x && wind_sword_elbow.x <= rest_elbow.x + 0.01, "Elbow must not flare outward during a sword attack");
+    assert!(sword_elbow.x <= rest_elbow.x && wind_sword_elbow.x <= rest_elbow.x + 0.01 && strike_spade_elbow.y <= rest_elbow.y && wind_spade_elbow.x > rest_elbow.x + 0.05 && strike_spade_elbow.x < rest_elbow.x && wind_palm_elbow.x > rest_elbow.x + 0.05 && strike_palm_elbow.x < rest_elbow.x - 0.05, "When digging, elbows must first move outward on wind-up and then pull back inward on strike");
+    let (spade_w_pos, spade_tip_pos) = (strike_spade_w.point(0.0, 0.0, 0.0), strike_spade_w.point(-0.025, 0.395, 0.076));
+    assert!(wind_spade_w.point(0.0, 0.0, 0.0).y > mid_spade_w.point(0.0, 0.0, 0.0).y && mid_spade_w.point(0.0, 0.0, 0.0).y > spade_w_pos.y && spade_w_pos.z < rest_wrist.point(0.0, 0.0, 0.0).z - 0.18 && spade_tip_pos.z < spade_w_pos.z - 0.20 && spade_tip_pos.y < spade_w_pos.y - 0.15, "Spade arm must reach forward and angle spade tip diagonally forward-downward toward the target block");
+    let palm_up = palm_r_w.point(0.0, 0.036, 0.0) - palm_r_w.point(0.0, 0.0, 0.0);
+    assert!((palm_r_w.point(0.0, 0.0, 0.0).x - palm_l_w.point(0.0, 0.0, 0.0).x).abs() < 0.08 && palm_up.x > 0.015 && palm_up.y > 0.015 && (palm_up.x - palm_up.y).abs() < 0.012 && palm_r_w.point(0.0, 0.0, 0.0).z < rest_wrist.point(0.0, 0.0, 0.0).z - 0.30, "Bare-hand digging must stretch arms far forward, bring both hands together in the center, and rotate palms outward into a diagonal position");
     assert!(ext_head.x > ext_wrist.x + 0.04 && fp_head.x > fp_wrist.x + 0.04, "Axe head must tilt laterally outward in 3D and 2D screen space");
     assert!(ext_head.z < ext_wrist.z - 0.14 && fp_head.z < fp_wrist.z - 0.14 && sword_tip.z < sword_wrist.point(0.0, 0.0, 0.0).z - 0.50 && fp_full_sword.point(-0.025, 0.680, 0.054).z < fp_full_sword.point(0.0, 0.0, 0.0).z - 0.62, "Downward wrist hinge must tilt axe and sword strongly forward at the end of the strike");
     assert!(ext_head.x >= 0.0 && fp_head.x >= 0.0 && fp_left_head.x <= 0.0 && (fp_head.x + fp_left_head.x).abs() < 1e-4, "Both hands must converge symmetrically onto the center crosshair");

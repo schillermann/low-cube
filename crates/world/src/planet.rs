@@ -85,6 +85,11 @@ impl PlanetaryWorld for CubePlanet {
         self.active_face_mut(eye).excavate(eye, direction)
     }
 
+    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
+        self.modified_face = self.matching_index(eye);
+        self.active_face_mut(eye).loosen(eye, direction, stage)
+    }
+
     fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
         self.modified_face = self.matching_index(eye);
         self.active_face_mut(eye).place_block(eye, direction, avatar_pos)

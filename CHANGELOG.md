@@ -8,6 +8,19 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-21
+
+### Added
+- Hold-to-dig excavation lifecycle (`PalmEarthworks`, `Avatar::release_hand`, `Avatar::step_digging`, `PlanetaryWorld::loosen_block`, `TerracedRelief`) requiring continuous mouse button hold across strikes and aborting excavation progress upon early release.
+- True 3D sunken excavation crater (`ReliefFacet::emit_dig_crater`) with 4 outer rim trapezoids, 4 shaded inner walls, and 1 sunken floor scaling across digging stages (1/4 to 3/4) with automatic material depth shading.
+- Ground-anchored outward ballistic soil clod splash (`PalmEarthworks::emit_debris`) emitted directly above the targeted block during active excavation strikes.
+- Dedicated spade and bare-hand digging martial kinematics (`MartialStyle::SpadeDig`, `MartialStyle::Unarmed`, `BodyPose::external_arm`, `BodyPose::first_person_arm`) with outward-then-inward elbow motion, forward-reaching forearm arcs, inward wrist rotation plunging the spade tip diagonally forward-downward toward the target block, and dual-button bare-hand scooping that brings both palms together in a diagonal outward cup.
+- Two additional spawn showcase figures (`GaitFigure::digging_at`, `GaitFigure::palm_digging_at`, `SpawnTroupe`) and Character Studio preview animations (`StudioAnimation::SpadeDig`, `StudioAnimation::PalmDig`) demonstrating spade and bare-hand digging.
+
+### Changed
+- Renamed `HeldRelic::IronShovel` to `HeldRelic::IronSpade` (`HeldRelic::spade_blade`) and doubled excavation thresholds (`EXCAVATION_THRESHOLD = 8`: 2 strikes with iron spade, 4 strikes with both empty hands when holding both mouse buttons, 8 strikes with a single empty hand).
+- Replaced fixed distance ray sampling in `SurfaceSightRay::aimed_cell` with discrete 3D grid traversal (18 steps up to `1.5m`) constrained to a maximum reach of 3 blocks (`|du| <= 3`, `|dv| <= 3`) around the avatar.
+
 ## [0.28.0] - 2026-10-21
 
 ### Added

@@ -17,50 +17,43 @@ impl SurfaceSightRay {
         Self { eye, direction }
     }
 
-    /// Resolves the targeted discrete grid cell (u, v) along the sight ray or directly ahead of the eye.
+    /// Resolves the targeted discrete grid cell (u, v) along the sight ray within at most three blocks of planar reach.
     pub fn target_cell(
         &self,
         frame: &SurfaceFrame,
         relief: &dyn ReliefElevation,
         half_blocks: i32,
         half_size: f32,
-    ) -> (i32, i32) {
+    ) -> Option<(i32, i32)> {
         let dir = self.direction.normalize_or_zero();
-        let origin = self.eye - frame.normal() * 1.0;
+        let (eu, ev) = frame.decompose(self.eye);
+        let (ecu, ecv) = ((eu * 2.0).floor() as i32, (ev * 2.0).floor() as i32);
         let min_c = -half_blocks + 1;
         let max_c = half_blocks - 2;
 
-        let mut step = 2;
-        while step <= 45 {
+        let mut step = 1;
+        while step <= 85 {
             let t = (step as f32) * 0.04;
-            let sample = origin + dir * t;
+            let sample = self.eye + dir * t;
             let (u, v) = frame.decompose(sample);
             let cu = (u * 2.0).floor() as i32;
             let cv = (v * 2.0).floor() as i32;
+            if (cu - ecu).abs().max((cv - ecv).abs()) > 3 {
+                break;
+            }
             if cu >= min_c && cu <= max_c && cv >= min_c && cv <= max_c {
                 let ray_elev = frame.height_of(sample) - half_size;
                 let surf_elev = relief.surface_height_at(u, v);
-                if ray_elev <= surf_elev + 0.05 {
-                    return (cu, cv);
+                if ray_elev <= surf_elev + 0.02 {
+                    return Some((cu, cv));
                 }
             }
             step += 1;
         }
-
-        let (eu, ev) = frame.decompose(self.eye);
-        let (du, dv) = frame.decompose(dir);
-        let planar_len = du.hypot(dv);
-        let (tu, tv) = if planar_len > 1e-4 {
-            (eu + (du / planar_len) * 0.75, ev + (dv / planar_len) * 0.75)
-        } else {
-            (eu, ev - 0.75)
-        };
-        let cu = ((tu * 2.0).floor() as i32).clamp(min_c, max_c);
-        let cv = ((tv * 2.0).floor() as i32).clamp(min_c, max_c);
-        (cu, cv)
+        None
     }
 
-    /// Resolves a placement cell, stepping one cell forward if the target coincides with the avatar's stance cell.
+    /// Resolves a placement cell within three-block reach, stepping one cell forward if the target coincides with the avatar's stance cell.
     pub fn placement_cell(
         &self,
         frame: &SurfaceFrame,
@@ -68,8 +61,8 @@ impl SurfaceSightRay {
         half_blocks: i32,
         half_size: f32,
         avatar_pos: Vec3,
-    ) -> (i32, i32) {
-        let (mut cu, mut cv) = self.target_cell(frame, relief, half_blocks, half_size);
+    ) -> Option<(i32, i32)> {
+        let (mut cu, mut cv) = self.target_cell(frame, relief, half_blocks, half_size)?;
         let (au, av) = frame.decompose(avatar_pos);
         let (acu, acv) = ((au * 2.0).floor() as i32, (av * 2.0).floor() as i32);
         if cu == acu && cv == acv {
@@ -82,7 +75,7 @@ impl SurfaceSightRay {
                 cv = (cv + if dv >= 0.0 { 1 } else { -1 }).clamp(min_c, max_c);
             }
         }
-        (cu, cv)
+        Some((cu, cv))
     }
 }
 
@@ -92,6 +85,7 @@ pub struct TerracedRelief {
     deltas: HashMap<(i32, i32), i32>,
     natural_cache: OnceLock<Vec<i16>>,
     half_span: i32,
+    dig_stage: ((i32, i32), u8),
 }
 
 impl TerracedRelief {
@@ -101,18 +95,14 @@ impl TerracedRelief {
         deltas: HashMap<(i32, i32), i32>,
         natural_cache: OnceLock<Vec<i16>>,
         half_span: i32,
+        dig_stage: ((i32, i32), u8),
     ) -> Self {
-        Self {
-            origin,
-            deltas,
-            natural_cache,
-            half_span,
-        }
+        Self { origin, deltas, natural_cache, half_span, dig_stage }
     }
 
     /// Secondary constructor initializing an untouched terraced relief wrapper for a face span.
     pub fn in_span(origin: Box<dyn ReliefElevation>, half_blocks: i32) -> Self {
-        Self::new(origin, HashMap::new(), OnceLock::new(), half_blocks + 2)
+        Self::new(origin, HashMap::new(), OnceLock::new(), half_blocks + 2, ((0, 0), 0))
     }
 
     /// Secondary constructor initializing an untouched terraced relief wrapper.
@@ -170,21 +160,34 @@ impl ReliefElevation for TerracedRelief {
         self.delta_at(u, v) != 0
     }
 
-    fn excavate_cell(&mut self, u: i32, v: i32) -> bool {
-        if self.elevation_at(u, v) <= -16 {
-            return false;
+    fn dig_stage_at(&self, u: i32, v: i32) -> u8 {
+        if self.dig_stage.0 == (u, v) { self.dig_stage.1 } else { 0 }
+    }
+
+    fn mark_dig_stage(&mut self, u: i32, v: i32, stage: u8) -> (i32, bool) {
+        let prev_v = self.dig_stage.0.1;
+        if stage == 0 {
+            let active = self.dig_stage.1 > 0;
+            self.dig_stage = ((0, 0), 0);
+            return (prev_v, active);
         }
-        let next = self.delta_at(u, v) - 1;
-        self.deltas.insert((u, v), next);
-        true
+        if self.elevation_at(u, v) <= -16 { return (v, false); }
+        self.dig_stage = ((u, v), stage.min(3));
+        (prev_v, true)
+    }
+
+    fn excavate_cell(&mut self, u: i32, v: i32) -> (i32, bool) {
+        if self.elevation_at(u, v) <= -16 { return (v, false); }
+        let prev_v = self.dig_stage.0.1;
+        self.deltas.insert((u, v), self.delta_at(u, v) - 1);
+        self.dig_stage = ((u, v), 0);
+        (prev_v, true)
     }
 
     fn stack_cell(&mut self, u: i32, v: i32) -> bool {
-        if self.elevation_at(u, v) >= 32 {
-            return false;
-        }
-        let next = self.delta_at(u, v) + 1;
-        self.deltas.insert((u, v), next);
+        if self.elevation_at(u, v) >= 32 { return false; }
+        self.deltas.insert((u, v), self.delta_at(u, v) + 1);
+        if self.dig_stage.0 == (u, v) { self.dig_stage = ((u, v), 0); }
         true
     }
 }
