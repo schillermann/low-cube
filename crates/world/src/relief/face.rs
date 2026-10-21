@@ -1,13 +1,23 @@
+use std::sync::RwLock;
 use glam::Vec3;
 use crate::block::GridCell;
 use crate::frame::SurfaceFrame;
 use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics};
 use crate::topology::ClimateZone;
-use crate::{Face, MeshTarget};
+use crate::{Face, MeshTarget, Quad};
 use super::cavity::{NullCavity, SubterraneanCavity};
 use super::elevation::{ReliefElevation, ZonedRelief};
 use super::palette::ReliefPalette;
 use super::strata::ReliefStrata;
+use super::terraced::{SurfaceSightRay, TerracedRelief};
+
+struct RowQuadTarget<'a>(&'a mut Vec<Quad>);
+
+impl MeshTarget for RowQuadTarget<'_> {
+    fn push_quad(&mut self, quad: Quad) {
+        self.0.push(quad);
+    }
+}
 
 /// Planetary relief face generating undulating climbable terrain and subterranean cavities ("Tell, Don't Ask").
 pub struct FacetedReliefFace {
@@ -17,6 +27,7 @@ pub struct FacetedReliefFace {
     palette: ReliefPalette,
     strata: ReliefStrata,
     divisions: u32,
+    cached_rows: RwLock<Vec<Vec<Quad>>>,
 }
 
 impl FacetedReliefFace {
@@ -28,15 +39,9 @@ impl FacetedReliefFace {
         palette: ReliefPalette,
         strata: ReliefStrata,
         divisions: u32,
+        cached_rows: RwLock<Vec<Vec<Quad>>>,
     ) -> Self {
-        Self {
-            frame,
-            relief,
-            cavity,
-            palette,
-            strata,
-            divisions,
-        }
+        Self { frame, relief, cavity, palette, strata, divisions, cached_rows }
     }
 
     /// Secondary constructor assembling a relief face calibrated for a specific planetary climate zone.
@@ -87,20 +92,12 @@ impl FacetedReliefFace {
             }
         };
 
-
-        let relief = Box::new(ZonedRelief::new(
-            warped,
-            frame.normal(),
-            frame.tangent(),
-            frame.bitangent(),
-            half_size,
-            min_elev,
-            max_elev,
+        let zoned = Box::new(ZonedRelief::new(
+            warped, frame.normal(), frame.tangent(), frame.bitangent(),
+            half_size, min_elev, max_elev,
         ));
-
-        let cavity = Box::new(NullCavity);
-
-        Self::new(frame, relief, cavity, palette, strata, divisions)
+        let relief = Box::new(TerracedRelief::in_span(zoned, (divisions as i32) / 2));
+        Self::new(frame, relief, Box::new(NullCavity), palette, strata, divisions, RwLock::new(Vec::new()))
     }
 
     /// Secondary constructor assembling a relief face calibrated for Tron wireframe visualization.
@@ -109,28 +106,38 @@ impl FacetedReliefFace {
         face.palette = ReliefPalette::tron();
         face
     }
+
+    fn build_row(&self, v: i32, half: i32) -> Vec<Quad> {
+        let mut row = Vec::with_capacity((self.divisions as usize) * 2);
+        let mut target = RowQuadTarget(&mut row);
+        for u in -half..half {
+            self.strata.emit_cell(
+                GridCell::new(u, v), &self.frame, self.relief.as_ref(),
+                self.cavity.as_ref(), &self.palette, half, &mut target,
+            );
+        }
+        row
+    }
+
+    fn refresh_rows(&mut self, cv: i32, half: i32) {
+        let populated = self.cached_rows.get_mut().expect("Relief row cache poisoned").len() == self.divisions as usize;
+        if populated {
+            for v in (cv - 1).max(-half)..=(cv + 1).min(half - 1) {
+                let row = self.build_row(v, half);
+                self.cached_rows.get_mut().expect("Relief row cache poisoned")[(v + half) as usize] = row;
+            }
+        }
+    }
 }
 
 impl Face for FacetedReliefFace {
     fn matches(&self, point: Vec3) -> bool {
         let height = point.dot(self.frame.normal());
-        if height <= 0.0 {
-            return false;
-        }
-
-        let u = point.dot(self.frame.tangent()).abs();
-        let v = point.dot(self.frame.bitangent()).abs();
-
-        height >= u && height >= v
+        height > 0.0 && height >= point.dot(self.frame.tangent()).abs() && height >= point.dot(self.frame.bitangent()).abs()
     }
 
-    fn surface_up(&self) -> Vec3 {
-        self.frame.normal()
-    }
-
-    fn pull_direction(&self) -> Vec3 {
-        -self.frame.normal()
-    }
+    fn surface_up(&self) -> Vec3 { self.frame.normal() }
+    fn pull_direction(&self) -> Vec3 { -self.frame.normal() }
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
         let (u, v) = self.frame.decompose(point);
@@ -142,20 +149,38 @@ impl Face for FacetedReliefFace {
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         let half = (self.divisions as i32) / 2;
-        for u in -half..half {
-            for v in -half..half {
-                let cell = GridCell::new(u, v);
-                self.strata.emit_cell(
-                    cell,
-                    &self.frame,
-                    self.relief.as_ref(),
-                    self.cavity.as_ref(),
-                    &self.palette,
-                    half,
-                    target,
-                );
+        if let Ok(rows) = self.cached_rows.read() {
+            if rows.len() == self.divisions as usize {
+                for row in rows.iter() {
+                    for &quad in row { target.push_quad(quad); }
+                }
+                return;
             }
-
         }
+        let mut rows = self.cached_rows.write().expect("Relief row cache poisoned");
+        if rows.len() != self.divisions as usize {
+            rows.clear();
+            rows.reserve(self.divisions as usize);
+            for v in -half..half { rows.push(self.build_row(v, half)); }
+        }
+        for row in rows.iter() {
+            for &quad in row { target.push_quad(quad); }
+        }
+    }
+
+    fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        let half = (self.divisions as i32) / 2;
+        let (cu, cv) = SurfaceSightRay::new(eye, direction).target_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5);
+        let changed = self.relief.excavate_cell(cu, cv);
+        if changed { self.refresh_rows(cv, half); }
+        changed
+    }
+
+    fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        let half = (self.divisions as i32) / 2;
+        let (cu, cv) = SurfaceSightRay::new(eye, direction).placement_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5, avatar_pos);
+        let changed = self.relief.stack_cell(cu, cv);
+        if changed { self.refresh_rows(cv, half); }
+        changed
     }
 }

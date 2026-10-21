@@ -6,8 +6,28 @@ pub trait ReliefElevation: Send + Sync {
     /// Discretized integer block elevation relative to base face datum.
     fn elevation_at(&self, u: i32, v: i32) -> i32;
 
+    /// Pristine natural block elevation prior to player earthworks.
+    fn natural_elevation_at(&self, u: i32, v: i32) -> i32 {
+        self.elevation_at(u, v)
+    }
+
     /// Continuous surface elevation in meters for physical avatar constraint.
     fn surface_height_at(&self, u: f32, v: f32) -> f32;
+
+    /// Indicates whether the discrete cell (u, v) was excavated or stacked by earthworks.
+    fn reworked_at(&self, _u: i32, _v: i32) -> bool {
+        false
+    }
+
+    /// Excavates one discrete block layer at (u, v).
+    fn excavate_cell(&mut self, _u: i32, _v: i32) -> bool {
+        false
+    }
+
+    /// Stacks one discrete block layer at (u, v).
+    fn stack_cell(&mut self, _u: i32, _v: i32) -> bool {
+        false
+    }
 }
 
 /// Zoned planetary relief evaluating continuous spatial frequency into stepped voxel strata.

@@ -161,4 +161,10 @@ impl Mesh for GlMesh {
             gl.bind_vertex_array(None);
         }
     }
+
+    fn release(&self, gl: &glow::Context) {
+        unsafe {
+            self.dispose(gl);
+        }
+    }
 }

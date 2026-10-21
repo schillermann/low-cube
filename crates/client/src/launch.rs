@@ -2,7 +2,7 @@ use glam::Vec3;
 use winit::event_loop::ActiveEventLoop;
 
 use engine::{
-    CpuMeshBatch, CpuTronBatch, TronPipeline, TronShaderSource,
+    CpuMeshBatch, CpuTronBatch, PlanetaryMesh, TronPipeline, TronShaderSource,
     VoxelShaderSource,
 };
 use world::{BiomedCubeWorld, PlanetaryWorld};
@@ -88,10 +88,24 @@ impl SessionAssembly for SessionLaunch {
             Box::new(BiomedCubeWorld::beveled(self.world_blocks, 1.0))
         };
 
-        // Primary diurnal daylight and nocturnal rendering pipeline
-        let mut cpu_buf = CpuMeshBatch::empty();
-        planet.emit_surface(&mut cpu_buf);
-        let primary_mesh = surface.upload_mesh(&cpu_buf);
+        // Primary diurnal daylight and nocturnal rendering pipeline (1 GPU mesh per planetary face)
+        let face_count = planet.face_count();
+        let mut primary_faces = Vec::with_capacity(face_count);
+        let mut tron_faces = Vec::with_capacity(face_count);
+        for idx in 0..face_count {
+            let mut cpu_buf = CpuMeshBatch::empty();
+            if !self.tron_active {
+                planet.emit_face(idx, &mut cpu_buf);
+            }
+            primary_faces.push(surface.upload_mesh(&cpu_buf));
+
+            let mut tron_buf = CpuTronBatch::empty();
+            if self.tron_active {
+                planet.emit_face(idx, &mut tron_buf);
+            }
+            tron_faces.push(surface.upload_tron_mesh(&tron_buf));
+        }
+        let primary_mesh = PlanetaryMesh::new(primary_faces);
         let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
         let canopy = Box::new(CalibratedCanopy::planetary(self.world_blocks));
         let primary_pipeline = surface.assemble_diurnal_pipeline(
@@ -100,11 +114,7 @@ impl SessionAssembly for SessionLaunch {
             canopy,
         );
 
-        // Tron wireframe rendering assets
-        let tron_world = BiomedCubeWorld::beveled_tron(self.world_blocks, 1.0);
-        let mut tron_buf = CpuTronBatch::empty();
-        tron_world.emit_surface(&mut tron_buf);
-        let tron_mesh = surface.upload_tron_mesh(&tron_buf);
+        let tron_mesh = PlanetaryMesh::new(tron_faces);
         let tron_shader = surface.compile_shader(&TronShaderSource::embedded());
         let tron_pipeline = Box::new(TronPipeline::void());
 

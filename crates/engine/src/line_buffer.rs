@@ -36,6 +36,12 @@ impl Mesh for GlLineMesh {
             gl.bind_vertex_array(None);
         }
     }
+
+    fn release(&self, gl: &glow::Context) {
+        unsafe {
+            self.dispose(gl);
+        }
+    }
 }
 
 /// CPU line batch collecting quads as wireframe boundary lines via MeshTarget.

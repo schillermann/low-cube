@@ -65,24 +65,25 @@ impl FieldRelic {
     }
 }
 
-/// Interactive medieval woodman's axe and knightly sword stationed near the spawn that can be picked up in both hands and thrown.
+/// Interactive medieval woodman's axe, knightly sword, and iron shovel stationed near spawn.
 pub struct FieldAxe {
-    relics: [FieldRelic; 2],
+    relics: [FieldRelic; 3],
     command: RelicCommand,
 }
 
 impl FieldAxe {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    fn new(relics: [FieldRelic; 2], command: RelicCommand) -> Self {
+    fn new(relics: [FieldRelic; 3], command: RelicCommand) -> Self {
         Self { relics, command }
     }
 
-    /// Secondary constructor placing both the medieval axe and knightly sword on the ground in front of the spawn point.
+    /// Secondary constructor placing the medieval axe, knightly sword, and iron shovel on the ground in front of spawn.
     pub fn near_spawn(spawn_position: Vec3, world: &dyn PlanetaryWorld) -> Self {
         Self::new(
             [
                 FieldRelic::grounded_near_spawn(HeldRelic::WoodmanAxe, spawn_position, 0.48, 1.55, 0.55, world),
                 FieldRelic::grounded_near_spawn(HeldRelic::KnightlySword, spawn_position, -0.52, 1.62, -0.45, world),
+                FieldRelic::grounded_near_spawn(HeldRelic::IronShovel, spawn_position, 0.0, 1.68, 0.15, world),
             ],
             RelicCommand::Idle,
         )

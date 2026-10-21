@@ -117,6 +117,7 @@ impl YouthAttire {
     pub fn right_armed(&self) -> bool { !matches!(self.relic.martial_style(), MartialStyle::Unarmed) }
     pub fn left_armed(&self) -> bool { !matches!(self.offhand.martial_style(), MartialStyle::Unarmed) }
     pub fn armed(&self) -> bool { self.right_armed() || self.left_armed() }
+    pub fn held_pair(&self) -> (HeldRelic, HeldRelic) { (self.relic, self.offhand) }
     pub fn with_next_pigment(self) -> Self { Self { pigment: self.pigment.next(), ..self } }
 
     pub fn with_next_complexion(self) -> Self {
@@ -155,7 +156,7 @@ impl YouthAttire {
             self.girdle.code(),
             self.footwear.code(),
             self.crown.code(),
-            self.relic.code() + self.offhand.code() * 6,
+            self.relic.code() + self.offhand.code() * 8,
             self.pigment.code(),
             self.complexion.code(),
             self.physique.code(),

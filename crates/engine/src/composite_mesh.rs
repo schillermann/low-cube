@@ -21,6 +21,42 @@ impl<'a> Mesh for CompositeMesh<'a> {
     }
 }
 
+/// Multi-face planetary GPU mesh enabling isolated single-face buffer updates without re-uploading untouched faces.
+pub struct PlanetaryMesh {
+    faces: Vec<Box<dyn Mesh>>,
+}
+
+impl PlanetaryMesh {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(faces: Vec<Box<dyn Mesh>>) -> Self {
+        Self { faces }
+    }
+
+    pub fn slice_at(&self, index: usize) -> &dyn Mesh {
+        self.faces[index].as_ref()
+    }
+
+    pub fn store_slice(&mut self, index: usize, mesh: Box<dyn Mesh>) {
+        if index < self.faces.len() {
+            self.faces[index] = mesh;
+        }
+    }
+}
+
+impl Mesh for PlanetaryMesh {
+    fn draw(&self, gl: &glow::Context) {
+        for face in &self.faces {
+            face.draw(gl);
+        }
+    }
+
+    fn release(&self, gl: &glow::Context) {
+        for face in &self.faces {
+            face.release(gl);
+        }
+    }
+}
+
 /// Composite GPU mesh combining occluding dark facets and glowing neon wireframe lines.
 pub struct TronMesh {
     occlusion_mesh: Box<dyn Mesh>,
@@ -48,5 +84,10 @@ impl Mesh for TronMesh {
             gl.disable(glow::POLYGON_OFFSET_FILL);
         }
         self.line_mesh.draw(gl);
+    }
+
+    fn release(&self, gl: &glow::Context) {
+        self.occlusion_mesh.release(gl);
+        self.line_mesh.release(gl);
     }
 }

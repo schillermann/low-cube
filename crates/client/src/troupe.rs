@@ -140,14 +140,16 @@ impl Avatar for TroupeAvatar {
     fn toggle_invert_y(&mut self) { self.origin.toggle_invert_y(); }
     fn toggle_invert_x(&mut self) { self.origin.toggle_invert_x(); }
 
-    fn trigger_left_strike(&mut self) {
-        self.origin.trigger_left_strike();
+    fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let changed = self.origin.use_left_hand(world);
         self.troupe.trigger_left_strike();
+        changed
     }
 
-    fn trigger_right_strike(&mut self) {
-        self.origin.trigger_right_strike();
+    fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let changed = self.origin.use_right_hand(world);
         self.troupe.trigger_right_strike();
+        changed
     }
 
     fn apply_attire(&mut self, attire: YouthAttire) {

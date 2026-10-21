@@ -65,7 +65,10 @@ pub use mountain::VoxelMountain;
 pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
 pub use planet::CubePlanet;
-pub use relief::{CavitySpan, FacetedReliefFace, NullCavity, ReliefElevation, ReliefFacet, ReliefPalette, SubterraneanCavity, ZonedCavity};
+pub use relief::{
+    CavitySpan, FacetedReliefFace, NullCavity, ReliefElevation, ReliefFacet, ReliefPalette,
+    SubterraneanCavity, SurfaceSightRay, TerracedRelief, ZonedCavity,
+};
 pub use tinted_face::TintedFace;
 pub use topology::{
     BevelTransition, ClimateZone, CoordinateFold, CubeFace, FacePerimeter, FoldedFace,
@@ -128,6 +131,22 @@ pub trait PlanetaryWorld: GravityField {
     fn canopy_drag(&self, _position: Vec3) -> f32 {
         0.0
     }
+    fn excavate_surface(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
+        false
+    }
+    fn place_surface_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3) -> bool {
+        false
+    }
+    fn face_count(&self) -> usize {
+        1
+    }
+    fn emit_face(&self, _index: usize, target: &mut dyn MeshTarget) {
+        self.emit_surface(target);
+    }
+    fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize {
+        self.emit_surface(target);
+        0
+    }
 }
 
 /// Interface representing an individual face of a planetary body.
@@ -139,6 +158,12 @@ pub trait Face: Send + Sync {
     fn emit_surface(&self, target: &mut dyn MeshTarget);
     fn canopy_drag(&self, _point: Vec3) -> f32 {
         0.0
+    }
+    fn excavate(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
+        false
+    }
+    fn place_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3) -> bool {
+        false
     }
 }
 

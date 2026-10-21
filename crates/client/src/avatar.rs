@@ -4,6 +4,7 @@ use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{BodyPose, HeldRelic, SightMode, StrideRhythm, Wardrobe, YouthAttire};
 use crate::axe::RelicSite;
 use crate::controls::KeyboardControls;
+use crate::earthworks::PalmEarthworks;
 use crate::flight::GravitationalFlight;
 #[cfg(test)]
 use crate::flight::SurfaceFlight;
@@ -19,8 +20,8 @@ pub trait Avatar {
     fn rotate_view(&mut self, dx: f32, dy: f32);
     fn toggle_invert_y(&mut self);
     fn toggle_invert_x(&mut self);
-    fn trigger_left_strike(&mut self);
-    fn trigger_right_strike(&mut self);
+    fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool;
+    fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool;
     fn apply_attire(&mut self, attire: YouthAttire);
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool;
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
@@ -32,17 +33,9 @@ pub trait Avatar {
 
 /// Fully encapsulated player entity composed of position, gravity alignment, look, lens, flight, posture, and medieval attire.
 pub struct PlanetaryAvatar {
-    position: Vec3,
-    surface_rot: Quat,
-    camera_rot: Quat,
-    look: InvertibleLook,
-    lens: PerspectiveLens,
-    flight: Box<dyn GravitationalFlight>,
-    posture: AvatarPosture,
-    tilt_radians: f32,
-    rhythm: StrideRhythm,
-    attire: YouthAttire,
-    sight: SightMode,
+    position: Vec3, surface_rot: Quat, camera_rot: Quat, look: InvertibleLook, lens: PerspectiveLens,
+    flight: Box<dyn GravitationalFlight>, posture: AvatarPosture, tilt_radians: f32,
+    rhythm: StrideRhythm, attire: YouthAttire, sight: SightMode, earthworks: PalmEarthworks,
 }
 
 impl PlanetaryAvatar {
@@ -51,9 +44,9 @@ impl PlanetaryAvatar {
     pub fn new(
         position: Vec3, surface_rot: Quat, camera_rot: Quat, look: InvertibleLook, lens: PerspectiveLens,
         flight: Box<dyn GravitationalFlight>, posture: AvatarPosture, tilt_radians: f32,
-        rhythm: StrideRhythm, attire: YouthAttire, sight: SightMode,
+        rhythm: StrideRhythm, attire: YouthAttire, sight: SightMode, earthworks: PalmEarthworks,
     ) -> Self {
-        Self { position, surface_rot, camera_rot, look, lens, flight, posture, tilt_radians, rhythm, attire, sight }
+        Self { position, surface_rot, camera_rot, look, lens, flight, posture, tilt_radians, rhythm, attire, sight, earthworks }
     }
 
     /// Secondary constructor initializing avatar with explicit gravitational flight and medieval attire.
@@ -62,17 +55,15 @@ impl PlanetaryAvatar {
             initial_position, Quat::IDENTITY, Quat::IDENTITY,
             InvertibleLook::direct(Box::new(SensitivityLook::calibrated(Box::new(MouseLook::idle())))),
             PerspectiveLens::human_eye(), flight, AvatarPosture::standing(), 0.0,
-            StrideRhythm::idle(), attire, SightMode::FirstPersonSight,
+            StrideRhythm::idle(), attire, SightMode::FirstPersonSight, PalmEarthworks::empty().reconcile_attire(attire),
         )
     }
 
-    /// Secondary constructor initializing avatar with explicit gravitational flight mechanics.
     #[cfg(test)]
     pub fn with_flight(initial_position: Vec3, flight: Box<dyn GravitationalFlight>) -> Self {
         Self::with_attire(initial_position, flight, YouthAttire::squire())
     }
 
-    /// Secondary constructor initializing avatar at an initial position with terrestrial flight.
     #[cfg(test)]
     pub fn at(initial_position: Vec3) -> Self {
         Self::with_flight(initial_position, Box::new(SurfaceFlight::terrestrial(1.0)))
@@ -90,24 +81,26 @@ impl PlanetaryAvatar {
         let dot = current_up.dot(target_up);
         if dot <= 0.9999 {
             let rot_to_target = Quat::from_rotation_arc(current_up, target_up);
-            let step_rot = if dot < 0.7 {
-                rot_to_target
-            } else {
-                let factor = 1.0 - (-8.0 * dt).exp();
-                Quat::IDENTITY.slerp(rot_to_target, factor)
-            };
+            let step_rot = if dot < 0.7 { rot_to_target } else { Quat::IDENTITY.slerp(rot_to_target, 1.0 - (-8.0 * dt).exp()) };
             self.surface_rot = (step_rot * self.surface_rot).normalize();
         }
         self.converge_camera(dt);
     }
 
     fn converge_camera(&mut self, dt: f32) {
-        if self.camera_rot.dot(self.surface_rot).abs() > 0.9999 {
-            self.camera_rot = self.surface_rot;
-            return;
-        }
-        let factor = 1.0 - (-4.0 * dt).exp();
-        self.camera_rot = self.camera_rot.slerp(self.surface_rot, factor).normalize();
+        if self.camera_rot.dot(self.surface_rot).abs() > 0.9999 { self.camera_rot = self.surface_rot; return; }
+        self.camera_rot = self.camera_rot.slerp(self.surface_rot, 1.0 - (-4.0 * dt).exp()).normalize();
+    }
+
+    fn act_with_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
+        let eye = self.current_pose().eye_origin();
+        let view_dir = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
+        let (next_ew, next_attire, next_rhythm, changed) =
+            self.earthworks.act_with_hand(side, self.attire, self.rhythm, eye, view_dir, self.position, world);
+        self.earthworks = next_ew;
+        self.attire = next_attire;
+        self.rhythm = next_rhythm;
+        changed
     }
 }
 
@@ -115,16 +108,9 @@ impl Avatar for PlanetaryAvatar {
     fn rotate_view(&mut self, dx: f32, dy: f32) { self.look.rotate(dx, dy); }
     fn toggle_invert_y(&mut self) { self.look.toggle_y(); }
     fn toggle_invert_x(&mut self) { self.look.toggle_x(); }
-
-    fn trigger_left_strike(&mut self) {
-        if self.attire.left_armed() { self.rhythm = self.rhythm.trigger_left_strike(); }
-    }
-
-    fn trigger_right_strike(&mut self) {
-        if self.attire.right_armed() { self.rhythm = self.rhythm.trigger_right_strike(); }
-    }
-
-    fn apply_attire(&mut self, attire: YouthAttire) { self.attire = attire; }
+    fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(-1.0, world) }
+    fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(1.0, world) }
+    fn apply_attire(&mut self, attire: YouthAttire) { self.attire = attire; self.earthworks = self.earthworks.reconcile_attire(attire); }
 
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
         if code == KeyCode::KeyM {
@@ -132,7 +118,7 @@ impl Avatar for PlanetaryAvatar {
             return true;
         }
         if let Some(updated) = self.attire.cycled_by_key(code) {
-            self.attire = updated;
+            self.apply_attire(updated);
             return true;
         }
         false
@@ -158,11 +144,13 @@ impl Avatar for PlanetaryAvatar {
 
     fn sync_relic_site(&mut self, site: &mut dyn RelicSite, dt: f32, world: &dyn PlanetaryWorld) -> Option<(HeldRelic, HeldRelic)> {
         let view_rot = self.look.combine_with_surface(self.surface_rot);
-        let changed = site.step_near_avatar(self.position, self.surface_rot, view_rot, dt, world);
-        if let Some((right, left)) = changed {
-            self.attire = self.attire.with_relics(right, left);
+        if let Some(pair) = site.step_near_avatar(self.position, self.surface_rot, view_rot, dt, world) {
+            let (next_ew, next_attire) = self.earthworks.merge_site_relics(self.attire, pair);
+            self.earthworks = next_ew;
+            self.attire = next_attire;
+            return Some(self.attire.held_pair());
         }
-        changed
+        None
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {

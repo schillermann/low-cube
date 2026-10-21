@@ -66,6 +66,7 @@ impl BodyPose {
     pub fn new(position: Vec3, surface_rot: Quat, view_rot: Quat, eye_height: f32, rhythm: StrideRhythm, physique: YouthPhysique) -> Self { Self::with_leap_pose(position, surface_rot, view_rot, eye_height, 0.0, rhythm, physique) }
     pub fn with_leap(self, leap: f32) -> Self { Self::with_leap_pose(self.position, self.surface_rot, self.view_rot, self.eye_height, leap, self.rhythm, self.physique) }
     pub fn with_physique(self, physique: YouthPhysique) -> Self { Self::with_leap_pose(self.position, self.surface_rot, self.view_rot, self.eye_height, self.leap, self.rhythm, physique) }
+    pub fn striking_on(&self, side: f32) -> bool { self.rhythm.hand_cleave(side) > 0.0 }
     pub fn feminine(&self) -> bool { self.physique.feminine() }
     pub fn scale(&self, measure: f32) -> f32 { self.physique.scale(measure) }
     pub fn crown_size(&self, measure: f32) -> f32 { self.physique.crown_size(measure) }
@@ -139,7 +140,7 @@ impl BodyPose {
         let ground = (1.0 - ext * 2.0).clamp(0.0, 1.0);
         let (s, walk, run) = (phase.sin(), (self.rhythm.blend / 0.45).clamp(0.0, 1.0) * ground, ((self.rhythm.blend - 0.48) / 0.52).clamp(0.0, 1.0) * ground);
         let (breath, hold_factor) = (self.rhythm.phase.sin() * (1.0 - walk), if holding { (1.0 - run).max(0.35) } else { 0.0 });
-        let (arc, surge) = if !matches!(martial, MartialStyle::Unarmed) { (self.rhythm.cleave_arc(side), self.rhythm.cleave_surge(side)) } else { (0.0, 0.0) };
+        let (arc, surge) = if !matches!(martial, MartialStyle::Unarmed) || self.striking_on(side) { (self.rhythm.cleave_arc(side), self.rhythm.cleave_surge(side)) } else { (0.0, 0.0) };
         let (wind, strike, bow, sword) = ((-arc).max(0.0), arc.max(0.0), (1.0 - arc * arc) * surge, matches!(martial, MartialStyle::SwordplaySlash));
         let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + 0.08 * hold_factor + (crouch + ext) * 0.10 + if sword { 0.0 } else { 0.36 * wind + 0.42 * bow };
         let (upper_len, fore_len) = (self.arm_size(0.26), self.arm_size(0.24));
@@ -163,7 +164,7 @@ impl BodyPose {
     /// View-aligned First-Person arm converging sword tip and axe blade from either hand onto the center crosshair at full strike.
     pub fn first_person_arm(&self, side: f32, martial: MartialStyle) -> (Vec3, Vec3, LimbFrame, f32) {
         let (up, view_fwd, right) = ((self.surface_rot * Vec3::Y).normalize(), (self.view_rot * Vec3::NEG_Z).normalize(), (self.view_rot * Vec3::X).normalize());
-        let (arc, surge) = if !matches!(martial, MartialStyle::Unarmed) { (self.rhythm.cleave_arc(side), self.rhythm.cleave_surge(side)) } else { (0.0, 0.0) };
+        let (arc, surge) = if !matches!(martial, MartialStyle::Unarmed) || self.striking_on(side) { (self.rhythm.cleave_arc(side), self.rhythm.cleave_surge(side)) } else { (0.0, 0.0) };
         let (wind, strike, bow, sword) = ((-arc).max(0.0), arc.max(0.0), (1.0 - arc * arc) * surge, matches!(martial, MartialStyle::SwordplaySlash));
         let look_pitch = view_fwd.dot(up).clamp(-0.99, 0.99).asin();
         let pitch_follow = (if look_pitch >= 0.0 { 0.85 } else { 0.62 }) * (1.0 - strike) + strike;

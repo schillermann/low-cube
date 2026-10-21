@@ -3,7 +3,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
 use world::PlanetaryWorld;
-use engine::{CompositeMesh, CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram};
+use engine::{CompositeMesh, CpuMeshBatch, CpuTronBatch, GraphicPipeline, PlanetaryMesh, ShaderProgram};
 use crate::avatar::Avatar;
 use crate::controls::KeyboardControls;
 use crate::menu::{ModalDirective, SessionModal};
@@ -20,10 +20,10 @@ pub struct GameSession {
     surface: Box<dyn PlatformSurface>,
     primary_pipeline: Box<dyn GraphicPipeline>,
     primary_shader: Box<dyn ShaderProgram>,
-    primary_mesh: Box<dyn Mesh>,
+    primary_mesh: PlanetaryMesh,
     tron_pipeline: Box<dyn GraphicPipeline>,
     tron_shader: Box<dyn ShaderProgram>,
-    tron_mesh: Box<dyn Mesh>,
+    tron_mesh: PlanetaryMesh,
     tron_active: bool,
     world: Box<dyn PlanetaryWorld>,
     avatar: Box<dyn Avatar>,
@@ -38,10 +38,10 @@ impl GameSession {
         surface: Box<dyn PlatformSurface>,
         primary_pipeline: Box<dyn GraphicPipeline>,
         primary_shader: Box<dyn ShaderProgram>,
-        primary_mesh: Box<dyn Mesh>,
+        primary_mesh: PlanetaryMesh,
         tron_pipeline: Box<dyn GraphicPipeline>,
         tron_shader: Box<dyn ShaderProgram>,
-        tron_mesh: Box<dyn Mesh>,
+        tron_mesh: PlanetaryMesh,
         tron_active: bool,
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
@@ -49,18 +49,43 @@ impl GameSession {
         modal: Box<dyn SessionModal>,
     ) -> Self {
         Self {
-            surface,
-            primary_pipeline,
-            primary_shader,
-            primary_mesh,
-            tron_pipeline,
-            tron_shader,
-            tron_mesh,
-            tron_active,
-            world,
-            avatar,
-            controls,
-            modal,
+            surface, primary_pipeline, primary_shader, primary_mesh,
+            tron_pipeline, tron_shader, tron_mesh, tron_active,
+            world, avatar, controls, modal,
+        }
+    }
+
+    fn refresh_face_slice(&mut self, idx: usize) {
+        if self.tron_active {
+            let mut tron_buf = CpuTronBatch::empty();
+            self.world.emit_face(idx, &mut tron_buf);
+            let next = self.surface.replace_tron_mesh(self.tron_mesh.slice_at(idx), &tron_buf);
+            self.tron_mesh.store_slice(idx, next);
+        } else {
+            let mut cpu_buf = CpuMeshBatch::empty();
+            self.world.emit_face(idx, &mut cpu_buf);
+            let next = self.surface.replace_mesh(self.primary_mesh.slice_at(idx), &cpu_buf);
+            self.primary_mesh.store_slice(idx, next);
+        }
+    }
+
+    fn refresh_modified_face(&mut self) {
+        if self.tron_active {
+            let mut tron_buf = CpuTronBatch::empty();
+            let idx = self.world.emit_modified_face(&mut tron_buf);
+            let next = self.surface.replace_tron_mesh(self.tron_mesh.slice_at(idx), &tron_buf);
+            self.tron_mesh.store_slice(idx, next);
+        } else {
+            let mut cpu_buf = CpuMeshBatch::empty();
+            let idx = self.world.emit_modified_face(&mut cpu_buf);
+            let next = self.surface.replace_mesh(self.primary_mesh.slice_at(idx), &cpu_buf);
+            self.primary_mesh.store_slice(idx, next);
+        }
+    }
+
+    fn refresh_world_mesh(&mut self) {
+        for idx in 0..self.world.face_count() {
+            self.refresh_face_slice(idx);
         }
     }
 }
@@ -68,12 +93,8 @@ impl GameSession {
 impl Session for GameSession {
     fn handle_window_event(&mut self, event_loop: &ActiveEventLoop, event: WindowEvent) {
         match event {
-            WindowEvent::CloseRequested => {
-                event_loop.exit();
-            }
-            WindowEvent::Resized(size) => {
-                self.surface.resize(size.width, size.height);
-            }
+            WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::Resized(size) => self.surface.resize(size.width, size.height),
             WindowEvent::CursorMoved { position, .. } => {
                 let point = self.surface.normalize_cursor(position.x, position.y);
                 self.modal.move_cursor(point);
@@ -81,8 +102,7 @@ impl Session for GameSession {
             WindowEvent::MouseInput { state, button, .. } => {
                 if self.modal.open() {
                     if state == ElementState::Pressed {
-                        let directive = self.modal.press_mouse(self.surface.as_ref(), self.avatar.as_mut());
-                        if matches!(directive, ModalDirective::ExitGame) {
+                        if matches!(self.modal.press_mouse(self.surface.as_ref(), self.avatar.as_mut()), ModalDirective::ExitGame) {
                             event_loop.exit();
                         }
                     } else {
@@ -90,38 +110,36 @@ impl Session for GameSession {
                     }
                 } else if state == ElementState::Pressed {
                     self.surface.capture_cursor();
-                    match button {
-                        MouseButton::Left => self.avatar.trigger_left_strike(),
-                        MouseButton::Right => self.avatar.trigger_right_strike(),
-                        _ => {}
+                    let modified = match button {
+                        MouseButton::Left => self.avatar.use_left_hand(self.world.as_mut()),
+                        MouseButton::Right => self.avatar.use_right_hand(self.world.as_mut()),
+                        _ => false,
+                    };
+                    if modified {
+                        self.refresh_modified_face();
                     }
                 }
             }
             WindowEvent::KeyboardInput {
-                event: KeyEvent {
-                    physical_key: PhysicalKey::Code(code),
-                    state,
-                    ..
-                },
+                event: KeyEvent { physical_key: PhysicalKey::Code(code), state, .. },
                 ..
             } => {
                 let pressed = state == ElementState::Pressed;
                 if code == KeyCode::Escape {
-                    if pressed {
-                        self.modal.toggle_escape(self.surface.as_ref());
-                    }
+                    if pressed { self.modal.toggle_escape(self.surface.as_ref()); }
                     return;
                 }
                 if self.modal.open() {
-                    if pressed {
-                        self.modal.handle_key(code, self.avatar.as_mut());
-                    }
+                    if pressed { self.modal.handle_key(code, self.avatar.as_mut()); }
                     return;
                 }
                 match code {
                     KeyCode::KeyI => if pressed { self.avatar.toggle_invert_y(); },
                     KeyCode::KeyO => if pressed { self.avatar.toggle_invert_x(); },
-                    KeyCode::KeyT => if pressed { self.tron_active = !self.tron_active; },
+                    KeyCode::KeyT => if pressed {
+                        self.tron_active = !self.tron_active;
+                        self.refresh_world_mesh();
+                    },
                     _ => {
                         if !pressed || !self.avatar.dispatch_wardrobe_key(code) {
                             self.controls.register_key(code, pressed);
@@ -140,26 +158,18 @@ impl Session for GameSession {
                 if self.tron_active {
                     let mut avatar_tron = CpuTronBatch::empty();
                     self.avatar.emit_appearance(&mut avatar_tron);
-                    let composed = CompositeMesh::new(self.tron_mesh.as_ref(), &avatar_tron);
+                    let composed = CompositeMesh::new(&self.tron_mesh, &avatar_tron);
                     self.surface.render_frame(
-                        self.tron_pipeline.as_ref(),
-                        self.tron_shader.as_ref(),
-                        &composed,
-                        self.avatar.as_ref(),
-                        self.primary_shader.as_ref(),
-                        self.modal.as_ref(),
+                        self.tron_pipeline.as_ref(), self.tron_shader.as_ref(), &composed,
+                        self.avatar.as_ref(), self.primary_shader.as_ref(), self.modal.as_ref(),
                     );
                 } else {
                     let mut avatar_batch = CpuMeshBatch::empty();
                     self.avatar.emit_appearance(&mut avatar_batch);
-                    let composed = CompositeMesh::new(self.primary_mesh.as_ref(), &avatar_batch);
+                    let composed = CompositeMesh::new(&self.primary_mesh, &avatar_batch);
                     self.surface.render_frame(
-                        self.primary_pipeline.as_ref(),
-                        self.primary_shader.as_ref(),
-                        &composed,
-                        self.avatar.as_ref(),
-                        self.primary_shader.as_ref(),
-                        self.modal.as_ref(),
+                        self.primary_pipeline.as_ref(), self.primary_shader.as_ref(), &composed,
+                        self.avatar.as_ref(), self.primary_shader.as_ref(), self.modal.as_ref(),
                     );
                 }
             }

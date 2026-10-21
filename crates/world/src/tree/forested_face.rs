@@ -1,7 +1,8 @@
+use std::sync::OnceLock;
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
-use crate::{Face, MeshTarget};
+use crate::{Face, MeshTarget, Quad};
 use super::arboreal::Arboreal;
 use super::full_cube_ground::FullCubeGround;
 use super::meridian_ground::MeridianGround;
@@ -11,20 +12,35 @@ use super::surface_ground::SurfaceGround;
 use super::woodland_ground::WoodlandGround;
 use super::zoned_forest::ZonedForest;
 
+struct FloraQuadTarget<'a>(&'a mut Vec<Quad>);
+
+impl MeshTarget for FloraQuadTarget<'_> {
+    fn push_quad(&mut self, quad: Quad) {
+        self.0.push(quad);
+    }
+}
+
 /// Composite decorator populating a planetary face with climate-adapted arboreal specimens.
 pub struct ForestedFace {
     origin: Box<dyn Face>,
     frame: SurfaceFrame,
     trees: Vec<Box<dyn Arboreal>>,
+    cached_flora: OnceLock<Vec<Quad>>,
 }
 
 impl ForestedFace {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(origin: Box<dyn Face>, frame: SurfaceFrame, trees: Vec<Box<dyn Arboreal>>) -> Self {
+    pub fn new(
+        origin: Box<dyn Face>,
+        frame: SurfaceFrame,
+        trees: Vec<Box<dyn Arboreal>>,
+        cached_flora: OnceLock<Vec<Quad>>,
+    ) -> Self {
         Self {
             origin,
             frame,
             trees,
+            cached_flora,
         }
     }
 
@@ -65,7 +81,7 @@ impl ForestedFace {
             }
         }
 
-        Self::new(origin, frame, trees)
+        Self::new(origin, frame, trees, OnceLock::new())
     }
 }
 
@@ -93,8 +109,16 @@ impl Face for ForestedFace {
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         self.origin.emit_surface(target);
-        for tree in &self.trees {
-            tree.emit_surface(target);
+        let flora = self.cached_flora.get_or_init(|| {
+            let mut quads = Vec::with_capacity(self.trees.len() * 24);
+            let mut collector = FloraQuadTarget(&mut quads);
+            for tree in &self.trees {
+                tree.emit_surface(&mut collector);
+            }
+            quads
+        });
+        for &quad in flora {
+            target.push_quad(quad);
         }
     }
 
@@ -109,5 +133,13 @@ impl Face for ForestedFace {
             }
         }
         peak
+    }
+
+    fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        self.origin.excavate(eye, direction)
+    }
+
+    fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.origin.place_block(eye, direction, avatar_pos)
     }
 }

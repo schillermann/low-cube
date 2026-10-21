@@ -78,4 +78,24 @@ impl PlanetaryWorld for BeveledWorld {
     fn canopy_drag(&self, position: Vec3) -> f32 {
         self.world.canopy_drag(position)
     }
+
+    fn excavate_surface(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        self.world.excavate_surface(eye, direction)
+    }
+
+    fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.world.place_surface_block(eye, direction, avatar_pos)
+    }
+
+    fn face_count(&self) -> usize {
+        self.world.face_count()
+    }
+
+    fn emit_face(&self, index: usize, target: &mut dyn MeshTarget) {
+        self.world.emit_face(index, target);
+    }
+
+    fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize {
+        self.world.emit_modified_face(target)
+    }
 }

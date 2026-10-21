@@ -73,4 +73,12 @@ impl Face for FoldedFace {
     fn canopy_drag(&self, point: Vec3) -> f32 {
         self.origin.canopy_drag(point)
     }
+
+    fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        self.origin.excavate(eye, direction)
+    }
+
+    fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.origin.place_block(eye, direction, avatar_pos)
+    }
 }

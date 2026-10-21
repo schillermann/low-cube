@@ -12,7 +12,7 @@ mod tron_shader;
 mod tron_tests;
 
 pub use buffer::{CpuMeshBatch, GlMesh};
-pub use composite_mesh::{CompositeMesh, TronMesh};
+pub use composite_mesh::{CompositeMesh, PlanetaryMesh, TronMesh};
 pub use line_buffer::{CpuLineBatch, CpuTronBatch, GlLineMesh};
 pub use pipeline::ForwardPipeline;
 pub use shader::{VoxelProgram, VoxelShaderSource};
@@ -22,6 +22,7 @@ pub use tron_shader::{TronProgram, TronShaderSource};
 /// Interface for GPU-renderable mesh objects.
 pub trait Mesh {
     fn draw(&self, gl: &glow::Context);
+    fn release(&self, _gl: &glow::Context) {}
 }
 
 /// Interface for compiling shader sources into GPU shader programs.

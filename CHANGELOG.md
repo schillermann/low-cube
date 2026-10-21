@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-21
+
+### Added
+- Block excavation and placement system (`SurfaceSightRay`, `TerracedRelief`, `PalmEarthworks`, `HeldRelic::IronShovel`, `HeldRelic::ExcavatedEarth`) allowing players to dig terrain and placed blocks with bare hands (4 strikes with 1 free hand, 2 strikes with 2 free hands) or an iron shovel (1 strike) and place collected earth blocks back into the world using the hand holding the block.
+- Ground iron shovel relic (`FieldAxe`) stationed near the planetary spawn point alongside the woodman's axe and knightly sword.
+- Multi-face planetary GPU mesh (`PlanetaryMesh`, `PlanetaryWorld::face_count`, `PlanetaryWorld::emit_face`, `PlanetaryWorld::emit_modified_face`, `GlPlatformSurface::replace_mesh`, `Mesh::release`) uploading each of the 6 planetary faces as an independent GPU buffer and replacing only the single modified face slice upon block excavation or placement.
+- Row-level relief quad cache (`FacetedReliefFace`), `O(1)` natural elevation grid cache (`TerracedRelief`), and static flora quad cache (`ForestedFace`) so block updates recompute only the 3 affected cell rows (`cv - 1 ..= cv + 1`) on the modified face without re-evaluating untouched terrain or trees.
+
+### Fixed
+- Preserved natural slope, ridge, and valley geometry and collision heights on neighboring cells when excavating sloped blocks (`ReliefFacet::emit_facet`, `ReliefFacet::emit_walls`, `TerracedRelief::surface_height_at`).
+
 ## [0.27.0] - 2026-10-21
 
 ### Added

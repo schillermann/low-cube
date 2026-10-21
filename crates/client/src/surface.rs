@@ -22,6 +22,12 @@ pub trait PlatformSurface {
     fn normalize_cursor(&self, x: f64, y: f64) -> ScreenPoint;
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh>;
     fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh>;
+    fn replace_mesh(&self, _previous: &dyn Mesh, batch: &CpuMeshBatch) -> Box<dyn Mesh> {
+        self.upload_mesh(batch)
+    }
+    fn replace_tron_mesh(&self, _previous: &dyn Mesh, batch: &CpuTronBatch) -> Box<dyn Mesh> {
+        self.upload_tron_mesh(batch)
+    }
     fn compile_shader(&self, source: &dyn ShaderSource) -> Box<dyn ShaderProgram>;
     fn assemble_diurnal_pipeline(
         &self,
@@ -108,6 +114,16 @@ impl PlatformSurface for GlPlatformSurface {
     }
 
     fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh> {
+        unsafe { batch.upload(&self.gl) }
+    }
+
+    fn replace_mesh(&self, previous: &dyn Mesh, batch: &CpuMeshBatch) -> Box<dyn Mesh> {
+        previous.release(&self.gl);
+        unsafe { batch.upload(&self.gl) }
+    }
+
+    fn replace_tron_mesh(&self, previous: &dyn Mesh, batch: &CpuTronBatch) -> Box<dyn Mesh> {
+        previous.release(&self.gl);
         unsafe { batch.upload(&self.gl) }
     }
 

@@ -114,7 +114,7 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
 
 #[test]
 fn test_axe_pickup_and_throw_cycle_near_spawn() {
-    let world = BiomedCubeWorld::beveled(32, 1.0);
+    let mut world = BiomedCubeWorld::beveled(32, 1.0);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let mut avatar = TroupeAvatar::near_spawn(Box::new(PlanetaryAvatar::at(spawn)), spawn, &world, YouthAttire::squire());
     let controls = KeyMotion::idle();
@@ -138,14 +138,14 @@ fn test_axe_pickup_and_throw_cycle_near_spawn() {
     assert!(dual_quads.count() > wielded_quads.count(), "Player must be able to hold items in both hands simultaneously");
 
     // Right mouse click triggers right-hand weapon strike, left mouse click triggers left-hand weapon strike
-    avatar.trigger_right_strike();
+    avatar.use_right_hand(&mut world);
     for _ in 0..8 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
     let mut right_striking_quads = QuadCollector::empty();
     avatar.emit_appearance(&mut right_striking_quads);
     let vertices = |c: &QuadCollector| c.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect::<Vec<_>>();
     assert_ne!(vertices(&dual_quads), vertices(&right_striking_quads), "Right mouse strike must animate the right-hand weapon posture");
 
-    avatar.trigger_left_strike();
+    avatar.use_left_hand(&mut world);
     for _ in 0..8 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
     let mut left_striking_quads = QuadCollector::empty();
     avatar.emit_appearance(&mut left_striking_quads);

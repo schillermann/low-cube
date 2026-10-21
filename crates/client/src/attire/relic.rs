@@ -10,7 +10,7 @@ pub enum MartialStyle {
     SwordplaySlash,
 }
 
-/// Object held in the avatar's right hand visible in first-person and multiplayer.
+/// Object held in the avatar's right or left hand visible in first-person and multiplayer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HeldRelic {
     EmptyPalm,
@@ -19,6 +19,8 @@ pub enum HeldRelic {
     WoodenMallet,
     WoodmanAxe,
     KnightlySword,
+    IronShovel,
+    ExcavatedEarth,
 }
 
 impl HeldRelic {
@@ -29,18 +31,22 @@ impl HeldRelic {
             Self::TimberTorch => Self::WoodenMallet,
             Self::WoodenMallet => Self::WoodmanAxe,
             Self::WoodmanAxe => Self::KnightlySword,
-            Self::KnightlySword => Self::EmptyPalm,
+            Self::KnightlySword => Self::IronShovel,
+            Self::IronShovel => Self::ExcavatedEarth,
+            Self::ExcavatedEarth => Self::EmptyPalm,
         }
     }
 
     pub fn from_code(code: u8) -> Self {
-        match code % 6 {
+        match code % 8 {
             0 => Self::EmptyPalm,
             1 => Self::QuarriedStone,
             2 => Self::TimberTorch,
             3 => Self::WoodenMallet,
             4 => Self::WoodmanAxe,
-            _ => Self::KnightlySword,
+            5 => Self::KnightlySword,
+            6 => Self::IronShovel,
+            _ => Self::ExcavatedEarth,
         }
     }
 
@@ -52,6 +58,8 @@ impl HeldRelic {
             Self::WoodenMallet => 3,
             Self::WoodmanAxe => 4,
             Self::KnightlySword => 5,
+            Self::IronShovel => 6,
+            Self::ExcavatedEarth => 7,
         }
     }
 
@@ -59,10 +67,26 @@ impl HeldRelic {
         !matches!(self, Self::EmptyPalm)
     }
 
+    pub fn free_palm(self) -> bool {
+        matches!(self, Self::EmptyPalm)
+    }
+
+    pub fn shovel_blade(self) -> bool {
+        matches!(self, Self::IronShovel)
+    }
+
+    pub fn placeable_block(self) -> bool {
+        matches!(self, Self::ExcavatedEarth | Self::QuarriedStone)
+    }
+
     pub fn martial_style(self) -> MartialStyle {
         match self {
             Self::EmptyPalm => MartialStyle::Unarmed,
-            Self::QuarriedStone | Self::WoodenMallet | Self::WoodmanAxe => MartialStyle::LumberjackCleave,
+            Self::QuarriedStone
+            | Self::WoodenMallet
+            | Self::WoodmanAxe
+            | Self::IronShovel
+            | Self::ExcavatedEarth => MartialStyle::LumberjackCleave,
             Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,
         }
     }
@@ -117,6 +141,24 @@ impl HeldRelic {
                 TaperedPrism::new(4, Vec3::new(gx, 0.066, gz), Vec3::new(gx, 0.420, gz), 0.005, 0.025, 0.004, 0.020, honed_edge).emit(frame, false, target);
                 TaperedPrism::new(4, Vec3::new(gx, 0.068, gz), Vec3::new(gx, 0.390, gz), 0.006, 0.011, 0.005, 0.008, fuller_steel).emit(frame, true, target);
                 TaperedPrism::new(4, Vec3::new(gx, 0.420, gz), Vec3::new(gx, 0.680, gz), 0.004, 0.020, 0.001, 0.002, honed_edge).emit(frame, true, target);
+            }
+            Self::IronShovel => {
+                let (ash_wood, worn_ash, socket_iron, spade_steel, honed_edge) = (
+                    Vec3::new(0.54, 0.37, 0.20), Vec3::new(0.42, 0.28, 0.15),
+                    Vec3::new(0.30, 0.33, 0.38), Vec3::new(0.54, 0.58, 0.64), Vec3::new(0.84, 0.88, 0.93),
+                );
+                TaperedPrism::new(6, Vec3::new(gx, -0.164, gz), Vec3::new(gx, -0.144, gz), 0.012, 0.034, 0.012, 0.034, worn_ash).emit(frame, true, target);
+                TaperedPrism::hexagonal(Vec3::new(gx, -0.150, gz), Vec3::new(gx, 0.190, gz), 0.012, 0.014, ash_wood).emit(frame, false, target);
+                TaperedPrism::hexagonal(Vec3::new(gx, 0.185, gz), Vec3::new(gx, 0.235, gz + 0.004), 0.016, 0.020, socket_iron).emit(frame, true, target);
+                TaperedPrism::new(4, Vec3::new(gx, 0.230, gz + 0.008), Vec3::new(gx, 0.345, gz + 0.016), 0.007, 0.052, 0.006, 0.046, spade_steel).emit(frame, true, target);
+                TaperedPrism::new(4, Vec3::new(gx, 0.345, gz + 0.016), Vec3::new(gx, 0.395, gz + 0.022), 0.006, 0.046, 0.002, 0.018, honed_edge).emit(frame, true, target);
+            }
+            Self::ExcavatedEarth => {
+                let (loam_earth, turf_crest) = (Vec3::new(0.48, 0.35, 0.22), Vec3::new(0.36, 0.50, 0.24));
+                TaperedPrism::new(4, Vec3::new(gx - side * 0.015, -0.02, gz), Vec3::new(gx - side * 0.015, 0.072, gz), 0.050, 0.050, 0.052, 0.052, loam_earth)
+                    .emit(frame, true, target);
+                TaperedPrism::new(4, Vec3::new(gx - side * 0.015, 0.072, gz), Vec3::new(gx - side * 0.015, 0.095, gz), 0.053, 0.053, 0.050, 0.050, turf_crest)
+                    .emit(frame, true, target);
             }
         }
     }

@@ -13,6 +13,7 @@ mod clock;
 mod controls;
 mod cycle_duration;
 mod diurnal_pipeline;
+mod earthworks;
 mod envelope;
 mod environment_aurora;
 mod environment_celestial;
@@ -65,6 +66,8 @@ mod chunk_traversal_tests;
 mod circuit_tests;
 #[cfg(test)]
 mod controls_tests;
+#[cfg(test)]
+mod earthworks_tests;
 #[cfg(test)]
 mod flight_tests;
 #[cfg(test)]

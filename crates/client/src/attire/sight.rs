@@ -27,7 +27,7 @@ impl SightMode {
     pub fn arm_joints(self, pose: &BodyPose, side: f32, holding: bool, martial: MartialStyle) -> (Vec3, Vec3, LimbFrame, f32) {
         match self {
             Self::FirstPersonSight => {
-                if holding {
+                if holding || pose.striking_on(side) {
                     pose.first_person_arm(side, martial)
                 } else {
                     pose.external_arm(side, false, MartialStyle::Unarmed)
