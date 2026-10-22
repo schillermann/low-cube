@@ -37,7 +37,7 @@ Upon the prompt `create git message` or `create git commit`, check the modified 
   1. **Version Increment**: Increment the version number following Semantic Versioning across crate manifests (`crates/*/Cargo.toml`).
   2. **Changelog Update**: Update `CHANGELOG.md` according to Keep a Changelog conventions, promoting unreleased items under the new version header with the current date.
   3. **Message Generation & CLI Commit**: Generate the commit message following the format and types specified above, stage all modified and untracked files (`git add -A`), and commit them directly via CLI (`git commit`).
-  4. **Version Tagging**: Create a Git tag with the incremented version number (`git tag v<version>`, e.g., `git tag v0.31.0`) pointing to the newly created commit.
+  4. **Version Tagging**: Create an annotated Git tag with the incremented version number (`git tag -a v<version> -m "Release v<version>"`, e.g., `git tag -a v0.31.0 -m "Release v0.31.0"`) pointing to the newly created commit so `git push --follow-tags` pushes it automatically.
 
 ### CI Pipeline Conventions
 - **Markdown-Only Filter**: All CI/CD build and release workflows in `.github/workflows/` must configure `paths-ignore: ['**/*.md']` to prevent redundant builds and artifact releases when only documentation files are modified.

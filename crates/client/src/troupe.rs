@@ -107,7 +107,10 @@ impl FigureTroupe for SpawnTroupe {
     fn step(&mut self, dt: f32) { self.figures = self.figures.map(|f| f.step(dt)); }
     fn trigger_left_strike(&mut self) { if self.attire.left_armed() { self.figures = self.figures.map(|f| f.trigger_left_strike()); } }
     fn trigger_right_strike(&mut self) { if self.attire.right_armed() { self.figures = self.figures.map(|f| f.trigger_right_strike()); } }
-    fn apply_attire(&mut self, attire: YouthAttire) { self.attire = attire; }
+    fn apply_attire(&mut self, attire: YouthAttire) {
+        let (r, l) = self.attire.held_pair();
+        self.attire = if !attire.armed() && self.attire.armed() { attire.with_relics(r, l) } else { attire };
+    }
     fn sync_wardrobe(&mut self, code: KeyCode) { if let Some(updated) = self.attire.with_wardrobe_key(code) { self.attire = updated; } }
     fn sync_relic(&mut self, relics: (HeldRelic, HeldRelic)) { self.attire = self.attire.with_relics(relics.0, relics.1); }
     fn emit(&self, target: &mut dyn MeshTarget) { for figure in &self.figures { figure.emit(&self.attire, target); } }

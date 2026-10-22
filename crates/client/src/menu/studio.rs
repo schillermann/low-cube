@@ -1,7 +1,7 @@
 use glam::{Mat4, Vec3};
 use winit::keyboard::KeyCode;
 use world::MeshTarget;
-use crate::attire::{AttireProfile, BodyRegion, ComplexionSwatch, FileAttire, YouthAttire, YouthPhysique};
+use crate::attire::{AttireProfile, BodyRegion, ComplexionSwatch, FileAttire, HeldRelic, YouthAttire, YouthPhysique};
 use super::archetype::AvatarArchetype;
 use super::glyph::PixelStamp;
 use super::stage::TurntableStage;
@@ -31,7 +31,8 @@ impl WardrobeStudio {
     }
 
     pub fn from_profile() -> Self {
-        Self::new(FileAttire::profile().load_or_squire(), AvatarArchetype::Knight, TurntableStage::front_showcase(), ScreenPoint::center(), false)
+        let loaded = FileAttire::profile().load_or_squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm);
+        Self::new(loaded, AvatarArchetype::Knight, TurntableStage::front_showcase(), ScreenPoint::center(), false)
     }
 
     pub fn step(&mut self, dt: f32) { self.stage = self.stage.step(dt); }
@@ -77,11 +78,12 @@ impl WardrobeStudio {
         if ScreenBounds::new(-0.11, 0.72, 0.11, 0.81).contains(pt) { self.stage = self.stage.reset_angle(); return StudioDirective::StayInStudio; }
         if ScreenBounds::new(0.14, 0.72, 0.36, 0.81).contains(pt) { self.stage = self.stage.rotated(0.35); return StudioDirective::StayInStudio; }
 
+        let (held_r, held_l) = self.attire.held_pair();
         for (i, arch) in AvatarArchetype::all().iter().enumerate() {
             let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, 0.68 - ((i / 2) as f32) * 0.10);
             if ScreenBounds::new(x0, y1 - 0.08, x0 + 0.22, y1).contains(pt) {
                 self.archetype = *arch;
-                self.update_attire(arch.attire_for(self.attire.feminine()));
+                self.update_attire(arch.attire_for(self.attire.feminine()).with_relics(held_r, held_l));
                 return StudioDirective::StayInStudio;
             }
         }
@@ -100,8 +102,8 @@ impl WardrobeStudio {
                 return StudioDirective::StayInStudio;
             }
         }
-        if ScreenBounds::new(-0.94, -0.74, -0.72, -0.66).contains(pt) { self.update_attire(self.archetype.attire_for(false)); return StudioDirective::StayInStudio; }
-        if ScreenBounds::new(-0.70, -0.74, -0.48, -0.66).contains(pt) { self.update_attire(self.archetype.attire_for(true)); return StudioDirective::StayInStudio; }
+        if ScreenBounds::new(-0.94, -0.74, -0.72, -0.66).contains(pt) { self.update_attire(self.archetype.attire_for(false).with_relics(held_r, held_l)); return StudioDirective::StayInStudio; }
+        if ScreenBounds::new(-0.70, -0.74, -0.48, -0.66).contains(pt) { self.update_attire(self.archetype.attire_for(true).with_relics(held_r, held_l)); return StudioDirective::StayInStudio; }
         for (idx, region) in BodyRegion::all().iter().enumerate() {
             let (_, s_dec, _, s_inc, g_dec, _, g_inc) = Self::region_rows(idx);
             if s_dec.contains(pt) { self.update_attire(self.attire.with_adjusted_region(*region, -1, 0)); return StudioDirective::StayInStudio; }

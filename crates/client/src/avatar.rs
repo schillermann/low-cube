@@ -131,13 +131,18 @@ impl Avatar for PlanetaryAvatar {
         if dx > 0.0 { self.earthworks = self.earthworks.turn_mold_clockwise(self.attire); } else if dx < 0.0 { self.earthworks = self.earthworks.turn_mold_counter_clockwise(self.attire); }
     }
     fn turn_mold_clockwise(&mut self) { self.earthworks = self.earthworks.turn_mold_clockwise(self.attire); }
-    fn apply_attire(&mut self, attire: YouthAttire) { self.attire = attire; self.earthworks = self.earthworks.reconcile_attire(attire); }
+    fn apply_attire(&mut self, attire: YouthAttire) {
+        let (r, l) = self.attire.held_pair();
+        let merged = if !attire.armed() && self.attire.armed() { attire.with_relics(r, l) } else { attire };
+        self.attire = merged;
+        self.earthworks = self.earthworks.reconcile_attire(merged);
+    }
 
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
         if code == KeyCode::KeyM { self.sight = self.sight.toggle(); return true; }
         let (ew, attire, handled) = self.earthworks.handle_key(code, self.attire);
         if handled { (self.earthworks, self.attire) = (ew, attire); return true; }
-        if let Some(updated) = self.attire.cycled_by_key(code) { self.apply_attire(updated); return true; }
+        if let Some(updated) = self.attire.cycled_by_key(code) { self.attire = updated; self.earthworks = self.earthworks.reconcile_attire(updated); return true; }
         false
     }
 

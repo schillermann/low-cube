@@ -3,8 +3,8 @@ use glam::Vec3;
 use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
 use world::{MeshTarget, Quad};
 use crate::attire::{
-    AttireProfile, BodyRegion, ComplexionSwatch, FileAttire, SightMode, StrideRhythm, Wardrobe,
-    YouthAttire,
+    AttireProfile, BodyRegion, ComplexionSwatch, FileAttire, HeldRelic, SightMode, StrideRhythm,
+    Wardrobe, YouthAttire,
 };
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::AuroraCanopy;
@@ -74,14 +74,10 @@ fn test_escape_key_opens_menu_and_character_stage_shows_full_height_single_perso
     menu.move_cursor(ScreenPoint::new(0.0, -0.01));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
-    let attire = YouthAttire::squire();
-    let mut single_figure = QuadCapture::empty();
+    let (attire, stage) = (YouthAttire::squire(), TurntableStage::front_showcase());
+    let (mut single_figure, mut stage_mesh, mut empty_fem, mut held_fem) = (QuadCapture::empty(), QuadCapture::empty(), QuadCapture::empty(), QuadCapture::empty());
     StudioAnimation::StandingIdle.emit_figure(Vec3::new(0.0, 1.0, 0.0), 0.0, 0.0, &attire, &mut single_figure);
-
-    let stage = TurntableStage::front_showcase();
-    let mut stage_mesh = QuadCapture::empty();
     stage.emit_stage(&attire, &mut stage_mesh);
-
     assert_eq!(stage_mesh.count(), single_figure.count() + 32, "Turntable stage must display only one single character plus pedestal");
 
     let vp = stage.view_projection(16.0 / 9.0);
@@ -90,6 +86,15 @@ fn test_escape_key_opens_menu_and_character_stage_shows_full_height_single_perso
         let ndc_y = clip.y / clip.w;
         assert!((-0.70..=0.68).contains(&ndc_y), "Entire character height must fit inside studio viewport, got {ndc_y}");
     }
+
+    // Equip a block in hand, then click FEMALE (-0.59, -0.70) in Character Studio: block must remain in hand
+    menu.move_cursor(ScreenPoint::new(-0.59, -0.70));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    avatar.emit_appearance(&mut empty_fem);
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::EmptyPalm));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    avatar.emit_appearance(&mut held_fem);
+    assert!(held_fem.count() > empty_fem.count(), "Switching gender in Character Studio must preserve block held in hand");
 
     // Click BACK button (centered at 0.0, -0.89) in Character Studio to return to Main Menu, then click QUIT GAME
     menu.move_cursor(ScreenPoint::new(0.0, -0.89));
@@ -100,18 +105,13 @@ fn test_escape_key_opens_menu_and_character_stage_shows_full_height_single_perso
 
 #[test]
 fn test_single_character_cycles_all_animations_and_archetypes_differ_fundamentally() {
-    let attire = YouthAttire::squire();
-    let stage_front = TurntableStage::front_showcase();
-    let stage_turned = stage_front.rotated(1.2);
-
-    let mut front_quads = QuadCapture::empty();
-    let mut turned_quads = QuadCapture::empty();
+    let (attire, stage_front) = (YouthAttire::squire(), TurntableStage::front_showcase());
+    let (mut front_quads, mut turned_quads) = (QuadCapture::empty(), QuadCapture::empty());
     stage_front.emit_stage(&attire, &mut front_quads);
-    stage_turned.emit_stage(&attire, &mut turned_quads);
+    stage_front.rotated(1.2).emit_stage(&attire, &mut turned_quads);
     assert_ne!(front_quads.positions(), turned_quads.positions());
 
-    let list = StudioAnimation::sequence();
-    for idx in 0..(list.len() - 1) {
+    for idx in 0..(StudioAnimation::sequence().len() - 1) {
         let (t0, t1) = ((idx as f32) * 2.2 + 0.35, ((idx + 1) as f32) * 2.2 + 0.35);
         assert_ne!(StudioAnimation::from_elapsed(t0), StudioAnimation::from_elapsed(t1));
         let (mut q0, mut q1) = (QuadCapture::empty(), QuadCapture::empty());
@@ -172,16 +172,13 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
     assert_eq!(custom, loaded);
     assert!(loaded.feminine());
 
-    let mut studio = WardrobeStudio::from_profile();
-    let mut male_stage = QuadCapture::empty();
+    let (mut studio, mut male_stage, mut female_stage, mut dragged_stage) = (WardrobeStudio::from_profile(), QuadCapture::empty(), QuadCapture::empty(), QuadCapture::empty());
     studio.emit_stage(&mut male_stage);
 
     // Click FEMALE button on the left panel (-0.59, -0.70)
     studio.move_pointer(ScreenPoint::new(-0.59, -0.70));
     studio.press_pointer();
     assert!(studio.current_attire().feminine(), "Clicking FEMALE button in Character Studio must switch character to female");
-
-    let mut female_stage = QuadCapture::empty();
     studio.emit_stage(&mut female_stage);
     assert_ne!(male_stage.positions(), female_stage.positions(), "Female character must emit distinct feminine anatomy and hair");
 
@@ -194,7 +191,6 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
     studio.press_pointer();
     studio.move_pointer(ScreenPoint::new(0.25, 0.0));
     studio.release_pointer();
-    let mut dragged_stage = QuadCapture::empty();
     studio.emit_stage(&mut dragged_stage);
     assert!(dragged_stage.count() > 100);
 }

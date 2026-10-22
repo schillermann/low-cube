@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-10-22
+
+### Changed
+- Updated bare-hand digging animation (`BodyPose::external_arm`, `BodyPose::first_person_arm`, `BodyPose::finger_curl`) to stretch both arms forward while pronating the hands inward so the palms face downward, followed by a downward wrist flexion and inward finger curl during the digging strike.
+- Rebuilt palm geometry in `VambraceStyle::emit` as a flat-faced 8-sided anatomical `TaperedPrism` with synchronized `arm_girth`-scaled finger and thumb knuckle roots and scaled-up masculine hand proportions (`hs = 1.18`, `hg = 1.16`).
+
+### Fixed
+- Eliminated the protruding central triangular ridge in the palm that caused cradled blocks to appear sunken into the hand (`VambraceStyle::emit`).
+- Preserved held blocks and tools in `PlanetaryAvatar::apply_attire`, `SpawnTroupe::apply_attire`, and `WardrobeStudio::press_pointer` when switching between male and female or selecting archetypes in the Character Studio.
+
 ## [0.31.0] - 2026-10-21
 
 ### Added
