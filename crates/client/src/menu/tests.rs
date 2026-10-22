@@ -95,6 +95,8 @@ fn test_escape_key_opens_menu_and_character_stage_shows_full_height_single_perso
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
     avatar.emit_appearance(&mut held_fem);
     assert!(held_fem.count() > empty_fem.count(), "Switching gender in Character Studio must preserve block held in hand");
+    menu.move_cursor(ScreenPoint::new(-0.83, -0.70));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
     // Click BACK button (centered at 0.0, -0.89) in Character Studio to return to Main Menu, then click QUIT GAME
     menu.move_cursor(ScreenPoint::new(0.0, -0.89));

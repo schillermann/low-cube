@@ -45,7 +45,7 @@ impl ReliefFacet {
         } else if relief.reworked_at(u, v) {
             let bare_col = Vec3::new(0.48, 0.35, 0.22);
             let top_c = if relief.bare_dirt_at(u, v) { bare_col } else { surf_col };
-            if relief.emit_molded_top(cell, top_h - 0.5, frame, top_c, bare_col, top_out) {
+            if relief.emit_molded_top(cell, top_h - 0.5, frame, surf_col, bare_col, top_out) {
                 ([top_h - 0.5; 4], top_c)
             } else {
                 let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
@@ -96,9 +96,6 @@ impl ReliefFacet {
                 } else {
                     let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
                     top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), surf_col));
-                    if stage == 0 && h == hn && h == hs && h == he && h == hw && nhn == hn && nhs == hs && nhe == he && nhw == hw {
-                        return;
-                    }
                     ([top_h, top_h, top_h, top_h], surf_col)
                 }
             } else {
@@ -110,6 +107,7 @@ impl ReliefFacet {
 
         if stage > 0 { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, surf_col, palette, frame, target); }
         self.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, relief, frame, cliff_col, target);
+        let _ = relief.emit_molded_top(cell, top_h, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
     }
 
     #[allow(clippy::too_many_arguments)]

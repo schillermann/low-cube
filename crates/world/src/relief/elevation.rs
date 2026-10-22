@@ -63,7 +63,7 @@ pub trait ReliefElevation: Send + Sync {
     }
 
     /// Stacks one molded voxel block layer at (u, v).
-    fn stack_molded_cell(&mut self, u: i32, v: i32, _shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool {
+    fn stack_molded_cell(&mut self, u: i32, v: i32, _base: f32, _shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool {
         self.stack_cell(u, v)
     }
 }

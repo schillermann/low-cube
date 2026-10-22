@@ -17,29 +17,24 @@ fn test_digging_speed_one_hand_vs_two_hands_vs_spade_and_abort_on_release() {
     let (mut world_one_hand, mut world_two_hands, mut world_spade) = (BiomedCubeWorld::beveled(16, 1.0), BiomedCubeWorld::beveled(16, 1.0), BiomedCubeWorld::beveled(16, 1.0));
     let spawn = world_one_hand.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
 
-    let mut avatar_one = PlanetaryAvatar::at(spawn);
+    let (mut avatar_one, mut avatar_two, mut avatar_spade) = (PlanetaryAvatar::at(spawn), PlanetaryAvatar::at(spawn), PlanetaryAvatar::at(spawn));
     avatar_one.rotate_view(0.0, 380.0);
     avatar_one.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
     for _ in 0..7 { assert!(!avatar_one.use_left_hand(&mut world_one_hand)); }
     assert!(avatar_one.use_left_hand(&mut world_one_hand), "Empty left hand must dig with bare hand (8 strikes) even when right hand holds IronSpade");
 
-    let mut avatar_two = PlanetaryAvatar::at(spawn);
     avatar_two.rotate_view(0.0, 380.0);
     for _ in 0..4 { assert!(!avatar_two.use_right_hand(&mut world_two_hands)); let _ = avatar_two.release_hand(&mut world_two_hands); }
     assert!(!avatar_two.use_left_hand(&mut world_two_hands) && !avatar_two.use_right_hand(&mut world_two_hands));
     for _ in 0..2 { assert!(!avatar_two.use_right_hand(&mut world_two_hands)); }
     assert!(avatar_two.use_right_hand(&mut world_two_hands), "Two free hands digging with both mouse buttons held must excavate on the 4th strike");
 
-    let mut avatar_spade = PlanetaryAvatar::at(spawn);
     avatar_spade.rotate_view(0.0, 380.0);
     avatar_spade.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
     assert!(!avatar_spade.use_right_hand(&mut world_spade), "IronSpade 1st strike loosens earth without excavating yet");
     assert!(avatar_spade.release_hand(&mut world_spade), "Releasing mouse button early must abort digging and clear fissures");
     assert!(!avatar_spade.use_right_hand(&mut world_spade), "After aborting on release, next strike starts fresh at strike 1");
-    for _ in 0..40 {
-        avatar_spade.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world_spade);
-        let _ = avatar_spade.step_digging(&mut world_spade);
-    }
+    for _ in 0..40 { avatar_spade.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world_spade); let _ = avatar_spade.step_digging(&mut world_spade); }
     assert!(avatar_spade.use_left_hand(&mut world_spade), "Holding mouse through 2nd swing must excavate block into free left hand");
 }
 
@@ -86,8 +81,7 @@ fn test_mined_block_placed_only_with_same_hand_and_terrain_and_placed_blocks_mod
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world) && avatar.use_left_hand(&mut world));
     assert!(world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.95), 0.0).y > world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.55), 0.0).y + 0.3);
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world));
-    avatar.scroll_mold(-1.0, 0.0);
-    avatar.scroll_mold(-1.0, 0.0);
+    for _ in 0..2 { avatar.scroll_mold(-1.0, 0.0); }
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE));
     let (mut closed_mesh, mut open_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut closed_mesh);
@@ -97,13 +91,19 @@ fn test_mined_block_placed_only_with_same_hand_and_terrain_and_placed_blocks_mod
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyD) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.use_left_hand(&mut world));
 
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::EmptyPalm));
-    assert!(avatar.use_right_hand(&mut world), "Right hand holding ExcavatedEarth adds a full cube on right side's independent Cube mold");
-    assert!((world.constrain_to_surface(target_probe, 0.0).y - (initial_height + 0.5)).abs() < 1e-4);
+    assert!(avatar.use_right_hand(&mut world) && (world.constrain_to_surface(target_probe, 0.0).y - (initial_height + 0.5)).abs() < 1e-4);
 
     assert!(!avatar.use_left_hand(&mut world) && !avatar.use_right_hand(&mut world));
     for _ in 0..2 { assert!(!avatar.use_right_hand(&mut world)); }
-    assert!(avatar.use_right_hand(&mut world), "Player-placed block must be breakable back down to original terrain");
-    assert!((world.constrain_to_surface(target_probe, 0.0).y - initial_height).abs() < 1e-4);
+    assert!(avatar.use_right_hand(&mut world) && (world.constrain_to_surface(target_probe, 0.0).y - initial_height).abs() < 1e-4);
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::QuarriedStone, HeldRelic::EmptyPalm));
+    for _ in 0..2 { avatar.scroll_mold(1.0, 0.0); }
+    avatar.turn_mold_clockwise();
+    for _ in 0..7 { assert!(!avatar.use_left_hand(&mut world)); }
+    assert!(avatar.use_left_hand(&mut world), "Second hand excavating earth inherits first hand's mold and rotation regardless of material");
+    assert!(avatar.use_left_hand(&mut world) && world.constrain_to_surface(Vec3::new(0.45, 9.0, -0.75), 0.0).y > world.constrain_to_surface(Vec3::new(0.05, 9.0, -0.75), 0.0).y + 0.3);
+    avatar.scroll_mold(-1.0, 0.0);
+    assert!(avatar.use_right_hand(&mut world) && (world.constrain_to_surface(target_probe, 0.0).y - (initial_height + 0.25)).abs() < 1e-4);
 }
 
 #[test]

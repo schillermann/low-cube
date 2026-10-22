@@ -55,9 +55,25 @@ impl VoxelShape for GentleRidge {
         color: Vec3,
         target: &mut dyn MeshTarget,
     ) {
+        let [b0, b1, b2, b3] = cell.corner_points(frame, base_elevation);
+        let (s, e) = (self.start_elevation, self.end_elevation);
+        if s <= 0.0 {
+            let (b_peak, b_1, b_2, w1, w2) = match self.heading {
+                CornerHeading::NorthEast => (b2, b1, b3, frame.tangent(), frame.bitangent()),
+                CornerHeading::NorthWest => (b3, b2, b0, frame.bitangent(), -frame.tangent()),
+                CornerHeading::SouthEast => (b1, b0, b2, -frame.bitangent(), frame.tangent()),
+                CornerHeading::SouthWest => (b0, b3, b1, -frame.tangent(), -frame.bitangent()),
+            };
+            let p_peak = b_peak + frame.normal() * e;
+            let slope_norm = (b_2 - b_1).cross(p_peak - b_1).normalize();
+            target.push_quad(Quad::new(b_1, b_2, p_peak, p_peak, slope_norm, color));
+            target.push_quad(Quad::new(b_1, b_peak, p_peak, p_peak, w1, color));
+            target.push_quad(Quad::new(p_peak, b_peak, b_2, b_2, w2, color));
+            target.push_quad(Quad::new(b_1, b_2, b_peak, b_peak, -frame.normal(), color));
+            return;
+        }
         let (u0, u1) = cell.u_bounds();
         let (v0, v1) = cell.v_bounds();
-        let (s, e) = (self.start_elevation, self.end_elevation);
 
         let (h0, h1, h2, h3) = match self.heading {
             CornerHeading::NorthEast => (s, s, e, s),
@@ -85,8 +101,6 @@ impl VoxelShape for GentleRidge {
                 target.push_quad(Quad::new(p0, p2, p3, p3, norm_b, color));
             }
         }
-
-        let [b0, b1, b2, b3] = cell.corner_points(frame, base_elevation);
 
         if h1 > 0.0 || h2 > 0.0 {
             target.push_quad(Quad::new(b1, b2, p2, p1, frame.tangent(), color));

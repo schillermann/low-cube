@@ -37,9 +37,7 @@ impl BeltSatchel {
 
     fn target_mold_sides(&self, attire: YouthAttire) -> (bool, bool) {
         let (r, l) = attire.held_pair();
-        if r.placeable_block() && !l.placeable_block() { (true, false) }
-        else if l.placeable_block() && !r.placeable_block() { (false, true) }
-        else if r.placeable_block() && l.placeable_block() { (self.active_side > 0.0, self.active_side < 0.0) }
+        if r.placeable_block() || l.placeable_block() { (r.placeable_block(), l.placeable_block()) }
         else if self.right_blocks == 0 && self.left_blocks == 0 && self.stowed_earth == 0 && self.stowed_stone == 0 { (true, true) }
         else { (self.active_side > 0.0, self.active_side < 0.0) }
     }
@@ -53,6 +51,8 @@ impl BeltSatchel {
 
     pub fn reconcile_attire(mut self, attire: YouthAttire) -> Self {
         let (r, l) = attire.held_pair();
+        if r.placeable_block() && l.placeable_block() && self.right_blocks == 0 && self.left_blocks > 0 { self.right_mold = self.left_mold; }
+        else if r.placeable_block() && l.placeable_block() && self.left_blocks == 0 && self.right_blocks > 0 { self.left_mold = self.right_mold; }
         self.right_blocks = if r.placeable_block() { self.right_blocks.max(1) } else { 0 };
         self.left_blocks = if l.placeable_block() { self.left_blocks.max(1) } else { 0 };
         if r.gripped() && !r.placeable_block() { self.stowed_tools &= !(1 << r.code()); }
@@ -125,11 +125,13 @@ impl BeltSatchel {
             }
             if side > 0.0 {
                 if r.gripped() { state.stow_relic(r, state.right_blocks); }
+                if chosen.placeable_block() && l.placeable_block() { state.right_mold = state.left_mold; }
                 state.right_blocks = if chosen.placeable_block() { 1 } else { 0 };
                 state.active_side = 1.0; state.open = false;
                 return (state, attire.with_relics(chosen, l), true);
             }
             if l.gripped() { state.stow_relic(l, state.left_blocks); }
+            if chosen.placeable_block() && r.placeable_block() { state.left_mold = state.right_mold; }
             state.left_blocks = if chosen.placeable_block() { 1 } else { 0 };
             state.active_side = -1.0; state.open = false;
             return (state, attire.with_relics(r, chosen), true);
@@ -164,10 +166,12 @@ impl BeltSatchel {
         self.active_side = side;
         if side > 0.0 {
             if r.gripped() && !r.placeable_block() { self.stow_relic(r, 0); }
+            if l.placeable_block() { self.right_mold = self.left_mold; }
             if self.right_blocks == 0 { self.right_blocks = 1; } else { self.stowed_earth += 1; }
             (self, attire.with_relics(HeldRelic::ExcavatedEarth, l))
         } else {
             if l.gripped() && !l.placeable_block() { self.stow_relic(l, 0); }
+            if r.placeable_block() { self.left_mold = self.right_mold; }
             if self.left_blocks == 0 { self.left_blocks = 1; } else { self.stowed_earth += 1; }
             (self, attire.with_relics(r, HeldRelic::ExcavatedEarth))
         }

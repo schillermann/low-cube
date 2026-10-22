@@ -8,6 +8,20 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-10-22
+
+### Added
+- Synchronized dual-hand block molding and rotation (`BeltSatchel::target_mold_sides`, `BeltSatchel::collect_excavated_block`, `BeltSatchel::toggle_pocket`, `BeltSatchel::reconcile_attire`) so scrolling or rotating modifies both held blocks simultaneously when both hands hold blocks, and newly excavated or drawn blocks inherit the opposite hand's form and rotation regardless of material.
+- Lateral side-wall block attachment without ground contact (`SurfaceSightRay::placement_cell`, `TerracedRelief::stack_molded_cell`, `TerracedRelief::emit_molded_top`, `ReliefFacet::emit_facet`) allowing blocks (including `FullCube` and `RidgeCorner`) to be attached horizontally to the topmost block of an elevated pillar with empty air underneath.
+
+### Changed
+- Sculpted `RidgeCorner` and `GentleRidge::lower` with a true triangular base (`Dreieckbodenfläche`) omitting the opposite half-cell triangle while preserving the underlying biome surface color (`surf_col`) on the uncovered ground half when placed on terrain.
+- Removed the redundant third `Latest Build` download button from `README.md`.
+
+### Fixed
+- Corrected inverted cross-product normal on the diagonal slope face of `RidgeCorner::emit_shape` and `GentleRidge::emit_shape` so the diagonal slope points upward and renders on placed blocks.
+- Aligned left and right palm roll and forearm yaw compensation (`BodyPose::external_arm`, `BodyPose::first_person_arm`, `LimbFrame::emit_cradled_block`) so blocks held in both hands display identical 3D orientation.
+
 ## [0.32.0] - 2026-10-22
 
 ### Changed

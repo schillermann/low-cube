@@ -89,3 +89,49 @@ fn test_full_cube_adjacent_to_ridge_corner_seals_wall() {
         "East wall must reach down to 0.0 to seal interior against Ridge-Corner, got {min_elevation}"
     );
 }
+
+#[test]
+fn test_lateral_ridge_corner_attachment_at_highest_pillar_block_without_ground_contact() {
+    use crate::block::{BlockMold, CardinalTurn, MoldArchetype};
+    use crate::Face;
+    use super::FacetedReliefFace;
+
+    let mut face = FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32);
+    let avatar_pos = Vec3::new(0.25, 8.0, 0.25);
+    let eye = Vec3::new(0.25, 8.92, 0.25);
+    let aim_pillar = Vec3::new(0.0, -0.75, -0.75).normalize();
+
+    // Stack 4 full cubes on top of each other at cell (0, -2) -> height 2.0m
+    for _ in 0..4 {
+        assert!(face.place_molded_block(eye, aim_pillar, avatar_pos, BlockMold::cube()));
+    }
+    let pillar_top = face.constrain(Vec3::new(0.25, 12.0, -0.75), 0.0).y - 8.0;
+    assert!((pillar_top - 2.0).abs() < 1e-4, "Four stacked blocks must reach 2.0m");
+
+    // Aim at the topmost 4th block of the pillar and attach RidgeCorner laterally into (0, -1)
+    let aim_high_side = Vec3::new(0.0, 1.35, -1.0).normalize();
+    let ridge_mold = BlockMold::new(MoldArchetype::ConvexRidge, CardinalTurn::Forward);
+    assert!(face.place_molded_block(eye, aim_high_side, avatar_pos, ridge_mold));
+
+    // In cell (0, -1), the attached RidgeCorner is at base 1.5..2.0m on the SouthWest half, while the NorthEast half is open air down to ground 0.0m!
+    let attached_h = face.constrain(Vec3::new(0.05, 12.0, -0.45), 0.0).y - 8.0;
+    let open_ground_h = face.constrain(Vec3::new(0.45, 12.0, -0.05), 0.0).y - 8.0;
+    assert!(attached_h > 1.8, "Laterally attached RidgeCorner must sit at 4th block height (1.5..2.0m), got {attached_h}");
+    assert!(open_ground_h.abs() < 1e-4, "Uncovered half and space beneath RidgeCorner must have ground at 0.0m without ground contact, got {open_ground_h}");
+
+    let mut sink = QuadSink::new();
+    face.emit_surface(&mut sink);
+    let has_floating_underside = sink.quads.iter().any(|q| {
+        q.transfer(|v0, v1, v2, v3, n, _| {
+            n.y < -0.9 && v2 == v3 && (v0.y - 9.5).abs() < 1e-3 && (v1.y - 9.5).abs() < 1e-3
+        })
+    });
+    assert!(has_floating_underside, "Floating RidgeCorner must emit its triangular underside at elevation 1.5m above ground");
+
+    // Also attach a FullCube laterally at the topmost 4th block on the East side of the pillar
+    let eye_east = Vec3::new(1.25, 8.92, -0.75);
+    let aim_east_side = Vec3::new(-1.0, 1.1, 0.0).normalize();
+    assert!(face.place_molded_block(eye_east, aim_east_side, Vec3::new(1.25, 8.0, -0.75), BlockMold::cube()));
+    let attached_cube_h = face.constrain(Vec3::new(0.75, 12.0, -0.75), 0.0).y - 8.0;
+    assert!((attached_cube_h - 2.0).abs() < 1e-4, "Laterally attached FullCube at 4th block must reach 2.0m, got {attached_cube_h}");
+}

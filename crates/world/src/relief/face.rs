@@ -181,9 +181,9 @@ impl Face for FacetedReliefFace {
 
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let half = (self.divisions as i32) / 2;
-        if let Some((cu, cv)) = SurfaceSightRay::new(eye, direction).placement_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5, avatar_pos) {
+        if let Some((cu, cv, base)) = SurfaceSightRay::new(eye, direction).placement_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5, avatar_pos) {
             let shape = mold.shape_for(direction, &self.frame);
-            let changed = self.relief.stack_molded_cell(cu, cv, shape, mold.full_height_flat());
+            let changed = self.relief.stack_molded_cell(cu, cv, base, shape, mold.full_height_flat());
             if changed { self.refresh_rows(cv, half); }
             return changed;
         }

@@ -166,17 +166,18 @@ impl BlockMold {
         }
         let unit_frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
         let shape = self.shape_for(Vec3::NEG_Z, &unit_frame);
-        let r = 0.25 * scale;
-        let b0 = origin + right * (-r) + forward * r;
-        let b1 = origin + right * r + forward * r;
-        let b2 = origin + right * r - forward * r;
-        let b3 = origin + right * (-r) - forward * r;
-        let lift = up * (0.08 * scale);
-        target.push_quad(Quad::new(b0, b3, b2, b1, -up, side_color));
-        target.push_quad(Quad::new(b0, b1, b1 + lift, b0 + lift, forward, side_color));
-        target.push_quad(Quad::new(b1, b2, b2 + lift, b1 + lift, right, side_color));
-        target.push_quad(Quad::new(b2, b3, b3 + lift, b2 + lift, -forward, side_color));
-        target.push_quad(Quad::new(b3, b0, b0 + lift, b3 + lift, -right, side_color));
+        let lift = if matches!(self.archetype, MoldArchetype::ConvexRidge | MoldArchetype::GentleLowerRidge) {
+            Vec3::ZERO
+        } else {
+            let (r, lift) = (0.25 * scale, up * (0.08 * scale));
+            let (b0, b1, b2, b3) = (origin - right * r + forward * r, origin + right * r + forward * r, origin + right * r - forward * r, origin - right * r - forward * r);
+            target.push_quad(Quad::new(b0, b3, b2, b1, -up, side_color));
+            target.push_quad(Quad::new(b0, b1, b1 + lift, b0 + lift, forward, side_color));
+            target.push_quad(Quad::new(b1, b2, b2 + lift, b1 + lift, right, side_color));
+            target.push_quad(Quad::new(b2, b3, b3 + lift, b2 + lift, -forward, side_color));
+            target.push_quad(Quad::new(b3, b0, b0 + lift, b3 + lift, -right, side_color));
+            lift
+        };
         let mut mini = MiniatureTarget { origin: origin + lift, right, up, back: -forward, scale, side_col: side_color, top_col: top_color, out: target };
         shape.emit_shape(GridCell::new(0, 0), 0.0, &unit_frame, side_color, &mut mini);
     }

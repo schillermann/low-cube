@@ -104,6 +104,10 @@ fn test_gentle_wedge_and_corner_shapes() {
 
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
     for heading in [CornerHeading::NorthEast, CornerHeading::NorthWest, CornerHeading::SouthEast, CornerHeading::SouthWest] {
+        let mut quads = Vec::new();
+        super::RidgeCorner::new(heading).emit_shape(super::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut QuadList(&mut quads));
+        assert_eq!(quads.len(), 4);
+        assert!(quads[0].transfer(|_, _, _, _, n, _| n.y > 0.5), "RidgeCorner diagonal slope normal must point upward");
         for concave in [false, true] {
             let mut null = NullSink;
             let mut sink = crate::CountedMeshTarget::new(&mut null);
@@ -111,6 +115,11 @@ fn test_gentle_wedge_and_corner_shapes() {
             assert_eq!(sink.count(), 14, "Every convex and concave StairCorner heading must emit all 14 quads (4 treads + 2 risers + 8 outer walls)");
         }
     }
+}
+
+struct QuadList<'a>(&'a mut Vec<crate::Quad>);
+impl crate::MeshTarget for QuadList<'_> {
+    fn push_quad(&mut self, quad: crate::Quad) { self.0.push(quad); }
 }
 
 struct NullSink;
