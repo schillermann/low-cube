@@ -2,6 +2,7 @@ use glam::Vec3;
 use crate::{MeshTarget, SurfaceFrame};
 use super::arboreal::Arboreal;
 use super::depository::TimberDepository;
+use super::timber_yield::SurfaceFind;
 
 /// Decorator constraining horizontal motion around an arboreal specimen ("Tell, Don't Ask").
 pub struct SolidArboreal {
@@ -33,6 +34,35 @@ impl Arboreal for SolidArboreal {
         } else {
             struck
         }
+    }
+
+    fn cleave_at(
+        &self,
+        eye: Vec3,
+        direction: Vec3,
+        recipient: &mut dyn TimberDepository,
+    ) -> (Box<dyn Arboreal>, bool) {
+        let (struck, hit) = self.origin.cleave_at(eye, direction, recipient);
+        let wrapped: Box<dyn Arboreal> = if struck.standing() {
+            Box::new(Self::new(struck, self.u, self.v, self.radius, self.barrier_height))
+        } else {
+            struck
+        };
+        (wrapped, hit)
+    }
+
+    fn forage_at(&self, eye: Vec3, direction: Vec3) -> (Box<dyn Arboreal>, SurfaceFind) {
+        let (next, find) = self.origin.forage_at(eye, direction);
+        let wrapped: Box<dyn Arboreal> = if next.standing() {
+            Box::new(Self::new(next, self.u, self.v, self.radius, self.barrier_height))
+        } else {
+            next
+        };
+        (wrapped, find)
+    }
+
+    fn step_timber(&mut self, dt: f32) -> bool {
+        self.origin.step_timber(dt)
     }
 
     fn solid(&self) -> bool {

@@ -15,6 +15,7 @@ mod pouch;
 mod proportion;
 mod relic;
 mod sight;
+mod tome;
 #[cfg(test)]
 mod tests;
 
@@ -30,6 +31,7 @@ pub use pouch::BeltSatchel;
 pub use proportion::{BodyRegion, PartProportion, YouthPhysique};
 pub use relic::{HeldRelic, MartialStyle};
 pub use sight::SightMode;
+pub use tome::ArtisanTome;
 
 /// Interface for avatar wardrobe appearance emission.
 pub trait Wardrobe {
@@ -126,7 +128,7 @@ impl YouthAttire {
     pub fn multiplayer_bytes(&self) -> [u8; 9] {
         [
             self.tunic.code(), self.vambrace.code(), self.girdle.code(), self.footwear.code(), self.crown.code(),
-            self.relic.code() + self.offhand.code() * 8, self.pigment.code(), self.complexion.code(), self.physique.code(),
+            self.relic.code() + self.offhand.code() * 16, self.pigment.code(), self.complexion.code(), self.physique.code(),
         ]
     }
 

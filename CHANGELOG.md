@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-22
+
+### Added
+- Interactive medieval Crafting Book (`ArtisanTome`, `CraftingEntry`, `ControlAction::CraftingBook` bound to `KeyC`) displaying craftable tools, weapons, torches, and building blocks with live resource tallies across both hands and stowed satchel slots (`BeltSatchel::resource_tally`, `BeltSatchel::consume_and_equip`).
+- Gatherable forest-floor resources (`FloorLitter`, `SurfaceFind::DeadwoodBough`, `SurfaceFind::FlintStone`, `HeldRelic::DeadwoodBough`, `HeldRelic::FlintStone`) spawning branched deadwood boughs with snapped heartwood ends and leaf buds exclusively within `1.0m` of standing trees, and multi-faceted conchoidal flint nodules with chalky cortex bases and sharp cleavage shards near rocky slopes (`ZonedForest::populate_face`).
+- Tree-felling timber harvest (`CleaveOutcome`, `BeltSatchel::collect_felled_timber`, `HeldRelic::TimberBlock`) awarding 3 `WOOD BLOCK`s into the player's free hand and belt satchel upon felling a tree (`StandingTree::cleave_at`), accompanied by axe-cleave trunk shudder, progressive heartwood V-notches, flying woodchips, and falling leaves (`HewnTimberTarget`).
+- Sculpted 3D wood and plank building blocks (`BlockMedium`, `MediumShape`, `HeldRelic::TimberBlock`, `HeldRelic::PlankBlock`) rendering identical geometry in the hand, satchel, and placed world blocks: `WOOD BLOCK` (`BlockMedium::RawTimber`) with vertical bark ridges and concentric annual rings on top, and craftable `WOOD PLANKS` (`BlockMedium::PlanedPlanks`, yielding 4 planks per wood block) with 4 alternating honey-oak floorboards separated by deep shadow grooves.
+
+### Fixed
+- Doorframe jump-catapulting physics defect (`BodyEnvelope::resolve_step`, `SurfaceSightRay::placement_cell`, `ElevatedShape::constrain_support`, `TerracedRelief::hit_top_at`, `FoldedFace::constrain`) by rejecting sub-`0.30m` horizontal step-ups as vertical walls when squeezing or jumping through 1-block-wide doorframes and enabling underside block attachment to overhead lintels.
+- First-person palm orientation for held deadwood boughs and flint stones (`LimbFrame::palm_cradle`) so foraged items rest horizontally atop the upturned open palm instead of piercing through the hand.
+
 ## [0.35.0] - 2026-10-22
 
 ### Added

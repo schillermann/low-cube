@@ -64,20 +64,21 @@ fn test_mined_block_placed_only_with_same_hand_and_terrain_and_placed_blocks_mod
 
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world) && world.constrain_to_surface(target_probe, 0.0).y < initial_height);
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
     let (mut wedge_fwd_mesh, mut wedge_right_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut wedge_fwd_mesh);
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
     avatar.emit_appearance(&mut wedge_right_mesh);
     let vertices = |ledger: &SurfaceLedger| -> Vec<Vec3> { ledger.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect() };
-    assert_ne!(vertices(&wedge_fwd_mesh), vertices(&wedge_right_mesh), "Rotating molded block must visibly rotate block in hand");
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelUp) && !avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world));
+    assert_ne!(vertices(&wedge_fwd_mesh), vertices(&wedge_right_mesh), "Clicking mouse wheel must visibly rotate block in hand");
+    for _ in 0..3 { assert!(avatar.dispatch_trigger(InputTrigger::WheelClick)); }
+    assert!(!avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world));
     assert!(world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.95), 0.0).y > world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.55), 0.0).y + 0.3);
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world) && !avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world));
     assert!(world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.95), 0.0).y > world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.55), 0.0).y + 0.3);
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world));
-    for _ in 0..14 { assert!(avatar.dispatch_trigger(InputTrigger::WheelClick)); }
+    for _ in 0..2 { assert!(avatar.dispatch_trigger(InputTrigger::WheelUp)); }
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE));
     let (mut closed_mesh, mut open_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut closed_mesh);
@@ -92,12 +93,12 @@ fn test_mined_block_placed_only_with_same_hand_and_terrain_and_placed_blocks_mod
     for _ in 0..2 { assert!(!avatar.use_right_hand(&mut world)); }
     assert!(avatar.use_right_hand(&mut world) && !avatar.release_hand(&mut world) && (world.constrain_to_surface(target_probe, 0.0).y - initial_height).abs() < 1e-4);
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::QuarriedStone, HeldRelic::EmptyPalm));
-    for _ in 0..2 { assert!(avatar.dispatch_trigger(InputTrigger::WheelClick)); }
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
+    for _ in 0..2 { assert!(avatar.dispatch_trigger(InputTrigger::WheelDown)); }
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
     for _ in 0..7 { assert!(!avatar.use_left_hand(&mut world)); }
     assert!(avatar.use_left_hand(&mut world) && !avatar.release_hand(&mut world), "Second hand excavating earth inherits first hand's mold and rotation regardless of material");
     assert!(!avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world) && world.constrain_to_surface(Vec3::new(0.45, 9.0, -0.75), 0.0).y > world.constrain_to_surface(Vec3::new(0.05, 9.0, -0.75), 0.0).y + 0.3);
-    for _ in 0..15 { assert!(avatar.dispatch_trigger(InputTrigger::WheelClick)); }
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelUp));
     assert!(!avatar.use_right_hand(&mut world) && avatar.release_hand(&mut world) && (world.constrain_to_surface(target_probe, 0.0).y - (initial_height + 0.25)).abs() < 1e-4);
 }
 

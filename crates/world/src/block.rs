@@ -14,6 +14,7 @@ mod ridge;
 mod shape;
 mod stair;
 mod stair_corner;
+mod timber_grain;
 mod valley;
 mod wedge;
 
@@ -36,6 +37,7 @@ pub use ridge::RidgeCorner;
 pub use shape::VoxelShape;
 pub use stair::StairFlight;
 pub use stair_corner::StairCorner;
+pub use timber_grain::{BlockMedium, MediumShape};
 pub use valley::ValleyCorner;
 pub use wedge::{RampWedge, WedgeHeading};
 

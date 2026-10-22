@@ -69,7 +69,7 @@ impl SurfaceSightRay {
         None
     }
 
-    /// Resolves a placement cell and base elevation within three-block reach, attaching laterally when aiming at an elevated wall.
+    /// Resolves a placement cell and base elevation within three-block reach, attaching laterally or on the underside of elevated blocks.
     pub fn placement_cell(
         &self,
         frame: &SurfaceFrame,
@@ -81,7 +81,16 @@ impl SurfaceSightRay {
         let (mut cu, mut cv, prev_cu, prev_cv, prev_elev, surf_elev) =
             self.trace_hit(frame, relief, half_blocks, half_size)?;
         let (min_c, max_c) = (-half_blocks + 1, half_blocks - 2);
-        let col_top = ((relief.elevation_at(cu, cv) as f32) * 0.5).max((surf_elev * 2.0).ceil() * 0.5);
+        let ground_top = (relief.elevation_at(cu, cv) as f32) * 0.5;
+        let block_top = ((surf_elev * 2.0).round() * 0.5).max(ground_top);
+        if block_top >= ground_top + 0.95
+            && !relief.layer_occupied_at(cu, cv, block_top - 0.75)
+            && self.direction.dot(frame.normal()) > 0.0
+            && (prev_elev < block_top - 0.48 || (prev_cu, prev_cv) == (cu, cv))
+        {
+            return Some((cu, cv, block_top - 1.0));
+        }
+        let col_top = ground_top.max((surf_elev * 2.0).ceil() * 0.5);
         if (prev_cu, prev_cv) != (cu, cv) && prev_cu >= min_c && prev_cu <= max_c && prev_cv >= min_c && prev_cv <= max_c {
             let ground_prev = (relief.elevation_at(prev_cu, prev_cv) as f32) * 0.5;
             if col_top >= ground_prev + 0.9 && prev_elev >= col_top - 0.55 && prev_elev <= col_top {
@@ -99,7 +108,6 @@ impl SurfaceSightRay {
             }
             return Some((cu, cv, (relief.elevation_at(cu, cv) as f32) * 0.5));
         }
-        let ground_top = (relief.elevation_at(cu, cv) as f32) * 0.5;
-        Some((cu, cv, ((surf_elev * 2.0).round() * 0.5).max(ground_top)))
+        Some((cu, cv, block_top))
     }
 }

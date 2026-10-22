@@ -86,7 +86,7 @@ impl EscapeMenu {
         PixelStamp::title(gold).emit_centered("MAIN MENU", 0.0, 0.35, target);
         Self::resume_button().emit_button("RESUME GAME", self.pointer, Vec3::new(0.18, 0.42, 0.24), false, target);
         Self::character_button().emit_button("CHARACTER", self.pointer, Vec3::new(0.20, 0.32, 0.52), false, target);
-        Self::settings_button().emit_button("SETTINGS", self.pointer, Vec3::new(0.28, 0.26, 0.48), false, target);
+        Self::settings_button().emit_button("KEYBINDINGS", self.pointer, Vec3::new(0.28, 0.26, 0.48), false, target);
         Self::quit_button().emit_button("QUIT GAME", self.pointer, Vec3::new(0.54, 0.18, 0.18), false, target);
     }
 }

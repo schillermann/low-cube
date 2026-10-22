@@ -17,6 +17,14 @@ pub trait ReliefElevation: Send + Sync {
     /// Continuous surface elevation in meters for physical avatar constraint.
     fn surface_height_at(&self, u: f32, v: f32) -> f32;
 
+    /// Continuous supporting surface elevation in meters for an entity at foot_elev with body span.
+    fn support_height_at(&self, u: f32, v: f32, _foot_elev: f32, _body_span: f32) -> f32 {
+        self.surface_height_at(u, v)
+    }
+
+    /// Indicates whether a placed block occupies the vertical layer at (u, v).
+    fn layer_occupied_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> bool { false }
+
     /// Checks whether a 3D sight ray point (u, v, ray_elev) hits solid terrain or a placed block, returning its top elevation.
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         let surf = self.surface_height_at(u, v);

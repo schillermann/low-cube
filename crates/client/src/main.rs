@@ -109,14 +109,8 @@ fn main() {
     event_loop.set_control_flow(ControlFlow::Poll);
 
     let tron = tron_active();
-    let title = if tron {
-        "Low-Cube [TRON] [WASD: Move, Space: Jump, Shift: Sneak, Tab/Q/E: Satchel, MouseWheel: Mold, T: Tron, Esc: Menu]"
-    } else {
-        "Low-Cube [WASD: Move, Space: Jump, Shift: Sneak, Tab/Q/E: Satchel, MouseWheel: Mold, T: Tron, Esc: Menu]"
-    };
-
     let launch = SessionLaunch::with_tron(
-        title,
+        "LowCube",
         1280.0,
         720.0,
         world_scale(),

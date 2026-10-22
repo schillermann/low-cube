@@ -109,3 +109,46 @@ fn test_server_physics_fallback_chain() {
     let final_y = evaluate_leap(&server_physics);
     assert_eq!(final_y, 9.5);
 }
+
+#[test]
+fn test_doorframe_blocks_one_block_narrow_gap_and_low_lintel_but_allows_two_block_wide_four_block_high_doorway() {
+    use world::{BlockMold, Face, FacetedReliefFace};
+
+    let mut face = FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32);
+    let (avatar_pos, eye) = (Vec3::new(0.25, 8.0, 0.75), Vec3::new(0.25, 8.92, 0.75));
+    // Build left pillar at u = -1 (x in [-0.5, 0.0], z in [-0.5, 0.0]) and right pillar at u = 1 (x in [0.5, 1.0], z in [-0.5, 0.0]) with overhead lintel -> 1-block (0.5m) doorframe at u = 0
+    for _ in 0..5 {
+        assert!(face.place_molded_block(Vec3::new(-0.25, 8.92, 0.75), Vec3::new(0.0, -0.75, -0.75).normalize(), avatar_pos, BlockMold::cube()));
+        assert!(face.place_molded_block(Vec3::new(0.75, 8.92, 0.75), Vec3::new(0.0, -0.75, -0.75).normalize(), avatar_pos, BlockMold::cube()));
+    }
+    assert!(face.place_molded_block(Vec3::new(0.25, 8.92, -0.25), Vec3::new(-1.0, 1.45, 0.0).normalize(), avatar_pos, BlockMold::cube()));
+    let narrow_world = CubePlanet::new(vec![Box::new(face)], Box::new(NullFace));
+    let mut flight = EarthPhysics::new().surface_flight(1.0);
+    let mut pos = narrow_world.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 1.0);
+    let base_y = pos.y;
+    for step in 0..45 {
+        if step == 10 {
+            flight.jump();
+        }
+        pos = flight.advance(1.0 / 60.0, pos, Vec3::new(0.0, 0.0, -0.05), &WalkGait::upright(), Vec3::Y, &narrow_world);
+    }
+    assert!(
+        pos.z > -0.10 && pos.y <= base_y + 0.60,
+        "1-block-wide (0.5m) doorway must block walking and jumping without catapulting avatar over lintel, got {pos:?}"
+    );
+
+    // Build 2-block-wide doorway (pillars at u = -1 and u = 2, opening at u = 0..1 -> x in [0.0, 1.0]) with 5th-block lintel (2.0m clearance)
+    let mut wide_face = FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32);
+    for _ in 0..5 {
+        assert!(wide_face.place_molded_block(Vec3::new(-0.25, 8.92, 0.75), Vec3::new(0.0, -0.75, -0.75).normalize(), avatar_pos, BlockMold::cube()));
+        assert!(wide_face.place_molded_block(Vec3::new(1.25, 8.92, 0.75), Vec3::new(0.0, -0.75, -0.75).normalize(), avatar_pos, BlockMold::cube()));
+    }
+    assert!(wide_face.place_molded_block(Vec3::new(0.75, 8.92, -0.25), Vec3::new(-1.0, 1.45, 0.0).normalize(), avatar_pos, BlockMold::cube()));
+    let wide_world = CubePlanet::new(vec![Box::new(wide_face)], Box::new(NullFace));
+    let mut wide_pos = wide_world.constrain_to_surface(Vec3::new(0.50, 12.0, 0.25), 1.0);
+    for _ in 0..30 {
+        wide_pos = flight.advance(1.0 / 60.0, wide_pos, Vec3::new(0.0, 0.0, -0.05), &WalkGait::upright(), Vec3::Y, &wide_world);
+    }
+    assert!(wide_pos.z < -0.50 && (wide_pos.y - base_y).abs() < 0.05, "2-block-wide doorway with 4-block vertical clearance must allow passage, got {wide_pos:?}");
+    let _ = eye;
+}

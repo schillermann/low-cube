@@ -117,8 +117,8 @@ impl Face for FacetedReliefFace {
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
         let (u, v) = self.frame.decompose(point);
-        let surface_h = self.relief.surface_height_at(u, v);
         let current_h = self.frame.height_of(point);
+        let surface_h = self.relief.support_height_at(u, v, self.frame.elevation_of(point) - distance, distance);
         let depth_h = self.cavity.constrain_depth(u, v, current_h, surface_h);
         self.frame.point_at(u, v, depth_h + distance)
     }

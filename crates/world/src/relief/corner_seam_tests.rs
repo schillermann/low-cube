@@ -176,3 +176,22 @@ fn test_ridge_corner_stacked_on_ridge_corner_preserves_lower_block() {
     assert_eq!(terraced.hit_top_at(1.25, 1.25, 0.75), None, "Excavated penultimate block slot 0.5..1.0 must now be empty air");
     assert_eq!(terraced.hit_top_at(1.25, 1.25, 1.25), Some(1.5), "Topmost block at 1.0..1.5 must still be hit by sight rays");
 }
+
+#[test]
+fn test_underside_block_attachment_and_doorframe_lintel_passage() {
+    use crate::block::BlockMold;
+    use crate::Face;
+    use super::FacetedReliefFace;
+
+    let mut face = FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32);
+    let (avatar_pos, eye) = (Vec3::new(0.25, 8.0, 0.25), Vec3::new(0.25, 8.92, 0.25));
+    for _ in 0..5 { assert!(face.place_molded_block(eye, Vec3::new(0.0, -0.75, -0.75).normalize(), avatar_pos, BlockMold::cube())); }
+    assert!(face.place_molded_block(eye, Vec3::new(0.0, 1.85, -1.0).normalize(), avatar_pos, BlockMold::cube()));
+    let under_pos = Vec3::new(0.25, 8.0, -0.25);
+    assert!((face.constrain(Vec3::new(0.25, 9.0, -0.25), 1.0).y - 9.0).abs() < 1e-4, "Avatar must walk freely under lintel at 5th block height (2.0m clearance)");
+    assert!((face.constrain(Vec3::new(0.25, 11.5, -0.25), 1.0).y - 11.5).abs() < 1e-4, "Avatar on roof must stand on top of lintel");
+    assert!(face.place_molded_block(Vec3::new(0.25, 9.80, -0.25), Vec3::Y, under_pos, BlockMold::cube()), "Must attach block directly overhead to lintel underside");
+    assert!(face.constrain(Vec3::new(0.25, 9.0, -0.25), 1.0).y > 10.5, "Lintel lowered to 4th block (1.5m clearance, head height) must block passage");
+    assert!(face.place_molded_block(Vec3::new(0.25, 8.80, -0.25), Vec3::Y, under_pos, BlockMold::cube()), "Must attach 2nd block from below reducing clearance to 1.0m");
+    assert!(face.constrain(Vec3::new(0.25, 9.0, -0.25), 1.0).y > 10.5, "Low block with 1.0m clearance must block passage underneath");
+}

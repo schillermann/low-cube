@@ -79,15 +79,21 @@ impl ReliefElevation for TerracedRelief {
 
     fn elevation_at(&self, u: i32, v: i32) -> i32 { self.natural_elevation_at(u, v) + self.delta_at(u, v) }
 
-    fn surface_height_at(&self, u: f32, v: f32) -> f32 {
+    fn surface_height_at(&self, u: f32, v: f32) -> f32 { self.support_height_at(u, v, 0.0, 0.0) }
+
+    fn support_height_at(&self, u: f32, v: f32, foot_elev: f32, body_span: f32) -> f32 {
         if self.deltas.is_empty() && self.molds.is_empty() { return self.origin.surface_height_at(u, v); }
         let (cell_u, cell_v) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32);
         let mut h = if self.reworked_at(cell_u, cell_v) { (self.elevation_at(cell_u, cell_v) as f32) * 0.5 } else { self.origin.surface_height_at(u, v) };
         if let Some(list) = self.molds.get(&(cell_u, cell_v)) {
             let (fu, fv) = ((u * 2.0 - cell_u as f32).clamp(0.0, 1.0), (v * 2.0 - cell_v as f32).clamp(0.0, 1.0));
-            for block in list { h = h.max(block.elevation_at(fu, fv)); }
+            for block in list { h = block.constrain_support(fu, fv, h, foot_elev, body_span); }
         }
         h
+    }
+
+    fn layer_occupied_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
+        self.molds.get(&(u, v)).is_some_and(|l| l.iter().any(|b| b.occupies_layer(layer_elev)))
     }
 
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
@@ -135,7 +141,7 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn dig_stage_at(&self, u: i32, v: i32) -> u8 {
-        if self.dig_stage.0 == (u, v) && self.molds.get(&(u, v)).is_none_or(|l| !l.iter().any(|b| b.occupies_layer(self.dig_stage.1))) { self.dig_stage.2 } else { 0 }
+        if self.dig_stage.0 == (u, v) && !self.layer_occupied_at(u, v, self.dig_stage.1) { self.dig_stage.2 } else { 0 }
     }
 
     fn mark_dig_stage(&mut self, u: i32, v: i32, stage: u8) -> (i32, bool) { self.mark_dig_layer(u, v, self.top_layer_at(u, v), stage) }
@@ -179,11 +185,11 @@ impl ReliefElevation for TerracedRelief {
     fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool {
         let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
         let mut next_base = base.max(ground_top);
-        while self.molds.get(&(u, v)).is_some_and(|l| l.iter().any(|s| s.occupies_layer(next_base + 0.25))) {
-            next_base += 0.5;
-        }
+        while self.layer_occupied_at(u, v, next_base + 0.25) { next_base += 0.5; }
         if next_base >= 16.0 { return false; }
-        self.molds.entry((u, v)).or_default().push(ElevatedShape::new(shape, next_base));
+        let list = self.molds.entry((u, v)).or_default();
+        list.push(ElevatedShape::new(shape, next_base));
+        list.sort_by(|a, b| a.ceiling_above(ground_top).total_cmp(&b.ceiling_above(ground_top)));
         self.bare_dirt.insert((u, v), 0.0);
         if self.dig_stage.0 == (u, v) { self.dig_stage = ((u, v), 0.0, 0); }
         true

@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
-use crate::{BlockMold, Face, MeshTarget};
+use crate::{BlockMold, CleaveOutcome, Face, MeshTarget, SurfaceFind};
 use super::{ClimateZone, FacePerimeter, PerimeterCrossing, PlanetaryTopology, SeamFold};
 
 /// Decorator enabling seamless 90° coordinate folding across outer perimeter boundaries.
@@ -80,6 +80,14 @@ impl Face for FoldedFace {
 
     fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
         self.origin.loosen(eye, direction, stage)
+    }
+
+    fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
+        self.origin.strike_timber(eye, direction)
+    }
+
+    fn forage_timber(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
+        self.origin.forage_timber(eye, direction)
     }
 
     fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {

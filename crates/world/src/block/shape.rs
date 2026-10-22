@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::MeshTarget;
+use crate::{MeshTarget, TurfMeshTarget};
 use super::cell::GridCell;
 use crate::frame::SurfaceFrame;
 
@@ -15,4 +15,18 @@ pub trait VoxelShape: Send + Sync {
         color: Vec3,
         target: &mut dyn MeshTarget,
     );
+    fn emit_terraced_shape(
+        &self,
+        cell: GridCell,
+        base_elevation: f32,
+        frame: &SurfaceFrame,
+        top_color: Vec3,
+        wall_color: Vec3,
+        target: &mut dyn MeshTarget,
+    ) {
+        let corners = cell.corner_points(frame, base_elevation);
+        let mut turf = TurfMeshTarget::new(target, frame.normal(), corners, top_color, wall_color, false);
+        self.emit_shape(cell, base_elevation, frame, wall_color, &mut turf);
+        turf.seal_underside();
+    }
 }

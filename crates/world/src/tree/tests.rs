@@ -137,5 +137,61 @@ fn test_biomed_cube_world_contains_trees_across_biomes() {
     );
 }
 
+#[test]
+fn test_axe_cleave_shudder_heartwood_notch_woodchips_and_falling_leaves() {
+    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 16.0);
+    let forest = ZonedForest::new(ClimateZone::Temperate);
+    let tree: Box<dyn Arboreal> = forest.plant(frame, 0.25, 0.25, 0.0);
+    let mut untouched = TestMeshTarget::empty();
+    tree.emit_surface(&mut untouched);
+
+    let mut depository = TestDepository::empty();
+    let eye = frame.point_at(0.25, 1.45, 0.90);
+    let dir = (frame.point_at(0.25, 0.25, 0.65) - eye).normalize();
+    let (mut struck_once, hit) = tree.cleave_at(eye, dir, &mut depository);
+    assert!(hit && struck_once.standing(), "Axe swing within reach must cleave tree and keep it standing on 1st strike");
+
+    let mut notched_shuddering = TestMeshTarget::empty();
+    struck_once.emit_surface(&mut notched_shuddering);
+    assert!(
+        notched_shuddering.count() >= untouched.count() + 14,
+        "Struck tree must emit recessed heartwood notch quads plus flying woodchips and falling leaves"
+    );
+    let has_heartwood = notched_shuddering.quads.iter().any(|q| {
+        q.transfer(|_, _, _, _, _, col| (col - Vec3::new(0.88, 0.74, 0.48)).length() < 0.05)
+    });
+    assert!(has_heartwood, "Axe notch must expose bright heartwood inside the trunk");
+
+    for _ in 0..35 {
+        let _ = struck_once.step_timber(1.0 / 60.0);
+    }
+    assert!(!struck_once.step_timber(1.0 / 60.0), "Shudder and falling particles must settle after animation completes");
+    let mut settled_notched = TestMeshTarget::empty();
+    struck_once.emit_surface(&mut settled_notched);
+    assert!(
+        settled_notched.count() > untouched.count() && settled_notched.count() < notched_shuddering.count(),
+        "Settled tree must retain its carved heartwood notch after woodchips and falling leaves finish"
+    );
+
+    let (struck_twice, hit2) = struck_once.cleave_at(eye, dir, &mut depository);
+    let (mut felled_plot, hit3) = struck_twice.cleave_at(eye, dir, &mut depository);
+    assert!(hit2 && hit3 && !felled_plot.standing(), "Third axe cleave must fell the oak tree");
+    let mut final_burst = TestMeshTarget::empty();
+    felled_plot.emit_surface(&mut final_burst);
+    assert!(final_burst.count() >= 10, "Fatal axe blow must emit final burst of woodchips and falling leaves");
+    for _ in 0..35 {
+        let _ = felled_plot.step_timber(1.0 / 60.0);
+    }
+    let mut cleared = TestMeshTarget::empty();
+    felled_plot.emit_surface(&mut cleared);
+    assert!(cleared.count() >= 10, "Cleared plot must retain a fallen DeadwoodBough after final burst settles");
+    let ground_aim = (frame.point_at(0.25, 0.25, 0.08) - eye).normalize();
+    let (foraged_plot, find) = felled_plot.forage_at(eye, ground_aim);
+    assert_eq!(find, crate::SurfaceFind::DeadwoodBough, "Foraging a felled plot must yield a DeadwoodBough");
+    let mut bare_plot = TestMeshTarget::empty();
+    foraged_plot.emit_surface(&mut bare_plot);
+    assert_eq!(bare_plot.count(), 0, "Plot must be completely empty after foraging the fallen DeadwoodBough");
+}
+
 
 

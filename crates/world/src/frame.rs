@@ -35,6 +35,11 @@ impl SurfaceFrame {
         point.dot(self.normal)
     }
 
+    /// Projects elevation above the base face datum along the surface normal axis.
+    pub fn elevation_of(&self, point: Vec3) -> f32 {
+        point.dot(self.normal) - self.half_size
+    }
+
     pub fn normal(&self) -> Vec3 {
         self.normal
     }

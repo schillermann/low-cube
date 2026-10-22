@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{BlockMold, Face, GravityField, MeshTarget, PlanetaryWorld};
+use crate::{BlockMold, CleaveOutcome, Face, GravityField, MeshTarget, PlanetaryWorld, SurfaceFind};
 
 /// A cubic planetary world composed of polymorphic Face instances with Dependency Injection.
 pub struct CubePlanet {
@@ -88,6 +88,16 @@ impl PlanetaryWorld for CubePlanet {
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
         self.modified_face = self.matching_index(eye);
         self.active_face_mut(eye).loosen(eye, direction, stage)
+    }
+
+    fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
+        self.modified_face = self.matching_index(eye);
+        self.active_face_mut(eye).strike_timber(eye, direction)
+    }
+
+    fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
+        self.modified_face = self.matching_index(eye);
+        self.active_face_mut(eye).forage_timber(eye, direction)
     }
 
     fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {

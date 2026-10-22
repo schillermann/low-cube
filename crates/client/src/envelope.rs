@@ -64,7 +64,22 @@ impl PhysicalEnvelope for BodyEnvelope {
             return true;
         }
         let dir = tangent.normalize();
-        let mid_surface = world.constrain_to_surface(candidate + dir * (self.radius * 0.5), eye);
+        let right = dir.cross(up).normalize_or_zero();
+        let origin = candidate - step;
+        let ahead = candidate + dir * (self.radius * 0.5);
+        for side in [-0.26_f32, 0.26_f32] {
+            let lateral = right * side;
+            let side_surf = world.constrain_to_surface(ahead + lateral, eye);
+            let orig_surf = world.constrain_to_surface(origin + lateral, eye);
+            if up.dot(world.surface_up_at(side_surf)) >= 0.7
+                && (side_surf - surface_pos).dot(up) > 0.55
+                && !SurfaceStep::new(surface_pos, side_surf, up).walkable_with(limit)
+                && (orig_surf - surface_pos).dot(up) <= 0.55
+            {
+                return false;
+            }
+        }
+        let mid_surface = world.constrain_to_surface(ahead, eye);
         let probe_surface = world.constrain_to_surface(candidate + dir * self.radius, eye);
         if up.dot(world.surface_up_at(probe_surface)) < 0.7 {
             return true;
@@ -76,7 +91,7 @@ impl PhysicalEnvelope for BodyEnvelope {
 
     fn unobstructed_aerial(
         &self,
-        _origin: Vec3,
+        origin: Vec3,
         candidate: Vec3,
         tangent: Vec3,
         up: Vec3,
@@ -90,6 +105,20 @@ impl PhysicalEnvelope for BodyEnvelope {
         let candidate_surf = world.constrain_to_surface(candidate, eye);
         let base = if (candidate_surf - candidate).dot(up) > 0.0 { candidate_surf } else { candidate };
         let dir = tangent.normalize();
+        let right = dir.cross(up).normalize_or_zero();
+        let ahead = candidate + dir * (self.radius * 0.5);
+        for side in [-0.26_f32, 0.26_f32] {
+            let lateral = right * side;
+            let side_surf = world.constrain_to_surface(ahead + lateral, eye);
+            let orig_surf = world.constrain_to_surface(origin + lateral, eye);
+            if up.dot(world.surface_up_at(side_surf)) >= 0.7
+                && (side_surf - candidate).dot(up) > 0.45
+                && !SurfaceStep::new(orig_surf, side_surf, up).walkable_with(limit)
+                && (orig_surf - origin).dot(up) <= 0.45
+            {
+                return false;
+            }
+        }
         let mid = base + dir * (self.radius * 0.5);
         let probe = base + dir * self.radius;
         let mid_surface = world.constrain_to_surface(mid, eye);

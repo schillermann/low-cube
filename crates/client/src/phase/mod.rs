@@ -135,6 +135,20 @@ impl AirborneFlight {
         let supported = ctx.constrain_surface(rebound);
         let clearance = ctx.clearance(rebound, supported);
 
+        if clearance.cliff_impact(self.threshold) {
+            let unlifted = rebound - surface_up * vertical_step.dot(surface_up).max(0.0);
+            let bonked = if ctx.clearance(unlifted, ctx.constrain_surface(unlifted)).cliff_impact(self.threshold) {
+                ctx.candidate_point(Vec3::ZERO) + surface_up * vertical_step.dot(surface_up).min(0.0)
+            } else {
+                unlifted
+            };
+            let next_momentum = ctx.damp_aerial_momentum(self.momentum);
+            return FlightProgress::new(
+                FlightPhase::Airborne(AirborneFlight::with_momentum(next_speed.min(0.0), next_momentum, self.threshold)),
+                bonked,
+            );
+        }
+
         let penetration = (supported - rebound).dot(surface_up);
         let safe_rebound = if penetration > 0.0 {
             supported

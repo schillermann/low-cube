@@ -1,11 +1,32 @@
 use glam::Vec3;
 use crate::{MeshTarget, SurfaceFrame};
 use super::depository::TimberDepository;
+use super::timber_yield::SurfaceFind;
 
 /// Core interface representing an arboreal living or harvested entity.
 pub trait Arboreal: Send + Sync {
     /// Strikes the entity with cutting impact, transferring yields and transitioning state.
     fn strike(&self, cleave: u32, recipient: &mut dyn TimberDepository) -> Box<dyn Arboreal>;
+
+    /// Evaluates a directional axe swing from eye along direction, cleaving when within reach.
+    fn cleave_at(
+        &self,
+        _eye: Vec3,
+        _direction: Vec3,
+        _recipient: &mut dyn TimberDepository,
+    ) -> (Box<dyn Arboreal>, bool) {
+        (self.strike(0, _recipient), false)
+    }
+
+    /// Evaluates a hand-foraging reach from eye along direction, yielding a gathered ground resource.
+    fn forage_at(&self, _eye: Vec3, _direction: Vec3) -> (Box<dyn Arboreal>, SurfaceFind) {
+        (self.strike(0, &mut super::depository::WoodlandDepository::new()), SurfaceFind::EmptyHanded)
+    }
+
+    /// Advances active strike shudder, woodchip spray, and falling foliage across elapsed time.
+    fn step_timber(&mut self, _dt: f32) -> bool {
+        false
+    }
 
     /// Indicates whether this entity presents a solid physical obstacle.
     fn solid(&self) -> bool;

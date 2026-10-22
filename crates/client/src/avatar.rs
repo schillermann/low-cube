@@ -96,7 +96,7 @@ impl PlanetaryAvatar {
     }
 
     fn act_with_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.earthworks.satchel_open() { return false; }
+        if self.earthworks.satchel_open() && !self.earthworks.tome_open() { return false; }
         let eye = self.current_pose().eye_origin();
         let view_dir = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
         let (next_ew, next_attire, next_rhythm, changed) =

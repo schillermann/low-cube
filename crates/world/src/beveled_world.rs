@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
-    BlockMold, ClimateZone, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology,
-    PlanetaryWorld, SeamBevel,
+    BlockMold, CleaveOutcome, ClimateZone, GravityField, MeshTarget, PerimeterEdge,
+    PlanetaryTopology, PlanetaryWorld, SeamBevel, SurfaceFind,
 };
 
 /// Decorator enabling smooth, continuous surface normal transitions in bevel zones across planetary seams.
@@ -85,6 +85,14 @@ impl PlanetaryWorld for BeveledWorld {
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
         self.world.loosen_surface(eye, direction, stage)
+    }
+
+    fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
+        self.world.strike_timber(eye, direction)
+    }
+
+    fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
+        self.world.forage_surface(eye, direction)
     }
 
     fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {

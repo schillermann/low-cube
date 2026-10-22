@@ -13,35 +13,21 @@ use super::ridge::RidgeCorner;
 use super::shape::VoxelShape;
 use super::stair::StairFlight;
 use super::stair_corner::StairCorner;
+use super::timber_grain::{BlockMedium, MediumShape};
 use super::valley::ValleyCorner;
 use super::wedge::{RampWedge, WedgeHeading};
 
 /// Four-way 90-degree horizontal rotation relative to the placement sight direction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CardinalTurn {
-    Forward,
-    Right,
-    Backward,
-    Left,
-}
+pub enum CardinalTurn { Forward, Right, Backward, Left }
 
 impl CardinalTurn {
     pub const fn turn_clockwise(self) -> Self {
-        match self {
-            Self::Forward => Self::Right,
-            Self::Right => Self::Backward,
-            Self::Backward => Self::Left,
-            Self::Left => Self::Forward,
-        }
+        match self { Self::Forward => Self::Right, Self::Right => Self::Backward, Self::Backward => Self::Left, Self::Left => Self::Forward }
     }
 
     pub const fn turn_counter_clockwise(self) -> Self {
-        match self {
-            Self::Forward => Self::Left,
-            Self::Right => Self::Forward,
-            Self::Backward => Self::Right,
-            Self::Left => Self::Backward,
-        }
+        match self { Self::Forward => Self::Left, Self::Right => Self::Forward, Self::Backward => Self::Right, Self::Left => Self::Backward }
     }
 
     /// Rotates a 3D look direction around the surface normal in 90-degree increments.
@@ -90,24 +76,33 @@ impl MoldArchetype {
     pub const fn full_height_flat(self) -> bool { matches!(self, Self::FullCube) }
 }
 
-/// Immutable palm-molded block specification pairing form archetype with 4-way directional turn.
+/// Immutable palm-molded block specification pairing form archetype, 4-way directional turn, and material medium.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BlockMold {
     archetype: MoldArchetype,
     turn: CardinalTurn,
+    medium: BlockMedium,
 }
 
 impl BlockMold {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(archetype: MoldArchetype, turn: CardinalTurn) -> Self { Self { archetype, turn } }
+    /// Primary constructor assigning archetype, turn, and medium.
+    pub const fn with_medium(archetype: MoldArchetype, turn: CardinalTurn, medium: BlockMedium) -> Self {
+        Self { archetype, turn, medium }
+    }
+
+    /// Secondary constructor initializing a turf-earth mold with archetype and turn.
+    pub const fn new(archetype: MoldArchetype, turn: CardinalTurn) -> Self {
+        Self::with_medium(archetype, turn, BlockMedium::TurfEarth)
+    }
 
     /// Secondary constructor initializing a forward-facing full cube mold.
     pub const fn cube() -> Self { Self::new(MoldArchetype::FullCube, CardinalTurn::Forward) }
 
-    pub const fn next_form(self) -> Self { Self::new(self.archetype.next(), self.turn) }
-    pub const fn prev_form(self) -> Self { Self::new(self.archetype.prev(), self.turn) }
-    pub const fn turn_clockwise(self) -> Self { Self::new(self.archetype, self.turn.turn_clockwise()) }
-    pub const fn turn_counter_clockwise(self) -> Self { Self::new(self.archetype, self.turn.turn_counter_clockwise()) }
+    pub const fn in_medium(self, medium: BlockMedium) -> Self { Self::with_medium(self.archetype, self.turn, medium) }
+    pub const fn next_form(self) -> Self { Self::with_medium(self.archetype.next(), self.turn, self.medium) }
+    pub const fn prev_form(self) -> Self { Self::with_medium(self.archetype.prev(), self.turn, self.medium) }
+    pub const fn turn_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_clockwise(), self.medium) }
+    pub const fn turn_counter_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_counter_clockwise(), self.medium) }
     pub const fn full_height_flat(self) -> bool { self.archetype.full_height_flat() }
 
     /// Resolves the concrete VoxelShape oriented along the placement direction and current turn.
@@ -123,7 +118,7 @@ impl BlockMold {
             WedgeHeading::South => CornerHeading::SouthWest,
             WedgeHeading::West => CornerHeading::NorthWest,
         };
-        match self.archetype {
+        let raw: Box<dyn VoxelShape> = match self.archetype {
             MoldArchetype::FullCube => Box::new(CuboidShape::full_cube()),
             MoldArchetype::HalfSlab => Box::new(CuboidShape::half_slab()),
             MoldArchetype::RampWedge => Box::new(RampWedge::new(wedge)),
@@ -140,6 +135,12 @@ impl BlockMold {
             MoldArchetype::GentleUpperValley => Box::new(GentleValley::upper(corner)),
             MoldArchetype::ConvexStairCorner => Box::new(StairCorner::convex(corner)),
             MoldArchetype::ConcaveStairCorner => Box::new(StairCorner::concave(corner)),
+        };
+        if self.medium.self_pigmented() {
+            let cross_grain = matches!(wedge, WedgeHeading::East | WedgeHeading::West);
+            Box::new(MediumShape::new(raw, self.medium, self.full_height_flat(), cross_grain))
+        } else {
+            raw
         }
     }
 
@@ -151,22 +152,23 @@ impl BlockMold {
     ) {
         struct MiniatureTarget<'a> {
             origin: Vec3, right: Vec3, up: Vec3, back: Vec3,
-            scale: f32, side_col: Vec3, top_col: Vec3, out: &'a mut dyn MeshTarget,
+            scale: f32, side_col: Vec3, top_col: Vec3, self_pigmented: bool, out: &'a mut dyn MeshTarget,
         }
         impl MeshTarget for MiniatureTarget<'_> {
             fn push_quad(&mut self, quad: Quad) {
                 let map_pt = |p: Vec3| self.origin + self.right * ((p.x - 0.25) * self.scale) + self.up * (p.y * self.scale) + self.back * ((p.z - 0.25) * self.scale);
                 let map_n = |n: Vec3| (self.right * n.x + self.up * n.y + self.back * n.z).normalize_or_zero();
-                let mapped = quad.transfer(|v0, v1, v2, v3, n, _| {
-                    let col = if n.y > 0.25 { self.top_col } else { self.side_col };
-                    Quad::new(map_pt(v0), map_pt(v1), map_pt(v2), map_pt(v3), map_n(n), col)
+                let mapped = quad.transfer(|v0, v1, v2, v3, n, col| {
+                    let c = if self.self_pigmented { col } else if n.y > 0.25 { self.top_col } else { self.side_col };
+                    Quad::new(map_pt(v0), map_pt(v1), map_pt(v2), map_pt(v3), map_n(n), c)
                 });
                 self.out.push_quad(mapped);
             }
         }
         let unit_frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
         let shape = self.shape_for(Vec3::NEG_Z, &unit_frame);
-        let lift = if matches!(self.archetype, MoldArchetype::ConvexRidge | MoldArchetype::GentleLowerRidge) {
+        let self_pigmented = self.medium.self_pigmented();
+        let lift = if self_pigmented || matches!(self.archetype, MoldArchetype::ConvexRidge | MoldArchetype::GentleLowerRidge) {
             Vec3::ZERO
         } else {
             let (r, lift) = (0.25 * scale, up * (0.08 * scale));
@@ -178,7 +180,7 @@ impl BlockMold {
             target.push_quad(Quad::new(b3, b0, b0 + lift, b3 + lift, -right, side_color));
             lift
         };
-        let mut mini = MiniatureTarget { origin: origin + lift, right, up, back: -forward, scale, side_col: side_color, top_col: top_color, out: target };
+        let mut mini = MiniatureTarget { origin: origin + lift, right, up, back: -forward, scale, side_col: side_color, top_col: top_color, self_pigmented, out: target };
         shape.emit_shape(GridCell::new(0, 0), 0.0, &unit_frame, side_color, &mut mini);
     }
 }

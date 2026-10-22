@@ -48,11 +48,16 @@ impl LimbFrame {
         Self::new(self.origin, next_right, self.up, next_fwd)
     }
 
-    /// Emits a palm-molded block resting upright on the hollow upturned surface of the left or right palm.
-    pub fn emit_cradled_block(&self, side: f32, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
+    /// Constructs a local coordinate frame resting atop the upturned hollow of the palm (`up` pointing out of the palm).
+    pub fn palm_cradle(&self, side: f32, local_origin: Vec3) -> Self {
         let center = self.point(local_origin.x, local_origin.y, local_origin.z);
         let (s, c, r, u) = ((side * 0.198).sin(), (side * 0.198).cos(), self.up * side, -self.right * side);
-        mold.emit_miniature(center, r * c - self.forward * s, u, self.forward * c + r * s, scale, side_col, top_col, target);
+        Self::new(center, r * c - self.forward * s, u, self.forward * c + r * s)
+    }
+
+    /// Emits a palm-molded block resting upright on the hollow upturned surface of the left or right palm.
+    pub fn emit_cradled_block(&self, side: f32, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
+        self.palm_cradle(side, local_origin).emit_upright_block(Vec3::ZERO, mold, scale, side_col, top_col, target);
     }
 
     /// Emits a 3D molded block aligned directly with this frame's right, up, and forward axes.

@@ -1,49 +1,45 @@
 use glam::Vec3;
-use world::{BlockMold, MeshTarget, PlanetaryWorld};
-use crate::attire::{BeltSatchel, BodyPose, FacetedSolid, LimbFrame, SatchelWardrobe, SightMode, StrideRhythm, TaperedPrism, Wardrobe, YouthAttire};
+use world::{BlockMold, MeshTarget, PlanetaryWorld, SurfaceFind};
+use crate::attire::{ArtisanTome, BeltSatchel, BodyPose, FacetedSolid, HeldRelic, LimbFrame, SatchelWardrobe, SightMode, StrideRhythm, TaperedPrism, Wardrobe, YouthAttire};
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 
 const EXCAVATION_THRESHOLD: u32 = 8;
 
-/// Immutable dual-hand block inventory, satchel inspection state, per-hand block molds, and excavation progress ("Tell, Don't Ask").
+/// Immutable dual-hand block inventory, satchel inspection state, crafting tome, per-hand block molds, and excavation progress ("Tell, Don't Ask").
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PalmEarthworks {
-    satchel: BeltSatchel, dig_progress: u32, held_mask: u8, dig_site: Vec3, splash_active: bool,
+    satchel: BeltSatchel, tome: ArtisanTome, dig_progress: u32, held_mask: u8, dig_site: Vec3, splash_active: bool,
 }
 
 impl PalmEarthworks {
-    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_tome(satchel: BeltSatchel, tome: ArtisanTome, dig_progress: u32, held_mask: u8, dig_site: Vec3, splash_active: bool) -> Self {
+        Self { satchel, tome, dig_progress, held_mask, dig_site, splash_active }
+    }
     pub const fn new(satchel: BeltSatchel, dig_progress: u32, held_mask: u8, dig_site: Vec3, splash_active: bool) -> Self {
-        Self { satchel, dig_progress, held_mask, dig_site, splash_active }
+        Self::with_tome(satchel, ArtisanTome::closed(), dig_progress, held_mask, dig_site, splash_active)
     }
-
-    /// Secondary constructor initializing empty hands and satchel with forward full-cube molds.
     pub const fn empty() -> Self { Self::new(BeltSatchel::empty(), 0, 0, Vec3::ZERO, false) }
-    pub const fn satchel_open(&self) -> bool { self.satchel.open() }
+    pub const fn satchel_open(&self) -> bool { self.satchel.open() || self.tome.open() }
+    pub const fn tome_open(&self) -> bool { self.tome.open() }
+    pub fn mold_next_form(self, attire: YouthAttire) -> Self { Self::with_tome(self.satchel.map_mold(attire, BlockMold::next_form), self.tome, self.dig_progress, self.held_mask, self.dig_site, self.splash_active) }
+    pub fn mold_prev_form(self, attire: YouthAttire) -> Self { Self::with_tome(self.satchel.map_mold(attire, BlockMold::prev_form), self.tome, self.dig_progress, self.held_mask, self.dig_site, self.splash_active) }
+    pub fn turn_mold_clockwise(self, attire: YouthAttire) -> Self { Self::with_tome(self.satchel.map_mold(attire, BlockMold::turn_clockwise), self.tome, self.dig_progress, self.held_mask, self.dig_site, self.splash_active) }
 
-    pub fn mold_next_form(self, attire: YouthAttire) -> Self {
-        Self::new(self.satchel.map_mold(attire, BlockMold::next_form), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
-    }
-
-    pub fn turn_mold_clockwise(self, attire: YouthAttire) -> Self {
-        Self::new(self.satchel.map_mold(attire, BlockMold::turn_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
-    }
-
-    pub fn turn_mold_counter_clockwise(self, attire: YouthAttire) -> Self {
-        Self::new(self.satchel.map_mold(attire, BlockMold::turn_counter_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
-    }
-
-    /// Dispatches mold, satchel transfer, satchel toggle, and movement-bound satchel navigation triggers using single-trigger bindings.
+    /// Dispatches mold, satchel transfer, satchel/crafting-book toggle, and navigation triggers using single-trigger bindings.
     pub fn handle_trigger(self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire) -> (Self, YouthAttire, bool) {
-        if !self.satchel.open() && bindings.matches(ControlAction::MoldForm, trigger) {
-            return (self.mold_next_form(attire), attire, true);
+        if bindings.matches(ControlAction::CraftingBook, trigger)
+            || (self.tome.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape))
+        {
+            let next_satchel = self.satchel.reconcile_attire(attire).with_open(false);
+            return (Self::with_tome(next_satchel, self.tome.toggle(), 0, 0, Vec3::ZERO, false), attire, true);
         }
-        if !self.satchel.open() && bindings.matches(ControlAction::MoldRight, trigger) {
-            return (self.turn_mold_clockwise(attire), attire, true);
+        if self.tome.open() {
+            let (next_tome, next_satchel, next_attire, ok) = self.tome.dispatch_trigger(trigger, bindings, self.satchel, attire);
+            return (Self::with_tome(next_satchel, next_tome, 0, 0, Vec3::ZERO, false), next_attire, ok);
         }
-        if !self.satchel.open() && bindings.matches(ControlAction::MoldLeft, trigger) {
-            return (self.turn_mold_counter_clockwise(attire), attire, true);
-        }
+        if !self.satchel.open() && bindings.matches(ControlAction::MoldForm, trigger) { return (self.turn_mold_clockwise(attire), attire, true); }
+        if !self.satchel.open() && bindings.matches(ControlAction::MoldRight, trigger) { return (self.mold_next_form(attire), attire, true); }
+        if !self.satchel.open() && bindings.matches(ControlAction::MoldLeft, trigger) { return (self.mold_prev_form(attire), attire, true); }
         if bindings.matches(ControlAction::Satchel, trigger)
             || (self.satchel.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape))
         {
@@ -69,10 +65,11 @@ impl PalmEarthworks {
         let dig_r = r.placeable_block() && (self.held_mask & 1) != 0 && (self.dig_progress > 0 || (self.held_mask & 12) != 0);
         let dig_l = l.placeable_block() && (self.held_mask & 2) != 0 && (self.dig_progress > 0 || (self.held_mask & 12) != 0);
         SatchelWardrobe::new(*attire, self.satchel, dig_r, dig_l).emit(pose, sight, target);
+        self.tome.emit_book(&self.satchel, *attire, pose, target);
     }
 
     pub fn reconcile_attire(self, attire: YouthAttire) -> Self {
-        Self::new(self.satchel.reconcile_attire(attire), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
+        Self::with_tome(self.satchel.reconcile_attire(attire), self.tome, self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
 
     pub fn trigger_hand_swing(attire: YouthAttire, rhythm: StrideRhythm, side: f32) -> StrideRhythm {
@@ -114,9 +111,7 @@ impl PalmEarthworks {
         world.constrain_to_surface(eye + dir, 0.0)
     }
 
-    pub fn release_hand(
-        self, attire: YouthAttire, eye: Vec3, view_dir: Vec3, avatar_pos: Vec3, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, bool) {
+    pub fn release_hand(self, attire: YouthAttire, eye: Vec3, view_dir: Vec3, avatar_pos: Vec3, world: &mut dyn PlanetaryWorld) -> (Self, YouthAttire, bool) {
         let state = self.reconcile_attire(attire);
         if state.dig_progress == 0 && (state.held_mask & 12) != 0 {
             let side = if state.held_mask & 4 != 0 { 1.0 } else { -1.0 };
@@ -127,9 +122,7 @@ impl PalmEarthworks {
         (Self::new(state.satchel, 0, 0, state.dig_site, false), attire, cleared)
     }
 
-    pub fn continue_digging(
-        self, attire: YouthAttire, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, StrideRhythm, bool) {
+    pub fn continue_digging(self, attire: YouthAttire, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> (Self, YouthAttire, StrideRhythm, bool) {
         if (self.held_mask & 3) == 0 { return (self, attire, rhythm, false); }
         let side = if self.held_mask & 1 != 0 { 1.0 } else { -1.0 };
         let (place_bit, dig_bit) = if side > 0.0 { (4u8, 16u8) } else { (8u8, 32u8) };
@@ -137,8 +130,7 @@ impl PalmEarthworks {
             if rhythm.cleave_surge(side) > 0.0 && rhythm.cleave_arc(side) < 0.0 { return (self, attire, rhythm, false); }
             let state = Self::new(self.satchel, self.dig_progress, (self.held_mask & !12) | dig_bit, self.dig_site, self.splash_active).reconcile_attire(attire);
             if rhythm.cleave_surge(side) > 0.0 {
-                let site = Self::locate_dig_site(eye, view_dir, world);
-                let ok = world.loosen_surface(eye, view_dir, 1);
+                let (site, ok) = (Self::locate_dig_site(eye, view_dir, world), world.loosen_surface(eye, view_dir, 1));
                 return (Self::new(state.satchel, u32::from(ok), state.held_mask, if ok { site } else { Vec3::ZERO }, ok), attire, rhythm, ok);
             }
             let (next, next_attire, next_rhythm, excavated) = state.act_with_hand(side, attire, rhythm, eye, view_dir, world);
@@ -150,19 +142,25 @@ impl PalmEarthworks {
         (next, next_attire, next_rhythm, excavated || next.dig_progress != prev)
     }
 
-    pub fn act_with_hand(
-        self, side: f32, attire: YouthAttire, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, StrideRhythm, bool) {
-        let state = self.reconcile_attire(attire);
+    pub fn act_with_hand(self, side: f32, attire: YouthAttire, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> (Self, YouthAttire, StrideRhythm, bool) {
+        if self.tome.open() {
+            let (next_tome, next_satchel, next_attire, ok) = self.tome.craft_selected(side, self.satchel, attire);
+            let next_rhythm = if ok { Self::trigger_hand_swing(next_attire, rhythm, side) } else { rhythm };
+            return (Self::with_tome(next_satchel, next_tome, 0, 0, Vec3::ZERO, false), next_attire, next_rhythm, false);
+        }
+        let (state, find) = (self.reconcile_attire(attire), world.forage_surface(eye, view_dir));
+        if find.gathered() {
+            let gathered = if matches!(find, SurfaceFind::DeadwoodBough) { HeldRelic::DeadwoodBough } else { HeldRelic::FlintStone };
+            let (next_satchel, next_attire) = state.satchel.collect_foraged(side, gathered, attire);
+            return (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), next_attire, Self::trigger_hand_swing(next_attire, rhythm, side), true);
+        }
         let (right, left) = attire.held_pair();
         let (active, other, bit) = if side > 0.0 { (right, left, 1u8) } else { (left, right, 2u8) };
         let (place_bit, dig_bit) = (bit << 2, bit << 4);
-
         if active.placeable_block() && (state.held_mask & bit) == 0 && (state.held_mask & 12) == 0 && state.dig_progress == 0 {
             let next_rhythm = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
             return (Self::new(state.satchel, 0, bit | place_bit, Vec3::ZERO, false), attire, next_rhythm, false);
         }
-
         let deferred = u32::from((state.held_mask & place_bit) != 0);
         let both_dig = (right.free_palm() || right.placeable_block()) && (left.free_palm() || left.placeable_block());
         let (effort, next_mask, recipient_side, next_rhythm) = if active.spade_blade() {
@@ -173,13 +171,18 @@ impl PalmEarthworks {
             let target_side = if active.free_palm() || !other.free_palm() { side } else { -side };
             (step, 3 | 16 | 32, target_side, rhythm.trigger_right_strike().trigger_left_strike())
         } else if active.free_palm() || active.placeable_block() {
+            let outcome = if other.axe_blade() { world.strike_timber(eye, view_dir) } else { world::CleaveOutcome::Missed };
+            if outcome.struck() {
+                let (ns, na) = if outcome.felled() { state.satchel.collect_felled_timber(side, attire) } else { (state.satchel, attire) };
+                return (Self::new(ns, 0, bit | dig_bit, Vec3::ZERO, false), na, Self::trigger_hand_swing(attire, rhythm, -side), true);
+            }
             (1 + deferred, bit | dig_bit, side, if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() })
         } else {
-            return (Self::new(state.satchel, 0, 0, Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), false);
+            let outcome = if active.axe_blade() { world.strike_timber(eye, view_dir) } else { world::CleaveOutcome::Missed };
+            let (ns, na) = if outcome.felled() { state.satchel.collect_felled_timber(-side, attire) } else { (state.satchel, attire) };
+            return (Self::new(ns, 0, if active.axe_blade() { bit | dig_bit } else { 0 }, Vec3::ZERO, false), na, Self::trigger_hand_swing(attire, rhythm, side), outcome.struck());
         };
-
-        let site = Self::locate_dig_site(eye, view_dir, world);
-        let progress = state.dig_progress + effort;
+        let (site, progress) = (Self::locate_dig_site(eye, view_dir, world), state.dig_progress + effort);
         if progress >= EXCAVATION_THRESHOLD {
             if world.excavate_surface(eye, view_dir) {
                 let (next_satchel, next_attire) = state.satchel.collect_excavated_block(recipient_side, attire);
@@ -187,9 +190,7 @@ impl PalmEarthworks {
             }
             return (Self::new(state.satchel, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false);
         }
-
-        let stage = ((progress + 1) / 2).clamp(1, 3) as u8;
-        if world.loosen_surface(eye, view_dir, stage) {
+        if world.loosen_surface(eye, view_dir, ((progress + 1) / 2).clamp(1, 3) as u8) {
             return (Self::new(state.satchel, progress, next_mask, site, true), attire, next_rhythm, false);
         }
         (Self::new(state.satchel, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false)
