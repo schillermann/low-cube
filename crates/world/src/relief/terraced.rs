@@ -1,52 +1,54 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use glam::Vec3;
-use crate::{MeshTarget, Quad};
-use crate::block::{GridCell, VoxelShape};
+use crate::MeshTarget;
+use crate::block::{CuboidShape, ElevatedShape, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::elevation::ReliefElevation;
 
 const BASE_REGROWTH_EFFORT: f32 = 320.0;
 const JITTER_REGROWTH_EFFORT: f32 = 440.0;
 
-/// Decorator recording excavated pits, molded earth blocks, and grass regrowth atop planetary relief.
+/// Decorator recording excavated pits, elevated molded blocks, and grass regrowth atop planetary relief.
 pub struct TerracedRelief {
-    origin: Box<dyn ReliefElevation>,
-    deltas: HashMap<(i32, i32), i32>,
-    molds: HashMap<(i32, i32), (f32, Box<dyn VoxelShape>)>,
-    bare_dirt: HashMap<(i32, i32), f32>,
-    natural_cache: OnceLock<Vec<i16>>,
-    half_span: i32,
-    dig_stage: ((i32, i32), u8),
+    origin: Box<dyn ReliefElevation>, deltas: HashMap<(i32, i32), i32>, molds: HashMap<(i32, i32), Vec<ElevatedShape>>,
+    bare_dirt: HashMap<(i32, i32), f32>, natural_cache: OnceLock<Vec<i16>>, half_span: i32, dig_stage: ((i32, i32), f32, u8),
 }
 
 impl TerracedRelief {
     /// Primary constructor doing nothing except assigning arguments to fields.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        origin: Box<dyn ReliefElevation>, deltas: HashMap<(i32, i32), i32>, molds: HashMap<(i32, i32), (f32, Box<dyn VoxelShape>)>,
-        bare_dirt: HashMap<(i32, i32), f32>, natural_cache: OnceLock<Vec<i16>>, half_span: i32, dig_stage: ((i32, i32), u8),
-    ) -> Self {
-        Self { origin, deltas, molds, bare_dirt, natural_cache, half_span, dig_stage }
-    }
+        origin: Box<dyn ReliefElevation>, deltas: HashMap<(i32, i32), i32>, molds: HashMap<(i32, i32), Vec<ElevatedShape>>,
+        bare_dirt: HashMap<(i32, i32), f32>, natural_cache: OnceLock<Vec<i16>>, half_span: i32, dig_stage: ((i32, i32), f32, u8),
+    ) -> Self { Self { origin, deltas, molds, bare_dirt, natural_cache, half_span, dig_stage } }
 
     /// Secondary constructor initializing an untouched terraced relief wrapper for a face span.
     pub fn in_span(origin: Box<dyn ReliefElevation>, half_blocks: i32) -> Self {
-        Self::new(origin, HashMap::new(), HashMap::new(), HashMap::new(), OnceLock::new(), half_blocks + 2, ((0, 0), 0))
+        Self::new(origin, HashMap::new(), HashMap::new(), HashMap::new(), OnceLock::new(), half_blocks + 2, ((0, 0), 0.0, 0))
     }
 
     /// Secondary constructor initializing an untouched terraced relief wrapper.
     pub fn pristine(origin: Box<dyn ReliefElevation>) -> Self { Self::in_span(origin, 128) }
+    fn delta_at(&self, u: i32, v: i32) -> i32 { if self.deltas.is_empty() { 0 } else { self.deltas.get(&(u, v)).copied().unwrap_or(0) } }
 
-    fn delta_at(&self, u: i32, v: i32) -> i32 {
-        if self.deltas.is_empty() { 0 } else { self.deltas.get(&(u, v)).copied().unwrap_or(0) }
+    fn top_steps_at(&self, u: i32, v: i32) -> i32 {
+        let (base_steps, ground_top) = (self.elevation_at(u, v), (self.elevation_at(u, v) as f32) * 0.5);
+        self.molds.get(&(u, v)).map_or(base_steps, |list| {
+            (list.iter().map(|b| b.ceiling_above(ground_top)).fold(ground_top, f32::max) * 2.0).round() as i32
+        })
+    }
+
+    fn top_layer_at(&self, u: i32, v: i32) -> f32 {
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        self.molds.get(&(u, v)).and_then(|l| l.last()).map_or(ground_top - 0.25, |b| b.ceiling_above(ground_top) - 0.25)
     }
 
     fn neighbor_grass_count(&self, u: i32, v: i32) -> u32 {
-        let (h, mut count) = (self.elevation_at(u, v), 0);
+        let (h, mut count) = (self.top_steps_at(u, v), 0);
         for du in -1..=1 {
             for dv in -1..=1 {
-                if (du != 0 || dv != 0) && !self.bare_dirt_at(u + du, v + dv) && (h - self.elevation_at(u + du, v + dv)).abs() <= 1 { count += 1; }
+                if (du != 0 || dv != 0) && !self.bare_dirt_at(u + du, v + dv) && (h - self.top_steps_at(u + du, v + dv)).abs() <= 1 { count += 1; }
             }
         }
         count
@@ -80,118 +82,111 @@ impl ReliefElevation for TerracedRelief {
     fn surface_height_at(&self, u: f32, v: f32) -> f32 {
         if self.deltas.is_empty() && self.molds.is_empty() { return self.origin.surface_height_at(u, v); }
         let (cell_u, cell_v) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32);
-        let ground_h = if self.reworked_at(cell_u, cell_v) { (self.elevation_at(cell_u, cell_v) as f32) * 0.5 } else { self.origin.surface_height_at(u, v) };
-        if let Some((base, shape)) = self.molds.get(&(cell_u, cell_v)) {
-            let dh = shape.elevation_at((u * 2.0 - cell_u as f32).clamp(0.0, 1.0), (v * 2.0 - cell_v as f32).clamp(0.0, 1.0));
-            return if dh > 0.0 { *base + dh } else { (*base).min(ground_h) };
+        let mut h = if self.reworked_at(cell_u, cell_v) { (self.elevation_at(cell_u, cell_v) as f32) * 0.5 } else { self.origin.surface_height_at(u, v) };
+        if let Some(list) = self.molds.get(&(cell_u, cell_v)) {
+            let (fu, fv) = ((u * 2.0 - cell_u as f32).clamp(0.0, 1.0), (v * 2.0 - cell_v as f32).clamp(0.0, 1.0));
+            for block in list { h = h.max(block.elevation_at(fu, fv)); }
         }
-        ground_h
+        h
+    }
+
+    fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
+        let (cu, cv) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32);
+        let ground_h = (self.elevation_at(cu, cv) as f32) * 0.5;
+        let ground_surf = if self.reworked_at(cu, cv) { ground_h } else { self.origin.surface_height_at(u, v) };
+        if let Some(list) = self.molds.get(&(cu, cv)) {
+            let (fu, fv) = ((u * 2.0 - cu as f32).clamp(0.0, 1.0), (v * 2.0 - cv as f32).clamp(0.0, 1.0));
+            for block in list.iter().rev() {
+                if block.intercepts(fu, fv, ray_elev) { return Some(block.ceiling_above(ground_h)); }
+            }
+        }
+        if ray_elev <= ground_surf + 0.02 { Some(ground_h) } else { None }
     }
 
     fn reworked_at(&self, u: i32, v: i32) -> bool { self.delta_at(u, v) != 0 }
     fn bare_dirt_at(&self, u: i32, v: i32) -> bool { self.bare_dirt.contains_key(&(u, v)) }
-    fn flat_reworked_at(&self, u: i32, v: i32) -> bool {
-        self.reworked_at(u, v) && self.molds.get(&(u, v)).is_none_or(|(b, _)| *b >= (self.elevation_at(u, v) as f32) * 0.5 - 0.1)
-    }
 
     fn emit_molded_top(&self, cell: GridCell, query_base: f32, frame: &SurfaceFrame, top_col: Vec3, wall_col: Vec3, target: &mut dyn MeshTarget) -> bool {
-        struct TurfTarget<'a> { up: Vec3, sum: Vec3, block_col: Vec3, wall_col: Vec3, under_col: Vec3, floating: bool, bottom: bool, out: &'a mut dyn MeshTarget }
-        impl MeshTarget for TurfTarget<'_> {
-            fn push_quad(&mut self, quad: Quad) {
-                let recolored = quad.transfer(|v0, v1, v2, v3, n, _| {
-                    if n.dot(self.up) < -0.9 {
-                        self.bottom = true;
-                        if !self.floating { return Quad::new(self.sum - v0 - v1 - v2, v0, v1, v1, self.up, self.under_col); }
-                    }
-                    Quad::new(v0, v1, v2, v3, n, if n.dot(self.up) > 0.25 { self.block_col } else { self.wall_col })
-                });
-                self.out.push_quad(recolored);
-            }
-        }
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
-        if let Some((base, shape)) = self.molds.get(&(u, v)) {
+        if let Some(list) = self.molds.get(&(u, v)) {
             let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
-            let floating = *base >= ground_top - 0.1;
-            if floating != (query_base >= ground_top - 0.1) { return false; }
-            let [b0, b1, b2, b3] = cell.corner_points(frame, *base);
-            let block_col = if floating || self.bare_dirt_at(u, v) { wall_col } else { top_col };
-            let mut turf = TurfTarget { up: frame.normal(), sum: b0 + b1 + b2 + b3, block_col, wall_col, under_col: top_col, floating, bottom: false, out: target };
-            shape.emit_shape(cell, *base, frame, wall_col, &mut turf);
-            if floating && !turf.bottom { target.push_quad(Quad::new(b0, b3, b2, b1, -frame.normal(), wall_col)); }
-            return true;
+            if query_base < ground_top - 0.1 { return false; }
+            for block in list {
+                let stage = if self.dig_stage.0 == (u, v) && block.occupies_layer(self.dig_stage.1) { self.dig_stage.2 } else { 0 };
+                let block_col = if block.floating_above(ground_top) || self.bare_dirt_at(u, v) { wall_col } else { top_col };
+                block.emit_terraced(cell, frame, block_col, wall_col, stage, target);
+            }
+            return !list.is_empty();
         }
         false
     }
 
     fn step_grass(&mut self, dt: f32) -> Vec<i32> {
         if self.bare_dirt.is_empty() { return Vec::new(); }
-        let active: Vec<((i32, i32), u32)> = self.bare_dirt.keys().copied()
-            .map(|(u, v)| ((u, v), self.neighbor_grass_count(u, v)))
-            .filter(|&(_, count)| count > 0)
-            .collect();
+        let active: Vec<((i32, i32), u32)> = self.bare_dirt.keys().copied().map(|(u, v)| ((u, v), self.neighbor_grass_count(u, v))).filter(|&(_, c)| c > 0).collect();
         let mut regrown_rows = Vec::new();
         for ((u, v), neighbors) in active {
             if let Some(effort) = self.bare_dirt.get_mut(&(u, v)) {
                 *effort += dt * (neighbors as f32);
-                if *effort >= Self::regrowth_threshold(u, v) {
-                    self.bare_dirt.remove(&(u, v));
-                    regrown_rows.push(v);
-                }
+                if *effort >= Self::regrowth_threshold(u, v) { self.bare_dirt.remove(&(u, v)); regrown_rows.push(v); }
             }
         }
         regrown_rows
     }
 
-    fn dig_stage_at(&self, u: i32, v: i32) -> u8 { if self.dig_stage.0 == (u, v) { self.dig_stage.1 } else { 0 } }
+    fn dig_stage_at(&self, u: i32, v: i32) -> u8 {
+        if self.dig_stage.0 == (u, v) && self.molds.get(&(u, v)).is_none_or(|l| !l.iter().any(|b| b.occupies_layer(self.dig_stage.1))) { self.dig_stage.2 } else { 0 }
+    }
 
-    fn mark_dig_stage(&mut self, u: i32, v: i32, stage: u8) -> (i32, bool) {
+    fn mark_dig_stage(&mut self, u: i32, v: i32, stage: u8) -> (i32, bool) { self.mark_dig_layer(u, v, self.top_layer_at(u, v), stage) }
+
+    fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> (i32, bool) {
         let prev_v = self.dig_stage.0.1;
         if stage == 0 {
-            let active = self.dig_stage.1 > 0;
-            self.dig_stage = ((0, 0), 0);
+            let active = self.dig_stage.2 > 0;
+            self.dig_stage = ((0, 0), 0.0, 0);
             return (prev_v, active);
         }
-        if self.elevation_at(u, v) <= -16 { return (v, false); }
-        self.dig_stage = ((u, v), stage.min(3));
+        if self.elevation_at(u, v) <= -16 && !self.molds.contains_key(&(u, v)) { return (v, false); }
+        self.dig_stage = ((u, v), layer_elev, stage.min(3));
         (prev_v, true)
     }
 
-    fn excavate_cell(&mut self, u: i32, v: i32) -> (i32, bool) {
+    fn excavate_cell(&mut self, u: i32, v: i32) -> (i32, bool) { self.excavate_layer(u, v, self.top_layer_at(u, v)) }
+
+    fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> (i32, bool) {
         let prev_v = self.dig_stage.0.1;
-        if self.molds.get(&(u, v)).is_some_and(|(b, _)| *b >= (self.elevation_at(u, v) as f32) * 0.5 - 0.1) {
-            self.molds.remove(&(u, v));
-            self.dig_stage = ((u, v), 0);
-            return (prev_v, true);
+        if let Some(list) = self.molds.get_mut(&(u, v)) {
+            if let Some(pos) = list.iter().rposition(|b| b.occupies_layer(layer_elev)) {
+                list.remove(pos);
+                if list.is_empty() { self.molds.remove(&(u, v)); }
+                self.dig_stage = ((u, v), 0.0, 0);
+                return (prev_v, true);
+            }
         }
         if self.elevation_at(u, v) <= -16 { return (v, false); }
-        self.molds.remove(&(u, v));
         self.deltas.insert((u, v), self.delta_at(u, v) - 1);
         self.bare_dirt.insert((u, v), 0.0);
-        self.dig_stage = ((u, v), 0);
+        self.dig_stage = ((u, v), 0.0, 0);
         (prev_v, true)
     }
 
     fn stack_cell(&mut self, u: i32, v: i32) -> bool {
-        if self.elevation_at(u, v) >= 32 { return false; }
-        self.molds.remove(&(u, v));
-        self.deltas.insert((u, v), self.delta_at(u, v) + 1);
-        self.bare_dirt.insert((u, v), 0.0);
-        if self.dig_stage.0 == (u, v) { self.dig_stage = ((u, v), 0); }
-        true
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        self.stack_molded_cell(u, v, ground_top, Box::new(CuboidShape::new(0.5)), true)
     }
 
-    fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>, full_flat: bool) -> bool {
+    fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool {
         let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
-        if base > ground_top + 0.1 {
-            self.molds.insert((u, v), (base, shape));
-            if self.dig_stage.0 == (u, v) { self.dig_stage = ((u, v), 0); }
-            return true;
+        let mut next_base = base.max(ground_top);
+        while self.molds.get(&(u, v)).is_some_and(|l| l.iter().any(|s| s.occupies_layer(next_base + 0.25))) {
+            next_base += 0.5;
         }
-        if self.elevation_at(u, v) >= 32 { return false; }
-        self.deltas.insert((u, v), self.delta_at(u, v) + 1);
+        if next_base >= 16.0 { return false; }
+        self.molds.entry((u, v)).or_default().push(ElevatedShape::new(shape, next_base));
         self.bare_dirt.insert((u, v), 0.0);
-        if full_flat { self.molds.remove(&(u, v)); } else { self.molds.insert((u, v), (ground_top, shape)); }
-        if self.dig_stage.0 == (u, v) { self.dig_stage = ((u, v), 0); }
+        if self.dig_stage.0 == (u, v) { self.dig_stage = ((u, v), 0.0, 0); }
         true
     }
 }
+

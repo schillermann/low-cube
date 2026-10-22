@@ -168,12 +168,12 @@ impl BeltSatchel {
             if r.gripped() && !r.placeable_block() { self.stow_relic(r, 0); }
             if l.placeable_block() { self.right_mold = self.left_mold; }
             if self.right_blocks == 0 { self.right_blocks = 1; } else { self.stowed_earth += 1; }
-            (self, attire.with_relics(HeldRelic::ExcavatedEarth, l))
+            (self, attire.with_relics(if r.placeable_block() { r } else { HeldRelic::ExcavatedEarth }, l))
         } else {
             if l.gripped() && !l.placeable_block() { self.stow_relic(l, 0); }
             if r.placeable_block() { self.left_mold = self.right_mold; }
             if self.left_blocks == 0 { self.left_blocks = 1; } else { self.stowed_earth += 1; }
-            (self, attire.with_relics(r, HeldRelic::ExcavatedEarth))
+            (self, attire.with_relics(r, if l.placeable_block() { l } else { HeldRelic::ExcavatedEarth }))
         }
     }
 
@@ -184,10 +184,9 @@ impl BeltSatchel {
     pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
         if !self.open { return; }
         let (slots, len) = self.packed_slots();
-        let tray = pose.view_frame().shifted(0.0, -0.02, 0.40);
-        let mold = if self.active_side > 0.0 { self.right_mold } else { self.left_mold };
-        if len == 0 { HeldRelic::EmptyPalm.emit_in_satchel_slot(mold, Vec3::new(0.42, 0.27, 0.16), &tray, target); return; }
-        let (cols, rows, sel) = (len.clamp(1, 3), (len + 2) / 3, self.cursor.min(len - 1));
+        let (tray, mold) = (pose.view_frame().shifted(0.0, -0.02, 0.40), if self.active_side > 0.0 { self.right_mold } else { self.left_mold });
+        let (cols, rows, sel) = (len.clamp(1, 3), (len.max(1) + 2) / 3, self.cursor.min(len.saturating_sub(1)));
+        if len == 0 { HeldRelic::EmptyPalm.emit_in_satchel_slot(mold, Vec3::new(0.42, 0.27, 0.16), &tray, target); }
         for (i, &item) in slots[..len].iter().enumerate() {
             let (col, row) = (i % 3, i / 3);
             let r_cols = if row + 1 == rows && len % 3 != 0 { len % 3 } else { cols };
@@ -195,5 +194,7 @@ impl BeltSatchel {
             let rim = if i == sel { Vec3::new(0.95, 0.78, 0.24) } else { Vec3::new(0.42, 0.27, 0.16) };
             item.emit_in_satchel_slot(mold, rim, &tray.shifted(sx, sy, sz), target);
         }
+        let chosen = if len > 0 { slots[sel] } else { HeldRelic::EmptyPalm };
+        chosen.emit_satchel_legend(&tray.shifted(0.0, -((rows as f32 - 1.0) * 0.5) * 0.115 - 0.090, 0.0), target);
     }
 }

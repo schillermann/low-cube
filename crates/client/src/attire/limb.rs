@@ -59,6 +59,20 @@ impl LimbFrame {
     pub fn emit_upright_block(&self, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
         mold.emit_miniature(self.point(local_origin.x, local_origin.y, local_origin.z), self.right, self.up, self.forward, scale, side_col, top_col, target);
     }
+
+    /// Emits a filled background plaque at z_bg = 0.020 bordered by a 4-bar frame at z_rim = 0.018.
+    pub fn emit_framed_plaque(&self, rx: f32, ry: f32, t: f32, bg: Vec3, rim: Vec3, target: &mut dyn MeshTarget) {
+        let (z_rim, z_bg, n) = (0.018, 0.020, (self.up - self.forward).normalize_or_zero());
+        target.push_quad(Quad::new(self.point(-rx, -ry, z_bg), self.point(rx, -ry, z_bg), self.point(rx, ry, z_bg), self.point(-rx, ry, z_bg), n, bg));
+        for (a, b) in [
+            (Vec3::new(-rx, ry, z_rim), Vec3::new(rx, ry, z_rim)),
+            (Vec3::new(-rx, -ry, z_rim), Vec3::new(rx, -ry, z_rim)),
+            (Vec3::new(-rx, -ry, z_rim), Vec3::new(-rx, ry, z_rim)),
+            (Vec3::new(rx, -ry, z_rim), Vec3::new(rx, ry, z_rim)),
+        ] {
+            AxialLimb::new(a, b, t, t, rim).emit(self, true, target);
+        }
+    }
 }
 
 /// Interface for faceted polyhedral limb and garment solids emitting into a MeshTarget.
@@ -137,30 +151,12 @@ pub struct TaperedPrism {
 impl TaperedPrism {
     /// Primary constructor doing nothing except assigning arguments to fields.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        segments: usize,
-        bottom_center: Vec3,
-        top_center: Vec3,
-        bottom_rx: f32,
-        bottom_rz: f32,
-        top_rx: f32,
-        top_rz: f32,
-        pigment: Vec3,
-    ) -> Self {
-        Self {
-            segments, bottom_center, top_center,
-            bottom_rx, bottom_rz, top_rx, top_rz, pigment,
-        }
+    pub fn new(segments: usize, bottom_center: Vec3, top_center: Vec3, bottom_rx: f32, bottom_rz: f32, top_rx: f32, top_rz: f32, pigment: Vec3) -> Self {
+        Self { segments, bottom_center, top_center, bottom_rx, bottom_rz, top_rx, top_rz, pigment }
     }
 
     /// Secondary constructor for a 6-sided limb or garment segment with uniform radius per ring.
-    pub fn hexagonal(
-        bottom_center: Vec3,
-        top_center: Vec3,
-        bottom_r: f32,
-        top_r: f32,
-        pigment: Vec3,
-    ) -> Self {
+    pub fn hexagonal(bottom_center: Vec3, top_center: Vec3, bottom_r: f32, top_r: f32, pigment: Vec3) -> Self {
         Self::new(6, bottom_center, top_center, bottom_r, bottom_r, top_r, top_r, pigment)
     }
 }

@@ -135,3 +135,44 @@ fn test_lateral_ridge_corner_attachment_at_highest_pillar_block_without_ground_c
     let attached_cube_h = face.constrain(Vec3::new(0.75, 12.0, -0.75), 0.0).y - 8.0;
     assert!((attached_cube_h - 2.0).abs() < 1e-4, "Laterally attached FullCube at 4th block must reach 2.0m, got {attached_cube_h}");
 }
+
+#[test]
+fn test_ridge_corner_stacked_on_ridge_corner_preserves_lower_block() {
+    use crate::block::{CornerHeading, CuboidShape, RidgeCorner};
+    use super::TerracedRelief;
+
+    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
+    let facet = ReliefFacet::new();
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let mut terraced = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 16);
+
+    assert!(terraced.stack_molded_cell(0, 0, 0.0, Box::new(RidgeCorner::new(CornerHeading::NorthEast)), false));
+    assert!(terraced.stack_molded_cell(0, 0, 0.5, Box::new(RidgeCorner::new(CornerHeading::NorthEast)), false));
+
+    let mut sink = QuadSink::new();
+    facet.emit_facet(GridCell::new(0, 0), &frame, &terraced, 16, &palette, &mut sink);
+    let slope_count = sink.quads.iter().filter(|q| q.transfer(|_, _, _, _, n, _| n.y > 0.4 && n.y < 0.8)).count();
+    assert_eq!(slope_count, 2, "Both the lower and upper RidgeCorner blocks must retain their sloped faces");
+    assert!((terraced.surface_height_at(0.05, 0.05) - 0.0).abs() < 1e-4, "Uncovered corner of stacked RidgeCorners must remain at ground 0.0");
+    assert!(terraced.surface_height_at(0.45, 0.45) > 0.85, "Peak corner of stacked RidgeCorners must reach 2nd block height");
+
+    // Natural terrain RidgeCorner at (1, 0): drops to North (1, 1) and East (2, 0)
+    let mut nat_terraced = TerracedRelief::in_span(
+        Box::new(TestRelief(|u, v| if (u, v) == (1, 1) || (u, v) == (2, 0) { 1 } else { 2 })),
+        16,
+    );
+    assert!(nat_terraced.stack_molded_cell(1, 0, 1.0, Box::new(RidgeCorner::new(CornerHeading::SouthWest)), false));
+    let mut nat_sink = QuadSink::new();
+    facet.emit_facet(GridCell::new(1, 0), &frame, &nat_terraced, 16, &palette, &mut nat_sink);
+    let nat_slopes = nat_sink.quads.iter().filter(|q| q.transfer(|_, _, _, _, n, _| n.y > 0.4 && n.y < 0.8)).count();
+    assert_eq!(nat_slopes, 2, "Placing RidgeCorner on natural terrain RidgeCorner must preserve the terrain RidgeCorner slope");
+
+    // Excavating the penultimate block (0.5..1.0) in a 3-block stack [0.0..0.5, 0.5..1.0, 1.0..1.5] must keep the topmost block (1.0..1.5)
+    assert!(terraced.stack_molded_cell(2, 2, 0.0, Box::new(CuboidShape::new(0.5)), true));
+    assert!(terraced.stack_molded_cell(2, 2, 0.5, Box::new(CuboidShape::new(0.5)), true));
+    assert!(terraced.stack_molded_cell(2, 2, 1.0, Box::new(CuboidShape::new(0.5)), true));
+    assert!(terraced.excavate_layer(2, 2, 0.75).1, "Excavating the penultimate block at 0.5..1.0 must succeed");
+    assert!((terraced.surface_height_at(1.25, 1.25) - 1.5).abs() < 1e-4, "Topmost block at 1.0..1.5 must remain after excavating penultimate block");
+    assert_eq!(terraced.hit_top_at(1.25, 1.25, 0.75), None, "Excavated penultimate block slot 0.5..1.0 must now be empty air");
+    assert_eq!(terraced.hit_top_at(1.25, 1.25, 1.25), Some(1.5), "Topmost block at 1.0..1.5 must still be hit by sight rays");
+}

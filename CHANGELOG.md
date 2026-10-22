@@ -8,6 +8,22 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-10-22
+
+### Added
+- Hold-to-dig excavation while holding a block in hand (`PalmEarthworks::act_with_hand`, `PalmEarthworks::continue_digging`, `PalmEarthworks::release_hand`) so a short click places the held block on release while holding the mouse button down transitions into bare-hand excavation.
+- Framed inventory slot background plaques (`LimbFrame::emit_framed_plaque`, `HeldRelic::emit_in_satchel_slot`) and a framed 3D pixel-font legend plaque underneath the satchel grid (`HeldRelic::emit_satchel_legend`, `PixelStamp::emit_on_frame`, `BeltSatchel::emit_on_waist`) displaying the selected item title and key controls (`WASD`, `Q`/`E`, `R`/`V`).
+- Pure OOP Decorator pattern classes (`CrateredMeshTarget`, `TurfMeshTarget`, `ElevatedShape`, `SatchelWardrobe`) composing 3D digging crater subdivision, canopy/wall coloration with underside sealing, elevated voxel block layers, and bare-hand digging attire.
+
+### Changed
+- Enlarged held blocks cradled in the avatar's palm (`LimbFrame::emit_cradled_block`) while hiding the held block during active digging strikes (`SatchelWardrobe::emit`).
+- Unified stacked block storage in `TerracedRelief` around `Vec<ElevatedShape>` per cell without mutating terrain `deltas` on placement so placed and natural blocks never alter their shape when additional blocks are stacked on top.
+
+### Fixed
+- Rendered 3D digging craters and debris spray directly on laterally attached floating blocks and targeted intermediate stack layers (`Quad::emit_crater`, `CrateredMeshTarget`, `TerracedRelief::hit_top_at`, `TerracedRelief::excavate_layer`) rather than on the ground below or the topmost block.
+- Preserved natural terrain `RidgeCorner` slopes when stacking molded blocks on top and corrected upward slope normals in `ReliefCorner::emit_ridge`.
+- Colored side walls exposed by excavation (`ReliefFacet::emit_walls`) in earth brown instead of slate cliff grey.
+
 ## [0.33.0] - 2026-10-22
 
 ### Added

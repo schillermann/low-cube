@@ -1,9 +1,9 @@
 use glam::Vec3;
-use crate::block::GridCell;
+use crate::block::{CuboidShape, GridCell};
 use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
 use crate::{MeshTarget, Quad};
-use super::{ReliefElevation, ReliefFacet, ReliefPalette};
+use super::{ReliefElevation, ReliefFacet, ReliefPalette, TerracedRelief};
 
 struct QuadListCollector {
     quads: Vec<Quad>,
@@ -161,5 +161,29 @@ fn test_single_full_cube_adjacent_to_ramp_wedge_seals_cube_wall() {
         min_elevation <= 0.001,
         "East wall must extend down to elevation 0.0 to seal interior of Full-Cube, observed min_elevation = {min_elevation}"
     );
+}
+
+#[test]
+fn test_floating_lateral_block_dig_animation_on_floating_block_not_ground() {
+    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
+    let facet = ReliefFacet::new();
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let mut terraced = TerracedRelief::in_span(Box::new(TestReliefGrid(|_, _| 0)), 16);
+
+    // Place a floating block at (0, 0) at base = 1.0 (air in 0.0..1.0 above ground 0.0)
+    assert!(terraced.stack_molded_cell(0, 0, 1.0, Box::new(CuboidShape::new(0.5)), true));
+    let mut idle_col = QuadListCollector::new();
+    facet.emit_facet(GridCell::new(0, 0), &frame, &terraced, 16, &palette, &mut idle_col);
+
+    // Mark dig stage 2 on cell (0, 0)
+    terraced.mark_dig_stage(0, 0, 2);
+    let mut dug_col = QuadListCollector::new();
+    facet.emit_facet(GridCell::new(0, 0), &frame, &terraced, 16, &palette, &mut dug_col);
+
+    let below_ground = dug_col.quads.iter().any(|q| q.transfer(|v0, v1, v2, v3, _, _| {
+        [frame.height_of(v0), frame.height_of(v1), frame.height_of(v2), frame.height_of(v3)].into_iter().any(|h| h < -0.01)
+    }));
+    assert!(!below_ground, "Ground underneath a floating block must not show a recessed dig crater");
+    assert!(dug_col.quads.len() > idle_col.quads.len() + 20, "Floating block itself must emit 3D digging craters across its faces");
 }
 

@@ -1,5 +1,8 @@
 use glam::Vec3;
-use crate::{ColoredMeshTarget, CountedMeshTarget, MeshTarget, OffsetMeshTarget, Quad, TintedMeshTarget};
+use crate::{
+    ColoredMeshTarget, CountedMeshTarget, CrateredMeshTarget, MeshTarget, OffsetMeshTarget, Quad,
+    TintedMeshTarget, TurfMeshTarget,
+};
 
 struct QuadCatcher {
     quads: Vec<Quad>,
@@ -47,4 +50,14 @@ fn test_mesh_target_decorators_composition() {
         // Colored set to red (1, 0, 0), then Tinted multiplied by 0.5 -> (0.5, 0.0, 0.0)
         assert_eq!(color, Vec3::new(0.5, 0.0, 0.0));
     });
+
+    let mut crater_catcher = QuadCatcher::empty();
+    {
+        let mut cratered = CrateredMeshTarget::new(&mut crater_catcher, 2);
+        let corners = [Vec3::ZERO, Vec3::X, Vec3::new(1.0, 0.0, 1.0), Vec3::Z];
+        let mut turf = TurfMeshTarget::new(&mut cratered, Vec3::Y, corners, Vec3::X, Vec3::Z, false);
+        turf.push_quad(Quad::new(corners[0], corners[1], corners[2], corners[3], Vec3::Y, Vec3::ONE));
+        turf.seal_underside();
+    }
+    assert_eq!(crater_catcher.quads.len(), 18, "Two quads through stage-2 CrateredMeshTarget must emit 18 crater sub-quads");
 }

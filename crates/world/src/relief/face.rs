@@ -146,8 +146,8 @@ impl Face for FacetedReliefFace {
 
     fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool {
         let half = (self.divisions as i32) / 2;
-        if let Some((cu, cv)) = SurfaceSightRay::new(eye, direction).target_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5) {
-            let (prev_v, changed) = self.relief.excavate_cell(cu, cv);
+        if let Some((cu, cv, layer)) = SurfaceSightRay::new(eye, direction).target_layer(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5) {
+            let (prev_v, changed) = self.relief.excavate_layer(cu, cv, layer);
             if changed {
                 if prev_v != cv { self.refresh_rows(prev_v, half); }
                 self.refresh_rows(cv, half);
@@ -164,8 +164,8 @@ impl Face for FacetedReliefFace {
             if changed { self.refresh_rows(prev_v, half); }
             return changed;
         }
-        if let Some((cu, cv)) = SurfaceSightRay::new(eye, direction).target_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5) {
-            let (prev_v, changed) = self.relief.mark_dig_stage(cu, cv, stage);
+        if let Some((cu, cv, layer)) = SurfaceSightRay::new(eye, direction).target_layer(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5) {
+            let (prev_v, changed) = self.relief.mark_dig_layer(cu, cv, layer, stage);
             if changed {
                 if prev_v != cv { self.refresh_rows(prev_v, half); }
                 self.refresh_rows(cv, half);

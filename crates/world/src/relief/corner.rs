@@ -45,22 +45,22 @@ impl ReliefCorner {
         };
         match mode {
             0 => {
-                let norm = (p1 - p0).cross(p3 - p0).normalize();
+                let norm = (p3 - p0).cross(p1 - p0).normalize();
                 self.push_tri(p0, p1, p3, norm, surf_col, target);
                 self.push_tri(p1, p2, p3, frame.normal(), surf_col, target);
             }
             1 => {
-                let norm = (p2 - p1).cross(p0 - p1).normalize();
+                let norm = (p0 - p1).cross(p2 - p1).normalize();
                 self.push_tri(p1, p2, p0, norm, surf_col, target);
                 self.push_tri(p2, p3, p0, frame.normal(), surf_col, target);
             }
             2 => {
-                let norm = (p0 - p3).cross(p2 - p3).normalize();
+                let norm = (p2 - p3).cross(p0 - p3).normalize();
                 self.push_tri(p3, p0, p2, norm, surf_col, target);
                 self.push_tri(p0, p1, p2, frame.normal(), surf_col, target);
             }
             _ => {
-                let norm = (p3 - p2).cross(p1 - p2).normalize();
+                let norm = (p1 - p2).cross(p3 - p2).normalize();
                 self.push_tri(p2, p3, p1, norm, surf_col, target);
                 self.push_tri(p3, p0, p1, frame.normal(), surf_col, target);
             }

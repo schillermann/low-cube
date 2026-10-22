@@ -1,7 +1,8 @@
 use glam::Vec3;
 use world::{MeshTarget, Quad};
+use crate::attire::LimbFrame;
 
-/// Encapsulated 3x5 pixel glyph stamp emitting crisp 2D orthographic quads into a MeshTarget.
+/// Encapsulated 3x5 pixel glyph stamp emitting crisp 2D orthographic or 3D frame quads into a MeshTarget.
 #[derive(Clone, Copy, Debug)]
 pub struct PixelStamp {
     cell_w: f32,
@@ -76,6 +77,12 @@ impl PixelStamp {
 
     /// Emits centered text string at (center_x, center_y) in Normalized Device Coordinates.
     pub fn emit_centered(&self, text: &str, center_x: f32, center_y: f32, target: &mut dyn MeshTarget) {
+        let ortho = LimbFrame::new(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::NEG_Z);
+        self.emit_on_frame(text, center_x, center_y, 0.0, &ortho, target);
+    }
+
+    /// Emits centered text string onto a local 3D LimbFrame plane at depth z.
+    pub fn emit_on_frame(&self, text: &str, center_x: f32, center_y: f32, z: f32, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let count = text.chars().count() as f32;
         if count <= 0.0 {
             return;
@@ -84,6 +91,7 @@ impl PixelStamp {
         let total_w = count * step_x - self.cell_w;
         let start_x = center_x - total_w * 0.5;
         let top_y = center_y + (self.cell_h * 5.0) * 0.5;
+        let normal = (frame.point(0.0, 0.0, -1.0) - frame.point(0.0, 0.0, 0.0)).normalize_or_zero();
 
         for (idx, ch) in text.chars().enumerate() {
             let bits = Self::glyph_bits(ch);
@@ -100,11 +108,11 @@ impl PixelStamp {
                         let x0 = gx + (col as f32) * self.cell_w;
                         let x1 = x0 + self.cell_w;
                         target.push_quad(Quad::new(
-                            Vec3::new(x0, y0, 0.0),
-                            Vec3::new(x1, y0, 0.0),
-                            Vec3::new(x1, y1, 0.0),
-                            Vec3::new(x0, y1, 0.0),
-                            Vec3::Z,
+                            frame.point(x0, y0, z),
+                            frame.point(x1, y0, z),
+                            frame.point(x1, y1, z),
+                            frame.point(x0, y1, z),
+                            normal,
                             self.color,
                         ));
                     }

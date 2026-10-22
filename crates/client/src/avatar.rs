@@ -100,7 +100,7 @@ impl PlanetaryAvatar {
         let eye = self.current_pose().eye_origin();
         let view_dir = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
         let (next_ew, next_attire, next_rhythm, changed) =
-            self.earthworks.act_with_hand(side, self.attire, self.rhythm, eye, view_dir, self.position, world);
+            self.earthworks.act_with_hand(side, self.attire, self.rhythm, eye, view_dir, world);
         self.earthworks = next_ew;
         self.attire = next_attire;
         self.rhythm = next_rhythm;
@@ -116,13 +116,13 @@ impl Avatar for PlanetaryAvatar {
     fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(1.0, world) }
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
         let (eye, dir) = (self.current_pose().eye_origin(), (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize());
-        let (next_ew, cleared) = self.earthworks.release_hand(eye, dir, world);
-        self.earthworks = next_ew;
-        cleared
+        let (next_ew, next_attire, changed) = self.earthworks.release_hand(self.attire, eye, dir, self.position, world);
+        (self.earthworks, self.attire) = (next_ew, next_attire);
+        changed
     }
     fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
         let (eye, dir) = (self.current_pose().eye_origin(), (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize());
-        let (next_ew, next_attire, next_rhythm, changed) = self.earthworks.continue_digging(self.attire, self.rhythm, eye, dir, self.position, world);
+        let (next_ew, next_attire, next_rhythm, changed) = self.earthworks.continue_digging(self.attire, self.rhythm, eye, dir, world);
         (self.earthworks, self.attire, self.rhythm) = (next_ew, next_attire, next_rhythm);
         changed
     }

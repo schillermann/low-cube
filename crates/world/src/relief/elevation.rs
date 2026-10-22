@@ -17,55 +17,44 @@ pub trait ReliefElevation: Send + Sync {
     /// Continuous surface elevation in meters for physical avatar constraint.
     fn surface_height_at(&self, u: f32, v: f32) -> f32;
 
-    /// Indicates whether the discrete cell (u, v) was excavated or stacked by earthworks.
-    fn reworked_at(&self, _u: i32, _v: i32) -> bool {
-        false
+    /// Checks whether a 3D sight ray point (u, v, ray_elev) hits solid terrain or a placed block, returning its top elevation.
+    fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
+        let surf = self.surface_height_at(u, v);
+        if ray_elev <= surf + 0.02 { Some(surf) } else { None }
     }
+
+    /// Indicates whether the discrete cell (u, v) was excavated by earthworks.
+    fn reworked_at(&self, _u: i32, _v: i32) -> bool { false }
 
     /// Indicates whether the discrete cell (u, v) has bare exposed soil without regrown grass.
-    fn bare_dirt_at(&self, _u: i32, _v: i32) -> bool {
-        false
-    }
+    fn bare_dirt_at(&self, _u: i32, _v: i32) -> bool { false }
 
-    /// Indicates whether the discrete cell (u, v) has a flat full-cube reworked top.
-    fn flat_reworked_at(&self, u: i32, v: i32) -> bool {
-        self.reworked_at(u, v)
-    }
-
-    /// Emits a molded voxel shape at cell if present, returning true when emitted.
-    fn emit_molded_top(&self, _cell: GridCell, _base: f32, _frame: &SurfaceFrame, _top_col: Vec3, _wall_col: Vec3, _target: &mut dyn MeshTarget) -> bool {
-        false
-    }
+    /// Emits molded voxel shapes at cell if present, returning true when emitted.
+    fn emit_molded_top(&self, _cell: GridCell, _base: f32, _frame: &SurfaceFrame, _top_col: Vec3, _wall_col: Vec3, _target: &mut dyn MeshTarget) -> bool { false }
 
     /// Advances grass regrowth across bare dirt cells bordering grass within 1 block height.
-    fn step_grass(&mut self, _dt: f32) -> Vec<i32> {
-        Vec::new()
-    }
+    fn step_grass(&mut self, _dt: f32) -> Vec<i32> { Vec::new() }
 
     /// Partial digging stage (0..=3) at discrete cell (u, v) before full block excavation.
-    fn dig_stage_at(&self, _u: i32, _v: i32) -> u8 {
-        0
-    }
+    fn dig_stage_at(&self, _u: i32, _v: i32) -> u8 { 0 }
 
     /// Marks partial digging progress (0..=3) at discrete cell (u, v).
-    fn mark_dig_stage(&mut self, _u: i32, _v: i32, _stage: u8) -> (i32, bool) {
-        (0, false)
-    }
+    fn mark_dig_stage(&mut self, _u: i32, _v: i32, _stage: u8) -> (i32, bool) { (0, false) }
+
+    /// Marks partial digging progress (0..=3) at a specific vertical layer within (u, v).
+    fn mark_dig_layer(&mut self, u: i32, v: i32, _layer_elev: f32, stage: u8) -> (i32, bool) { self.mark_dig_stage(u, v, stage) }
 
     /// Excavates one discrete block layer at (u, v).
-    fn excavate_cell(&mut self, _u: i32, _v: i32) -> (i32, bool) {
-        (0, false)
-    }
+    fn excavate_cell(&mut self, _u: i32, _v: i32) -> (i32, bool) { (0, false) }
+
+    /// Excavates a specific vertical block layer within (u, v).
+    fn excavate_layer(&mut self, u: i32, v: i32, _layer_elev: f32) -> (i32, bool) { self.excavate_cell(u, v) }
 
     /// Stacks one discrete block layer at (u, v).
-    fn stack_cell(&mut self, _u: i32, _v: i32) -> bool {
-        false
-    }
+    fn stack_cell(&mut self, _u: i32, _v: i32) -> bool { false }
 
     /// Stacks one molded voxel block layer at (u, v).
-    fn stack_molded_cell(&mut self, u: i32, v: i32, _base: f32, _shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool {
-        self.stack_cell(u, v)
-    }
+    fn stack_molded_cell(&mut self, u: i32, v: i32, _base: f32, _shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool { self.stack_cell(u, v) }
 }
 
 /// Zoned planetary relief evaluating continuous spatial frequency into stepped voxel strata.

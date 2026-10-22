@@ -26,9 +26,10 @@ impl ReliefFacet {
     ) {
         let (surf_col, ramp_col, ridge_col, valley_col, chamfer_col, cliff_col) = palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
-        let stage = relief.dig_stage_at(u, v);
         let (h, hn, hs, he, hw) = (relief.elevation_at(u, v), relief.elevation_at(u, v + 1), relief.elevation_at(u, v - 1), relief.elevation_at(u + 1, v), relief.elevation_at(u - 1, v));
         let ((u0, u1), (v0, v1), top_h) = (cell.u_bounds(), cell.v_bounds(), (h as f32) * 0.5);
+        relief.emit_molded_top(cell, top_h, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
+        let stage = relief.dig_stage_at(u, v);
         let (tn, ts, te, tw) = (v + 1 >= half_blocks, v <= -half_blocks, u + 1 >= half_blocks, u <= -half_blocks);
         let mut suppressed = SuppressedTop;
         let top_out: &mut dyn MeshTarget = if stage == 0 { target } else { &mut suppressed };
@@ -45,13 +46,9 @@ impl ReliefFacet {
         } else if relief.reworked_at(u, v) {
             let bare_col = Vec3::new(0.48, 0.35, 0.22);
             let top_c = if relief.bare_dirt_at(u, v) { bare_col } else { surf_col };
-            if relief.emit_molded_top(cell, top_h - 0.5, frame, surf_col, bare_col, top_out) {
-                ([top_h - 0.5; 4], top_c)
-            } else {
-                let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
-                top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), top_c));
-                ([top_h, top_h, top_h, top_h], top_c)
-            }
+            let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
+            top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), top_c));
+            ([top_h, top_h, top_h, top_h], top_c)
         } else {
             let (nhn, nhs, nhe, nhw) = (relief.natural_elevation_at(u, v + 1), relief.natural_elevation_at(u, v - 1), relief.natural_elevation_at(u + 1, v), relief.natural_elevation_at(u - 1, v));
             let (dn, ds, de, dw) = (h - nhn, h - nhs, h - nhe, h - nhw);
@@ -107,7 +104,6 @@ impl ReliefFacet {
 
         if stage > 0 { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, surf_col, palette, frame, target); }
         self.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, relief, frame, cliff_col, target);
-        let _ = relief.emit_molded_top(cell, top_h, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -144,36 +140,37 @@ impl ReliefFacet {
         &self, u: i32, v: i32, u0: f32, u1: f32, v0: f32, v1: f32, h: i32, hn: i32, hs: i32, he: i32, hw: i32,
         corners: [f32; 4], relief: &dyn ReliefElevation, frame: &SurfaceFrame, cliff_col: Vec3, target: &mut dyn MeshTarget,
     ) {
+        let (dug_self, dirt_col) = (relief.reworked_at(u, v), Vec3::new(0.48, 0.35, 0.22));
         if h >= hn {
-            let fn_flat = relief.flat_reworked_at(u, v + 1);
+            let fn_flat = relief.reworked_at(u, v + 1);
             let bn_l = ((if !fn_flat && (hw < hn || relief.elevation_at(u - 1, v + 1) < hn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[3]);
             let bn_r = ((if !fn_flat && (he < hn || relief.elevation_at(u + 1, v + 1) < hn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[2]);
             if corners[3] > bn_l || corners[2] > bn_r {
-                target.push_quad(Quad::new(frame.point_at(u0, v1, bn_l), frame.point_at(u1, v1, bn_r), frame.point_at(u1, v1, corners[2]), frame.point_at(u0, v1, corners[3]), frame.bitangent(), cliff_col));
+                target.push_quad(Quad::new(frame.point_at(u0, v1, bn_l), frame.point_at(u1, v1, bn_r), frame.point_at(u1, v1, corners[2]), frame.point_at(u0, v1, corners[3]), frame.bitangent(), if dug_self || fn_flat { dirt_col } else { cliff_col }));
             }
         }
         if h >= hs {
-            let fs_flat = relief.flat_reworked_at(u, v - 1);
+            let fs_flat = relief.reworked_at(u, v - 1);
             let bs_l = ((if !fs_flat && (he < hs || relief.elevation_at(u + 1, v - 1) < hs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[1]);
             let bs_r = ((if !fs_flat && (hw < hs || relief.elevation_at(u - 1, v - 1) < hs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[0]);
             if corners[1] > bs_l || corners[0] > bs_r {
-                target.push_quad(Quad::new(frame.point_at(u1, v0, bs_l), frame.point_at(u0, v0, bs_r), frame.point_at(u0, v0, corners[0]), frame.point_at(u1, v0, corners[1]), -frame.bitangent(), cliff_col));
+                target.push_quad(Quad::new(frame.point_at(u1, v0, bs_l), frame.point_at(u0, v0, bs_r), frame.point_at(u0, v0, corners[0]), frame.point_at(u1, v0, corners[1]), -frame.bitangent(), if dug_self || fs_flat { dirt_col } else { cliff_col }));
             }
         }
         if h >= he {
-            let fe_flat = relief.flat_reworked_at(u + 1, v);
+            let fe_flat = relief.reworked_at(u + 1, v);
             let be_l = ((if !fe_flat && (hs < he || relief.elevation_at(u + 1, v - 1) < he) { he - 1 } else { he }) as f32 * 0.5).min(corners[1]);
             let be_r = ((if !fe_flat && (hn < he || relief.elevation_at(u + 1, v + 1) < he) { he - 1 } else { he }) as f32 * 0.5).min(corners[2]);
             if corners[1] > be_l || corners[2] > be_r {
-                target.push_quad(Quad::new(frame.point_at(u1, v0, be_l), frame.point_at(u1, v1, be_r), frame.point_at(u1, v1, corners[2]), frame.point_at(u1, v0, corners[1]), frame.tangent(), cliff_col));
+                target.push_quad(Quad::new(frame.point_at(u1, v0, be_l), frame.point_at(u1, v1, be_r), frame.point_at(u1, v1, corners[2]), frame.point_at(u1, v0, corners[1]), frame.tangent(), if dug_self || fe_flat { dirt_col } else { cliff_col }));
             }
         }
         if h >= hw {
-            let fw_flat = relief.flat_reworked_at(u - 1, v);
+            let fw_flat = relief.reworked_at(u - 1, v);
             let bw_l = ((if !fw_flat && (hn < hw || relief.elevation_at(u - 1, v + 1) < hw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[3]);
             let bw_r = ((if !fw_flat && (hs < hw || relief.elevation_at(u - 1, v - 1) < hw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[0]);
             if corners[3] > bw_l || corners[0] > bw_r {
-                target.push_quad(Quad::new(frame.point_at(u0, v1, bw_l), frame.point_at(u0, v0, bw_r), frame.point_at(u0, v0, corners[0]), frame.point_at(u0, v1, corners[3]), -frame.tangent(), cliff_col));
+                target.push_quad(Quad::new(frame.point_at(u0, v1, bw_l), frame.point_at(u0, v0, bw_r), frame.point_at(u0, v0, corners[0]), frame.point_at(u0, v1, corners[3]), -frame.tangent(), if dug_self || fw_flat { dirt_col } else { cliff_col }));
             }
         }
     }

@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::MeshTarget;
+use crate::{CrateredMeshTarget, MeshTarget, TurfMeshTarget};
 use crate::frame::SurfaceFrame;
 use super::cell::GridCell;
 use super::shape::VoxelShape;
@@ -18,11 +18,50 @@ impl ElevatedShape {
             elevation_offset,
         }
     }
+
+    /// Indicates whether this elevated block sits above the primary ground contact layer.
+    pub fn floating_above(&self, ground_top: f32) -> bool {
+        self.elevation_offset >= ground_top + 0.1
+    }
+
+    /// Upper block boundary elevation above ground datum.
+    pub fn ceiling_above(&self, ground_top: f32) -> f32 {
+        (self.elevation_offset + 0.5).max(ground_top)
+    }
+
+    /// Indicates whether the given vertical layer elevation falls within this block's 0.5m slot.
+    pub fn occupies_layer(&self, layer_elev: f32) -> bool {
+        layer_elev >= self.elevation_offset - 0.05 && layer_elev <= self.elevation_offset + 0.48
+    }
+
+    /// Indicates whether a 3D sight ray point intercepts the occupied volume of this shape.
+    pub fn intercepts(&self, local_u: f32, local_v: f32, ray_elev: f32) -> bool {
+        let dh = self.shape.elevation_at(local_u, local_v);
+        dh > 0.0 && ray_elev >= self.elevation_offset - 0.02 && ray_elev <= self.elevation_offset + dh + 0.02
+    }
+
+    /// Emits this elevated shape through composed TurfMeshTarget and CrateredMeshTarget decorators.
+    pub fn emit_terraced(
+        &self,
+        cell: GridCell,
+        frame: &SurfaceFrame,
+        top_color: Vec3,
+        wall_color: Vec3,
+        stage: u8,
+        target: &mut dyn MeshTarget,
+    ) {
+        let corners = cell.corner_points(frame, self.elevation_offset);
+        let mut cratered = CrateredMeshTarget::new(target, stage);
+        let mut turf = TurfMeshTarget::new(&mut cratered, frame.normal(), corners, top_color, wall_color, false);
+        self.emit_shape(cell, 0.0, frame, wall_color, &mut turf);
+        turf.seal_underside();
+    }
 }
 
 impl VoxelShape for ElevatedShape {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        self.shape.elevation_at(local_u, local_v) + self.elevation_offset
+        let dh = self.shape.elevation_at(local_u, local_v);
+        if dh > 0.0 { dh + self.elevation_offset } else { 0.0 }
     }
 
     fn shape_color(&self) -> Vec3 {
@@ -46,3 +85,4 @@ impl VoxelShape for ElevatedShape {
         );
     }
 }
+

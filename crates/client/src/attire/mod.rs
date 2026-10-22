@@ -55,44 +55,18 @@ impl YouthAttire {
     /// Primary constructor doing nothing except assigning arguments to fields.
     #[allow(clippy::too_many_arguments)]
     pub const fn new(
-        tunic: TunicStyle,
-        vambrace: VambraceStyle,
-        girdle: GirdleStyle,
-        footwear: FootwearStyle,
-        crown: CrownStyle,
-        relic: HeldRelic,
-        offhand: HeldRelic,
-        pigment: PigmentSwatch,
-        complexion: ComplexionSwatch,
-        physique: YouthPhysique,
+        tunic: TunicStyle, vambrace: VambraceStyle, girdle: GirdleStyle, footwear: FootwearStyle, crown: CrownStyle,
+        relic: HeldRelic, offhand: HeldRelic, pigment: PigmentSwatch, complexion: ComplexionSwatch, physique: YouthPhysique,
     ) -> Self {
-        Self {
-            tunic,
-            vambrace,
-            girdle,
-            footwear,
-            crown,
-            relic,
-            offhand,
-            pigment,
-            complexion,
-            physique,
-        }
+        Self { tunic, vambrace, girdle, footwear, crown, relic, offhand, pigment, complexion, physique }
     }
 
     /// Secondary constructor assembling a youthful medieval squire in linen doublet and cuffed boots.
     pub const fn squire() -> Self {
         Self::new(
-            TunicStyle::LinenDoublet,
-            VambraceStyle::RawhideWraps,
-            GirdleStyle::KnottedCord,
-            FootwearStyle::CuffedBoots,
-            CrownStyle::TousledMop,
-            HeldRelic::EmptyPalm,
-            HeldRelic::EmptyPalm,
-            PigmentSwatch::UnbleachedLinen,
-            ComplexionSwatch::Birch,
-            YouthPhysique::SlenderSquire,
+            TunicStyle::LinenDoublet, VambraceStyle::RawhideWraps, GirdleStyle::KnottedCord,
+            FootwearStyle::CuffedBoots, CrownStyle::TousledMop, HeldRelic::EmptyPalm, HeldRelic::EmptyPalm,
+            PigmentSwatch::UnbleachedLinen, ComplexionSwatch::Birch, YouthPhysique::SlenderSquire,
         )
     }
 
@@ -153,15 +127,8 @@ impl YouthAttire {
 
     pub fn multiplayer_bytes(&self) -> [u8; 9] {
         [
-            self.tunic.code(),
-            self.vambrace.code(),
-            self.girdle.code(),
-            self.footwear.code(),
-            self.crown.code(),
-            self.relic.code() + self.offhand.code() * 8,
-            self.pigment.code(),
-            self.complexion.code(),
-            self.physique.code(),
+            self.tunic.code(), self.vambrace.code(), self.girdle.code(), self.footwear.code(), self.crown.code(),
+            self.relic.code() + self.offhand.code() * 8, self.pigment.code(), self.complexion.code(), self.physique.code(),
         ]
     }
 
@@ -189,3 +156,30 @@ impl Wardrobe for YouthAttire {
         self.emit_satchel(pose, sight, BeltSatchel::empty(), target);
     }
 }
+
+/// Wardrobe decorator equipping a BeltSatchel and bare-hand digging posture onto YouthAttire.
+pub struct SatchelWardrobe {
+    attire: YouthAttire,
+    satchel: BeltSatchel,
+    dig_right: bool,
+    dig_left: bool,
+}
+
+impl SatchelWardrobe {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(attire: YouthAttire, satchel: BeltSatchel, dig_right: bool, dig_left: bool) -> Self {
+        Self { attire, satchel, dig_right, dig_left }
+    }
+}
+
+impl Wardrobe for SatchelWardrobe {
+    fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
+        let (r, l) = self.attire.held_pair();
+        let active = self.attire.with_relics(
+            if self.dig_right { HeldRelic::EmptyPalm } else { r },
+            if self.dig_left { HeldRelic::EmptyPalm } else { l },
+        );
+        active.emit_satchel(pose, sight, self.satchel, target);
+    }
+}
+

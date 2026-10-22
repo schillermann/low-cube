@@ -23,7 +23,19 @@ impl SurfaceSightRay {
         half_blocks: i32,
         half_size: f32,
     ) -> Option<(i32, i32)> {
-        self.trace_hit(frame, relief, half_blocks, half_size).map(|(cu, cv, _, _, _, _)| (cu, cv))
+        self.target_layer(frame, relief, half_blocks, half_size).map(|(cu, cv, _)| (cu, cv))
+    }
+
+    /// Resolves the targeted discrete grid cell (u, v) and vertical layer midpoint along the sight ray.
+    pub fn target_layer(
+        &self,
+        frame: &SurfaceFrame,
+        relief: &dyn ReliefElevation,
+        half_blocks: i32,
+        half_size: f32,
+    ) -> Option<(i32, i32, f32)> {
+        self.trace_hit(frame, relief, half_blocks, half_size)
+            .map(|(cu, cv, _, _, _, hit_top)| (cu, cv, hit_top - 0.25))
     }
 
     fn trace_hit(
@@ -48,16 +60,8 @@ impl SurfaceSightRay {
             }
             let ray_elev = frame.height_of(sample) - half_size;
             if cu >= min_c && cu <= max_c && cv >= min_c && cv <= max_c {
-                let surf_elev = relief.surface_height_at(u, v);
-                let ground_h = (relief.elevation_at(cu, cv) as f32) * 0.5;
-                let float_base = ((surf_elev - 0.01) * 2.0).floor() * 0.5;
-                let hit = if surf_elev > ground_h + 0.02 {
-                    ray_elev <= ground_h + 0.02 || (ray_elev >= float_base - 0.02 && ray_elev <= surf_elev + 0.02)
-                } else {
-                    ray_elev <= surf_elev + 0.02
-                };
-                if hit {
-                    return Some((cu, cv, prev_cu, prev_cv, prev_elev, surf_elev));
+                if let Some(hit_top) = relief.hit_top_at(u, v, ray_elev) {
+                    return Some((cu, cv, prev_cu, prev_cv, prev_elev, hit_top));
                 }
             }
             (prev_cu, prev_cv, prev_elev) = (cu, cv, ray_elev);
@@ -93,7 +97,9 @@ impl SurfaceSightRay {
             } else {
                 cv = (cv + if dv >= 0.0 { 1 } else { -1 }).clamp(min_c, max_c);
             }
+            return Some((cu, cv, (relief.elevation_at(cu, cv) as f32) * 0.5));
         }
-        Some((cu, cv, (relief.elevation_at(cu, cv) as f32) * 0.5))
+        let ground_top = (relief.elevation_at(cu, cv) as f32) * 0.5;
+        Some((cu, cv, ((surf_elev * 2.0).round() * 0.5).max(ground_top)))
     }
 }
