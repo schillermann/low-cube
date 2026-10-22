@@ -48,7 +48,7 @@ impl SensitivityLook {
         Self { look, sensitivity }
     }
 
-    /// Secondary constructor wrapping orientation with default calibrated sensitivity (0.003).
+    /// Secondary constructor wrapping orientation with calibrated sensitivity (0.003).
     pub fn calibrated(look: Box<dyn ViewOrientation>) -> Self {
         Self::new(look, 0.003)
     }
@@ -64,124 +64,15 @@ impl ViewOrientation for SensitivityLook {
     }
 }
 
-/// Polymorphic axis polarity without primitive boolean branching.
-pub trait AxisPolarity: Send + Sync {
-    fn apply(&self, delta: f32) -> f32;
-    fn invert(&self) -> Box<dyn AxisPolarity>;
-}
-
-/// Direct unmodified directional axis motion.
-pub struct DirectPolarity;
-
-impl AxisPolarity for DirectPolarity {
-    fn apply(&self, delta: f32) -> f32 {
-        delta
-    }
-
-    fn invert(&self) -> Box<dyn AxisPolarity> {
-        Box::new(ReversePolarity)
-    }
-}
-
-/// Inverted negated directional axis motion.
-pub struct ReversePolarity;
-
-impl AxisPolarity for ReversePolarity {
-    fn apply(&self, delta: f32) -> f32 {
-        -delta
-    }
-
-    fn invert(&self) -> Box<dyn AxisPolarity> {
-        Box::new(DirectPolarity)
-    }
-}
-
-/// Decorator managing polymorphic axis inversion states without primitive flags.
-pub struct InvertibleLook {
-    look: Box<dyn ViewOrientation>,
-    x_polarity: Box<dyn AxisPolarity>,
-    y_polarity: Box<dyn AxisPolarity>,
-}
-
-impl InvertibleLook {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(
-        look: Box<dyn ViewOrientation>,
-        x_polarity: Box<dyn AxisPolarity>,
-        y_polarity: Box<dyn AxisPolarity>,
-    ) -> Self {
-        Self {
-            look,
-            x_polarity,
-            y_polarity,
-        }
-    }
-
-    /// Secondary constructor initializing direct un-inverted axis polarities.
-    pub fn direct(look: Box<dyn ViewOrientation>) -> Self {
-        Self::new(look, Box::new(DirectPolarity), Box::new(DirectPolarity))
-    }
-
-    /// Secondary constructor initializing inverted pitch polarity.
-    #[cfg(test)]
-    pub fn inverted_pitch(look: Box<dyn ViewOrientation>) -> Self {
-        Self::new(look, Box::new(DirectPolarity), Box::new(ReversePolarity))
-    }
-
-    /// Secondary constructor initializing inverted yaw polarity.
-    #[cfg(test)]
-    pub fn inverted_yaw(look: Box<dyn ViewOrientation>) -> Self {
-        Self::new(look, Box::new(ReversePolarity), Box::new(DirectPolarity))
-    }
-
-    /// Inverts the horizontal yaw axis polarity.
-    pub fn toggle_x(&mut self) {
-        self.x_polarity = self.x_polarity.invert();
-    }
-
-    /// Inverts the vertical pitch axis polarity.
-    pub fn toggle_y(&mut self) {
-        self.y_polarity = self.y_polarity.invert();
-    }
-}
-
-impl ViewOrientation for InvertibleLook {
-    fn rotate(&mut self, dx: f32, dy: f32) {
-        self.look.rotate(
-            self.x_polarity.apply(dx),
-            self.y_polarity.apply(dy),
-        );
-    }
-
-    fn combine_with_surface(&self, surface_rot: Quat) -> Quat {
-        self.look.combine_with_surface(surface_rot)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_invertible_look_polarities() {
-        let base = Box::new(MouseLook::idle());
-        let mut inverted_pitch = InvertibleLook::inverted_pitch(base);
-        inverted_pitch.rotate(0.0, 1.0);
-        let q_pitch = inverted_pitch.combine_with_surface(Quat::IDENTITY);
-
-        let base_yaw = Box::new(MouseLook::idle());
-        let mut inverted_yaw = InvertibleLook::inverted_yaw(base_yaw);
-        inverted_yaw.rotate(1.0, 0.0);
-        let q_yaw = inverted_yaw.combine_with_surface(Quat::IDENTITY);
-
-        assert_ne!(q_pitch, Quat::IDENTITY);
-        assert_ne!(q_yaw, Quat::IDENTITY);
-
-        let mut invertible = InvertibleLook::direct(Box::new(MouseLook::idle()));
-        invertible.toggle_y();
-        invertible.toggle_x();
-        invertible.rotate(1.0, 1.0);
-        let q_inv = invertible.combine_with_surface(Quat::IDENTITY);
-        assert_ne!(q_inv, Quat::IDENTITY);
+    fn test_sensitivity_look_rotation() {
+        let mut look = SensitivityLook::calibrated(Box::new(MouseLook::idle()));
+        look.rotate(10.0, 5.0);
+        let q = look.combine_with_surface(Quat::IDENTITY);
+        assert_ne!(q, Quat::IDENTITY);
     }
 }

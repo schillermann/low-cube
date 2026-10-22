@@ -18,9 +18,6 @@ impl StrideRhythm {
     pub fn with_cleave(phase: f32, blend: f32, cleave: f32) -> Self { Self::with_dual_cleave(phase, blend, cleave, cleave) }
     pub fn new(phase: f32, blend: f32) -> Self { Self::with_dual_cleave(phase, blend, 0.0, 0.0) }
     pub fn idle() -> Self { Self::new(0.0, 0.0) }
-    pub fn sneaking() -> Self { Self::new(0.0, 0.38) }
-    pub fn walking() -> Self { Self::new(0.0, 0.45) }
-    pub fn running() -> Self { Self::new(0.0, 1.0) }
     pub fn trigger_right_strike(self) -> Self { Self::with_dual_cleave(self.phase, self.blend, 0.001, self.left_cleave) }
     pub fn trigger_left_strike(self) -> Self { Self::with_dual_cleave(self.phase, self.blend, self.right_cleave, 0.001) }
 
@@ -37,11 +34,6 @@ impl StrideRhythm {
 
     pub fn cleave_surge(self, side: f32) -> f32 { if self.hand_cleave(side) > 0.0 { (self.hand_cleave(side) * std::f32::consts::PI).sin() } else { 0.0 } }
     pub fn strike_progress(self) -> f32 { self.right_cleave.max(self.left_cleave) }
-
-    /// Advances the stride phase and any active strike cycles at a constant angular pace.
-    pub fn step_cycle(self, angular_rate: f32, dt: f32) -> Self {
-        Self::with_dual_cleave((self.phase + angular_rate * dt) % std::f32::consts::TAU, self.blend, Self::step_cleave(self.right_cleave, dt), Self::step_cleave(self.left_cleave, dt))
-    }
 
     /// Returns a new StrideRhythm advanced by planar surface displacement over dt.
     pub fn advance(self, previous: Vec3, next: Vec3, terrain_up: Vec3, dt: f32) -> Self {

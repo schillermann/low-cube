@@ -1,7 +1,7 @@
 use glam::Vec3;
-use winit::keyboard::KeyCode;
 use world::{BlockMold, MeshTarget, PlanetaryWorld};
-use crate::attire::{BeltSatchel, BodyPose, FacetedSolid, HeldRelic, LimbFrame, SatchelWardrobe, SightMode, StrideRhythm, TaperedPrism, Wardrobe, YouthAttire};
+use crate::attire::{BeltSatchel, BodyPose, FacetedSolid, LimbFrame, SatchelWardrobe, SightMode, StrideRhythm, TaperedPrism, Wardrobe, YouthAttire};
+use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 
 const EXCAVATION_THRESHOLD: u32 = 8;
 
@@ -25,10 +25,6 @@ impl PalmEarthworks {
         Self::new(self.satchel.map_mold(attire, BlockMold::next_form), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
 
-    pub fn mold_prev_form(self, attire: YouthAttire) -> Self {
-        Self::new(self.satchel.map_mold(attire, BlockMold::prev_form), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
-    }
-
     pub fn turn_mold_clockwise(self, attire: YouthAttire) -> Self {
         Self::new(self.satchel.map_mold(attire, BlockMold::turn_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
@@ -37,28 +33,35 @@ impl PalmEarthworks {
         Self::new(self.satchel.map_mold(attire, BlockMold::turn_counter_clockwise), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
     }
 
-    /// Dispatches mold, pocket stow/draw (`Q`/`E`), satchel toggle (`Tab`/`B`), and `WASD` satchel navigation keys.
-    pub fn handle_key(self, code: KeyCode, attire: YouthAttire) -> (Self, YouthAttire, bool) {
-        match code {
-            KeyCode::KeyR => (self.mold_next_form(attire), attire, true),
-            KeyCode::KeyV => (self.turn_mold_clockwise(attire), attire, true),
-            KeyCode::KeyC => (self.turn_mold_counter_clockwise(attire), attire, true),
-            KeyCode::Tab | KeyCode::KeyB => {
-                let (next_satchel, ok) = self.satchel.reconcile_attire(attire).toggle_open();
-                (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), attire, ok)
-            }
-            KeyCode::KeyQ | KeyCode::KeyE => {
-                let (next_satchel, next_attire, ok) = self.satchel.toggle_pocket(if code == KeyCode::KeyE { 1.0 } else { -1.0 }, attire);
-                (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), next_attire, ok)
-            }
-            KeyCode::KeyA | KeyCode::ArrowLeft | KeyCode::KeyD | KeyCode::ArrowRight | KeyCode::KeyW | KeyCode::ArrowUp | KeyCode::KeyS | KeyCode::ArrowDown => {
-                let dx = if matches!(code, KeyCode::KeyA | KeyCode::ArrowLeft) { -1 } else if matches!(code, KeyCode::KeyD | KeyCode::ArrowRight) { 1 } else { 0 };
-                let dy = if matches!(code, KeyCode::KeyW | KeyCode::ArrowUp) { -1 } else if matches!(code, KeyCode::KeyS | KeyCode::ArrowDown) { 1 } else { 0 };
-                let (next_satchel, ok) = self.satchel.navigate(dx, dy);
-                (Self::new(next_satchel, self.dig_progress, self.held_mask, self.dig_site, self.splash_active), attire, ok)
-            }
-            _ => (self, attire, false),
+    /// Dispatches mold, satchel transfer, satchel toggle, and movement-bound satchel navigation triggers using single-trigger bindings.
+    pub fn handle_trigger(self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire) -> (Self, YouthAttire, bool) {
+        if !self.satchel.open() && bindings.matches(ControlAction::MoldForm, trigger) {
+            return (self.mold_next_form(attire), attire, true);
         }
+        if !self.satchel.open() && bindings.matches(ControlAction::MoldRight, trigger) {
+            return (self.turn_mold_clockwise(attire), attire, true);
+        }
+        if !self.satchel.open() && bindings.matches(ControlAction::MoldLeft, trigger) {
+            return (self.turn_mold_counter_clockwise(attire), attire, true);
+        }
+        if bindings.matches(ControlAction::Satchel, trigger)
+            || (self.satchel.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape))
+        {
+            let (next_satchel, ok) = self.satchel.reconcile_attire(attire).toggle_open();
+            return (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), attire, ok);
+        }
+        if bindings.matches(ControlAction::SatchelRight, trigger) || bindings.matches(ControlAction::SatchelLeft, trigger) {
+            let side = if bindings.matches(ControlAction::SatchelRight, trigger) { 1.0 } else { -1.0 };
+            let (next_satchel, next_attire, ok) = self.satchel.transfer_hand(side, attire);
+            return (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), next_attire, ok);
+        }
+        let dx = if bindings.matches(ControlAction::MoveLeft, trigger) { -1 } else if bindings.matches(ControlAction::MoveRight, trigger) { 1 } else { 0 };
+        let dy = if bindings.matches(ControlAction::MoveForward, trigger) { -1 } else if bindings.matches(ControlAction::MoveBackward, trigger) { 1 } else { 0 };
+        if dx != 0 || dy != 0 {
+            let (next_satchel, ok) = self.satchel.navigate(dx, dy);
+            return (Self::new(next_satchel, self.dig_progress, self.held_mask, self.dig_site, self.splash_active), attire, ok);
+        }
+        (self, attire, false)
     }
 
     pub fn emit_attire(&self, attire: &YouthAttire, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
@@ -70,11 +73,6 @@ impl PalmEarthworks {
 
     pub fn reconcile_attire(self, attire: YouthAttire) -> Self {
         Self::new(self.satchel.reconcile_attire(attire), self.dig_progress, self.held_mask, self.dig_site, self.splash_active)
-    }
-
-    pub fn merge_site_relics(self, attire: YouthAttire, site_pair: (HeldRelic, HeldRelic)) -> (Self, YouthAttire) {
-        let (next_satchel, updated) = self.satchel.merge_site_relics(attire, site_pair);
-        (Self::new(next_satchel, self.dig_progress, self.held_mask, self.dig_site, self.splash_active), updated)
     }
 
     pub fn trigger_hand_swing(attire: YouthAttire, rhythm: StrideRhythm, side: f32) -> StrideRhythm {

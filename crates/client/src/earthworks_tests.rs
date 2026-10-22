@@ -2,8 +2,7 @@ use glam::Vec3;
 use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad};
 use crate::attire::{HeldRelic, YouthAttire};
 use crate::avatar::{Avatar, PlanetaryAvatar};
-use crate::controls::KeyMotion;
-use crate::troupe::TroupeAvatar;
+use crate::controls::{InputTrigger, KeyMotion};
 
 struct SurfaceLedger { quads: Vec<Quad> }
 impl SurfaceLedger {
@@ -65,20 +64,20 @@ fn test_mined_block_placed_only_with_same_hand_and_terrain_and_placed_blocks_mod
 
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world) && world.constrain_to_surface(target_probe, 0.0).y < initial_height);
-    avatar.scroll_mold(1.0, 0.0);
-    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyR));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
     let (mut wedge_fwd_mesh, mut wedge_right_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut wedge_fwd_mesh);
-    avatar.turn_mold_clockwise();
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
     avatar.emit_appearance(&mut wedge_right_mesh);
     let vertices = |ledger: &SurfaceLedger| -> Vec<Vec3> { ledger.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect() };
     assert_ne!(vertices(&wedge_fwd_mesh), vertices(&wedge_right_mesh), "Rotating molded block must visibly rotate block in hand");
-    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyC) && !avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelUp) && !avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world));
     assert!(world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.95), 0.0).y > world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.55), 0.0).y + 0.3);
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world) && !avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world));
     assert!(world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.95), 0.0).y > world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.55), 0.0).y + 0.3);
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world));
-    for _ in 0..2 { avatar.scroll_mold(-1.0, 0.0); }
+    for _ in 0..14 { assert!(avatar.dispatch_trigger(InputTrigger::WheelClick)); }
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE));
     let (mut closed_mesh, mut open_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut closed_mesh);
@@ -93,12 +92,12 @@ fn test_mined_block_placed_only_with_same_hand_and_terrain_and_placed_blocks_mod
     for _ in 0..2 { assert!(!avatar.use_right_hand(&mut world)); }
     assert!(avatar.use_right_hand(&mut world) && !avatar.release_hand(&mut world) && (world.constrain_to_surface(target_probe, 0.0).y - initial_height).abs() < 1e-4);
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::QuarriedStone, HeldRelic::EmptyPalm));
-    for _ in 0..2 { avatar.scroll_mold(1.0, 0.0); }
-    avatar.turn_mold_clockwise();
+    for _ in 0..2 { assert!(avatar.dispatch_trigger(InputTrigger::WheelClick)); }
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
     for _ in 0..7 { assert!(!avatar.use_left_hand(&mut world)); }
     assert!(avatar.use_left_hand(&mut world) && !avatar.release_hand(&mut world), "Second hand excavating earth inherits first hand's mold and rotation regardless of material");
     assert!(!avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world) && world.constrain_to_surface(Vec3::new(0.45, 9.0, -0.75), 0.0).y > world.constrain_to_surface(Vec3::new(0.05, 9.0, -0.75), 0.0).y + 0.3);
-    avatar.scroll_mold(-1.0, 0.0);
+    for _ in 0..15 { assert!(avatar.dispatch_trigger(InputTrigger::WheelClick)); }
     assert!(!avatar.use_right_hand(&mut world) && avatar.release_hand(&mut world) && (world.constrain_to_surface(target_probe, 0.0).y - (initial_height + 0.25)).abs() < 1e-4);
 }
 
@@ -107,7 +106,7 @@ fn test_two_free_hands_swing_both_arms_and_troupe_avatar_excavates_and_places() 
     let mut world = BiomedCubeWorld::beveled(16, 1.0);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
     let controls = KeyMotion::idle();
-    let mut avatar = TroupeAvatar::near_spawn(Box::new(PlanetaryAvatar::at(spawn)), spawn, &world, YouthAttire::squire());
+    let mut avatar = PlanetaryAvatar::at(spawn);
     avatar.rotate_view(0.0, 380.0);
 
     let (mut idle_mesh, mut digging_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
@@ -139,7 +138,7 @@ fn test_spade_in_left_hand_with_empty_right_hand_excavates_sloped_block_cleanly(
     assert!(slope_mid_y > 0.0, "Must locate a sloped ramp block on the Temperate face");
     let stand_pos = world.constrain_to_surface(Vec3::new(slope_u, 18.0, slope_z + 0.75), 1.0);
     let (controls, attire) = (KeyMotion::idle(), YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::IronSpade));
-    let mut avatar = TroupeAvatar::near_spawn(Box::new(PlanetaryAvatar::at(stand_pos)), stand_pos, &world, attire);
+    let mut avatar = PlanetaryAvatar::at(stand_pos);
     avatar.apply_attire(attire);
     avatar.rotate_view(0.0, 380.0);
     assert!(!avatar.use_left_hand(&mut world) && avatar.use_left_hand(&mut world), "Spade in left hand with empty right hand must excavate the sloped block on 2nd strike");

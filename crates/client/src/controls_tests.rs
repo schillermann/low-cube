@@ -1,6 +1,9 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use crate::controls::{KeyboardControls, KeyMotion, LocomotionTarget};
+use crate::controls::{
+    ActionBindings, BindingProfile, ControlAction, FileBindings, InputTrigger, KeyboardControls,
+    KeyMotion, LocomotionTarget,
+};
 
 struct MockLocomotionTarget {
     traveled: Option<Vec3>,
@@ -62,10 +65,43 @@ fn test_unified_locomotion_messaging() {
     assert!(!target.jumped);
     assert!(!target.sneaked);
 
-    // ShiftRight also triggers sneak
+    // Only one keybinding per action: ShiftRight does not trigger sneak while Sneak is bound to ShiftLeft
     motion.register_key(KeyCode::ShiftRight, true);
     motion.drive_locomotion(Vec3::Z, Vec3::X, &mut target);
-    assert!(target.sneaked);
+    assert!(!target.sneaked, "Secondary unconfigured key must not trigger Sneak");
+    motion.register_key(KeyCode::ShiftRight, false);
+
+    // Rebinding Sneak to ShiftRight and MoveForward to ArrowUp updates controls cleanly
+    let custom = ActionBindings::seeded()
+        .with_key_binding(ControlAction::Sneak, KeyCode::ShiftRight)
+        .with_key_binding(ControlAction::MoveForward, KeyCode::ArrowUp);
+    motion.apply_bindings(custom);
+    motion.register_key(KeyCode::ShiftLeft, true);
+    motion.register_key(KeyCode::KeyW, true);
+    motion.drive_locomotion(Vec3::Z, Vec3::X, &mut target);
+    assert!(!target.sneaked && target.traveled.is_none(), "Old keys must no longer trigger rebound actions");
+
+    motion.register_key(KeyCode::ShiftLeft, false);
+    motion.register_key(KeyCode::KeyW, false);
+    motion.register_key(KeyCode::ShiftRight, true);
+    motion.register_key(KeyCode::ArrowUp, true);
+    motion.drive_locomotion(Vec3::Z, Vec3::X, &mut target);
+    assert!(target.sneaked && target.traveled == Some(Vec3::Z));
+
+    // Assigning an already bound key swaps bindings so every action retains a single unique key
+    let swapped = ActionBindings::seeded().with_key_binding(ControlAction::MoveForward, KeyCode::KeyS);
+    assert_eq!(swapped.trigger_for(ControlAction::MoveForward), InputTrigger::Key(KeyCode::KeyS));
+    assert_eq!(swapped.trigger_for(ControlAction::MoveBackward), InputTrigger::Key(KeyCode::KeyW));
+    assert_eq!(swapped.trigger_for(ControlAction::MoldForm), InputTrigger::WheelClick);
+    assert_eq!(swapped.trigger_for(ControlAction::MoldLeft), InputTrigger::WheelUp);
+    assert_eq!(swapped.trigger_for(ControlAction::MoldRight), InputTrigger::WheelDown);
+
+    let temp_path = std::env::temp_dir().join("test_low_cube_controls_profile.toml");
+    let store = FileBindings::new(temp_path.to_str().unwrap().to_string());
+    store.save(&swapped);
+    let loaded = store.load_or_seeded();
+    let _ = std::fs::remove_file(&temp_path);
+    assert_eq!(swapped, loaded);
 }
 
 #[test]

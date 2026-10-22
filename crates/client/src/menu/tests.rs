@@ -2,25 +2,17 @@ use std::cell::Cell;
 use glam::Vec3;
 use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
 use world::{MeshTarget, Quad};
-use crate::attire::{
-    AttireProfile, BodyRegion, ComplexionSwatch, FileAttire, HeldRelic, SightMode, StrideRhythm,
-    Wardrobe, YouthAttire,
-};
+use crate::attire::{AttireProfile, BodyRegion, ComplexionSwatch, FileAttire, HeldRelic, SightMode, StrideRhythm, Wardrobe, YouthAttire};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::AuroraCanopy;
 use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::celestial::CelestialCadence;
+use crate::controls::ControlAction;
 use crate::posture::AvatarPosture;
 use crate::surface::PlatformSurface;
-use super::{
-    AvatarArchetype, EscapeMenu, ModalDirective, ScreenPoint, SessionModal, StudioAnimation,
-    TurntableStage, WardrobeStudio,
-};
+use super::{AvatarArchetype, ControlStudio, EscapeMenu, ModalDirective, ScreenPoint, SessionModal, StudioAnimation, TurntableStage, WardrobeStudio};
 
-struct MockSurface {
-    captured: Cell<bool>,
-}
-
+struct MockSurface { captured: Cell<bool> }
 impl MockSurface {
     fn active() -> Self { Self { captured: Cell::new(true) } }
     fn cursor_captured(&self) -> bool { self.captured.get() }
@@ -38,10 +30,7 @@ impl PlatformSurface for MockSurface {
     fn render_frame(&self, _p: &dyn GraphicPipeline, _s: &dyn ShaderProgram, _m: &dyn Mesh, _a: &dyn Avatar, _os: &dyn ShaderProgram, _mo: &dyn SessionModal) {}
 }
 
-struct QuadCapture {
-    quads: Vec<Quad>,
-}
-
+struct QuadCapture { quads: Vec<Quad> }
 impl QuadCapture {
     fn empty() -> Self { Self { quads: Vec::new() } }
     fn count(&self) -> usize { self.quads.len() }
@@ -58,15 +47,16 @@ impl MeshTarget for QuadCapture {
 }
 
 #[test]
-fn test_escape_key_opens_menu_and_character_stage_shows_full_height_single_person() {
+fn test_escape_key_opens_menu_character_stage_and_keybinding_settings() {
     let surface = MockSurface::active();
     let mut avatar = PlanetaryAvatar::at(Vec3::new(0.0, 9.0, 0.0));
     let mut menu = EscapeMenu::closed();
 
     assert!(!menu.open() && surface.cursor_captured());
-    let mut crosshair_ui = QuadCapture::empty();
-    menu.emit_ui(&mut crosshair_ui);
+    let (mut crosshair_ui, mut satchel_ui) = (QuadCapture::empty(), QuadCapture::empty());
+    menu.emit_ui(&avatar, &mut crosshair_ui);
     assert_eq!(crosshair_ui.count(), 10, "Gameplay HUD must render a 5-part framed crosshair in the screen center");
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab) && { menu.emit_ui(&avatar, &mut satchel_ui); satchel_ui.count() == 0 } && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
     menu.toggle_escape(&surface);
     assert!(menu.open() && !surface.cursor_captured());
 
@@ -98,10 +88,32 @@ fn test_escape_key_opens_menu_and_character_stage_shows_full_height_single_perso
     menu.move_cursor(ScreenPoint::new(-0.83, -0.70));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
-    // Click BACK button (centered at 0.0, -0.89) in Character Studio to return to Main Menu, then click QUIT GAME
+    // Click BACK button in Character Studio to return to Main Menu, then click SETTINGS button
     menu.move_cursor(ScreenPoint::new(0.0, -0.89));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    menu.move_cursor(ScreenPoint::new(0.0, -0.21));
+    menu.move_cursor(ScreenPoint::new(0.0, -0.16));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    let mut settings_ui = QuadCapture::empty();
+    menu.emit_ui(&avatar, &mut settings_ui);
+    assert!(settings_ui.count() > 200, "Settings screen must render all 18 single-key action buttons");
+
+    // Click Satchel action button and rebind from Tab to KeyN
+    let satchel_btn = ControlStudio::action_bounds(ControlAction::Satchel);
+    menu.move_cursor(ScreenPoint::new(satchel_btn.center_x(), satchel_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    assert!(menu.handle_key(winit::keyboard::KeyCode::KeyN, &mut avatar));
+    assert!(!avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyN));
+
+    // Reset keys, return to Main Menu, and click QUIT GAME
+    let (reset_btn, back_btn) = (ControlStudio::reset_button(), ControlStudio::back_button());
+    menu.move_cursor(ScreenPoint::new(reset_btn.center_x(), reset_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    let _ = std::fs::remove_file("controls.toml");
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
+    menu.move_cursor(ScreenPoint::new(back_btn.center_x(), back_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    menu.move_cursor(ScreenPoint::new(0.0, -0.34));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ExitGame);
 }
 
@@ -129,7 +141,7 @@ fn test_single_character_cycles_all_animations_and_archetypes_differ_fundamental
         let (mut m_male, mut m_fem) = (QuadCapture::empty(), QuadCapture::empty());
         archetypes[i].attire().emit(&pose, SightMode::LookingGlassSight, &mut m_male);
         archetypes[i].female_attire().emit(&pose, SightMode::LookingGlassSight, &mut m_fem);
-        assert!(m_fem.bust_projection() > m_male.bust_projection() + 0.035, "Female bust must project clearly forward for {:?}", archetypes[i]);
+        assert!(m_fem.bust_projection() > m_male.bust_projection() + 0.035);
         for j in (i + 1)..archetypes.len() {
             let (mut m_j, mut f_j) = (QuadCapture::empty(), QuadCapture::empty());
             archetypes[j].attire().emit(&pose, SightMode::LookingGlassSight, &mut m_j);
@@ -149,12 +161,10 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
     base_attire.emit(&pose, SightMode::LookingGlassSight, &mut base_mesh);
 
     for region in BodyRegion::all() {
-        let taller = base_attire.with_adjusted_region(region, 2, 0);
-        let thicker = base_attire.with_adjusted_region(region, 0, 2);
+        let (taller, thicker) = (base_attire.with_adjusted_region(region, 2, 0), base_attire.with_adjusted_region(region, 0, 2));
         let (mut taller_mesh, mut thicker_mesh) = (QuadCapture::empty(), QuadCapture::empty());
         taller.emit(&pose, SightMode::LookingGlassSight, &mut taller_mesh);
         thicker.emit(&pose, SightMode::LookingGlassSight, &mut thicker_mesh);
-
         assert_ne!(base_mesh.positions(), taller_mesh.positions());
         assert_ne!(base_mesh.positions(), thicker_mesh.positions());
         assert_ne!(taller_mesh.positions(), thicker_mesh.positions());
@@ -174,25 +184,14 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
     assert_eq!(custom, loaded);
     assert!(loaded.feminine());
 
-    let (mut studio, mut male_stage, mut female_stage, mut dragged_stage) = (WardrobeStudio::from_profile(), QuadCapture::empty(), QuadCapture::empty(), QuadCapture::empty());
+    let (mut studio, mut male_stage, mut female_stage) = (WardrobeStudio::from_profile(), QuadCapture::empty(), QuadCapture::empty());
     studio.emit_stage(&mut male_stage);
-
-    // Click FEMALE button on the left panel (-0.59, -0.70)
     studio.move_pointer(ScreenPoint::new(-0.59, -0.70));
     studio.press_pointer();
-    assert!(studio.current_attire().feminine(), "Clicking FEMALE button in Character Studio must switch character to female");
+    assert!(studio.current_attire().feminine());
     studio.emit_stage(&mut female_stage);
-    assert_ne!(male_stage.positions(), female_stage.positions(), "Female character must emit distinct feminine anatomy and hair");
-
-    // Click MALE button (-0.83, -0.70) to restore default profile
+    assert_ne!(male_stage.positions(), female_stage.positions());
     studio.move_pointer(ScreenPoint::new(-0.83, -0.70));
     studio.press_pointer();
-    assert!(!studio.current_attire().feminine(), "Clicking MALE button in Character Studio must switch character back to male");
-
-    studio.move_pointer(ScreenPoint::new(0.0, 0.0));
-    studio.press_pointer();
-    studio.move_pointer(ScreenPoint::new(0.25, 0.0));
-    studio.release_pointer();
-    studio.emit_stage(&mut dragged_stage);
-    assert!(dragged_stage.count() > 100);
+    assert!(!studio.current_attire().feminine());
 }

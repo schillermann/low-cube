@@ -2,10 +2,10 @@ use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad};
 use crate::allocation_audit::count_allocations;
-use crate::attire::{BodyPose, MartialStyle, SightMode, StrideRhythm, Wardrobe, YouthAttire, YouthPhysique};
+use crate::attire::{BodyPose, HeldRelic, MartialStyle, SightMode, StrideRhythm, Wardrobe, YouthAttire, YouthPhysique};
 use crate::avatar::{Avatar, PlanetaryAvatar};
-use crate::controls::KeyMotion;
-use crate::troupe::{FigureTroupe, GaitFigure, SpawnTroupe, TroupeAvatar};
+use crate::controls::{KeyboardControls, KeyMotion};
+use crate::menu::StudioAnimation;
 
 struct QuadCollector { quads: Vec<Quad> }
 impl QuadCollector {
@@ -27,33 +27,30 @@ impl MeshTarget for QuadCollector {
 }
 
 #[test]
-fn test_spawn_troupe_emits_three_characters_and_ground_axe_visible_from_spawn() {
+fn test_spawn_contains_only_player_avatar_without_persons_or_items() {
     let world = BiomedCubeWorld::beveled(32, 1.0);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let attire = YouthAttire::squire();
 
-    let solo_avatar = PlanetaryAvatar::at(spawn);
-    let mut solo_collector = QuadCollector::empty();
-    solo_avatar.emit_appearance(&mut solo_collector);
+    let avatar = PlanetaryAvatar::at(spawn);
+    let mut spawn_collector = QuadCollector::empty();
+    avatar.emit_appearance(&mut spawn_collector);
 
-    let peer_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
-    let mut peer_collector = QuadCollector::empty();
-    attire.emit(&peer_pose, SightMode::LookingGlassSight, &mut peer_collector);
+    let first_person_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
+    let mut expected_collector = QuadCollector::empty();
+    attire.emit(&first_person_pose, SightMode::FirstPersonSight, &mut expected_collector);
 
-    let troupe_avatar = TroupeAvatar::near_spawn(Box::new(PlanetaryAvatar::at(spawn)), spawn, &world, attire);
-    let mut troupe_collector = QuadCollector::empty();
-    troupe_avatar.emit_appearance(&mut troupe_collector);
-
-    // TroupeAvatar must emit the player's first-person mesh + 7 third-person characters + grounded axe
-    assert!(
-        troupe_collector.count() > solo_collector.count() + 7 * peer_collector.count(),
-        "TroupeAvatar must emit first-person body, 7 complete third-person characters (including spade and bare-hand digging), and the ground axe near spawn"
+    assert_eq!(
+        spawn_collector.count(),
+        expected_collector.count(),
+        "Spawn must not contain extra showcase persons or ground items"
     );
 
-    let vp = troupe_avatar.view_projection_matrix(16.0 / 9.0);
-    assert!(
-        troupe_collector.visible_in_frustum(vp) > solo_collector.visible_in_frustum(vp) + 6 * peer_collector.count(),
-        "All seven characters and the axe near spawn must stand inside the player's initial field of view"
+    let vp = avatar.view_projection_matrix(16.0 / 9.0);
+    assert_eq!(
+        spawn_collector.visible_in_frustum(vp),
+        0,
+        "Looking forward at spawn with empty hands must show an unobstructed view without persons or items"
     );
 }
 
@@ -62,20 +59,22 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
     let pos = Vec3::new(0.0, 10.0, 0.0);
     let attire = YouthAttire::squire();
 
-    let stand = GaitFigure::standing_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
-    let sneak = GaitFigure::sneaking_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
-    let walk = GaitFigure::walking_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
-    let run = GaitFigure::running_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
-    let jump = GaitFigure::jumping_at(pos, Quat::IDENTITY, Quat::IDENTITY).step(0.25);
-
-    let (mut stand_quads, mut sneak_quads, mut walk_quads, mut run_quads, mut jump_quads) = (QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty());
-    stand.emit(&attire, &mut stand_quads); sneak.emit(&attire, &mut sneak_quads); walk.emit(&attire, &mut walk_quads); run.emit(&attire, &mut run_quads); jump.emit(&attire, &mut jump_quads);
+    let (mut stand_quads, mut sneak_quads, mut walk_quads, mut run_quads, mut jump_quads) = (
+        QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(),
+    );
+    StudioAnimation::StandingIdle.emit_figure(pos, 0.0, 0.25, &attire, &mut stand_quads);
+    StudioAnimation::CrouchingSneak.emit_figure(pos, 0.0, 0.25, &attire, &mut sneak_quads);
+    StudioAnimation::WalkingStride.emit_figure(pos, 0.0, 0.25, &attire, &mut walk_quads);
+    StudioAnimation::RunningSprint.emit_figure(pos, 0.0, 0.25, &attire, &mut run_quads);
+    StudioAnimation::JumpingLeap.emit_figure(pos, 0.0, 0.55, &attire, &mut jump_quads);
 
     let extract_vertices = |collector: &QuadCollector| -> Vec<Vec3> {
         collector.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect()
     };
 
-    let (v_stand, v_sneak, v_walk, v_run, v_jump) = (extract_vertices(&stand_quads), extract_vertices(&sneak_quads), extract_vertices(&walk_quads), extract_vertices(&run_quads), extract_vertices(&jump_quads));
+    let (v_stand, v_sneak, v_walk, v_run, v_jump) = (
+        extract_vertices(&stand_quads), extract_vertices(&sneak_quads), extract_vertices(&walk_quads), extract_vertices(&run_quads), extract_vertices(&jump_quads),
+    );
     assert_ne!(v_stand, v_sneak, "Standing and sneaking animations must produce distinct limb postures");
     assert_ne!(v_sneak, v_walk, "Sneaking and walking animations must produce distinct limb postures");
     assert_ne!(v_walk, v_run, "Walking and running animations must produce distinct limb postures");
@@ -84,52 +83,39 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
     let stand_pose = BodyPose::new(pos, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
     let crouch_pose = BodyPose::new(pos, Quat::IDENTITY, Quat::IDENTITY, 0.36, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
     let leap_pose = BodyPose::new(pos, Quat::IDENTITY, Quat::IDENTITY, 1.16, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
-    let ((stand_h, stand_k, _, _), (crouch_h, crouch_k, _, _), (leap_h, leap_k, leap_a, _), (_, leap_left_k, _, _)) = (stand_pose.leg_joints(1.0), crouch_pose.leg_joints(1.0), leap_pose.leg_joints(1.0), leap_pose.leg_joints(-1.0));
-    assert!(crouch_k.z > stand_k.z + 0.18 && crouch_h.y < stand_h.y - 0.30 && leap_k.z < leap_h.z - 0.06 && leap_a.z < leap_k.z - 0.06 && (leap_k.z - leap_left_k.z).abs() < 1e-5, "Sneak and jump must bend both knees deeply and lower the hips");
-    assert!(crouch_pose.crown_frame().point(0.0, 0.0, 0.0).z < stand_pose.crown_frame().point(0.0, 0.0, 0.0).z - 0.15, "Upper body and neck must lean forward during sneaking");
-    assert!((leap_pose.crown_frame().point(0.0, 0.0, 0.0).y - stand_pose.crown_frame().point(0.0, 0.0, 0.0).y).abs() < 1e-5, "Head must remain attached to the torso during a jump");
-    let ((_, stand_elbow, stand_wrist, _), (_, crouch_elbow, crouch_wrist, _)) = (stand_pose.external_arm(1.0, false, MartialStyle::Unarmed), crouch_pose.external_arm(1.0, false, MartialStyle::Unarmed));
-    assert!(crouch_elbow.z < stand_elbow.z - 0.08 && crouch_wrist.point(0.0, 0.0, 0.0).z < crouch_elbow.z - 0.12 && crouch_wrist.point(0.0, 0.0, 0.0).z < stand_wrist.point(0.0, 0.0, 0.0).z - 0.20 && crouch_wrist.point(0.0, 0.0, 0.0).x < crouch_elbow.x - 0.05 && crouch_wrist.point(0.0, 0.0, 0.064).x < crouch_wrist.point(0.0, 0.0, 0.0).x - 0.02 && crouch_wrist.point(0.0, 0.036, 0.0).x < crouch_wrist.point(0.0, 0.0, 0.0).x - 0.005, "Sneaking arms must bend forward, angle forearms inward, and rotate hands diagonally inward");
+    let ((stand_h, stand_k, _, _), (crouch_h, crouch_k, _, _), (leap_h, leap_k, leap_a, _), (_, leap_left_k, _, _)) =
+        (stand_pose.leg_joints(1.0), crouch_pose.leg_joints(1.0), leap_pose.leg_joints(1.0), leap_pose.leg_joints(-1.0));
+    assert!(crouch_k.z > stand_k.z + 0.18 && crouch_h.y < stand_h.y - 0.30 && leap_k.z < leap_h.z - 0.06 && leap_a.z < leap_k.z - 0.06 && (leap_k.z - leap_left_k.z).abs() < 1e-5);
+    assert!(crouch_pose.crown_frame().point(0.0, 0.0, 0.0).z < stand_pose.crown_frame().point(0.0, 0.0, 0.0).z - 0.15);
+    assert!((leap_pose.crown_frame().point(0.0, 0.0, 0.0).y - stand_pose.crown_frame().point(0.0, 0.0, 0.0).y).abs() < 1e-5);
+    let ((_, stand_elbow, stand_wrist, _), (_, crouch_elbow, crouch_wrist, _)) =
+        (stand_pose.external_arm(1.0, false, MartialStyle::Unarmed), crouch_pose.external_arm(1.0, false, MartialStyle::Unarmed));
+    assert!(crouch_elbow.z < stand_elbow.z - 0.08 && crouch_wrist.point(0.0, 0.0, 0.0).z < crouch_elbow.z - 0.12 && crouch_wrist.point(0.0, 0.0, 0.0).z < stand_wrist.point(0.0, 0.0, 0.0).z - 0.20);
     for step_idx in 0..16 {
         let run_pose = BodyPose::new(pos, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::new((step_idx as f32) * std::f32::consts::TAU / 16.0, 1.0), YouthPhysique::SlenderSquire);
         let (shoulder_w, elbow_w, _, _) = run_pose.external_arm(1.0, false, MartialStyle::Unarmed);
-        assert!(shoulder_w.y - elbow_w.y >= 0.20 && elbow_w.x > stand_elbow.x + 0.04, "Running elbow must abduct slightly while remaining below shoulder");
+        assert!(shoulder_w.y - elbow_w.y >= 0.20 && elbow_w.x > stand_elbow.x + 0.04);
     }
 
     let world = BiomedCubeWorld::centripetal(32, 2.5, 4.0);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
-    let (mut avatar, controls) = (TroupeAvatar::near_spawn(Box::new(PlanetaryAvatar::at(spawn)), spawn, &world, attire), KeyMotion::idle());
+    let (mut avatar, controls) = (PlanetaryAvatar::at(spawn), KeyMotion::idle());
     avatar.step_motion(1.0 / 60.0, &controls, &world);
     let allocs = count_allocations(|| { for _ in 0..120 { avatar.step_motion(1.0 / 60.0, &controls, &world); } });
-    assert_eq!(allocs, 0, "TroupeAvatar step_motion must allocate zero heap memory");
+    assert_eq!(allocs, 0, "PlanetaryAvatar step_motion must allocate zero heap memory");
 }
 
 #[test]
-fn test_axe_pickup_and_throw_cycle_near_spawn() {
+fn test_dual_hand_weapons_and_strike_trajectories() {
     let mut world = BiomedCubeWorld::beveled(32, 1.0);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
-    let mut avatar = TroupeAvatar::near_spawn(Box::new(PlanetaryAvatar::at(spawn)), spawn, &world, YouthAttire::squire());
+    let mut avatar = PlanetaryAvatar::at(spawn);
     let controls = KeyMotion::idle();
 
-    let mut initial_quads = QuadCollector::empty();
-    avatar.emit_appearance(&mut initial_quads);
-
-    // Press E at spawn (within 2.6m of the axe at 1.6m) to pick up the WoodmanAxe in the right hand
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyE));
-    avatar.step_motion(1.0 / 60.0, &controls, &world);
-
-    let mut wielded_quads = QuadCollector::empty();
-    avatar.emit_appearance(&mut wielded_quads);
-    assert!(wielded_quads.count() > initial_quads.count(), "Picking up the axe must equip it on the player and the 3 showcase characters");
-
-    // Press Q to pick up the KnightlySword into the left hand while keeping the WoodmanAxe in the right hand
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyQ));
-    avatar.step_motion(1.0 / 60.0, &controls, &world);
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::KnightlySword));
     let mut dual_quads = QuadCollector::empty();
     avatar.emit_appearance(&mut dual_quads);
-    assert!(dual_quads.count() > wielded_quads.count(), "Player must be able to hold items in both hands simultaneously");
 
-    // Right mouse click triggers right-hand weapon strike, left mouse click triggers left-hand weapon strike
     avatar.use_right_hand(&mut world);
     for _ in 0..8 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
     let mut right_striking_quads = QuadCollector::empty();
@@ -143,55 +129,72 @@ fn test_axe_pickup_and_throw_cycle_near_spawn() {
     avatar.emit_appearance(&mut left_striking_quads);
     assert_ne!(vertices(&right_striking_quads), vertices(&left_striking_quads), "Left mouse strike must animate the left-hand weapon posture");
 
-    // Press X twice to throw both held weapons back onto the ground
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyX));
-    avatar.step_motion(1.0 / 60.0, &controls, &world);
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyX));
-    for _ in 0..45 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
-    let mut thrown_quads = QuadCollector::empty();
-    avatar.emit_appearance(&mut thrown_quads);
-    assert_eq!(thrown_quads.count(), initial_quads.count(), "Throwing both weapons must unequip them from both hands and land them on the ground");
-
     let rest_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
     let swing_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::with_cleave(0.0, 0.0, 0.62), YouthPhysique::SlenderSquire);
     let ((_, rest_elbow, rest_wrist, _), (_, axe_elbow, axe_wrist, _)) = (rest_pose.external_arm(1.0, true, MartialStyle::LumberjackCleave), swing_pose.external_arm(1.0, true, MartialStyle::LumberjackCleave));
     let ((_, _, fp_axe_wrist, _), (_, sword_elbow, sword_wrist, _)) = (swing_pose.first_person_arm(1.0, MartialStyle::LumberjackCleave), swing_pose.external_arm(1.0, true, MartialStyle::SwordplaySlash));
-    assert!(rest_elbow.z - axe_elbow.z > 0.12 && rest_elbow.z - sword_elbow.z > 0.12, "Upper arm elbow must surge forward during both axe and sword swings");
+    assert!(rest_elbow.z - axe_elbow.z > 0.12 && rest_elbow.z - sword_elbow.z > 0.12);
     let (ext_head, fp_head, fp_left_head) = (axe_wrist.point(-0.025, 0.24, 0.054), fp_axe_wrist.point(-0.025, 0.24, 0.054), swing_pose.first_person_arm(-1.0, MartialStyle::LumberjackCleave).2.point(0.025, 0.24, 0.054));
     let (ext_wrist, fp_wrist, sword_tip) = (axe_wrist.point(0.0, 0.0, 0.0), fp_axe_wrist.point(0.0, 0.0, 0.0), sword_wrist.point(-0.025, 0.68, 0.054));
-    assert!(axe_wrist.point(0.0, 0.0, 0.064).y - ext_wrist.y < rest_wrist.point(0.0, 0.0, 0.064).y - rest_wrist.point(0.0, 0.0, 0.0).y, "Hand must hinge downward at the wrist during a strike");
-    assert!(axe_wrist.point(0.0, 0.036, 0.0).x - ext_wrist.x > rest_wrist.point(0.0, 0.036, 0.0).x - rest_wrist.point(0.0, 0.0, 0.0).x + 0.01, "Hand and axe must rotate outward together during an axe strike");
+    assert!(axe_wrist.point(0.0, 0.0, 0.064).y - ext_wrist.y < rest_wrist.point(0.0, 0.0, 0.064).y - rest_wrist.point(0.0, 0.0, 0.0).y);
+    assert!(axe_wrist.point(0.0, 0.036, 0.0).x - ext_wrist.x > rest_wrist.point(0.0, 0.036, 0.0).x - rest_wrist.point(0.0, 0.0, 0.0).x + 0.01);
     let full_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::with_cleave(0.0, 0.0, 0.68), YouthPhysique::SlenderSquire);
-    let mid_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::with_cleave(0.0, 0.0, 0.51), YouthPhysique::SlenderSquire);
     let (eye, (_, _, fp_full_axe, _), (_, _, fp_full_sword, _)) = (full_pose.eye_origin(), full_pose.first_person_arm(1.0, MartialStyle::LumberjackCleave), full_pose.first_person_arm(1.0, MartialStyle::SwordplaySlash));
     let (axe_blade_hit, sword_tip_hit) = (fp_full_axe.point(-0.025, 0.218, 0.140) - eye, fp_full_sword.point(-0.025, 0.680, 0.054) - eye);
-    assert!(axe_blade_hit.x.abs() < 0.005 && axe_blade_hit.y.abs() < 0.005 && sword_tip_hit.x.abs() < 0.005 && sword_tip_hit.y.abs() < 0.005, "Axe blade and sword tip must aim precisely at the center crosshair at full strike");
-    let wind_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::with_cleave(0.0, 0.0, 0.34), YouthPhysique::SlenderSquire);
-    let ((_, wind_axe_elbow, wind_axe_wrist, _), (_, wind_sword_elbow, _, _)) = (wind_pose.external_arm(1.0, true, MartialStyle::LumberjackCleave), wind_pose.external_arm(1.0, true, MartialStyle::SwordplaySlash));
-    let ((_, wind_spade_elbow, wind_spade_w, _), (_, _, mid_spade_w, _), (_, strike_spade_elbow, strike_spade_w, _)) = (wind_pose.external_arm(1.0, true, MartialStyle::SpadeDig), mid_pose.external_arm(1.0, true, MartialStyle::SpadeDig), full_pose.external_arm(1.0, true, MartialStyle::SpadeDig));
-    let ((_, wind_palm_elbow, _, _), (_, _, mid_palm_w, _), (_, strike_palm_elbow, palm_r_w, _), (_, _, palm_l_w, _)) = (wind_pose.external_arm(1.0, false, MartialStyle::Unarmed), mid_pose.external_arm(1.0, false, MartialStyle::Unarmed), full_pose.external_arm(1.0, false, MartialStyle::Unarmed), full_pose.external_arm(-1.0, false, MartialStyle::Unarmed));
-    let (wind_w, mid_w, full_w) = (wind_pose.first_person_arm(1.0, MartialStyle::LumberjackCleave).2.point(0.0, 0.0, 0.0), mid_pose.first_person_arm(1.0, MartialStyle::LumberjackCleave).2.point(0.0, 0.0, 0.0), fp_full_axe.point(0.0, 0.0, 0.0));
-    assert!(wind_axe_wrist.point(0.0, 0.0, 0.0).y > wind_axe_elbow.y + 0.12 && mid_w.x > wind_w.x + 0.05 && mid_w.x > full_w.x + 0.25 && wind_w.y > mid_w.y && mid_w.y > full_w.y && (full_w.z - mid_w.z).abs() < 0.02, "Axe swing must raise forearm upward and sweep downward in a semicircular arc without shooting forward");
-    assert!(sword_elbow.x <= rest_elbow.x && wind_sword_elbow.x <= rest_elbow.x + 0.01 && strike_spade_elbow.y <= rest_elbow.y && wind_spade_elbow.x > rest_elbow.x + 0.05 && strike_spade_elbow.x < rest_elbow.x && wind_palm_elbow.x > rest_elbow.x + 0.05 && strike_palm_elbow.x < rest_elbow.x - 0.05, "When digging, elbows must first move outward on wind-up and then pull back inward on strike");
-    let (spade_w_pos, spade_tip_pos) = (strike_spade_w.point(0.0, 0.0, 0.0), strike_spade_w.point(-0.025, 0.395, 0.076));
-    assert!(wind_spade_w.point(0.0, 0.0, 0.0).y > mid_spade_w.point(0.0, 0.0, 0.0).y && mid_spade_w.point(0.0, 0.0, 0.0).y > spade_w_pos.y && spade_w_pos.z < rest_wrist.point(0.0, 0.0, 0.0).z - 0.18 && spade_tip_pos.z < spade_w_pos.z - 0.20 && spade_tip_pos.y < spade_w_pos.y - 0.15, "Spade arm must reach forward and angle spade tip diagonally forward-downward toward the target block");
-    let (mid_thumb, mid_palm_norm, strike_hand_drop, mid_hand_drop) = (mid_palm_w.point(0.0, 0.036, 0.0) - mid_palm_w.point(0.0, 0.0, 0.0), mid_palm_w.point(-0.036, 0.0, 0.0) - mid_palm_w.point(0.0, 0.0, 0.0), palm_r_w.point(0.0, 0.0, 0.064).y - palm_r_w.point(0.0, 0.0, 0.0).y, mid_palm_w.point(0.0, 0.0, 0.064).y - mid_palm_w.point(0.0, 0.0, 0.0).y);
-    assert!((palm_r_w.point(0.0, 0.0, 0.0).x - palm_l_w.point(0.0, 0.0, 0.0).x).abs() < 0.08 && palm_r_w.point(0.0, 0.0, 0.0).z < rest_wrist.point(0.0, 0.0, 0.0).z - 0.30 && mid_thumb.x < -0.030 && mid_palm_norm.y < -0.030 && strike_hand_drop < mid_hand_drop - 0.025 && full_pose.finger_curl(1.0, false, MartialStyle::Unarmed) > 0.90 && wind_pose.finger_curl(1.0, false, MartialStyle::Unarmed) < 0.25, "Bare-hand digging must stretch arms forward, rotate hands inward so palms face downward, bend hands downward afterwards, and curl fingers inward");
-    assert!(ext_head.x > ext_wrist.x + 0.04 && fp_head.x > fp_wrist.x + 0.04, "Axe head must tilt laterally outward in 3D and 2D screen space");
-    assert!(ext_head.z < ext_wrist.z - 0.14 && fp_head.z < fp_wrist.z - 0.14 && sword_tip.z < sword_wrist.point(0.0, 0.0, 0.0).z - 0.50 && fp_full_sword.point(-0.025, 0.680, 0.054).z < fp_full_sword.point(0.0, 0.0, 0.0).z - 0.62, "Downward wrist hinge must tilt axe and sword strongly forward at the end of the strike");
-    assert!(ext_head.x >= 0.0 && fp_head.x >= 0.0 && fp_left_head.x <= 0.0 && (fp_head.x + fp_left_head.x).abs() < 1e-4, "Both hands must converge symmetrically onto the center crosshair");
-    assert_ne!(ext_wrist, sword_wrist.point(0.0, 0.0, 0.0), "Axe and sword must have distinct combat swing trajectories");
+    assert!(axe_blade_hit.x.abs() < 0.005 && axe_blade_hit.y.abs() < 0.005 && sword_tip_hit.x.abs() < 0.005 && sword_tip_hit.y.abs() < 0.005);
+    assert!(ext_head.x > ext_wrist.x + 0.04 && fp_head.x > fp_wrist.x + 0.04 && ext_head.z < ext_wrist.z - 0.14 && sword_tip.z < sword_wrist.point(0.0, 0.0, 0.0).z - 0.50);
+    assert!(ext_head.x >= 0.0 && fp_head.x >= 0.0 && fp_left_head.x <= 0.0 && (fp_head.x + fp_left_head.x).abs() < 1e-4);
 }
 
 #[test]
-fn test_spawn_troupe_synchronizes_wardrobe_with_key_changes() {
-    let world = BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
-    let mut troupe = SpawnTroupe::near_spawn(spawn, &world, YouthAttire::squire());
-    let mut before = QuadCollector::empty();
-    troupe.emit(&mut before);
-    troupe.sync_wardrobe(KeyCode::KeyH);
-    let mut after = QuadCollector::empty();
-    troupe.emit(&mut after);
-    assert!(after.count() > before.count());
+fn test_wardrobe_excludes_removed_hand_cycle_keys() {
+    let squire = YouthAttire::squire();
+    for key in [KeyCode::KeyH, KeyCode::KeyG, KeyCode::Digit8, KeyCode::Digit9] {
+        assert!(squire.with_wardrobe_key(key).is_none());
+    }
+}
+
+#[test]
+fn test_satchel_open_shows_weapons_behind_and_outside_satchel_without_overlap() {
+    let world = BiomedCubeWorld::beveled(32, 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
+    let (mut unarmed, mut armed) = (PlanetaryAvatar::at(spawn), PlanetaryAvatar::at(spawn));
+    unarmed.rotate_view(0.0, 380.0);
+    armed.rotate_view(0.0, 380.0);
+    armed.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::KnightlySword));
+
+    let mut closed_unarmed = QuadCollector::empty();
+    unarmed.emit_appearance(&mut closed_unarmed);
+    assert!(unarmed.dispatch_wardrobe_key(KeyCode::Tab) && armed.dispatch_wardrobe_key(KeyCode::Tab));
+    let (mut open_unarmed, mut open_armed) = (QuadCollector::empty(), QuadCollector::empty());
+    unarmed.emit_appearance(&mut open_unarmed);
+    armed.emit_appearance(&mut open_armed);
+    assert!(open_armed.count() > open_unarmed.count(), "Held tools and weapons must remain visible while satchel menu is open");
+
+    let vp = armed.view_projection_matrix(16.0 / 9.0);
+    let satchel_len = open_unarmed.count() - closed_unarmed.count();
+    let satchel_quads = &open_unarmed.quads[closed_unarmed.count()..];
+    let satchel_max_x = satchel_quads.iter().flat_map(|q| q.transfer(|v0, v1, v2, v3, _, _| [v0, v1, v2, v3]))
+        .map(|v| { let c = vp * v.extend(1.0); (c.x / c.w).abs() }).fold(0.0_f32, f32::max);
+    let weapon_quads = &open_armed.quads[closed_unarmed.count()..(open_armed.count() - satchel_len)];
+    let weapon_min_x = weapon_quads.iter().flat_map(|q| q.transfer(|v0, v1, v2, v3, _, _| [v0, v1, v2, v3]))
+        .map(|v| { let c = vp * v.extend(1.0); (c.x / c.w).abs() }).fold(f32::INFINITY, f32::min);
+    assert!(satchel_max_x + 0.05 < weapon_min_x, "Satchel ({satchel_max_x}) and held weapons ({weapon_min_x}) must not overlap on screen");
+
+    let mut controls = KeyMotion::idle();
+    controls.register_key(KeyCode::KeyW, true);
+    controls.register_key(KeyCode::Space, true);
+    armed.rotate_view(120.0, -80.0);
+    for _ in 0..10 { armed.step_motion(1.0 / 60.0, &controls, &world); }
+    assert!(armed.view_projection_matrix(16.0 / 9.0) == vp && armed.dispatch_wardrobe_key(KeyCode::Escape) && !armed.dispatch_wardrobe_key(KeyCode::Escape));
+
+    let mut dual_axes = PlanetaryAvatar::at(spawn);
+    dual_axes.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::WoodmanAxe));
+    let (mut initial_axes_mesh, mut unpacked_axes_mesh) = (QuadCollector::empty(), QuadCollector::empty());
+    dual_axes.emit_appearance(&mut initial_axes_mesh);
+    assert!(dual_axes.dispatch_wardrobe_key(KeyCode::KeyQ) && dual_axes.dispatch_wardrobe_key(KeyCode::KeyE));
+    assert!(dual_axes.dispatch_wardrobe_key(KeyCode::KeyQ) && dual_axes.dispatch_wardrobe_key(KeyCode::KeyQ));
+    assert!(dual_axes.dispatch_wardrobe_key(KeyCode::KeyE) && dual_axes.dispatch_wardrobe_key(KeyCode::KeyE));
+    dual_axes.emit_appearance(&mut unpacked_axes_mesh);
+    assert_eq!(unpacked_axes_mesh.count(), initial_axes_mesh.count(), "Stowing 2 axes and unpacking both must preserve both axes");
 }

@@ -7,7 +7,7 @@ use world::{
 use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 use super::{
-    AttireProfile, BodyPose, FileAttire, SightMode, StrideRhythm, Wardrobe, YouthAttire,
+    AttireProfile, BodyPose, FileAttire, HeldRelic, SightMode, StrideRhythm, Wardrobe, YouthAttire,
     YouthPhysique,
 };
 
@@ -142,8 +142,8 @@ fn test_hands_raised_only_when_holding_item_and_body_visible_when_looking_down()
     let visible_empty_level = empty_ledger.visible_in_frustum(vp_level);
     assert_eq!(visible_empty_level, 0, "Empty hands must hang at the sides and not obstruct level forward view");
 
-    // Equip a held item (KeyH): right hand must now be held up in level view
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyH));
+    // Equip a held item: right hand must now be held up in level view
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::EmptyPalm));
     let mut held_ledger = QuadLedger::empty();
     avatar.emit_appearance(&mut held_ledger);
     let visible_held_level = held_ledger.visible_in_frustum(vp_level);
@@ -185,11 +185,4 @@ fn test_wardrobe_customization_keys_and_file_persistence() {
 
     assert_eq!(customized, loaded);
     assert_ne!(initial_bytes, store.encode_multiplayer(&loaded));
-
-    // Verify Avatar key dispatch for LookingGlass mirror toggle and relic holding
-    let mut avatar = PlanetaryAvatar::at(Vec3::new(0.0, 9.0, 0.0));
-    let fp_matrix = avatar.view_projection_matrix(16.0 / 9.0);
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyM));
-    let mirror_matrix = avatar.view_projection_matrix(16.0 / 9.0);
-    assert_ne!(fp_matrix, mirror_matrix, "Looking-Glass mirror mode must shift camera in front of avatar");
 }

@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use crate::cadence::{PrimedCadence, RestingCadence, SprintCadence};
-use crate::controls::{KeyboardControls, KeyMotion, LocomotionTarget};
+use crate::controls::{ActionBindings, KeyboardControls, KeyMotion, LocomotionTarget};
 use crate::gait::{LocomotionGait, SprintGait, WalkGait};
 use crate::lens::PerspectiveLens;
 
@@ -146,6 +146,7 @@ fn test_key_motion_double_w_with_controllable_clock() {
     let clock = ControllableClock::starting_at(start);
     let mut motion = KeyMotion::new(
         HashSet::new(),
+        ActionBindings::seeded(),
         Box::new(RestingCadence::brisk()),
         Box::new(clock.replica()),
     );
@@ -177,6 +178,7 @@ fn test_key_motion_slow_double_w_rejected_by_clock() {
     let clock = ControllableClock::starting_at(start);
     let mut motion = KeyMotion::new(
         HashSet::new(),
+        ActionBindings::seeded(),
         Box::new(RestingCadence::brisk()),
         Box::new(clock.replica()),
     );

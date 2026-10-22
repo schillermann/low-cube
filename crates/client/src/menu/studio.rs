@@ -48,8 +48,8 @@ impl WardrobeStudio {
 
     pub fn handle_key(&mut self, code: KeyCode) -> bool {
         match code {
-            KeyCode::ArrowLeft | KeyCode::KeyA => { self.stage = self.stage.rotated(-0.22); true }
-            KeyCode::ArrowRight | KeyCode::KeyD => { self.stage = self.stage.rotated(0.22); true }
+            KeyCode::ArrowLeft => { self.stage = self.stage.rotated(-0.22); true }
+            KeyCode::ArrowRight => { self.stage = self.stage.rotated(0.22); true }
             KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::KeyF => {
                 if let Some(updated) = self.attire.cycled_by_key(code) { self.attire = updated; true } else { false }
             }

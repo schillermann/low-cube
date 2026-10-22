@@ -16,18 +16,31 @@ pub enum SightMode {
 }
 
 impl SightMode {
-    pub fn toggle(self) -> Self {
-        match self {
-            Self::FirstPersonSight => Self::LookingGlassSight,
-            Self::LookingGlassSight => Self::FirstPersonSight,
-        }
-    }
-
-    /// Resolves shoulder, elbow, wrist-aligned LimbFrame, and forearm length polymorphically; raises hand only when holding an item.
-    pub fn arm_joints(self, pose: &BodyPose, side: f32, holding: bool, martial: MartialStyle) -> (Vec3, Vec3, LimbFrame, f32) {
+    /// Resolves shoulder, elbow, wrist-aligned LimbFrame, and forearm length polymorphically; frames open satchel without overlap.
+    pub fn arm_joints(
+        self,
+        pose: &BodyPose,
+        side: f32,
+        holding: bool,
+        martial: MartialStyle,
+        satchel_open: bool,
+    ) -> (Vec3, Vec3, LimbFrame, f32) {
         match self {
             Self::FirstPersonSight => {
-                if holding || pose.striking_on(side) {
+                if satchel_open && holding {
+                    let vf = pose.view_frame();
+                    let cradle = matches!(martial, MartialStyle::PalmCradle);
+                    let raw = vf.shifted(side * 0.420, -0.260, 0.560).yawed(-side * 0.05);
+                    let shoulder_w = vf.point(side * 0.500, -0.560, 0.420);
+                    let elbow_w = raw.point(side * 0.032, -0.155, -0.140);
+                    let wrist_w = raw.point(0.0, 0.0, 0.0);
+                    let hand_dir = (wrist_w - raw.point(side * 0.010, 0.030, -0.220)).normalize();
+                    let (rx, ry) = if cradle { (0.0, -side) } else { (1.0, -side * 0.06) };
+                    let hand_up = (raw.point(rx, ry, 0.0) - wrist_w).cross(hand_dir).normalize();
+                    let frame = LimbFrame::new(wrist_w, hand_dir.cross(hand_up).normalize(), hand_up, hand_dir)
+                        .pitched(if cradle { -0.16 } else { 0.0 });
+                    (shoulder_w, elbow_w, frame, (wrist_w - elbow_w).length())
+                } else if holding || pose.striking_on(side) {
                     pose.first_person_arm(side, martial)
                 } else {
                     pose.external_arm(side, false, MartialStyle::Unarmed)

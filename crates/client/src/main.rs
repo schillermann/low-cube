@@ -6,7 +6,6 @@ mod attire;
 mod aurora_cadence;
 mod aurora_canopy;
 mod avatar;
-mod axe;
 mod cadence;
 mod celestial;
 mod clock;
@@ -44,7 +43,6 @@ mod session;
 mod stride;
 mod surface;
 mod threshold;
-mod troupe;
 
 #[cfg(test)]
 mod allocation_audit;
@@ -112,9 +110,9 @@ fn main() {
 
     let tron = tron_active();
     let title = if tron {
-        "Low-Cube [TRON] [WASD: Move, E: Pick Up, Q: Throw, M: Mirror, 1-7: Attire, G/H: Left/Right Hand, T: Tron, Esc: Menu]"
+        "Low-Cube [TRON] [WASD: Move, Space: Jump, Shift: Sneak, Tab/Q/E: Satchel, MouseWheel: Mold, T: Tron, Esc: Menu]"
     } else {
-        "Low-Cube [WASD: Move, E: Pick Up, Q: Throw, M: Mirror, 1-7: Attire, G/H: Left/Right Hand, T: Tron, Esc: Menu]"
+        "Low-Cube [WASD: Move, Space: Jump, Shift: Sneak, Tab/Q/E: Satchel, MouseWheel: Mold, T: Tron, Esc: Menu]"
     };
 
     let launch = SessionLaunch::with_tron(

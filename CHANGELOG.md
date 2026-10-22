@@ -8,6 +8,20 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-10-22
+
+### Added
+- Keybinding Settings screen in the Escape menu (`ControlStudio`, `ActionBindings`, `ControlAction`, `InputTrigger`, `TriggerNotation`, `FileBindings`) enforcing strictly one key or mouse-wheel trigger per action with conflict swapping, `RESET KEYS`, and persistent storage in `controls.toml`.
+- Mouse wheel and middle-click input triggers (`InputTrigger::WheelClick`, `InputTrigger::WheelUp`, `InputTrigger::WheelDown`) bound by default to `MOLD SHAPE` (`WHEEL CLICK`), `MOLD TURN L` (`WHEEL UP`), and `MOLD TURN R` (`WHEEL DOWN`).
+- Studio-lit satchel slot decorator (`LitSlotTarget`) and per-tool count storage (`BeltSatchel`) so multiple tools of the same type (such as dual axes) are preserved in separate satchel slots and rendered with bright, angle-independent facet lighting.
+
+### Changed
+- Framed the open satchel menu (`SightMode::arm_joints`, `BeltSatchel::emit_on_waist`, `HeldRelic::emit_in_satchel_slot`, `HeldRelic::emit_satchel_legend`) in front of outward-positioned held tools and weapons without screen-space overlap, locked player movement and camera look while the satchel is open, hid the gameplay crosshair during satchel inspection, allowed closing the satchel with `Escape`, and updated the satchel legend to English.
+
+### Removed
+- Showcase spawn figures (`SpawnTroupe`, `TroupeAvatar`) and ground items (`FieldAxe`) from the player spawn area (`LaunchPad::launch_session`).
+- Camera axis inversion (`InvertibleLook`, `AxisPolarity`), `Mirror View` (`KeyM`), and direct hand-relic cycle keys (`KeyG`, `KeyH`).
+
 ## [0.34.0] - 2026-10-22
 
 ### Added

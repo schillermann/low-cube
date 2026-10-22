@@ -11,7 +11,7 @@ use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::CalibratedCanopy;
 use crate::avatar::PlanetaryAvatar;
 use crate::celestial::CelestialCadence;
-use crate::controls::KeyMotion;
+use crate::controls::{BindingProfile, FileBindings, KeyMotion};
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
 use crate::menu::EscapeMenu;
 use crate::physics::PlanetaryPhysics;
@@ -19,7 +19,6 @@ use crate::server_aurora::ServerAurora;
 use crate::server_celestial::ServerCelestial;
 use crate::server_physics::ServerPhysics;
 use crate::session::{GameSession, Session};
-use crate::troupe::TroupeAvatar;
 
 /// Interface for assembling an active display session.
 pub trait SessionAssembly {
@@ -122,14 +121,14 @@ impl SessionAssembly for SessionLaunch {
         let spawn_position = planet.constrain_to_surface(Vec3::new(0.0, half + 1.0, 0.0), 1.0);
         let flight = self.physics.surface_flight(1.0);
         let attire = FileAttire::profile().load_or_squire();
-        let primary_avatar = Box::new(PlanetaryAvatar::with_attire(spawn_position, flight, attire));
-        let avatar = Box::new(TroupeAvatar::near_spawn(
-            primary_avatar,
+        let bindings = FileBindings::profile().load_or_seeded();
+        let avatar = Box::new(PlanetaryAvatar::with_attire_and_bindings(
             spawn_position,
-            planet.as_ref(),
+            flight,
             attire,
+            bindings,
         ));
-        let controls = Box::new(KeyMotion::idle());
+        let controls = Box::new(KeyMotion::with_bindings(bindings));
         let modal = Box::new(EscapeMenu::closed());
 
         Box::new(GameSession::new(

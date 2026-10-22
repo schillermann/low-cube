@@ -5,7 +5,7 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 use world::PlanetaryWorld;
 use engine::{CompositeMesh, CpuMeshBatch, CpuTronBatch, GraphicPipeline, PlanetaryMesh, ShaderProgram};
 use crate::avatar::Avatar;
-use crate::controls::KeyboardControls;
+use crate::controls::{ControlAction, InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
 use crate::surface::PlatformSurface;
 
@@ -70,6 +70,17 @@ impl GameSession {
     fn refresh_world_mesh(&mut self) {
         for idx in 0..self.world.face_count() { self.refresh_face_slice(idx); }
     }
+
+    fn dispatch_gameplay_trigger(&mut self, trigger: InputTrigger, pressed: bool) {
+        if self.controls.matches_action(ControlAction::TronMode, trigger) {
+            if pressed {
+                self.tron_active = !self.tron_active;
+                self.refresh_world_mesh();
+            }
+        } else if !pressed || !self.avatar.dispatch_trigger(trigger) {
+            self.controls.register_trigger(trigger, pressed);
+        }
+    }
 }
 
 impl Session for GameSession {
@@ -82,26 +93,27 @@ impl Session for GameSession {
                 self.modal.move_cursor(point);
             }
             WindowEvent::MouseInput { state, button, .. } => {
+                let pressed = state == ElementState::Pressed;
                 if self.modal.open() {
-                    if state == ElementState::Pressed {
-                        if matches!(self.modal.press_mouse(self.surface.as_ref(), self.avatar.as_mut()), ModalDirective::ExitGame) {
-                            event_loop.exit();
+                    if pressed {
+                        if button == MouseButton::Middle && self.modal.handle_trigger(InputTrigger::WheelClick, self.avatar.as_mut()) {
+                            self.modal.sync_controls(self.controls.as_mut());
+                        } else {
+                            let directive = self.modal.press_mouse(self.surface.as_ref(), self.avatar.as_mut());
+                            self.modal.sync_controls(self.controls.as_mut());
+                            if matches!(directive, ModalDirective::ExitGame) { event_loop.exit(); }
                         }
                     } else {
                         self.modal.release_mouse();
                     }
-                } else if state == ElementState::Pressed {
+                } else if button == MouseButton::Middle {
+                    if pressed { self.surface.capture_cursor(); }
+                    self.dispatch_gameplay_trigger(InputTrigger::WheelClick, pressed);
+                } else if pressed {
                     self.surface.capture_cursor();
                     match button {
-                        MouseButton::Left => {
-                            let _ = self.avatar.use_left_hand(self.world.as_mut());
-                            self.refresh_modified_face();
-                        }
-                        MouseButton::Right => {
-                            let _ = self.avatar.use_right_hand(self.world.as_mut());
-                            self.refresh_modified_face();
-                        }
-                        MouseButton::Middle => self.avatar.turn_mold_clockwise(),
+                        MouseButton::Left => { let _ = self.avatar.use_left_hand(self.world.as_mut()); self.refresh_modified_face(); }
+                        MouseButton::Right => { let _ = self.avatar.use_right_hand(self.world.as_mut()); self.refresh_modified_face(); }
                         _ => {}
                     }
                 } else if matches!(button, MouseButton::Left | MouseButton::Right) && self.avatar.release_hand(self.world.as_mut()) {
@@ -109,12 +121,20 @@ impl Session for GameSession {
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
-                if !self.modal.open() {
-                    let (dx, dy) = match delta {
-                        MouseScrollDelta::LineDelta(x, y) => (x, y),
-                        MouseScrollDelta::PixelDelta(pos) => (pos.x as f32, pos.y as f32),
-                    };
-                    self.avatar.scroll_mold(dy, dx);
+                let (dx, dy) = match delta {
+                    MouseScrollDelta::LineDelta(x, y) => (x, y),
+                    MouseScrollDelta::PixelDelta(pos) => (pos.x as f32, pos.y as f32),
+                };
+                let scroll = if dy.abs() >= dx.abs() { dy } else { dx };
+                if scroll.abs() <= 1e-5 { return; }
+                let trigger = if scroll > 0.0 { InputTrigger::WheelUp } else { InputTrigger::WheelDown };
+                if self.modal.open() {
+                    if self.modal.handle_trigger(trigger, self.avatar.as_mut()) {
+                        self.modal.sync_controls(self.controls.as_mut());
+                    }
+                } else {
+                    self.dispatch_gameplay_trigger(trigger, true);
+                    self.dispatch_gameplay_trigger(trigger, false);
                 }
             }
             WindowEvent::KeyboardInput {
@@ -123,26 +143,18 @@ impl Session for GameSession {
             } => {
                 let pressed = state == ElementState::Pressed;
                 if code == KeyCode::Escape {
-                    if pressed { self.modal.toggle_escape(self.surface.as_ref()); }
+                    if pressed && (self.modal.open() || !self.avatar.dispatch_trigger(InputTrigger::Key(code))) {
+                        self.modal.toggle_escape(self.surface.as_ref());
+                    }
                     return;
                 }
                 if self.modal.open() {
-                    if pressed { self.modal.handle_key(code, self.avatar.as_mut()); }
+                    if pressed && self.modal.handle_key(code, self.avatar.as_mut()) {
+                        self.modal.sync_controls(self.controls.as_mut());
+                    }
                     return;
                 }
-                match code {
-                    KeyCode::KeyI => if pressed { self.avatar.toggle_invert_y(); },
-                    KeyCode::KeyO => if pressed { self.avatar.toggle_invert_x(); },
-                    KeyCode::KeyT => if pressed {
-                        self.tron_active = !self.tron_active;
-                        self.refresh_world_mesh();
-                    },
-                    _ => {
-                        if !pressed || !self.avatar.dispatch_wardrobe_key(code) {
-                            self.controls.register_key(code, pressed);
-                        }
-                    }
-                }
+                self.dispatch_gameplay_trigger(InputTrigger::Key(code), pressed);
             }
             WindowEvent::RedrawRequested => {
                 let dt = 1.0 / 60.0;
@@ -152,9 +164,7 @@ impl Session for GameSession {
                     self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
                     let dug = self.avatar.step_digging(self.world.as_mut());
                     let regrown = self.world.step_surface(dt);
-                    if dug || regrown {
-                        self.refresh_modified_face();
-                    }
+                    if dug || regrown { self.refresh_modified_face(); }
                 }
 
                 if self.tron_active {

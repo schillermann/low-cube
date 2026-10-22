@@ -42,7 +42,7 @@ impl PixelStamp {
             'J' => Self::mask(1, 1, 1, 5, 2),
             'K' => Self::mask(5, 5, 6, 5, 5),
             'L' => Self::mask(4, 4, 4, 4, 7),
-            'M' => Self::mask(5, 7, 7, 5, 5),
+            'M' => Self::mask(5, 7, 5, 5, 5),
             'N' => Self::mask(5, 7, 7, 7, 5),
             'O' | '0' => Self::mask(2, 5, 5, 5, 2),
             'P' => Self::mask(6, 5, 6, 4, 4),

@@ -68,7 +68,8 @@ impl VambraceStyle {
             let hand_relic = if side > 0.0 { relics.0 } else { relics.1 };
             let holding = hand_relic.gripped();
             let martial = hand_relic.martial_style();
-            let (shoulder_world, elbow_world, arm_frame, forearm_len) = sight.arm_joints(pose, side, holding, martial);
+            let (shoulder_world, elbow_world, arm_frame, forearm_len) =
+                sight.arm_joints(pose, side, holding, martial, satchel.open());
             let upper_dir = (elbow_world - shoulder_world).normalize_or_zero();
             let wrist_world = arm_frame.point(0.0, 0.0, 0.0);
             let forearm_dir = (wrist_world - elbow_world).normalize_or_zero();

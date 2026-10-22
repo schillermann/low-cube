@@ -75,8 +75,8 @@ impl YouthAttire {
     pub fn with_next_girdle(self) -> Self { Self { girdle: self.girdle.next(), ..self } }
     pub fn with_next_footwear(self) -> Self { Self { footwear: self.footwear.next(), ..self } }
     pub fn with_next_crown(self) -> Self { Self { crown: self.crown.next(), ..self } }
+    #[cfg(test)]
     pub fn with_next_relic(self) -> Self { Self { relic: self.relic.next(), ..self } }
-    pub fn with_next_offhand(self) -> Self { Self { offhand: self.offhand.next(), ..self } }
     pub fn with_relics(self, relic: HeldRelic, offhand: HeldRelic) -> Self { Self { relic, offhand, ..self } }
     pub fn with_complexion(self, complexion: ComplexionSwatch) -> Self { Self { complexion, ..self } }
     pub fn with_physique(self, physique: YouthPhysique) -> Self { Self { physique, ..self } }
@@ -110,8 +110,6 @@ impl YouthAttire {
             KeyCode::Digit5 => self.with_next_crown(),
             KeyCode::Digit6 => self.with_next_pigment(),
             KeyCode::Digit7 => self.with_next_complexion(),
-            KeyCode::KeyH | KeyCode::Digit8 => self.with_next_relic(),
-            KeyCode::KeyG | KeyCode::Digit9 => self.with_next_offhand(),
             KeyCode::KeyF => self.with_feminine(!self.feminine()),
             _ => return None,
         };
@@ -143,9 +141,9 @@ impl YouthAttire {
         let scaled_pose = pose.with_physique(self.physique);
         self.tunic.emit(&scaled_pose, self.pigment, target);
         self.girdle.emit(&scaled_pose, target);
-        satchel.emit_on_waist(&scaled_pose, target);
         self.footwear.emit(&scaled_pose, self.pigment, target);
         self.vambrace.emit(&scaled_pose, sight, self.complexion, self.pigment, (self.relic, self.offhand), satchel, target);
+        satchel.emit_on_waist(&scaled_pose, target);
         sight.emit_crown(self.crown, &scaled_pose, self.complexion, self.pigment, target);
     }
 }

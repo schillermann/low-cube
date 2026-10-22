@@ -152,7 +152,7 @@ impl PlatformSurface for GlPlatformSurface {
         let aspect = self.aspect_ratio();
         let view_proj = avatar.view_projection_matrix(aspect);
         pipeline.render(&self.gl, shader, mesh, &view_proj, avatar.surface_rotation());
-        modal.draw_layer(&self.gl, overlay_shader, aspect);
+        modal.draw_layer(&self.gl, overlay_shader, avatar, aspect);
         self.gl_surface.swap_buffers(&self.gl_context).expect("Buffer swap failed");
         self.window.request_redraw();
     }

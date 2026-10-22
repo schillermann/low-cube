@@ -8,7 +8,7 @@ use super::YouthAttire;
 /// Shared satchel inventory with invisible stowed storage, WASD inspection grid, and dual-hand block molds.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BeltSatchel {
-    right_blocks: u32, left_blocks: u32, stowed_earth: u32, stowed_stone: u32, stowed_tools: u8,
+    right_blocks: u32, left_blocks: u32, stowed_earth: u32, stowed_stone: u32, stowed_tools: [u8; 8],
     right_mold: BlockMold, left_mold: BlockMold, active_side: f32, cursor: usize, open: bool,
 }
 
@@ -16,13 +16,13 @@ impl BeltSatchel {
     /// Primary constructor doing nothing except assigning arguments to fields.
     #[allow(clippy::too_many_arguments)]
     pub const fn new(
-        right_blocks: u32, left_blocks: u32, stowed_earth: u32, stowed_stone: u32, stowed_tools: u8,
+        right_blocks: u32, left_blocks: u32, stowed_earth: u32, stowed_stone: u32, stowed_tools: [u8; 8],
         right_mold: BlockMold, left_mold: BlockMold, active_side: f32, cursor: usize, open: bool,
     ) -> Self {
         Self { right_blocks, left_blocks, stowed_earth, stowed_stone, stowed_tools, right_mold, left_mold, active_side, cursor, open }
     }
 
-    pub const fn empty() -> Self { Self::new(0, 0, 0, 0, 0, BlockMold::cube(), BlockMold::cube(), 1.0, 0, false) }
+    pub const fn empty() -> Self { Self::new(0, 0, 0, 0, [0; 8], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false) }
     pub const fn open(&self) -> bool { self.open }
 
     fn packed_slots(&self) -> ([HeldRelic; 7], usize) {
@@ -30,7 +30,9 @@ impl BeltSatchel {
         if self.stowed_earth > 0 { slots[len] = HeldRelic::ExcavatedEarth; len += 1; }
         if self.stowed_stone > 0 { slots[len] = HeldRelic::QuarriedStone; len += 1; }
         for relic in [HeldRelic::IronSpade, HeldRelic::WoodmanAxe, HeldRelic::KnightlySword, HeldRelic::WoodenMallet, HeldRelic::TimberTorch] {
-            if self.stowed_tools & (1 << relic.code()) != 0 { slots[len] = relic; len += 1; }
+            for _ in 0..self.stowed_tools[relic.code() as usize] {
+                if len < 7 { slots[len] = relic; len += 1; }
+            }
         }
         (slots, len)
     }
@@ -55,40 +57,17 @@ impl BeltSatchel {
         else if r.placeable_block() && l.placeable_block() && self.left_blocks == 0 && self.right_blocks > 0 { self.left_mold = self.right_mold; }
         self.right_blocks = if r.placeable_block() { self.right_blocks.max(1) } else { 0 };
         self.left_blocks = if l.placeable_block() { self.left_blocks.max(1) } else { 0 };
-        if r.gripped() && !r.placeable_block() { self.stowed_tools &= !(1 << r.code()); }
-        if l.gripped() && !l.placeable_block() { self.stowed_tools &= !(1 << l.code()); }
         self
-    }
-
-    fn resolve_site_hand(&mut self, cur: HeldRelic, site: HeldRelic, blocks: &mut u32) -> HeldRelic {
-        if site.gripped() {
-            if self.stowed_tools & (1 << site.code()) != 0 {
-                if *blocks > 0 { HeldRelic::ExcavatedEarth } else { HeldRelic::EmptyPalm }
-            } else {
-                if cur.placeable_block() { self.stow_relic(cur, *blocks); *blocks = 0; }
-                site
-            }
-        } else if *blocks > 0 || cur.placeable_block() {
-            *blocks = (*blocks).max(1);
-            if cur.placeable_block() { cur } else { HeldRelic::ExcavatedEarth }
-        } else { HeldRelic::EmptyPalm }
-    }
-
-    pub fn merge_site_relics(mut self, attire: YouthAttire, site_pair: (HeldRelic, HeldRelic)) -> (Self, YouthAttire) {
-        let (cur_r, cur_l) = attire.held_pair();
-        let (mut rb, mut lb) = (self.right_blocks, self.left_blocks);
-        let hand_r = self.resolve_site_hand(cur_r, site_pair.0, &mut rb);
-        let hand_l = self.resolve_site_hand(cur_l, site_pair.1, &mut lb);
-        self.right_blocks = rb;
-        self.left_blocks = lb;
-        (self, attire.with_relics(hand_r, hand_l))
     }
 
     fn stow_relic(&mut self, relic: HeldRelic, count: u32) {
         match relic {
             HeldRelic::ExcavatedEarth => self.stowed_earth += count.max(1),
             HeldRelic::QuarriedStone => self.stowed_stone += count.max(1),
-            _ if relic.gripped() => self.stowed_tools |= 1 << relic.code(),
+            _ if relic.gripped() => {
+                let idx = relic.code() as usize;
+                self.stowed_tools[idx] = self.stowed_tools[idx].saturating_add(1);
+            }
             _ => {}
         }
         let (slots, len) = self.packed_slots();
@@ -112,7 +91,7 @@ impl BeltSatchel {
         (self, true)
     }
 
-    pub fn toggle_pocket(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
+    pub fn transfer_hand(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
         let mut state = self.reconcile_attire(attire);
         let (r, l) = attire.held_pair();
         let (slots, len) = state.packed_slots();
@@ -121,7 +100,10 @@ impl BeltSatchel {
             match chosen {
                 HeldRelic::ExcavatedEarth => state.stowed_earth = state.stowed_earth.saturating_sub(1),
                 HeldRelic::QuarriedStone => state.stowed_stone = state.stowed_stone.saturating_sub(1),
-                _ => state.stowed_tools &= !(1 << chosen.code()),
+                _ => {
+                    let idx = chosen.code() as usize;
+                    state.stowed_tools[idx] = state.stowed_tools[idx].saturating_sub(1);
+                }
             }
             if side > 0.0 {
                 if r.gripped() { state.stow_relic(r, state.right_blocks); }
@@ -184,7 +166,7 @@ impl BeltSatchel {
     pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
         if !self.open { return; }
         let (slots, len) = self.packed_slots();
-        let (tray, mold) = (pose.view_frame().shifted(0.0, -0.02, 0.40), if self.active_side > 0.0 { self.right_mold } else { self.left_mold });
+        let (tray, mold) = (pose.view_frame().shifted(0.0, -0.02, 0.40), BlockMold::cube());
         let (cols, rows, sel) = (len.clamp(1, 3), (len.max(1) + 2) / 3, self.cursor.min(len.saturating_sub(1)));
         if len == 0 { HeldRelic::EmptyPalm.emit_in_satchel_slot(mold, Vec3::new(0.42, 0.27, 0.16), &tray, target); }
         for (i, &item) in slots[..len].iter().enumerate() {
