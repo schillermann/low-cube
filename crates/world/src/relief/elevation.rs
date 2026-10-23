@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{GridCell, VoxelShape};
+use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use crate::noise::SpatialFrequency;
 
@@ -10,20 +10,19 @@ pub trait ReliefElevation: Send + Sync {
     fn elevation_at(&self, u: i32, v: i32) -> i32;
 
     /// Pristine natural block elevation prior to player earthworks.
-    fn natural_elevation_at(&self, u: i32, v: i32) -> i32 {
-        self.elevation_at(u, v)
-    }
+    fn natural_elevation_at(&self, u: i32, v: i32) -> i32 { self.elevation_at(u, v) }
 
     /// Continuous surface elevation in meters for physical avatar constraint.
     fn surface_height_at(&self, u: f32, v: f32) -> f32;
 
     /// Continuous supporting surface elevation in meters for an entity at foot_elev with body span.
-    fn support_height_at(&self, u: f32, v: f32, _foot_elev: f32, _body_span: f32) -> f32 {
-        self.surface_height_at(u, v)
-    }
+    fn support_height_at(&self, u: f32, v: f32, _foot_elev: f32, _body_span: f32) -> f32 { self.surface_height_at(u, v) }
 
     /// Indicates whether a placed block occupies the vertical layer at (u, v).
     fn layer_occupied_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> bool { false }
+
+    /// Resolves the material medium of the block layer at (u, v, layer_elev).
+    fn layer_medium_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> BlockMedium { BlockMedium::TurfEarth }
 
     /// Checks whether a 3D sight ray point (u, v, ray_elev) hits solid terrain or a placed block, returning its top elevation.
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {

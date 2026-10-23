@@ -2,7 +2,7 @@ use std::sync::RwLock;
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
-use crate::{BlockMold, Face, MeshTarget, Quad};
+use crate::{BlockMedium, BlockMold, Face, MeshTarget, Quad};
 use super::arboreal::Arboreal;
 use super::depository::WoodlandDepository;
 use super::timber_yield::{CleaveOutcome, SurfaceFind};
@@ -101,6 +101,7 @@ impl Face for ForestedFace {
     }
 
     fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool { self.origin.excavate(eye, direction) }
+    fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium { self.origin.surface_medium(eye, direction) }
     fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool { self.origin.loosen(eye, direction, stage) }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {

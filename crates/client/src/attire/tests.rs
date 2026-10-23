@@ -190,4 +190,7 @@ fn test_foraging_deadwood_and_flint_into_hand_or_satchel_crafts_axe_in_crafting_
     assert!(crafted && attire_planks.held_pair() == (HeldRelic::WoodmanAxe, HeldRelic::PlankBlock));
     assert_eq!(satchel_planks.resource_tally(HeldRelic::TimberBlock, attire_planks), 2);
     assert_eq!(satchel_planks.resource_tally(HeldRelic::PlankBlock, attire_planks), 4, "Crafting WOOD PLANKS from 1 WOOD BLOCK must yield 4 planks");
+    let (aim_eye, aim_dir) = (Vec3::new(0.25, 16.92, 0.25), Vec3::new(0.0, -0.75, -0.75).normalize());
+    assert!(world.place_molded_surface_block(aim_eye, aim_dir, Vec3::new(0.25, 16.0, 0.25), world::BlockMold::cube().in_medium(world::BlockMedium::PlanedPlanks)));
+    assert_eq!(HeldRelic::from_medium(world.surface_medium(aim_eye, aim_dir)), HeldRelic::PlankBlock, "Excavating a placed WOOD PLANKS block must yield WOOD PLANKS back into the hand");
 }

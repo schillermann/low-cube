@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{BlockMold, CleaveOutcome, GravityField, MeshTarget, PlanetaryWorld, SurfaceFind};
+use crate::{BlockMedium, BlockMold, CleaveOutcome, GravityField, MeshTarget, PlanetaryWorld, SurfaceFind};
 
 /// Decorator blending surface normal gravity with spherical radial core pull at elevated altitudes ("Tell, Don't Ask").
 pub struct CentripetalWorld {
@@ -63,6 +63,10 @@ impl PlanetaryWorld for CentripetalWorld {
 
     fn excavate_surface(&mut self, eye: Vec3, direction: Vec3) -> bool {
         self.world.excavate_surface(eye, direction)
+    }
+
+    fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium {
+        self.world.surface_medium(eye, direction)
     }
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {

@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-10-23
+
+### Added
+- Sculpted 3D clodded-loam and river-pebble geometry for `EARTH BLOCK` (`BlockMedium::TurfEarth`, `BlockMedium::emit_turf_earth_cube`, `MediumShape::emit_terraced_shape`, `BlockMold::emit_miniature`) rendering protruding soil clods and embedded stones identically in the avatar's hand, satchel slot, and placed world blocks.
+
+### Fixed
+- Preserved the material medium of placed blocks (`WOOD PLANKS`, `WOOD BLOCK`, `STONE BLOCK`, `EARTH BLOCK`) during excavation (`VoxelShape::block_medium`, `ElevatedShape::block_medium`, `TerracedRelief::layer_medium_at`, `PlanetaryWorld::surface_medium`, `HeldRelic::from_medium`, `BeltSatchel::collect_excavated_block`, `PalmEarthworks::act_with_hand`) so mining a placed wooden plank returns `WOOD PLANKS` into the hand instead of `EARTH BLOCK`.
+
 ## [0.36.0] - 2026-10-22
 
 ### Added

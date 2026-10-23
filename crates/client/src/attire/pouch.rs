@@ -127,19 +127,19 @@ impl BeltSatchel {
         else { self.left_blocks = u32::from(has_refill); (self, attire.with_relics(r, next_hand), true) }
     }
 
-    pub fn collect_excavated_block(mut self, side: f32, attire: YouthAttire) -> (Self, YouthAttire) {
+    pub fn collect_excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
         let (r, l) = attire.held_pair();
         self.active_side = side;
         if side > 0.0 {
             if r.gripped() && !r.placeable_block() { self.stow_relic(r, 0); }
             if l.placeable_block() { self.right_mold = self.left_mold; }
-            if self.right_blocks == 0 { self.right_blocks = 1; } else { self.stow_relic(HeldRelic::ExcavatedEarth, 1); }
-            return (self, attire.with_relics(if r.placeable_block() { r } else { HeldRelic::ExcavatedEarth }, l));
+            if self.right_blocks == 0 { self.right_blocks = 1; } else if r == relic { self.stow_relic(relic, 1); } else { self.stow_relic(r, self.right_blocks); self.right_blocks = 1; }
+            return (self, attire.with_relics(relic, l));
         }
         if l.gripped() && !l.placeable_block() { self.stow_relic(l, 0); }
         if r.placeable_block() { self.left_mold = self.right_mold; }
-        if self.left_blocks == 0 { self.left_blocks = 1; } else { self.stow_relic(HeldRelic::ExcavatedEarth, 1); }
-        (self, attire.with_relics(r, if l.placeable_block() { l } else { HeldRelic::ExcavatedEarth }))
+        if self.left_blocks == 0 { self.left_blocks = 1; } else if l == relic { self.stow_relic(relic, 1); } else { self.stow_relic(l, self.left_blocks); self.left_blocks = 1; }
+        (self, attire.with_relics(r, relic))
     }
 
     pub fn collect_foraged(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {

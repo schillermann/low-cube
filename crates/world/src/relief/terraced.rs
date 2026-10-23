@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{CuboidShape, ElevatedShape, GridCell, VoxelShape};
+use crate::block::{BlockMedium, CuboidShape, ElevatedShape, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::elevation::ReliefElevation;
 
@@ -95,7 +95,9 @@ impl ReliefElevation for TerracedRelief {
     fn layer_occupied_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
         self.molds.get(&(u, v)).is_some_and(|l| l.iter().any(|b| b.occupies_layer(layer_elev)))
     }
-
+    fn layer_medium_at(&self, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
+        self.molds.get(&(u, v)).and_then(|l| l.iter().rfind(|b| b.occupies_layer(layer_elev))).map_or(BlockMedium::TurfEarth, ElevatedShape::block_medium)
+    }
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         let (cu, cv) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32);
         let ground_h = (self.elevation_at(cu, cv) as f32) * 0.5;

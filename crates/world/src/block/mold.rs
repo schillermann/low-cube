@@ -136,12 +136,8 @@ impl BlockMold {
             MoldArchetype::ConvexStairCorner => Box::new(StairCorner::convex(corner)),
             MoldArchetype::ConcaveStairCorner => Box::new(StairCorner::concave(corner)),
         };
-        if self.medium.self_pigmented() {
-            let cross_grain = matches!(wedge, WedgeHeading::East | WedgeHeading::West);
-            Box::new(MediumShape::new(raw, self.medium, self.full_height_flat(), cross_grain))
-        } else {
-            raw
-        }
+        let cross_grain = matches!(wedge, WedgeHeading::East | WedgeHeading::West);
+        Box::new(MediumShape::new(raw, self.medium, self.full_height_flat(), cross_grain))
     }
 
     /// Emits a miniature 3D preview of this molded block oriented inside a hand basis.
@@ -167,7 +163,7 @@ impl BlockMold {
         }
         let unit_frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
         let shape = self.shape_for(Vec3::NEG_Z, &unit_frame);
-        let self_pigmented = self.medium.self_pigmented();
+        let self_pigmented = self.medium.self_pigmented() || self.full_height_flat();
         let lift = if self_pigmented || matches!(self.archetype, MoldArchetype::ConvexRidge | MoldArchetype::GentleLowerRidge) {
             Vec3::ZERO
         } else {

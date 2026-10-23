@@ -110,6 +110,9 @@ pub trait PlanetaryWorld: GravityField {
     fn excavate_surface(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
         false
     }
+    fn surface_medium(&self, _eye: Vec3, _direction: Vec3) -> BlockMedium {
+        BlockMedium::TurfEarth
+    }
     fn loosen_surface(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> bool {
         false
     }
@@ -152,6 +155,9 @@ pub trait Face: Send + Sync {
     }
     fn excavate(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
         false
+    }
+    fn surface_medium(&self, _eye: Vec3, _direction: Vec3) -> BlockMedium {
+        BlockMedium::TurfEarth
     }
     fn loosen(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> bool {
         false

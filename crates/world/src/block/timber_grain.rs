@@ -14,11 +14,12 @@ pub enum BlockMedium {
 }
 
 impl BlockMedium {
-    /// Indicates whether this medium carries its own self-colored architectural geometry.
+    /// Indicates whether this medium carries its own self-colored architectural geometry across all forms.
     pub const fn self_pigmented(self) -> bool {
         !matches!(self, Self::TurfEarth)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn emit_box(
         u0: f32, u1: f32, v0: f32, v1: f32, h0: f32, h1: f32,
         frame: &SurfaceFrame, wall_col: Vec3, top_col: Vec3, bottom_cap: bool, target: &mut dyn MeshTarget,
@@ -34,7 +35,7 @@ impl BlockMedium {
         ];
         target.push_quad(Quad::new(p0, p1, p2, p3, n, top_col));
         if bottom_cap {
-            target.push_quad(Quad::new(b0, b3, b2, b1, -n, top_col));
+            target.push_quad(Quad::new(b0, b3, b2, b1, -n, wall_col));
         }
         target.push_quad(Quad::new(b0, b1, p1, p0, -b, wall_col));
         target.push_quad(Quad::new(p3, p2, b2, b3, b, wall_col));
@@ -42,7 +43,39 @@ impl BlockMedium {
         target.push_quad(Quad::new(b1, b2, p2, p1, t, wall_col));
     }
 
-    /// Emits Variant 1A: Bark-ridged timber block with bright sapwood and concentric annual rings.
+    /// Emits Variant 1A Dirt Block: Clodded loam earth block with 3D soil clods and embedded river pebbles.
+    fn emit_turf_earth_cube(cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
+        let ((u0, u1), (v0, v1), top_elev) = (cell.u_bounds(), cell.v_bounds(), floor_elev + 0.5);
+        let (base_wall, base_top, clod_a, clod_b, clod_c, clod_d, peb_l, peb_d) = (
+            Vec3::new(0.41, 0.27, 0.15), Vec3::new(0.45, 0.30, 0.17),
+            Vec3::new(0.52, 0.36, 0.21), Vec3::new(0.46, 0.31, 0.18),
+            Vec3::new(0.34, 0.22, 0.12), Vec3::new(0.57, 0.40, 0.24),
+            Vec3::new(0.64, 0.61, 0.55), Vec3::new(0.49, 0.46, 0.42),
+        );
+        Self::emit_box(u0, u1, v0, v1, floor_elev, top_elev, frame, base_wall, base_top, true, target);
+        for (du0, du1, dv0, dv1, dh, col) in [
+            (0.03, 0.22, 0.03, 0.23, 0.018, clod_a), (0.25, 0.47, 0.04, 0.21, 0.013, clod_b),
+            (0.05, 0.26, 0.26, 0.46, 0.015, clod_c), (0.28, 0.46, 0.24, 0.47, 0.020, clod_d),
+            (0.14, 0.34, 0.15, 0.35, 0.026, clod_a), (0.35, 0.44, 0.07, 0.16, 0.028, peb_l),
+            (0.07, 0.15, 0.34, 0.42, 0.024, peb_d),
+        ] {
+            Self::emit_box(u0 + du0, u0 + du1, v0 + dv0, v0 + dv1, top_elev, top_elev + dh, frame, col, col, false, target);
+        }
+        for (a0, a1, h0, h1, d, col) in [
+            (0.04, 0.24, 0.04, 0.21, 0.016, clod_b), (0.27, 0.46, 0.04, 0.19, 0.013, clod_c),
+            (0.05, 0.28, 0.25, 0.44, 0.018, clod_a), (0.31, 0.46, 0.23, 0.45, 0.015, clod_d),
+            (0.15, 0.33, 0.14, 0.31, 0.022, clod_b), (0.34, 0.43, 0.09, 0.18, 0.025, peb_l),
+            (0.07, 0.16, 0.30, 0.39, 0.021, peb_d),
+        ] {
+            let (y0, y1) = (floor_elev + h0, floor_elev + h1);
+            Self::emit_box(u0 + a0, u0 + a1, v0 - d, v0, y0, y1, frame, col, col, true, target);
+            Self::emit_box(u1 - a1, u1 - a0, v1, v1 + d, y0, y1, frame, col, col, true, target);
+            Self::emit_box(u0 - d, u0, v0 + a0, v0 + a1, y0, y1, frame, col, col, true, target);
+            Self::emit_box(u1, u1 + d, v1 - a1, v1 - a0, y0, y1, frame, col, col, true, target);
+        }
+    }
+
+    /// Emits Variant 1A Timber Block: Bark-ridged timber block with bright sapwood and concentric annual rings.
     fn emit_raw_timber_cube(cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let ((u0, u1), (v0, v1), top_elev) = (cell.u_bounds(), cell.v_bounds(), floor_elev + 0.5);
         let (bark_dark, bark_ridge, sapwood, ring_dark, heartwood) = (
@@ -50,7 +83,6 @@ impl BlockMedium {
             Vec3::new(0.85, 0.70, 0.46), Vec3::new(0.64, 0.47, 0.27), Vec3::new(0.48, 0.32, 0.17),
         );
         Self::emit_box(u0, u1, v0, v1, floor_elev, top_elev, frame, bark_dark, sapwood, true, target);
-
         let (r_h0, r_h1, d, w) = (floor_elev + 0.01, top_elev - 0.01, 0.014, 0.040);
         for step in 0..3 {
             let center_u = u0 + (0.20 + (step as f32) * 0.30) * (u1 - u0);
@@ -60,41 +92,25 @@ impl BlockMedium {
             Self::emit_box(u1, u1 + d, center_v - w, center_v + w, r_h0, r_h1, frame, bark_ridge, bark_ridge, true, target);
             Self::emit_box(u0 - d, u0, center_v - w, center_v + w, r_h0, r_h1, frame, bark_ridge, bark_ridge, true, target);
         }
-
-        for (inset, h_off, col) in [
-            (0.035, 0.000, sapwood),
-            (0.105, 0.006, ring_dark),
-            (0.165, 0.012, sapwood),
-            (0.212, 0.018, heartwood),
-        ] {
-            let (ru0, ru1, rv0, rv1) = (u0 + inset, u1 - inset, v0 + inset, v1 - inset);
-            Self::emit_box(ru0, ru1, rv0, rv1, top_elev + h_off, top_elev + h_off + 0.006, frame, col, col, false, target);
+        for (inset, h_off, col) in [(0.035, 0.000, sapwood), (0.105, 0.006, ring_dark), (0.165, 0.012, sapwood), (0.212, 0.018, heartwood)] {
+            Self::emit_box(u0 + inset, u1 - inset, v0 + inset, v1 - inset, top_elev + h_off, top_elev + h_off + 0.006, frame, col, col, false, target);
         }
     }
 
-    /// Emits Variant 2B: Planed honey-oak floorboards separated by deep dark shadow grooves.
+    /// Emits Variant 2B Plank Block: Planed honey-oak floorboards separated by deep dark shadow grooves.
     fn emit_planed_planks_cube(cell: GridCell, floor_elev: f32, cross_grain: bool, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let ((u0, u1), (v0, v1), top_elev) = (cell.u_bounds(), cell.v_bounds(), floor_elev + 0.5);
         let groove_core = Vec3::new(0.22, 0.14, 0.08);
         let board_tones = [
-            Vec3::new(0.86, 0.69, 0.43),
-            Vec3::new(0.76, 0.58, 0.34),
-            Vec3::new(0.82, 0.65, 0.39),
-            Vec3::new(0.73, 0.55, 0.32),
+            Vec3::new(0.86, 0.69, 0.43), Vec3::new(0.76, 0.58, 0.34),
+            Vec3::new(0.82, 0.65, 0.39), Vec3::new(0.73, 0.55, 0.32),
         ];
-        Self::emit_box(
-            u0 + 0.016, u1 - 0.016, v0 + 0.016, v1 - 0.016,
-            floor_elev + 0.008, top_elev - 0.002, frame, groove_core, groove_core, true, target,
-        );
-
-        let (bh, v_pad) = (0.125, 0.009);
+        Self::emit_box(u0 + 0.016, u1 - 0.016, v0 + 0.016, v1 - 0.016, floor_elev + 0.008, top_elev - 0.002, frame, groove_core, groove_core, true, target);
+        let (bh, v_pad, bw, h_pad) = (0.125, 0.009, 0.125, 0.009);
         for (i, &tone) in board_tones.iter().enumerate() {
-            let y0 = floor_elev + (i as f32) * bh + v_pad;
-            let y1 = floor_elev + ((i + 1) as f32) * bh - v_pad;
+            let (y0, y1) = (floor_elev + (i as f32) * bh + v_pad, floor_elev + ((i + 1) as f32) * bh - v_pad);
             Self::emit_box(u0, u1, v0, v1, y0, y1, frame, tone, tone, true, target);
         }
-
-        let (bw, h_pad) = (0.125, 0.009);
         for i in 0..4 {
             let tone = board_tones[(i + 1) % 4];
             if cross_grain {
@@ -108,7 +124,7 @@ impl BlockMedium {
     }
 }
 
-/// Decorator binding a material medium (such as 1A RawTimber or 2B PlanedPlanks) to a VoxelShape.
+/// Decorator binding a material medium to a VoxelShape.
 pub struct MediumShape {
     inner: Box<dyn VoxelShape>,
     medium: BlockMedium,
@@ -124,58 +140,36 @@ impl MediumShape {
 }
 
 impl VoxelShape for MediumShape {
-    fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        self.inner.elevation_at(local_u, local_v)
-    }
+    fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 { self.inner.elevation_at(local_u, local_v) }
+    fn shape_color(&self) -> Vec3 { self.inner.shape_color() }
+    fn block_medium(&self) -> BlockMedium { self.medium }
 
-    fn shape_color(&self) -> Vec3 {
-        self.inner.shape_color()
-    }
-
-    fn emit_shape(
-        &self,
-        cell: GridCell,
-        floor_elevation: f32,
-        frame: &SurfaceFrame,
-        color: Vec3,
-        target: &mut dyn MeshTarget,
-    ) {
+    fn emit_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, color: Vec3, target: &mut dyn MeshTarget) {
         self.emit_terraced_shape(cell, floor_elevation, frame, color, color, target);
     }
 
-    fn emit_terraced_shape(
-        &self,
-        cell: GridCell,
-        floor_elevation: f32,
-        frame: &SurfaceFrame,
-        top_color: Vec3,
-        wall_color: Vec3,
-        target: &mut dyn MeshTarget,
-    ) {
+    fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, target: &mut dyn MeshTarget) {
         match (self.medium, self.full_cube) {
+            (BlockMedium::TurfEarth, true) => BlockMedium::emit_turf_earth_cube(cell, floor_elevation, frame, target),
             (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
             (BlockMedium::PlanedPlanks, true) => BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain, frame, target),
             (BlockMedium::RawTimber, false) => {
-                let corners = cell.corner_points(frame, floor_elevation);
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), corners, Vec3::new(0.85, 0.70, 0.46), Vec3::new(0.32, 0.20, 0.11), false);
+                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.85, 0.70, 0.46), Vec3::new(0.32, 0.20, 0.11), false);
                 self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.32, 0.20, 0.11), &mut turf);
                 turf.seal_underside();
             }
             (BlockMedium::PlanedPlanks, false) => {
-                let corners = cell.corner_points(frame, floor_elevation);
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), corners, Vec3::new(0.84, 0.67, 0.41), Vec3::new(0.74, 0.56, 0.33), false);
+                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.84, 0.67, 0.41), Vec3::new(0.74, 0.56, 0.33), false);
                 self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.74, 0.56, 0.33), &mut turf);
                 turf.seal_underside();
             }
             (BlockMedium::QuarriedStone, _) => {
-                let corners = cell.corner_points(frame, floor_elevation);
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), corners, Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.50, 0.51, 0.53), false);
+                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.50, 0.51, 0.53), false);
                 self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.50, 0.51, 0.53), &mut turf);
                 turf.seal_underside();
             }
-            (BlockMedium::TurfEarth, _) => {
-                let corners = cell.corner_points(frame, floor_elevation);
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), corners, top_color, wall_color, false);
+            (BlockMedium::TurfEarth, false) => {
+                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), top_color, wall_color, false);
                 self.inner.emit_shape(cell, floor_elevation, frame, wall_color, &mut turf);
                 turf.seal_underside();
             }

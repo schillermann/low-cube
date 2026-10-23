@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 use glam::Vec3;
-use crate::block::{BlockMold, GridCell};
+use crate::block::{BlockMedium, BlockMold, GridCell};
 use crate::frame::SurfaceFrame;
 use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics};
 use crate::topology::ClimateZone;
@@ -61,17 +61,9 @@ impl FacetedReliefFace {
                 ClimateZone::Temperate => (0, 7), ClimateZone::Jungle => (-1, 6), ClimateZone::Desert => (0, 5),
             }
         } else {
-            match zone {
-                ClimateZone::Volcanic | ClimateZone::Arctic => (0, 3),
-                ClimateZone::Jungle => (-1, 2),
-                _ => (0, 2),
-            }
+            match zone { ClimateZone::Volcanic | ClimateZone::Arctic => (0, 3), ClimateZone::Jungle => (-1, 2), _ => (0, 2) }
         };
-
-        let zoned = Box::new(ZonedRelief::new(
-            warped, frame.normal(), frame.tangent(), frame.bitangent(),
-            half_size, min_elev, max_elev,
-        ));
+        let zoned = Box::new(ZonedRelief::new(warped, frame.normal(), frame.tangent(), frame.bitangent(), half_size, min_elev, max_elev));
         let relief = Box::new(TerracedRelief::in_span(zoned, (divisions as i32) / 2));
         Self::new(frame, relief, Box::new(NullCavity), palette, strata, divisions, RwLock::new(Vec::new()))
     }
@@ -156,7 +148,10 @@ impl Face for FacetedReliefFace {
         }
         false
     }
-
+    fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium {
+        let half = (self.divisions as i32) / 2;
+        SurfaceSightRay::new(eye, direction).target_layer(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5).map_or(BlockMedium::TurfEarth, |(cu, cv, l)| self.relief.layer_medium_at(cu, cv, l))
+    }
     fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
         let half = (self.divisions as i32) / 2;
         if stage == 0 {

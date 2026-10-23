@@ -62,6 +62,9 @@ impl HeldRelic {
     pub const fn block_medium(self) -> BlockMedium {
         match self { Self::QuarriedStone => BlockMedium::QuarriedStone, Self::TimberBlock => BlockMedium::RawTimber, Self::PlankBlock => BlockMedium::PlanedPlanks, _ => BlockMedium::TurfEarth }
     }
+    pub const fn from_medium(medium: BlockMedium) -> Self {
+        match medium { BlockMedium::TurfEarth => Self::ExcavatedEarth, BlockMedium::QuarriedStone => Self::QuarriedStone, BlockMedium::RawTimber => Self::TimberBlock, BlockMedium::PlanedPlanks => Self::PlankBlock }
+    }
 
     pub const fn martial_style(self) -> MartialStyle {
         match self {

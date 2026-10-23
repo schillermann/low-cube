@@ -184,8 +184,9 @@ impl PalmEarthworks {
         };
         let (site, progress) = (Self::locate_dig_site(eye, view_dir, world), state.dig_progress + effort);
         if progress >= EXCAVATION_THRESHOLD {
+            let harvested = HeldRelic::from_medium(world.surface_medium(eye, view_dir));
             if world.excavate_surface(eye, view_dir) {
-                let (next_satchel, next_attire) = state.satchel.collect_excavated_block(recipient_side, attire);
+                let (next_satchel, next_attire) = state.satchel.collect_excavated_block(recipient_side, harvested, attire);
                 return (Self::new(next_satchel, 0, next_mask, site, true), next_attire, next_rhythm, true);
             }
             return (Self::new(state.satchel, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false);

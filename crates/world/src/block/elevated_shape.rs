@@ -3,6 +3,7 @@ use crate::{CrateredMeshTarget, MeshTarget};
 use crate::frame::SurfaceFrame;
 use super::cell::GridCell;
 use super::shape::VoxelShape;
+use super::timber_grain::BlockMedium;
 
 /// Decorator elevating a voxel shape's base height by an encapsulated offset.
 pub struct ElevatedShape {
@@ -17,6 +18,11 @@ impl ElevatedShape {
             shape,
             elevation_offset,
         }
+    }
+
+    /// Material medium of the underlying sculpted voxel shape.
+    pub fn block_medium(&self) -> BlockMedium {
+        self.shape.block_medium()
     }
 
     /// Indicates whether this elevated block sits above the primary ground contact layer.

@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{
-    BlockMold, CleaveOutcome, ClimateZone, GravityField, MeshTarget, PerimeterEdge,
+    BlockMedium, BlockMold, CleaveOutcome, ClimateZone, GravityField, MeshTarget, PerimeterEdge,
     PlanetaryTopology, PlanetaryWorld, SeamBevel, SurfaceFind,
 };
 
@@ -81,6 +81,10 @@ impl PlanetaryWorld for BeveledWorld {
 
     fn excavate_surface(&mut self, eye: Vec3, direction: Vec3) -> bool {
         self.world.excavate_surface(eye, direction)
+    }
+
+    fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium {
+        self.world.surface_medium(eye, direction)
     }
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
