@@ -5,6 +5,7 @@ use crate::frame::SurfaceFrame;
 use super::cavity::{CavitySpan, SubterraneanCavity};
 use super::elevation::ReliefElevation;
 use super::facet::ReliefFacet;
+use super::crust_vault::CrustVault;
 use super::palette::ReliefPalette;
 
 /// Encapsulated facet assembler generating authentic watertight voxel columns, slopes, and caverns.
@@ -47,6 +48,17 @@ impl ReliefStrata {
                 self.emit_cavern(cell, frame, floor, effective_ceil, cave_floor_col, cave_wall_col, cave_ceil_col, target);
             }
         }
+
+        let vault = CrustVault::beneath(half_blocks);
+        if !relief.breached_at(u, v) {
+            let crust_top = relief.crust_floor_at(u, v) + 4;
+            let dug_layers = (crust_top - relief.elevation_at(u, v)).clamp(0, 3);
+            vault.emit_ceiling(cell, dug_layers, relief.dig_stage_at(u, v), frame, target);
+            for side in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+                if relief.breached_at(u + side.0, v + side.1) { vault.emit_skirt(cell, side, frame, target); }
+            }
+        }
+        vault.core().emit_patch(cell, frame, target);
 
         self.facet.emit_facet(
             cell, frame, relief, half_blocks,

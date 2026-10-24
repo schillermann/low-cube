@@ -6,15 +6,18 @@ const VERTEX_SHADER_SRC: &str = r#"#version 330 core
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
 layout(location = 2) in vec3 in_color;
+layout(location = 3) in float in_glow;
 
 uniform mat4 u_view_proj;
 
 out vec3 v_normal;
 out vec3 v_color;
+out float v_glow;
 
 void main() {
     v_normal = in_normal;
     v_color = in_color;
+    v_glow = in_glow;
     gl_Position = u_view_proj * vec4(in_position, 1.0);
 }
 "#;
@@ -22,6 +25,7 @@ void main() {
 const FRAGMENT_SHADER_SRC: &str = r#"#version 330 core
 in vec3 v_normal;
 in vec3 v_color;
+in float v_glow;
 
 uniform vec3 u_light_dir;
 
@@ -32,7 +36,8 @@ void main() {
     float diff = max(dot(norm, normalize(u_light_dir)), 0.0);
     vec3 ambient = vec3(0.35);
     vec3 light = ambient + vec3(0.65) * diff;
-    frag_color = vec4(v_color * light, 1.0);
+    vec3 radiant = min(v_color * 1.15, vec3(1.0));
+    frag_color = vec4(mix(v_color * light, radiant, v_glow), 1.0);
 }
 "#;
 

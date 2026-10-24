@@ -66,15 +66,16 @@ impl CrownStyle {
         let hs = |y: f32| pose.crown_size(y);
         let hw = |r: f32| pose.crown_span(r);
 
-        // Neck column connecting skull base to upper torso collar
+        // Neck column anchored to the upper torso collar so tilting the head never breaks the neck off the torso
+        let neck = pose.neck_frame();
         TaperedPrism::hexagonal(
             Vec3::new(0.0, hs(-0.15), hw(-0.022)),
-            Vec3::new(0.0, hs(0.02), hw(-0.008)),
+            Vec3::new(0.0, hs(0.025), hw(-0.004)),
             pose.crown_girth(if fem { 0.048 } else { 0.056 }),
             pose.crown_girth(if fem { 0.044 } else { 0.050 }),
             shade_skin,
         )
-        .emit(&frame, false, target);
+        .emit(&neck, true, target);
 
         // Tier 1: Sculpted chin and jawline tapering upward to cheekbones
         TaperedPrism::new(8, Vec3::new(0.0, hs(-0.018), hw(0.018)), Vec3::new(0.0, hs(0.065), hw(0.008)), hw(if fem { 0.042 } else { 0.052 }), hw(0.064), hw(if fem { 0.082 } else { 0.088 }), hw(0.090), skin)

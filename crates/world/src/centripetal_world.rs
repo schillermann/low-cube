@@ -93,6 +93,18 @@ impl PlanetaryWorld for CentripetalWorld {
         self.world.step_surface(dt)
     }
 
+    fn weightless_at(&self, position: Vec3) -> bool {
+        self.world.weightless_at(position)
+    }
+
+    fn lethal_at(&self, position: Vec3) -> bool {
+        self.world.lethal_at(position)
+    }
+
+    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 {
+        self.world.confine_beneath_crust(position)
+    }
+
     fn face_count(&self) -> usize {
         self.world.face_count()
     }

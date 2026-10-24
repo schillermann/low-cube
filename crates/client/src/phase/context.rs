@@ -74,12 +74,30 @@ impl<'a> FlightContext<'a> {
         self.gait.permits_seam_fold()
     }
 
+    pub fn weightless_ascent(&self, vertical_speed: f32) -> bool {
+        let shaft_ascent = (self.position - self.constrain_surface(self.position)).dot(self.surface_up) > 2.5 && vertical_speed > 0.0;
+        self.world.weightless_at(self.position) || shaft_ascent
+    }
+
+    pub fn confine_crust(&self, point: Vec3) -> Vec3 {
+        self.world.confine_beneath_crust(point)
+    }
+
+    pub fn origin_supported(&self) -> bool {
+        self.clearance(self.position, self.constrain_surface(self.position)).passable_with(false)
+    }
+
     pub fn resolve_precipice(&self, threshold: StepThreshold, horizontal: Vec3) -> FlightProgress {
         self.gait.resolve_precipice(self, threshold, horizontal)
     }
 
     pub fn gravitational_acceleration(&self, vertical_speed: f32) -> f32 {
-        self.gravity.delta_velocity(vertical_speed, self.dt)
+        if self.weightless_ascent(vertical_speed) {
+            let damp = if vertical_speed < 0.0 { 12.0 } else { 8.0 };
+            if !self.gait.permits_seam_fold() { (vertical_speed - (-1.8)).max(0.0) * (6.0 * self.dt).min(1.0) } else { vertical_speed * (damp * self.dt).min(1.0) }
+        } else {
+            self.gravity.delta_velocity(vertical_speed, self.dt)
+        }
     }
 
     pub fn brake_canopy(&self, vertical_speed: f32) -> f32 {

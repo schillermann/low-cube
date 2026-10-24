@@ -109,8 +109,11 @@ impl<G: LocomotionGait> LocomotionGait for SneakGait<G> {
         &self,
         ctx: &FlightContext,
         threshold: StepThreshold,
-        _horizontal: Vec3,
+        horizontal: Vec3,
     ) -> FlightProgress {
+        if !ctx.origin_supported() {
+            return FlightProgress::new(FlightPhase::Airborne(AirborneFlight::new(0.0, threshold)), horizontal);
+        }
         let arrested = ctx.resolve_ground_stride(threshold);
         FlightProgress::new(FlightPhase::Grounded(GroundedFlight::new(threshold)), arrested)
     }

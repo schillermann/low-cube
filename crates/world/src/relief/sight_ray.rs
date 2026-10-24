@@ -50,21 +50,34 @@ impl SurfaceSightRay {
         let (ecu, ecv) = ((eu * 2.0).floor() as i32, (ev * 2.0).floor() as i32);
         let (min_c, max_c) = (-half_blocks + 1, half_blocks - 2);
         let (mut prev_cu, mut prev_cv, mut prev_elev) = (ecu, ecv, frame.height_of(self.eye) - half_size);
+        let down = dir.dot(frame.normal()) < -0.75;
+        let eye_steps = relief.elevation_at(ecu, ecv);
+        let weightless = relief.weightless_at(eu, ev, prev_elev);
+        let (steps, max_span) = if weightless { (200, 12) } else { (85, 3) };
 
-        for step in 1..=85 {
+        for step in 1..=steps {
             let sample = self.eye + dir * ((step as f32) * 0.04);
             let (u, v) = frame.decompose(sample);
             let (cu, cv) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32);
-            if (cu - ecu).abs().max((cv - ecv).abs()) > 3 {
+            if (cu - ecu).abs().max((cv - ecv).abs()) > max_span {
                 break;
             }
             let ray_elev = frame.height_of(sample) - half_size;
             if cu >= min_c && cu <= max_c && cv >= min_c && cv <= max_c {
+                if down && (cu, cv) != (ecu, ecv) && relief.elevation_at(cu, cv) > eye_steps {
+                    continue;
+                }
                 if let Some(hit_top) = relief.hit_top_at(u, v, ray_elev) {
                     return Some((cu, cv, prev_cu, prev_cv, prev_elev, hit_top));
                 }
             }
             (prev_cu, prev_cv, prev_elev) = (cu, cv, ray_elev);
+        }
+        if down && ecu >= min_c && ecu <= max_c && ecv >= min_c && ecv <= max_c {
+            let floor_h = (eye_steps as f32) * 0.5;
+            if (frame.height_of(self.eye) - half_size) - floor_h <= 3.4 {
+                return Some((ecu, ecv, ecu, ecv, floor_h + 0.5, floor_h));
+            }
         }
         None
     }

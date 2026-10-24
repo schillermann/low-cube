@@ -14,6 +14,7 @@ pub enum StudioAnimation {
     RunningSprint,
     CrouchingSneak,
     JumpingLeap,
+    WeightlessHover,
     AxeCleave,
     SwordSlash,
     SpadeDig,
@@ -21,13 +22,14 @@ pub enum StudioAnimation {
 }
 
 impl StudioAnimation {
-    pub fn sequence() -> [Self; 9] {
+    pub fn sequence() -> [Self; 10] {
         [
             Self::StandingIdle,
             Self::WalkingStride,
             Self::RunningSprint,
             Self::CrouchingSneak,
             Self::JumpingLeap,
+            Self::WeightlessHover,
             Self::AxeCleave,
             Self::SwordSlash,
             Self::SpadeDig,
@@ -49,33 +51,13 @@ impl StudioAnimation {
         attire: &YouthAttire,
         target: &mut dyn MeshTarget,
     ) {
-        let (lift, eye_height, rhythm, staged_attire) = match self {
-            Self::StandingIdle => (
-                0.0,
-                0.80,
-                StrideRhythm::new((elapsed * 1.8) % TAU, 0.0),
-                *attire,
-            ),
-            Self::WalkingStride => (
-                0.0,
-                0.80,
-                StrideRhythm::new((elapsed * 8.4) % TAU, 0.45),
-                *attire,
-            ),
-            Self::RunningSprint => (
-                0.0,
-                0.80,
-                StrideRhythm::new((elapsed * 14.2) % TAU, 1.0),
-                *attire,
-            ),
+        let (lift, eye_height, hover, rhythm, staged_attire) = match self {
+            Self::StandingIdle => (0.0, 0.80, 0.0, StrideRhythm::new((elapsed * 1.8) % TAU, 0.0), *attire),
+            Self::WalkingStride => (0.0, 0.80, 0.0, StrideRhythm::new((elapsed * 8.4) % TAU, 0.45), *attire),
+            Self::RunningSprint => (0.0, 0.80, 0.0, StrideRhythm::new((elapsed * 14.2) % TAU, 1.0), *attire),
             Self::CrouchingSneak => {
                 let s = ((elapsed % 2.2) / 2.2 * std::f32::consts::PI).sin();
-                (
-                    0.0,
-                    0.80 - 0.44 * s * s,
-                    StrideRhythm::new((elapsed * 5.4) % TAU, 0.38),
-                    *attire,
-                )
+                (0.0, 0.80 - 0.44 * s * s, 0.0, StrideRhythm::new((elapsed * 5.4) % TAU, 0.38), *attire)
             }
             Self::JumpingLeap => {
                 let u = (elapsed % 2.2) / 2.2;
@@ -91,47 +73,42 @@ impl StudioAnimation {
                     let s = ((u - 0.72) / 0.28 * std::f32::consts::PI).sin();
                     (0.0, 0.80 - 0.40 * s * s)
                 };
-                (jump_lift, eye, StrideRhythm::idle(), *attire)
+                (jump_lift, eye, 0.0, StrideRhythm::idle(), *attire)
             }
+            Self::WeightlessHover => (0.08, 0.0, 1.0, StrideRhythm::new((elapsed * 4.2) % TAU, 0.35), *attire),
             Self::AxeCleave => {
                 let cleave = (elapsed * 1.15).fract();
-                let armed = if attire.armed() {
-                    *attire
-                } else {
-                    attire.with_relics(HeldRelic::WoodmanAxe, HeldRelic::EmptyPalm)
-                };
-                (0.0, 0.80, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.25, cleave), armed)
+                let armed = if attire.armed() { *attire } else { attire.with_relics(HeldRelic::WoodmanAxe, HeldRelic::EmptyPalm) };
+                (0.0, 0.80, 0.0, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.25, cleave), armed)
             }
             Self::SwordSlash => {
                 let cleave = (elapsed * 1.15).fract();
-                let armed = if attire.armed() {
-                    *attire
-                } else {
-                    attire.with_relics(HeldRelic::KnightlySword, HeldRelic::EmptyPalm)
-                };
-                (0.0, 0.80, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.25, cleave), armed)
+                let armed = if attire.armed() { *attire } else { attire.with_relics(HeldRelic::KnightlySword, HeldRelic::EmptyPalm) };
+                (0.0, 0.80, 0.0, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.25, cleave), armed)
             }
             Self::SpadeDig => {
                 let cleave = (elapsed * 1.15).fract();
                 let armed = if attire.armed() { *attire } else { attire.with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm) };
-                (0.0, 0.68, StrideRhythm::with_dual_cleave((elapsed * 3.2) % TAU, 0.15, cleave, 0.0), armed)
+                (0.0, 0.68, 0.0, StrideRhythm::with_dual_cleave((elapsed * 3.2) % TAU, 0.15, cleave, 0.0), armed)
             }
             Self::PalmDig => {
                 let cleave = (elapsed * 1.15).fract();
                 let bare = attire.with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm);
-                (0.0, 0.56, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.15, cleave), bare)
+                (0.0, 0.56, 0.0, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.15, cleave), bare)
             }
         };
 
         let view_rot = Quat::from_rotation_y(std::f32::consts::PI + yaw_radians);
+        let hover_center = (view_rot * Vec3::NEG_Z) * (0.72 * hover);
         let pose = BodyPose::new(
-            position + Vec3::Y * lift,
+            position + Vec3::Y * lift + hover_center,
             Quat::IDENTITY,
             view_rot,
             eye_height,
             rhythm,
             YouthPhysique::SlenderSquire,
-        );
+        )
+        .with_hover(hover);
         staged_attire.emit(&pose, SightMode::LookingGlassSight, target);
     }
 }

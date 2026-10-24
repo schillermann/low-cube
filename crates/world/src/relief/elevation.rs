@@ -33,6 +33,24 @@ pub trait ReliefElevation: Send + Sync {
     /// Indicates whether the discrete cell (u, v) was excavated by earthworks.
     fn reworked_at(&self, _u: i32, _v: i32) -> bool { false }
 
+    /// Indicates whether the discrete cell (u, v) has breached through the planetary crust into the hollow world.
+    fn breached_at(&self, _u: i32, _v: i32) -> bool { false }
+
+    /// Indicates whether an entity at tangential (u, v) and elevation above datum floats in the weightless hollow world.
+    fn weightless_at(&self, _u: f32, _v: f32, _elev: f32) -> bool { false }
+
+    /// Indicates whether an entity at tangential (u, v) and elevation above datum contacts the lethal spherical magma core.
+    fn lethal_at(&self, _u: f32, _v: f32, _elev: f32) -> bool { false }
+
+    /// Deepest diggable crust step of the discrete cell (u, v) above the hollow world.
+    fn crust_floor_at(&self, _u: i32, _v: i32) -> i32 { i32::MIN }
+
+    /// Radial inset from the face datum to the inner vault ceiling plus an eye safety margin.
+    fn ceiling_inset(&self, margin: f32) -> f32 { 2.0 + margin }
+
+    /// Elevation of an eye at tangential (u, v) kept beneath the spherical crust vault ceiling.
+    fn confine(&self, _u: f32, _v: f32, elev: f32) -> f32 { elev }
+
     /// Indicates whether the discrete cell (u, v) has bare exposed soil without regrown grass.
     fn bare_dirt_at(&self, _u: i32, _v: i32) -> bool { false }
 
@@ -78,23 +96,10 @@ pub struct ZonedRelief {
 impl ZonedRelief {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
-        frequency: Box<dyn SpatialFrequency>,
-        normal: Vec3,
-        tangent: Vec3,
-        bitangent: Vec3,
-        half_size: f32,
-        min_elevation: i32,
-        max_elevation: i32,
+        frequency: Box<dyn SpatialFrequency>, normal: Vec3, tangent: Vec3,
+        bitangent: Vec3, half_size: f32, min_elevation: i32, max_elevation: i32,
     ) -> Self {
-        Self {
-            frequency,
-            normal,
-            tangent,
-            bitangent,
-            half_size,
-            min_elevation,
-            max_elevation,
-        }
+        Self { frequency, normal, tangent, bitangent, half_size, min_elevation, max_elevation }
     }
 
     fn sample_at(&self, u: f32, v: f32) -> f32 {

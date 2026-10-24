@@ -2,6 +2,7 @@ use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad, TurfMeshTarget};
 use super::cell::GridCell;
+use super::earth_clods::EarthClods;
 use super::shape::VoxelShape;
 
 /// Material medium governing the sculpted 3D surface of a molded block in hand and world.
@@ -20,7 +21,7 @@ impl BlockMedium {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn emit_box(
+    pub(crate) fn emit_box(
         u0: f32, u1: f32, v0: f32, v1: f32, h0: f32, h1: f32,
         frame: &SurfaceFrame, wall_col: Vec3, top_col: Vec3, bottom_cap: bool, target: &mut dyn MeshTarget,
     ) {
@@ -41,38 +42,6 @@ impl BlockMedium {
         target.push_quad(Quad::new(p3, p2, b2, b3, b, wall_col));
         target.push_quad(Quad::new(b3, b0, p0, p3, -t, wall_col));
         target.push_quad(Quad::new(b1, b2, p2, p1, t, wall_col));
-    }
-
-    /// Emits Variant 1A Dirt Block: Clodded loam earth block with 3D soil clods and embedded river pebbles.
-    fn emit_turf_earth_cube(cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
-        let ((u0, u1), (v0, v1), top_elev) = (cell.u_bounds(), cell.v_bounds(), floor_elev + 0.5);
-        let (base_wall, base_top, clod_a, clod_b, clod_c, clod_d, peb_l, peb_d) = (
-            Vec3::new(0.41, 0.27, 0.15), Vec3::new(0.45, 0.30, 0.17),
-            Vec3::new(0.52, 0.36, 0.21), Vec3::new(0.46, 0.31, 0.18),
-            Vec3::new(0.34, 0.22, 0.12), Vec3::new(0.57, 0.40, 0.24),
-            Vec3::new(0.64, 0.61, 0.55), Vec3::new(0.49, 0.46, 0.42),
-        );
-        Self::emit_box(u0, u1, v0, v1, floor_elev, top_elev, frame, base_wall, base_top, true, target);
-        for (du0, du1, dv0, dv1, dh, col) in [
-            (0.03, 0.22, 0.03, 0.23, 0.018, clod_a), (0.25, 0.47, 0.04, 0.21, 0.013, clod_b),
-            (0.05, 0.26, 0.26, 0.46, 0.015, clod_c), (0.28, 0.46, 0.24, 0.47, 0.020, clod_d),
-            (0.14, 0.34, 0.15, 0.35, 0.026, clod_a), (0.35, 0.44, 0.07, 0.16, 0.028, peb_l),
-            (0.07, 0.15, 0.34, 0.42, 0.024, peb_d),
-        ] {
-            Self::emit_box(u0 + du0, u0 + du1, v0 + dv0, v0 + dv1, top_elev, top_elev + dh, frame, col, col, false, target);
-        }
-        for (a0, a1, h0, h1, d, col) in [
-            (0.04, 0.24, 0.04, 0.21, 0.016, clod_b), (0.27, 0.46, 0.04, 0.19, 0.013, clod_c),
-            (0.05, 0.28, 0.25, 0.44, 0.018, clod_a), (0.31, 0.46, 0.23, 0.45, 0.015, clod_d),
-            (0.15, 0.33, 0.14, 0.31, 0.022, clod_b), (0.34, 0.43, 0.09, 0.18, 0.025, peb_l),
-            (0.07, 0.16, 0.30, 0.39, 0.021, peb_d),
-        ] {
-            let (y0, y1) = (floor_elev + h0, floor_elev + h1);
-            Self::emit_box(u0 + a0, u0 + a1, v0 - d, v0, y0, y1, frame, col, col, true, target);
-            Self::emit_box(u1 - a1, u1 - a0, v1, v1 + d, y0, y1, frame, col, col, true, target);
-            Self::emit_box(u0 - d, u0, v0 + a0, v0 + a1, y0, y1, frame, col, col, true, target);
-            Self::emit_box(u1, u1 + d, v1 - a1, v1 - a0, y0, y1, frame, col, col, true, target);
-        }
     }
 
     /// Emits Variant 1A Timber Block: Bark-ridged timber block with bright sapwood and concentric annual rings.
@@ -150,7 +119,7 @@ impl VoxelShape for MediumShape {
 
     fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, target: &mut dyn MeshTarget) {
         match (self.medium, self.full_cube) {
-            (BlockMedium::TurfEarth, true) => BlockMedium::emit_turf_earth_cube(cell, floor_elevation, frame, target),
+            (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_block(frame, target),
             (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
             (BlockMedium::PlanedPlanks, true) => BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain, frame, target),
             (BlockMedium::RawTimber, false) => {

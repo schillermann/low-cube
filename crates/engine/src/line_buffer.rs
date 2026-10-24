@@ -121,10 +121,10 @@ impl MeshTarget for CpuLineBatch {
         quad.transfer(|v0, v1, v2, v3, normal, color| {
             let norm_arr = normal.to_array();
             let col_arr = color.to_array();
-            self.vertices.push(Vertex::new(v0.to_array(), norm_arr, col_arr));
-            self.vertices.push(Vertex::new(v1.to_array(), norm_arr, col_arr));
-            self.vertices.push(Vertex::new(v2.to_array(), norm_arr, col_arr));
-            self.vertices.push(Vertex::new(v3.to_array(), norm_arr, col_arr));
+            self.vertices.push(Vertex::new(v0.to_array(), norm_arr, col_arr, 0.0));
+            self.vertices.push(Vertex::new(v1.to_array(), norm_arr, col_arr, 0.0));
+            self.vertices.push(Vertex::new(v2.to_array(), norm_arr, col_arr, 0.0));
+            self.vertices.push(Vertex::new(v3.to_array(), norm_arr, col_arr, 0.0));
             let pairs = [(0, 1), (1, 2), (2, 3), (3, 0)];
             let pts = [v0, v1, v2, v3];
             for (a, b) in pairs {

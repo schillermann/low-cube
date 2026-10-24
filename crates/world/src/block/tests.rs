@@ -148,17 +148,20 @@ fn test_voxel_shapes_have_distinct_signature_colors() {
 }
 
 #[test]
-fn test_diagonal_slope_shape_elevation_and_constraint() {
-    use super::{CornerHeading, DiagonalSlope, VoxelShape};
+fn test_diagonal_slope_and_inverted_shape_beveled_ceiling() {
+    use super::{CornerHeading, DiagonalSlope, GridCell, InvertedShape, VoxelShape};
     let slope_ne = DiagonalSlope::new(CornerHeading::NorthEast);
     assert_eq!(slope_ne.elevation_at(0.0, 0.0), 0.0);
     assert_eq!(slope_ne.elevation_at(0.5, 0.5), 0.25);
     assert_eq!(slope_ne.elevation_at(1.0, 1.0), 0.5);
-
     let slope_sw = DiagonalSlope::new(CornerHeading::SouthWest);
-    assert_eq!(slope_sw.elevation_at(1.0, 1.0), 0.0);
-    assert_eq!(slope_sw.elevation_at(0.5, 0.5), 0.25);
-    assert_eq!(slope_sw.elevation_at(0.0, 0.0), 0.5);
+    assert_eq!((slope_sw.elevation_at(1.0, 1.0), slope_sw.elevation_at(0.5, 0.5), slope_sw.elevation_at(0.0, 0.0)), (0.0, 0.25, 0.5));
+    let inv_wedge = InvertedShape::from_corner_drops(0, 0, 2, 2);
+    assert_eq!((inv_wedge.elevation_at(0.5, 0.0), inv_wedge.elevation_at(0.5, 0.5)), (0.0, 0.5));
+    let mut quads = Vec::new();
+    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
+    InvertedShape::from_corner_drops(0, 0, 1, 0).emit_shape(GridCell::new(0, 0), -2.0, &frame, Vec3::ONE, &mut QuadList(&mut quads));
+    assert!(quads.iter().any(|q| q.transfer(|_, _, _, _, n, _| n.y < -0.5 && n.x < -0.1 && n.z < -0.1)), "Inverted gentle ridge must emit downward-sloping ceiling normal");
 }
 
 #[test]

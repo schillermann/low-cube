@@ -4,6 +4,8 @@ use crate::block::GridCell;
 use crate::frame::SurfaceFrame;
 
 use super::{ReliefCorner, ReliefElevation, ReliefPalette};
+use super::wall::ReliefWall;
+use crate::block::EarthClods;
 
 struct SuppressedTop;
 
@@ -14,11 +16,12 @@ impl MeshTarget for SuppressedTop {
 /// Encapsulated geometric facet evaluating 1-block climbable ramps, corners, seam chamfers, and side walls.
 pub struct ReliefFacet {
     corner: ReliefCorner,
+    wall: ReliefWall,
 }
 
 impl ReliefFacet {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self { Self { corner: ReliefCorner::new() } }
+    pub fn new() -> Self { Self { corner: ReliefCorner::new(), wall: ReliefWall } }
 
     pub fn emit_facet(
         &self, cell: GridCell, frame: &SurfaceFrame, relief: &dyn ReliefElevation,
@@ -26,7 +29,8 @@ impl ReliefFacet {
     ) {
         let (surf_col, ramp_col, ridge_col, valley_col, chamfer_col, cliff_col) = palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
-        let (h, hn, hs, he, hw) = (relief.elevation_at(u, v), relief.elevation_at(u, v + 1), relief.elevation_at(u, v - 1), relief.elevation_at(u + 1, v), relief.elevation_at(u - 1, v));
+        let (crust, h) = (if relief.breached_at(u, v) { i32::MIN } else { relief.crust_floor_at(u, v) }, relief.elevation_at(u, v));
+        let (hn, hs, he, hw) = (relief.elevation_at(u, v + 1).max(crust), relief.elevation_at(u, v - 1).max(crust), relief.elevation_at(u + 1, v).max(crust), relief.elevation_at(u - 1, v).max(crust));
         let ((u0, u1), (v0, v1), top_h) = (cell.u_bounds(), cell.v_bounds(), (h as f32) * 0.5);
         relief.emit_molded_top(cell, top_h, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
         let stage = relief.dig_stage_at(u, v);
@@ -44,10 +48,11 @@ impl ReliefFacet {
             self.corner.push_corner_pair(p0, p1, p2, p3, chamfer_col, top_out);
             ([h0, h1, h2, h3], chamfer_col)
         } else if relief.reworked_at(u, v) {
-            let bare_col = Vec3::new(0.48, 0.35, 0.22);
+            let bare_col = Vec3::new(0.45, 0.30, 0.17);
             let top_c = if relief.bare_dirt_at(u, v) { bare_col } else { surf_col };
             let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
-            top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), top_c));
+            if !relief.breached_at(u, v) { top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), top_c)); }
+            if relief.bare_dirt_at(u, v) && !relief.breached_at(u, v) { EarthClods::new(cell, top_h - 0.5).emit_crown(frame, top_out); }
             ([top_h, top_h, top_h, top_h], top_c)
         } else {
             let (nhn, nhs, nhe, nhw) = (relief.natural_elevation_at(u, v + 1), relief.natural_elevation_at(u, v - 1), relief.natural_elevation_at(u + 1, v), relief.natural_elevation_at(u - 1, v));
@@ -103,7 +108,7 @@ impl ReliefFacet {
         };
 
         if stage > 0 { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, surf_col, palette, frame, target); }
-        self.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, relief, frame, cliff_col, target);
+        self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, relief, frame, cliff_col, target);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -133,46 +138,6 @@ impl ReliefFacet {
             target.push_quad(Quad::new(b[i], b[j], m[j], m[i], wall_n[i], wall_col));
         }
         target.push_quad(Quad::new(b[0], b[1], b[2], b[3], surf_n, floor_col));
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn emit_walls(
-        &self, u: i32, v: i32, u0: f32, u1: f32, v0: f32, v1: f32, h: i32, hn: i32, hs: i32, he: i32, hw: i32,
-        corners: [f32; 4], relief: &dyn ReliefElevation, frame: &SurfaceFrame, cliff_col: Vec3, target: &mut dyn MeshTarget,
-    ) {
-        let (dug_self, dirt_col) = (relief.reworked_at(u, v), Vec3::new(0.48, 0.35, 0.22));
-        if h >= hn {
-            let fn_flat = relief.reworked_at(u, v + 1);
-            let bn_l = ((if !fn_flat && (hw < hn || relief.elevation_at(u - 1, v + 1) < hn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[3]);
-            let bn_r = ((if !fn_flat && (he < hn || relief.elevation_at(u + 1, v + 1) < hn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[2]);
-            if corners[3] > bn_l || corners[2] > bn_r {
-                target.push_quad(Quad::new(frame.point_at(u0, v1, bn_l), frame.point_at(u1, v1, bn_r), frame.point_at(u1, v1, corners[2]), frame.point_at(u0, v1, corners[3]), frame.bitangent(), if dug_self || fn_flat { dirt_col } else { cliff_col }));
-            }
-        }
-        if h >= hs {
-            let fs_flat = relief.reworked_at(u, v - 1);
-            let bs_l = ((if !fs_flat && (he < hs || relief.elevation_at(u + 1, v - 1) < hs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[1]);
-            let bs_r = ((if !fs_flat && (hw < hs || relief.elevation_at(u - 1, v - 1) < hs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[0]);
-            if corners[1] > bs_l || corners[0] > bs_r {
-                target.push_quad(Quad::new(frame.point_at(u1, v0, bs_l), frame.point_at(u0, v0, bs_r), frame.point_at(u0, v0, corners[0]), frame.point_at(u1, v0, corners[1]), -frame.bitangent(), if dug_self || fs_flat { dirt_col } else { cliff_col }));
-            }
-        }
-        if h >= he {
-            let fe_flat = relief.reworked_at(u + 1, v);
-            let be_l = ((if !fe_flat && (hs < he || relief.elevation_at(u + 1, v - 1) < he) { he - 1 } else { he }) as f32 * 0.5).min(corners[1]);
-            let be_r = ((if !fe_flat && (hn < he || relief.elevation_at(u + 1, v + 1) < he) { he - 1 } else { he }) as f32 * 0.5).min(corners[2]);
-            if corners[1] > be_l || corners[2] > be_r {
-                target.push_quad(Quad::new(frame.point_at(u1, v0, be_l), frame.point_at(u1, v1, be_r), frame.point_at(u1, v1, corners[2]), frame.point_at(u1, v0, corners[1]), frame.tangent(), if dug_self || fe_flat { dirt_col } else { cliff_col }));
-            }
-        }
-        if h >= hw {
-            let fw_flat = relief.reworked_at(u - 1, v);
-            let bw_l = ((if !fw_flat && (hn < hw || relief.elevation_at(u - 1, v + 1) < hw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[3]);
-            let bw_r = ((if !fw_flat && (hs < hw || relief.elevation_at(u - 1, v - 1) < hw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[0]);
-            if corners[3] > bw_l || corners[0] > bw_r {
-                target.push_quad(Quad::new(frame.point_at(u0, v1, bw_l), frame.point_at(u0, v0, bw_r), frame.point_at(u0, v0, corners[0]), frame.point_at(u0, v1, corners[3]), -frame.tangent(), if dug_self || fw_flat { dirt_col } else { cliff_col }));
-            }
-        }
     }
 
     #[allow(clippy::too_many_arguments)]

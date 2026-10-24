@@ -124,6 +124,18 @@ impl PlanetaryWorld for CubePlanet {
         regrown
     }
 
+    fn weightless_at(&self, position: Vec3) -> bool {
+        self.active_face(position).weightless_at(position)
+    }
+
+    fn lethal_at(&self, position: Vec3) -> bool {
+        self.active_face(position).lethal_at(position)
+    }
+
+    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 {
+        self.active_face(position).confine_beneath_crust(position)
+    }
+
     fn face_count(&self) -> usize {
         self.faces.len().max(1)
     }

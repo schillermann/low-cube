@@ -63,36 +63,29 @@ fn test_subterranean_cavity_depth_constraint() {
 fn test_zoned_cavity_and_relief_direct_sampling() {
     use crate::noise::CoherentNoise;
     let frame = ClimateZone::Temperate.surface_frame(8.0);
-    let noise = Box::new(CoherentNoise::new(123, 0.1));
-    let relief = ZonedRelief::new(
-        noise,
-        frame.normal(),
-        frame.tangent(),
-        frame.bitangent(),
-        8.0,
-        0,
-        3,
-    );
-    let h = relief.elevation_at(2, 2);
-    assert!((0..=3).contains(&h));
-
-    let cave_noise = Box::new(CoherentNoise::new(456, 0.1));
-    let cavity = ZonedCavity::new(
-        cave_noise,
-        frame.normal(),
-        frame.tangent(),
-        frame.bitangent(),
-        8.0,
-        0.3,
-    );
+    let relief = ZonedRelief::new(Box::new(CoherentNoise::new(123, 0.1)), frame.normal(), frame.tangent(), frame.bitangent(), 8.0, 0, 3);
+    assert!((0..=3).contains(&relief.elevation_at(2, 2)));
+    let cavity = ZonedCavity::new(Box::new(CoherentNoise::new(456, 0.1)), frame.normal(), frame.tangent(), frame.bitangent(), 8.0, 0.3);
     let depth = cavity.constrain_depth(2.0, 2.0, -1.0, 1.0);
     assert!(depth == -2.0 || depth == 1.0);
-
-    let strata = ReliefStrata::new();
-    let cell = crate::block::GridCell::new(2, 2);
-    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
     let mut collector = QuadCollector;
-    strata.emit_cell(cell, &frame, &relief, &cavity, &palette, 8, &mut collector);
+    ReliefStrata::new().emit_cell(crate::block::GridCell::new(2, 2), &frame, &relief, &cavity, &ReliefPalette::for_zone(ClimateZone::Temperate), 8, &mut collector);
+}
+
+#[test]
+fn test_deep_crust_excavation_hollow_world_breach_and_indestructible_magma_core() {
+    let mut deep = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 64);
+    for step in 1..=36 {
+        assert!(deep.excavate_cell(0, 0).1, "Must excavate through mantle and first 3 crust layers (step {step})");
+    }
+    assert_eq!(deep.elevation_at(0, 0), -36);
+    assert!(!deep.breached_at(0, 0));
+    assert!(deep.excavate_cell(0, 0).1, "Excavating 4th crust layer above the halved vault must breach into hollow world");
+    assert!(deep.breached_at(0, 0) && deep.elevation_at(0, 0) == -48);
+    assert!(!deep.excavate_cell(0, 0).1 && !deep.mark_dig_stage(0, 0, 1).1, "Magma core summit at -48 must be indestructible");
+    assert!(deep.weightless_at(0.0, 0.0, -21.0) && !deep.lethal_at(0.0, 0.0, -21.0), "Hollow world cavity must be weightless");
+    assert!(deep.lethal_at(0.0, 0.0, -23.5) && !deep.weightless_at(0.0, 0.0, -23.5), "Magma core surface must be lethal");
+    assert!(deep.weightless_at(9.0, 0.0, -22.0) && !deep.weightless_at(24.0, 24.0, -9.0), "Hollow beside the core floats while the rounded crust beyond the vault stays solid");
 }
 
 

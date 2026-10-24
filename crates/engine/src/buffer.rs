@@ -8,14 +8,16 @@ pub struct Vertex {
     position: [f32; 3],
     normal: [f32; 3],
     color: [f32; 3],
+    glow: f32,
 }
 
 impl Vertex {
-    pub fn new(position: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Self {
+    pub fn new(position: [f32; 3], normal: [f32; 3], color: [f32; 3], glow: f32) -> Self {
         Self {
             position,
             normal,
             color,
+            glow,
         }
     }
 }
@@ -78,6 +80,9 @@ impl CpuMeshBatch {
         gl.enable_vertex_attrib_array(2);
         gl.vertex_attrib_pointer_f32(2, 3, glow::FLOAT, false, stride, 24);
 
+        gl.enable_vertex_attrib_array(3);
+        gl.vertex_attrib_pointer_f32(3, 1, glow::FLOAT, false, stride, 36);
+
         gl.bind_vertex_array(None);
 
         GlMesh::new(vao, vbo, ebo, self.indices.len() as i32)
@@ -101,14 +106,15 @@ impl MeshTarget for CpuMeshBatch {
     fn push_quad(&mut self, quad: Quad) {
         let base_idx = self.vertices.len() as u32;
 
+        let glow = quad.radiate(|glow| glow);
         quad.transfer(|v0, v1, v2, v3, normal, color| {
             let norm_arr = normal.to_array();
             let col_arr = color.to_array();
 
-            self.vertices.push(Vertex::new(v0.to_array(), norm_arr, col_arr));
-            self.vertices.push(Vertex::new(v1.to_array(), norm_arr, col_arr));
-            self.vertices.push(Vertex::new(v2.to_array(), norm_arr, col_arr));
-            self.vertices.push(Vertex::new(v3.to_array(), norm_arr, col_arr));
+            self.vertices.push(Vertex::new(v0.to_array(), norm_arr, col_arr, glow));
+            self.vertices.push(Vertex::new(v1.to_array(), norm_arr, col_arr, glow));
+            self.vertices.push(Vertex::new(v2.to_array(), norm_arr, col_arr, glow));
+            self.vertices.push(Vertex::new(v3.to_array(), norm_arr, col_arr, glow));
         });
 
         self.indices.push(base_idx);

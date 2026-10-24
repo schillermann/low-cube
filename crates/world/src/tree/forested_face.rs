@@ -65,6 +65,9 @@ impl Face for ForestedFace {
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
         let mut position = self.origin.constrain(point, distance);
+        if self.frame.elevation_of(point) < -2.0 {
+            return position;
+        }
         let (u, v) = self.frame.decompose(point);
         for tree in &self.trees {
             position = tree.constrain_surface(position, u, v, &self.frame, distance);
@@ -154,4 +157,8 @@ impl Face for ForestedFace {
         }
         changed
     }
+
+    fn weightless_at(&self, point: Vec3) -> bool { self.origin.weightless_at(point) }
+    fn lethal_at(&self, point: Vec3) -> bool { self.origin.lethal_at(point) }
+    fn confine_beneath_crust(&self, point: Vec3) -> Vec3 { self.origin.confine_beneath_crust(point) }
 }

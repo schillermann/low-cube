@@ -95,10 +95,15 @@ impl PlanetaryAvatar {
         else { self.camera_rot = self.camera_rot.slerp(self.surface_rot, 1.0 - (-4.0 * dt).exp()).normalize(); }
     }
 
+    fn hand_ray(&self) -> (Vec3, Vec3) {
+        let (pose_eye, up) = (self.current_pose().eye_origin(), self.surface_up());
+        let dir = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
+        if dir.dot(up).abs() > 0.975 { (self.position + up * (pose_eye - self.position).dot(up), up * dir.dot(up).signum()) } else { (pose_eye, dir) }
+    }
+
     fn act_with_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.earthworks.satchel_open() && !self.earthworks.tome_open() { return false; }
-        let eye = self.current_pose().eye_origin();
-        let view_dir = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
+        if self.posture.perished() || world.lethal_at(self.position) || (self.earthworks.satchel_open() && !self.earthworks.tome_open()) { return false; }
+        let (eye, view_dir) = self.hand_ray();
         let (next_ew, next_attire, next_rhythm, changed) =
             self.earthworks.act_with_hand(side, self.attire, self.rhythm, eye, view_dir, world);
         (self.earthworks, self.attire, self.rhythm) = (next_ew, next_attire, next_rhythm);
@@ -108,20 +113,20 @@ impl PlanetaryAvatar {
 
 impl Avatar for PlanetaryAvatar {
     fn rotate_view(&mut self, dx: f32, dy: f32) {
-        if !self.earthworks.satchel_open() { self.look.rotate(dx, dy); }
+        if !self.earthworks.satchel_open() && !self.posture.perished() { self.look.rotate(dx, dy); }
     }
     fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(-1.0, world) }
     fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(1.0, world) }
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.earthworks.satchel_open() { return false; }
-        let (eye, dir) = (self.current_pose().eye_origin(), (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize());
+        if self.posture.perished() || self.earthworks.satchel_open() { return false; }
+        let (eye, dir) = self.hand_ray();
         let (next_ew, next_attire, changed) = self.earthworks.release_hand(self.attire, eye, dir, self.position, world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
         changed
     }
     fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.earthworks.satchel_open() { return false; }
-        let (eye, dir) = (self.current_pose().eye_origin(), (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize());
+        if self.posture.perished() || self.earthworks.satchel_open() { return false; }
+        let (eye, dir) = self.hand_ray();
         let (next_ew, next_attire, next_rhythm, changed) = self.earthworks.continue_digging(self.attire, self.rhythm, eye, dir, world);
         (self.earthworks, self.attire, self.rhythm) = (next_ew, next_attire, next_rhythm);
         changed
@@ -141,7 +146,8 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
-        if self.earthworks.satchel_open() {
+        if self.earthworks.satchel_open() || self.posture.perished() || world.lethal_at(self.position) {
+            if world.lethal_at(self.position) { self.posture = self.posture.perish(); }
             self.rhythm = StrideRhythm::idle();
             return;
         }
@@ -157,9 +163,15 @@ impl Avatar for PlanetaryAvatar {
         self.lens = order.advance_lens(self.lens, dt);
         self.tilt_radians *= 1.0 - (8.0 * dt).min(1.0);
         let next_pos = order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, 6.0, world);
-        self.posture = self.posture.advance_leap(self.position, next_pos, terrain_up, dt);
+        if world.lethal_at(next_pos) {
+            (self.position, self.posture, self.rhythm) = (next_pos, self.posture.perish(), StrideRhythm::idle());
+            return;
+        }
+        let weightless = world.weightless_at(next_pos) || world.weightless_at(self.position);
+        self.posture = self.posture.advance_leap(self.position, next_pos, terrain_up, dt).advance_hover(weightless, dt);
         self.rhythm = self.rhythm.advance(self.position, next_pos, terrain_up, dt);
-        self.position = next_pos;
+        let eye_off = terrain_up * self.posture.eye_elevation();
+        self.position = if weightless { world.confine_beneath_crust(next_pos + eye_off) - eye_off } else { next_pos };
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
@@ -181,6 +193,6 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn emit_reticle(&self, target: &mut dyn MeshTarget) {
-        if !self.earthworks.satchel_open() { ScreenPoint::center().emit_crosshair(target); }
+        if !self.earthworks.satchel_open() { self.posture.emit_reticle(target); }
     }
 }

@@ -191,4 +191,10 @@ impl Face for FacetedReliefFace {
         for &cv in &rows { self.refresh_rows(cv, half); }
         !rows.is_empty()
     }
+    fn weightless_at(&self, point: Vec3) -> bool { let (u, v) = self.frame.decompose(point); self.relief.weightless_at(u, v, self.frame.elevation_of(point)) }
+    fn lethal_at(&self, point: Vec3) -> bool { let (u, v) = self.frame.decompose(point); self.relief.lethal_at(u, v, self.frame.elevation_of(point)) }
+    fn confine_beneath_crust(&self, point: Vec3) -> Vec3 {
+        let (u, v) = self.frame.decompose(point);
+        if self.relief.breached_at((u * 2.0).floor() as i32, (v * 2.0).floor() as i32) { point } else { self.frame.confine_radius(self.frame.point_at(u, v, self.relief.confine(u, v, self.frame.elevation_of(point))), self.relief.ceiling_inset(0.30)) }
+    }
 }

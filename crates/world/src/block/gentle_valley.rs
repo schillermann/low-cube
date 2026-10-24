@@ -71,16 +71,17 @@ impl VoxelShape for GentleValley {
         let p2 = frame.point_at(u1, v1, base_elevation + h2);
         let p3 = frame.point_at(u0, v1, base_elevation + h3);
 
+        let up_norm = |n: Vec3| if n.dot(frame.normal()) >= 0.0 { n } else { -n };
         match self.heading {
             CornerHeading::NorthEast | CornerHeading::SouthWest => {
-                let norm_a = (p1 - p0).cross(p3 - p0).normalize();
-                let norm_b = (p2 - p1).cross(p3 - p1).normalize();
+                let norm_a = up_norm((p1 - p0).cross(p3 - p0).normalize());
+                let norm_b = up_norm((p2 - p1).cross(p3 - p1).normalize());
                 target.push_quad(Quad::new(p0, p1, p3, p3, norm_a, color));
                 target.push_quad(Quad::new(p1, p2, p3, p3, norm_b, color));
             }
             CornerHeading::NorthWest | CornerHeading::SouthEast => {
-                let norm_a = (p1 - p0).cross(p2 - p0).normalize();
-                let norm_b = (p2 - p0).cross(p3 - p0).normalize();
+                let norm_a = up_norm((p1 - p0).cross(p2 - p0).normalize());
+                let norm_b = up_norm((p2 - p0).cross(p3 - p0).normalize());
                 target.push_quad(Quad::new(p0, p1, p2, p2, norm_a, color));
                 target.push_quad(Quad::new(p0, p2, p3, p3, norm_b, color));
             }

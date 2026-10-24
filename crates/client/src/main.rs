@@ -39,6 +39,7 @@ mod posture;
 mod server_aurora;
 mod server_celestial;
 mod server_physics;
+mod server_scale;
 mod session;
 mod stride;
 mod surface;
@@ -67,6 +68,8 @@ mod controls_tests;
 #[cfg(test)]
 mod earthworks_tests;
 #[cfg(test)]
+mod crust_ceiling_tests;
+#[cfg(test)]
 mod flight_tests;
 #[cfg(test)]
 mod mountain_tests;
@@ -90,15 +93,7 @@ mod visual_tests;
 use winit::event_loop::{ControlFlow, EventLoop};
 use app::LowCubeApp;
 use launch::SessionLaunch;
-
-fn world_scale() -> u32 {
-    std::env::args()
-        .find_map(|arg| {
-            arg.strip_prefix("--blocks=")
-                .and_then(|val| val.parse::<u32>().ok())
-        })
-        .unwrap_or(128)
-}
+use server_scale::{PlanetaryScale, ServerScale};
 
 fn tron_active() -> bool {
     std::env::args().any(|arg| arg == "--tron" || arg == "tron")
@@ -113,7 +108,7 @@ fn main() {
         "LowCube",
         1280.0,
         720.0,
-        world_scale(),
+        ServerScale::assembled().blocks(),
         tron,
     );
     let mut app = LowCubeApp::launching(Box::new(launch));

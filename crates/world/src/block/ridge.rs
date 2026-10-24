@@ -42,7 +42,8 @@ impl VoxelShape for RidgeCorner {
             CornerHeading::SouthWest => (b0, b3, b1, -frame.tangent(), -frame.bitangent()),
         };
         let p_peak = b_peak + frame.normal() * 0.5;
-        let slope_norm = (b_2 - b_1).cross(p_peak - b_1).normalize();
+        let raw_norm = (b_2 - b_1).cross(p_peak - b_1).normalize();
+        let slope_norm = if raw_norm.dot(frame.normal()) >= 0.0 { raw_norm } else { -raw_norm };
         target.push_quad(Quad::new(b_1, b_2, p_peak, p_peak, slope_norm, color));
         target.push_quad(Quad::new(b_1, b_peak, p_peak, p_peak, w1, color));
         target.push_quad(Quad::new(p_peak, b_peak, b_2, b_2, w2, color));

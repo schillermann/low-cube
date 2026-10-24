@@ -70,8 +70,8 @@ pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
 pub use planet::CubePlanet;
 pub use relief::{
-    CavitySpan, FacetedReliefFace, NullCavity, ReliefElevation, ReliefFacet, ReliefPalette,
-    SubterraneanCavity, SurfaceSightRay, TerracedRelief, ZonedCavity,
+    CavitySpan, CrustVault, FacetedReliefFace, NullCavity, ReliefElevation, ReliefFacet,
+    ReliefPalette, SubterraneanCavity, SurfaceSightRay, TerracedRelief, ZonedCavity,
 };
 pub use tinted_face::TintedFace;
 pub use topology::{
@@ -131,6 +131,13 @@ pub trait PlanetaryWorld: GravityField {
     fn step_surface(&mut self, _dt: f32) -> bool {
         false
     }
+    fn weightless_at(&self, _position: Vec3) -> bool {
+        false
+    }
+    fn lethal_at(&self, _position: Vec3) -> bool {
+        false
+    }
+    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { position }
     fn face_count(&self) -> usize {
         1
     }
@@ -177,5 +184,12 @@ pub trait Face: Send + Sync {
     fn step_surface(&mut self, _dt: f32) -> bool {
         false
     }
+    fn weightless_at(&self, _point: Vec3) -> bool {
+        false
+    }
+    fn lethal_at(&self, _point: Vec3) -> bool {
+        false
+    }
+    fn confine_beneath_crust(&self, point: Vec3) -> Vec3 { point }
 }
 

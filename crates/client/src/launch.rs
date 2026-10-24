@@ -118,7 +118,7 @@ impl SessionAssembly for SessionLaunch {
         let tron_pipeline = Box::new(TronPipeline::void());
 
         let half = (self.world_blocks as f32) * 0.5;
-        let spawn_position = planet.constrain_to_surface(Vec3::new(0.0, half + 1.0, 0.0), 1.0);
+        let spawn_position = planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0);
         let flight = self.physics.surface_flight(1.0);
         let attire = FileAttire::profile().load_or_squire();
         let bindings = FileBindings::profile().load_or_seeded();

@@ -119,3 +119,73 @@ fn test_jump_against_steep_cliff_blocked_mid_air() {
     assert!(pos.z < 1.0);
     assert_eq!(pos.y, 11.0);
 }
+
+#[test]
+fn test_hollow_world_weightless_floating_pyramid_gravity_and_lethal_magma_respawn() {
+    use world::BiomedCubeWorld;
+    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let mut flight = SurfaceFlight::terrestrial(1.0);
+
+    // 1. Pyramid-sector gravity holds deep inside the planet near cube edges
+    assert_eq!(world.surface_up_at(Vec3::new(3.9, 4.1, 0.0)), Vec3::Y);
+    assert_eq!(world.surface_up_at(Vec3::new(4.1, 3.9, 0.0)), Vec3::X);
+
+    // 2. Dig a shaft at (0.25, y, 0.25) through the mantle and 4-layer crust until it breaches into the hollow world
+    for step in 0..21 {
+        let floor_y = world.constrain_to_surface(Vec3::new(0.25, 17.0, 0.25), 0.0).y;
+        if step == 4 {
+            assert!((floor_y - 14.0).abs() < 1e-4 && !world.lethal_at(Vec3::new(0.25, floor_y + 1.0, 0.25)), "After 4 blocks of digging avatar must still be in solid ground far above the halved core");
+        }
+        assert!(world.excavate_surface(Vec3::new(0.25, floor_y + 1.0, 0.25), Vec3::NEG_Y), "Layer {step} must excavate");
+    }
+    let magma_y = world.constrain_to_surface(Vec3::new(0.25, 17.0, 0.25), 0.0).y;
+    assert!((magma_y - 3.0).abs() < 1e-4, "Breached shaft must expose halved magma core at y = 3.0, got {magma_y}");
+    assert!(!world.excavate_surface(Vec3::new(0.25, 4.0, 0.25), Vec3::NEG_Y), "Magma core must not be diggable");
+
+    // 3. Avatar inside the hollow world (y = 4.6, feet = 3.6) is weightless and floats without falling
+    let hollow_pos = Vec3::new(0.25, 4.6, 0.25);
+    assert!(world.weightless_at(hollow_pos) && !world.lethal_at(hollow_pos));
+    let mut pos = hollow_pos;
+    for _ in 0..30 {
+        pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, &world);
+    }
+    assert!((pos.y - hollow_pos.y).abs() < 1e-4, "Avatar must float weightlessly in zero-G hollow world, got {}", pos.y);
+
+    // 4. Touching the lethal magma core (y = 4.0, feet = 3.0) kills the avatar in place instead of teleporting to the surface
+    let magma_contact = Vec3::new(0.25, 4.0, 0.25);
+    assert!(world.lethal_at(magma_contact));
+    let perished_pos = flight.advance(1.0 / 60.0, magma_contact, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, &world);
+    assert_eq!(perished_pos, magma_contact, "Magma core contact must arrest the dead avatar at the core without teleporting to the surface");
+
+    // 5. Full avatar digging straight down clears the shaft into the halved zero-G hollow world without getting stuck
+    use crate::attire::{HeldRelic, YouthAttire};
+    use crate::avatar::{Avatar, PlanetaryAvatar};
+    use crate::controls::{KeyboardControls, KeyMotion};
+    use winit::keyboard::KeyCode;
+    let mut world64 = BiomedCubeWorld::beveled(64, 1.0);
+    for _ in 0..33 {
+        let floor_y = world64.constrain_to_surface(Vec3::new(0.25, 33.0, 0.25), 0.0).y;
+        assert!(world64.excavate_surface(Vec3::new(0.25, floor_y + 1.0, 0.25), Vec3::NEG_Y));
+    }
+    let mut avatar = PlanetaryAvatar::at(Vec3::new(0.25, 17.0, 0.25));
+    avatar.rotate_view(0.0, 2000.0);
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    let _ = avatar.use_right_hand(&mut world64);
+    for _ in 0..500 {
+        avatar.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world64);
+        let _ = avatar.step_digging(&mut world64);
+    }
+    let _ = avatar.release_hand(&mut world64);
+    let below_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!(below_eye.y < 13.8 && world64.weightless_at(below_eye), "Avatar digging down through the 4-layer crust must fall into weightless hollow world, got {below_eye:?}");
+    let mut controls = KeyMotion::idle();
+    controls.register_key(KeyCode::KeyW, true);
+    controls.register_key(KeyCode::Space, true);
+    for step_idx in 0..60 {
+        avatar.step_motion(1.0 / 60.0, &controls, &world64);
+        let cur = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+        assert!(cur.y > 8.5 && cur.length() < 13.85, "Frame {step_idx}: avatar eye must stay inside the vault without poking through the crust, got {cur:?}");
+    }
+    let moved_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!((moved_eye.x - below_eye.x).hypot(moved_eye.z - below_eye.z) > 1.0 && moved_eye.length() > 13.5, "Avatar in hollow world must move horizontally outside shaft and ascend against the vault dome, got {moved_eye:?}");
+}

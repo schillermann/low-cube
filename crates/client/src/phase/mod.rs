@@ -131,6 +131,16 @@ impl AirborneFlight {
         };
 
         let vertical_step = surface_up * (next_speed * ctx.dt());
+        if ctx.weightless_ascent(next_speed) {
+            let raw = ctx.candidate_point(airborne_stride) + vertical_step;
+            let confined = ctx.confine_crust(raw);
+            let bonked_speed = if (confined - raw).dot(surface_up) < -1e-4 { next_speed.min(0.0) } else { next_speed };
+            let next_momentum = ctx.damp_aerial_momentum(self.momentum);
+            return FlightProgress::new(
+                FlightPhase::Airborne(AirborneFlight::with_momentum(bonked_speed, next_momentum, self.threshold)),
+                confined,
+            );
+        }
         let rebound = ctx.resolve_aerial_stride(airborne_stride, surface_up, vertical_step, self.threshold);
         let supported = ctx.constrain_surface(rebound);
         let clearance = ctx.clearance(rebound, supported);

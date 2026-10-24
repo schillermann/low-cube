@@ -8,6 +8,23 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-10-24
+
+### Added
+- Configurable server world-cube scale factor (`PlanetaryScale`, `MoonletScale`, `ScaledCube`, `FileScale`, `EnvironmentScale`, `ArgumentScale`, `ServerScale` in `crates/client/src/server_scale.rs`) supporting `[world] size` in `server.toml`, `--size` / `--scale`, and `LOW_CUBE_SIZE` (`size >= 1`, baseline factor `1 = 128` blocks) with fail-fast validation and documentation in `docs/SETTINGS.md`.
+- Weightless horizontal hover posture and swimming limb animation (`AvatarPosture::advance_hover`, `BodyPose::with_hover`, `BodyPose::neck_frame`, `CrownDetails`, `Headgear`, `PreviewStage::step`) with torso-anchored neck articulation and a live `FLOATING` / `STANDING` preview toggle in the Character Studio menu.
+- Lethal magma core death state and `"YOU DIED"` HUD banner (`AvatarPosture::perish`, `AvatarPosture::perished`, `AvatarPosture::emit_reticle`) arresting the player in place upon touching the magma core instead of teleporting back to the surface.
+
+### Changed
+- Rendered the planetary magma core as a glowing incandescent sphere (`MagmaCore`, `Quad::glowing`, `Quad::radiate`) tiled seamlessly across all six faces with molten orange-to-yellow swirls, drawn self-luminous by a new per-vertex glow attribute in the voxel shader; breached crust shafts now open straight into the hollow world instead of ending on a flat magma tile.
+- Made magma contact, weightlessness, and hollow-world support follow the spherical core surface (`ReliefElevation::lethal_at`, `ReliefElevation::weightless_at`, `MagmaCore::engulfs`, `MagmaCore::crest_at`) rather than a flat per-face plane.
+- Scaled the inner 4-layer (`2.0 m`) planetary block crust (`CrustVault`, `InvertedShape`) and central magma core (`MagmaCore`) to half of the world-cube radius (`CrustVault::beneath`, `CrustVault::core`, `CrustVault::circumference`), separated by a 12-block (`6.0 m`) weightless hollow space, with the hollow-world ceiling sculpted from inverted beveled block shapes (`CuboidShape`, `GentleWedge`, `GentleRidge`, `GentleValley`, `RampWedge`, `RidgeCorner`, `ValleyCorner`, `DiagonalSlope`) and earthy magma-lit rock veins (`CrustVault::emit_ceiling`, `CrustVault::emit_skirt`).
+- Dressed excavated terrain soil (bare pit floors and dug walls) in the same clods, pebbles, and loam tones as the hand-held earth block (`EarthClods`, `ReliefWall`).
+
+### Fixed
+- Prevented jumping or repeated head collisions in the hollow world from lifting the camera through the crust or catapulting the player to the outer surface (`PlanetaryWorld::confine_beneath_crust`, `CrustVault::confine`, `SurfaceFrame::confine_radius`, `TerracedRelief::support_height_at`).
+- Enabled upward ceiling excavation from inside the weightless hollow world to remove the targeted ceiling block and breach an exit shaft back to the outer surface (`SurfaceSightRay::trace_hit`, `TerracedRelief::hit_top_at`, `TerracedRelief::excavate_layer`, `PalmEarthworks::act_with_hand`, `SurfaceFlight::advance`).
+
 ## [0.37.0] - 2026-10-23
 
 ### Added

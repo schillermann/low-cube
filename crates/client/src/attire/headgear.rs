@@ -95,8 +95,9 @@ impl PolygonHeadgear {
                 TaperedPrism::new(4, Vec3::new(hw(-0.082), hs(0.205), hw(0.068)), Vec3::new(hw(-0.115), hs(0.365), hw(-0.035)), hw(0.016), hw(0.028), hw(0.006), hw(0.014), plume_white).emit(frame, true, target);
             }
             CrownStyle::MedievalGugel => {
+                let neck = pose.neck_frame();
                 TaperedPrism::new(8, Vec3::new(0.0, hs(-0.022), hw(0.018)), Vec3::new(0.0, hs(0.082), hw(0.026)), hw(0.064), hw(0.076), hw(0.092), hw(0.096), dark_steel).emit(frame, true, target);
-                TaperedPrism::new(8, Vec3::new(0.0, hs(-0.155), hw(-0.024)), Vec3::new(0.0, hs(0.005), hw(-0.018)), pose.scale(0.195), hw(0.118), hw(0.114), hw(0.098), trim).emit(frame, false, target);
+                TaperedPrism::new(8, Vec3::new(0.0, hs(-0.155), hw(-0.024)), Vec3::new(0.0, hs(0.005), hw(-0.018)), pose.scale(0.195), hw(0.118), hw(0.114), hw(0.098), trim).emit(&neck, false, target);
                 TaperedPrism::new(8, Vec3::new(0.0, hs(-0.005), hw(-0.028)), Vec3::new(0.0, hs(0.228), hw(-0.014)), hw(0.114), hw(0.102), hw(0.106), hw(0.108), cloth).emit(frame, true, target);
                 TaperedPrism::new(6, Vec3::new(0.0, hs(0.145), hw(0.042)), Vec3::new(0.0, hs(0.215), hw(0.068)), hw(0.094), hw(0.065), hw(0.068), hw(0.045), cloth).emit(frame, true, target);
                 TaperedPrism::new(8, Vec3::new(0.0, hs(0.195), hw(-0.026)), Vec3::new(0.0, hs(0.285), hw(-0.135)), hw(0.096), hw(0.090), hw(0.022), hw(0.032), trim).emit(frame, true, target);

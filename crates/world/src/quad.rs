@@ -10,17 +10,28 @@ pub struct Quad {
     v3: Vec3,
     normal: Vec3,
     color: Vec3,
+    glow: f32,
 }
 
 impl Quad {
-    /// Primary constructor: assigns fields directly without computation.
+    /// Primary constructor: assigns fields directly without computation (glow 0 = matte, 1 = fully self-luminous).
+    pub fn glowing(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3, normal: Vec3, color: Vec3, glow: f32) -> Self {
+        Self { v0, v1, v2, v3, normal, color, glow }
+    }
+
+    /// Secondary constructor for a matte, purely sun-lit quad.
     pub fn new(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3, normal: Vec3, color: Vec3) -> Self {
-        Self { v0, v1, v2, v3, normal, color }
+        Self::glowing(v0, v1, v2, v3, normal, color, 0.0)
     }
 
     /// Feeds its encapsulated data to a target without exposing raw getters.
     pub fn transfer<T>(&self, consumer: impl FnOnce(Vec3, Vec3, Vec3, Vec3, Vec3, Vec3) -> T) -> T {
         consumer(self.v0, self.v1, self.v2, self.v3, self.normal, self.color)
+    }
+
+    /// Feeds its self-emitted radiance share to a consumer without exposing raw getters.
+    pub fn radiate<T>(&self, consumer: impl FnOnce(f32) -> T) -> T {
+        consumer(self.glow)
     }
 
     /// Emits this quad directly when stage == 0, or subdivides it into a recessed 3D digging crater for stages 1..=3.

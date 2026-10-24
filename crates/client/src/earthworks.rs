@@ -27,9 +27,7 @@ impl PalmEarthworks {
 
     /// Dispatches mold, satchel transfer, satchel/crafting-book toggle, and navigation triggers using single-trigger bindings.
     pub fn handle_trigger(self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire) -> (Self, YouthAttire, bool) {
-        if bindings.matches(ControlAction::CraftingBook, trigger)
-            || (self.tome.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape))
-        {
+        if bindings.matches(ControlAction::CraftingBook, trigger) || (self.tome.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape)) {
             let next_satchel = self.satchel.reconcile_attire(attire).with_open(false);
             return (Self::with_tome(next_satchel, self.tome.toggle(), 0, 0, Vec3::ZERO, false), attire, true);
         }
@@ -40,9 +38,7 @@ impl PalmEarthworks {
         if !self.satchel.open() && bindings.matches(ControlAction::MoldForm, trigger) { return (self.turn_mold_clockwise(attire), attire, true); }
         if !self.satchel.open() && bindings.matches(ControlAction::MoldRight, trigger) { return (self.mold_next_form(attire), attire, true); }
         if !self.satchel.open() && bindings.matches(ControlAction::MoldLeft, trigger) { return (self.mold_prev_form(attire), attire, true); }
-        if bindings.matches(ControlAction::Satchel, trigger)
-            || (self.satchel.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape))
-        {
+        if bindings.matches(ControlAction::Satchel, trigger) || (self.satchel.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape)) {
             let (next_satchel, ok) = self.satchel.reconcile_attire(attire).toggle_open();
             return (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), attire, ok);
         }
@@ -103,6 +99,7 @@ impl PalmEarthworks {
 
     fn locate_dig_site(eye: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> Vec3 {
         let (dir, up) = (view_dir.normalize_or_zero(), world.surface_up_at(eye));
+        if world.weightless_at(eye) { return world.confine_beneath_crust(eye + dir * 1.1); }
         for step in 1..=85 {
             let sample = eye + dir * ((step as f32) * 0.04);
             let ground = world.constrain_to_surface(sample, 0.0);
@@ -157,11 +154,12 @@ impl PalmEarthworks {
         let (right, left) = attire.held_pair();
         let (active, other, bit) = if side > 0.0 { (right, left, 1u8) } else { (left, right, 2u8) };
         let (place_bit, dig_bit) = (bit << 2, bit << 4);
-        if active.placeable_block() && (state.held_mask & bit) == 0 && (state.held_mask & 12) == 0 && state.dig_progress == 0 {
+        if !world.weightless_at(eye) && active.placeable_block() && (state.held_mask & bit) == 0 && (state.held_mask & 12) == 0 && state.dig_progress == 0 {
             let next_rhythm = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
             return (Self::new(state.satchel, 0, bit | place_bit, Vec3::ZERO, false), attire, next_rhythm, false);
         }
         let deferred = u32::from((state.held_mask & place_bit) != 0);
+        let weightless = world.weightless_at(eye);
         let both_dig = (right.free_palm() || right.placeable_block()) && (left.free_palm() || left.placeable_block());
         let (effort, next_mask, recipient_side, next_rhythm) = if active.spade_blade() {
             let target_side = if other.free_palm() || other.placeable_block() { -side } else { side };
@@ -169,14 +167,14 @@ impl PalmEarthworks {
         } else if both_dig && ((state.held_mask & 3) | bit) == 3 {
             let step = if (state.held_mask & 3) == 3 { 2 } else { 1 + u32::from((state.held_mask & 12) != 0) };
             let target_side = if active.free_palm() || !other.free_palm() { side } else { -side };
-            (step, 3 | 16 | 32, target_side, rhythm.trigger_right_strike().trigger_left_strike())
+            (if weightless { 4 } else { step }, if weightless { bit | dig_bit } else { 3 | 16 | 32 }, target_side, rhythm.trigger_right_strike().trigger_left_strike())
         } else if active.free_palm() || active.placeable_block() {
             let outcome = if other.axe_blade() { world.strike_timber(eye, view_dir) } else { world::CleaveOutcome::Missed };
             if outcome.struck() {
                 let (ns, na) = if outcome.felled() { state.satchel.collect_felled_timber(side, attire) } else { (state.satchel, attire) };
                 return (Self::new(ns, 0, bit | dig_bit, Vec3::ZERO, false), na, Self::trigger_hand_swing(attire, rhythm, -side), true);
             }
-            (1 + deferred, bit | dig_bit, side, if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() })
+            (if weightless { 4 } else { 1 + deferred }, bit | dig_bit, side, if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() })
         } else {
             let outcome = if active.axe_blade() { world.strike_timber(eye, view_dir) } else { world::CleaveOutcome::Missed };
             let (ns, na) = if outcome.felled() { state.satchel.collect_felled_timber(-side, attire) } else { (state.satchel, attire) };
