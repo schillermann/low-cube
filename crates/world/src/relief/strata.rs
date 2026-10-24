@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{MeshTarget, Quad};
-use crate::block::GridCell;
+use crate::block::{EarthClods, GridCell};
 use crate::frame::SurfaceFrame;
 use super::cavity::{CavitySpan, SubterraneanCavity};
 use super::elevation::ReliefElevation;
@@ -51,11 +51,17 @@ impl ReliefStrata {
 
         let vault = CrustVault::beneath(half_blocks);
         if !relief.breached_at(u, v) {
-            let crust_top = relief.crust_floor_at(u, v) + 4;
-            let dug_layers = (crust_top - relief.elevation_at(u, v)).clamp(0, 3);
-            vault.emit_ceiling(cell, dug_layers, relief.dig_stage_at(u, v), frame, target);
-            for side in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
-                if relief.breached_at(u + side.0, v + side.1) { vault.emit_skirt(cell, side, frame, target); }
+            let (c_steps, f_steps) = (relief.crust_floor_at(u, v), vault.floor_steps_at(u, v));
+            if c_steps > f_steps {
+                self.emit_upward_shaft(cell, u, v, c_steps, &vault, relief, frame, target);
+            } else {
+                vault.emit_ceiling(cell, relief.dig_stage_at(u, v), frame, target);
+                for side in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
+                    let (nu, nv) = (u + side.0, v + side.1);
+                    if relief.breached_at(nu, nv) || relief.crust_floor_at(nu, nv) > vault.floor_steps_at(nu, nv) {
+                        vault.emit_skirt(cell, side, frame, target);
+                    }
+                }
             }
         }
         vault.core().emit_patch(cell, frame, target);
@@ -64,6 +70,44 @@ impl ReliefStrata {
             cell, frame, relief, half_blocks,
             palette, target,
         );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn emit_upward_shaft(
+        &self,
+        cell: GridCell,
+        u: i32,
+        v: i32,
+        c_steps: i32,
+        vault: &CrustVault,
+        relief: &dyn ReliefElevation,
+        frame: &SurfaceFrame,
+        target: &mut dyn MeshTarget,
+    ) {
+        let ((u0, u1), (v0, v1), ceil_h) = (cell.u_bounds(), cell.v_bounds(), (c_steps as f32) * 0.5);
+        let tint = 1.0 - (relief.dig_stage_at(u, v).min(3) as f32) * 0.14;
+        let (ceil_col, dirt_col) = (Vec3::new(0.38, 0.25, 0.16) * tint, Vec3::new(0.41, 0.27, 0.15));
+        let (c0, c1, c2, c3) = (frame.point_at(u0, v0, ceil_h), frame.point_at(u1, v0, ceil_h), frame.point_at(u1, v1, ceil_h), frame.point_at(u0, v1, ceil_h));
+        target.push_quad(Quad::glowing(c3, c2, c1, c0, -frame.normal(), ceil_col, 0.55));
+        let sides = [
+            ((0, 1), (u1, v1), (u0, v1), -frame.bitangent(), 0usize),
+            ((0, -1), (u0, v0), (u1, v0), frame.bitangent(), 1usize),
+            ((1, 0), (u1, v0), (u1, v1), -frame.tangent(), 2usize),
+            ((-1, 0), (u0, v1), (u0, v0), frame.tangent(), 3usize),
+        ];
+        for ((du, dv), (a0, b0), (a1, b1), norm, flank) in sides {
+            let (nu, nv) = (u + du, v + dv);
+            if !relief.breached_at(nu, nv) {
+                let n_steps = relief.crust_floor_at(nu, nv).max(vault.floor_steps_at(nu, nv));
+                if c_steps > n_steps {
+                    let low_h = (n_steps as f32) * 0.5;
+                    target.push_quad(Quad::glowing(frame.point_at(a0, b0, low_h), frame.point_at(a1, b1, low_h), frame.point_at(a1, b1, ceil_h), frame.point_at(a0, b0, ceil_h), norm, dirt_col, 0.35));
+                    for layer in n_steps..c_steps {
+                        EarthClods::new(GridCell::new(nu, nv), (layer as f32) * 0.5).emit_flank(flank, frame, target);
+                    }
+                }
+            }
+        }
     }
 
     #[allow(clippy::too_many_arguments)]

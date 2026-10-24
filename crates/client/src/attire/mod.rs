@@ -90,6 +90,8 @@ impl YouthAttire {
     }
 
     pub fn region_proportion(&self, region: BodyRegion) -> PartProportion { self.physique.region_proportion(region) }
+    pub fn shaft_yaw_play(&self) -> f32 { self.physique.shaft_yaw_play() }
+    pub fn body_envelope(&self) -> crate::envelope::BodyEnvelope { crate::envelope::BodyEnvelope::for_physique(self.physique) }
     pub fn region_bytes(&self) -> [u8; 4] { self.physique.region_bytes() }
     pub fn selected_complexion(&self, candidate: ComplexionSwatch) -> bool { self.complexion == candidate }
     pub fn right_armed(&self) -> bool { !matches!(self.relic.martial_style(), MartialStyle::Unarmed) }

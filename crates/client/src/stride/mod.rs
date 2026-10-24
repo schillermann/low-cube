@@ -1,5 +1,6 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
+use crate::envelope::BodyEnvelope;
 use crate::threshold::StepThreshold;
 
 mod trial;
@@ -40,30 +41,31 @@ impl SurfaceStride {
         &self,
         origin: Vec3,
         eye: f32,
+        envelope: BodyEnvelope,
         limit: StepThreshold,
         seam_allowed: bool,
         world: &dyn PlanetaryWorld,
     ) -> Vec3 {
         let (first, second) = self.axial_decomposition();
-        let resting = RestingStride::new(world.constrain_to_surface(origin, eye));
-        let trial_second = WalkTrial::new(origin, second, self.surface_up, eye, limit, seam_allowed, world);
+        let resting = RestingStride::new(envelope.constrain_with_height(origin, eye, world));
+        let trial_second = WalkTrial::new(origin, second, self.surface_up, eye, envelope, limit, seam_allowed, world);
         let lateral = DeflectedStride::new(&trial_second, &resting);
-        let trial_first = WalkTrial::new(origin, first, self.surface_up, eye, limit, seam_allowed, world);
+        let trial_first = WalkTrial::new(origin, first, self.surface_up, eye, envelope, limit, seam_allowed, world);
         let primary = DeflectedStride::new(&trial_first, &lateral);
-        let trial_direct = WalkTrial::new(origin, self.stride, self.surface_up, eye, limit, seam_allowed, world);
+        let trial_direct = WalkTrial::new(origin, self.stride, self.surface_up, eye, envelope, limit, seam_allowed, world);
         let direct = DeflectedStride::new(&trial_direct, &primary);
         direct.resolve()
     }
 
     /// Resolves aerial motion destination, deflecting laterally along vertical cliff faces via decorator chain.
-    pub fn resolve_aerial(&self, origin: Vec3, vert: Vec3, eye: f32, limit: StepThreshold, world: &dyn PlanetaryWorld) -> Vec3 {
+    pub fn resolve_aerial(&self, origin: Vec3, vert: Vec3, eye: f32, envelope: BodyEnvelope, limit: StepThreshold, world: &dyn PlanetaryWorld) -> Vec3 {
         let (first, second) = self.axial_decomposition();
         let resting = RestingStride::new(origin + vert);
-        let trial_second = AerialTrial::new(origin, second, vert, self.surface_up, eye, limit, world);
+        let trial_second = AerialTrial::new(origin, second, vert, self.surface_up, eye, envelope, limit, world);
         let lateral = DeflectedStride::new(&trial_second, &resting);
-        let trial_first = AerialTrial::new(origin, first, vert, self.surface_up, eye, limit, world);
+        let trial_first = AerialTrial::new(origin, first, vert, self.surface_up, eye, envelope, limit, world);
         let primary = DeflectedStride::new(&trial_first, &lateral);
-        let trial_direct = AerialTrial::new(origin, self.stride, vert, self.surface_up, eye, limit, world);
+        let trial_direct = AerialTrial::new(origin, self.stride, vert, self.surface_up, eye, envelope, limit, world);
         let direct = DeflectedStride::new(&trial_direct, &primary);
         direct.resolve()
     }

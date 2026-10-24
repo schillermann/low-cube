@@ -161,36 +161,40 @@ fn test_spade_in_left_hand_with_empty_right_hand_excavates_sloped_block_cleanly(
 
 #[test]
 fn test_crosshair_aim_excavates_within_three_blocks_and_rejects_beyond_three_blocks() {
-    let mut world = BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
-    let mut avatar = PlanetaryAvatar::at(spawn);
-    let mut idle_avatar = SurfaceLedger::empty();
+    let (mut world, spawn, far_probe) = (BiomedCubeWorld::beveled(16, 1.0), Vec3::new(0.0, 9.0, 0.0), Vec3::new(0.0, 9.0, -2.25));
+    let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(spawn, 1.0));
+    let (mut idle_avatar, mut air_swing) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut idle_avatar);
 
     // 1. Aim at a block 4 blocks ahead (z = -2.25, cell cv = -5 while eye is in cv = -1): must NOT excavate or emit debris
     avatar.rotate_view(0.0, 234.0);
-    let far_probe = Vec3::new(0.0, 9.0, -2.25);
     let initial_far = world.constrain_to_surface(far_probe, 0.0).y;
     assert!(!avatar.use_left_hand(&mut world));
-    let mut air_swing = SurfaceLedger::empty();
     avatar.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
     avatar.emit_appearance(&mut air_swing);
-    assert_eq!(air_swing.count(), idle_avatar.count(), "Swinging in air must not emit soil clod debris");
-    assert!((world.constrain_to_surface(far_probe, 0.0).y - initial_far).abs() < 1e-4);
+    assert!(air_swing.count() == idle_avatar.count() && (world.constrain_to_surface(far_probe, 0.0).y - initial_far).abs() < 1e-4);
     avatar.rotate_view(0.0, 41.0);
     let (closer_probe, aimed_probe) = (Vec3::new(0.0, 9.0, -1.25), Vec3::new(0.0, 9.0, -1.75));
     let (initial_closer, initial_aimed) = (world.constrain_to_surface(closer_probe, 0.0).y, world.constrain_to_surface(aimed_probe, 0.0).y);
     let (mut untouched_face, mut loosened_face, mut swing_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty(), SurfaceLedger::empty());
     world.emit_modified_face(&mut untouched_face);
-    assert!(!avatar.use_right_hand(&mut world));
-    assert!(!avatar.use_left_hand(&mut world));
+    assert!(!avatar.use_right_hand(&mut world) && !avatar.use_left_hand(&mut world));
     world.emit_modified_face(&mut loosened_face);
     assert!(loosened_face.count() > untouched_face.count(), "First digging strike must emit 3D crater on the aimed block");
     avatar.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
     avatar.emit_appearance(&mut swing_mesh);
     assert!(swing_mesh.count() > air_swing.count(), "Digging a block must emit soil clod debris above the block");
     for _ in 0..2 { assert!(!avatar.use_left_hand(&mut world)); }
-    assert!(avatar.use_left_hand(&mut world), "Block within 3 blocks must be excavated when aimed at");
-    assert!((world.constrain_to_surface(closer_probe, 0.0).y - initial_closer).abs() < 1e-4);
-    assert!((initial_aimed - world.constrain_to_surface(aimed_probe, 0.0).y - 0.5).abs() < 1e-4);
+    assert!(avatar.use_left_hand(&mut world) && (world.constrain_to_surface(closer_probe, 0.0).y - initial_closer).abs() < 1e-4 && (initial_aimed - world.constrain_to_surface(aimed_probe, 0.0).y - 0.5).abs() < 1e-4);
+    let (stand_probe, front_probe) = (Vec3::new(0.25, 9.0, 0.25), Vec3::new(0.25, 9.0, -0.25));
+    let (stand_h, front_h) = (world.constrain_to_surface(stand_probe, 0.0).y, world.constrain_to_surface(front_probe, 0.0).y);
+    let mut down_avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 9.0, 0.05), 1.0));
+    down_avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    down_avatar.rotate_view(0.0, 600.0);
+    assert!(!down_avatar.use_right_hand(&mut world) && down_avatar.use_right_hand(&mut world), "Looking all the way down at the front edge of the standing block must excavate the block in front where the crosshair points");
+    assert!((world.constrain_to_surface(stand_probe, 0.0).y - stand_h).abs() < 1e-4 && (front_h - world.constrain_to_surface(front_probe, 0.0).y - 0.5).abs() < 1e-4);
+    let mut back_avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 9.0, 0.49), 1.0));
+    back_avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    back_avatar.rotate_view(0.0, 600.0);
+    assert!(!back_avatar.use_right_hand(&mut world) && !back_avatar.use_right_hand(&mut world) && (world.constrain_to_surface(stand_probe, 0.0).y - stand_h).abs() < 1e-4, "Must NEVER excavate the block the player is standing on");
 }

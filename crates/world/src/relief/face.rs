@@ -170,15 +170,12 @@ impl Face for FacetedReliefFace {
         false
     }
 
-    fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
-        self.place_molded_block(eye, direction, avatar_pos, BlockMold::cube())
-    }
+    fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool { self.place_molded_block(eye, direction, avatar_pos, BlockMold::cube()) }
 
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let half = (self.divisions as i32) / 2;
         if let Some((cu, cv, base)) = SurfaceSightRay::new(eye, direction).placement_cell(&self.frame, self.relief.as_ref(), half, (half as f32) * 0.5, avatar_pos) {
-            let shape = mold.shape_for(direction, &self.frame);
-            let changed = self.relief.stack_molded_cell(cu, cv, base, shape, mold.full_height_flat());
+            let changed = self.relief.stack_molded_cell(cu, cv, base, mold.shape_for(direction, &self.frame), mold.full_height_flat());
             if changed { self.refresh_rows(cv, half); }
             return changed;
         }
@@ -186,15 +183,15 @@ impl Face for FacetedReliefFace {
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
-        let half = (self.divisions as i32) / 2;
-        let rows = self.relief.step_grass(dt);
+        let (half, rows) = ((self.divisions as i32) / 2, self.relief.step_grass(dt));
         for &cv in &rows { self.refresh_rows(cv, half); }
         !rows.is_empty()
     }
     fn weightless_at(&self, point: Vec3) -> bool { let (u, v) = self.frame.decompose(point); self.relief.weightless_at(u, v, self.frame.elevation_of(point)) }
     fn lethal_at(&self, point: Vec3) -> bool { let (u, v) = self.frame.decompose(point); self.relief.lethal_at(u, v, self.frame.elevation_of(point)) }
     fn confine_beneath_crust(&self, point: Vec3) -> Vec3 {
-        let (u, v) = self.frame.decompose(point);
-        if self.relief.breached_at((u * 2.0).floor() as i32, (v * 2.0).floor() as i32) { point } else { self.frame.confine_radius(self.frame.point_at(u, v, self.relief.confine(u, v, self.frame.elevation_of(point))), self.relief.ceiling_inset(0.30)) }
+        let ((u, v), elev) = (self.frame.decompose(point), self.frame.elevation_of(point));
+        let (cu, cv, z) = self.relief.confine(u, v, elev);
+        self.frame.confine_radius(self.frame.point_at(cu, cv, z), self.relief.ceiling_inset((cu * 2.0).floor() as i32, (cv * 2.0).floor() as i32, 0.30))
     }
 }

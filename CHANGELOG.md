@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-10-24
+
+### Added
+- Core-proximity survival timer, progressive FOV constriction, dark-red tunnel-vision vignette, and accelerating heartbeat pulse (`CardiacPulse`, `AvatarPosture::advance_hover`, `AvatarPosture::cardiac_constriction`, `AvatarPosture::cardiac_fov`, `AvatarPosture::emit_reticle`) when lingering in the hollow world near the magma core, recovering once the player retreats into or above the planetary crust (`TerracedRelief::in_upward_shaft`, `TerracedRelief::excavate_layer`).
+- Character-proportioned 3D body dimensions (`YouthPhysique::stature_height`, `YouthPhysique::upper_body_span`, `YouthPhysique::body_depth`, `YouthPhysique::shaft_yaw_play`, `BodyEnvelope::for_physique`, `BodyEnvelope::with_crouch_and_facing`) and upper-body yaw clamping (`ShoulderArc`, `ViewOrientation::constrain_shoulders`) governing doorway clearance, crouch retention under low lintels (`BodyEnvelope::overhead_obstructed`, `ElevatedShape::constrain_support`), and shaft turning limits (`BodyEnvelope::wedged_in_shaft`).
+
+### Changed
+- Evaluated excavated pit support across adjacent 2×1 cell pairs (`TerracedRelief::pair_elevation`, `TerracedRelief::body_elevation_at`) and measured shaft wall spans against the character's upper-body width (`BodyEnvelope::axis_wedged`, `BodyEnvelope::wall_distance`), preventing the player from falling into a 1×1 hole while allowing falling into 2×1 and 2×2 holes, restricting 360° rotation in a 2×1 shaft, and permitting full 360° rotation in a 2×2 shaft when the upper body is narrower than 2 blocks.
+
+### Fixed
+- Aligned downward digging rays with the exact first-person camera eye origin and look direction of the crosshair (`PlanetaryAvatar::hand_ray`, `SurfaceSightRay::trace_hit`) and forbade excavating the ground block directly supporting the player's feet.
+
 ## [0.38.0] - 2026-10-24
 
 ### Added

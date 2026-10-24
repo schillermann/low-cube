@@ -5,6 +5,7 @@ use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{BodyPose, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use crate::earthworks::PalmEarthworks;
+use crate::envelope::PhysicalEnvelope;
 use crate::flight::GravitationalFlight;
 #[cfg(test)]
 use crate::flight::SurfaceFlight;
@@ -51,25 +52,19 @@ impl PlanetaryAvatar {
     pub fn new(
         position: Vec3, surface_rot: Quat, camera_rot: Quat, look: SensitivityLook, lens: PerspectiveLens,
         flight: Box<dyn GravitationalFlight>, posture: AvatarPosture, tilt_radians: f32,
-        rhythm: StrideRhythm, attire: YouthAttire, sight: SightMode, earthworks: PalmEarthworks,
-        bindings: ActionBindings,
-    ) -> Self {
-        Self { position, surface_rot, camera_rot, look, lens, flight, posture, tilt_radians, rhythm, attire, sight, earthworks, bindings }
-    }
+        rhythm: StrideRhythm, attire: YouthAttire, sight: SightMode, earthworks: PalmEarthworks, bindings: ActionBindings,
+    ) -> Self { Self { position, surface_rot, camera_rot, look, lens, flight, posture, tilt_radians, rhythm, attire, sight, earthworks, bindings } }
 
     pub fn with_attire_and_bindings(initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: YouthAttire, bindings: ActionBindings) -> Self {
         Self::new(
-            initial_position, Quat::IDENTITY, Quat::IDENTITY,
-            SensitivityLook::calibrated(Box::new(MouseLook::idle())),
+            initial_position, Quat::IDENTITY, Quat::IDENTITY, SensitivityLook::calibrated(Box::new(MouseLook::idle())),
             PerspectiveLens::human_eye(), flight, AvatarPosture::standing(), 0.0,
             StrideRhythm::idle(), attire, SightMode::FirstPersonSight, PalmEarthworks::empty().reconcile_attire(attire), bindings,
         )
     }
 
     #[cfg(test)]
-    pub fn with_attire(initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: YouthAttire) -> Self {
-        Self::with_attire_and_bindings(initial_position, flight, attire, ActionBindings::seeded())
-    }
+    pub fn with_attire(initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: YouthAttire) -> Self { Self::with_attire_and_bindings(initial_position, flight, attire, ActionBindings::seeded()) }
 
     #[cfg(test)]
     pub fn with_flight(initial_position: Vec3, flight: Box<dyn GravitationalFlight>) -> Self { Self::with_attire(initial_position, flight, YouthAttire::squire()) }
@@ -98,7 +93,7 @@ impl PlanetaryAvatar {
     fn hand_ray(&self) -> (Vec3, Vec3) {
         let (pose_eye, up) = (self.current_pose().eye_origin(), self.surface_up());
         let dir = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
-        if dir.dot(up).abs() > 0.975 { (self.position + up * (pose_eye - self.position).dot(up), up * dir.dot(up).signum()) } else { (pose_eye, dir) }
+        if dir.dot(up) > 0.975 { (self.position + up * (pose_eye - self.position).dot(up), up) } else { (pose_eye, dir) }
     }
 
     fn act_with_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
@@ -108,6 +103,13 @@ impl PlanetaryAvatar {
             self.earthworks.act_with_hand(side, self.attire, self.rhythm, eye, view_dir, world);
         (self.earthworks, self.attire, self.rhythm) = (next_ew, next_attire, next_rhythm);
         changed
+    }
+    fn step_perish(&mut self, dt: f32) {
+        let (next_posture, beat) = self.posture.perish().advance_perish(dt);
+        (self.posture, self.rhythm) = (next_posture, StrideRhythm::idle());
+        self.lens = self.lens.transition_to(self.posture.cardiac_fov(), dt);
+        self.tilt_radians += (0.22 - self.tilt_radians) * (4.0 * dt).clamp(0.0, 1.0);
+        if beat { crate::cardiac::CardiacPulse::studio().thump(); }
     }
 }
 
@@ -134,8 +136,7 @@ impl Avatar for PlanetaryAvatar {
     fn apply_attire(&mut self, attire: YouthAttire) {
         let (r, l) = self.attire.held_pair();
         let merged = if !attire.armed() && self.attire.armed() { attire.with_relics(r, l) } else { attire };
-        self.attire = merged;
-        self.earthworks = self.earthworks.reconcile_attire(merged);
+        (self.attire, self.earthworks) = (merged, self.earthworks.reconcile_attire(merged));
     }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.bindings = bindings; }
 
@@ -147,52 +148,47 @@ impl Avatar for PlanetaryAvatar {
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
         if self.earthworks.satchel_open() || self.posture.perished() || world.lethal_at(self.position) {
-            if world.lethal_at(self.position) { self.posture = self.posture.perish(); }
-            self.rhythm = StrideRhythm::idle();
+            if self.posture.perished() || world.lethal_at(self.position) { self.step_perish(dt); } else { self.rhythm = StrideRhythm::idle(); }
             return;
         }
         let terrain_up = world.surface_up_at(self.position);
         self.reorient_surface(terrain_up, dt);
-
         let mut order = LocomotionOrder::idle();
-        let heading = SurfaceHeading::aligned(self.surface_rot, &self.look);
-        heading.drive_locomotion(controls, &mut order);
-
+        SurfaceHeading::aligned(self.surface_rot, &self.look).drive_locomotion(controls, &mut order);
         order.dispatch_jump(&mut *self.flight);
-        self.posture = order.advance_posture(self.posture, dt);
+        let facing = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
+        let standing_env = self.attire.body_envelope().with_crouch_and_facing(0.0, facing);
+        let next_posture = order.advance_posture(self.posture, dt);
+        self.posture = if standing_env.overhead_obstructed(self.position, terrain_up, 1.0, world) { self.posture.transition_to(0.36, dt) } else { next_posture };
+        let crouch_drop = (0.80 - self.posture.eye_elevation()).clamp(0.0, 0.44);
+        let active_env = standing_env.with_crouch_and_facing(crouch_drop, facing);
+        self.flight.apply_envelope(active_env);
         self.lens = order.advance_lens(self.lens, dt);
         self.tilt_radians *= 1.0 - (8.0 * dt).min(1.0);
         let next_pos = order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, 6.0, world);
-        if world.lethal_at(next_pos) {
-            (self.position, self.posture, self.rhythm) = (next_pos, self.posture.perish(), StrideRhythm::idle());
-            return;
-        }
+        if world.lethal_at(next_pos) { self.position = next_pos; self.step_perish(dt); return; }
         let weightless = world.weightless_at(next_pos) || world.weightless_at(self.position);
-        self.posture = self.posture.advance_leap(self.position, next_pos, terrain_up, dt).advance_hover(weightless, dt);
+        let (next_posture, beat) = self.posture.advance_leap(self.position, next_pos, terrain_up, dt).advance_hover(weightless, dt);
+        self.posture = next_posture;
+        if self.posture.cardiac_constriction() > 0.0 { self.lens = self.lens.transition_to(self.posture.cardiac_fov(), dt); }
+        if beat { crate::cardiac::CardiacPulse::studio().thump(); }
         self.rhythm = self.rhythm.advance(self.position, next_pos, terrain_up, dt);
         let eye_off = terrain_up * self.posture.eye_elevation();
-        self.position = if weightless { world.confine_beneath_crust(next_pos + eye_off) - eye_off } else { next_pos };
+        let in_shaft = weightless || (next_pos - active_env.constrain_with_height(next_pos, 1.0, world)).dot(terrain_up) > 2.5;
+        self.position = if in_shaft { world.confine_beneath_crust(next_pos + eye_off) - eye_off } else { next_pos };
+        self.look.constrain_shoulders(active_env.wedged_in_shaft(self.position, terrain_up, 1.0, world), self.attire.shaft_yaw_play());
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
         let horizon = CameraHorizon::aligned(self.camera_rot, &self.look);
         let frame = HorizonTilt::new(&horizon, self.tilt_radians);
-        let proj = self.lens.projection_matrix(aspect);
-        let pose = self.current_pose();
-        let view = self.sight.view_matrix(&frame, self.posture, self.position, &pose);
-        proj * view
+        self.lens.projection_matrix(aspect) * self.sight.view_matrix(&frame, self.posture, self.position, &self.current_pose())
     }
-
     fn surface_rotation(&self) -> Quat { self.surface_rot }
-
     fn emit_appearance(&self, target: &mut dyn MeshTarget) {
-        let pose = self.current_pose();
-        self.earthworks.emit_attire(&self.attire, &pose, self.sight, target);
+        self.earthworks.emit_attire(&self.attire, &self.current_pose(), self.sight, target);
         let view_dir = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
         self.earthworks.emit_debris(view_dir, self.surface_up(), self.rhythm, target);
     }
-
-    fn emit_reticle(&self, target: &mut dyn MeshTarget) {
-        if !self.earthworks.satchel_open() { self.posture.emit_reticle(target); }
-    }
+    fn emit_reticle(&self, target: &mut dyn MeshTarget) { if !self.earthworks.satchel_open() { self.posture.emit_reticle(target); } }
 }

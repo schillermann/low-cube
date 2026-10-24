@@ -7,6 +7,7 @@ mod aurora_cadence;
 mod aurora_canopy;
 mod avatar;
 mod cadence;
+mod cardiac;
 mod celestial;
 mod clock;
 mod controls;

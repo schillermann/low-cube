@@ -57,9 +57,9 @@ impl PalmEarthworks {
     }
 
     pub fn emit_attire(&self, attire: &YouthAttire, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
-        let (r, l) = attire.held_pair();
-        let dig_r = r.placeable_block() && (self.held_mask & 1) != 0 && (self.dig_progress > 0 || (self.held_mask & 12) != 0);
-        let dig_l = l.placeable_block() && (self.held_mask & 2) != 0 && (self.dig_progress > 0 || (self.held_mask & 12) != 0);
+        let ((r, l), both) = (attire.held_pair(), (self.held_mask & 3) == 3);
+        let dig_r = r.placeable_block() && (self.held_mask & 1) != 0 && (self.dig_progress > 0 || (self.held_mask & 28) != 0 || (both && l.placeable_block()));
+        let dig_l = l.placeable_block() && (self.held_mask & 2) != 0 && (self.dig_progress > 0 || (self.held_mask & 12) != 0 || (both && r.placeable_block()));
         SatchelWardrobe::new(*attire, self.satchel, dig_r, dig_l).emit(pose, sight, target);
         self.tome.emit_book(&self.satchel, *attire, pose, target);
     }
@@ -110,7 +110,9 @@ impl PalmEarthworks {
 
     pub fn release_hand(self, attire: YouthAttire, eye: Vec3, view_dir: Vec3, avatar_pos: Vec3, world: &mut dyn PlanetaryWorld) -> (Self, YouthAttire, bool) {
         let state = self.reconcile_attire(attire);
-        if state.dig_progress == 0 && (state.held_mask & 12) != 0 {
+        let overhead = world.weightless_at(eye) || view_dir.normalize_or_zero().dot(world.surface_up_at(eye)) > 0.7;
+        if (state.held_mask & 12) != 0 && (state.dig_progress == 0 || (overhead && state.dig_progress <= 4)) {
+            if state.dig_progress > 0 { world.loosen_surface(eye, view_dir, 0); }
             let side = if state.held_mask & 4 != 0 { 1.0 } else { -1.0 };
             let (next_satchel, next_attire, placed) = state.satchel.place_from_hand(side, attire, eye, view_dir, avatar_pos, world);
             return (Self::new(next_satchel, 0, 0, Vec3::ZERO, false), next_attire, placed);
@@ -123,7 +125,7 @@ impl PalmEarthworks {
         if (self.held_mask & 3) == 0 { return (self, attire, rhythm, false); }
         let side = if self.held_mask & 1 != 0 { 1.0 } else { -1.0 };
         let (place_bit, dig_bit) = if side > 0.0 { (4u8, 16u8) } else { (8u8, 32u8) };
-        if (self.held_mask & place_bit) != 0 {
+        if (self.held_mask & place_bit) != 0 && self.dig_progress == 0 {
             if rhythm.cleave_surge(side) > 0.0 && rhythm.cleave_arc(side) < 0.0 { return (self, attire, rhythm, false); }
             let state = Self::new(self.satchel, self.dig_progress, (self.held_mask & !12) | dig_bit, self.dig_site, self.splash_active).reconcile_attire(attire);
             if rhythm.cleave_surge(side) > 0.0 {
@@ -154,12 +156,13 @@ impl PalmEarthworks {
         let (right, left) = attire.held_pair();
         let (active, other, bit) = if side > 0.0 { (right, left, 1u8) } else { (left, right, 2u8) };
         let (place_bit, dig_bit) = (bit << 2, bit << 4);
-        if !world.weightless_at(eye) && active.placeable_block() && (state.held_mask & bit) == 0 && (state.held_mask & 12) == 0 && state.dig_progress == 0 {
+        let weightless = world.weightless_at(eye) || view_dir.normalize_or_zero().dot(world.surface_up_at(eye)) > 0.7;
+        if active.placeable_block() && !weightless && (state.held_mask & bit) == 0 && (state.held_mask & 12) == 0 && state.dig_progress == 0 {
             let next_rhythm = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
             return (Self::new(state.satchel, 0, bit | place_bit, Vec3::ZERO, false), attire, next_rhythm, false);
         }
         let deferred = u32::from((state.held_mask & place_bit) != 0);
-        let weightless = world.weightless_at(eye);
+        let w_place = if weightless && active.placeable_block() && state.dig_progress == 0 { place_bit } else { 0 };
         let both_dig = (right.free_palm() || right.placeable_block()) && (left.free_palm() || left.placeable_block());
         let (effort, next_mask, recipient_side, next_rhythm) = if active.spade_blade() {
             let target_side = if other.free_palm() || other.placeable_block() { -side } else { side };
@@ -167,14 +170,14 @@ impl PalmEarthworks {
         } else if both_dig && ((state.held_mask & 3) | bit) == 3 {
             let step = if (state.held_mask & 3) == 3 { 2 } else { 1 + u32::from((state.held_mask & 12) != 0) };
             let target_side = if active.free_palm() || !other.free_palm() { side } else { -side };
-            (if weightless { 4 } else { step }, if weightless { bit | dig_bit } else { 3 | 16 | 32 }, target_side, rhythm.trigger_right_strike().trigger_left_strike())
+            (if weightless { 4 } else { step }, if weightless { bit | dig_bit | w_place } else { 3 | 16 | 32 }, target_side, rhythm.trigger_right_strike().trigger_left_strike())
         } else if active.free_palm() || active.placeable_block() {
             let outcome = if other.axe_blade() { world.strike_timber(eye, view_dir) } else { world::CleaveOutcome::Missed };
             if outcome.struck() {
                 let (ns, na) = if outcome.felled() { state.satchel.collect_felled_timber(side, attire) } else { (state.satchel, attire) };
                 return (Self::new(ns, 0, bit | dig_bit, Vec3::ZERO, false), na, Self::trigger_hand_swing(attire, rhythm, -side), true);
             }
-            (if weightless { 4 } else { 1 + deferred }, bit | dig_bit, side, if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() })
+            (if weightless { 4 } else { 1 + deferred }, bit | dig_bit | w_place, side, if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() })
         } else {
             let outcome = if active.axe_blade() { world.strike_timber(eye, view_dir) } else { world::CleaveOutcome::Missed };
             let (ns, na) = if outcome.felled() { state.satchel.collect_felled_timber(-side, attire) } else { (state.satchel, attire) };
@@ -185,13 +188,13 @@ impl PalmEarthworks {
             let harvested = HeldRelic::from_medium(world.surface_medium(eye, view_dir));
             if world.excavate_surface(eye, view_dir) {
                 let (next_satchel, next_attire) = state.satchel.collect_excavated_block(recipient_side, harvested, attire);
-                return (Self::new(next_satchel, 0, next_mask, site, true), next_attire, next_rhythm, true);
+                return (Self::new(next_satchel, 0, next_mask & !12, site, true), next_attire, next_rhythm, true);
             }
-            return (Self::new(state.satchel, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false);
+            return (Self::new(state.satchel, 0, next_mask & !12, Vec3::ZERO, false), attire, next_rhythm, false);
         }
         if world.loosen_surface(eye, view_dir, ((progress + 1) / 2).clamp(1, 3) as u8) {
             return (Self::new(state.satchel, progress, next_mask, site, true), attire, next_rhythm, false);
         }
-        (Self::new(state.satchel, 0, 0, Vec3::ZERO, false), attire, next_rhythm, false)
+        (Self::new(state.satchel, 0, if w_place != 0 { bit | w_place } else { next_mask & !12 }, Vec3::ZERO, false), attire, next_rhythm, false)
     }
 }

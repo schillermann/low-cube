@@ -1,5 +1,6 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
+use crate::envelope::BodyEnvelope;
 use crate::gait::LocomotionGait;
 use crate::stride::SurfaceStride;
 use crate::threshold::{StepThreshold, SurfaceClearance};
@@ -11,68 +12,28 @@ use super::slope::SlopeSurfing;
 
 /// Unified physical simulation context for a flight phase transition.
 pub struct FlightContext<'a> {
-    dt: f32,
-    position: Vec3,
-    stride: Vec3,
-    surface_up: Vec3,
-    eye_height: f32,
-    gravity: &'a dyn FlightGravity,
-    canopy: CanopyBraking,
-    surfing: SlopeSurfing,
-    incline: InclinePace,
-    gait: &'a dyn LocomotionGait,
-    world: &'a dyn PlanetaryWorld,
+    dt: f32, position: Vec3, stride: Vec3, surface_up: Vec3, eye_height: f32, envelope: BodyEnvelope,
+    gravity: &'a dyn FlightGravity, canopy: CanopyBraking, surfing: SlopeSurfing, incline: InclinePace,
+    gait: &'a dyn LocomotionGait, world: &'a dyn PlanetaryWorld,
 }
 
 impl<'a> FlightContext<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        dt: f32,
-        position: Vec3,
-        stride: Vec3,
-        surface_up: Vec3,
-        eye_height: f32,
-        gravity: &'a dyn FlightGravity,
-        canopy: CanopyBraking,
-        surfing: SlopeSurfing,
-        incline: InclinePace,
-        gait: &'a dyn LocomotionGait,
-        world: &'a dyn PlanetaryWorld,
+        dt: f32, position: Vec3, stride: Vec3, surface_up: Vec3, eye_height: f32, envelope: BodyEnvelope,
+        gravity: &'a dyn FlightGravity, canopy: CanopyBraking, surfing: SlopeSurfing, incline: InclinePace,
+        gait: &'a dyn LocomotionGait, world: &'a dyn PlanetaryWorld,
     ) -> Self {
-        Self {
-            dt, position, stride, surface_up, eye_height,
-            gravity, canopy, surfing, incline, gait, world,
-        }
+        Self { dt, position, stride, surface_up, eye_height, envelope, gravity, canopy, surfing, incline, gait, world }
     }
 
-    pub fn dt(&self) -> f32 {
-        self.dt
-    }
-
-    pub fn commanded_velocity(&self) -> Vec3 {
-        if self.dt > 1e-6 {
-            self.stride / self.dt
-        } else {
-            Vec3::ZERO
-        }
-    }
-
-    pub fn constrain_surface(&self, point: Vec3) -> Vec3 {
-        self.world.constrain_to_surface(point, self.eye_height)
-    }
-
-    pub fn current_surface_up(&self) -> Vec3 {
-        self.world.surface_up_at(self.position)
-    }
-
-    pub fn clearance(&self, point: Vec3, surface_point: Vec3) -> SurfaceClearance {
-        SurfaceClearance::between(self.position, point, surface_point, self.surface_up, self.world)
-    }
-
-    pub fn permits_seam_fold(&self) -> bool {
-        self.gait.permits_seam_fold()
-    }
+    pub fn dt(&self) -> f32 { self.dt }
+    pub fn commanded_velocity(&self) -> Vec3 { if self.dt > 1e-6 { self.stride / self.dt } else { Vec3::ZERO } }
+    pub fn constrain_surface(&self, point: Vec3) -> Vec3 { self.envelope.constrain_with_height(point, self.eye_height, self.world) }
+    pub fn current_surface_up(&self) -> Vec3 { self.world.surface_up_at(self.position) }
+    pub fn clearance(&self, point: Vec3, surface_point: Vec3) -> SurfaceClearance { SurfaceClearance::between(self.position, point, surface_point, self.surface_up, self.world) }
+    pub fn permits_seam_fold(&self) -> bool { self.gait.permits_seam_fold() }
 
     pub fn weightless_ascent(&self, vertical_speed: f32) -> bool {
         let shaft_ascent = (self.position - self.constrain_surface(self.position)).dot(self.surface_up) > 2.5 && vertical_speed > 0.0;
@@ -94,7 +55,7 @@ impl<'a> FlightContext<'a> {
     pub fn gravitational_acceleration(&self, vertical_speed: f32) -> f32 {
         if self.weightless_ascent(vertical_speed) {
             let damp = if vertical_speed < 0.0 { 12.0 } else { 8.0 };
-            if !self.gait.permits_seam_fold() { (vertical_speed - (-1.8)).max(0.0) * (6.0 * self.dt).min(1.0) } else { vertical_speed * (damp * self.dt).min(1.0) }
+            if !self.gait.permits_seam_fold() { (vertical_speed - (-1.8)).max(0.0) * (6.0 * self.dt).min(1.0) } else { (vertical_speed - if self.world.weightless_at(self.position) { 0.0 } else { 1e-4 }).max(vertical_speed.min(0.0)) * (damp * self.dt).min(1.0) }
         } else {
             self.gravity.delta_velocity(vertical_speed, self.dt)
         }
@@ -164,6 +125,7 @@ impl<'a> FlightContext<'a> {
         SurfaceStride::new(effective_stride, self.surface_up).resolve_ground(
             self.position,
             self.eye_height,
+            self.envelope,
             threshold,
             self.permits_seam_fold(),
             self.world,
@@ -191,6 +153,6 @@ impl<'a> FlightContext<'a> {
         threshold: StepThreshold,
     ) -> Vec3 {
         SurfaceStride::new(stride, surface_up)
-            .resolve_aerial(self.position, vertical_step, self.eye_height, threshold, self.world)
+            .resolve_aerial(self.position, vertical_step, self.eye_height, self.envelope, threshold, self.world)
     }
 }

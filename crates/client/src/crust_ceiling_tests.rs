@@ -36,23 +36,23 @@ impl MeshTarget for SpanCapture {
 fn test_jumping_beneath_the_round_crust_never_peeks_through_the_vault_ceiling() {
     let world = BiomedCubeWorld::beveled(64, 1.0);
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    let mut pos = Vec3::new(0.25, 13.4, 0.25);
-    assert!(world.weightless_at(pos) && !world.lethal_at(pos), "Start floating inside the halved hollow world beneath the 4-layer crust");
+    let mut pos = Vec3::new(0.25, 23.4, 0.25);
+    assert!(world.weightless_at(pos) && !world.lethal_at(pos), "Start floating inside the hollow world beneath the 4-layer crust");
     flight.jump();
     for frame in 0..240 {
         pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, &world);
-        assert!(pos.length() <= 14.0 - 0.25, "Frame {frame}: eye must stay beneath the radius-14 halved crust vault, got {pos:?}");
+        assert!(pos.length() <= 24.0 - 0.25, "Frame {frame}: eye must stay beneath the radius-24 crust vault, got {pos:?}");
     }
-    assert!(pos.y > 13.6, "Jump must carry the avatar up against the vault ceiling, got {pos:?}");
+    assert!(pos.y > 23.6, "Jump must carry the avatar up against the vault ceiling, got {pos:?}");
 
-    let mut avatar = PlanetaryAvatar::at(Vec3::new(2.25, 13.0, 2.25));
+    let mut avatar = PlanetaryAvatar::at(Vec3::new(2.25, 23.0, 2.25));
     let mut controls = KeyMotion::idle();
     controls.register_key(KeyCode::Space, true);
     controls.register_key(KeyCode::KeyW, true);
     for frame in 0..180 {
         avatar.step_motion(1.0 / 60.0, &controls, &world);
         let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-        assert!(eye.length() <= 13.82, "Frame {frame}: camera eye must never poke through the beveled crust ceiling, got {eye:?} (r={})", eye.length());
+        assert!(eye.length() <= 23.82, "Frame {frame}: camera eye must never poke through the beveled crust ceiling, got {eye:?} (r={})", eye.length());
     }
     let mut span = SpanCapture::empty();
     avatar.emit_appearance(&mut span);
@@ -62,45 +62,96 @@ fn test_jumping_beneath_the_round_crust_never_peeks_through_the_vault_ceiling() 
 #[test]
 fn test_repeated_head_bumps_against_crust_never_catapult_avatar_to_surface() {
     let mut world = BiomedCubeWorld::beveled(64, 1.0);
-    for _ in 0..37 {
+    for _ in 0..16 {
         let floor_y = world.constrain_to_surface(Vec3::new(0.25, 33.0, 0.25), 0.0).y;
         assert!(world.excavate_surface(Vec3::new(0.25, floor_y + 1.0, 0.25), Vec3::NEG_Y));
     }
-    let mut avatar = PlanetaryAvatar::at(Vec3::new(1.25, 13.3, 1.25));
+    let mut avatar = PlanetaryAvatar::at(Vec3::new(1.25, 23.3, 1.25));
     let mut controls = KeyMotion::idle();
     controls.register_key(KeyCode::KeyW, true);
     for frame in 0..360 {
         controls.register_key(KeyCode::Space, frame % 4 < 2);
         avatar.step_motion(1.0 / 60.0, &controls, &world);
         let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-        assert!(eye.length() <= 13.82 && world.weightless_at(eye), "Frame {frame}: repeated head bumps must never catapult avatar to outer surface, got {eye:?}");
+        assert!(eye.length() <= 23.82 && world.weightless_at(eye), "Frame {frame}: repeated head bumps must never catapult avatar to outer surface, got {eye:?}");
     }
 }
 
 #[test]
 fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface_and_magma_core_kills() {
     use crate::attire::{HeldRelic, YouthAttire};
+    use crate::cardiac::CardiacPulse;
     let mut world = BiomedCubeWorld::beveled(64, 1.0);
-    let mut avatar = PlanetaryAvatar::at(Vec3::new(1.25, 12.2, 1.25));
+    let mut avatar = PlanetaryAvatar::at(Vec3::new(1.25, 22.2, 1.25));
+    let start_fov_scale = avatar.view_projection_matrix(1.0).x_axis.x;
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::ExcavatedEarth));
     avatar.rotate_view(0.0, -2000.0);
     assert!(!avatar.use_right_hand(&mut world));
-    assert!(avatar.use_right_hand(&mut world), "Digging under the crust must remove the ceiling block and breach to the surface");
+    assert!(avatar.release_hand(&mut world), "Short-click (press + release) while floating must place a block under the crust");
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::ExcavatedEarth));
+    assert!(!avatar.use_right_hand(&mut world));
+    assert!(avatar.use_right_hand(&mut world), "Digging under the crust must remove the placed block");
+    assert!(!avatar.use_right_hand(&mut world));
+    assert!(avatar.use_right_hand(&mut world), "Digging under the crust must remove one ceiling block");
     let mut controls = KeyMotion::idle();
     controls.register_key(KeyCode::Space, true);
-    for _ in 0..480 {
+    for _ in 0..90 {
         avatar.step_motion(1.0 / 60.0, &controls, &world);
     }
-    let exit_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(exit_eye.y >= 32.5 && !world.weightless_at(exit_eye), "Avatar must dig upward through crust and emerge onto outer surface, got {exit_eye:?}");
+    let first_vp = avatar.view_projection_matrix(1.0);
+    let first_eye = first_vp.inverse().project_point3(Vec3::ZERO);
+    assert!(first_eye.y > 24.0 && first_eye.y < 24.3 && world.weightless_at(first_eye), "Single upward dig must only open one block (0.5 m) instead of a full shaft to the surface, got {first_eye:?}");
 
-    let mut doomed = PlanetaryAvatar::at(Vec3::new(0.25, 8.8, 0.25));
-    doomed.step_motion(1.0 / 60.0, &controls, &world);
-    let dead_eye = doomed.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(dead_eye.y < 10.0 && world.lethal_at(Vec3::new(0.25, 8.8, 0.25)), "Avatar near magma core must die in place without surface teleport, got {dead_eye:?}");
+    let mut strained_scale = first_vp.x_axis.x;
+    for step in 0..3 {
+        assert!(!avatar.use_right_hand(&mut world));
+        assert!(avatar.use_right_hand(&mut world));
+        for _ in 0..30 {
+            avatar.step_motion(1.0 / 60.0, &controls, &world);
+        }
+        if step == 1 { strained_scale = avatar.view_projection_matrix(1.0).x_axis.x; }
+    }
+    let crust_vp = avatar.view_projection_matrix(1.0);
+    let crust_eye = crust_vp.inverse().project_point3(Vec3::ZERO);
+    assert!(strained_scale > first_vp.x_axis.x && first_vp.x_axis.x > start_fov_scale, "Staying near the core must progressively narrow the FOV ({} -> {} -> {})", start_fov_scale, first_vp.x_axis.x, strained_scale);
+    assert!(!world.weightless_at(crust_eye), "Weightlessness must end once the 4-layer crust is dug upward, got {crust_eye:?}");
+
+    for _ in 0..25 {
+        assert!(!avatar.use_right_hand(&mut world));
+        if !avatar.use_right_hand(&mut world) { break; }
+        for _ in 0..24 {
+            avatar.step_motion(1.0 / 60.0, &controls, &world);
+        }
+    }
+    for _ in 0..240 {
+        avatar.step_motion(1.0 / 60.0, &controls, &world);
+    }
+    let exit_vp = avatar.view_projection_matrix(1.0);
+    let exit_eye = exit_vp.inverse().project_point3(Vec3::ZERO);
+    assert!(exit_eye.y >= 32.5 && !world.weightless_at(exit_eye) && exit_vp.x_axis.x < strained_scale, "Escaping behind the crust must recover FOV and reach surface, got {exit_eye:?}");
+
+    let mut lingering = PlanetaryAvatar::at(Vec3::new(0.25, 21.5, 0.25));
+    for _ in 0..750 {
+        lingering.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
+    }
+    let mut linger_hud = SpanCapture::empty();
+    lingering.emit_reticle(&mut linger_hud);
+    assert!(linger_hud.max_y - linger_hud.min_y > 1.8 && lingering.view_projection_matrix(1.0).y_axis.y > start_fov_scale * 1.4, "Lingering too long near the core without escaping behind the crust must narrow FOV and kill the player");
+
+    let mut doomed = PlanetaryAvatar::at(Vec3::new(0.25, 16.8, 0.25));
+    let initial_fov_scale = doomed.view_projection_matrix(1.0).y_axis.y;
+    for _ in 0..60 {
+        doomed.step_motion(1.0 / 60.0, &controls, &world);
+    }
+    let dead_vp = doomed.view_projection_matrix(1.0);
+    let dead_eye = dead_vp.inverse().project_point3(Vec3::ZERO);
+    assert!(dead_eye.y < 18.0 && world.lethal_at(Vec3::new(0.25, 16.8, 0.25)), "Avatar near magma core must die in place without surface teleport, got {dead_eye:?}");
+    assert!(dead_vp.y_axis.y > initial_fov_scale * 1.25, "Heart-attack death must narrow camera FOV (y_scale {} vs {})", dead_vp.y_axis.y, initial_fov_scale);
     let mut hud = SpanCapture::empty();
     doomed.emit_reticle(&mut hud);
-    assert!(hud.max_y - hud.min_y > 0.20, "Perished avatar must emit YOU DIED banner instead of small crosshair");
+    assert!(hud.max_y - hud.min_y > 1.8, "Perished avatar must emit full-screen red heart-attack FOV vignette and YOU DIED banner");
+    let wav = CardiacPulse::studio().riff_wave();
+    assert!(wav.starts_with(b"RIFF") && wav.len() > 8000, "CardiacPulse must synthesize booming RIFF WAVE heartbeat audio");
 }
 
 #[test]

@@ -134,7 +134,7 @@ impl AirborneFlight {
         if ctx.weightless_ascent(next_speed) {
             let raw = ctx.candidate_point(airborne_stride) + vertical_step;
             let confined = ctx.confine_crust(raw);
-            let bonked_speed = if (confined - raw).dot(surface_up) < -1e-4 { next_speed.min(0.0) } else { next_speed };
+            let bonked_speed = if (confined - raw).dot(surface_up) < -1e-4 { next_speed.min(1e-4) } else { next_speed };
             let next_momentum = ctx.damp_aerial_momentum(self.momentum);
             return FlightProgress::new(
                 FlightPhase::Airborne(AirborneFlight::with_momentum(bonked_speed, next_momentum, self.threshold)),

@@ -75,17 +75,17 @@ fn test_zoned_cavity_and_relief_direct_sampling() {
 #[test]
 fn test_deep_crust_excavation_hollow_world_breach_and_indestructible_magma_core() {
     let mut deep = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 64);
-    for step in 1..=36 {
+    for step in 1..=15 {
         assert!(deep.excavate_cell(0, 0).1, "Must excavate through mantle and first 3 crust layers (step {step})");
     }
-    assert_eq!(deep.elevation_at(0, 0), -36);
+    assert_eq!(deep.elevation_at(0, 0), -15);
     assert!(!deep.breached_at(0, 0));
-    assert!(deep.excavate_cell(0, 0).1, "Excavating 4th crust layer above the halved vault must breach into hollow world");
-    assert!(deep.breached_at(0, 0) && deep.elevation_at(0, 0) == -48);
-    assert!(!deep.excavate_cell(0, 0).1 && !deep.mark_dig_stage(0, 0, 1).1, "Magma core summit at -48 must be indestructible");
-    assert!(deep.weightless_at(0.0, 0.0, -21.0) && !deep.lethal_at(0.0, 0.0, -21.0), "Hollow world cavity must be weightless");
-    assert!(deep.lethal_at(0.0, 0.0, -23.5) && !deep.weightless_at(0.0, 0.0, -23.5), "Magma core surface must be lethal");
-    assert!(deep.weightless_at(9.0, 0.0, -22.0) && !deep.weightless_at(24.0, 24.0, -9.0), "Hollow beside the core floats while the rounded crust beyond the vault stays solid");
+    assert!(deep.excavate_cell(0, 0).1, "Excavating 4th crust layer above the vault must breach into hollow world");
+    assert!(deep.breached_at(0, 0) && deep.elevation_at(0, 0) == -32);
+    assert!(!deep.excavate_cell(0, 0).1 && !deep.mark_dig_stage(0, 0, 1).1, "Magma core summit at -32 must be indestructible");
+    assert!(deep.weightless_at(0.0, 0.0, -13.0) && !deep.lethal_at(0.0, 0.0, -13.0), "Hollow world cavity must be weightless");
+    assert!(deep.lethal_at(0.0, 0.0, -15.5) && !deep.weightless_at(0.0, 0.0, -15.5), "Magma core surface must be lethal");
+    assert!(deep.weightless_at(14.0, 0.0, -16.0) && !deep.weightless_at(24.0, 24.0, -9.0), "Hollow beside the core floats while the rounded crust beyond the vault stays solid");
 }
 
 

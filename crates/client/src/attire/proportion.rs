@@ -147,6 +147,22 @@ impl YouthPhysique {
     pub fn leg_size(self, measure: f32) -> f32 { self.legs.scale_size(measure) }
     pub fn leg_girth(self, measure: f32) -> f32 { self.legs.scale_girth(measure) }
 
+    pub fn stature_height(self) -> f32 {
+        self.leg_size(0.68) + self.torso_size(0.88) + self.crown_size(0.24)
+    }
+
+    pub fn upper_body_span(self) -> f32 {
+        2.0 * (self.scale(if self.feminine { 0.194 } else { 0.222 }) + self.arm_girth(0.075) + self.arm_size(0.045))
+    }
+
+    pub fn body_depth(self) -> f32 {
+        2.0 * (self.torso_depth(if self.feminine { 0.148 } else { 0.135 }) + self.crown_span(0.038) + self.arm_girth(0.025))
+    }
+
+    pub fn shaft_yaw_play(self) -> f32 {
+        (1.05 - (self.upper_body_span() - 0.648) * 2.1).clamp(0.45, 1.35)
+    }
+
     pub fn region_bytes(self) -> [u8; 4] {
         [self.crown.packed_byte() | if self.feminine { 0x80 } else { 0 }, self.torso.packed_byte(), self.arms.packed_byte(), self.legs.packed_byte()]
     }

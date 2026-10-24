@@ -15,17 +15,20 @@ pub struct WalkTrial<'a> {
     step: Vec3,
     up: Vec3,
     eye: f32,
+    envelope: BodyEnvelope,
     limit: StepThreshold,
     seam_allowed: bool,
     world: &'a dyn PlanetaryWorld,
 }
 
 impl<'a> WalkTrial<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         origin: Vec3,
         step: Vec3,
         up: Vec3,
         eye: f32,
+        envelope: BodyEnvelope,
         limit: StepThreshold,
         seam_allowed: bool,
         world: &'a dyn PlanetaryWorld,
@@ -35,6 +38,7 @@ impl<'a> WalkTrial<'a> {
             step,
             up,
             eye,
+            envelope,
             limit,
             seam_allowed,
             world,
@@ -48,12 +52,11 @@ impl<'a> StrideTrial for WalkTrial<'a> {
             return false;
         }
         let candidate = self.origin + self.step;
-        let surface_pos = self.world.constrain_to_surface(candidate, self.eye);
+        let surface_pos = self.envelope.constrain_with_height(candidate, self.eye, self.world);
         let clearance = SurfaceClearance::between(self.origin, candidate, surface_pos, self.up, self.world);
-        let envelope = BodyEnvelope::youth();
         clearance.passable_with(self.seam_allowed)
             && SurfaceStep::new(self.origin, surface_pos, self.up).walkable_with(self.limit)
-            && envelope.unobstructed_ground(
+            && self.envelope.unobstructed_ground(
                 candidate,
                 surface_pos,
                 self.step,
@@ -68,7 +71,7 @@ impl<'a> StrideTrial for WalkTrial<'a> {
         if self.step.length_squared() <= 1e-6 {
             return self.origin;
         }
-        self.world.constrain_to_surface(self.origin + self.step, self.eye)
+        self.envelope.constrain_with_height(self.origin + self.step, self.eye, self.world)
     }
 }
 
@@ -79,17 +82,20 @@ pub struct AerialTrial<'a> {
     vertical: Vec3,
     up: Vec3,
     eye: f32,
+    envelope: BodyEnvelope,
     limit: StepThreshold,
     world: &'a dyn PlanetaryWorld,
 }
 
 impl<'a> AerialTrial<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         origin: Vec3,
         tangent: Vec3,
         vertical: Vec3,
         up: Vec3,
         eye: f32,
+        envelope: BodyEnvelope,
         limit: StepThreshold,
         world: &'a dyn PlanetaryWorld,
     ) -> Self {
@@ -99,6 +105,7 @@ impl<'a> AerialTrial<'a> {
             vertical,
             up,
             eye,
+            envelope,
             limit,
             world,
         }
@@ -111,17 +118,22 @@ impl<'a> StrideTrial for AerialTrial<'a> {
             return false;
         }
         let candidate = self.origin + self.tangent + self.vertical;
-        let surface_pos = self.world.constrain_to_surface(candidate, self.eye);
+        let surface_pos = self.envelope.constrain_with_height(candidate, self.eye, self.world);
         let clearance = SurfaceClearance::between(self.origin, candidate, surface_pos, self.up, self.world);
-        let envelope = BodyEnvelope::youth();
-        let center_ok = if !clearance.cliff_impact(self.limit) {
+        let origin_surf = self.envelope.constrain_with_height(self.origin, self.eye, self.world);
+        let over_pit = (self.origin - origin_surf).dot(self.up) > 0.02;
+        let falling_into_pit = self.vertical.dot(self.up) <= 0.0
+            && (self.origin - surface_pos).dot(self.up) < if over_pit { 0.52 } else { -1e-4 }
+            && !SurfaceStep::new(origin_surf, surface_pos, self.up).walkable_with(self.limit);
+        let center_ok = if falling_into_pit {
+            false
+        } else if !clearance.cliff_impact(self.limit) {
             true
         } else {
-            let origin_surf = self.world.constrain_to_surface(self.origin, self.eye);
             SurfaceStep::new(origin_surf, surface_pos, self.up).walkable_with(self.limit)
         };
         center_ok
-            && envelope.unobstructed_aerial(
+            && self.envelope.unobstructed_aerial(
                 self.origin,
                 candidate,
                 self.tangent,

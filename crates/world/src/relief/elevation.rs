@@ -45,11 +45,11 @@ pub trait ReliefElevation: Send + Sync {
     /// Deepest diggable crust step of the discrete cell (u, v) above the hollow world.
     fn crust_floor_at(&self, _u: i32, _v: i32) -> i32 { i32::MIN }
 
-    /// Radial inset from the face datum to the inner vault ceiling plus an eye safety margin.
-    fn ceiling_inset(&self, margin: f32) -> f32 { 2.0 + margin }
+    /// Radial inset from the face datum to the inner vault ceiling at (u, v) plus an eye safety margin.
+    fn ceiling_inset(&self, _u: i32, _v: i32, margin: f32) -> f32 { 2.0 + margin }
 
-    /// Elevation of an eye at tangential (u, v) kept beneath the spherical crust vault ceiling.
-    fn confine(&self, _u: f32, _v: f32, elev: f32) -> f32 { elev }
+    /// Tangential coordinates and elevation of an eye at (u, v, elev) kept inside the crust vault or upward shaft.
+    fn confine(&self, u: f32, v: f32, elev: f32) -> (f32, f32, f32) { (u, v, elev) }
 
     /// Indicates whether the discrete cell (u, v) has bare exposed soil without regrown grass.
     fn bare_dirt_at(&self, _u: i32, _v: i32) -> bool { false }

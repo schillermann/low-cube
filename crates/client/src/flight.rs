@@ -1,5 +1,6 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
+use crate::envelope::BodyEnvelope;
 use crate::gait::LocomotionGait;
 use crate::phase::{
     AirborneFlight, AsymmetricGravity, CanopyBraking, FlightContext, FlightPhase, GroundedFlight,
@@ -10,6 +11,7 @@ use crate::threshold::StepThreshold;
 /// Interface representing vertical flight and gravitational physics on a planetary surface.
 pub trait GravitationalFlight: Send + Sync {
     fn jump(&mut self);
+    fn apply_envelope(&mut self, _envelope: BodyEnvelope) {}
     fn advance(
         &mut self,
         dt: f32,
@@ -31,13 +33,14 @@ pub struct SurfaceFlight {
     ski_launch: SkiLaunch,
     incline: InclinePace,
     eye_height: f32,
+    envelope: BodyEnvelope,
     jump_requested: bool,
 }
 
 impl SurfaceFlight {
     /// Primary constructor doing nothing except assigning arguments to fields.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn with_envelope(
         phase: FlightPhase,
         jump_strength: f32,
         gravity: AsymmetricGravity,
@@ -46,18 +49,19 @@ impl SurfaceFlight {
         ski_launch: SkiLaunch,
         incline: InclinePace,
         eye_height: f32,
+        envelope: BodyEnvelope,
     ) -> Self {
         Self {
-            phase,
-            jump_strength,
-            gravity,
-            canopy,
-            surfing,
-            ski_launch,
-            incline,
-            eye_height,
-            jump_requested: false,
+            phase, jump_strength, gravity, canopy, surfing, ski_launch, incline, eye_height, envelope, jump_requested: false,
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        phase: FlightPhase, jump_strength: f32, gravity: AsymmetricGravity, canopy: CanopyBraking,
+        surfing: SlopeSurfing, ski_launch: SkiLaunch, incline: InclinePace, eye_height: f32,
+    ) -> Self {
+        Self::with_envelope(phase, jump_strength, gravity, canopy, surfing, ski_launch, incline, eye_height, BodyEnvelope::youth())
     }
 
     /// Secondary constructor calculating jump velocity from configured jump height and gravity.
@@ -87,6 +91,10 @@ impl GravitationalFlight for SurfaceFlight {
         self.jump_requested = true;
     }
 
+    fn apply_envelope(&mut self, envelope: BodyEnvelope) {
+        self.envelope = envelope;
+    }
+
     fn advance(
         &mut self,
         dt: f32,
@@ -96,7 +104,7 @@ impl GravitationalFlight for SurfaceFlight {
         surface_up: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> Vec3 {
-        let in_shaft = (position - world.constrain_to_surface(position, self.eye_height)).dot(surface_up) > 2.5;
+        let in_shaft = (position - self.envelope.constrain_with_height(position, self.eye_height, world)).dot(surface_up) > 2.5;
         if self.jump_requested {
             self.jump_requested = false;
             if world.weightless_at(position) || in_shaft {
@@ -121,6 +129,7 @@ impl GravitationalFlight for SurfaceFlight {
             stride,
             surface_up,
             self.eye_height,
+            self.envelope,
             &self.gravity,
             self.canopy,
             self.surfing,
@@ -129,7 +138,7 @@ impl GravitationalFlight for SurfaceFlight {
             world,
         );
         let advanced = self.phase.advance(&context).apply(&mut self.phase);
-        let next_pos = if world.weightless_at(position) || world.weightless_at(advanced) {
+        let next_pos = if world.weightless_at(position) || world.weightless_at(advanced) || in_shaft {
             world.confine_beneath_crust(advanced)
         } else {
             advanced
