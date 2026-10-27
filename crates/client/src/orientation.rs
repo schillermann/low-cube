@@ -193,7 +193,8 @@ mod tests {
         deep_miner.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
         deep_miner.rotate_view(524.0, 120.0);
         assert!(forward_of(&deep_miner).x > 0.85, "Deep 2x2 shaft with 2-block internal step must not wedge shoulders");
+        let side_top = world.constrain_to_surface(Vec3::new(1.25, 20.0, 0.25), 0.0).y;
         assert!(!deep_miner.use_right_hand(&mut world) && deep_miner.use_right_hand(&mut world), "Must dig side wall from inside deep 2x2 shaft");
-        assert!(world.constrain_to_surface(Vec3::new(1.25, 20.0, 0.25), 0.0).y <= deep_pos.y - 0.5, "Side wall of deep 2x2 shaft must open down to shaft depth");
+        assert!((world.constrain_to_surface(Vec3::new(1.25, 20.0, 0.25), 0.0).y - side_top).abs() < 1e-4, "Mining a side block in a shaft must keep all blocks above it intact");
     }
 }

@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.40.1] - 2026-10-27
+
+### Fixed
+- Preserved all overlying blocks when mining a single side block from inside a shaft (`TerracedRelief::excavate_layer`, `TerracedRelief::emit_molded_top`, `ElevatedShape::floating_above`, `ReliefFacet::emit_facet`) by converting the unmined upper column layers `(next_elev + 1)..elev` into `ElevatedShape` blocks in `TerracedRelief` instead of collapsing the entire column down to the shaft floor.
+
 ## [0.40.0] - 2026-10-27
 
 ### Added

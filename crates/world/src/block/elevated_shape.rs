@@ -25,9 +25,9 @@ impl ElevatedShape {
         self.shape.block_medium()
     }
 
-    /// Indicates whether this elevated block sits above the primary ground contact layer.
+    /// Indicates whether this elevated block sits away from the primary surface contact layer.
     pub fn floating_above(&self, ground_top: f32) -> bool {
-        self.elevation_offset >= ground_top + 0.1
+        (self.elevation_offset - ground_top).abs() >= 0.1
     }
 
     /// Upper block boundary elevation above ground datum.

@@ -95,6 +95,9 @@ fn test_deep_crust_excavation_hollow_world_breach_and_indestructible_magma_core(
     let (cu, cv, layer) = SurfaceSightRay::new(up_eye, side_dir).target_layer(&frame, &deep, 64, 32.0).expect("Must hit side cell from upward shaft");
     assert_eq!((cu, cv), (3, 2));
     assert!(deep.excavate_layer(cu, cv, layer).1 && deep.crust_floor_at(3, 2) > -16, "Digging sideways from upward shaft must open adjacent cell upward");
+    assert!(deep.excavate_layer(1, 0, -2.25).1 && deep.elevation_at(1, 0) == -5 && deep.hit_top_at(0.75, 0.25, -2.25).is_none());
+    assert!(deep.excavate_layer(1, 0, -1.75).1 && deep.hit_top_at(0.75, 0.25, -1.75).is_none(), "Mining next side block at -2.0..-1.5 must open only that layer");
+    for kept in [-1.25, -0.75, -0.25] { assert!(deep.hit_top_at(0.75, 0.25, kept).is_some(), "Block at {kept} above mined side blocks must remain intact"); }
 }
 
 
