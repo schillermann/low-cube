@@ -53,9 +53,10 @@ impl SurfaceSightRay {
         let (scu, scv) = ((su * 2.0).floor() as i32, (sv * 2.0).floor() as i32);
         let (ecu, ecv) = ((eu * 2.0).floor() as i32, (ev * 2.0).floor() as i32);
         let (min_c, max_c) = (-half_blocks + 1, half_blocks - 2);
-        let (mut prev_cu, mut prev_cv, mut prev_elev) = (ecu, ecv, frame.height_of(self.eye) - half_size);
+        let start_elev = frame.height_of(self.eye) - half_size;
+        let (mut prev_cu, mut prev_cv, mut prev_elev) = (ecu, ecv, start_elev);
         let max_stand_top = prev_elev - 0.90;
-        let (up, eye_steps, eye_crust) = (d_up > 0.75, relief.elevation_at(ecu, ecv), relief.crust_floor_at(ecu, ecv));
+        let (up, eye_steps, eye_crust) = (d_up > 0.95, relief.elevation_at(ecu, ecv), relief.crust_floor_at(ecu, ecv));
         let weightless = relief.weightless_at(eu, ev, prev_elev);
         let (steps, max_span) = if weightless { (100, 4) } else { (85, 3) };
 
@@ -72,7 +73,11 @@ impl SurfaceSightRay {
                     continue;
                 }
                 if let Some(hit_top) = relief.hit_top_at(u, v, ray_elev) {
-                    if !weightless && slanted && d_up < 0.0 && (cu, cv) == (scu, scv) && hit_top <= max_stand_top {
+                    let (prev_top, wall_top) = ((relief.elevation_at(prev_cu, prev_cv) as f32) * 0.5, (relief.elevation_at(cu, cv) as f32) * 0.5);
+                    if d_up < -0.45 && (prev_cu, prev_cv) != (ecu, ecv) && (prev_cu, prev_cv) != (cu, cv) && wall_top > start_elev - 0.3 && wall_top >= prev_top + 1.0 && ray_elev <= prev_top + 1.75 {
+                        return Some((prev_cu, prev_cv, prev_cu, prev_cv, prev_elev, prev_top));
+                    }
+                    if !weightless && !relief.reworked_at(scu, scv) && slanted && d_up < 0.0 && (cu, cv) == (scu, scv) && hit_top <= max_stand_top {
                         return None;
                     }
                     return Some((cu, cv, prev_cu, prev_cv, prev_elev, hit_top));

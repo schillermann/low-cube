@@ -8,6 +8,21 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-10-27
+
+### Added
+- Circular alpha-gradient tunnel-vision blackout and surface respawn (`AvatarPosture::emit_reticle`, `AvatarPosture::advance_perish`, `AvatarPosture::blackout_complete`, `PlanetaryAvatar::step_perish`, `VoxelShaderSource::embedded`) with per-vertex alpha blending (`GL_SRC_ALPHA`, `GL_ONE_MINUS_SRC_ALPHA`), replacing the rectangular `"YOU DIED"` banner box with a smoothly closing dark-red-to-black circular aperture that awakens the player at the surface spawn once vision is completely black.
+- Lateral shaft-widening excavation in both deep downward shafts and upward core-to-surface shafts (`TerracedRelief::hit_top_at`, `TerracedRelief::adjacent_upward_at`, `TerracedRelief::mark_dig_layer`, `TerracedRelief::excavate_layer`, `SurfaceSightRay::trace_hit`, `PalmEarthworks::act_with_hand`, `PalmEarthworks::continue_digging`) allowing the player to dig sideways from inside a 2×2 downward shaft or an upward shaft.
+
+### Changed
+- Raised the inner planetary crust vault 12 blocks (`6.0 m`) higher and further away from the magma core (`CrustVault::beneath`, `CrustVault::core` at radius `54.0 m` vs core radius `40.0 m` on the baseline 128-block moonlet, expanding the hollow world clearance to 28 blocks / `14.0 m`).
+- Extended the core-proximity survival time to 2 minutes (`120 s`) in `AvatarPosture::advance_hover` and arrested the player safely in weightless hover when excavating the final crust block above the hollow world (`FlightContext::gravitational_acceleration`, `SurfaceStride::resolve_ground`, `SurfaceFlight::advance`) instead of plummeting into the magma core.
+- Suppressed sprinting / fast floating while weightless beneath the planetary crust (`LocomotionOrder::calm_beneath_crust`, `PlanetaryAvatar::step_motion`).
+
+### Fixed
+- Sealed see-through triangle gaps in the hollow-world crust ceiling (`CornerHeading::valley_elevation`, `GentleValley::emit_shape`, `ValleyCorner::emit_shape`, `DiagonalSlope::emit_shape`, `CrustVault::emit_ceiling`, `CrustVault::emit_skirt`) by aligning `SouthEast` and `SouthWest` valley corner elevations and diagonal splits with `InvertedShape::ceiling_corners`, splitting seam-straddling quads along their radial diagonal, and extending shaft skirts down to the beveled ceiling corners.
+- Prevented false shoulder-wedging yaw locks inside 2×2 shafts and upward shafts (`BodyEnvelope::wedged_in_shaft`, `FlightContext::weightless_ascent`) by evaluating full-body pair support (`BodyEnvelope::constrain_with_height`) against shoulder-height (`>= 1.25 m`) walls.
+
 ## [0.39.0] - 2026-10-24
 
 ### Added

@@ -86,6 +86,15 @@ fn test_deep_crust_excavation_hollow_world_breach_and_indestructible_magma_core(
     assert!(deep.weightless_at(0.0, 0.0, -13.0) && !deep.lethal_at(0.0, 0.0, -13.0), "Hollow world cavity must be weightless");
     assert!(deep.lethal_at(0.0, 0.0, -15.5) && !deep.weightless_at(0.0, 0.0, -15.5), "Magma core surface must be lethal");
     assert!(deep.weightless_at(14.0, 0.0, -16.0) && !deep.weightless_at(24.0, 24.0, -9.0), "Hollow beside the core floats while the rounded crust beyond the vault stays solid");
+
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    for _ in 0..5 { assert!(deep.excavate_layer(2, 2, -9.0).1); }
+    assert_eq!(deep.crust_floor_at(2, 2), -11, "Digging upward from core must raise upward shaft ceiling");
+    let up_eye = frame.point_at(1.25, 1.25, -6.0);
+    let side_dir = (frame.tangent() + frame.normal() * 0.6).normalize();
+    let (cu, cv, layer) = SurfaceSightRay::new(up_eye, side_dir).target_layer(&frame, &deep, 64, 32.0).expect("Must hit side cell from upward shaft");
+    assert_eq!((cu, cv), (3, 2));
+    assert!(deep.excavate_layer(cu, cv, layer).1 && deep.crust_floor_at(3, 2) > -16, "Digging sideways from upward shaft must open adjacent cell upward");
 }
 
 

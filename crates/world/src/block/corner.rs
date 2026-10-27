@@ -21,8 +21,8 @@ impl CornerHeading {
         match self {
             Self::NorthEast => u.max(v),
             Self::NorthWest => (1.0 - u).max(v),
-            Self::SouthEast => u.max(1.0 - v),
-            Self::SouthWest => (1.0 - u).max(1.0 - v),
+            Self::SouthEast => (1.0 - u).max(1.0 - v),
+            Self::SouthWest => u.max(1.0 - v),
         }
     }
 

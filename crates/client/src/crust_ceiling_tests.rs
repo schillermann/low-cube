@@ -6,28 +6,16 @@ use crate::controls::{KeyMotion, KeyboardControls};
 use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::gait::WalkGait;
 
-struct SpanCapture {
-    min_y: f32,
-    max_y: f32,
-    min_z: f32,
-    max_z: f32,
-}
+struct SpanCapture { min_y: f32, max_y: f32, min_z: f32, max_z: f32 }
 
 impl SpanCapture {
-    fn empty() -> Self {
-        Self { min_y: f32::MAX, max_y: f32::MIN, min_z: f32::MAX, max_z: f32::MIN }
-    }
+    fn empty() -> Self { Self { min_y: f32::MAX, max_y: f32::MIN, min_z: f32::MAX, max_z: f32::MIN } }
 }
 
 impl MeshTarget for SpanCapture {
     fn push_quad(&mut self, quad: Quad) {
         quad.transfer(|v0, v1, v2, v3, _, _| {
-            for v in [v0, v1, v2, v3] {
-                self.min_y = self.min_y.min(v.y);
-                self.max_y = self.max_y.max(v.y);
-                self.min_z = self.min_z.min(v.z);
-                self.max_z = self.max_z.max(v.z);
-            }
+            for v in [v0, v1, v2, v3] { (self.min_y, self.max_y, self.min_z, self.max_z) = (self.min_y.min(v.y), self.max_y.max(v.y), self.min_z.min(v.z), self.max_z.max(v.z)); }
         });
     }
 }
@@ -45,10 +33,8 @@ fn test_jumping_beneath_the_round_crust_never_peeks_through_the_vault_ceiling() 
     }
     assert!(pos.y > 23.6, "Jump must carry the avatar up against the vault ceiling, got {pos:?}");
 
-    let mut avatar = PlanetaryAvatar::at(Vec3::new(2.25, 23.0, 2.25));
-    let mut controls = KeyMotion::idle();
-    controls.register_key(KeyCode::Space, true);
-    controls.register_key(KeyCode::KeyW, true);
+    let (mut avatar, mut controls) = (PlanetaryAvatar::at(Vec3::new(2.25, 23.0, 2.25)), KeyMotion::idle());
+    controls.register_key(KeyCode::Space, true); controls.register_key(KeyCode::KeyW, true);
     for frame in 0..180 {
         avatar.step_motion(1.0 / 60.0, &controls, &world);
         let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
@@ -66,9 +52,14 @@ fn test_repeated_head_bumps_against_crust_never_catapult_avatar_to_surface() {
         let floor_y = world.constrain_to_surface(Vec3::new(0.25, 33.0, 0.25), 0.0).y;
         assert!(world.excavate_surface(Vec3::new(0.25, floor_y + 1.0, 0.25), Vec3::NEG_Y));
     }
-    let mut avatar = PlanetaryAvatar::at(Vec3::new(1.25, 23.3, 1.25));
-    let mut controls = KeyMotion::idle();
-    controls.register_key(KeyCode::KeyW, true);
+    let (mut avatar, mut controls) = (PlanetaryAvatar::at(Vec3::new(1.25, 23.3, 1.25)), KeyMotion::idle());
+    for pressed in [true, false, true] { controls.register_key(KeyCode::KeyW, pressed); }
+    let (mut walk_floater, mut walk_ctrl) = (PlanetaryAvatar::at(Vec3::new(1.25, 23.3, 1.25)), KeyMotion::idle());
+    walk_ctrl.register_key(KeyCode::KeyW, true);
+    avatar.step_motion(1.0 / 60.0, &controls, &world); walk_floater.step_motion(1.0 / 60.0, &walk_ctrl, &world);
+    let sprint_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    let walk_eye = walk_floater.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!((sprint_eye - walk_eye).length() < 1e-5, "Fast floating (sprinting) beneath the crust must not be possible: {sprint_eye:?} vs {walk_eye:?}");
     for frame in 0..360 {
         controls.register_key(KeyCode::Space, frame % 4 < 2);
         avatar.step_motion(1.0 / 60.0, &controls, &world);
@@ -130,26 +121,52 @@ fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface
     let exit_eye = exit_vp.inverse().project_point3(Vec3::ZERO);
     assert!(exit_eye.y >= 32.5 && !world.weightless_at(exit_eye) && exit_vp.x_axis.x < strained_scale, "Escaping behind the crust must recover FOV and reach surface, got {exit_eye:?}");
 
-    let mut lingering = PlanetaryAvatar::at(Vec3::new(0.25, 21.5, 0.25));
-    for _ in 0..750 {
-        lingering.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
+    while world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.25), 0.0).y > 20.0 {
+        let fy = world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.25), 0.0).y;
+        assert!(world.excavate_surface(Vec3::new(3.25, fy + 1.0, 0.25), Vec3::NEG_Y));
     }
+    while world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.75), 0.0).y > 24.6 {
+        let fy = world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.75), 0.0).y;
+        assert!(world.excavate_surface(Vec3::new(3.25, fy + 1.0, 0.75), Vec3::NEG_Y));
+    }
+    let mut breach_miner = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.45), 1.0));
+    breach_miner.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    breach_miner.rotate_view(1047.0, 600.0);
+    let mut press_wall = KeyMotion::idle();
+    press_wall.register_key(KeyCode::KeyS, true);
+    press_wall.register_key(KeyCode::ShiftLeft, true);
+    assert!(!breach_miner.use_right_hand(&mut world) && breach_miner.use_right_hand(&mut world), "Must excavate last block before core");
+    for _ in 0..90 { breach_miner.step_motion(1.0 / 60.0, &press_wall, &world); }
+    let miner_eye = breach_miner.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!(miner_eye.y > 22.5 && miner_eye.y < 23.8 && world.weightless_at(miner_eye) && !world.lethal_at(miner_eye), "Mining the last block before the core must leave the avatar floating safely beneath the crust instead of falling into the magma core, got {miner_eye:?}");
+
+    let mut lingering = PlanetaryAvatar::at(Vec3::new(0.25, 21.5, 0.25));
+    for _ in 0..118 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
+    let vp_before_turn = lingering.view_projection_matrix(1.0);
+    lingering.rotate_view(120.0, 0.0);
+    assert_ne!(lingering.view_projection_matrix(1.0), vp_before_turn, "Avatar must still be alive and responsive before 2 minutes (120s) elapse");
+    for _ in 0..3 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
+    let vp_blackout = lingering.view_projection_matrix(1.0);
+    lingering.rotate_view(120.0, 0.0);
     let mut linger_hud = SpanCapture::empty();
     lingering.emit_reticle(&mut linger_hud);
-    assert!(linger_hud.max_y - linger_hud.min_y > 1.8 && lingering.view_projection_matrix(1.0).y_axis.y > start_fov_scale * 1.4, "Lingering too long near the core without escaping behind the crust must narrow FOV and kill the player");
+    assert!(lingering.view_projection_matrix(1.0) == vp_blackout && linger_hud.max_y - linger_hud.min_y > 1.8 && vp_blackout.y_axis.y > start_fov_scale * 1.4, "Lingering past 2 minutes (120s) near the core must narrow FOV into blackout");
+    for _ in 0..2 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
+    let linger_awoken = lingering.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!(linger_awoken.y >= 32.5 && !world.weightless_at(linger_awoken), "After full blackout, lingering avatar must wake up at surface spawn, got {linger_awoken:?}");
 
     let mut doomed = PlanetaryAvatar::at(Vec3::new(0.25, 16.8, 0.25));
     let initial_fov_scale = doomed.view_projection_matrix(1.0).y_axis.y;
-    for _ in 0..60 {
-        doomed.step_motion(1.0 / 60.0, &controls, &world);
-    }
+    for _ in 0..60 { doomed.step_motion(1.0 / 60.0, &controls, &world); }
     let dead_vp = doomed.view_projection_matrix(1.0);
     let dead_eye = dead_vp.inverse().project_point3(Vec3::ZERO);
-    assert!(dead_eye.y < 18.0 && world.lethal_at(Vec3::new(0.25, 16.8, 0.25)), "Avatar near magma core must die in place without surface teleport, got {dead_eye:?}");
-    assert!(dead_vp.y_axis.y > initial_fov_scale * 1.25, "Heart-attack death must narrow camera FOV (y_scale {} vs {})", dead_vp.y_axis.y, initial_fov_scale);
+    assert!(dead_eye.y < 18.0 && world.lethal_at(Vec3::new(0.25, 16.8, 0.25)) && dead_vp.y_axis.y > initial_fov_scale * 1.25, "Avatar at magma core must enter shrinking tunnel-vision blackout in place, got {dead_eye:?}");
     let mut hud = SpanCapture::empty();
     doomed.emit_reticle(&mut hud);
-    assert!(hud.max_y - hud.min_y > 1.8, "Perished avatar must emit full-screen red heart-attack FOV vignette and YOU DIED banner");
+    assert!(hud.max_y - hud.min_y > 1.8, "Blackout posture must emit full-screen transparent-gradient vignette");
+    for _ in 0..120 { doomed.step_motion(1.0 / 60.0, &controls, &world); }
+    let awoken_eye = doomed.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!(awoken_eye.y >= 32.5 && !world.lethal_at(awoken_eye) && !world.weightless_at(awoken_eye), "Once completely black before their eyes, avatar must wake up at surface spawn, got {awoken_eye:?}");
     let wav = CardiacPulse::studio().riff_wave();
     assert!(wav.starts_with(b"RIFF") && wav.len() > 8000, "CardiacPulse must synthesize booming RIFF WAVE heartbeat audio");
 }

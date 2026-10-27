@@ -70,22 +70,23 @@ impl BodyEnvelope {
         false
     }
 
-    fn wall_rise(base: Vec3, dir: Vec3, dist: f32, up: Vec3, world: &dyn PlanetaryWorld) -> bool {
+    fn wall_rise(base: Vec3, dir: Vec3, dist: f32, up: Vec3, world: &dyn PlanetaryWorld) -> Option<f32> {
         let surf = world.constrain_to_surface(base + dir * dist, 0.0);
-        up.dot(world.surface_up_at(surf)) >= 0.7 && (surf - base).dot(up) >= 0.85
+        let rise = (surf - base).dot(up);
+        if up.dot(world.surface_up_at(surf)) >= 0.7 && rise >= 1.25 { Some(rise) } else { None }
     }
 
-    fn wall_distance(base: Vec3, dir: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> f32 {
+    fn wall_distance(base: Vec3, dir: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> (f32, f32) {
         for step in 1..=24 {
             let d = (step as f32) * 0.05;
-            if Self::wall_rise(base, dir, d, up, world) { return d; }
+            if let Some(rise) = Self::wall_rise(base, dir, d, up, world) { return (d, rise); }
         }
-        2.0
+        (2.0, 0.0)
     }
 
     fn axis_wedged(&self, base: Vec3, axis: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> bool {
-        let (d_pos, d_neg) = (Self::wall_distance(base, axis, up, world), Self::wall_distance(base, -axis, up, world));
-        d_pos <= 1.2 && d_neg <= 1.2 && (d_pos + d_neg - 0.05) < self.half_width * 2.0
+        let ((d_pos, r_pos), (d_neg, r_neg)) = (Self::wall_distance(base, axis, up, world), Self::wall_distance(base, -axis, up, world));
+        d_pos <= 1.2 && d_neg <= 1.2 && (d_pos + d_neg - 0.05) < self.half_width * 2.0 && ((r_pos - r_neg).abs() < 1.2 || r_pos.min(r_neg) > 2.2)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -149,7 +150,7 @@ impl PhysicalEnvelope for BodyEnvelope {
         let r_hit = self.post_obstructed(ahead + r_off, candidate, orig_center, up, eye, limit, world);
         let orig_l = (self.constrain_with_height(origin + l_off, eye, world) - origin).dot(up) > 0.45;
         let orig_r = (self.constrain_with_height(origin + r_off, eye, world) - origin).dot(up) > 0.45;
-        if (l_hit && r_hit) || (l_hit && !orig_l) || (r_hit && !orig_r) {
+        if (l_hit && r_hit && !(orig_l && orig_r)) || (l_hit && !orig_l) || (r_hit && !orig_r) {
             return false;
         }
         let mid_surface = self.constrain_with_height(ahead, eye, world);
@@ -168,9 +169,9 @@ impl PhysicalEnvelope for BodyEnvelope {
     }
 
     fn wedged_in_shaft(&self, position: Vec3, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> bool {
-        if world.weightless_at(position) { return false; }
-        let floor_pos = world.constrain_to_surface(position, 0.0);
-        let base = if (position - floor_pos).dot(up) < eye + 1.8 { floor_pos } else { position - up * eye };
+        if world.weightless_at(position) || (world.constrain_to_surface(position, 0.0) - position).dot(up) > 0.5 { return false; }
+        let foot_pos = self.constrain_with_height(position, eye, world) - up * eye;
+        let base = if (position - foot_pos).dot(up) < eye + 1.8 { foot_pos } else { position - up * eye };
         let ref_vec = if up.y.abs() < 0.9 { Vec3::Y } else { Vec3::X };
         let axis_a = up.cross(ref_vec).normalize();
         let axis_b = up.cross(axis_a).normalize();

@@ -11,6 +11,7 @@ use crate::threshold::StepThreshold;
 /// Interface representing vertical flight and gravitational physics on a planetary surface.
 pub trait GravitationalFlight: Send + Sync {
     fn jump(&mut self);
+    fn ground(&mut self) {}
     fn apply_envelope(&mut self, _envelope: BodyEnvelope) {}
     fn advance(
         &mut self,
@@ -89,6 +90,11 @@ impl SurfaceFlight {
 impl GravitationalFlight for SurfaceFlight {
     fn jump(&mut self) {
         self.jump_requested = true;
+    }
+
+    fn ground(&mut self) {
+        self.phase = FlightPhase::Grounded(GroundedFlight::human());
+        self.jump_requested = false;
     }
 
     fn apply_envelope(&mut self, envelope: BodyEnvelope) {

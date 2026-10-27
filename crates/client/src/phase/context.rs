@@ -35,9 +35,10 @@ impl<'a> FlightContext<'a> {
     pub fn clearance(&self, point: Vec3, surface_point: Vec3) -> SurfaceClearance { SurfaceClearance::between(self.position, point, surface_point, self.surface_up, self.world) }
     pub fn permits_seam_fold(&self) -> bool { self.gait.permits_seam_fold() }
 
-    pub fn weightless_ascent(&self, vertical_speed: f32) -> bool {
-        let shaft_ascent = (self.position - self.constrain_surface(self.position)).dot(self.surface_up) > 2.5 && vertical_speed > 0.0;
-        self.world.weightless_at(self.position) || shaft_ascent
+    pub fn weightless_ascent(&self, _vertical_speed: f32) -> bool {
+        let in_upward_shaft = (self.position - self.constrain_surface(self.position)).dot(self.surface_up) > 2.5
+            && (self.world.constrain_to_surface(self.position, 0.0) - self.position).dot(self.surface_up) > 0.2;
+        self.world.weightless_at(self.position) || in_upward_shaft
     }
 
     pub fn confine_crust(&self, point: Vec3) -> Vec3 {
@@ -54,8 +55,12 @@ impl<'a> FlightContext<'a> {
 
     pub fn gravitational_acceleration(&self, vertical_speed: f32) -> f32 {
         if self.weightless_ascent(vertical_speed) {
-            let damp = if vertical_speed < 0.0 { 12.0 } else { 8.0 };
-            if !self.gait.permits_seam_fold() { (vertical_speed - (-1.8)).max(0.0) * (6.0 * self.dt).min(1.0) } else { (vertical_speed - if self.world.weightless_at(self.position) { 0.0 } else { 1e-4 }).max(vertical_speed.min(0.0)) * (damp * self.dt).min(1.0) }
+            if vertical_speed < 0.0 {
+                vertical_speed - vertical_speed.max(-3.6) * (1.0 - (16.0 * self.dt).min(1.0))
+            } else {
+                let target = if self.world.weightless_at(self.position) { 0.0 } else { 1e-4 };
+                (vertical_speed - target) * (8.0 * self.dt).min(1.0)
+            }
         } else {
             self.gravity.delta_velocity(vertical_speed, self.dt)
         }

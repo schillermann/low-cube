@@ -25,10 +25,14 @@ impl TerracedRelief {
     pub fn pristine(origin: Box<dyn ReliefElevation>) -> Self { Self::in_span(origin, 128) }
     fn delta_at(&self, u: i32, v: i32) -> i32 { if self.deltas.is_empty() { 0 } else { self.deltas.get(&(u, v)).copied().unwrap_or(0) } }
     fn upward_at(&self, u: i32, v: i32) -> i32 { if self.ceilings.is_empty() { 0 } else { self.ceilings.get(&(u, v)).copied().unwrap_or(0) } }
+    fn adjacent_upward_at(&self, u: i32, v: i32) -> i32 {
+        if self.ceilings.is_empty() { return i32::MIN; }
+        [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)].iter().filter(|&&(du, dv)| self.upward_at(u + du, v + dv) > 0).map(|&(du, dv)| self.crust_floor_at(u + du, v + dv)).max().unwrap_or(i32::MIN)
+    }
     fn vault(&self) -> CrustVault { CrustVault::beneath(self.half_span - 2) }
     fn deepened_steps(&self, u: i32, v: i32) -> i32 {
         let (elev, floor) = (self.elevation_at(u, v), self.crust_floor_at(u, v));
-        if elev < floor { elev } else if elev > floor + 1 { elev - 1 } else if self.vault().cell_opens(u, v) { self.vault().core().summit_steps() } else { floor }
+        if elev < floor { elev } else if elev > floor + 1 { elev - 1 } else if self.vault().cell_opens(u, v) { self.vault().core().summit_steps().min(floor - 2) } else { floor }
     }
     fn pair_elevation(&self, u: i32, v: i32, du: i32, dv: i32) -> i32 {
         let max_e = self.elevation_at(u, v).max(self.elevation_at(u + du, v + dv));
@@ -99,7 +103,7 @@ impl ReliefElevation for TerracedRelief {
             for block in list.iter().rev() { if block.intercepts(fu, fv, ray_elev) { return Some(block.ceiling_above(ground_h)); } }
         }
         let ceil_floor = if self.upward_at(cu, cv) > 0 { ceil_h - 0.15 } else { (self.vault().ceiling_height_at(u, v) - 0.55).min(ground_h - 0.55) };
-        if !self.breached_at(cu, cv) && ray_elev >= ceil_floor && ray_elev <= ground_surf + 0.02 { Some(if ray_elev < ceil_h - 0.05 { ceil_h - 0.25 } else { ground_h }) } else { None }
+        if !self.breached_at(cu, cv) && ray_elev >= ceil_floor && ray_elev <= ground_surf + 0.02 { Some(if ray_elev < ceil_h - 0.05 { ceil_h - 0.25 } else if ray_elev < ground_h - 0.55 { ((ray_elev * 2.0).floor() * 0.5 + 0.5).min(ground_h) } else { ground_h }) } else { None }
     }
     fn reworked_at(&self, u: i32, v: i32) -> bool { self.delta_at(u, v) != 0 }
     fn breached_at(&self, u: i32, v: i32) -> bool { self.reworked_at(u, v) && self.elevation_at(u, v) < self.vault().floor_steps_at(u, v) }
@@ -117,8 +121,7 @@ impl ReliefElevation for TerracedRelief {
             for (du, dv) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
                 let (nu, nv) = (cu + du, cv + dv);
                 if (self.upward_at(nu, nv) > 0 || self.breached_at(nu, nv)) && elev <= self.cell_ceiling_at(nu, nv) + 0.20 {
-                    (tu, tv, cu, cv) = (u.clamp((nu as f32) * 0.5 + 0.02, ((nu + 1) as f32) * 0.5 - 0.02), v.clamp((nv as f32) * 0.5 + 0.02, ((nv + 1) as f32) * 0.5 - 0.02), nu, nv);
-                    break;
+                    (tu, tv, cu, cv) = (u.clamp((nu as f32) * 0.5 + 0.02, ((nu + 1) as f32) * 0.5 - 0.02), v.clamp((nv as f32) * 0.5 + 0.02, ((nv + 1) as f32) * 0.5 - 0.02), nu, nv); break;
                 }
             }
         }
@@ -131,16 +134,14 @@ impl ReliefElevation for TerracedRelief {
     fn bare_dirt_at(&self, u: i32, v: i32) -> bool { self.bare_dirt.contains_key(&(u, v)) }
     fn emit_molded_top(&self, cell: GridCell, _query_base: f32, frame: &SurfaceFrame, top_col: Vec3, wall_col: Vec3, target: &mut dyn MeshTarget) -> bool {
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
-        if let Some(list) = self.molds.get(&(u, v)) {
-            let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
-            for block in list {
-                let stage = if self.dig_stage.0 == (u, v) && block.occupies_layer(self.dig_stage.1) { self.dig_stage.2 } else { 0 };
-                let block_col = if block.floating_above(ground_top) || self.bare_dirt_at(u, v) { wall_col } else { top_col };
-                block.emit_terraced(cell, frame, block_col, wall_col, stage, target);
-            }
-            return !list.is_empty();
+        let Some(list) = self.molds.get(&(u, v)) else { return false; };
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        for block in list {
+            let stage = if self.dig_stage.0 == (u, v) && block.occupies_layer(self.dig_stage.1) { self.dig_stage.2 } else { 0 };
+            let block_col = if block.floating_above(ground_top) || self.bare_dirt_at(u, v) { wall_col } else { top_col };
+            block.emit_terraced(cell, frame, block_col, wall_col, stage, target);
         }
-        false
+        !list.is_empty()
     }
     fn step_grass(&mut self, dt: f32) -> Vec<i32> {
         if self.bare_dirt.is_empty() { return Vec::new(); }
@@ -159,32 +160,31 @@ impl ReliefElevation for TerracedRelief {
     fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> (i32, bool) {
         let (prev_v, active) = (self.dig_stage.0.1, self.dig_stage.2 > 0);
         if stage == 0 { self.dig_stage = ((0, 0), 0.0, 0); return (prev_v, active); }
-        if self.deepened_steps(u, v) == self.elevation_at(u, v) && !self.molds.contains_key(&(u, v)) { return (v, false); }
-        self.dig_stage = ((u, v), layer_elev, stage.min(3));
-        (prev_v, true)
+        let up_dig = layer_elev < (self.crust_floor_at(u, v).max(self.adjacent_upward_at(u, v)) as f32) * 0.5 + 0.25;
+        if (self.breached_at(u, v) || (self.deepened_steps(u, v) == self.elevation_at(u, v) && !up_dig)) && !self.molds.contains_key(&(u, v)) { return (v, false); }
+        self.dig_stage = ((u, v), layer_elev, stage.min(3)); (prev_v, true)
     }
     fn excavate_cell(&mut self, u: i32, v: i32) -> (i32, bool) { self.excavate_layer(u, v, self.top_layer_at(u, v)) }
     fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> (i32, bool) {
         let prev_v = self.dig_stage.0.1;
-        if let Some(list) = self.molds.get_mut(&(u, v)) {
-            if let Some(pos) = list.iter().rposition(|b| b.occupies_layer(layer_elev)) {
-                list.remove(pos);
-                if list.is_empty() { self.molds.remove(&(u, v)); }
-                self.dig_stage = ((u, v), 0.0, 0); return (prev_v, true);
-            }
-        }
-        if layer_elev < (self.crust_floor_at(u, v) as f32) * 0.5 {
-            if !self.vault().cell_opens(u, v) || self.breached_at(u, v) { return (v, false); }
-            if self.crust_floor_at(u, v) + 1 >= self.elevation_at(u, v) {
-                self.deltas.insert((u, v), self.vault().core().summit_steps() - self.natural_elevation_at(u, v));
-                self.bare_dirt.insert((u, v), 0.0);
-            } else { self.ceilings.insert((u, v), self.upward_at(u, v) + 1); }
+        if let Some(list) = self.molds.get_mut(&(u, v)) { if let Some(pos) = list.iter().rposition(|b| b.occupies_layer(layer_elev)) {
+            list.remove(pos); if list.is_empty() { self.molds.remove(&(u, v)); }
+            self.dig_stage = ((u, v), 0.0, 0); return (prev_v, true);
+        } }
+        let (crust, adj_up, nat) = (self.crust_floor_at(u, v), self.adjacent_upward_at(u, v), self.natural_elevation_at(u, v));
+        if layer_elev < (crust as f32) * 0.5 || (adj_up > crust && layer_elev < (adj_up as f32) * 0.5 + 0.25 && layer_elev < (nat as f32) * 0.5 - 0.55) {
+            if self.breached_at(u, v) || (layer_elev < (crust as f32) * 0.5 && adj_up <= crust && !self.vault().cell_opens(u, v)) { return (v, false); }
+            let next_crust = (crust + 1).max(((layer_elev + 0.75) * 2.0).round() as i32).min(adj_up.max(crust + 1));
+            if next_crust >= self.elevation_at(u, v) {
+                self.deltas.insert((u, v), self.vault().core().summit_steps().min(crust - 2) - nat); self.bare_dirt.insert((u, v), 0.0);
+            } else { self.ceilings.insert((u, v), next_crust - self.vault().floor_steps_at(u, v)); }
             self.dig_stage = ((u, v), 0.0, 0); return (prev_v, true);
         }
-        let (elev, next_elev) = (self.elevation_at(u, v), self.deepened_steps(u, v));
+        let (elev, step_at) = (self.elevation_at(u, v), ((layer_elev - 0.25) * 2.0).round() as i32);
+        let min_n = [(-1, 0), (1, 0), (0, -1), (0, 1)].iter().filter(|&&(du, dv)| !self.breached_at(u + du, v + dv)).map(|&(du, dv)| self.elevation_at(u + du, v + dv)).min().unwrap_or(elev);
+        let next_elev = if step_at < elev - 1 && layer_elev < (nat as f32) * 0.5 - 0.55 { (step_at - 3).max(min_n).max(crust + 1) } else { self.deepened_steps(u, v) };
         if next_elev == elev { return (v, false); }
-        self.deltas.insert((u, v), next_elev - self.natural_elevation_at(u, v));
-        self.bare_dirt.insert((u, v), 0.0); self.dig_stage = ((u, v), 0.0, 0); (prev_v, true)
+        self.deltas.insert((u, v), next_elev - nat); self.bare_dirt.insert((u, v), 0.0); self.dig_stage = ((u, v), 0.0, 0); (prev_v, true)
     }
     fn stack_cell(&mut self, u: i32, v: i32) -> bool { self.stack_molded_cell(u, v, (self.elevation_at(u, v) as f32) * 0.5, Box::new(CuboidShape::new(0.5)), true) }
     fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool {

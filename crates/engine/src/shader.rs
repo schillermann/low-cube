@@ -13,11 +13,13 @@ uniform mat4 u_view_proj;
 out vec3 v_normal;
 out vec3 v_color;
 out float v_glow;
+out vec2 v_screen;
 
 void main() {
     v_normal = in_normal;
     v_color = in_color;
     v_glow = in_glow;
+    v_screen = in_position.xy;
     gl_Position = u_view_proj * vec4(in_position, 1.0);
 }
 "#;
@@ -26,12 +28,19 @@ const FRAGMENT_SHADER_SRC: &str = r#"#version 330 core
 in vec3 v_normal;
 in vec3 v_color;
 in float v_glow;
+in vec2 v_screen;
 
 uniform vec3 u_light_dir;
 
 out vec4 frag_color;
 
 void main() {
+    if (v_glow < 0.0) {
+        float ramp = clamp((length(v_screen) - v_normal.x) / max(v_normal.y, 0.0001), 0.0, 1.0);
+        float alpha = clamp(-v_glow * mix(v_normal.z, 1.0, smoothstep(0.0, 1.0, ramp)), 0.0, 1.0);
+        frag_color = vec4(v_color, alpha);
+        return;
+    }
     vec3 norm = normalize(v_normal);
     float diff = max(dot(norm, normalize(u_light_dir)), 0.0);
     vec3 ambient = vec3(0.35);

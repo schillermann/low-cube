@@ -31,7 +31,7 @@ impl AvatarPosture {
 
     /// Marks the posture as perished in the molten magma core, preserving elapsed cardiac phase if already perished.
     pub fn perish(self) -> Self {
-        if self.perished() { self } else { Self::with_strain(self.elevation, 0.0, 0.0, 2.0, 1.0) }
+        if self.perished() { self } else { Self::with_strain(self.elevation, 0.0, 0.0, 2.0, self.strain.max(0.45)) }
     }
 
     /// Indicates whether the avatar has perished in the molten magma core.
@@ -39,12 +39,17 @@ impl AvatarPosture {
         self.hover > 1.5
     }
 
+    /// Indicates whether the dying blackout has completely closed to pitch black so the avatar wakes up at spawn.
+    pub fn blackout_complete(&self) -> bool {
+        self.perished() && self.phase_timer >= 2.6
+    }
+
     /// Advances the cardiac arrest timer and indicates whether a booming heartbeat cycle just started.
     pub fn advance_perish(self, dt: f32) -> (Self, bool) {
         if !self.perished() { return (self, false); }
         let next_timer = self.phase_timer.max(0.0) + dt.max(0.0);
         let beat = self.phase_timer <= 0.0 || (self.phase_timer / 0.85).floor() < (next_timer / 0.85).floor();
-        (Self::with_strain(self.elevation, 0.0, next_timer, self.hover, 1.0), beat)
+        (Self::with_strain(self.elevation, 0.0, next_timer, self.hover, self.strain), beat)
     }
 
     /// Instantaneous "lub-dub" cardiac pulse intensity in [0.0, 1.0].
@@ -62,12 +67,14 @@ impl AvatarPosture {
         wave * scale
     }
 
-    /// Progressive red tunnel-vision constriction in [0.0, 1.0] during core exposure or heart-attack death.
+    /// Progressive tunnel-vision constriction in [0.0, 1.0] during core exposure or blackout.
     pub fn cardiac_constriction(&self) -> f32 {
         if self.perished() {
-            (0.52 + (self.phase_timer.max(0.0) * 0.28).min(0.36) + 0.10 * self.cardiac_throb()).clamp(0.0, 0.96)
+            let fade = (self.phase_timer.max(0.0) / 2.2).clamp(0.0, 1.0);
+            let start = self.strain.clamp(0.45, 0.85);
+            (start + (1.0 - start) * fade).clamp(0.0, 1.0)
         } else if self.strain > 0.0 {
-            (self.strain * 0.82 + 0.08 * self.cardiac_throb()).clamp(0.0, 0.90)
+            (self.strain * 0.85 + 0.04 * self.cardiac_throb()).clamp(0.0, 0.92)
         } else {
             0.0
         }
@@ -78,38 +85,31 @@ impl AvatarPosture {
         (65.0 - 36.0 * self.cardiac_constriction() - 5.0 * self.cardiac_throb()).to_radians()
     }
 
-    fn emit_red_ring(outer: f32, inner: f32, col: Vec3, target: &mut dyn world::MeshTarget) {
-        crate::menu::ScreenBounds::new(-outer, inner, outer, outer).emit_fill(col, target);
-        crate::menu::ScreenBounds::new(-outer, -outer, outer, -inner).emit_fill(col, target);
-        crate::menu::ScreenBounds::new(-outer, -inner, -inner, inner).emit_fill(col, target);
-        crate::menu::ScreenBounds::new(inner, -inner, outer, inner).emit_fill(col, target);
-    }
-
-    /// Emits the HUD crosshair and the progressive red tunnel-vision vignette when exposed near the core or perished.
+    /// Emits the HUD crosshair and the shrinking circular tunnel-vision vignette with a transparent gradient to black.
     pub fn emit_reticle(&self, target: &mut dyn world::MeshTarget) {
         let constrict = self.cardiac_constriction();
-        if constrict > 0.02 {
+        if constrict > 0.01 {
             let throb = self.cardiac_throb();
-            let ap = (0.96 - 0.72 * constrict - 0.06 * throb).clamp(0.20, 0.96);
-            let mid = (ap * 1.28).min(0.98);
-            let outer_red = Vec3::new(0.26 + 0.18 * throb, 0.01, 0.01);
-            let mid_red = Vec3::new(0.54 + 0.24 * throb, 0.02, 0.02);
-            let inner_red = Vec3::new(0.84 + 0.16 * throb, 0.05 + 0.04 * throb, 0.03);
-            Self::emit_red_ring(1.0, mid, outer_red, target);
-            Self::emit_red_ring(mid, (ap * 1.10).min(mid), mid_red, target);
-            Self::emit_red_ring((ap * 1.10).min(mid), ap, inner_red, target);
-            let bev = ap * 0.30;
-            for (sx, sy) in [(-1.0f32, -1.0f32), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
-                let (x0, x1) = ((sx * (ap - bev)).min(sx * ap), (sx * (ap - bev)).max(sx * ap));
-                let (y0, y1) = ((sy * (ap - bev)).min(sy * ap), (sy * (ap - bev)).max(sy * ap));
-                crate::menu::ScreenBounds::new(x0, y0, x1, y1).emit_fill(mid_red, target);
+            let blackout = ((constrict - 0.72) / 0.28).clamp(0.0, 1.0);
+            let inner_r = (1.22 * (1.0 - constrict) - 0.03 * throb * (1.0 - constrict)).max(0.0);
+            let (outer_r, edge_alpha, min_alpha) = (1.48, (constrict * 1.15).clamp(0.18, 1.0), blackout * blackout);
+            let (bands, segs) = (8usize, 24usize);
+            for b in 0..bands {
+                let (t0, t1) = ((b as f32) / (bands as f32), ((b + 1) as f32) / (bands as f32));
+                let (r0, r1, tm) = (inner_r + (outer_r - inner_r) * t0, inner_r + (outer_r - inner_r) * t1, (t0 + t1) * 0.5);
+                let a0 = (min_alpha + (1.0 - min_alpha) * t0.powf(1.3) * edge_alpha).clamp(0.02, 1.0);
+                let a1 = (min_alpha + (1.0 - min_alpha) * t1.powf(1.3) * edge_alpha).clamp(0.04, 1.0);
+                let red = (1.0 - blackout) * (1.0 - tm * 0.75) * (0.16 + 0.12 * throb);
+                let (col, grad_norm) = (Vec3::new(red, 0.0, 0.0), Vec3::new(r0, (r1 - r0).max(1e-4), (a0 / a1).clamp(0.0, 1.0)));
+                for s in 0..segs {
+                    let (ang0, ang1) = ((s as f32) * std::f32::consts::TAU / (segs as f32), ((s + 1) as f32) * std::f32::consts::TAU / (segs as f32));
+                    let (c0, s0, c1, s1) = (ang0.cos(), ang0.sin(), ang1.cos(), ang1.sin());
+                    let (p0, p1) = (Vec3::new(c0 * r0, s0 * r0, 0.0), Vec3::new(c1 * r0, s1 * r0, 0.0));
+                    let (p2, p3) = (Vec3::new(c1 * r1, s1 * r1, 0.0), Vec3::new(c0 * r1, s0 * r1, 0.0));
+                    target.push_quad(world::Quad::glowing(p0, p1, p2, p3, grad_norm, col, -a1));
+                }
             }
-            if self.perished() {
-                crate::menu::ScreenBounds::new(-0.42, -0.14, 0.42, 0.14)
-                    .emit_framed(Vec3::new(0.28 + 0.12 * throb, 0.02, 0.02), Vec3::new(0.96, 0.16 + 0.12 * throb, 0.08), 0.008, target);
-                crate::menu::PixelStamp::title(Vec3::new(1.0, 0.82, 0.28)).emit_centered("YOU DIED", 0.0, 0.0, target);
-                return;
-            }
+            if constrict >= 0.96 { return; }
         }
         crate::menu::ScreenPoint::center().emit_crosshair(target);
     }
@@ -127,7 +127,7 @@ impl AvatarPosture {
         if self.perished() { return self.advance_perish(dt); }
         let target = if weightless { 1.0 } else { 0.0 };
         let next_hover = self.hover + (target - self.hover) * (14.0 * dt).clamp(0.0, 1.0);
-        let next_strain = if weightless { (self.strain + dt / 12.0).min(1.0) } else { (self.strain - dt * 0.6).max(0.0) };
+        let next_strain = if weightless { (self.strain + dt / 120.0).min(1.0) } else { (self.strain - dt * 0.6).max(0.0) };
         if next_strain >= 1.0 {
             return Self::with_strain(self.elevation, 0.0, self.phase_timer.max(0.0), 2.0, 1.0).advance_perish(dt);
         }

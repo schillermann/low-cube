@@ -183,5 +183,17 @@ mod tests {
         avatar.rotate_view(1050.0, 0.0);
         let full_turn_fwd = forward_of(&avatar);
         assert!(full_turn_fwd.dot(initial_fwd) < -0.5, "Widening shaft to 2x2 must allow full 180/360-degree rotation when upper body width is smaller than 2 blocks, got {full_turn_fwd:?}");
+
+        for (x, z, layers) in [(0.25, 0.25, 4), (0.75, 0.25, 4), (0.25, 0.75, 2), (0.75, 0.75, 2)] {
+            for _ in 0..layers { let y = world.constrain_to_surface(Vec3::new(x, 20.0, z), 0.0).y; assert!(world.excavate_surface(Vec3::new(x, y + 1.0, z), Vec3::NEG_Y)); }
+        }
+        let deep_pos = world.constrain_to_surface(Vec3::new(0.45, 20.0, 0.25), 1.0);
+        let mut deep_miner = PlanetaryAvatar::at(deep_pos);
+        deep_miner.apply_attire(crate::attire::YouthAttire::squire().with_relics(crate::attire::HeldRelic::IronSpade, crate::attire::HeldRelic::EmptyPalm));
+        deep_miner.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
+        deep_miner.rotate_view(524.0, 120.0);
+        assert!(forward_of(&deep_miner).x > 0.85, "Deep 2x2 shaft with 2-block internal step must not wedge shoulders");
+        assert!(!deep_miner.use_right_hand(&mut world) && deep_miner.use_right_hand(&mut world), "Must dig side wall from inside deep 2x2 shaft");
+        assert!(world.constrain_to_surface(Vec3::new(1.25, 20.0, 0.25), 0.0).y <= deep_pos.y - 0.5, "Side wall of deep 2x2 shaft must open down to shaft depth");
     }
 }

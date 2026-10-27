@@ -27,19 +27,11 @@ pub use widget::{ScreenBounds, ScreenPoint};
 
 /// Directive returned when interacting with the Escape menu, Character studio, or Settings panel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ModalDirective {
-    ContinueSession,
-    ExitGame,
-}
+pub enum ModalDirective { ContinueSession, ExitGame }
 
 /// Polymorphic modal state machine for gameplay, Escape pause menu, Character studio, and Settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ModalPhase {
-    Gameplay,
-    EscapePause,
-    CharacterWardrobe,
-    ControlSettings,
-}
+enum ModalPhase { Gameplay, EscapePause, CharacterWardrobe, ControlSettings }
 
 /// Interface for session modal overlay interaction and rendering.
 pub trait SessionModal {
@@ -191,9 +183,9 @@ impl SessionModal for EscapeMenu {
         }
         let mut ui_batch = CpuMeshBatch::empty();
         self.emit_ui(avatar, &mut ui_batch);
-        unsafe { gl.disable(glow::DEPTH_TEST); }
+        unsafe { gl.disable(glow::DEPTH_TEST); gl.enable(glow::BLEND); gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA); }
         shader.bind(gl, &Mat4::IDENTITY, Vec3::Z);
         ui_batch.draw(gl);
-        unsafe { gl.enable(glow::DEPTH_TEST); }
+        unsafe { gl.disable(glow::BLEND); gl.enable(glow::DEPTH_TEST); }
     }
 }

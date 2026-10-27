@@ -28,9 +28,7 @@ pub trait Avatar {
     fn apply_bindings(&mut self, _bindings: ActionBindings) {}
     fn dispatch_trigger(&mut self, _trigger: InputTrigger) -> bool { false }
     #[cfg(test)]
-    fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
-        self.dispatch_trigger(InputTrigger::Key(code))
-    }
+    fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool { self.dispatch_trigger(InputTrigger::Key(code)) }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
     fn surface_rotation(&self) -> Quat;
@@ -65,17 +63,14 @@ impl PlanetaryAvatar {
 
     #[cfg(test)]
     pub fn with_attire(initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: YouthAttire) -> Self { Self::with_attire_and_bindings(initial_position, flight, attire, ActionBindings::seeded()) }
-
     #[cfg(test)]
     pub fn with_flight(initial_position: Vec3, flight: Box<dyn GravitationalFlight>) -> Self { Self::with_attire(initial_position, flight, YouthAttire::squire()) }
     #[cfg(test)]
     pub fn at(initial_position: Vec3) -> Self { Self::with_flight(initial_position, Box::new(SurfaceFlight::terrestrial(1.0))) }
-
     fn current_pose(&self) -> BodyPose {
         let view_rot = self.look.combine_with_surface(self.camera_rot);
         self.posture.body_pose(self.position, self.camera_rot, view_rot, self.rhythm)
     }
-
     fn surface_up(&self) -> Vec3 { self.surface_rot * Vec3::Y }
 
     fn reorient_surface(&mut self, target_up: Vec3, dt: f32) {
@@ -99,13 +94,21 @@ impl PlanetaryAvatar {
     fn act_with_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
         if self.posture.perished() || world.lethal_at(self.position) || (self.earthworks.satchel_open() && !self.earthworks.tome_open()) { return false; }
         let (eye, view_dir) = self.hand_ray();
-        let (next_ew, next_attire, next_rhythm, changed) =
-            self.earthworks.act_with_hand(side, self.attire, self.rhythm, eye, view_dir, world);
+        let (next_ew, next_attire, next_rhythm, changed) = self.earthworks.act_with_hand(side, self.attire, self.rhythm, eye, view_dir, world);
         (self.earthworks, self.attire, self.rhythm) = (next_ew, next_attire, next_rhythm);
         changed
     }
-    fn step_perish(&mut self, dt: f32) {
+    fn step_perish(&mut self, dt: f32, world: &dyn PlanetaryWorld) {
         let (next_posture, beat) = self.posture.perish().advance_perish(dt);
+        if next_posture.blackout_complete() {
+            let spawn = [(0.25, 0.25), (2.25, 0.25), (-2.25, 0.25), (0.25, 2.25), (0.25, -2.25)].into_iter()
+                .map(|(x, z)| world.constrain_to_surface(Vec3::new(x, 1024.0, z), 1.0))
+                .fold(world.constrain_to_surface(Vec3::new(0.25, 1024.0, 0.25), 1.0), |acc, c| if c.y > acc.y + 1.5 { c } else { acc });
+            (self.position, self.surface_rot, self.camera_rot, self.tilt_radians) = (spawn, Quat::IDENTITY, Quat::IDENTITY, 0.0);
+            (self.posture, self.rhythm, self.lens) = (AvatarPosture::standing(), StrideRhythm::idle(), PerspectiveLens::human_eye());
+            self.flight.ground(); self.look.constrain_shoulders(false, 0.0);
+            return;
+        }
         (self.posture, self.rhythm) = (next_posture, StrideRhythm::idle());
         self.lens = self.lens.transition_to(self.posture.cardiac_fov(), dt);
         self.tilt_radians += (0.22 - self.tilt_radians) * (4.0 * dt).clamp(0.0, 1.0);
@@ -148,13 +151,14 @@ impl Avatar for PlanetaryAvatar {
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
         if self.earthworks.satchel_open() || self.posture.perished() || world.lethal_at(self.position) {
-            if self.posture.perished() || world.lethal_at(self.position) { self.step_perish(dt); } else { self.rhythm = StrideRhythm::idle(); }
+            if self.posture.perished() || world.lethal_at(self.position) { self.step_perish(dt, world); } else { self.rhythm = StrideRhythm::idle(); }
             return;
         }
         let terrain_up = world.surface_up_at(self.position);
         self.reorient_surface(terrain_up, dt);
         let mut order = LocomotionOrder::idle();
         SurfaceHeading::aligned(self.surface_rot, &self.look).drive_locomotion(controls, &mut order);
+        order.calm_beneath_crust(world.weightless_at(self.position));
         order.dispatch_jump(&mut *self.flight);
         let facing = (self.look.combine_with_surface(self.surface_rot) * Vec3::NEG_Z).normalize();
         let standing_env = self.attire.body_envelope().with_crouch_and_facing(0.0, facing);
@@ -166,7 +170,7 @@ impl Avatar for PlanetaryAvatar {
         self.lens = order.advance_lens(self.lens, dt);
         self.tilt_radians *= 1.0 - (8.0 * dt).min(1.0);
         let next_pos = order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, 6.0, world);
-        if world.lethal_at(next_pos) { self.position = next_pos; self.step_perish(dt); return; }
+        if world.lethal_at(next_pos) { self.position = next_pos; self.step_perish(dt, world); return; }
         let weightless = world.weightless_at(next_pos) || world.weightless_at(self.position);
         let (next_posture, beat) = self.posture.advance_leap(self.position, next_pos, terrain_up, dt).advance_hover(weightless, dt);
         self.posture = next_posture;

@@ -101,6 +101,13 @@ impl LocomotionOrder {
         Self::new(Vec3::ZERO, LeapIntent::Resting, ActiveGait::Walk(WalkGait::upright()))
     }
 
+    /// Suppresses fast floating (sprinting) when weightless beneath the planetary crust.
+    pub fn calm_beneath_crust(&mut self, weightless: bool) {
+        if weightless && matches!(self.gait, ActiveGait::Sprint(_)) {
+            self.gait = ActiveGait::Walk(WalkGait::upright());
+        }
+    }
+
     /// Computes the horizontal stride aligned with a surface normal for a given distance scaled by gait pace.
     pub fn surface_stride(&self, surface_up: Vec3, distance: f32) -> Vec3 {
         let tangent = self.direction - surface_up * self.direction.dot(surface_up);

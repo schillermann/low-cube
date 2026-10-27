@@ -99,18 +99,18 @@ impl PalmEarthworks {
 
     fn locate_dig_site(eye: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> Vec3 {
         let (dir, up) = (view_dir.normalize_or_zero(), world.surface_up_at(eye));
-        if world.weightless_at(eye) { return world.confine_beneath_crust(eye + dir * 1.1); }
+        if world.weightless_at(eye) || (world.constrain_to_surface(eye, 0.0) - eye).dot(up) > 0.5 { return world.confine_beneath_crust(eye + dir * 1.1); }
         for step in 1..=85 {
             let sample = eye + dir * ((step as f32) * 0.04);
             let ground = world.constrain_to_surface(sample, 0.0);
-            if (-0.02..=0.52).contains(&(ground - sample).dot(up)) { return ground - up * (ground - sample).dot(up).max(0.0); }
+            if (ground - sample).dot(up) >= -0.02 { return ground - up * (ground - sample).dot(up).max(0.0); }
         }
         world.constrain_to_surface(eye + dir, 0.0)
     }
 
     pub fn release_hand(self, attire: YouthAttire, eye: Vec3, view_dir: Vec3, avatar_pos: Vec3, world: &mut dyn PlanetaryWorld) -> (Self, YouthAttire, bool) {
-        let state = self.reconcile_attire(attire);
-        let overhead = world.weightless_at(eye) || view_dir.normalize_or_zero().dot(world.surface_up_at(eye)) > 0.7;
+        let (state, up) = (self.reconcile_attire(attire), world.surface_up_at(eye));
+        let overhead = world.weightless_at(eye) || (world.constrain_to_surface(eye, 0.0) - eye).dot(up) > 0.5 || view_dir.normalize_or_zero().dot(up) > 0.7;
         if (state.held_mask & 12) != 0 && (state.dig_progress == 0 || (overhead && state.dig_progress <= 4)) {
             if state.dig_progress > 0 { world.loosen_surface(eye, view_dir, 0); }
             let side = if state.held_mask & 4 != 0 { 1.0 } else { -1.0 };
@@ -155,8 +155,8 @@ impl PalmEarthworks {
         }
         let (right, left) = attire.held_pair();
         let (active, other, bit) = if side > 0.0 { (right, left, 1u8) } else { (left, right, 2u8) };
-        let (place_bit, dig_bit) = (bit << 2, bit << 4);
-        let weightless = world.weightless_at(eye) || view_dir.normalize_or_zero().dot(world.surface_up_at(eye)) > 0.7;
+        let (place_bit, dig_bit, up) = (bit << 2, bit << 4, world.surface_up_at(eye));
+        let weightless = world.weightless_at(eye) || (world.constrain_to_surface(eye, 0.0) - eye).dot(up) > 0.5 || view_dir.normalize_or_zero().dot(up) > 0.7;
         if active.placeable_block() && !weightless && (state.held_mask & bit) == 0 && (state.held_mask & 12) == 0 && state.dig_progress == 0 {
             let next_rhythm = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
             return (Self::new(state.satchel, 0, bit | place_bit, Vec3::ZERO, false), attire, next_rhythm, false);

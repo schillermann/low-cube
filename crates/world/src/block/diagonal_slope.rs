@@ -45,10 +45,20 @@ impl VoxelShape for DiagonalSlope {
 
         // Emit 2 coplanar/smooth surface triangles covering the cell
         let up_norm = |n: Vec3| if n.dot(frame.normal()) >= 0.0 { n } else { -n };
-        let norm_a = up_norm((p1 - p0).cross(p2 - p0).normalize());
-        let norm_b = up_norm((p2 - p0).cross(p3 - p0).normalize());
-        target.push_quad(Quad::new(p0, p1, p2, p2, norm_a, color));
-        target.push_quad(Quad::new(p0, p2, p3, p3, norm_b, color));
+        match self.heading {
+            CornerHeading::NorthEast | CornerHeading::SouthWest => {
+                let norm_a = up_norm((p1 - p0).cross(p2 - p0).normalize());
+                let norm_b = up_norm((p2 - p0).cross(p3 - p0).normalize());
+                target.push_quad(Quad::new(p0, p1, p2, p2, norm_a, color));
+                target.push_quad(Quad::new(p0, p2, p3, p3, norm_b, color));
+            }
+            CornerHeading::NorthWest | CornerHeading::SouthEast => {
+                let norm_a = up_norm((p1 - p0).cross(p3 - p0).normalize());
+                let norm_b = up_norm((p2 - p1).cross(p3 - p1).normalize());
+                target.push_quad(Quad::new(p0, p1, p3, p3, norm_a, color));
+                target.push_quad(Quad::new(p1, p2, p3, p3, norm_b, color));
+            }
+        }
 
         let [b0, b1, b2, b3] = cell.corner_points(frame, base_elevation);
 

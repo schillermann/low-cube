@@ -15,23 +15,24 @@ impl MeshTarget for VaultCeilingTarget<'_> {
     fn push_quad(&mut self, quad: Quad) {
         let up = self.frame.normal();
         quad.transfer(|v0, v1, v2, v3, normal, _| {
-            if normal.dot(up) >= -0.05 {
-                return;
-            }
+            if normal.dot(up) >= -0.05 { return; }
             let clamp_seam = |p: Vec3| {
                 let (a, b) = self.frame.decompose(p);
                 let reach = a * a + b * b + a.abs().max(b.abs()).powi(2);
                 if reach > self.vault.radius * self.vault.radius {
                     let (sa, sb, sh) = self.vault.shell_point(a, b);
                     self.frame.point_at(sa, sb, sh)
-                } else {
-                    p
-                }
+                } else { p }
             };
             let (c0, c1, c2, c3) = (clamp_seam(v0), clamp_seam(v1), clamp_seam(v2), clamp_seam(v3));
-            let center = (c0 + c1 + c2 + c3) * 0.25;
-            let glow = if normal.dot(up) < -0.05 { 0.7 } else { 0.55 };
-            self.target.push_quad(Quad::glowing(c0, c1, c2, c3, normal, self.vault.rock_tone(center) * self.tint, glow));
+            let (center, glow) = ((c0 + c1 + c2 + c3) * 0.25, if normal.dot(up) < -0.05 { 0.7 } else { 0.55 });
+            let col = self.vault.rock_tone(center) * self.tint;
+            let quad_out = if (v2 - v3).length_squared() > 1e-6 && (c1 - c3).length_squared() < (c0 - c2).length_squared() {
+                Quad::glowing(c1, c2, c3, c0, normal, col, glow)
+            } else {
+                Quad::glowing(c0, c1, c2, c3, normal, col, glow)
+            };
+            self.target.push_quad(quad_out);
         });
     }
 }
@@ -45,9 +46,15 @@ pub struct CrustVault {
 
 impl CrustVault {
     pub fn new(radius: f32, half_blocks: i32) -> Self { Self { radius, half_blocks } }
-    pub fn beneath(half_blocks: i32) -> Self { Self::new(if half_blocks <= 16 { 4.0 } else { (half_blocks as f32) * 0.375 }, half_blocks) }
+    pub fn beneath(half_blocks: i32) -> Self {
+        let r = if half_blocks <= 16 { 4.0 } else if half_blocks < 128 { (half_blocks as f32) * 0.375 } else { (half_blocks as f32) * 0.421875 };
+        Self::new(r, half_blocks)
+    }
     pub fn circumference(&self) -> f32 { std::f32::consts::TAU * self.radius }
-    pub fn core(&self) -> MagmaCore { MagmaCore::new((self.radius - 8.0).max((self.radius - 2.0) * 0.5).max(1.0), self.half_blocks, (self.half_blocks / 16).max(1)) }
+    pub fn core(&self) -> MagmaCore {
+        let drop = if self.half_blocks >= 128 { (self.half_blocks as f32) * (14.0 / 128.0) } else { 8.0 };
+        MagmaCore::new((self.radius - drop).max((self.radius - 2.0) * 0.5).max(1.0), self.half_blocks, (self.half_blocks / 16).max(1))
+    }
     fn half_size(&self) -> f32 { (self.half_blocks as f32) * 0.5 }
     pub fn ceiling_inset(&self, margin: f32) -> f32 { self.half_size() - self.radius + margin }
 
@@ -149,7 +156,11 @@ impl CrustVault {
         let (floor_elev, block) = self.block_at(cell);
         let c = block.ceiling_corners(floor_elev);
         let mut ceiling_out = VaultCeilingTarget { vault: self, frame, tint: 1.0 - (dig_stage.min(3) as f32) * 0.14, target };
-        block.emit_shape(cell, floor_elev, frame, Vec3::ONE, &mut ceiling_out);
+        if [(u0, v0), (u1, v0), (u1, v1), (u0, v1)].iter().all(|&(a, b)| self.opens_at(a, b)) {
+            block.emit_shape(cell, floor_elev, frame, Vec3::ONE, &mut ceiling_out);
+        } else {
+            ceiling_out.push_quad(Quad::new(frame.point_at(u0, v1, c[3]), frame.point_at(u1, v1, c[2]), frame.point_at(u1, v0, c[1]), frame.point_at(u0, v0, c[0]), -frame.normal(), Vec3::ONE));
+        }
         let steps = [
             ((u0, v1), (u1, v1), c[3], c[2], self.corners_at(u, v + 1)[0], self.corners_at(u, v + 1)[1], frame.bitangent()),
             ((u1, v0), (u0, v0), c[1], c[0], self.corners_at(u, v - 1)[2], self.corners_at(u, v - 1)[3], -frame.bitangent()),
@@ -170,14 +181,15 @@ impl CrustVault {
     /// Emits the crust skirt sealing the gap between this cell's 4-layer floor and the vault toward a breached neighbor.
     pub fn emit_skirt(&self, cell: GridCell, side: (i32, i32), frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
-        let floor = cell.feed_coordinates(|u, v| (self.floor_steps_at(u, v) as f32) * 0.5);
-        let ((a0, b0), (a1, b1), normal) = match side {
-            (0, 1) => ((u0, v1), (u1, v1), frame.bitangent()),
-            (0, _) => ((u1, v0), (u0, v0), -frame.bitangent()),
-            (1, _) => ((u1, v1), (u1, v0), frame.tangent()),
-            _ => ((u0, v0), (u0, v1), -frame.tangent()),
+        let (u, v) = cell.feed_coordinates(|u, v| (u, v));
+        let (floor, c) = ((self.floor_steps_at(u, v) as f32) * 0.5, self.corners_at(u, v));
+        let ((a0, b0), (a1, b1), c0, c1, normal) = match side {
+            (0, 1) => ((u0, v1), (u1, v1), c[3], c[2], frame.bitangent()),
+            (0, _) => ((u1, v0), (u0, v0), c[1], c[0], -frame.bitangent()),
+            (1, _) => ((u1, v1), (u1, v0), c[2], c[1], frame.tangent()),
+            _ => ((u0, v0), (u0, v1), c[0], c[3], -frame.tangent()),
         };
-        let (low0, low1) = (self.ceiling_height_at(a0, b0).min(floor), self.ceiling_height_at(a1, b1).min(floor));
+        let (low0, low1) = (c0.min(self.ceiling_height_at(a0, b0)).min(floor), c1.min(self.ceiling_height_at(a1, b1)).min(floor));
         let (p0, p1) = (frame.point_at(a0, b0, low0), frame.point_at(a1, b1, low1));
         let (p2, p3) = (frame.point_at(a1, b1, floor), frame.point_at(a0, b0, floor));
         target.push_quad(Quad::glowing(p0, p1, p2, p3, normal, self.rock_tone((p0 + p2) * 0.5), 0.5));

@@ -79,7 +79,9 @@ impl GroundedFlight {
 
         let next_momentum = ctx.damp_surf_momentum(self.momentum);
 
-        if !clearance.passable_with(ctx.permits_seam_fold()) {
+        if !ctx.origin_supported() {
+            ctx.resolve_precipice(self.threshold, ctx.candidate_point(Vec3::ZERO))
+        } else if !clearance.passable_with(ctx.permits_seam_fold()) {
             ctx.resolve_precipice(self.threshold, horizontal)
         } else {
             let next_pos = ctx.resolve_paced_stride(stride, self.momentum, self.threshold);
