@@ -121,16 +121,18 @@ impl<'a> StrideTrial for AerialTrial<'a> {
         let surface_pos = self.probe.envelope.constrain_with_height(candidate, self.stance.eye, self.probe.world);
         let clearance = SurfaceClearance::between(self.stance.origin, candidate, surface_pos, self.stance.up, self.probe.world);
         let origin_surf = self.probe.envelope.constrain_with_height(self.stance.origin, self.stance.eye, self.probe.world);
-        let over_pit = (self.stance.origin - origin_surf).dot(self.stance.up) > 0.02;
+        let in_deep_shaft = (self.stance.origin - origin_surf).dot(self.stance.up) >= 2.5;
+        let over_pit = (self.stance.origin - origin_surf).dot(self.stance.up) > 0.02 && !in_deep_shaft;
+        let step_ref = if in_deep_shaft { self.stance.origin } else { origin_surf };
         let falling_into_pit = self.vertical.dot(self.stance.up) <= 0.0
             && (self.stance.origin - surface_pos).dot(self.stance.up) < if over_pit { 0.52 } else { -1e-4 }
-            && !SurfaceStep::new(origin_surf, surface_pos, self.stance.up).walkable_with(self.stance.limit);
+            && !SurfaceStep::new(step_ref, surface_pos, self.stance.up).walkable_with(self.stance.limit);
         let center_ok = if falling_into_pit {
             false
         } else if !clearance.cliff_impact(self.stance.limit) {
             true
         } else {
-            SurfaceStep::new(origin_surf, surface_pos, self.stance.up).walkable_with(self.stance.limit)
+            SurfaceStep::new(step_ref, surface_pos, self.stance.up).walkable_with(self.stance.limit)
         };
         center_ok
             && self.probe.envelope.unobstructed_aerial(

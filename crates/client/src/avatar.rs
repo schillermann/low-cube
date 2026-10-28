@@ -154,7 +154,8 @@ impl PlanetaryAvatar {
         self.sight_line.lens = self.sight_line.lens.transition_to(self.body.posture.cardiac_fov(), dt);
         self.bearing.tilt_radians += (0.22 - self.bearing.tilt_radians) * (4.0 * dt).clamp(0.0, 1.0);
         if beat {
-            crate::cardiac::CardiacPulse::studio().thump();
+            use crate::cardiac::AcousticWave;
+            crate::cardiac::MonitoredPulse::clinical().thump();
         }
     }
 }
@@ -231,27 +232,39 @@ impl Avatar for PlanetaryAvatar {
         self.body.flight.apply_envelope(active_env);
         self.sight_line.lens = order.advance_lens(self.sight_line.lens, dt);
         self.bearing.tilt_radians *= 1.0 - (8.0 * dt).min(1.0);
-        let next_pos = order.advance_flight(&mut *self.body.flight, dt, self.body.position, terrain_up, 6.0, world);
-        if world.lethal_at(next_pos) {
-            self.body.position = next_pos;
+        let raw_next = order.advance_flight(&mut *self.body.flight, dt, self.body.position, terrain_up, 6.0, world);
+        if world.lethal_at(raw_next) {
+            self.body.position = raw_next;
             self.step_perish(dt, world);
             return;
         }
-        let weightless = world.weightless_at(next_pos) || world.weightless_at(self.body.position);
+        let weightless = world.weightless_at(raw_next) || world.weightless_at(self.body.position);
+        let eye_off = if weightless { Vec3::ZERO } else { terrain_up * self.body.posture.eye_elevation() };
+        let in_shaft = weightless
+            || (raw_next - active_env.constrain_with_height(raw_next, 1.0, world)).dot(terrain_up) > 2.5
+            || (world.constrain_to_surface(raw_next, 0.0) - (raw_next + eye_off)).dot(terrain_up) > 0.15;
+        let next_pos = if in_shaft { world.confine_beneath_crust(raw_next + eye_off) - eye_off } else { raw_next };
+        let core_closeness = if weightless {
+            let core_pt = world.constrain_to_surface(next_pos, 1.0);
+            let span = (core_pt.length() * 0.36).clamp(6.4, 13.0);
+            (1.0 - (next_pos.length() - core_pt.length()).max(0.0) / span).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
         let (next_posture, beat) = self.body.posture
             .advance_leap(self.body.position, next_pos, terrain_up, dt)
-            .advance_hover(weightless, dt);
+            .advance_core_hover(weightless, core_closeness, dt);
         self.body.posture = next_posture;
         if self.body.posture.cardiac_constriction() > 0.0 {
             self.sight_line.lens = self.sight_line.lens.transition_to(self.body.posture.cardiac_fov(), dt);
         }
         if beat {
+            use crate::cardiac::AcousticWave;
             crate::cardiac::CardiacPulse::studio().thump();
         }
         self.bearing.rhythm = self.bearing.rhythm.advance(self.body.position, next_pos, terrain_up, dt);
-        let eye_off = terrain_up * self.body.posture.eye_elevation();
-        let in_shaft = weightless || (next_pos - active_env.constrain_with_height(next_pos, 1.0, world)).dot(terrain_up) > 2.5;
-        self.body.position = if in_shaft { world.confine_beneath_crust(next_pos + eye_off) - eye_off } else { next_pos };
+        let post_eye = terrain_up * self.body.posture.eye_elevation();
+        self.body.position = if in_shaft { world.confine_beneath_crust(next_pos + post_eye) - post_eye } else { next_pos };
         self.sight_line.look.constrain_shoulders(
             active_env.wedged_in_shaft(self.body.position, terrain_up, 1.0, world),
             self.gear.attire.shaft_yaw_play(),

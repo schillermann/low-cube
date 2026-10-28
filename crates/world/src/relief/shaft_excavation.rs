@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use super::natural_strata::NaturalStrata;
+use super::overhang_molds::OverhangMolds;
 
 /// Excavated downward shaft deltas and upward crust-ceiling breach steps across a relief face.
 pub struct ShaftExcavation {
@@ -86,7 +87,7 @@ impl ShaftExcavation {
     }
 
     pub fn body_elevation_at(&self, strata: &NaturalStrata, u: i32, v: i32) -> i32 {
-        if !self.reworked_at(u, v) || self.upward_at(u, v) > 0 {
+        if !self.reworked_at(u, v) || self.upward_at(u, v) > 0 || self.adjacent_upward_at(strata, u, v) > i32::MIN {
             self.elevation_at(strata, u, v)
         } else {
             self.pair_elevation(strata, u, v, 1, 0)
@@ -118,15 +119,26 @@ impl ShaftExcavation {
         }
     }
 
-    pub fn confine(&self, strata: &NaturalStrata, u: f32, v: f32, elev: f32) -> (f32, f32, f32) {
+    fn solid_wall_at(&self, strata: &NaturalStrata, molds: &OverhangMolds, cu: i32, cv: i32, elev: f32) -> bool {
+        if self.breached_at(strata, cu, cv) {
+            return molds.layer_occupied_at(cu, cv, elev);
+        }
+        let ground = (self.elevation_at(strata, cu, cv) as f32) * 0.5;
+        let ceiling = self.cell_ceiling_at(strata, cu, cv);
+        molds.solid_wall_at(cu, cv, ground, ceiling, elev)
+    }
+
+    pub fn confine(&self, strata: &NaturalStrata, molds: &OverhangMolds, u: f32, v: f32, elev: f32) -> (f32, f32, f32) {
         if self.ceilings.is_empty() && elev > -2.0 {
             return (u, v, elev);
         }
         let (mut cu, mut cv, mut tu, mut tv) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32, u, v);
-        if elev > self.cell_ceiling_at(strata, cu, cv) + 0.20 {
+        if self.solid_wall_at(strata, molds, cu, cv, elev) {
             for (du, dv) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
                 let (nu, nv) = (cu + du, cv + dv);
-                if (self.upward_at(nu, nv) > 0 || self.breached_at(strata, nu, nv)) && elev <= self.cell_ceiling_at(strata, nu, nv) + 0.20 {
+                if (self.upward_at(nu, nv) > 0 || self.breached_at(strata, nu, nv) || molds.present_at(nu, nv))
+                    && !self.solid_wall_at(strata, molds, nu, nv, elev)
+                {
                     tu = u.clamp((nu as f32) * 0.5 + 0.02, ((nu + 1) as f32) * 0.5 - 0.02);
                     tv = v.clamp((nv as f32) * 0.5 + 0.02, ((nv + 1) as f32) * 0.5 - 0.02);
                     (cu, cv) = (nu, nv);
@@ -134,8 +146,19 @@ impl ShaftExcavation {
                 }
             }
         }
+        if (self.upward_at(cu, cv) > 0 || molds.present_at(cu, cv)) && !self.solid_wall_at(strata, molds, cu, cv, elev) {
+            let min_u = if self.solid_wall_at(strata, molds, cu - 1, cv, elev) { (cu as f32) * 0.5 + 0.21 } else { (cu as f32) * 0.5 };
+            let max_u = if self.solid_wall_at(strata, molds, cu + 1, cv, elev) { ((cu + 1) as f32) * 0.5 - 0.21 } else { ((cu + 1) as f32) * 0.5 };
+            let min_v = if self.solid_wall_at(strata, molds, cu, cv - 1, elev) { (cv as f32) * 0.5 + 0.21 } else { (cv as f32) * 0.5 };
+            let max_v = if self.solid_wall_at(strata, molds, cu, cv + 1, elev) { ((cv + 1) as f32) * 0.5 - 0.21 } else { ((cv + 1) as f32) * 0.5 };
+            tu = tu.clamp(min_u, max_u);
+            tv = tv.clamp(min_v, max_v);
+        }
+        let ground = (self.elevation_at(strata, cu, cv) as f32) * 0.5;
         let z = if self.breached_at(strata, cu, cv) {
             elev
+        } else if let Some(confined) = molds.confine_niche_elevation(cu, cv, ground, elev) {
+            confined
         } else if self.upward_at(cu, cv) > 0 {
             let ceiling = (self.crust_floor_at(strata, cu, cv) as f32) * 0.5 - 0.30;
             if elev < ceiling + 2.0 && elev > ceiling { ceiling } else { elev }

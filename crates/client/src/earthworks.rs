@@ -290,7 +290,7 @@ impl PalmEarthworks {
             }
             return (Self::new(state.satchel, 0, next_grip.without_pending_place(), Vec3::ZERO, false), attire, next_rhythm, false);
         }
-        if world.loosen_surface(eye, view_dir, ((progress + 1) / 2).clamp(1, 3) as u8) {
+        if world.loosen_surface(eye, view_dir, progress.div_ceil(2).clamp(1, 3) as u8) {
             return (Self::new(state.satchel, progress, next_grip, site, true), attire, next_rhythm, false);
         }
         let fallback_grip = if w_place { DigGrip::with_pending_place(side) } else { next_grip.without_pending_place() };

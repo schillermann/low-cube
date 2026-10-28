@@ -92,8 +92,40 @@ impl OverhangMolds {
             .map_or(ground_top - 0.25, |block| block.ceiling_above(ground_top) - 0.25)
     }
 
+    fn niche_ceiling_at(&self, u: i32, v: i32, ground_h: f32) -> Option<f32> {
+        let list = self.blocks.get(&(u, v))?;
+        let mut floor = ground_h;
+        for block in list {
+            let base = block.ceiling_above(ground_h) - 0.5;
+            if base <= floor + 0.05 {
+                floor = floor.max(block.ceiling_above(ground_h));
+            } else if base >= floor + 0.45 {
+                return Some(base);
+            }
+        }
+        None
+    }
+
+    pub fn solid_wall_at(&self, u: i32, v: i32, ground_h: f32, ceiling_h: f32, elev: f32) -> bool {
+        if let Some(niche_ceil) = self.niche_ceiling_at(u, v, ground_h) {
+            return elev < ground_h - 0.10 || elev > niche_ceil + 0.85;
+        }
+        (elev > ceiling_h + 0.10 && elev < ground_h - 0.10) || self.layer_occupied_at(u, v, elev)
+    }
+
+    pub fn confine_niche_elevation(&self, u: i32, v: i32, ground_h: f32, elev: f32) -> Option<f32> {
+        self.niche_ceiling_at(u, v, ground_h).map(|niche_ceil| elev.clamp(ground_h + 0.18, niche_ceil - 0.18))
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn constrain_support(&self, cell_u: i32, cell_v: i32, u: f32, v: f32, mut h: f32, foot_elev: f32, body_span: f32) -> f32 {
+        if h < -2.0 && body_span > 1e-4 {
+            if let Some(niche_ceil) = self.niche_ceiling_at(cell_u, cell_v, h) {
+                if foot_elev <= niche_ceil + 0.10 {
+                    return h.min(niche_ceil - 1.98);
+                }
+            }
+        }
         if let Some(list) = self.blocks.get(&(cell_u, cell_v)) {
             let fu = (u * 2.0 - cell_u as f32).clamp(0.0, 1.0);
             let fv = (v * 2.0 - cell_v as f32).clamp(0.0, 1.0);

@@ -142,10 +142,10 @@ fn test_single_character_cycles_all_animations_and_archetypes_differ_fundamental
         archetypes[i].attire().emit(&pose, SightMode::LookingGlassSight, &mut m_male);
         archetypes[i].female_attire().emit(&pose, SightMode::LookingGlassSight, &mut m_fem);
         assert!(m_fem.bust_projection() > m_male.bust_projection() + 0.035);
-        for j in (i + 1)..archetypes.len() {
+        for other in archetypes.iter().skip(i + 1) {
             let (mut m_j, mut f_j) = (QuadCapture::empty(), QuadCapture::empty());
-            archetypes[j].attire().emit(&pose, SightMode::LookingGlassSight, &mut m_j);
-            archetypes[j].female_attire().emit(&pose, SightMode::LookingGlassSight, &mut f_j);
+            other.attire().emit(&pose, SightMode::LookingGlassSight, &mut m_j);
+            other.female_attire().emit(&pose, SightMode::LookingGlassSight, &mut f_j);
             assert_ne!(m_male.positions(), m_j.positions());
             assert_ne!(m_fem.positions(), f_j.positions());
         }

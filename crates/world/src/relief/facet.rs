@@ -48,11 +48,17 @@ impl ReliefFacet {
             self.corner.push_corner_pair(p0, p1, p2, p3, chamfer_col, top_out);
             ([h0, h1, h2, h3], chamfer_col)
         } else if relief.reworked_at(u, v) {
-            let (bare_col, sub_dirt) = (Vec3::new(0.45, 0.30, 0.17), relief.bare_dirt_at(u, v) || molded);
-            let top_c = if sub_dirt { bare_col } else { surf_col };
-            let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
-            if !relief.breached_at(u, v) { top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), top_c)); }
-            if sub_dirt && !relief.breached_at(u, v) { EarthClods::new(cell, top_h - 0.5).emit_crown(frame, top_out); }
+            let vault = super::CrustVault::beneath(half_blocks);
+            let top_c = if h < vault.floor_steps_at(u, v) + 4 {
+                vault.emit_crust_floor(cell, top_h, relief.breached_at(u, v), frame, top_out)
+            } else {
+                let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
+                let sub_dirt = relief.bare_dirt_at(u, v) || molded;
+                let col = if sub_dirt { Vec3::new(0.45, 0.30, 0.17) } else { surf_col };
+                if !relief.breached_at(u, v) { top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), col)); }
+                if sub_dirt && !relief.breached_at(u, v) { EarthClods::new(cell, top_h - 0.5).emit_crown(frame, top_out); }
+                col
+            };
             ([top_h, top_h, top_h, top_h], top_c)
         } else {
             let (nhn, nhs, nhe, nhw) = (relief.natural_elevation_at(u, v + 1), relief.natural_elevation_at(u, v - 1), relief.natural_elevation_at(u + 1, v), relief.natural_elevation_at(u - 1, v));

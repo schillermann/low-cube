@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-10-28
+
+### Added
+- Acoustic waveform interface and clinical pulse-monitor decorator (`AcousticWave`, `CardiacPulse`, `MonitoredPulse` in `crates/client/src/cardiac.rs`) overlaying a `1046.5 Hz` pulse-monitor beep onto slowing heartbeats during the death animation (`AvatarPosture::advance_perish`, `AvatarPosture::perish_cycles`, `PlanetaryAvatar::step_perish`).
+- Bidirectional zero-gravity vertical movement (`LeapIntent::Descend`, `LocomotionOrder::calm_beneath_crust`, `GravitationalFlight::descend`, `SurfaceFlight::advance`) and distance-weighted core strain (`AvatarPosture::advance_core_hover`, `PlanetaryAvatar::step_motion`) accelerating FOV constriction and cardiac failure closer to the magma core.
+- Multi-layer stacked Earth's crust block rendering in upward shafts (`CrustVault::emit_shaft_ceiling`, `CrustVault::emit_crust_flank`, `CrustVault::emit_crust_floor`, `ReliefStrata::emit_upward_shaft`, `ReliefFacet::emit_facet`) displaying 4 distinct beveled crust block layers before transitioning to clodded soil.
+
+### Fixed
+- Preserved gravity and floor support inside lateral shaft niches excavated from upward shafts (`OverhangMolds::solid_wall_at`, `OverhangMolds::confine_niche_elevation`, `OverhangMolds::constrain_support`, `ShaftExcavation::confine`, `TerracedRelief::excavate_layer`, `BodyEnvelope::confine_beneath_crust`, `BodyEnvelope::unobstructed_aerial`, `AerialTrial::passable`, `AirborneFlight::advance`) so floating sideways into a niche lands on the niche floor instead of teleporting back to the core, while preventing camera wall clipping (`0.21m` lateral wall clearance) and softened the central blackout aperture feather (`AvatarPosture::emit_reticle`).
+
 ## [0.40.3] - 2026-10-28
 
 ### Fixed

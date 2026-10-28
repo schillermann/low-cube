@@ -107,6 +107,7 @@ impl SurfaceSightRay {
                 let wall_top = (relief.elevation_at(cu, cv) as f32) * Self::CELL_SPAN;
                 let probe_elev = if (cu, cv) != (scu, scv)
                     && wall_top > stand_top + Self::LAYER_HALF
+                    && ray_elev >= stand_top - Self::LAYER_HALF
                     && d_up > -0.96
                 {
                     ray_elev.max(stand_top + 0.15)

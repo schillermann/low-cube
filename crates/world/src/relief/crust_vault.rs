@@ -129,6 +129,29 @@ impl CrustVault {
         let grit = (((at.x * 3.1).sin() + (at.y * 2.7).cos() + (at.z * 3.7).sin()) / 6.0 + 0.5).clamp(0.0, 1.0);
         Vec3::new(0.36, 0.24, 0.16).lerp(Vec3::new(0.58, 0.33, 0.18), vein).lerp(Vec3::new(0.27, 0.20, 0.17), grit * 0.45)
     }
+
+    pub fn emit_shaft_ceiling(&self, cell: GridCell, ceil_h: f32, tint: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
+        let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
+        let (c0, c1, c2, c3) = (frame.point_at(u0, v0, ceil_h), frame.point_at(u1, v0, ceil_h), frame.point_at(u1, v1, ceil_h), frame.point_at(u0, v1, ceil_h));
+        target.push_quad(Quad::glowing(c3, c2, c1, c0, -frame.normal(), self.rock_tone((c0 + c2) * 0.5) * tint, 0.62));
+    }
+
+    pub fn emit_crust_flank(&self, edge: ((f32, f32), (f32, f32)), layer: i32, floor_step: i32, norm: Vec3, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
+        let (((a0, b0), (a1, b1)), y0, y1) = (edge, (layer as f32) * 0.5, ((layer + 1) as f32) * 0.5);
+        let rock = self.rock_tone(frame.point_at((a0 + a1) * 0.5, (b0 + b1) * 0.5, (y0 + y1) * 0.5));
+        let ((seam, face), (ym0, ym1)) = ((rock * 0.66, rock * (0.94 + ((layer - floor_step) as f32) * 0.04)), (y0 + 0.045, y1 - 0.045));
+        target.push_quad(Quad::glowing(frame.point_at(a0, b0, y0), frame.point_at(a1, b1, y0), frame.point_at(a1, b1, ym0), frame.point_at(a0, b0, ym0), norm, seam, 0.48));
+        target.push_quad(Quad::glowing(frame.point_at(a0, b0, ym0), frame.point_at(a1, b1, ym0), frame.point_at(a1, b1, ym1), frame.point_at(a0, b0, ym1), norm, face, 0.58));
+        target.push_quad(Quad::glowing(frame.point_at(a0, b0, ym1), frame.point_at(a1, b1, ym1), frame.point_at(a1, b1, y1), frame.point_at(a0, b0, y1), norm, seam, 0.48));
+    }
+
+    pub fn emit_crust_floor(&self, cell: GridCell, top_h: f32, breached: bool, frame: &SurfaceFrame, target: &mut dyn MeshTarget) -> Vec3 {
+        let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
+        let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
+        let col = self.rock_tone((p0 + p2) * 0.5);
+        if !breached { target.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), col)); }
+        col
+    }
     fn block_at(&self, cell: GridCell) -> (f32, InvertedShape) {
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
         let q = [

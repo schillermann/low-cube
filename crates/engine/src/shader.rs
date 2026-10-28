@@ -37,7 +37,7 @@ out vec4 frag_color;
 void main() {
     if (v_glow < 0.0) {
         float ramp = clamp((length(v_screen) - v_normal.x) / max(v_normal.y, 0.0001), 0.0, 1.0);
-        float alpha = clamp(-v_glow * mix(v_normal.z, 1.0, smoothstep(0.0, 1.0, ramp)), 0.0, 1.0);
+        float alpha = clamp(-v_glow * mix(v_normal.z, 1.0, ramp), 0.0, 1.0);
         frag_color = vec4(v_color, alpha);
         return;
     }

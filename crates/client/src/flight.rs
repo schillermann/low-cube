@@ -11,6 +11,7 @@ use crate::threshold::StepThreshold;
 /// Interface representing vertical flight and gravitational physics on a planetary surface.
 pub trait GravitationalFlight: Send + Sync {
     fn jump(&mut self);
+    fn descend(&mut self) {}
     fn ground(&mut self) {}
     fn apply_envelope(&mut self, _envelope: BodyEnvelope) {}
     fn advance(
@@ -28,7 +29,7 @@ struct FlightState {
     phase: FlightPhase,
     jump_strength: f32,
     eye_height: f32,
-    jump_requested: bool,
+    vertical_thrust: i8,
 }
 
 struct FlightAerodynamics {
@@ -69,7 +70,7 @@ impl SurfaceFlight {
                 phase,
                 jump_strength,
                 eye_height,
-                jump_requested: false,
+                vertical_thrust: 0,
             },
             aero: FlightAerodynamics {
                 gravity,
@@ -132,12 +133,16 @@ impl SurfaceFlight {
 
 impl GravitationalFlight for SurfaceFlight {
     fn jump(&mut self) {
-        self.state.jump_requested = true;
+        self.state.vertical_thrust = 1;
+    }
+
+    fn descend(&mut self) {
+        self.state.vertical_thrust = -1;
     }
 
     fn ground(&mut self) {
         self.state.phase = FlightPhase::Grounded(GroundedFlight::human());
-        self.state.jump_requested = false;
+        self.state.vertical_thrust = 0;
     }
 
     fn apply_envelope(&mut self, envelope: BodyEnvelope) {
@@ -155,8 +160,9 @@ impl GravitationalFlight for SurfaceFlight {
     ) -> Vec3 {
         let constrained = self.aero.envelope.constrain_with_height(position, self.state.eye_height, world);
         let in_shaft = (position - constrained).dot(surface_up) > 2.5;
-        if self.state.jump_requested {
-            self.state.jump_requested = false;
+        let thrust = self.state.vertical_thrust;
+        self.state.vertical_thrust = 0;
+        if thrust > 0 {
             if world.weightless_at(position) || in_shaft {
                 self.state.phase = FlightPhase::Airborne(AirborneFlight::new(
                     self.state.jump_strength,
@@ -174,6 +180,11 @@ impl GravitationalFlight for SurfaceFlight {
                 );
                 self.state.phase = self.state.phase.launch(launch_speed, launch_momentum);
             }
+        } else if thrust < 0 && world.weightless_at(position) {
+            self.state.phase = FlightPhase::Airborne(AirborneFlight::new(
+                -self.state.jump_strength,
+                StepThreshold::human_stride(),
+            ));
         }
 
         let context = FlightContext::new(
@@ -192,7 +203,7 @@ impl GravitationalFlight for SurfaceFlight {
         );
         let advanced = self.state.phase.advance(&context).apply(&mut self.state.phase);
         let next_pos = if world.weightless_at(position) || world.weightless_at(advanced) || in_shaft {
-            world.confine_beneath_crust(advanced)
+            context.confine_crust(advanced)
         } else {
             advanced
         };
@@ -208,13 +219,6 @@ impl GravitationalFlight for SurfaceFlight {
             if (next_pos - rim).dot(surface_up) >= -0.05 && !world.weightless_at(rim) {
                 self.state.phase = FlightPhase::Grounded(GroundedFlight::human());
                 return rim;
-            }
-            let next_in_shaft = (next_pos - world.constrain_to_surface(next_pos, self.state.eye_height)).dot(surface_up) > 2.5;
-            if next_in_shaft {
-                self.state.phase = FlightPhase::Airborne(AirborneFlight::new(
-                    self.state.jump_strength,
-                    StepThreshold::human_stride(),
-                ));
             }
         }
         if world.lethal_at(next_pos) || world.lethal_at(position) {

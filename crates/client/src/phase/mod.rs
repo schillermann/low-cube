@@ -136,7 +136,7 @@ impl AirborneFlight {
         if ctx.weightless_ascent(next_speed) {
             let raw = ctx.candidate_point(airborne_stride) + vertical_step;
             let confined = ctx.confine_crust(raw);
-            let bonked_speed = if (confined - raw).dot(surface_up) < -1e-4 { next_speed.min(1e-4) } else { next_speed };
+            let bonked_speed = if (confined - raw).dot(surface_up) < -1e-4 { next_speed.min(0.0) } else { next_speed };
             let next_momentum = ctx.damp_aerial_momentum(self.momentum);
             return FlightProgress::new(
                 FlightPhase::Airborne(AirborneFlight::with_momentum(bonked_speed, next_momentum, self.threshold)),
@@ -146,8 +146,13 @@ impl AirborneFlight {
         let rebound = ctx.resolve_aerial_stride(airborne_stride, surface_up, vertical_step, self.threshold);
         let supported = ctx.constrain_surface(rebound);
         let clearance = ctx.clearance(rebound, supported);
+        let orig_pt = ctx.candidate_point(Vec3::ZERO);
+        let orig_surf = ctx.constrain_surface(orig_pt);
 
-        if clearance.cliff_impact(self.threshold) {
+        if clearance.cliff_impact(self.threshold)
+            && (supported - orig_surf).dot(surface_up) > 0.35
+            && (supported - orig_pt).dot(surface_up) > 0.35
+        {
             let unlifted = rebound - surface_up * vertical_step.dot(surface_up).max(0.0);
             let bonked = if ctx.clearance(unlifted, ctx.constrain_surface(unlifted)).cliff_impact(self.threshold) {
                 ctx.candidate_point(Vec3::ZERO) + surface_up * vertical_step.dot(surface_up).min(0.0)

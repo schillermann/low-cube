@@ -71,7 +71,7 @@ fn test_repeated_head_bumps_against_crust_never_catapult_avatar_to_surface() {
 #[test]
 fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface_and_magma_core_kills() {
     use crate::attire::{HeldRelic, YouthAttire};
-    use crate::cardiac::CardiacPulse;
+    use crate::cardiac::{AcousticWave, CardiacPulse, MonitoredPulse};
     let mut world = BiomedCubeWorld::beveled(64, 1.0);
     let mut avatar = PlanetaryAvatar::at(Vec3::new(1.25, 22.2, 1.25));
     let start_fov_scale = avatar.view_projection_matrix(1.0).x_axis.x;
@@ -140,20 +140,30 @@ fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface
     let miner_eye = breach_miner.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
     assert!(miner_eye.y > 22.5 && miner_eye.y < 23.8 && world.weightless_at(miner_eye) && !world.lethal_at(miner_eye), "Mining the last block before the core must leave the avatar floating safely beneath the crust instead of falling into the magma core, got {miner_eye:?}");
 
-    let mut lingering = PlanetaryAvatar::at(Vec3::new(0.25, 21.5, 0.25));
+    let mut lingering = PlanetaryAvatar::at(Vec3::new(0.25, 23.5, 0.25));
     for _ in 0..118 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
     let vp_before_turn = lingering.view_projection_matrix(1.0);
     lingering.rotate_view(120.0, 0.0);
-    assert_ne!(lingering.view_projection_matrix(1.0), vp_before_turn, "Avatar must still be alive and responsive before 2 minutes (120s) elapse");
+    assert_ne!(lingering.view_projection_matrix(1.0), vp_before_turn, "Avatar just beneath the crust ceiling must still be alive before 2 minutes (120s) elapse");
     for _ in 0..3 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
     let vp_blackout = lingering.view_projection_matrix(1.0);
     lingering.rotate_view(120.0, 0.0);
     let mut linger_hud = SpanCapture::empty();
     lingering.emit_reticle(&mut linger_hud);
-    assert!(lingering.view_projection_matrix(1.0) == vp_blackout && linger_hud.max_y - linger_hud.min_y > 1.8 && vp_blackout.y_axis.y > start_fov_scale * 1.4, "Lingering past 2 minutes (120s) near the core must narrow FOV into blackout");
-    for _ in 0..2 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
+    assert!(lingering.view_projection_matrix(1.0) == vp_blackout && linger_hud.max_y - linger_hud.min_y > 1.8 && vp_blackout.y_axis.y > start_fov_scale * 1.4, "Lingering past 2 minutes (120s) near the crust ceiling must narrow FOV into blackout");
+    for _ in 0..3 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
     let linger_awoken = lingering.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
     assert!(linger_awoken.y >= 32.5 && !world.weightless_at(linger_awoken), "After full blackout, lingering avatar must wake up at surface spawn, got {linger_awoken:?}");
+
+    let (mut diver, mut dive_ctrl) = (PlanetaryAvatar::at(Vec3::new(0.25, 22.8, 0.25)), KeyMotion::idle());
+    dive_ctrl.register_key(KeyCode::ShiftLeft, true);
+    for _ in 0..60 { diver.step_motion(1.0 / 60.0, &dive_ctrl, &world); }
+    let diver_eye = diver.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!(diver_eye.y < 21.0 && world.weightless_at(diver_eye), "Holding Sneak (ShiftLeft) in weightless hollow world must descend toward the core, got {diver_eye:?}");
+    for _ in 0..6 { diver.step_motion(1.0, &KeyMotion::idle(), &world); }
+    let near_core_vp = diver.view_projection_matrix(1.0);
+    diver.rotate_view(120.0, 0.0);
+    assert_eq!(diver.view_projection_matrix(1.0), near_core_vp, "Avatar closer to the core must perish much faster than 120s");
 
     let mut doomed = PlanetaryAvatar::at(Vec3::new(0.25, 16.8, 0.25));
     let initial_fov_scale = doomed.view_projection_matrix(1.0).y_axis.y;
@@ -168,7 +178,16 @@ fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface
     let awoken_eye = doomed.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
     assert!(awoken_eye.y >= 32.5 && !world.lethal_at(awoken_eye) && !world.weightless_at(awoken_eye), "Once completely black before their eyes, avatar must wake up at surface spawn, got {awoken_eye:?}");
     let wav = CardiacPulse::studio().riff_wave();
-    assert!(wav.starts_with(b"RIFF") && wav.len() > 8000, "CardiacPulse must synthesize booming RIFF WAVE heartbeat audio");
+    let monitored_wav = MonitoredPulse::clinical().riff_wave();
+    assert!(wav.starts_with(b"RIFF") && wav.len() > 8000 && monitored_wav != wav, "MonitoredPulse decorator must overlay clinical beep onto CardiacPulse RIFF WAVE audio");
+    let mut p = crate::posture::AvatarPosture::standing().perish();
+    let mut beats = Vec::new();
+    for step in 0..240 {
+        let (next_p, beat) = p.advance_perish(0.01);
+        if beat { beats.push(step); }
+        p = next_p;
+    }
+    assert!(beats.len() >= 3 && (beats[2] - beats[1]) > (beats[1] - beats[0]), "Heartbeats during death animation must progressively slow down: {beats:?}");
 }
 
 #[test]

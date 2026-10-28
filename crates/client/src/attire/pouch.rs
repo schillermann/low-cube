@@ -277,7 +277,7 @@ impl BeltSatchel {
     pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
         if !self.tray.open { return; }
         let ((slots, len), tray, mold) = (self.packed_slots(), pose.view_frame().shifted(0.0, -0.02, 0.40), BlockMold::cube());
-        let (cols, rows, sel) = (len.clamp(1, 3), (len.max(1) + 2) / 3, self.tray.cursor.min(len.saturating_sub(1)));
+        let (cols, rows, sel) = (len.clamp(1, 3), len.max(1).div_ceil(3), self.tray.cursor.min(len.saturating_sub(1)));
         if len == 0 {
             HeldRelic::EmptyPalm.emit_in_satchel_slot(mold, Vec3::new(0.42, 0.27, 0.16), &tray, target);
         }

@@ -32,6 +32,7 @@ impl FloorLitter {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn emit_bough(
         &self,
         a: (f32, f32, f32),

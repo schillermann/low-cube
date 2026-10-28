@@ -166,7 +166,7 @@ impl MartialStyle {
                 (a.cos(), side * a.sin())
             }
             Self::SwordplaySlash => (1.0, side * (0.10 + 0.16 * wind - 0.04 * strike)),
-            _ => (1.0, side * (0.08 - 0.35 * wind - 0.62 * bow - 0.7853 * strike)),
+            _ => (1.0, side * (0.08 - 0.35 * wind - 0.62 * bow - std::f32::consts::FRAC_PI_4 * strike)),
         };
         let wrist_yaw = match self {
             Self::BarePalmDig => side * (0.12 * bow + 0.72 * strike),

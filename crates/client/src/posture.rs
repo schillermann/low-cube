@@ -69,13 +69,18 @@ impl AvatarPosture {
         self.perished() && self.phase_timer >= 2.6
     }
 
-    /// Advances the cardiac arrest timer and indicates whether a booming heartbeat cycle just started.
+    fn perish_cycles(&self, timer: f32) -> f32 {
+        ((1.0 + 3.2 * timer.max(0.0)).sqrt() - 1.0) / 0.56
+    }
+
+    /// Advances the cardiac arrest timer and indicates whether a decelerating heartbeat cycle just started.
     pub fn advance_perish(self, dt: f32) -> (Self, bool) {
         if !self.perished() {
             return (self, false);
         }
         let next_timer = self.phase_timer.max(0.0) + dt.max(0.0);
-        let beat = self.phase_timer <= 0.0 || (self.phase_timer / 0.85).floor() < (next_timer / 0.85).floor();
+        let beat = self.phase_timer <= 0.0
+            || self.perish_cycles(self.phase_timer).floor() < self.perish_cycles(next_timer).floor();
         let (hover, strain) = self.vital_state;
         (Self::with_strain(self.elevation, 0.0, next_timer, hover, strain), beat)
     }
@@ -86,7 +91,11 @@ impl AvatarPosture {
         if scale <= 0.0 {
             return 0.0;
         }
-        let phase = self.phase_timer.max(0.0).rem_euclid(0.85);
+        let phase = if self.perished() {
+            self.perish_cycles(self.phase_timer).fract() * 0.85
+        } else {
+            self.phase_timer.max(0.0).rem_euclid(0.85)
+        };
         let wave = if phase < 0.16 {
             (phase / 0.16 * std::f32::consts::PI).sin().powi(2)
         } else if (0.20..0.36).contains(&phase) {
@@ -116,20 +125,27 @@ impl AvatarPosture {
         (65.0 - 36.0 * self.cardiac_constriction() - 5.0 * self.cardiac_throb()).to_radians()
     }
 
-    /// Emits the HUD crosshair and the shrinking circular tunnel-vision vignette with a transparent gradient to black.
+    /// Emits the HUD crosshair and the shrinking circular tunnel-vision vignette with a soft radial feather to black.
     pub fn emit_reticle(&self, target: &mut dyn world::MeshTarget) {
         let constrict = self.cardiac_constriction();
+        if !self.perished() && constrict < 0.65 {
+            crate::menu::ScreenPoint::center().emit_crosshair(target);
+        }
         if constrict > 0.01 {
             let throb = self.cardiac_throb();
-            let blackout = ((constrict - 0.72) / 0.28).clamp(0.0, 1.0);
-            let inner_r = (1.22 * (1.0 - constrict) - 0.03 * throb * (1.0 - constrict)).max(0.0);
-            let (outer_r, edge_alpha, min_alpha) = (1.48, (constrict * 1.15).clamp(0.18, 1.0), blackout * blackout);
-            let (bands, segs) = (8usize, 24usize);
+            let blackout = ((constrict - 0.58) / 0.42).clamp(0.0, 1.0);
+            let soft_inner = (0.78 * (1.0 - constrict) * (1.0 - 0.04 * throb)).max(0.0);
+            let (outer_r, feather, edge_alpha, min_alpha) = (1.50, 0.85 + 0.35 * constrict, (constrict * 1.15).clamp(0.18, 1.0), blackout * blackout);
+            let alpha_at = |r: f32| {
+                let u = ((r - soft_inner * 0.45) / feather).clamp(0.0, 1.0);
+                let curve = u * u * (3.0 - 2.0 * u);
+                (min_alpha + (1.0 - min_alpha) * curve * edge_alpha).clamp(0.0, 1.0)
+            };
+            let (bands, segs) = (10usize, 32usize);
             for b in 0..bands {
                 let (t0, t1) = ((b as f32) / (bands as f32), ((b + 1) as f32) / (bands as f32));
-                let (r0, r1, tm) = (inner_r + (outer_r - inner_r) * t0, inner_r + (outer_r - inner_r) * t1, (t0 + t1) * 0.5);
-                let a0 = (min_alpha + (1.0 - min_alpha) * t0.powf(1.3) * edge_alpha).clamp(0.02, 1.0);
-                let a1 = (min_alpha + (1.0 - min_alpha) * t1.powf(1.3) * edge_alpha).clamp(0.04, 1.0);
+                let (r0, r1, tm) = (outer_r * t0, outer_r * t1, (t0 + t1) * 0.5);
+                let (a0, a1) = (alpha_at(r0), alpha_at(r1).max(1e-4));
                 let red = (1.0 - blackout) * (1.0 - tm * 0.75) * (0.16 + 0.12 * throb);
                 let (col, grad_norm) = (Vec3::new(red, 0.0, 0.0), Vec3::new(r0, (r1 - r0).max(1e-4), (a0 / a1).clamp(0.0, 1.0)));
                 for s in 0..segs {
@@ -140,11 +156,7 @@ impl AvatarPosture {
                     target.push_quad(world::Quad::glowing(p0, p1, p2, p3, grad_norm, col, -a1));
                 }
             }
-            if constrict >= 0.96 {
-                return;
-            }
         }
-        crate::menu::ScreenPoint::center().emit_crosshair(target);
     }
 
     /// Smoothly transitions posture towards a target elevation across elapsed time.
@@ -159,18 +171,31 @@ impl AvatarPosture {
     }
 
     /// Smoothly transitions hover posture and accumulates or recovers core-proximity strain across elapsed time.
-    pub fn advance_hover(self, weightless: bool, dt: f32) -> (Self, bool) {
+    pub fn advance_core_hover(self, weightless: bool, core_closeness: f32, dt: f32) -> (Self, bool) {
         if self.perished() {
             return self.advance_perish(dt);
         }
         let (hover, strain) = self.vital_state;
         let target = if weightless { 1.0 } else { 0.0 };
         let next_hover = hover + (target - hover) * (14.0 * dt).clamp(0.0, 1.0);
-        let next_strain = if weightless { (strain + dt / 120.0).min(1.0) } else { (strain - dt * 0.6).max(0.0) };
+        let closeness = core_closeness.clamp(0.0, 1.0);
+        let next_strain = if weightless {
+            let rate = (1.0 / 120.0) + closeness * closeness * 0.78;
+            let floor = closeness * closeness * 0.72;
+            let climbed = (strain + dt * rate).min(1.0);
+            if climbed < floor {
+                climbed + (floor - climbed) * (3.0 * dt).clamp(0.0, 1.0)
+            } else {
+                climbed
+            }
+        } else {
+            (strain - dt * 0.6).max(0.0)
+        };
         if next_strain >= 1.0 {
-            return Self::with_strain(self.elevation, 0.0, self.phase_timer.max(0.0), 2.0, 1.0).advance_perish(dt);
+            return Self::with_strain(self.elevation, 0.0, 0.0, 2.0, 1.0).advance_perish(dt);
         }
-        let next_timer = if next_strain > 0.0 { self.phase_timer.max(0.0) + dt.max(0.0) } else { self.phase_timer };
+        let pace = 1.0 / (1.0 + 1.35 * next_strain * next_strain);
+        let next_timer = if next_strain > 0.0 { self.phase_timer.max(0.0) + dt.max(0.0) * pace } else { self.phase_timer };
         let beat = next_strain > 0.15 && (self.phase_timer <= 0.0 || (self.phase_timer / 0.85).floor() < (next_timer / 0.85).floor());
         (Self::with_strain(self.elevation, self.leap_flex, next_timer, next_hover, next_strain), beat)
     }

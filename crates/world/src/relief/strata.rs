@@ -86,10 +86,14 @@ impl ReliefStrata {
     ) {
         let ((u0, u1), (v0, v1), ceil_h) = (cell.u_bounds(), cell.v_bounds(), (c_steps as f32) * 0.5);
         let tint = 1.0 - (relief.dig_stage_at(u, v).min(3) as f32) * 0.14;
-        let (ceil_col, dirt_col) = (Vec3::new(0.38, 0.25, 0.16) * tint, Vec3::new(0.41, 0.27, 0.15));
-        let (c0, c1, c2, c3) = (frame.point_at(u0, v0, ceil_h), frame.point_at(u1, v0, ceil_h), frame.point_at(u1, v1, ceil_h), frame.point_at(u0, v1, ceil_h));
-        target.push_quad(Quad::glowing(c3, c2, c1, c0, -frame.normal(), ceil_col, 0.55));
-        EarthClods::new(cell, ceil_h).emit_sole(frame, target);
+        let dirt_col = Vec3::new(0.41, 0.27, 0.15);
+        if c_steps < vault.floor_steps_at(u, v) + 4 {
+            vault.emit_shaft_ceiling(cell, ceil_h, tint, frame, target);
+        } else {
+            let (c0, c1, c2, c3) = (frame.point_at(u0, v0, ceil_h), frame.point_at(u1, v0, ceil_h), frame.point_at(u1, v1, ceil_h), frame.point_at(u0, v1, ceil_h));
+            target.push_quad(Quad::glowing(c3, c2, c1, c0, -frame.normal(), dirt_col * tint, 0.45));
+            EarthClods::new(cell, ceil_h).emit_sole(frame, target);
+        }
         let sides = [
             ((0, 1), (u1, v1), (u0, v1), -frame.bitangent(), 0usize),
             ((0, -1), (u0, v0), (u1, v0), frame.bitangent(), 1usize),
@@ -99,12 +103,16 @@ impl ReliefStrata {
         for ((du, dv), (a0, b0), (a1, b1), norm, flank) in sides {
             let (nu, nv) = (u + du, v + dv);
             if !relief.breached_at(nu, nv) {
-                let n_steps = relief.crust_floor_at(nu, nv).max(vault.floor_steps_at(nu, nv));
-                if c_steps > n_steps {
-                    let low_h = (n_steps as f32) * 0.5;
-                    target.push_quad(Quad::glowing(frame.point_at(a0, b0, low_h), frame.point_at(a1, b1, low_h), frame.point_at(a1, b1, ceil_h), frame.point_at(a0, b0, ceil_h), norm, dirt_col, 0.35));
-                    for layer in n_steps..c_steps {
-                        EarthClods::new(GridCell::new(nu, nv), (layer as f32) * 0.5).emit_flank(flank, frame, target);
+                let n_floor = vault.floor_steps_at(nu, nv);
+                let n_steps = relief.crust_floor_at(nu, nv).max(n_floor);
+                let wall_top = c_steps.min(relief.elevation_at(nu, nv));
+                for layer in n_steps..wall_top {
+                    let (y0, y1) = ((layer as f32) * 0.5, ((layer + 1) as f32) * 0.5);
+                    if layer < n_floor + 4 {
+                        vault.emit_crust_flank(((a0, b0), (a1, b1)), layer, n_floor, norm, frame, target);
+                    } else {
+                        target.push_quad(Quad::glowing(frame.point_at(a0, b0, y0), frame.point_at(a1, b1, y0), frame.point_at(a1, b1, y1), frame.point_at(a0, b0, y1), norm, dirt_col, 0.35));
+                        EarthClods::new(GridCell::new(nu, nv), y0).emit_flank(flank, frame, target);
                     }
                 }
             }

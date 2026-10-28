@@ -94,7 +94,10 @@ fn test_deep_crust_excavation_hollow_world_breach_and_indestructible_magma_core(
     let side_dir = (frame.tangent() + frame.normal() * 0.6).normalize();
     let (cu, cv, layer) = SurfaceSightRay::new(up_eye, side_dir).target_layer(&frame, &deep, 64, 32.0).expect("Must hit side cell from upward shaft");
     assert_eq!((cu, cv), (3, 2));
-    assert!(deep.excavate_layer(cu, cv, layer).1 && deep.crust_floor_at(3, 2) > -16, "Digging sideways from upward shaft must open adjacent cell upward");
+    assert!(deep.excavate_layer(cu, cv, layer).1 && deep.hit_top_at(1.75, 1.25, layer).is_none() && deep.hit_top_at(1.75, 1.25, layer + 0.5).is_some() && deep.hit_top_at(1.75, 1.25, layer - 0.5).is_some(), "Digging sideways from upward shaft must excavate only that single block layer");
+    let (_, _, confined_z) = deep.confine(1.65, 1.25, layer);
+    assert!((confined_z - layer).abs() < 0.35 && deep.ceiling_inset(3, 2, 0.30) == 0.0, "Lateral niche must keep avatar at niche elevation without teleporting to vault ceiling, got {confined_z}");
+    assert!(deep.support_height_at(1.65, 1.25, layer - 1.0, 1.0) > -8.0 && !deep.weightless_at(1.65, 1.25, layer), "Lateral niche must provide solid floor support with gravity active");
     assert!(deep.excavate_layer(1, 0, -2.25).1 && deep.elevation_at(1, 0) == -5 && deep.hit_top_at(0.75, 0.25, -2.25).is_none());
     assert!(deep.excavate_layer(1, 0, -1.75).1 && deep.hit_top_at(0.75, 0.25, -1.75).is_none(), "Mining next side block at -2.0..-1.5 must open only that layer");
     for kept in [-1.25, -0.75, -0.25] { assert!(deep.hit_top_at(0.75, 0.25, kept).is_some(), "Block at {kept} above mined side blocks must remain intact"); }

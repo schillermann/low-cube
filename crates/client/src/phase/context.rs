@@ -42,7 +42,7 @@ impl<'a> FlightContext<'a> {
     }
 
     pub fn confine_crust(&self, point: Vec3) -> Vec3 {
-        self.world.confine_beneath_crust(point)
+        self.envelope.confine_beneath_crust(point, self.position, self.surface_up, self.world)
     }
 
     pub fn origin_supported(&self) -> bool {
@@ -58,8 +58,7 @@ impl<'a> FlightContext<'a> {
             if vertical_speed < 0.0 {
                 vertical_speed - vertical_speed.max(-3.6) * (1.0 - (16.0 * self.dt).min(1.0))
             } else {
-                let target = if self.world.weightless_at(self.position) { 0.0 } else { 1e-4 };
-                (vertical_speed - target) * (8.0 * self.dt).min(1.0)
+                vertical_speed * (8.0 * self.dt).min(1.0)
             }
         } else {
             self.gravity.delta_velocity(vertical_speed, self.dt)
