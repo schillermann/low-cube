@@ -9,9 +9,16 @@ pub struct GridCell {
 }
 
 impl GridCell {
+    pub const SPAN: f32 = 0.5;
+
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(grid_u: i32, grid_v: i32) -> Self {
         Self { grid_u, grid_v }
+    }
+
+    /// Secondary constructor locating the discrete grid cell containing planar coordinates (u, v).
+    pub fn at_planar(u: f32, v: f32) -> Self {
+        Self::new((u / Self::SPAN).floor() as i32, (v / Self::SPAN).floor() as i32)
     }
 
     /// Delivers the discrete integer coordinates to a consumer closure ("Tell, Don't Ask").
@@ -20,11 +27,11 @@ impl GridCell {
     }
 
     pub fn u_bounds(&self) -> (f32, f32) {
-        ((self.grid_u as f32) * 0.5, ((self.grid_u + 1) as f32) * 0.5)
+        ((self.grid_u as f32) * Self::SPAN, ((self.grid_u + 1) as f32) * Self::SPAN)
     }
 
     pub fn v_bounds(&self) -> (f32, f32) {
-        ((self.grid_v as f32) * 0.5, ((self.grid_v + 1) as f32) * 0.5)
+        ((self.grid_v as f32) * Self::SPAN, ((self.grid_v + 1) as f32) * Self::SPAN)
     }
 
     pub fn corner_points(&self, frame: &SurfaceFrame, elevation: f32) -> [Vec3; 4] {

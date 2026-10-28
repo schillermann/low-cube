@@ -9,9 +9,7 @@ use super::timber_yield::SurfaceFind;
 #[derive(Clone, Copy, Debug)]
 pub struct FloorLitter {
     frame: SurfaceFrame,
-    u: f32,
-    v: f32,
-    elevation: f32,
+    coords: (f32, f32, f32),
     find: SurfaceFind,
     yaw: f32,
 }
@@ -26,7 +24,12 @@ impl FloorLitter {
         find: SurfaceFind,
         yaw: f32,
     ) -> Self {
-        Self { frame, u, v, elevation, find, yaw }
+        Self {
+            frame,
+            coords: (u, v, elevation),
+            find,
+            yaw,
+        }
     }
 
     fn emit_bough(
@@ -39,8 +42,9 @@ impl FloorLitter {
         cap_col: Vec3,
         target: &mut dyn MeshTarget,
     ) {
-        let p0 = self.frame.point_at(self.u + a.0, self.v + a.1, self.elevation + a.2);
-        let p1 = self.frame.point_at(self.u + b.0, self.v + b.1, self.elevation + b.2);
+        let (u, v, elevation) = self.coords;
+        let p0 = self.frame.point_at(u + a.0, v + a.1, elevation + a.2);
+        let p1 = self.frame.point_at(u + b.0, v + b.1, elevation + b.2);
         let axis = (p1 - p0).normalize_or_zero();
         let up = self.frame.normal();
         let side = axis.cross(up).normalize_or_zero();
@@ -69,10 +73,11 @@ impl FloorLitter {
         pigment: Vec3,
         target: &mut dyn MeshTarget,
     ) {
+        let (u, v, elevation) = self.coords;
         let (sy, cy) = self.yaw.sin_cos();
         let map = |x: f32, z: f32, h: f32| {
             let (ru, rv) = (x * cy - z * sy, x * sy + z * cy);
-            self.frame.point_at(self.u + ru, self.v + rv, self.elevation + h)
+            self.frame.point_at(u + ru, v + rv, elevation + h)
         };
         let step = std::f32::consts::TAU / (segs as f32);
         let top_mid = map(top.0, top.1, top.2);
@@ -102,15 +107,16 @@ impl Arboreal for FloorLitter {
         if !self.find.gathered() {
             return (Box::new(*self), SurfaceFind::EmptyHanded);
         }
+        let (u, v, elevation) = self.coords;
         let dir = direction.normalize_or_zero();
         let (eu, ev) = self.frame.decompose(eye);
         let (du, dv) = self.frame.decompose(dir);
         for step in 2..=75 {
             let t = (step as f32) * 0.04;
             let (su, sv) = (eu + du * t, ev + dv * t);
-            let sh = self.frame.elevation_of(eye + dir * t) - self.elevation;
-            if (su - self.u).hypot(sv - self.v) <= 0.46 && (-0.28..=0.52).contains(&sh) {
-                return (Box::new(ClearedPlot::new(self.u, self.v, self.elevation)), self.find);
+            let sh = self.frame.elevation_of(eye + dir * t) - elevation;
+            if (su - u).hypot(sv - v) <= 0.46 && (-0.28..=0.52).contains(&sh) {
+                return (Box::new(ClearedPlot::new(u, v, elevation)), self.find);
             }
         }
         (Box::new(*self), SurfaceFind::EmptyHanded)

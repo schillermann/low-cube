@@ -127,14 +127,24 @@ mod tests {
         let rim_y = world.constrain_to_surface(Vec3::new(0.25, 20.0, 0.25), 1.0).y;
         let mut walk_in = KeyMotion::idle();
         walk_in.register_key(KeyCode::KeyW, true);
-        for _ in 0..3 { let y = world.constrain_to_surface(Vec3::new(0.25, 20.0, 0.25), 0.0).y; assert!(world.excavate_surface(Vec3::new(0.25, y + 1.0, 0.25), Vec3::NEG_Y)); }
+        for _ in 0..3 {
+            let y = world.constrain_to_surface(Vec3::new(0.25, 20.0, 0.25), 0.0).y;
+            assert!(world.excavate_surface(Vec3::new(0.25, y + 1.0, 0.25), Vec3::NEG_Y));
+        }
         let mut walker_1x1 = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 20.0, 0.65), 1.0));
-        for _ in 0..15 { walker_1x1.step_motion(1.0 / 60.0, &walk_in, &world); }
+        for _ in 0..15 {
+            walker_1x1.step_motion(1.0 / 60.0, &walk_in, &world);
+        }
         let hole_1x1_y = walker_1x1.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO).y;
         assert!((hole_1x1_y - (rim_y + 0.8)).abs() < 0.15, "Avatar must NOT fall into a 1x1 hole (got {hole_1x1_y} vs rim eye {})", rim_y + 0.8);
-        for _ in 0..3 { let y = world.constrain_to_surface(Vec3::new(0.75, 20.0, 0.25), 0.0).y; assert!(world.excavate_surface(Vec3::new(0.75, y + 1.0, 0.25), Vec3::NEG_Y)); }
+        for _ in 0..3 {
+            let y = world.constrain_to_surface(Vec3::new(0.75, 20.0, 0.25), 0.0).y;
+            assert!(world.excavate_surface(Vec3::new(0.75, y + 1.0, 0.25), Vec3::NEG_Y));
+        }
         let mut walker_2x1 = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.50, 20.0, 0.65), 1.0));
-        for _ in 0..25 { walker_2x1.step_motion(1.0 / 60.0, &walk_in, &world); }
+        for _ in 0..25 {
+            walker_2x1.step_motion(1.0 / 60.0, &walk_in, &world);
+        }
         let hole_2x1_y = walker_2x1.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO).y;
         assert!(hole_2x1_y < rim_y + 0.8 - 0.8, "Avatar MUST fall into a 2x1 hole (got {hole_2x1_y} vs rim eye {})", rim_y + 0.8);
 
@@ -147,15 +157,15 @@ mod tests {
             (inv.project_point3(Vec3::new(0.0, 0.0, 0.5)) - inv.project_point3(Vec3::ZERO)).normalize()
         };
         let initial_fwd = forward_of(&avatar);
-        avatar.rotate_view(150.0, 0.0);
+        avatar.rotate_degrees(25.8, 0.0);
         let slight_fwd = forward_of(&avatar);
         assert!(slight_fwd.x.abs() > 0.25, "Avatar must be able to turn partially inside a 2x1 shaft, got {slight_fwd:?}");
 
-        avatar.rotate_view(1500.0, 0.0);
+        avatar.rotate_degrees(258.0, 0.0);
         let clamped_right = forward_of(&avatar);
         assert!(clamped_right.dot(initial_fwd) > 0.35, "Avatar in 2x1 shaft must not be able to turn 180/360 degrees because upper body is wider than 1 block, got {clamped_right:?}");
 
-        avatar.rotate_view(-3000.0, 0.0);
+        avatar.rotate_degrees(-515.0, 0.0);
         let clamped_left = forward_of(&avatar);
         assert!(clamped_left.dot(initial_fwd) > 0.35, "Avatar in 2x1 shaft must stop against opposite wall when turning the other way, got {clamped_left:?}");
 
@@ -176,22 +186,27 @@ mod tests {
             }
         }
         let mut walker_2x2 = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.50, 20.0, 1.15), 1.0));
-        for _ in 0..35 { walker_2x2.step_motion(1.0 / 60.0, &walk_in, &world); }
+        for _ in 0..35 {
+            walker_2x2.step_motion(1.0 / 60.0, &walk_in, &world);
+        }
         let hole_2x2_y = walker_2x2.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO).y;
         assert!(hole_2x2_y < rim_y + 0.8 - 1.0, "Avatar walking into a 2x2 hole must fall into it instead of gliding across (got {hole_2x2_y} vs rim eye {})", rim_y + 0.8);
         avatar.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
-        avatar.rotate_view(1050.0, 0.0);
+        avatar.rotate_degrees(180.0, 0.0);
         let full_turn_fwd = forward_of(&avatar);
         assert!(full_turn_fwd.dot(initial_fwd) < -0.5, "Widening shaft to 2x2 must allow full 180/360-degree rotation when upper body width is smaller than 2 blocks, got {full_turn_fwd:?}");
 
         for (x, z, layers) in [(0.25, 0.25, 4), (0.75, 0.25, 4), (0.25, 0.75, 2), (0.75, 0.75, 2)] {
-            for _ in 0..layers { let y = world.constrain_to_surface(Vec3::new(x, 20.0, z), 0.0).y; assert!(world.excavate_surface(Vec3::new(x, y + 1.0, z), Vec3::NEG_Y)); }
+            for _ in 0..layers {
+                let y = world.constrain_to_surface(Vec3::new(x, 20.0, z), 0.0).y;
+                assert!(world.excavate_surface(Vec3::new(x, y + 1.0, z), Vec3::NEG_Y));
+            }
         }
         let deep_pos = world.constrain_to_surface(Vec3::new(0.45, 20.0, 0.25), 1.0);
         let mut deep_miner = PlanetaryAvatar::at(deep_pos);
         deep_miner.apply_attire(crate::attire::YouthAttire::squire().with_relics(crate::attire::HeldRelic::IronSpade, crate::attire::HeldRelic::EmptyPalm));
         deep_miner.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
-        deep_miner.rotate_view(524.0, 120.0);
+        deep_miner.rotate_degrees(90.0, 20.6);
         assert!(forward_of(&deep_miner).x > 0.85, "Deep 2x2 shaft with 2-block internal step must not wedge shoulders");
         let side_top = world.constrain_to_surface(Vec3::new(1.25, 20.0, 0.25), 0.0).y;
         assert!(!deep_miner.use_right_hand(&mut world) && deep_miner.use_right_hand(&mut world), "Must dig side wall from inside deep 2x2 shaft");

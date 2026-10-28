@@ -32,7 +32,7 @@ impl ReliefFacet {
         let (crust, h) = (if relief.breached_at(u, v) { i32::MIN } else { relief.crust_floor_at(u, v) }, relief.elevation_at(u, v));
         let (hn, hs, he, hw) = (relief.elevation_at(u, v + 1).max(crust), relief.elevation_at(u, v - 1).max(crust), relief.elevation_at(u + 1, v).max(crust), relief.elevation_at(u - 1, v).max(crust));
         let ((u0, u1), (v0, v1), top_h) = (cell.u_bounds(), cell.v_bounds(), (h as f32) * 0.5);
-        relief.emit_molded_top(cell, top_h, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
+        let molded = relief.emit_molded_top(cell, top_h, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
         let stage = relief.dig_stage_at(u, v);
         let (tn, ts, te, tw) = (v + 1 >= half_blocks, v <= -half_blocks, u + 1 >= half_blocks, u <= -half_blocks);
         let mut suppressed = SuppressedTop;
@@ -48,7 +48,7 @@ impl ReliefFacet {
             self.corner.push_corner_pair(p0, p1, p2, p3, chamfer_col, top_out);
             ([h0, h1, h2, h3], chamfer_col)
         } else if relief.reworked_at(u, v) {
-            let (bare_col, sub_dirt) = (Vec3::new(0.45, 0.30, 0.17), relief.bare_dirt_at(u, v) || relief.layer_occupied_at(u, v, top_h + 0.75));
+            let (bare_col, sub_dirt) = (Vec3::new(0.45, 0.30, 0.17), relief.bare_dirt_at(u, v) || molded);
             let top_c = if sub_dirt { bare_col } else { surf_col };
             let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
             if !relief.breached_at(u, v) { top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), top_c)); }

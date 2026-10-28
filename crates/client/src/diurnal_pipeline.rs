@@ -14,12 +14,16 @@ use crate::aurora_cadence::NightlyAuroraCadence;
 use crate::firmament::{VoidFirmament, VoidMesh};
 use crate::gl_firmament::GlFirmament;
 
-/// Graphic pipeline dynamically driving terrain lighting and celestial firmament display.
-pub struct DiurnalPipeline {
+struct DiurnalChronometer {
     cadence: Box<dyn CelestialCadence>,
     aurora: Box<dyn AuroraCadence>,
     clock: Box<dyn MonotonicTime>,
     epoch: Instant,
+}
+
+/// Graphic pipeline dynamically driving terrain lighting and celestial firmament display.
+pub struct DiurnalPipeline {
+    chronometer: DiurnalChronometer,
     sky: Box<dyn SkyFirmament>,
     sky_mesh: Box<dyn Mesh>,
 }
@@ -35,10 +39,7 @@ impl DiurnalPipeline {
         sky_mesh: Box<dyn Mesh>,
     ) -> Self {
         Self {
-            cadence,
-            aurora,
-            clock,
-            epoch,
+            chronometer: DiurnalChronometer { cadence, aurora, clock, epoch },
             sky,
             sky_mesh,
         }
@@ -85,27 +86,21 @@ impl GraphicPipeline for DiurnalPipeline {
         view_proj: &Mat4,
         surface_rot: Quat,
     ) {
-        let now = self.clock.current_instant();
-        let elapsed = now.duration_since(self.epoch).as_secs_f64();
-        let progress = self.cadence.day_progress(elapsed);
-        let clear_color = self.cadence.sky_color(progress);
-        let local_sun = self.cadence.sun_direction(progress);
+        let now = self.chronometer.clock.current_instant();
+        let elapsed = now.duration_since(self.chronometer.epoch).as_secs_f64();
+        let progress = self.chronometer.cadence.day_progress(elapsed);
+        let clear_color = self.chronometer.cadence.sky_color(progress);
+        let local_sun = self.chronometer.cadence.sun_direction(progress);
 
-        // Align sun trajectory and horizon with current planetary face orientation
         let light_direction = surface_rot * local_sun;
         let local_up = surface_rot * Vec3::Y;
         let celestial_pole = surface_rot * Vec3::Z;
 
         let night_factor = (-local_sun.y / 0.15).clamp(0.0, 1.0);
-        let aurora_factor = self.aurora.activity(progress, elapsed, night_factor);
+        let aurora_factor = self.chronometer.aurora.activity(progress, elapsed, night_factor);
 
         unsafe {
-            gl.clear_color(
-                clear_color.x,
-                clear_color.y,
-                clear_color.z,
-                clear_color.w,
-            );
+            gl.clear_color(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
             gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         }
 

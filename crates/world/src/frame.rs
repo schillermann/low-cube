@@ -1,4 +1,5 @@
 use glam::Vec3;
+use crate::block::GridCell;
 
 /// Orthogonal coordinate frame of a planetary face defining surface tangent space.
 #[derive(Clone, Copy, Debug)]
@@ -30,6 +31,17 @@ impl SurfaceFrame {
         (point.dot(self.tangent), point.dot(self.bitangent))
     }
 
+    /// Resolves the discrete grid cell containing a 3D world point on this face.
+    pub fn cell_at(&self, point: Vec3) -> GridCell {
+        let (u, v) = self.decompose(point);
+        GridCell::at_planar(u, v)
+    }
+
+    /// Converts discrete 0.5 m terrace steps into metric elevation above the face datum.
+    pub fn step_elevation(&self, steps: i32) -> f32 {
+        (steps as f32) * GridCell::SPAN
+    }
+
     /// Projects height along the surface normal axis.
     pub fn height_of(&self, point: Vec3) -> f32 {
         point.dot(self.normal)
@@ -55,6 +67,10 @@ impl SurfaceFrame {
     /// Radially confines a subterranean 3D point inside the spherical vault inset from this face's half-size.
     pub fn confine_radius(&self, point: Vec3, inset: f32) -> Vec3 {
         let max_r = (self.half_size - inset).max(1.0);
-        if self.elevation_of(point) < -1.2 && point.length() > max_r { point.normalize() * max_r } else { point }
+        if self.elevation_of(point) < -1.2 && point.length() > max_r {
+            point.normalize() * max_r
+        } else {
+            point
+        }
     }
 }

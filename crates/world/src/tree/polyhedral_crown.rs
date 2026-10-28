@@ -4,9 +4,7 @@ use super::facet::ArborealFacet;
 
 /// Faceted icosahedral foliage clump for deciduous trees.
 pub struct PolyhedralCrown {
-    offset_u: f32,
-    offset_v: f32,
-    elevation_offset: f32,
+    offset: (f32, f32, f32),
     radius: f32,
     color: Vec3,
 }
@@ -21,9 +19,7 @@ impl PolyhedralCrown {
         color: Vec3,
     ) -> Self {
         Self {
-            offset_u,
-            offset_v,
-            elevation_offset,
+            offset: (offset_u, offset_v, elevation_offset),
             radius,
             color,
         }
@@ -55,9 +51,10 @@ impl ArborealFacet for PolyhedralCrown {
             Vec3::new(-phi, 0.0, 1.0),
         ];
 
-        let center_u = u + self.offset_u;
-        let center_v = v + self.offset_v;
-        let center_elev = elevation + self.elevation_offset;
+        let (offset_u, offset_v, elevation_offset) = self.offset;
+        let center_u = u + offset_u;
+        let center_v = v + offset_v;
+        let center_elev = elevation + elevation_offset;
 
         let verts: Vec<Vec3> = base_raw
             .iter()

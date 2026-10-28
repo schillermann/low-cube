@@ -13,8 +13,7 @@ pub trait BevelTransition: Send + Sync {
 /// Encapsulated seam bevel geometry providing smooth continuous surface normals across a 90° edge.
 #[derive(Clone, Copy, Debug)]
 pub struct SeamBevel {
-    source: ClimateZone,
-    destination: ClimateZone,
+    zones: (ClimateZone, ClimateZone),
     seam_center: Vec3,
     half_size: f32,
     margin: f32,
@@ -30,8 +29,7 @@ impl SeamBevel {
         margin: f32,
     ) -> Self {
         Self {
-            source,
-            destination,
+            zones: (source, destination),
             seam_center,
             half_size,
             margin,
@@ -55,8 +53,9 @@ impl SeamBevel {
     }
 
     fn delta_at(&self, point: Vec3) -> f32 {
-        let h1 = point.dot(self.source.normal());
-        let h2 = point.dot(self.destination.normal());
+        let (source, destination) = self.zones;
+        let h1 = point.dot(source.normal());
+        let h2 = point.dot(destination.normal());
         if h1 >= self.half_size && h2 <= self.half_size {
             h2 - self.half_size
         } else if h2 >= self.half_size && h1 <= self.half_size {
@@ -75,8 +74,9 @@ impl SeamBevel {
 
     /// Predicate verifying whether a spatial position lies within the bevel transition zone.
     pub fn contains(&self, point: Vec3) -> bool {
-        let h1 = point.dot(self.source.normal());
-        let h2 = point.dot(self.destination.normal());
+        let (source, destination) = self.zones;
+        let h1 = point.dot(source.normal());
+        let h2 = point.dot(destination.normal());
         let threshold = self.half_size - self.margin;
         let delta = self.delta_at(point);
         h1 >= threshold && h2 >= threshold && delta.abs() <= self.margin
@@ -84,16 +84,18 @@ impl SeamBevel {
 
     /// Evaluates continuous surface normal transitioning smoothly across the 90° edge.
     pub fn normal_at(&self, point: Vec3) -> Vec3 {
+        let (source, destination) = self.zones;
         let t = self.blend_factor(point);
         let angle = t * FRAC_PI_2;
-        let n1 = self.source.normal();
-        let n2 = self.destination.normal();
+        let n1 = source.normal();
+        let n2 = destination.normal();
         n1 * angle.cos() + n2 * angle.sin()
     }
 
     /// Distance from a spatial position to the continuous linear seam axis.
     pub fn distance_to_seam_line(&self, point: Vec3) -> f32 {
-        let axis = self.source.normal().cross(self.destination.normal()).normalize();
+        let (source, destination) = self.zones;
+        let axis = source.normal().cross(destination.normal()).normalize();
         let offset = point - self.seam_center;
         let axial = offset.dot(axis);
         (offset - axis * axial).length()

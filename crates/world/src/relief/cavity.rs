@@ -1,4 +1,5 @@
 use glam::Vec3;
+use crate::frame::SurfaceFrame;
 use crate::noise::SpatialFrequency;
 
 /// Subterranean cavern cavity query result delivered to consumers ("Tell, Don't Ask").
@@ -11,10 +12,7 @@ pub struct CavitySpan {
 impl CavitySpan {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(floor: f32, ceiling: f32) -> Self {
-        Self {
-            floor,
-            ceiling,
-        }
+        Self { floor, ceiling }
     }
 
     /// Evaluates if the given vertical position is inside this subterranean cavity.
@@ -51,9 +49,7 @@ impl SubterraneanCavity for NullCavity {
 /// 3D coherent noise subterranean cave system generating tunnels and grottos.
 pub struct ZonedCavity {
     frequency: Box<dyn SpatialFrequency>,
-    normal: Vec3,
-    tangent: Vec3,
-    bitangent: Vec3,
+    frame: SurfaceFrame,
     half_size: f32,
     threshold: f32,
 }
@@ -70,24 +66,21 @@ impl ZonedCavity {
     ) -> Self {
         Self {
             frequency,
-            normal,
-            tangent,
-            bitangent,
+            frame: SurfaceFrame::new(tangent, bitangent, normal, half_size),
             half_size,
             threshold,
         }
     }
 
     fn sample_at(&self, u: f32, v: f32, depth: f32) -> f32 {
-        let p = self.normal * (self.half_size + depth) + self.tangent * u + self.bitangent * v;
-        self.frequency.sample(p)
+        self.frequency.sample(self.frame.point_at(u, v, depth))
     }
 }
 
 impl SubterraneanCavity for ZonedCavity {
     fn inspect_cavity(&self, u: i32, v: i32, consumer: &mut dyn FnMut(CavitySpan)) {
-        let wu = (u as f32) * 0.5;
-        let wv = (v as f32) * 0.5;
+        let wu = self.frame.step_elevation(u);
+        let wv = self.frame.step_elevation(v);
         let in_spawn = if self.half_size >= 24.0 {
             wu.abs() <= 2.0 && wv.abs() <= 2.0
         } else {

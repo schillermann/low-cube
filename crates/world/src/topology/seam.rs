@@ -16,10 +16,8 @@ pub trait CoordinateFold: Send + Sync {
 /// Encapsulated 90° seam fold connecting two adjacent climate zones across a shared perimeter edge.
 #[derive(Clone, Copy, Debug)]
 pub struct SeamFold {
-    source: ClimateZone,
-    source_edge: PerimeterEdge,
-    destination: ClimateZone,
-    destination_edge: PerimeterEdge,
+    source: (ClimateZone, PerimeterEdge),
+    destination: (ClimateZone, PerimeterEdge),
     rotation: Quat,
     seam_center: Vec3,
 }
@@ -35,10 +33,8 @@ impl SeamFold {
         seam_center: Vec3,
     ) -> Self {
         Self {
-            source,
-            source_edge,
-            destination,
-            destination_edge,
+            source: (source, source_edge),
+            destination: (destination, destination_edge),
             rotation,
             seam_center,
         }
@@ -70,30 +66,27 @@ impl SeamFold {
 
     /// Predicate verifying whether this seam fold connects the specified climate zone and outer edge.
     pub fn connects(&self, zone: ClimateZone, edge: PerimeterEdge) -> bool {
-        self.source == zone && self.source_edge == edge
+        self.source == (zone, edge)
     }
 
     /// Predicate verifying whether another seam fold represents the exact reciprocal transition.
     pub fn reciprocal_to(&self, other: &Self) -> bool {
-        self.source == other.destination
-            && self.source_edge == other.destination_edge
-            && self.destination == other.source
-            && self.destination_edge == other.source_edge
+        self.source == other.destination && self.destination == other.source
     }
 
     /// Derives smooth normal bevel transition geometry across this seam fold.
     pub fn bevel(&self, half_size: f32, margin: f32) -> super::bevel::SeamBevel {
-        super::bevel::SeamBevel::between(self.source, self.destination, half_size, margin)
+        super::bevel::SeamBevel::between(self.source.0, self.destination.0, half_size, margin)
     }
 
     /// Destination climate zone onto which motion unfolds across the seam.
     pub fn destination(&self) -> ClimateZone {
-        self.destination
+        self.destination.0
     }
 
     /// Resolves the reciprocal return fold across this seam within the planetary topology.
     pub fn reciprocal_on<'a>(&self, topology: &'a super::PlanetaryTopology) -> &'a SeamFold {
-        topology.seam(self.destination, self.destination_edge)
+        topology.seam(self.destination.0, self.destination.1)
     }
 
     /// Folds a 3D position across the seam by rotating 90° around the seam axis.
@@ -103,7 +96,7 @@ impl SeamFold {
 
     /// Folds a 3D position across the seam, returning a living FoldedPoint entity.
     pub fn fold_step(&self, point: Vec3) -> FoldedPoint {
-        FoldedPoint::new(self.destination, self.fold_point(point))
+        FoldedPoint::new(self.destination.0, self.fold_point(point))
     }
 
     /// Folds a 3D direction or velocity vector across the 90° seam rotation.

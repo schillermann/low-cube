@@ -5,38 +5,63 @@ use crate::horizon::ViewFrame;
 /// Kinematic posture defining the vertical eye level offset for standing, crouching, jumping, and weightless horizontal hover.
 #[derive(Clone, Copy, Debug)]
 pub struct AvatarPosture {
-    elevation: f32, leap_flex: f32, phase_timer: f32, hover: f32, strain: f32,
+    elevation: f32,
+    leap_flex: f32,
+    phase_timer: f32,
+    vital_state: (f32, f32),
 }
 
 impl AvatarPosture {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn with_strain(elevation: f32, leap_flex: f32, phase_timer: f32, hover: f32, strain: f32) -> Self {
-        Self { elevation, leap_flex, phase_timer, hover, strain }
+        Self {
+            elevation,
+            leap_flex,
+            phase_timer,
+            vital_state: (hover, strain),
+        }
     }
-    pub fn with_hover(elevation: f32, leap_flex: f32, phase_timer: f32, hover: f32) -> Self { Self::with_strain(elevation, leap_flex, phase_timer, hover, 0.0) }
-    pub fn with_leap(elevation: f32, leap_flex: f32, phase_timer: f32) -> Self { Self::with_hover(elevation, leap_flex, phase_timer, 0.0) }
-    pub fn new(elevation: f32) -> Self { Self::with_leap(elevation, 0.0, 0.0) }
+
+    pub fn with_hover(elevation: f32, leap_flex: f32, phase_timer: f32, hover: f32) -> Self {
+        Self::with_strain(elevation, leap_flex, phase_timer, hover, 0.0)
+    }
+
+    pub fn with_leap(elevation: f32, leap_flex: f32, phase_timer: f32) -> Self {
+        Self::with_hover(elevation, leap_flex, phase_timer, 0.0)
+    }
+
+    pub fn new(elevation: f32) -> Self {
+        Self::with_leap(elevation, 0.0, 0.0)
+    }
 
     /// Secondary constructor for upright standing posture.
-    pub fn standing() -> Self { Self::new(0.8) }
+    pub fn standing() -> Self {
+        Self::new(0.8)
+    }
 
     /// Secondary constructor for crouched posture in die Hocke.
     #[cfg(test)]
-    pub fn crouching() -> Self { Self::new(0.36) }
+    pub fn crouching() -> Self {
+        Self::new(0.36)
+    }
 
     /// Effective vertical eye offset above the avatar center, dropping to 0.0 when horizontally hovering in zero-G.
     pub fn eye_elevation(&self) -> f32 {
-        self.elevation * (1.0 - self.hover.min(1.0))
+        self.elevation * (1.0 - self.vital_state.0.min(1.0))
     }
 
     /// Marks the posture as perished in the molten magma core, preserving elapsed cardiac phase if already perished.
     pub fn perish(self) -> Self {
-        if self.perished() { self } else { Self::with_strain(self.elevation, 0.0, 0.0, 2.0, self.strain.max(0.45)) }
+        if self.perished() {
+            self
+        } else {
+            Self::with_strain(self.elevation, 0.0, 0.0, 2.0, self.vital_state.1.max(0.45))
+        }
     }
 
     /// Indicates whether the avatar has perished in the molten magma core.
     pub fn perished(&self) -> bool {
-        self.hover > 1.5
+        self.vital_state.0 > 1.5
     }
 
     /// Indicates whether the dying blackout has completely closed to pitch black so the avatar wakes up at spawn.
@@ -46,16 +71,21 @@ impl AvatarPosture {
 
     /// Advances the cardiac arrest timer and indicates whether a booming heartbeat cycle just started.
     pub fn advance_perish(self, dt: f32) -> (Self, bool) {
-        if !self.perished() { return (self, false); }
+        if !self.perished() {
+            return (self, false);
+        }
         let next_timer = self.phase_timer.max(0.0) + dt.max(0.0);
         let beat = self.phase_timer <= 0.0 || (self.phase_timer / 0.85).floor() < (next_timer / 0.85).floor();
-        (Self::with_strain(self.elevation, 0.0, next_timer, self.hover, self.strain), beat)
+        let (hover, strain) = self.vital_state;
+        (Self::with_strain(self.elevation, 0.0, next_timer, hover, strain), beat)
     }
 
     /// Instantaneous "lub-dub" cardiac pulse intensity in [0.0, 1.0].
     pub fn cardiac_throb(&self) -> f32 {
-        let scale = if self.perished() { 1.0 } else { self.strain };
-        if scale <= 0.0 { return 0.0; }
+        let scale = if self.perished() { 1.0 } else { self.vital_state.1 };
+        if scale <= 0.0 {
+            return 0.0;
+        }
         let phase = self.phase_timer.max(0.0).rem_euclid(0.85);
         let wave = if phase < 0.16 {
             (phase / 0.16 * std::f32::consts::PI).sin().powi(2)
@@ -69,12 +99,13 @@ impl AvatarPosture {
 
     /// Progressive tunnel-vision constriction in [0.0, 1.0] during core exposure or blackout.
     pub fn cardiac_constriction(&self) -> f32 {
+        let strain = self.vital_state.1;
         if self.perished() {
             let fade = (self.phase_timer.max(0.0) / 2.2).clamp(0.0, 1.0);
-            let start = self.strain.clamp(0.45, 0.85);
+            let start = strain.clamp(0.45, 0.85);
             (start + (1.0 - start) * fade).clamp(0.0, 1.0)
-        } else if self.strain > 0.0 {
-            (self.strain * 0.85 + 0.04 * self.cardiac_throb()).clamp(0.0, 0.92)
+        } else if strain > 0.0 {
+            (strain * 0.85 + 0.04 * self.cardiac_throb()).clamp(0.0, 0.92)
         } else {
             0.0
         }
@@ -109,25 +140,33 @@ impl AvatarPosture {
                     target.push_quad(world::Quad::glowing(p0, p1, p2, p3, grad_norm, col, -a1));
                 }
             }
-            if constrict >= 0.96 { return; }
+            if constrict >= 0.96 {
+                return;
+            }
         }
         crate::menu::ScreenPoint::center().emit_crosshair(target);
     }
 
     /// Smoothly transitions posture towards a target elevation across elapsed time.
     pub fn transition_to(&self, target_elevation: f32, dt: f32) -> Self {
-        if self.perished() { return *self; }
+        if self.perished() {
+            return *self;
+        }
         let factor = (15.0 * dt).clamp(0.0, 1.0);
         let updated = self.elevation + (target_elevation - self.elevation) * factor;
-        Self::with_strain(updated, self.leap_flex, self.phase_timer, self.hover, self.strain)
+        let (hover, strain) = self.vital_state;
+        Self::with_strain(updated, self.leap_flex, self.phase_timer, hover, strain)
     }
 
     /// Smoothly transitions hover posture and accumulates or recovers core-proximity strain across elapsed time.
     pub fn advance_hover(self, weightless: bool, dt: f32) -> (Self, bool) {
-        if self.perished() { return self.advance_perish(dt); }
+        if self.perished() {
+            return self.advance_perish(dt);
+        }
+        let (hover, strain) = self.vital_state;
         let target = if weightless { 1.0 } else { 0.0 };
-        let next_hover = self.hover + (target - self.hover) * (14.0 * dt).clamp(0.0, 1.0);
-        let next_strain = if weightless { (self.strain + dt / 120.0).min(1.0) } else { (self.strain - dt * 0.6).max(0.0) };
+        let next_hover = hover + (target - hover) * (14.0 * dt).clamp(0.0, 1.0);
+        let next_strain = if weightless { (strain + dt / 120.0).min(1.0) } else { (strain - dt * 0.6).max(0.0) };
         if next_strain >= 1.0 {
             return Self::with_strain(self.elevation, 0.0, self.phase_timer.max(0.0), 2.0, 1.0).advance_perish(dt);
         }
@@ -155,8 +194,9 @@ impl AvatarPosture {
             (0.0, 10.0, 0.0)
         };
         let next_flex = self.leap_flex + (target - self.leap_flex) * (rate * dt).clamp(0.0, 1.0);
-        let next_timer = if self.strain > 0.0 { self.phase_timer } else { leap_timer };
-        Self::with_strain(self.elevation, next_flex, next_timer, self.hover, self.strain)
+        let (hover, strain) = self.vital_state;
+        let next_timer = if strain > 0.0 { self.phase_timer } else { leap_timer };
+        Self::with_strain(self.elevation, next_flex, next_timer, hover, strain)
     }
 
     /// Computes view matrix using view frame and encapsulated eye elevation offset.
@@ -166,12 +206,15 @@ impl AvatarPosture {
 
     /// Assembles a kinematic BodyPose using this posture's encapsulated eye elevation, jump flex, and horizontal hover.
     pub fn body_pose(&self, position: Vec3, surface_rot: Quat, view_rot: Quat, rhythm: StrideRhythm) -> BodyPose {
+        let hover = self.vital_state.0.min(1.0);
         BodyPose::new(position, surface_rot, view_rot, self.eye_elevation(), rhythm, YouthPhysique::SlenderSquire)
-            .with_leap(self.leap_flex * (1.0 - self.hover.min(1.0)))
-            .with_hover(self.hover.min(1.0))
+            .with_leap(self.leap_flex * (1.0 - hover))
+            .with_hover(hover)
     }
 
     /// Verifies whether the avatar is currently in a crouched state.
     #[cfg(test)]
-    pub fn crouched(&self) -> bool { self.elevation < 0.6 }
+    pub fn crouched(&self) -> bool {
+        self.elevation < 0.6
+    }
 }

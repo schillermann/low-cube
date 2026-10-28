@@ -63,10 +63,32 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
 - **Interfaces Everywhere**: Code against clean, focused interfaces / traits. Objects must be decoupled and swappable.
 - **Clean Constructors**: Primary constructors do nothing except assign arguments to internal fields. No I/O, heavy calculations, or side effects during construction.
 - **Composition & Decorators**: Favor object composition and decorators over class inheritance.
-- **Small Files (Max 200 Lines)**: No source code file may exceed 200 lines of code. Classes, traits, and modules must be small, highly cohesive, and focused on a single responsibility. Split larger files into dedicated, decoupled object files. Verification of modified files' line counts is performed immediately after every code change. Documentation files (`*.md`) are explicitly exempt from this constraint.
+- **Max 4 Encapsulated Fields per Object**: No struct or class may encapsulate more than 4 fields. If an entity requires more state, decompose it into smaller collaborating objects or decorators.
+- **Small Files (Max 300 Lines) & No Single-Line Compression**: No source code file may exceed 300 lines of code. Never cram multiple statements, nested conditionals, or loops onto a single line to bypass the line limit; format methods across readable lines and split larger objects into dedicated, decoupled files instead. Verification of modified files' line counts is performed immediately after every code change. Documentation files (`*.md`) are explicitly exempt from this constraint.
+- **Focused Interfaces & Atomic Tests**: Keep traits/interfaces narrow and cohesive, and write small, fast, atomic unit tests focused on a single behavior rather than monolithic multi-feature scenario scripts.
 - **No "-er" in Names (Declarative Naming)**: Never name classes, structs, or traits with "-er" or "-or" agent suffixes (e.g., Manager, Controller, Helper, Handler, Renderer, Compiler, Uploader, Receiver, Bootstrapper, Player). Objects must be named as declarative nouns representing what they ARE, never procedural workers or action executors (what they DO).
 - **No Generic or Vague Names (`Standard`, `Default`, `Common`, `Base`, etc.)**: Never use generic, lazy, or vague words such as `Standard`, `Default`, `Common`, `Base`, `Simple`, `Generic`, `Abstract`, or `Data` in names of project-owned classes, structs, traits, methods, or modules. Names must be specific, expressive domain nouns representing what the entity is in its model. (Required external crate traits like `std::default::Default` or `std::fmt::Display` are exempt when implementing upstream interfaces).
 - **No Dead Code**: Never leave unused code or suppress dead code compiler warnings with `#[allow(dead_code)]`. If code is unneeded, delete it immediately without compromise.
 - **No `is_` Prefix for Methods/Functions**: In Elegant Objects, boolean-returning methods must never be prefixed with `is_` (or `has_`). Use declarative adjectives, predicates, or nouns directly (e.g., `passable()`, `unobstructed()`, `precipice()`, `floor_contact()`, `cliff_impact()`, `crouching()`, `expanded()`, `in_zone()`, `reciprocal_to()`, `walkable_with()`).
 - **Fail Fast (Never Fail Safe)**: Never swallow errors, suppress failures, or silently substitute dummy fallback values when an invalid state, contract violation, or corrupt condition occurs. Fail immediately at the earliest possible moment (e.g., via panic or error propagation) rather than masking defects with fail-safe compromises.
 
+---
+
+## Domain & Decorator Map (Fast Navigation)
+
+- **Coordinates & Grid Cells (`crates/world`)**:
+  - `SurfaceFrame` (`crates/world/src/frame.rs`): Local 3D face coordinate frame (`point_at`, `planar_coords`, `cell_at`, `step_elevation`).
+  - `GridCell` (`crates/world/src/block/cell.rs`): 0.5-unit terrain cell (`GridCell::SPAN`, `at_planar`, `center`, `corners`).
+- **Terrain Relief, Excavation & Soil Clods (`crates/world/src/relief/`)**:
+  - `TerracedRelief` (`terraced.rs`): Decorator over `FacetedReliefFace` coordinating block mutations, cavities, and strata.
+  - `StrataShell` (`strata.rs`): Subterranean crust layers, hollow-world vault ceiling, and glowing magma core.
+  - `BlockFacets` (`facets.rs`): Beveled surface block emission, wall sealing, and damage craters (`BlockFissure` in `block/fissure.rs`).
+  - `EarthClods` (`block/earth_clods.rs`): Turf clod and soil pebble structure on top, walls, and overhanging undersides (`emit_terraced`, `emit_crown`, `emit_sole`).
+  - `SurfaceSightRay` (`sight_ray.rs`): 3D voxel raycast for excavating and placing blocks (`brow_origin`, `target_excavation`, `target_placement`).
+- **Trees & Biomes (`crates/world/src/tree/`)**:
+  - `WoodlandGround` $\rightarrow$ `StandingTree` $\rightarrow$ `SolidArboreal` / `ClearedPlot` / `HewnTarget` composing `PrismTrunk`, `PolyhedralCrown`, `ConicalSkirt`, and `FloorLitter`.
+- **Avatar, Kinematics & Inventory (`crates/client/src/`)**:
+  - `PlanetaryAvatar` (`avatar.rs`): Composes `AvatarBody`, `AvatarSight`, `AvatarBearing`, and `AvatarGear`.
+  - `PalmEarthworks` (`earthworks.rs`) & `DigGrip`: Dual-hand excavation progress, foraging, block placement, and `BeltSatchel` (`attire/pouch.rs`).
+  - `YouthAttire` & `SatchelWardrobe` (`attire/mod.rs`): Wardrobe composition (`GarmentEnsemble`, `IdentityTraits`, `HeldHands`).
+  - `BodyPose` (`attire/pose.rs`) & `StrideRhythm` / `MartialStyle` (`attire/rhythm.rs`): 3D joint kinematics and polymorphic weapon/digging swings.

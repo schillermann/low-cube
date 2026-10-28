@@ -25,13 +25,17 @@ pub trait SessionAssembly {
     fn assemble(&self, event_loop: &ActiveEventLoop) -> Box<dyn Session>;
 }
 
-/// Environment assembly mechanism for constructing GameSession.
-pub struct SessionLaunch {
-    host_env: Box<dyn HostEnvironment>,
+struct LaunchCosmos {
     world_blocks: u32,
     physics: Box<dyn PlanetaryPhysics>,
     celestial: Box<dyn CelestialCadence>,
     aurora: Box<dyn AuroraCadence>,
+}
+
+/// Environment assembly mechanism for constructing GameSession.
+pub struct SessionLaunch {
+    host_env: Box<dyn HostEnvironment>,
+    cosmos: LaunchCosmos,
     tron_active: bool,
 }
 
@@ -47,10 +51,7 @@ impl SessionLaunch {
     ) -> Self {
         Self {
             host_env,
-            world_blocks,
-            physics,
-            celestial,
-            aurora,
+            cosmos: LaunchCosmos { world_blocks, physics, celestial, aurora },
             tron_active,
         }
     }
@@ -82,12 +83,11 @@ impl SessionAssembly for SessionLaunch {
         surface.capture_cursor();
 
         let planet: Box<dyn PlanetaryWorld> = if self.tron_active {
-            Box::new(BiomedCubeWorld::beveled_tron(self.world_blocks, 1.0))
+            Box::new(BiomedCubeWorld::beveled_tron(self.cosmos.world_blocks, 1.0))
         } else {
-            Box::new(BiomedCubeWorld::beveled(self.world_blocks, 1.0))
+            Box::new(BiomedCubeWorld::beveled(self.cosmos.world_blocks, 1.0))
         };
 
-        // Primary diurnal daylight and nocturnal rendering pipeline (1 GPU mesh per planetary face)
         let face_count = planet.face_count();
         let mut primary_faces = Vec::with_capacity(face_count);
         let mut tron_faces = Vec::with_capacity(face_count);
@@ -106,10 +106,10 @@ impl SessionAssembly for SessionLaunch {
         }
         let primary_mesh = PlanetaryMesh::new(primary_faces);
         let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
-        let canopy = Box::new(CalibratedCanopy::planetary(self.world_blocks));
+        let canopy = Box::new(CalibratedCanopy::planetary(self.cosmos.world_blocks));
         let primary_pipeline = surface.assemble_diurnal_pipeline(
-            self.celestial.clone_cadence(),
-            self.aurora.clone_cadence(),
+            self.cosmos.celestial.clone_cadence(),
+            self.cosmos.aurora.clone_cadence(),
             canopy,
         );
 
@@ -117,9 +117,9 @@ impl SessionAssembly for SessionLaunch {
         let tron_shader = surface.compile_shader(&TronShaderSource::embedded());
         let tron_pipeline = Box::new(TronPipeline::void());
 
-        let half = (self.world_blocks as f32) * 0.5;
+        let half = (self.cosmos.world_blocks as f32) * 0.5;
         let spawn_position = planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0);
-        let flight = self.physics.surface_flight(1.0);
+        let flight = self.cosmos.physics.surface_flight(1.0);
         let attire = FileAttire::profile().load_or_squire();
         let bindings = FileBindings::profile().load_or_seeded();
         let avatar = Box::new(PlanetaryAvatar::with_attire_and_bindings(

@@ -118,13 +118,17 @@ impl MeshTarget for CrateredMeshTarget<'_> {
     }
 }
 
+struct TurfCoat {
+    up: Vec3,
+    top_color: Vec3,
+    wall_color: Vec3,
+}
+
 /// Decorator coloring upward canopy faces and vertical walls while sealing unemitted undersides.
 pub struct TurfMeshTarget<'a> {
     target: &'a mut dyn MeshTarget,
-    up: Vec3,
+    coat: TurfCoat,
     base_corners: [Vec3; 4],
-    top_color: Vec3,
-    wall_color: Vec3,
     bottom_emitted: bool,
 }
 
@@ -138,14 +142,19 @@ impl<'a> TurfMeshTarget<'a> {
         wall_color: Vec3,
         bottom_emitted: bool,
     ) -> Self {
-        Self { target, up, base_corners, top_color, wall_color, bottom_emitted }
+        Self {
+            target,
+            coat: TurfCoat { up, top_color, wall_color },
+            base_corners,
+            bottom_emitted,
+        }
     }
 
     /// Emits a sealing underside quad if the decorated shape did not emit its own bottom face.
     pub fn seal_underside(&mut self) {
         if !self.bottom_emitted {
             let [b0, b1, b2, b3] = self.base_corners;
-            self.target.push_quad(Quad::new(b0, b3, b2, b1, -self.up, self.wall_color));
+            self.target.push_quad(Quad::new(b0, b3, b2, b1, -self.coat.up, self.coat.wall_color));
             self.bottom_emitted = true;
         }
     }
@@ -154,13 +163,12 @@ impl<'a> TurfMeshTarget<'a> {
 impl MeshTarget for TurfMeshTarget<'_> {
     fn push_quad(&mut self, quad: Quad) {
         let recolored = quad.transfer(|v0, v1, v2, v3, normal, _| {
-            if normal.dot(self.up) < -0.9 {
+            if normal.dot(self.coat.up) < -0.9 {
                 self.bottom_emitted = true;
             }
-            let col = if normal.dot(self.up) > 0.25 { self.top_color } else { self.wall_color };
+            let col = if normal.dot(self.coat.up) > 0.25 { self.coat.top_color } else { self.coat.wall_color };
             Quad::new(v0, v1, v2, v3, normal, col)
         });
         self.target.push_quad(recolored);
     }
 }
-

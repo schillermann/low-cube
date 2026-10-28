@@ -14,15 +14,24 @@ impl ReliefElevation for FlatMeadow {
 
 struct ToneLedger {
     tones: Vec<Vec3>,
+    down_pebbles: usize,
 }
 
 impl MeshTarget for ToneLedger {
-    fn push_quad(&mut self, quad: Quad) { quad.transfer(|_, _, _, _, _, color| self.tones.push(color)); }
+    fn push_quad(&mut self, quad: Quad) {
+        quad.transfer(|_, _, _, _, norm, color| {
+            self.tones.push(color);
+            if norm.y < -0.9 && color == Vec3::new(0.64, 0.61, 0.55) {
+                self.down_pebbles += 1;
+            }
+        });
+    }
 }
 
 fn hand_block_tones() -> Vec<Vec3> {
-    let mut ledger = ToneLedger { tones: Vec::new() };
-    EarthClods::new(GridCell::new(0, 0), 0.0).emit_block(&ClimateZone::Temperate.surface_frame(32.0), &mut ledger);
+    let mut ledger = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+    EarthClods::new(GridCell::new(0, 0), 0.0)
+        .emit_terraced(Vec3::new(0.45, 0.30, 0.17), true, &ClimateZone::Temperate.surface_frame(32.0), &mut ledger);
     ledger.tones
 }
 
@@ -32,7 +41,7 @@ fn test_excavated_terrain_soil_wears_the_hand_held_earth_block_clods() {
     for _ in 0..3 { assert!(relief.excavate_cell(0, 0).1); }
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
-    let (mut pit, mut rim) = (ToneLedger { tones: Vec::new() }, ToneLedger { tones: Vec::new() });
+    let (mut pit, mut rim) = (ToneLedger { tones: Vec::new(), down_pebbles: 0 }, ToneLedger { tones: Vec::new(), down_pebbles: 0 });
     ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &super::NullCavity, &palette, 64, &mut pit);
     ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &super::NullCavity, &palette, 64, &mut rim);
     let hand = hand_block_tones();
@@ -41,4 +50,34 @@ fn test_excavated_terrain_soil_wears_the_hand_held_earth_block_clods() {
     assert!(pit.tones.contains(&Vec3::new(0.45, 0.30, 0.17)), "Bare pit floor must share the hand block's loam top tone");
     let rim_clods = rim.tones.iter().filter(|&&c| c == pebble).count();
     assert!(rim_clods >= 3, "Each exposed 0.5 m soil layer of the pit wall must carry hand block flank clods, got {rim_clods}");
+}
+
+#[test]
+fn test_sideways_excavated_dirt_preserves_overhang_clod_structure() {
+    let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+    for _ in 0..7 { assert!(relief.excavate_cell(0, 0).1); }
+    assert!(relief.excavate_layer(1, 0, -1.25).1, "Must excavate side block below column top");
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let mut overhung = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &super::NullCavity, &palette, 64, &mut overhung);
+    let pebble = Vec3::new(0.64, 0.61, 0.55);
+    let overhang_pebbles = overhung.tones.iter().filter(|&&c| c == pebble).count();
+    assert!(overhang_pebbles >= 50, "Blocks above a sideways-dug dirt block must retain their full 3D clod structure, got {overhang_pebbles}");
+    assert!(overhung.down_pebbles >= 2, "Underside of overhanging dirt block must have downward-facing clod/pebble structure, got {}", overhung.down_pebbles);
+}
+
+#[test]
+fn test_sight_ray_targets_all_four_side_wall_layers_below_head_height() {
+    let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+    for _ in 0..7 { assert!(relief.excavate_cell(0, 0).1); }
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let eye = frame.point_at(0.35, 0.25, -3.5 + 1.80);
+    for (pitch_deg, expected_layer) in [(-10.0f32, -1.75f32), (-38.0, -2.25), (-58.0, -2.75), (-72.0, -3.25)] {
+        let rad = pitch_deg.to_radians();
+        let dir = frame.tangent() * rad.cos() + frame.normal() * rad.sin();
+        let hit = super::SurfaceSightRay::new(eye, dir).target_layer(&frame, &relief, 64, 32.0);
+        assert_eq!(hit, Some((1, 0, expected_layer)), "Pitch {pitch_deg} deg must target side wall block {expected_layer} instead of floor, got {hit:?}");
+        assert!(relief.excavate_layer(1, 0, expected_layer).1);
+    }
 }

@@ -24,18 +24,30 @@ pub trait GravitationalFlight: Send + Sync {
     ) -> Vec3;
 }
 
-/// Polymorphic planetary flight entity coordinating GroundedFlight and AirborneFlight phases.
-pub struct SurfaceFlight {
+struct FlightState {
     phase: FlightPhase,
     jump_strength: f32,
+    eye_height: f32,
+    jump_requested: bool,
+}
+
+struct FlightAerodynamics {
     gravity: AsymmetricGravity,
     canopy: CanopyBraking,
+    envelope: BodyEnvelope,
+}
+
+struct SlopeKinematics {
     surfing: SlopeSurfing,
     ski_launch: SkiLaunch,
     incline: InclinePace,
-    eye_height: f32,
-    envelope: BodyEnvelope,
-    jump_requested: bool,
+}
+
+/// Polymorphic planetary flight entity coordinating GroundedFlight and AirborneFlight phases.
+pub struct SurfaceFlight {
+    state: FlightState,
+    aero: FlightAerodynamics,
+    slope: SlopeKinematics,
 }
 
 impl SurfaceFlight {
@@ -53,16 +65,47 @@ impl SurfaceFlight {
         envelope: BodyEnvelope,
     ) -> Self {
         Self {
-            phase, jump_strength, gravity, canopy, surfing, ski_launch, incline, eye_height, envelope, jump_requested: false,
+            state: FlightState {
+                phase,
+                jump_strength,
+                eye_height,
+                jump_requested: false,
+            },
+            aero: FlightAerodynamics {
+                gravity,
+                canopy,
+                envelope,
+            },
+            slope: SlopeKinematics {
+                surfing,
+                ski_launch,
+                incline,
+            },
         }
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        phase: FlightPhase, jump_strength: f32, gravity: AsymmetricGravity, canopy: CanopyBraking,
-        surfing: SlopeSurfing, ski_launch: SkiLaunch, incline: InclinePace, eye_height: f32,
+        phase: FlightPhase,
+        jump_strength: f32,
+        gravity: AsymmetricGravity,
+        canopy: CanopyBraking,
+        surfing: SlopeSurfing,
+        ski_launch: SkiLaunch,
+        incline: InclinePace,
+        eye_height: f32,
     ) -> Self {
-        Self::with_envelope(phase, jump_strength, gravity, canopy, surfing, ski_launch, incline, eye_height, BodyEnvelope::youth())
+        Self::with_envelope(
+            phase,
+            jump_strength,
+            gravity,
+            canopy,
+            surfing,
+            ski_launch,
+            incline,
+            eye_height,
+            BodyEnvelope::youth(),
+        )
     }
 
     /// Secondary constructor calculating jump velocity from configured jump height and gravity.
@@ -89,16 +132,16 @@ impl SurfaceFlight {
 
 impl GravitationalFlight for SurfaceFlight {
     fn jump(&mut self) {
-        self.jump_requested = true;
+        self.state.jump_requested = true;
     }
 
     fn ground(&mut self) {
-        self.phase = FlightPhase::Grounded(GroundedFlight::human());
-        self.jump_requested = false;
+        self.state.phase = FlightPhase::Grounded(GroundedFlight::human());
+        self.state.jump_requested = false;
     }
 
     fn apply_envelope(&mut self, envelope: BodyEnvelope) {
-        self.envelope = envelope;
+        self.aero.envelope = envelope;
     }
 
     fn advance(
@@ -110,22 +153,26 @@ impl GravitationalFlight for SurfaceFlight {
         surface_up: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> Vec3 {
-        let in_shaft = (position - self.envelope.constrain_with_height(position, self.eye_height, world)).dot(surface_up) > 2.5;
-        if self.jump_requested {
-            self.jump_requested = false;
+        let constrained = self.aero.envelope.constrain_with_height(position, self.state.eye_height, world);
+        let in_shaft = (position - constrained).dot(surface_up) > 2.5;
+        if self.state.jump_requested {
+            self.state.jump_requested = false;
             if world.weightless_at(position) || in_shaft {
-                self.phase = FlightPhase::Airborne(AirborneFlight::new(self.jump_strength, StepThreshold::human_stride()));
+                self.state.phase = FlightPhase::Airborne(AirborneFlight::new(
+                    self.state.jump_strength,
+                    StepThreshold::human_stride(),
+                ));
             } else {
-                let (launch_speed, launch_momentum) = self.ski_launch.evaluate_launch(
-                    self.jump_strength,
+                let (launch_speed, launch_momentum) = self.slope.ski_launch.evaluate_launch(
+                    self.state.jump_strength,
                     stride,
                     surface_up,
                     position,
                     dt,
-                    self.eye_height,
+                    self.state.eye_height,
                     world,
                 );
-                self.phase = self.phase.launch(launch_speed, launch_momentum);
+                self.state.phase = self.state.phase.launch(launch_speed, launch_momentum);
             }
         }
 
@@ -134,16 +181,16 @@ impl GravitationalFlight for SurfaceFlight {
             position,
             stride,
             surface_up,
-            self.eye_height,
-            self.envelope,
-            &self.gravity,
-            self.canopy,
-            self.surfing,
-            self.incline,
+            self.state.eye_height,
+            self.aero.envelope,
+            &self.aero.gravity,
+            self.aero.canopy,
+            self.slope.surfing,
+            self.slope.incline,
             gait,
             world,
         );
-        let advanced = self.phase.advance(&context).apply(&mut self.phase);
+        let advanced = self.state.phase.advance(&context).apply(&mut self.state.phase);
         let next_pos = if world.weightless_at(position) || world.weightless_at(advanced) || in_shaft {
             world.confine_beneath_crust(advanced)
         } else {
@@ -151,21 +198,27 @@ impl GravitationalFlight for SurfaceFlight {
         };
         if (next_pos - position).dot(surface_up) > 0.0
             && !world.weightless_at(next_pos)
-            && (next_pos - world.constrain_to_surface(next_pos, self.eye_height)).dot(surface_up) > 2.5
+            && (next_pos - world.constrain_to_surface(next_pos, self.state.eye_height)).dot(surface_up) > 2.5
         {
             let ortho = if surface_up.x.abs() < 0.5 { Vec3::X } else { Vec3::Z };
-            let rim = world.constrain_to_surface(next_pos + ortho * 0.5 + surface_up * 32.0, self.eye_height);
+            let rim = world.constrain_to_surface(
+                next_pos + ortho * 0.5 + surface_up * 32.0,
+                self.state.eye_height,
+            );
             if (next_pos - rim).dot(surface_up) >= -0.05 && !world.weightless_at(rim) {
-                self.phase = FlightPhase::Grounded(GroundedFlight::human());
+                self.state.phase = FlightPhase::Grounded(GroundedFlight::human());
                 return rim;
             }
-            let next_in_shaft = (next_pos - world.constrain_to_surface(next_pos, self.eye_height)).dot(surface_up) > 2.5;
+            let next_in_shaft = (next_pos - world.constrain_to_surface(next_pos, self.state.eye_height)).dot(surface_up) > 2.5;
             if next_in_shaft {
-                self.phase = FlightPhase::Airborne(AirborneFlight::new(self.jump_strength, StepThreshold::human_stride()));
+                self.state.phase = FlightPhase::Airborne(AirborneFlight::new(
+                    self.state.jump_strength,
+                    StepThreshold::human_stride(),
+                ));
             }
         }
         if world.lethal_at(next_pos) || world.lethal_at(position) {
-            self.phase = FlightPhase::Airborne(AirborneFlight::new(0.0, StepThreshold::human_stride()));
+            self.state.phase = FlightPhase::Airborne(AirborneFlight::new(0.0, StepThreshold::human_stride()));
             return if world.lethal_at(position) { position } else { next_pos };
         }
         next_pos

@@ -119,7 +119,7 @@ impl VoxelShape for MediumShape {
 
     fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, target: &mut dyn MeshTarget) {
         match (self.medium, self.full_cube) {
-            (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_block(frame, target),
+            (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_terraced(top_color, top_color == wall_color, frame, target),
             (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
             (BlockMedium::PlanedPlanks, true) => BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain, frame, target),
             (BlockMedium::RawTimber, false) => {

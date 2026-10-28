@@ -89,6 +89,7 @@ impl ReliefStrata {
         let (ceil_col, dirt_col) = (Vec3::new(0.38, 0.25, 0.16) * tint, Vec3::new(0.41, 0.27, 0.15));
         let (c0, c1, c2, c3) = (frame.point_at(u0, v0, ceil_h), frame.point_at(u1, v0, ceil_h), frame.point_at(u1, v1, ceil_h), frame.point_at(u0, v1, ceil_h));
         target.push_quad(Quad::glowing(c3, c2, c1, c0, -frame.normal(), ceil_col, 0.55));
+        EarthClods::new(cell, ceil_h).emit_sole(frame, target);
         let sides = [
             ((0, 1), (u1, v1), (u0, v1), -frame.bitangent(), 0usize),
             ((0, -1), (u0, v0), (u1, v0), frame.bitangent(), 1usize),

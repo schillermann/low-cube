@@ -1,6 +1,7 @@
 use glam::Vec3;
-use crate::{MeshTarget, Quad};
+use crate::{MeshTarget, Quad, TurfMeshTarget};
 use super::cell::GridCell;
+use super::earth_clods::EarthClods;
 use crate::frame::SurfaceFrame;
 use super::shape::VoxelShape;
 
@@ -55,5 +56,23 @@ impl VoxelShape for CuboidShape {
         target.push_quad(Quad::new(p3, p2, b2, b3, frame.bitangent(), color));
         target.push_quad(Quad::new(b3, b0, p0, p3, -frame.tangent(), color));
         target.push_quad(Quad::new(b1, b2, p2, p1, frame.tangent(), color));
+    }
+
+    fn emit_terraced_shape(
+        &self,
+        cell: GridCell,
+        base_elevation: f32,
+        frame: &SurfaceFrame,
+        top_color: Vec3,
+        wall_color: Vec3,
+        target: &mut dyn MeshTarget,
+    ) {
+        if self.height >= 0.45 {
+            EarthClods::new(cell, base_elevation).emit_terraced(top_color, top_color == wall_color, frame, target);
+        } else {
+            let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, base_elevation), top_color, wall_color, true);
+            self.emit_shape(cell, base_elevation, frame, wall_color, &mut turf);
+            turf.seal_underside();
+        }
     }
 }

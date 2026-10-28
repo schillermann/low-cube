@@ -23,31 +23,38 @@ impl FlightGravity for UniformGravity {
     }
 }
 
-/// Asymmetric gravitational decorator: decorates any base flight gravity with hang-time near apex and snappy descent.
 #[derive(Clone, Copy, Debug)]
-pub struct AsymmetricGravity<G: FlightGravity = UniformGravity> {
-    base: G,
+struct TrajectoryRatios {
     ascent_ratio: f32,
     apex_ratio: f32,
     descent_ratio: f32,
     apex_threshold: f32,
 }
 
+/// Asymmetric gravitational decorator: decorates any flight gravity with hang-time near apex and snappy descent.
+#[derive(Clone, Copy, Debug)]
+pub struct AsymmetricGravity<G: FlightGravity = UniformGravity> {
+    origin: G,
+    ratios: TrajectoryRatios,
+}
+
 impl<G: FlightGravity> AsymmetricGravity<G> {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
-        base: G,
+        origin: G,
         ascent_ratio: f32,
         apex_ratio: f32,
         descent_ratio: f32,
         apex_threshold: f32,
     ) -> Self {
         Self {
-            base,
-            ascent_ratio,
-            apex_ratio,
-            descent_ratio,
-            apex_threshold,
+            origin,
+            ratios: TrajectoryRatios {
+                ascent_ratio,
+                apex_ratio,
+                descent_ratio,
+                apex_threshold,
+            },
         }
     }
 }
@@ -61,13 +68,14 @@ impl AsymmetricGravity<UniformGravity> {
 
 impl<G: FlightGravity> FlightGravity for AsymmetricGravity<G> {
     fn delta_velocity(&self, vertical_speed: f32, dt: f32) -> f32 {
-        let base_delta = self.base.delta_velocity(vertical_speed, dt);
-        let ratio = if vertical_speed > self.apex_threshold {
-            self.ascent_ratio
-        } else if vertical_speed < -self.apex_threshold {
-            self.descent_ratio
+        let base_delta = self.origin.delta_velocity(vertical_speed, dt);
+        let r = self.ratios;
+        let ratio = if vertical_speed > r.apex_threshold {
+            r.ascent_ratio
+        } else if vertical_speed < -r.apex_threshold {
+            r.descent_ratio
         } else {
-            self.apex_ratio
+            r.apex_ratio
         };
         base_delta * ratio
     }

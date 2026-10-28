@@ -47,16 +47,30 @@ impl PartProportion {
 
     pub fn scale_size(self, measure: f32) -> f32 {
         let factor = match self.size_step {
-            0 => 0.72, 1 => 0.79, 2 => 0.86, 3 => 0.93, 4 => 1.00,
-            5 => 1.08, 6 => 1.16, 7 => 1.24, _ => 1.32,
+            0 => 0.72,
+            1 => 0.79,
+            2 => 0.86,
+            3 => 0.93,
+            4 => 1.00,
+            5 => 1.08,
+            6 => 1.16,
+            7 => 1.24,
+            _ => 1.32,
         };
         measure * factor
     }
 
     pub fn scale_girth(self, measure: f32) -> f32 {
         let factor = match self.girth_step {
-            0 => 0.68, 1 => 0.74, 2 => 0.80, 3 => 0.87, 4 => 0.94,
-            5 => 1.00, 6 => 1.08, 7 => 1.18, _ => 1.28,
+            0 => 0.68,
+            1 => 0.74,
+            2 => 0.80,
+            3 => 0.87,
+            4 => 0.94,
+            5 => 1.00,
+            6 => 1.08,
+            7 => 1.18,
+            _ => 1.28,
         };
         measure * factor
     }
@@ -65,7 +79,10 @@ impl PartProportion {
     pub fn size_ratio(self) -> f32 { (self.size_step.min(8) as f32) / 8.0 }
     pub fn girth_ratio(self) -> f32 { (self.girth_step.min(8) as f32) / 8.0 }
     pub fn packed_byte(self) -> u8 { self.size_step.min(8) * 9 + self.girth_step.min(8) }
-    pub fn from_packed_byte(byte: u8) -> Self { let v = (byte & 0x7F).min(80); Self::new(v / 9, v % 9) }
+    pub fn from_packed_byte(byte: u8) -> Self {
+        let v = (byte & 0x7F).min(80);
+        Self::new(v / 9, v % 9)
+    }
 }
 
 /// Customizable stature build scaling individual body regions (Kopf, Torso, Arme, Beine) and gender form.
@@ -73,57 +90,102 @@ impl PartProportion {
 pub struct YouthPhysique {
     crown: PartProportion,
     torso: PartProportion,
-    arms: PartProportion,
-    legs: PartProportion,
+    limbs: (PartProportion, PartProportion),
     feminine: bool,
 }
 
 impl YouthPhysique {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn with_feminine(crown: PartProportion, torso: PartProportion, arms: PartProportion, legs: PartProportion, feminine: bool) -> Self {
-        Self { crown, torso, arms, legs, feminine }
+    pub const fn with_feminine(
+        crown: PartProportion,
+        torso: PartProportion,
+        arms: PartProportion,
+        legs: PartProportion,
+        feminine: bool,
+    ) -> Self {
+        Self {
+            crown,
+            torso,
+            limbs: (arms, legs),
+            feminine,
+        }
     }
 
-    pub const fn new(crown: PartProportion, torso: PartProportion, arms: PartProportion, legs: PartProportion) -> Self {
+    pub const fn new(
+        crown: PartProportion,
+        torso: PartProportion,
+        arms: PartProportion,
+        legs: PartProportion,
+    ) -> Self {
         Self::with_feminine(crown, torso, arms, legs, false)
     }
 
     pub const fn as_feminine(self, feminine: bool) -> Self {
-        Self::with_feminine(self.crown, self.torso, self.arms, self.legs, feminine)
+        Self::with_feminine(self.crown, self.torso, self.limbs.0, self.limbs.1, feminine)
     }
 
     pub const fn feminine(self) -> bool { self.feminine }
 
     #[allow(non_upper_case_globals)]
-    pub const SlenderSquire: Self = Self::new(PartProportion::squire(), PartProportion::squire(), PartProportion::squire(), PartProportion::squire());
+    pub const SlenderSquire: Self = Self::new(
+        PartProportion::squire(),
+        PartProportion::squire(),
+        PartProportion::squire(),
+        PartProportion::squire(),
+    );
     #[allow(non_upper_case_globals)]
-    pub const AgileScout: Self = Self::new(PartProportion::scout(), PartProportion::scout(), PartProportion::scout(), PartProportion::scout());
+    pub const AgileScout: Self = Self::new(
+        PartProportion::scout(),
+        PartProportion::scout(),
+        PartProportion::scout(),
+        PartProportion::scout(),
+    );
     #[allow(non_upper_case_globals)]
-    pub const SturdyApprentice: Self = Self::new(PartProportion::apprentice(), PartProportion::apprentice(), PartProportion::apprentice(), PartProportion::apprentice());
+    pub const SturdyApprentice: Self = Self::new(
+        PartProportion::apprentice(),
+        PartProportion::apprentice(),
+        PartProportion::apprentice(),
+        PartProportion::apprentice(),
+    );
 
     pub fn next(self) -> Self {
-        let base = if self.torso == PartProportion::squire() { Self::AgileScout }
-            else if self.torso == PartProportion::scout() { Self::SturdyApprentice }
-            else { Self::SlenderSquire };
+        let base = if self.torso == PartProportion::squire() {
+            Self::AgileScout
+        } else if self.torso == PartProportion::scout() {
+            Self::SturdyApprentice
+        } else {
+            Self::SlenderSquire
+        };
         base.as_feminine(self.feminine)
     }
 
     pub fn from_code(code: u8) -> Self {
-        let base = match (code & 7) % 3 { 0 => Self::SlenderSquire, 1 => Self::AgileScout, _ => Self::SturdyApprentice };
+        let base = match (code & 7) % 3 {
+            0 => Self::SlenderSquire,
+            1 => Self::AgileScout,
+            _ => Self::SturdyApprentice,
+        };
         base.as_feminine((code & 8) != 0)
     }
 
     pub fn code(self) -> u8 {
-        let base = if self.torso == PartProportion::squire() { 0 } else if self.torso == PartProportion::scout() { 1 } else { 2 };
+        let base = if self.torso == PartProportion::squire() {
+            0
+        } else if self.torso == PartProportion::scout() {
+            1
+        } else {
+            2
+        };
         base | if self.feminine { 8 } else { 0 }
     }
 
     pub fn adjusted(self, region: BodyRegion, delta_size: i8, delta_girth: i8) -> Self {
+        let (arms, legs) = self.limbs;
         match region {
-            BodyRegion::Crown => Self::with_feminine(self.crown.adjusted(delta_size, delta_girth), self.torso, self.arms, self.legs, self.feminine),
-            BodyRegion::Torso => Self::with_feminine(self.crown, self.torso.adjusted(delta_size, delta_girth), self.arms, self.legs, self.feminine),
-            BodyRegion::Arms => Self::with_feminine(self.crown, self.torso, self.arms.adjusted(delta_size, delta_girth), self.legs, self.feminine),
-            BodyRegion::Legs => Self::with_feminine(self.crown, self.torso, self.arms, self.legs.adjusted(delta_size, delta_girth), self.feminine),
+            BodyRegion::Crown => Self::with_feminine(self.crown.adjusted(delta_size, delta_girth), self.torso, arms, legs, self.feminine),
+            BodyRegion::Torso => Self::with_feminine(self.crown, self.torso.adjusted(delta_size, delta_girth), arms, legs, self.feminine),
+            BodyRegion::Arms => Self::with_feminine(self.crown, self.torso, arms.adjusted(delta_size, delta_girth), legs, self.feminine),
+            BodyRegion::Legs => Self::with_feminine(self.crown, self.torso, arms, legs.adjusted(delta_size, delta_girth), self.feminine),
         }
     }
 
@@ -131,8 +193,8 @@ impl YouthPhysique {
         match region {
             BodyRegion::Crown => self.crown,
             BodyRegion::Torso => self.torso,
-            BodyRegion::Arms => self.arms,
-            BodyRegion::Legs => self.legs,
+            BodyRegion::Arms => self.limbs.0,
+            BodyRegion::Legs => self.limbs.1,
         }
     }
 
@@ -142,10 +204,10 @@ impl YouthPhysique {
     pub fn crown_span(self, measure: f32) -> f32 { self.crown.scale_span(measure) }
     pub fn torso_size(self, measure: f32) -> f32 { self.torso.scale_size(measure) }
     pub fn torso_depth(self, measure: f32) -> f32 { self.torso.scale_span(measure) }
-    pub fn arm_size(self, measure: f32) -> f32 { self.arms.scale_size(measure) }
-    pub fn arm_girth(self, measure: f32) -> f32 { self.arms.scale_girth(measure) }
-    pub fn leg_size(self, measure: f32) -> f32 { self.legs.scale_size(measure) }
-    pub fn leg_girth(self, measure: f32) -> f32 { self.legs.scale_girth(measure) }
+    pub fn arm_size(self, measure: f32) -> f32 { self.limbs.0.scale_size(measure) }
+    pub fn arm_girth(self, measure: f32) -> f32 { self.limbs.0.scale_girth(measure) }
+    pub fn leg_size(self, measure: f32) -> f32 { self.limbs.1.scale_size(measure) }
+    pub fn leg_girth(self, measure: f32) -> f32 { self.limbs.1.scale_girth(measure) }
 
     pub fn stature_height(self) -> f32 {
         self.leg_size(0.68) + self.torso_size(0.88) + self.crown_size(0.24)
@@ -164,7 +226,12 @@ impl YouthPhysique {
     }
 
     pub fn region_bytes(self) -> [u8; 4] {
-        [self.crown.packed_byte() | if self.feminine { 0x80 } else { 0 }, self.torso.packed_byte(), self.arms.packed_byte(), self.legs.packed_byte()]
+        [
+            self.crown.packed_byte() | if self.feminine { 0x80 } else { 0 },
+            self.torso.packed_byte(),
+            self.limbs.0.packed_byte(),
+            self.limbs.1.packed_byte(),
+        ]
     }
 
     pub fn from_region_bytes(bytes: [u8; 4]) -> Self {

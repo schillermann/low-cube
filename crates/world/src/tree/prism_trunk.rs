@@ -6,11 +6,8 @@ use super::facet::ArborealFacet;
 /// Faceted tapered prismatic trunk or branch column.
 pub struct PrismTrunk {
     segments: usize,
-    radius_base: f32,
-    radius_top: f32,
-    offset_top_u: f32,
-    offset_top_v: f32,
-    height: f32,
+    span: (f32, f32, f32),
+    offset_top: (f32, f32),
     color: Vec3,
 }
 
@@ -27,11 +24,8 @@ impl PrismTrunk {
     ) -> Self {
         Self {
             segments,
-            radius_base,
-            radius_top,
-            offset_top_u,
-            offset_top_v,
-            height,
+            span: (radius_base, radius_top, height),
+            offset_top: (offset_top_u, offset_top_v),
             color,
         }
     }
@@ -59,25 +53,27 @@ impl ArborealFacet for PrismTrunk {
     ) {
         let segs = self.segments.max(3);
         let step = (2.0 * PI) / (segs as f32);
+        let (radius_base, radius_top, height) = self.span;
+        let (offset_top_u, offset_top_v) = self.offset_top;
 
         for i in 0..segs {
             let a0 = (i as f32) * step;
             let a1 = ((i + 1) as f32) * step;
 
-            let b0_u = u + self.radius_base * a0.cos();
-            let b0_v = v + self.radius_base * a0.sin();
-            let b1_u = u + self.radius_base * a1.cos();
-            let b1_v = v + self.radius_base * a1.sin();
+            let b0_u = u + radius_base * a0.cos();
+            let b0_v = v + radius_base * a0.sin();
+            let b1_u = u + radius_base * a1.cos();
+            let b1_v = v + radius_base * a1.sin();
 
-            let t0_u = u + self.offset_top_u + self.radius_top * a0.cos();
-            let t0_v = v + self.offset_top_v + self.radius_top * a0.sin();
-            let t1_u = u + self.offset_top_u + self.radius_top * a1.cos();
-            let t1_v = v + self.offset_top_v + self.radius_top * a1.sin();
+            let t0_u = u + offset_top_u + radius_top * a0.cos();
+            let t0_v = v + offset_top_v + radius_top * a0.sin();
+            let t1_u = u + offset_top_u + radius_top * a1.cos();
+            let t1_v = v + offset_top_v + radius_top * a1.sin();
 
             let p0 = frame.point_at(b0_u, b0_v, elevation);
             let p1 = frame.point_at(b1_u, b1_v, elevation);
-            let p2 = frame.point_at(t1_u, t1_v, elevation + self.height);
-            let p3 = frame.point_at(t0_u, t0_v, elevation + self.height);
+            let p2 = frame.point_at(t1_u, t1_v, elevation + height);
+            let p3 = frame.point_at(t0_u, t0_v, elevation + height);
 
             let cross = (p1 - p0).cross(p3 - p0);
             let normal = if cross.length_squared() > 1e-6 {

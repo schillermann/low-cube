@@ -69,14 +69,32 @@ impl<'a> LocomotionTarget for GroundedLocomotionTarget<'a> {
     }
 }
 
-/// Decorator counting dispatched locomotion instructions for testing and telemetry.
+/// Encapsulated tally of dispatched locomotion actions.
 #[cfg(test)]
-pub struct TallyLocomotionTarget<'a> {
-    target: &'a mut dyn LocomotionTarget,
+struct LocomotionTally {
     travels: usize,
     jumps: usize,
     sneaks: usize,
     sprints: usize,
+}
+
+#[cfg(test)]
+impl LocomotionTally {
+    fn zero() -> Self {
+        Self {
+            travels: 0,
+            jumps: 0,
+            sneaks: 0,
+            sprints: 0,
+        }
+    }
+}
+
+/// Decorator counting dispatched locomotion instructions for testing and telemetry.
+#[cfg(test)]
+pub struct TallyLocomotionTarget<'a> {
+    target: &'a mut dyn LocomotionTarget,
+    tally: LocomotionTally,
 }
 
 #[cfg(test)]
@@ -85,49 +103,46 @@ impl<'a> TallyLocomotionTarget<'a> {
     pub fn new(target: &'a mut dyn LocomotionTarget) -> Self {
         Self {
             target,
-            travels: 0,
-            jumps: 0,
-            sneaks: 0,
-            sprints: 0,
+            tally: LocomotionTally::zero(),
         }
     }
 
     pub fn travels(&self) -> usize {
-        self.travels
+        self.tally.travels
     }
 
     pub fn jumps(&self) -> usize {
-        self.jumps
+        self.tally.jumps
     }
 
     pub fn sneaks(&self) -> usize {
-        self.sneaks
+        self.tally.sneaks
     }
 
     pub fn sprints(&self) -> usize {
-        self.sprints
+        self.tally.sprints
     }
 }
 
 #[cfg(test)]
 impl<'a> LocomotionTarget for TallyLocomotionTarget<'a> {
     fn travel(&mut self, direction: Vec3) {
-        self.travels += 1;
+        self.tally.travels += 1;
         self.target.travel(direction);
     }
 
     fn jump(&mut self) {
-        self.jumps += 1;
+        self.tally.jumps += 1;
         self.target.jump();
     }
 
     fn sneak(&mut self) {
-        self.sneaks += 1;
+        self.tally.sneaks += 1;
         self.target.sneak();
     }
 
     fn sprint(&mut self) {
-        self.sprints += 1;
+        self.tally.sprints += 1;
         self.target.sprint();
     }
 }

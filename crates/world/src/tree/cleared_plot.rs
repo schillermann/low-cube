@@ -6,16 +6,26 @@ use super::floor_litter::FloorLitter;
 use super::hewn_target::HewnTimberTarget;
 use super::timber_yield::SurfaceFind;
 
-/// Vacant ground plot where vegetation has been harvested, optionally emitting final falling leaves, woodchips, and felled timber.
-pub struct ClearedPlot {
+#[derive(Clone, Copy, Debug)]
+struct PlotAnchor {
     frame: SurfaceFrame,
     u: f32,
     v: f32,
     elevation: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct FelledAftermath {
     burst: f32,
     cleave_u: f32,
     cleave_v: f32,
     salvage: SurfaceFind,
+}
+
+/// Vacant ground plot where vegetation has been harvested, optionally emitting final falling leaves, woodchips, and felled timber.
+pub struct ClearedPlot {
+    anchor: PlotAnchor,
+    aftermath: FelledAftermath,
 }
 
 impl ClearedPlot {
@@ -32,14 +42,8 @@ impl ClearedPlot {
         salvage: SurfaceFind,
     ) -> Self {
         Self {
-            frame,
-            u,
-            v,
-            elevation,
-            burst,
-            cleave_u,
-            cleave_v,
-            salvage,
+            anchor: PlotAnchor { frame, u, v, elevation },
+            aftermath: FelledAftermath { burst, cleave_u, cleave_v, salvage },
         }
     }
 
@@ -72,40 +76,33 @@ impl ClearedPlot {
 
 impl Arboreal for ClearedPlot {
     fn strike(&self, _cleave: u32, _recipient: &mut dyn TimberDepository) -> Box<dyn Arboreal> {
-        Box::new(Self::with_salvage(
-            self.frame,
-            self.u,
-            self.v,
-            self.elevation,
-            0.0,
-            self.cleave_u,
-            self.cleave_v,
-            self.salvage,
-        ))
+        let (a, f) = (self.anchor, self.aftermath);
+        Box::new(Self::with_salvage(a.frame, a.u, a.v, a.elevation, 0.0, f.cleave_u, f.cleave_v, f.salvage))
     }
 
     fn forage_at(&self, eye: Vec3, direction: Vec3) -> (Box<dyn Arboreal>, SurfaceFind) {
-        if !self.salvage.gathered() {
-            return (Box::new(Self::new(self.u, self.v, self.elevation)), SurfaceFind::EmptyHanded);
+        let (a, f) = (self.anchor, self.aftermath);
+        if !f.salvage.gathered() {
+            return (Box::new(Self::new(a.u, a.v, a.elevation)), SurfaceFind::EmptyHanded);
         }
-        let litter = FloorLitter::new(self.frame, self.u, self.v, self.elevation, self.salvage, 0.45);
+        let litter = FloorLitter::new(a.frame, a.u, a.v, a.elevation, f.salvage, 0.45);
         let (_, find) = litter.forage_at(eye, direction);
         if find.gathered() {
             (
-                Box::new(Self::with_salvage(self.frame, self.u, self.v, self.elevation, self.burst, self.cleave_u, self.cleave_v, SurfaceFind::EmptyHanded)),
+                Box::new(Self::with_salvage(a.frame, a.u, a.v, a.elevation, f.burst, f.cleave_u, f.cleave_v, SurfaceFind::EmptyHanded)),
                 find,
             )
         } else {
             (
-                Box::new(Self::with_salvage(self.frame, self.u, self.v, self.elevation, self.burst, self.cleave_u, self.cleave_v, self.salvage)),
+                Box::new(Self::with_salvage(a.frame, a.u, a.v, a.elevation, f.burst, f.cleave_u, f.cleave_v, f.salvage)),
                 SurfaceFind::EmptyHanded,
             )
         }
     }
 
     fn step_timber(&mut self, dt: f32) -> bool {
-        if self.burst > 0.0 {
-            self.burst = (self.burst - dt * 2.2).max(0.0);
+        if self.aftermath.burst > 0.0 {
+            self.aftermath.burst = (self.aftermath.burst - dt * 2.2).max(0.0);
             true
         } else {
             false
@@ -132,20 +129,21 @@ impl Arboreal for ClearedPlot {
     }
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
-        if self.salvage.gathered() {
-            FloorLitter::new(self.frame, self.u, self.v, self.elevation, self.salvage, 0.45).emit_surface(target);
+        let (a, f) = (self.anchor, self.aftermath);
+        if f.salvage.gathered() {
+            FloorLitter::new(a.frame, a.u, a.v, a.elevation, f.salvage, 0.45).emit_surface(target);
         }
-        if self.burst > 0.0 {
+        if f.burst > 0.0 {
             let mut hewn = HewnTimberTarget::new(
                 target,
-                self.frame,
-                self.u,
-                self.v,
-                self.elevation,
+                a.frame,
+                a.u,
+                a.v,
+                a.elevation,
                 1.0,
-                self.burst,
-                self.cleave_u,
-                self.cleave_v,
+                f.burst,
+                f.cleave_u,
+                f.cleave_v,
                 Vec3::new(0.24, 0.56, 0.18),
             );
             hewn.emit_cleave_burst();

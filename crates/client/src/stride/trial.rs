@@ -9,16 +9,28 @@ pub trait StrideTrial {
     fn destination(&self) -> Vec3;
 }
 
-/// Evaluated ground trial step outcome.
-pub struct WalkTrial<'a> {
+/// Encapsulated posture frame of an avatar evaluating a stride trial.
+#[derive(Clone, Copy)]
+struct StrideStance {
     origin: Vec3,
-    step: Vec3,
     up: Vec3,
     eye: f32,
-    envelope: BodyEnvelope,
     limit: StepThreshold,
-    seam_allowed: bool,
+}
+
+/// Encapsulated physical probe against planetary terrain.
+#[derive(Clone, Copy)]
+struct StrideProbe<'a> {
+    envelope: BodyEnvelope,
     world: &'a dyn PlanetaryWorld,
+}
+
+/// Evaluated ground trial step outcome.
+pub struct WalkTrial<'a> {
+    step: Vec3,
+    seam_allowed: bool,
+    stance: StrideStance,
+    probe: StrideProbe<'a>,
 }
 
 impl<'a> WalkTrial<'a> {
@@ -34,14 +46,10 @@ impl<'a> WalkTrial<'a> {
         world: &'a dyn PlanetaryWorld,
     ) -> Self {
         Self {
-            origin,
             step,
-            up,
-            eye,
-            envelope,
-            limit,
             seam_allowed,
-            world,
+            stance: StrideStance { origin, up, eye, limit },
+            probe: StrideProbe { envelope, world },
         }
     }
 }
@@ -51,40 +59,36 @@ impl<'a> StrideTrial for WalkTrial<'a> {
         if self.step.length_squared() <= 1e-6 {
             return false;
         }
-        let candidate = self.origin + self.step;
-        let surface_pos = self.envelope.constrain_with_height(candidate, self.eye, self.world);
-        let clearance = SurfaceClearance::between(self.origin, candidate, surface_pos, self.up, self.world);
+        let candidate = self.stance.origin + self.step;
+        let surface_pos = self.probe.envelope.constrain_with_height(candidate, self.stance.eye, self.probe.world);
+        let clearance = SurfaceClearance::between(self.stance.origin, candidate, surface_pos, self.stance.up, self.probe.world);
         clearance.passable_with(self.seam_allowed)
-            && SurfaceStep::new(self.origin, surface_pos, self.up).walkable_with(self.limit)
-            && self.envelope.unobstructed_ground(
+            && SurfaceStep::new(self.stance.origin, surface_pos, self.stance.up).walkable_with(self.stance.limit)
+            && self.probe.envelope.unobstructed_ground(
                 candidate,
                 surface_pos,
                 self.step,
-                self.up,
-                self.eye,
-                self.limit,
-                self.world,
+                self.stance.up,
+                self.stance.eye,
+                self.stance.limit,
+                self.probe.world,
             )
     }
 
     fn destination(&self) -> Vec3 {
         if self.step.length_squared() <= 1e-6 {
-            return self.origin;
+            return self.stance.origin;
         }
-        self.envelope.constrain_with_height(self.origin + self.step, self.eye, self.world)
+        self.probe.envelope.constrain_with_height(self.stance.origin + self.step, self.stance.eye, self.probe.world)
     }
 }
 
 /// Evaluated mid-air trial step outcome.
 pub struct AerialTrial<'a> {
-    origin: Vec3,
     tangent: Vec3,
     vertical: Vec3,
-    up: Vec3,
-    eye: f32,
-    envelope: BodyEnvelope,
-    limit: StepThreshold,
-    world: &'a dyn PlanetaryWorld,
+    stance: StrideStance,
+    probe: StrideProbe<'a>,
 }
 
 impl<'a> AerialTrial<'a> {
@@ -100,14 +104,10 @@ impl<'a> AerialTrial<'a> {
         world: &'a dyn PlanetaryWorld,
     ) -> Self {
         Self {
-            origin,
             tangent,
             vertical,
-            up,
-            eye,
-            envelope,
-            limit,
-            world,
+            stance: StrideStance { origin, up, eye, limit },
+            probe: StrideProbe { envelope, world },
         }
     }
 }
@@ -117,35 +117,35 @@ impl<'a> StrideTrial for AerialTrial<'a> {
         if self.tangent.length_squared() <= 1e-6 {
             return false;
         }
-        let candidate = self.origin + self.tangent + self.vertical;
-        let surface_pos = self.envelope.constrain_with_height(candidate, self.eye, self.world);
-        let clearance = SurfaceClearance::between(self.origin, candidate, surface_pos, self.up, self.world);
-        let origin_surf = self.envelope.constrain_with_height(self.origin, self.eye, self.world);
-        let over_pit = (self.origin - origin_surf).dot(self.up) > 0.02;
-        let falling_into_pit = self.vertical.dot(self.up) <= 0.0
-            && (self.origin - surface_pos).dot(self.up) < if over_pit { 0.52 } else { -1e-4 }
-            && !SurfaceStep::new(origin_surf, surface_pos, self.up).walkable_with(self.limit);
+        let candidate = self.stance.origin + self.tangent + self.vertical;
+        let surface_pos = self.probe.envelope.constrain_with_height(candidate, self.stance.eye, self.probe.world);
+        let clearance = SurfaceClearance::between(self.stance.origin, candidate, surface_pos, self.stance.up, self.probe.world);
+        let origin_surf = self.probe.envelope.constrain_with_height(self.stance.origin, self.stance.eye, self.probe.world);
+        let over_pit = (self.stance.origin - origin_surf).dot(self.stance.up) > 0.02;
+        let falling_into_pit = self.vertical.dot(self.stance.up) <= 0.0
+            && (self.stance.origin - surface_pos).dot(self.stance.up) < if over_pit { 0.52 } else { -1e-4 }
+            && !SurfaceStep::new(origin_surf, surface_pos, self.stance.up).walkable_with(self.stance.limit);
         let center_ok = if falling_into_pit {
             false
-        } else if !clearance.cliff_impact(self.limit) {
+        } else if !clearance.cliff_impact(self.stance.limit) {
             true
         } else {
-            SurfaceStep::new(origin_surf, surface_pos, self.up).walkable_with(self.limit)
+            SurfaceStep::new(origin_surf, surface_pos, self.stance.up).walkable_with(self.stance.limit)
         };
         center_ok
-            && self.envelope.unobstructed_aerial(
-                self.origin,
+            && self.probe.envelope.unobstructed_aerial(
+                self.stance.origin,
                 candidate,
                 self.tangent,
-                self.up,
-                self.eye,
-                self.limit,
-                self.world,
+                self.stance.up,
+                self.stance.eye,
+                self.stance.limit,
+                self.probe.world,
             )
     }
 
     fn destination(&self) -> Vec3 {
-        self.origin + self.tangent + self.vertical
+        self.stance.origin + self.tangent + self.vertical
     }
 }
 

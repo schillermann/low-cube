@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.40.2] - 2026-10-28
+
+### Changed
+- Enforced strict Elegant Objects / Pure OOP architecture across `crates/world`, `crates/engine`, and `crates/client` ($\le 4$ encapsulated fields per struct, $\le 300$ lines per file, polymorphic dispatch, and zero raw bitmask state), guarded automatically by `test_workspace_architecture_guard_enforces_line_and_field_limits`.
+- Decomposed `TerracedRelief`, `PlanetaryAvatar`, `BodyPose`, and `PalmEarthworks` into focused domain collaborators (`StrataShell`, `ShaftExcavation`, `OverhangMolds`, `NaturalStrata`, `AvatarBody`, `AvatarSight`, `AvatarBearing`, `AvatarGear`, `StrideRhythm`, `MartialStyle`, and `DigGrip`) and encapsulated coordinate/grid arithmetic inside `SurfaceFrame` and `GridCell`.
+
+### Fixed
+- Preserved turf clod and river-pebble structure on the top, sides, and overhanging underside of natural dirt blocks (`EarthClods::emit_sole`, `OverhangMolds::preserve_above`, `CuboidShape::emit_shape`) when excavating laterally into a soil wall.
+- Enabled targeting and excavating all four block layers of a vertical dirt wall from head height down to foot height (`SurfaceSightRay::brow_origin`, `SurfaceSightRay::target_excavation`, `SurfaceSightRay::target_placement`) without shifting the ray origin when looking down.
+
 ## [0.40.1] - 2026-10-27
 
 ### Fixed

@@ -56,19 +56,53 @@ impl LimbFrame {
     }
 
     /// Emits a palm-molded block resting upright on the hollow upturned surface of the left or right palm.
-    pub fn emit_cradled_block(&self, side: f32, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
+    #[allow(clippy::too_many_arguments)]
+    pub fn emit_cradled_block(
+        &self,
+        side: f32,
+        local_origin: Vec3,
+        mold: BlockMold,
+        scale: f32,
+        side_col: Vec3,
+        top_col: Vec3,
+        target: &mut dyn MeshTarget,
+    ) {
         self.palm_cradle(side, local_origin).emit_upright_block(Vec3::ZERO, mold, scale, side_col, top_col, target);
     }
 
     /// Emits a 3D molded block aligned directly with this frame's right, up, and forward axes.
-    pub fn emit_upright_block(&self, local_origin: Vec3, mold: BlockMold, scale: f32, side_col: Vec3, top_col: Vec3, target: &mut dyn MeshTarget) {
-        mold.emit_miniature(self.point(local_origin.x, local_origin.y, local_origin.z), self.right, self.up, self.forward, scale, side_col, top_col, target);
+    pub fn emit_upright_block(
+        &self,
+        local_origin: Vec3,
+        mold: BlockMold,
+        scale: f32,
+        side_col: Vec3,
+        top_col: Vec3,
+        target: &mut dyn MeshTarget,
+    ) {
+        mold.emit_miniature(
+            self.point(local_origin.x, local_origin.y, local_origin.z),
+            self.right,
+            self.up,
+            self.forward,
+            scale,
+            side_col,
+            top_col,
+            target,
+        );
     }
 
     /// Emits a filled background plaque at z_bg = 0.020 bordered by a 4-bar frame at z_rim = 0.018.
     pub fn emit_framed_plaque(&self, rx: f32, ry: f32, t: f32, bg: Vec3, rim: Vec3, target: &mut dyn MeshTarget) {
         let (z_rim, z_bg, n) = (0.018, 0.020, (self.up - self.forward).normalize_or_zero());
-        target.push_quad(Quad::new(self.point(-rx, -ry, z_bg), self.point(rx, -ry, z_bg), self.point(rx, ry, z_bg), self.point(-rx, ry, z_bg), n, bg));
+        target.push_quad(Quad::new(
+            self.point(-rx, -ry, z_bg),
+            self.point(rx, -ry, z_bg),
+            self.point(rx, ry, z_bg),
+            self.point(-rx, ry, z_bg),
+            n,
+            bg,
+        ));
         for (a, b) in [
             (Vec3::new(-rx, ry, z_rim), Vec3::new(rx, ry, z_rim)),
             (Vec3::new(-rx, -ry, z_rim), Vec3::new(rx, -ry, z_rim)),
@@ -90,15 +124,19 @@ pub trait FacetedSolid {
 pub struct AxialLimb {
     start: Vec3,
     end: Vec3,
-    r_start: f32,
-    r_end: f32,
+    radii: (f32, f32),
     pigment: Vec3,
 }
 
 impl AxialLimb {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(start: Vec3, end: Vec3, r_start: f32, r_end: f32, pigment: Vec3) -> Self {
-        Self { start, end, r_start, r_end, pigment }
+        Self {
+            start,
+            end,
+            radii: (r_start, r_end),
+            pigment,
+        }
     }
 }
 
@@ -110,6 +148,7 @@ impl FacetedSolid for AxialLimb {
         if delta.length_squared() <= 1e-8 {
             return;
         }
+        let (r_start, r_end) = self.radii;
         let axis = delta.normalize();
         let ref_vec = if axis.dot(frame.up).abs() < 0.85 { frame.up } else { frame.right };
         let u_vec = axis.cross(ref_vec).normalize();
@@ -123,10 +162,10 @@ impl FacetedSolid for AxialLimb {
             let dir0 = u_vec * c0 + v_vec * s0;
             let dir1 = u_vec * c1 + v_vec * s1;
 
-            let v0 = p0_center + dir0 * self.r_start;
-            let v1 = p0_center + dir1 * self.r_start;
-            let v2 = p1_center + dir1 * self.r_end;
-            let v3 = p1_center + dir0 * self.r_end;
+            let v0 = p0_center + dir0 * r_start;
+            let v1 = p0_center + dir1 * r_start;
+            let v2 = p1_center + dir1 * r_end;
+            let v3 = p1_center + dir0 * r_end;
 
             let normal = (v1 - v0).cross(v3 - v0).normalize_or_zero();
             let valid_n = if normal.length_squared() > 0.5 { normal } else { dir0 };
@@ -144,20 +183,30 @@ impl FacetedSolid for AxialLimb {
 #[derive(Clone, Copy, Debug)]
 pub struct TaperedPrism {
     segments: usize,
-    bottom_center: Vec3,
-    top_center: Vec3,
-    bottom_rx: f32,
-    bottom_rz: f32,
-    top_rx: f32,
-    top_rz: f32,
+    centers: (Vec3, Vec3),
+    radii: (f32, f32, f32, f32),
     pigment: Vec3,
 }
 
 impl TaperedPrism {
     /// Primary constructor doing nothing except assigning arguments to fields.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(segments: usize, bottom_center: Vec3, top_center: Vec3, bottom_rx: f32, bottom_rz: f32, top_rx: f32, top_rz: f32, pigment: Vec3) -> Self {
-        Self { segments, bottom_center, top_center, bottom_rx, bottom_rz, top_rx, top_rz, pigment }
+    pub fn new(
+        segments: usize,
+        bottom_center: Vec3,
+        top_center: Vec3,
+        bottom_rx: f32,
+        bottom_rz: f32,
+        top_rx: f32,
+        top_rz: f32,
+        pigment: Vec3,
+    ) -> Self {
+        Self {
+            segments,
+            centers: (bottom_center, top_center),
+            radii: (bottom_rx, bottom_rz, top_rx, top_rz),
+            pigment,
+        }
     }
 
     /// Secondary constructor for a 6-sided limb or garment segment with uniform radius per ring.
@@ -170,15 +219,17 @@ impl FacetedSolid for TaperedPrism {
     fn emit(&self, frame: &LimbFrame, capped: bool, target: &mut dyn MeshTarget) {
         let segs = self.segments.max(4);
         let step = (2.0 * PI) / (segs as f32);
+        let (bottom_center, top_center) = self.centers;
+        let (bottom_rx, bottom_rz, top_rx, top_rz) = self.radii;
 
         for i in 0..segs {
             let (s0, c0) = (((i as f32) + 0.5) * step).sin_cos();
             let (s1, c1) = (((i as f32) + 1.5) * step).sin_cos();
 
-            let p0 = frame.point(self.bottom_center.x + self.bottom_rx * c0, self.bottom_center.y, self.bottom_center.z + self.bottom_rz * s0);
-            let p1 = frame.point(self.bottom_center.x + self.bottom_rx * c1, self.bottom_center.y, self.bottom_center.z + self.bottom_rz * s1);
-            let p2 = frame.point(self.top_center.x + self.top_rx * c1, self.top_center.y, self.top_center.z + self.top_rz * s1);
-            let p3 = frame.point(self.top_center.x + self.top_rx * c0, self.top_center.y, self.top_center.z + self.top_rz * s0);
+            let p0 = frame.point(bottom_center.x + bottom_rx * c0, bottom_center.y, bottom_center.z + bottom_rz * s0);
+            let p1 = frame.point(bottom_center.x + bottom_rx * c1, bottom_center.y, bottom_center.z + bottom_rz * s1);
+            let p2 = frame.point(top_center.x + top_rx * c1, top_center.y, top_center.z + top_rz * s1);
+            let p3 = frame.point(top_center.x + top_rx * c0, top_center.y, top_center.z + top_rz * s0);
 
             let cross = (p1 - p0).cross(p3 - p0);
             let normal = if cross.length_squared() > 1e-8 {
@@ -189,7 +240,7 @@ impl FacetedSolid for TaperedPrism {
             target.push_quad(Quad::new(p0, p1, p2, p3, normal, self.pigment));
 
             if capped {
-                let top_mid = frame.point(self.top_center.x, self.top_center.y, self.top_center.z);
+                let top_mid = frame.point(top_center.x, top_center.y, top_center.z);
                 let top_n = (p3 - top_mid).cross(p2 - top_mid).normalize_or_zero();
                 if top_n.length_squared() > 0.5 {
                     target.push_quad(Quad::new(top_mid, p3, p2, p2, top_n, self.pigment));

@@ -7,8 +7,7 @@ use super::timber_yield::SurfaceFind;
 /// Decorator constraining horizontal motion around an arboreal specimen ("Tell, Don't Ask").
 pub struct SolidArboreal {
     origin: Box<dyn Arboreal>,
-    u: f32,
-    v: f32,
+    center: (f32, f32),
     radius: f32,
     barrier_height: f32,
 }
@@ -18,8 +17,7 @@ impl SolidArboreal {
     pub fn new(origin: Box<dyn Arboreal>, u: f32, v: f32, radius: f32, barrier_height: f32) -> Self {
         Self {
             origin,
-            u,
-            v,
+            center: (u, v),
             radius,
             barrier_height,
         }
@@ -30,7 +28,8 @@ impl Arboreal for SolidArboreal {
     fn strike(&self, cleave: u32, recipient: &mut dyn TimberDepository) -> Box<dyn Arboreal> {
         let struck = self.origin.strike(cleave, recipient);
         if struck.standing() {
-            Box::new(Self::new(struck, self.u, self.v, self.radius, self.barrier_height))
+            let (u, v) = self.center;
+            Box::new(Self::new(struck, u, v, self.radius, self.barrier_height))
         } else {
             struck
         }
@@ -44,7 +43,8 @@ impl Arboreal for SolidArboreal {
     ) -> (Box<dyn Arboreal>, bool) {
         let (struck, hit) = self.origin.cleave_at(eye, direction, recipient);
         let wrapped: Box<dyn Arboreal> = if struck.standing() {
-            Box::new(Self::new(struck, self.u, self.v, self.radius, self.barrier_height))
+            let (u, v) = self.center;
+            Box::new(Self::new(struck, u, v, self.radius, self.barrier_height))
         } else {
             struck
         };
@@ -54,7 +54,8 @@ impl Arboreal for SolidArboreal {
     fn forage_at(&self, eye: Vec3, direction: Vec3) -> (Box<dyn Arboreal>, SurfaceFind) {
         let (next, find) = self.origin.forage_at(eye, direction);
         let wrapped: Box<dyn Arboreal> = if next.standing() {
-            Box::new(Self::new(next, self.u, self.v, self.radius, self.barrier_height))
+            let (u, v) = self.center;
+            Box::new(Self::new(next, u, v, self.radius, self.barrier_height))
         } else {
             next
         };
@@ -86,7 +87,8 @@ impl Arboreal for SolidArboreal {
             return delegated;
         }
 
-        let dist = (u - self.u).hypot(v - self.v);
+        let (cu, cv) = self.center;
+        let dist = (u - cu).hypot(v - cv);
         if dist <= self.radius {
             let base_h = frame.height_of(delegated);
             frame.point_at(u, v, base_h + self.barrier_height)

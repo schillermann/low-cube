@@ -1,11 +1,9 @@
 use glam::Vec3;
-use crate::{ClimateZone, Face, MeshTarget, Quad};
+use crate::{ClimateZone, Face, MeshTarget, Quad, SurfaceFrame};
 
 /// Pure geometric planar face operating strictly on coordinate bases without integer switches.
 pub struct PlanarFace {
-    normal: Vec3,
-    tangent: Vec3,
-    bitangent: Vec3,
+    frame: SurfaceFrame,
     color: Vec3,
     half_size: f32,
     divisions: u32,
@@ -22,9 +20,7 @@ impl PlanarFace {
         divisions: u32,
     ) -> Self {
         Self {
-            normal,
-            tangent,
-            bitangent,
+            frame: SurfaceFrame::new(tangent, bitangent, normal, half_size),
             color,
             half_size,
             divisions,
@@ -51,36 +47,30 @@ impl PlanarFace {
 
 impl Face for PlanarFace {
     fn matches(&self, point: Vec3) -> bool {
-        let height = point.dot(self.normal);
+        let height = self.frame.height_of(point);
         if height <= 0.0 {
             return false;
         }
-
-        let u = point.dot(self.tangent).abs();
-        let v = point.dot(self.bitangent).abs();
-
-        height >= u && height >= v
+        let (u, v) = self.frame.decompose(point);
+        height >= u.abs() && height >= v.abs()
     }
 
     fn surface_up(&self) -> Vec3 {
-        self.normal
+        self.frame.normal()
     }
 
     fn pull_direction(&self) -> Vec3 {
-        -self.normal
+        -self.frame.normal()
     }
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
-        let u = point.dot(self.tangent);
-        let v = point.dot(self.bitangent);
-        let h = self.half_size + distance;
-
-        self.normal * h + self.tangent * u + self.bitangent * v
+        let (u, v) = self.frame.decompose(point);
+        self.frame.point_at(u, v, distance)
     }
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         let step = (self.half_size * 2.0) / (self.divisions as f32);
-        let base_center = self.normal * self.half_size;
+        let normal = self.frame.normal();
 
         for i in 0..self.divisions {
             for j in 0..self.divisions {
@@ -96,12 +86,12 @@ impl Face for PlanarFace {
                     (self.color.z + pattern).clamp(0.0, 1.0),
                 );
 
-                let p0 = base_center + self.tangent * u0 + self.bitangent * v0;
-                let p1 = base_center + self.tangent * u1 + self.bitangent * v0;
-                let p2 = base_center + self.tangent * u1 + self.bitangent * v1;
-                let p3 = base_center + self.tangent * u0 + self.bitangent * v1;
+                let p0 = self.frame.point_at(u0, v0, 0.0);
+                let p1 = self.frame.point_at(u1, v0, 0.0);
+                let p2 = self.frame.point_at(u1, v1, 0.0);
+                let p3 = self.frame.point_at(u0, v1, 0.0);
 
-                target.push_quad(Quad::new(p0, p1, p2, p3, self.normal, quad_color));
+                target.push_quad(Quad::new(p0, p1, p2, p3, normal, quad_color));
             }
         }
     }

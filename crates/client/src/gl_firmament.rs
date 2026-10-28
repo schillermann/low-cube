@@ -5,21 +5,33 @@ use crate::aurora_canopy::AuroraCanopy;
 use crate::firmament::SkyFirmament;
 use crate::firmament_glsl::{FIRMAMENT_FRAGMENT_SRC, FIRMAMENT_VERTEX_SRC};
 
-/// GPU shader program rendering the celestial vault with Sun, Moon, Stars, and Arctic Aurora.
-pub struct GlFirmament {
-    program: glow::Program,
+struct FirmamentOrientationUniforms {
     u_inv_view_proj: glow::UniformLocation,
     u_sun_dir: glow::UniformLocation,
     u_celestial_pole: glow::UniformLocation,
     u_local_up: glow::UniformLocation,
+}
+
+struct FirmamentAtmosphereUniforms {
     u_sky_color: glow::UniformLocation,
     u_night_factor: glow::UniformLocation,
     u_aurora_factor: glow::UniformLocation,
     u_time: glow::UniformLocation,
+}
+
+struct FirmamentCanopyUniforms {
     u_face_half: glow::UniformLocation,
     u_aurora_radius: glow::UniformLocation,
     u_ceiling_altitude: glow::UniformLocation,
     canopy: Box<dyn AuroraCanopy>,
+}
+
+/// GPU shader program rendering the celestial vault with Sun, Moon, Stars, and Arctic Aurora.
+pub struct GlFirmament {
+    program: glow::Program,
+    orientation: FirmamentOrientationUniforms,
+    atmosphere: FirmamentAtmosphereUniforms,
+    canopy_uniforms: FirmamentCanopyUniforms,
 }
 
 impl GlFirmament {
@@ -42,18 +54,24 @@ impl GlFirmament {
     ) -> Self {
         Self {
             program,
-            u_inv_view_proj,
-            u_sun_dir,
-            u_celestial_pole,
-            u_local_up,
-            u_sky_color,
-            u_night_factor,
-            u_aurora_factor,
-            u_time,
-            u_face_half,
-            u_aurora_radius,
-            u_ceiling_altitude,
-            canopy,
+            orientation: FirmamentOrientationUniforms {
+                u_inv_view_proj,
+                u_sun_dir,
+                u_celestial_pole,
+                u_local_up,
+            },
+            atmosphere: FirmamentAtmosphereUniforms {
+                u_sky_color,
+                u_night_factor,
+                u_aurora_factor,
+                u_time,
+            },
+            canopy_uniforms: FirmamentCanopyUniforms {
+                u_face_half,
+                u_aurora_radius,
+                u_ceiling_altitude,
+                canopy,
+            },
         }
     }
 
@@ -130,15 +148,20 @@ impl SkyFirmament for GlFirmament {
     ) {
         unsafe {
             gl.use_program(Some(self.program));
-            gl.uniform_matrix_4_f32_slice(Some(&self.u_inv_view_proj), false, &inv_view_proj.to_cols_array());
-            gl.uniform_3_f32(Some(&self.u_sun_dir), sun_dir.x, sun_dir.y, sun_dir.z);
-            gl.uniform_3_f32(Some(&self.u_celestial_pole), celestial_pole.x, celestial_pole.y, celestial_pole.z);
-            gl.uniform_3_f32(Some(&self.u_local_up), local_up.x, local_up.y, local_up.z);
-            gl.uniform_4_f32(Some(&self.u_sky_color), sky_color.x, sky_color.y, sky_color.z, sky_color.w);
-            gl.uniform_1_f32(Some(&self.u_night_factor), night_factor);
-            gl.uniform_1_f32(Some(&self.u_aurora_factor), aurora_factor);
-            gl.uniform_1_f32(Some(&self.u_time), time);
-            self.canopy.bind_canopy(gl, &self.u_face_half, &self.u_aurora_radius, &self.u_ceiling_altitude);
+            gl.uniform_matrix_4_f32_slice(Some(&self.orientation.u_inv_view_proj), false, &inv_view_proj.to_cols_array());
+            gl.uniform_3_f32(Some(&self.orientation.u_sun_dir), sun_dir.x, sun_dir.y, sun_dir.z);
+            gl.uniform_3_f32(Some(&self.orientation.u_celestial_pole), celestial_pole.x, celestial_pole.y, celestial_pole.z);
+            gl.uniform_3_f32(Some(&self.orientation.u_local_up), local_up.x, local_up.y, local_up.z);
+            gl.uniform_4_f32(Some(&self.atmosphere.u_sky_color), sky_color.x, sky_color.y, sky_color.z, sky_color.w);
+            gl.uniform_1_f32(Some(&self.atmosphere.u_night_factor), night_factor);
+            gl.uniform_1_f32(Some(&self.atmosphere.u_aurora_factor), aurora_factor);
+            gl.uniform_1_f32(Some(&self.atmosphere.u_time), time);
+            self.canopy_uniforms.canopy.bind_canopy(
+                gl,
+                &self.canopy_uniforms.u_face_half,
+                &self.canopy_uniforms.u_aurora_radius,
+                &self.canopy_uniforms.u_ceiling_altitude,
+            );
             gl.depth_mask(false);
             gl.depth_func(glow::LEQUAL);
             mesh.draw(gl);

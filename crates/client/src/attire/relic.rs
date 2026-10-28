@@ -2,68 +2,134 @@ use glam::Vec3;
 use world::{BlockMedium, BlockMold, MeshTarget, Quad};
 use crate::menu::PixelStamp;
 use super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
+pub use super::rhythm::MartialStyle;
 
-struct LitSlotTarget<'a> { light_dir: Vec3, zenith: Vec3, inner: &'a mut dyn MeshTarget }
+struct LitSlotTarget<'a> {
+    light_dir: Vec3,
+    zenith: Vec3,
+    inner: &'a mut dyn MeshTarget,
+}
 
 impl<'a> MeshTarget for LitSlotTarget<'a> {
     fn push_quad(&mut self, quad: Quad) {
         let lit = quad.transfer(|v0, v1, v2, v3, n, col| {
-            Quad::new(v0, v1, v2, v3, self.zenith, col * (1.30 + 0.45 * n.dot(self.light_dir).max(0.0)) + Vec3::splat(0.07))
+            let shade = 1.30 + 0.45 * n.dot(self.light_dir).max(0.0);
+            Quad::new(v0, v1, v2, v3, self.zenith, col * shade + Vec3::splat(0.07))
         });
         self.inner.push_quad(lit);
     }
 }
 
-/// Polymorphic martial action style bound to the held relic.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MartialStyle { Unarmed, PalmCradle, LumberjackCleave, SwordplaySlash, SpadeDig }
-
 /// Object held in the avatar's right or left hand visible in first-person and multiplayer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HeldRelic {
-    EmptyPalm, QuarriedStone, TimberTorch, WoodenMallet, WoodmanAxe,
-    KnightlySword, IronSpade, ExcavatedEarth, DeadwoodBough, FlintStone, TimberBlock, PlankBlock,
+    EmptyPalm,
+    QuarriedStone,
+    TimberTorch,
+    WoodenMallet,
+    WoodmanAxe,
+    KnightlySword,
+    IronSpade,
+    ExcavatedEarth,
+    DeadwoodBough,
+    FlintStone,
+    TimberBlock,
+    PlankBlock,
 }
 
 impl HeldRelic {
     #[cfg(test)]
-    pub fn next(self) -> Self { Self::from_code((self.code() + 1) % 12) }
+    pub fn next(self) -> Self {
+        Self::from_code((self.code() + 1) % 12)
+    }
 
     pub const fn from_code(code: u8) -> Self {
         match code % 12 {
-            0 => Self::EmptyPalm, 1 => Self::QuarriedStone, 2 => Self::TimberTorch, 3 => Self::WoodenMallet,
-            4 => Self::WoodmanAxe, 5 => Self::KnightlySword, 6 => Self::IronSpade, 7 => Self::ExcavatedEarth,
-            8 => Self::DeadwoodBough, 9 => Self::FlintStone, 10 => Self::TimberBlock, _ => Self::PlankBlock,
+            0 => Self::EmptyPalm,
+            1 => Self::QuarriedStone,
+            2 => Self::TimberTorch,
+            3 => Self::WoodenMallet,
+            4 => Self::WoodmanAxe,
+            5 => Self::KnightlySword,
+            6 => Self::IronSpade,
+            7 => Self::ExcavatedEarth,
+            8 => Self::DeadwoodBough,
+            9 => Self::FlintStone,
+            10 => Self::TimberBlock,
+            _ => Self::PlankBlock,
         }
     }
 
     pub const fn code(self) -> u8 {
         match self {
-            Self::EmptyPalm => 0, Self::QuarriedStone => 1, Self::TimberTorch => 2, Self::WoodenMallet => 3,
-            Self::WoodmanAxe => 4, Self::KnightlySword => 5, Self::IronSpade => 6, Self::ExcavatedEarth => 7,
-            Self::DeadwoodBough => 8, Self::FlintStone => 9, Self::TimberBlock => 10, Self::PlankBlock => 11,
+            Self::EmptyPalm => 0,
+            Self::QuarriedStone => 1,
+            Self::TimberTorch => 2,
+            Self::WoodenMallet => 3,
+            Self::WoodmanAxe => 4,
+            Self::KnightlySword => 5,
+            Self::IronSpade => 6,
+            Self::ExcavatedEarth => 7,
+            Self::DeadwoodBough => 8,
+            Self::FlintStone => 9,
+            Self::TimberBlock => 10,
+            Self::PlankBlock => 11,
         }
     }
 
     pub const fn title(self) -> &'static str {
         match self {
-            Self::EmptyPalm => "EMPTY SATCHEL", Self::QuarriedStone => "STONE BLOCK", Self::TimberTorch => "TIMBER TORCH",
-            Self::WoodenMallet => "WOODEN MALLET", Self::WoodmanAxe => "WOODMAN AXE", Self::KnightlySword => "KNIGHT SWORD",
-            Self::IronSpade => "IRON SPADE", Self::ExcavatedEarth => "EARTH BLOCK", Self::DeadwoodBough => "DEADWOOD",
-            Self::FlintStone => "FLINT STONE", Self::TimberBlock => "WOOD BLOCK", Self::PlankBlock => "WOOD PLANKS",
+            Self::EmptyPalm => "EMPTY SATCHEL",
+            Self::QuarriedStone => "STONE BLOCK",
+            Self::TimberTorch => "TIMBER TORCH",
+            Self::WoodenMallet => "WOODEN MALLET",
+            Self::WoodmanAxe => "WOODMAN AXE",
+            Self::KnightlySword => "KNIGHT SWORD",
+            Self::IronSpade => "IRON SPADE",
+            Self::ExcavatedEarth => "EARTH BLOCK",
+            Self::DeadwoodBough => "DEADWOOD",
+            Self::FlintStone => "FLINT STONE",
+            Self::TimberBlock => "WOOD BLOCK",
+            Self::PlankBlock => "WOOD PLANKS",
         }
     }
 
-    pub const fn gripped(self) -> bool { !matches!(self, Self::EmptyPalm) }
-    pub const fn free_palm(self) -> bool { matches!(self, Self::EmptyPalm) }
-    pub const fn spade_blade(self) -> bool { matches!(self, Self::IronSpade) }
-    pub const fn axe_blade(self) -> bool { matches!(self, Self::WoodmanAxe | Self::WoodenMallet) }
-    pub const fn placeable_block(self) -> bool { matches!(self, Self::ExcavatedEarth | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock) }
-    pub const fn block_medium(self) -> BlockMedium {
-        match self { Self::QuarriedStone => BlockMedium::QuarriedStone, Self::TimberBlock => BlockMedium::RawTimber, Self::PlankBlock => BlockMedium::PlanedPlanks, _ => BlockMedium::TurfEarth }
+    pub const fn gripped(self) -> bool {
+        !matches!(self, Self::EmptyPalm)
     }
+
+    pub const fn free_palm(self) -> bool {
+        matches!(self, Self::EmptyPalm)
+    }
+
+    pub const fn spade_blade(self) -> bool {
+        matches!(self, Self::IronSpade)
+    }
+
+    pub const fn axe_blade(self) -> bool {
+        matches!(self, Self::WoodmanAxe | Self::WoodenMallet)
+    }
+
+    pub const fn placeable_block(self) -> bool {
+        matches!(self, Self::ExcavatedEarth | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock)
+    }
+
+    pub const fn block_medium(self) -> BlockMedium {
+        match self {
+            Self::QuarriedStone => BlockMedium::QuarriedStone,
+            Self::TimberBlock => BlockMedium::RawTimber,
+            Self::PlankBlock => BlockMedium::PlanedPlanks,
+            _ => BlockMedium::TurfEarth,
+        }
+    }
+
     pub const fn from_medium(medium: BlockMedium) -> Self {
-        match medium { BlockMedium::TurfEarth => Self::ExcavatedEarth, BlockMedium::QuarriedStone => Self::QuarriedStone, BlockMedium::RawTimber => Self::TimberBlock, BlockMedium::PlanedPlanks => Self::PlankBlock }
+        match medium {
+            BlockMedium::TurfEarth => Self::ExcavatedEarth,
+            BlockMedium::QuarriedStone => Self::QuarriedStone,
+            BlockMedium::RawTimber => Self::TimberBlock,
+            BlockMedium::PlanedPlanks => Self::PlankBlock,
+        }
     }
 
     pub const fn martial_style(self) -> MartialStyle {
@@ -78,8 +144,11 @@ impl HeldRelic {
 
     fn emit_deadwood(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
         let (bark, dark, twig, heart, leaf) = (
-            Vec3::new(0.46, 0.29, 0.16), Vec3::new(0.36, 0.23, 0.12), Vec3::new(0.54, 0.36, 0.20),
-            Vec3::new(0.84, 0.68, 0.40), Vec3::new(0.34, 0.58, 0.22),
+            Vec3::new(0.46, 0.29, 0.16),
+            Vec3::new(0.36, 0.23, 0.12),
+            Vec3::new(0.54, 0.36, 0.20),
+            Vec3::new(0.84, 0.68, 0.40),
+            Vec3::new(0.34, 0.58, 0.22),
         );
         AxialLimb::new(Vec3::new(-0.082, 0.015, -0.024), Vec3::new(-0.070, 0.015, -0.019), 0.012, 0.013, heart).emit(cradle, true, target);
         AxialLimb::new(Vec3::new(-0.070, 0.015, -0.019), Vec3::new(-0.006, 0.014, 0.002), 0.014, 0.012, bark).emit(cradle, false, target);
@@ -92,22 +161,33 @@ impl HeldRelic {
 
     fn emit_flint(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
         let (cortex, core, flake, edge) = (
-            Vec3::new(0.76, 0.70, 0.58), Vec3::new(0.19, 0.22, 0.28),
-            Vec3::new(0.52, 0.60, 0.70), Vec3::new(0.80, 0.86, 0.94),
+            Vec3::new(0.76, 0.70, 0.58),
+            Vec3::new(0.19, 0.22, 0.28),
+            Vec3::new(0.52, 0.60, 0.70),
+            Vec3::new(0.80, 0.86, 0.94),
         );
         TaperedPrism::new(7, Vec3::new(0.0, 0.003, 0.0), Vec3::new(0.0, 0.016, 0.0), 0.045, 0.036, 0.042, 0.034, cortex).emit(cradle, false, target);
         TaperedPrism::new(7, Vec3::new(0.0, 0.014, 0.0), Vec3::new(-0.003, 0.038, 0.003), 0.041, 0.033, 0.025, 0.020, core).emit(cradle, true, target);
-        TaperedPrism::new(5, Vec3::new(-0.008, 0.018, 0.004), Vec3::new(-0.016, 0.054, 0.010), 0.023, 0.017, 0.003, 0.008, flake).emit(&cradle.pitched(0.24).yawed(0.42), true, target);
-        TaperedPrism::new(5, Vec3::new(0.010, 0.016, -0.004), Vec3::new(0.018, 0.048, -0.008), 0.019, 0.014, 0.002, 0.006, edge).emit(&cradle.pitched(-0.20).yawed(-0.52), true, target);
+        TaperedPrism::new(5, Vec3::new(-0.008, 0.018, 0.004), Vec3::new(-0.016, 0.054, 0.010), 0.023, 0.017, 0.003, 0.008, flake)
+            .emit(&cradle.pitched(0.24).yawed(0.42), true, target);
+        TaperedPrism::new(5, Vec3::new(0.010, 0.016, -0.004), Vec3::new(0.018, 0.048, -0.008), 0.019, 0.014, 0.002, 0.006, edge)
+            .emit(&cradle.pitched(-0.20).yawed(-0.52), true, target);
     }
 
-    /// Emits the relic in the palm, sculpting placeable blocks and foraged items resting atop the upturned palm.
     pub fn emit_molded_in_palm(self, side: f32, mold: BlockMold, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let (gx, gz) = (-side * 0.025, 0.054);
         match self {
             Self::EmptyPalm => {}
             Self::QuarriedStone | Self::ExcavatedEarth | Self::TimberBlock | Self::PlankBlock => {
-                frame.emit_cradled_block(side, Vec3::new(-side * 0.015, 0.001, 0.048), mold.in_medium(self.block_medium()), 0.096, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.52, 0.38, 0.24), target);
+                frame.emit_cradled_block(
+                    side,
+                    Vec3::new(-side * 0.015, 0.001, 0.048),
+                    mold.in_medium(self.block_medium()),
+                    0.096,
+                    Vec3::new(0.44, 0.31, 0.19),
+                    Vec3::new(0.52, 0.38, 0.24),
+                    target,
+                );
             }
             Self::DeadwoodBough => Self::emit_deadwood(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
             Self::FlintStone => Self::emit_flint(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
@@ -121,8 +201,11 @@ impl HeldRelic {
             }
             Self::WoodmanAxe => {
                 let (ash_wood, worn_ash, forged_iron, blade_steel, bright_edge) = (
-                    Vec3::new(0.64, 0.45, 0.25), Vec3::new(0.52, 0.35, 0.19), Vec3::new(0.42, 0.46, 0.52),
-                    Vec3::new(0.68, 0.73, 0.79), Vec3::new(0.92, 0.95, 0.99),
+                    Vec3::new(0.64, 0.45, 0.25),
+                    Vec3::new(0.52, 0.35, 0.19),
+                    Vec3::new(0.42, 0.46, 0.52),
+                    Vec3::new(0.68, 0.73, 0.79),
+                    Vec3::new(0.92, 0.95, 0.99),
                 );
                 TaperedPrism::hexagonal(Vec3::new(gx, -0.155, gz - 0.008), Vec3::new(gx, -0.115, gz), 0.016, 0.012, worn_ash).emit(frame, true, target);
                 TaperedPrism::hexagonal(Vec3::new(gx, -0.115, gz), Vec3::new(gx, 0.045, gz), 0.012, 0.013, worn_ash).emit(frame, false, target);
@@ -137,7 +220,10 @@ impl HeldRelic {
             }
             Self::KnightlySword => {
                 let (grip_leather, guard_iron, fuller_steel, honed_edge) = (
-                    Vec3::new(0.26, 0.15, 0.09), Vec3::new(0.32, 0.35, 0.40), Vec3::new(0.56, 0.60, 0.66), Vec3::new(0.84, 0.88, 0.94),
+                    Vec3::new(0.26, 0.15, 0.09),
+                    Vec3::new(0.32, 0.35, 0.40),
+                    Vec3::new(0.56, 0.60, 0.66),
+                    Vec3::new(0.84, 0.88, 0.94),
                 );
                 TaperedPrism::new(8, Vec3::new(gx, -0.106, gz), Vec3::new(gx, -0.068, gz), 0.015, 0.024, 0.015, 0.024, guard_iron).emit(frame, true, target);
                 TaperedPrism::new(6, Vec3::new(gx, -0.068, gz), Vec3::new(gx, 0.048, gz), 0.011, 0.015, 0.012, 0.016, grip_leather).emit(frame, false, target);
@@ -148,8 +234,11 @@ impl HeldRelic {
             }
             Self::IronSpade => {
                 let (ash_wood, worn_ash, socket_iron, spade_steel, honed_edge) = (
-                    Vec3::new(0.54, 0.37, 0.20), Vec3::new(0.42, 0.28, 0.15),
-                    Vec3::new(0.30, 0.33, 0.38), Vec3::new(0.54, 0.58, 0.64), Vec3::new(0.84, 0.88, 0.93),
+                    Vec3::new(0.54, 0.37, 0.20),
+                    Vec3::new(0.42, 0.28, 0.15),
+                    Vec3::new(0.30, 0.33, 0.38),
+                    Vec3::new(0.54, 0.58, 0.64),
+                    Vec3::new(0.84, 0.88, 0.93),
                 );
                 TaperedPrism::new(6, Vec3::new(gx, -0.164, gz), Vec3::new(gx, -0.144, gz), 0.012, 0.034, 0.012, 0.034, worn_ash).emit(frame, true, target);
                 TaperedPrism::hexagonal(Vec3::new(gx, -0.150, gz), Vec3::new(gx, 0.190, gz), 0.012, 0.014, ash_wood).emit(frame, false, target);
@@ -160,7 +249,6 @@ impl HeldRelic {
         }
     }
 
-    /// Emits a background-filled 4-bar slot frame with the 3D molded block or tool showcased in front.
     pub fn emit_in_satchel_slot(self, mold: BlockMold, rim: Vec3, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let bg = if rim.x > 0.7 { Vec3::new(0.28, 0.33, 0.44) } else { Vec3::new(0.16, 0.19, 0.27) };
         slot_frame.emit_framed_plaque(0.044, 0.044, 0.0032, bg, rim * 1.25, target);
@@ -189,7 +277,6 @@ impl HeldRelic {
         }
     }
 
-    /// Emits the framed inventory legend plaque underneath the satchel slots.
     pub fn emit_satchel_legend(self, legend_frame: &LimbFrame, target: &mut dyn MeshTarget) {
         legend_frame.emit_framed_plaque(0.168, 0.032, 0.0024, Vec3::new(0.08, 0.10, 0.15), Vec3::new(0.42, 0.27, 0.16), target);
         PixelStamp::new(0.0024, 0.0024, Vec3::new(1.55, 1.30, 0.48)).emit_on_frame(self.title(), 0.0, 0.017, 0.016, legend_frame, target);
