@@ -111,7 +111,7 @@ impl GameSession {
     }
 
     fn refresh_world_mesh(&mut self) {
-        for idx in 0..self.stage.world.face_count() {
+        for idx in 0..(self.stage.world.face_count() * 2) {
             self.refresh_face_slice(idx);
         }
     }

@@ -88,10 +88,10 @@ impl SessionAssembly for SessionLaunch {
             Box::new(BiomedCubeWorld::beveled(self.cosmos.world_blocks, 1.0))
         };
 
-        let face_count = planet.face_count();
-        let mut primary_faces = Vec::with_capacity(face_count);
-        let mut tron_faces = Vec::with_capacity(face_count);
-        for idx in 0..face_count {
+        let slice_count = planet.face_count() * 2;
+        let mut primary_faces = Vec::with_capacity(slice_count);
+        let mut tron_faces = Vec::with_capacity(slice_count);
+        for idx in 0..slice_count {
             let mut cpu_buf = CpuMeshBatch::empty();
             if !self.tron_active {
                 planet.emit_face(idx, &mut cpu_buf);

@@ -157,6 +157,10 @@ pub trait Face: Send + Sync {
     fn pull_direction(&self) -> Vec3;
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3;
     fn emit_surface(&self, target: &mut dyn MeshTarget);
+    fn emit_terrain(&self, target: &mut dyn MeshTarget) {
+        self.emit_surface(target);
+    }
+    fn emit_flora(&self, _target: &mut dyn MeshTarget) {}
     fn canopy_drag(&self, _point: Vec3) -> f32 {
         0.0
     }
@@ -182,6 +186,9 @@ pub trait Face: Send + Sync {
         false
     }
     fn step_surface(&mut self, _dt: f32) -> bool {
+        false
+    }
+    fn step_flora(&mut self, _dt: f32) -> bool {
         false
     }
     fn weightless_at(&self, _point: Vec3) -> bool {

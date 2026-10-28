@@ -36,6 +36,16 @@ impl Face for TintedFace {
         self.face.emit_surface(&mut tinted_target);
     }
 
+    fn emit_terrain(&self, target: &mut dyn MeshTarget) {
+        let mut tinted_target = TintedMeshTarget::new(target, self.tint);
+        self.face.emit_terrain(&mut tinted_target);
+    }
+
+    fn emit_flora(&self, target: &mut dyn MeshTarget) {
+        let mut tinted_target = TintedMeshTarget::new(target, self.tint);
+        self.face.emit_flora(&mut tinted_target);
+    }
+
     fn canopy_drag(&self, point: Vec3) -> f32 {
         self.face.canopy_drag(point)
     }

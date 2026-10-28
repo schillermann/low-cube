@@ -8,6 +8,12 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.40.3] - 2026-10-28
+
+### Fixed
+- Eliminated frame stuttering when chopping and felling trees with an axe (`ForestedFace`, `CubePlanet`, `SessionLaunch`, `GameSession`) by caching quad geometry per individual tree specimen (`Vec<Vec<Quad>>`) and isolating terrain and flora GPU mesh slices (`0..face_count` vs `face_count..face_count * 2`) so tree strikes and shudder animations never rebuild or re-upload the terrain mesh.
+- Preserved held tools in both hands when excavating a block with no free palm (`BeltSatchel::collect_excavated_block`), stowing the excavated block directly into the belt satchel instead of replacing the held spade.
+
 ## [0.40.2] - 2026-10-28
 
 ### Changed

@@ -197,19 +197,16 @@ impl BeltSatchel {
     pub fn collect_excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
         let (r, l) = attire.held_pair();
         let (hand, other) = if side > 0.0 { (r, l) } else { (l, r) };
-        self.tray.active_side = side;
-        if hand.gripped() && !hand.placeable_block() { self.stow_relic(hand, 0); }
-        if other.placeable_block() { self.palms.sync_mold_from_opposite(side); }
-        let current_blocks = self.palms.blocks_on(side);
-        if current_blocks == 0 {
-            self.palms.set_blocks(side, 1);
-        } else if hand == relic {
+        if !hand.free_palm() && !other.free_palm() {
+            self.tray.active_side = side;
             self.stow_relic(relic, 1);
-        } else {
-            self.stow_relic(hand, current_blocks);
-            self.palms.set_blocks(side, 1);
+            return (self, attire);
         }
-        (self, Self::with_hand_relic(attire, side, relic))
+        let target = if hand.free_palm() { side } else { -side };
+        if hand.placeable_block() || other.placeable_block() { self.palms.sync_mold_from_opposite(target); }
+        self.palms.set_blocks(target, 1);
+        self.tray.active_side = target;
+        (self, Self::with_hand_relic(attire, target, relic))
     }
 
     pub fn collect_foraged(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {

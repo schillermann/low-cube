@@ -81,8 +81,12 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn excavate_surface(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        self.modified_face = self.matching_index(eye);
-        self.active_face_mut(eye).excavate(eye, direction)
+        let idx = self.matching_index(eye);
+        let ok = self.active_face_mut(eye).excavate(eye, direction);
+        if ok {
+            self.modified_face = idx;
+        }
+        ok
     }
 
     fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium {
@@ -90,18 +94,30 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
-        self.modified_face = self.matching_index(eye);
-        self.active_face_mut(eye).loosen(eye, direction, stage)
+        let idx = self.matching_index(eye);
+        let ok = self.active_face_mut(eye).loosen(eye, direction, stage);
+        if ok {
+            self.modified_face = idx;
+        }
+        ok
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        self.modified_face = self.matching_index(eye);
-        self.active_face_mut(eye).strike_timber(eye, direction)
+        let (len, idx) = (self.faces.len(), self.matching_index(eye));
+        let outcome = self.active_face_mut(eye).strike_timber(eye, direction);
+        if outcome.struck() {
+            self.modified_face = len + idx;
+        }
+        outcome
     }
 
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        self.modified_face = self.matching_index(eye);
-        self.active_face_mut(eye).forage_timber(eye, direction)
+        let (len, idx) = (self.faces.len(), self.matching_index(eye));
+        let find = self.active_face_mut(eye).forage_timber(eye, direction);
+        if find.gathered() {
+            self.modified_face = len + idx;
+        }
+        find
     }
 
     fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
@@ -109,15 +125,23 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        self.modified_face = self.matching_index(eye);
-        self.active_face_mut(eye).place_molded_block(eye, direction, avatar_pos, mold)
+        let idx = self.matching_index(eye);
+        let ok = self.active_face_mut(eye).place_molded_block(eye, direction, avatar_pos, mold);
+        if ok {
+            self.modified_face = idx;
+        }
+        ok
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
+        let len = self.faces.len();
         let mut regrown = false;
         for (idx, face) in self.faces.iter_mut().enumerate() {
             if face.step_surface(dt) {
                 self.modified_face = idx;
+                regrown = true;
+            } else if face.step_flora(dt) {
+                self.modified_face = len + idx;
                 regrown = true;
             }
         }
@@ -141,8 +165,11 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn emit_face(&self, index: usize, target: &mut dyn MeshTarget) {
+        let len = self.faces.len();
         if let Some(face) = self.faces.get(index) {
-            face.emit_surface(target);
+            face.emit_terrain(target);
+        } else if index >= len && index < len * 2 {
+            self.faces[index - len].emit_flora(target);
         } else {
             self.fallback.emit_surface(target);
         }

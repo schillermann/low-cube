@@ -70,6 +70,14 @@ impl Face for FoldedFace {
         self.origin.emit_surface(target);
     }
 
+    fn emit_terrain(&self, target: &mut dyn MeshTarget) {
+        self.origin.emit_terrain(target);
+    }
+
+    fn emit_flora(&self, target: &mut dyn MeshTarget) {
+        self.origin.emit_flora(target);
+    }
+
     fn canopy_drag(&self, point: Vec3) -> f32 {
         self.origin.canopy_drag(point)
     }
@@ -104,6 +112,10 @@ impl Face for FoldedFace {
 
     fn step_surface(&mut self, dt: f32) -> bool {
         self.origin.step_surface(dt)
+    }
+
+    fn step_flora(&mut self, dt: f32) -> bool {
+        self.origin.step_flora(dt)
     }
 
     fn weightless_at(&self, point: Vec3) -> bool {

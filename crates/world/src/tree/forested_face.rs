@@ -21,7 +21,7 @@ pub struct ForestedFace {
     origin: Box<dyn Face>,
     frame: SurfaceFrame,
     trees: Vec<Box<dyn Arboreal>>,
-    cached_flora: RwLock<Vec<Quad>>,
+    cached_flora: RwLock<Vec<Vec<Quad>>>,
 }
 
 impl ForestedFace {
@@ -30,7 +30,7 @@ impl ForestedFace {
         origin: Box<dyn Face>,
         frame: SurfaceFrame,
         trees: Vec<Box<dyn Arboreal>>,
-        cached_flora: RwLock<Vec<Quad>>,
+        cached_flora: RwLock<Vec<Vec<Quad>>>,
     ) -> Self {
         Self {
             origin,
@@ -47,13 +47,17 @@ impl ForestedFace {
         Self::new(origin, frame, trees, RwLock::new(Vec::new()))
     }
 
-    fn rebuild_flora_cache(&mut self) {
+    fn build_tree_quads(tree: &dyn Arboreal) -> Vec<Quad> {
+        let mut quads = Vec::with_capacity(32);
+        let mut collector = FloraQuadTarget(&mut quads);
+        tree.emit_surface(&mut collector);
+        quads
+    }
+
+    fn refresh_tree_cache(&mut self, idx: usize) {
         let flora = self.cached_flora.get_mut().expect("Flora cache lock poisoned");
-        flora.clear();
-        flora.reserve(self.trees.len() * 24);
-        let mut collector = FloraQuadTarget(flora);
-        for tree in &self.trees {
-            tree.emit_surface(&mut collector);
+        if flora.len() == self.trees.len() {
+            flora[idx] = Self::build_tree_quads(self.trees[idx].as_ref());
         }
     }
 }
@@ -77,19 +81,33 @@ impl Face for ForestedFace {
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         self.origin.emit_surface(target);
+        self.emit_flora(target);
+    }
+
+    fn emit_terrain(&self, target: &mut dyn MeshTarget) {
+        self.origin.emit_terrain(target);
+    }
+
+    fn emit_flora(&self, target: &mut dyn MeshTarget) {
         if let Ok(flora) = self.cached_flora.read() {
-            if !flora.is_empty() || self.trees.is_empty() {
-                for &quad in flora.iter() { target.push_quad(quad); }
+            if flora.len() == self.trees.len() {
+                for tree_quads in flora.iter() {
+                    for &quad in tree_quads { target.push_quad(quad); }
+                }
                 return;
             }
         }
         let mut flora = self.cached_flora.write().expect("Flora cache lock poisoned");
-        if flora.is_empty() && !self.trees.is_empty() {
-            flora.reserve(self.trees.len() * 24);
-            let mut collector = FloraQuadTarget(&mut flora);
-            for tree in &self.trees { tree.emit_surface(&mut collector); }
+        if flora.len() != self.trees.len() {
+            flora.clear();
+            flora.reserve(self.trees.len());
+            for tree in &self.trees {
+                flora.push(Self::build_tree_quads(tree.as_ref()));
+            }
         }
-        for &quad in flora.iter() { target.push_quad(quad); }
+        for tree_quads in flora.iter() {
+            for &quad in tree_quads { target.push_quad(quad); }
+        }
     }
 
     fn canopy_drag(&self, point: Vec3) -> f32 {
@@ -118,7 +136,7 @@ impl Face for ForestedFace {
                     CleaveOutcome::Felled
                 };
                 self.trees[idx] = next_tree;
-                self.rebuild_flora_cache();
+                self.refresh_tree_cache(idx);
                 return outcome;
             }
         }
@@ -130,7 +148,7 @@ impl Face for ForestedFace {
             let (next_tree, find) = self.trees[idx].forage_at(eye, direction);
             if find.gathered() {
                 self.trees[idx] = next_tree;
-                self.rebuild_flora_cache();
+                self.refresh_tree_cache(idx);
                 return find;
             }
         }
@@ -146,16 +164,18 @@ impl Face for ForestedFace {
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
-        let mut changed = self.origin.step_surface(dt);
+        self.origin.step_surface(dt)
+    }
+
+    fn step_flora(&mut self, dt: f32) -> bool {
         let mut timber_moved = false;
-        for tree in &mut self.trees {
-            if tree.step_timber(dt) { timber_moved = true; }
+        for idx in 0..self.trees.len() {
+            if self.trees[idx].step_timber(dt) {
+                self.refresh_tree_cache(idx);
+                timber_moved = true;
+            }
         }
-        if timber_moved {
-            self.rebuild_flora_cache();
-            changed = true;
-        }
-        changed
+        timber_moved
     }
 
     fn weightless_at(&self, point: Vec3) -> bool { self.origin.weightless_at(point) }

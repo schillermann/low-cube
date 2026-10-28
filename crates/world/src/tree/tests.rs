@@ -193,5 +193,44 @@ fn test_axe_cleave_shudder_heartwood_notch_woodchips_and_falling_leaves() {
     assert_eq!(bare_plot.count(), 0, "Plot must be completely empty after foraging the fallen DeadwoodBough");
 }
 
+#[test]
+fn test_striking_and_felling_tree_refreshes_isolated_flora_slice_without_terrain_rebuild() {
+    use crate::{BiomedCubeWorld, PlanetaryWorld};
+    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let mut terrain_slice = TestMeshTarget::empty();
+    let mut initial_flora = TestMeshTarget::empty();
+    world.emit_face(0, &mut terrain_slice);
+    world.emit_face(world.face_count(), &mut initial_flora);
+    assert!(
+        initial_flora.count() > 0 && initial_flora.count() < terrain_slice.count(),
+        "Flora slice must be isolated from the heavy terrain slice"
+    );
 
+    let mut struck = false;
+    'search: for cu in (-24..=24).step_by(6) {
+        for cv in (-24..=24).step_by(6) {
+            let (u, v) = ((cu as f32) * 0.5 + 0.25, (cv as f32) * 0.5 + 0.25);
+            let ground = world.constrain_to_surface(Vec3::new(u, 22.0, v + 1.2), 0.0);
+            let eye = ground + Vec3::new(0.0, 0.9, 0.0);
+            let dir = (Vec3::new(u, ground.y + 0.65, v) - eye).normalize();
+            if world.strike_timber(eye, dir).struck() {
+                struck = true;
+                break 'search;
+            }
+        }
+    }
+    assert!(struck, "Must find and strike a standing tree on face 0");
+
+    let mut modified_slice = TestMeshTarget::empty();
+    let slice_idx = world.emit_modified_face(&mut modified_slice);
+    assert_eq!(
+        slice_idx,
+        world.face_count(),
+        "Striking a tree must mark only the flora slice as modified, never the terrain slice"
+    );
+    assert!(modified_slice.count() > initial_flora.count());
+    assert!(world.step_surface(1.0 / 60.0));
+    let mut stepped_slice = TestMeshTarget::empty();
+    assert_eq!(world.emit_modified_face(&mut stepped_slice), world.face_count());
+}
 

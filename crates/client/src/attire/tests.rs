@@ -194,3 +194,39 @@ fn test_foraging_deadwood_and_flint_into_hand_or_satchel_crafts_axe_in_crafting_
     assert!(world.place_molded_surface_block(aim_eye, aim_dir, Vec3::new(0.25, 16.0, 0.25), world::BlockMold::cube().in_medium(world::BlockMedium::PlanedPlanks)));
     assert_eq!(HeldRelic::from_medium(world.surface_medium(aim_eye, aim_dir)), HeldRelic::PlankBlock, "Excavating a placed WOOD PLANKS block must yield WOOD PLANKS back into the hand");
 }
+
+#[test]
+fn test_spade_in_right_hand_and_axe_in_left_hand_stows_excavated_block_preserving_both_tools() {
+    let dual_tools = YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::WoodmanAxe);
+    let (satchel, next_attire) = super::BeltSatchel::empty().collect_excavated_block(1.0, HeldRelic::ExcavatedEarth, dual_tools);
+    assert_eq!(
+        next_attire.held_pair(),
+        (HeldRelic::IronSpade, HeldRelic::WoodmanAxe),
+        "Excavating when no hand is free must keep both held tools in hand"
+    );
+    assert_eq!(
+        satchel.resource_tally(HeldRelic::ExcavatedEarth, next_attire),
+        1,
+        "Excavated block must be stowed directly into the satchel when both hands are occupied"
+    );
+
+    let mut world = world::BiomedCubeWorld::beveled(16, 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
+    let mut avatar = PlanetaryAvatar::at(spawn);
+    avatar.rotate_degrees(0.0, 70.5);
+    avatar.apply_attire(dual_tools);
+
+    let mut before_dig = QuadLedger::empty();
+    avatar.emit_appearance(&mut before_dig);
+    assert!(!avatar.use_right_hand(&mut world));
+    assert!(avatar.use_right_hand(&mut world));
+
+    let mut after_dig = QuadLedger::empty();
+    avatar.emit_appearance(&mut after_dig);
+    assert_eq!(
+        before_dig.quads.len(),
+        after_dig.quads.len(),
+        "Avatar must still hold IronSpade and WoodmanAxe after excavating a block"
+    );
+}
+
