@@ -167,13 +167,16 @@ impl AirborneFlight {
         }
 
         let penetration = (supported - rebound).dot(surface_up);
-        let safe_rebound = if penetration > 0.0 {
+        let on_walkable_slope = (orig_pt - orig_surf).dot(surface_up) >= -0.01
+            && crate::threshold::SurfaceStep::new(orig_surf, supported, surface_up).walkable_with(self.threshold);
+        let top_reached = penetration > 0.0 && penetration <= 0.04;
+        let safe_rebound = if penetration > 0.0 && (next_speed <= 0.0 || on_walkable_slope || top_reached) {
             supported
         } else {
             rebound
         };
 
-        if (next_speed <= 0.0 || penetration > 0.0) && clearance.floor_contact(self.threshold) {
+        if (next_speed <= 0.0 || (penetration > 0.0 && (on_walkable_slope || top_reached))) && clearance.floor_contact(self.threshold) {
             let surf_momentum = ctx.evaluate_touchdown(-next_speed.min(0.0), supported);
             FlightProgress::new(
                 FlightPhase::Grounded(GroundedFlight::with_momentum(surf_momentum, self.threshold)),

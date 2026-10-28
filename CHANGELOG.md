@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-10-28
+
+### Added
+- Sculpted 3D fractured deep-rock crags and glowing quartz/amber mineral veins (`CrustVault::emit_crag_relief`, `CrustVault::emit_crust_floor`, `CrustVault::emit_shaft_ceiling`, `CrustVault::emit_crust_flank`, `CrustVault::emit_crust_block`) across all floors, ceilings, and side flanks of the 4-layer planetary crust.
+
+### Fixed
+- Replaced soil clods and dirt wall coloring on lateral walls of the 4-layer planetary crust with crust rock flanks (`ReliefWall::emit_side`, `ReliefWall::emit_walls`, `OverhangMolds::emit_molded_top`, `ReliefFacet::emit_facet`, `TerracedRelief`).
+- Grounded `Full-Cube` staircase jump-climbing when holding Spacebar (`AirborneFlight::advance`, `AerialTrial::passable`, `BodyEnvelope::unobstructed_aerial`) by landing on each block top and pausing horizontal ledge overshoot until the feet reach step height instead of flying continuously over multiple steps.
+
 ## [0.41.0] - 2026-10-28
 
 ### Added

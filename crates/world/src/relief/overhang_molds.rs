@@ -158,13 +158,19 @@ impl OverhangMolds {
         None
     }
 
-    pub fn emit_molded_top(&self, cell: GridCell, surf_base: f32, frame: &SurfaceFrame, top_col: Vec3, wall_col: Vec3, target: &mut dyn MeshTarget) -> bool {
+    pub fn emit_molded_top(&self, cell: GridCell, surf_base: f32, vault: &super::CrustVault, frame: &SurfaceFrame, top_col: Vec3, wall_col: Vec3, target: &mut dyn MeshTarget) -> bool {
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let Some(list) = self.blocks.get(&(u, v)) else { return false };
+        let floor_step = vault.floor_steps_at(u, v);
         for block in list {
             let stage = if self.dig_stage.0 == (u, v) && block.occupies_layer(self.dig_stage.1) { self.dig_stage.2 } else { 0 };
-            let block_col = if block.floating_above(surf_base) || self.bare_dirt_at(u, v) { wall_col } else { top_col };
-            block.emit_terraced(cell, frame, block_col, wall_col, stage, target);
+            let layer = (block.ceiling_above(0.0) * 2.0).round() as i32 - 1;
+            if layer < floor_step + 4 && block.block_medium() == BlockMedium::TurfEarth {
+                vault.emit_crust_block(cell, layer, floor_step, stage, frame, target);
+            } else {
+                let block_col = if block.floating_above(surf_base) || self.bare_dirt_at(u, v) { wall_col } else { top_col };
+                block.emit_terraced(cell, frame, block_col, wall_col, stage, target);
+            }
         }
         !list.is_empty()
     }

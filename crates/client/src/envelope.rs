@@ -148,13 +148,14 @@ impl PhysicalEnvelope for BodyEnvelope {
     fn unobstructed_aerial(&self, origin: Vec3, candidate: Vec3, tangent: Vec3, up: Vec3, eye: f32, limit: StepThreshold, world: &dyn PlanetaryWorld) -> bool {
         if tangent.length_squared() <= 1e-6 { return true; }
         let candidate_surf = self.constrain_with_height(candidate, eye, world);
-        let base = if (candidate_surf - candidate).dot(up) > 0.0 { candidate_surf } else { candidate };
+        let orig_center = self.constrain_with_height(origin, eye, world);
+        let on_slope = (origin - orig_center).dot(up) >= -0.01 && SurfaceStep::new(orig_center, candidate_surf, up).walkable_with(limit);
+        let base = if on_slope && (candidate_surf - candidate).dot(up) > 0.0 { candidate_surf } else { candidate };
         let dir = tangent.normalize();
         let right = dir.cross(up).normalize_or_zero();
         let (raw_depth, raw_lat) = self.oriented_extents(dir, right, up);
         let sub = (world.constrain_to_surface(origin, 0.0) - origin).dot(up) > 2.2;
         let lateral_span = if sub { raw_lat.min(0.15) } else { raw_lat };
-        let orig_center = self.constrain_with_height(origin, eye, world);
         let back_surf = self.constrain_with_height(origin - dir * 0.25, eye, world);
         let chest_reach = if sub { raw_depth.min(0.15) } else if (orig_center - candidate_surf).dot(up) > 0.1 || (back_surf - candidate_surf).dot(up) > 0.45 { 0.18_f32.min(raw_depth) } else { raw_depth };
         let (ahead, probe) = (base + dir * (chest_reach * 0.5), base + dir * chest_reach);

@@ -192,4 +192,38 @@ fn test_sprint_jump_on_biomed_cube_world_slopes() {
     assert!(pos.z > 8.0, "Avatar must traverse forward on slopes without hanging, got z = {}", pos.z);
 }
 
+#[test]
+fn test_full_cube_staircase_jump_climbs_block_by_block_without_flying() {
+    let face = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ONE, 8.0, 16));
+    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
+    let blocks: Vec<Box<dyn Block>> = vec![
+        Box::new(StoneBlock::cube(0, 2, 0.0)),
+        Box::new(StoneBlock::cube(0, 3, 0.0)),
+        Box::new(StoneBlock::cube(0, 3, 0.5)),
+        Box::new(StoneBlock::cube(0, 4, 0.0)),
+        Box::new(StoneBlock::cube(0, 4, 0.5)),
+        Box::new(StoneBlock::cube(0, 4, 1.0)),
+    ];
+    let world = ObstacleWorld { cluster: VoxelCluster::new(face, frame, blocks) };
+    let mut flight = SurfaceFlight::terrestrial(1.0);
+    let mut pos = world.constrain_to_surface(Vec3::new(0.25, 12.0, 0.75), 1.0);
+    let stride = Vec3::new(0.0, 0.0, 0.10);
+    let mut y_after_15 = 0.0;
+    let mut landings = Vec::new();
+    let mut prev_y = pos.y;
+    for step in 0..85 {
+        flight.jump();
+        pos = flight.advance(1.0 / 60.0, pos, stride, &WalkGait::upright(), Vec3::Y, &world);
+        if step == 14 { y_after_15 = pos.y; }
+        for target_y in [9.5f32, 10.0, 10.5] {
+            if prev_y < target_y - 1e-4 && (pos.y - target_y).abs() < 1e-3 && !landings.contains(&target_y) {
+                landings.push(target_y);
+            }
+        }
+        prev_y = pos.y;
+    }
+    assert!(y_after_15 < 9.60, "Held jump on full-cube stairs must not fly over multiple blocks in 15 frames, got {y_after_15}");
+    assert_eq!(landings, vec![9.5, 10.0, 10.5], "Avatar must climb and land on each full-cube stair step sequentially, got {landings:?}");
+}
+
 

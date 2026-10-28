@@ -81,3 +81,38 @@ fn test_sight_ray_targets_all_four_side_wall_layers_below_head_height() {
         assert!(relief.excavate_layer(1, 0, expected_layer).1);
     }
 }
+
+#[test]
+fn test_earth_crust_side_walls_never_emit_dirt_clods() {
+    let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+    while !relief.breached_at(0, 0) {
+        assert!(relief.excavate_cell(0, 0).1);
+    }
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let vault = super::CrustVault::beneath(64);
+    let crust_top_y = ((vault.floor_steps_at(1, 0) + 4) as f32) * 0.5;
+    struct CrustWallProbe { crust_pebbles: usize, quartz_veins: usize, upper_pebbles: usize, top_y: f32 }
+    impl MeshTarget for CrustWallProbe {
+        fn push_quad(&mut self, quad: Quad) {
+            let glow = quad.radiate(|g| g);
+            quad.transfer(|v0, v1, v2, v3, _, color| {
+                let cy = (v0.y + v1.y + v2.y + v3.y) * 0.25 - 32.0;
+                if cy < self.top_y - 0.02 {
+                    if color == Vec3::new(0.64, 0.61, 0.55) || color == Vec3::new(0.41, 0.27, 0.15) {
+                        self.crust_pebbles += 1;
+                    } else if glow >= 0.54 && color.x > 0.60 && color.y > 0.35 && color.z < 0.45 {
+                        self.quartz_veins += 1;
+                    }
+                } else if color == Vec3::new(0.64, 0.61, 0.55) {
+                    self.upper_pebbles += 1;
+                }
+            });
+        }
+    }
+    let mut probe = CrustWallProbe { crust_pebbles: 0, quartz_veins: 0, upper_pebbles: 0, top_y: crust_top_y };
+    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &super::NullCavity, &palette, 64, &mut probe);
+    assert_eq!(probe.crust_pebbles, 0, "4-layer planetary crust walls must never carry dirt color or soil clods");
+    assert!(probe.quartz_veins >= 60, "4-layer planetary crust walls must emit Variant 2A 3D glowing quartz/amber mineral veins, got {}", probe.quartz_veins);
+    assert!(probe.upper_pebbles > 0, "Soil layers above the 4-layer crust must retain soil clods");
+}

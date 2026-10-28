@@ -162,7 +162,7 @@ impl ReliefElevation for TerracedRelief {
     fn emit_molded_top(&self, cell: GridCell, _query_base: f32, frame: &SurfaceFrame, top_col: Vec3, wall_col: Vec3, target: &mut dyn MeshTarget) -> bool {
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let surf_base = ((self.natural_elevation_at(u, v) - 1) as f32 * 0.5).max((self.elevation_at(u, v) as f32) * 0.5);
-        self.molds.emit_molded_top(cell, surf_base, frame, top_col, wall_col, target)
+        self.molds.emit_molded_top(cell, surf_base, &self.strata.vault(), frame, top_col, wall_col, target)
     }
 
     fn step_grass(&mut self, dt: f32) -> Vec<i32> {

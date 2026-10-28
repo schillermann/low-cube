@@ -35,6 +35,7 @@ impl ReliefFacet {
         let molded = relief.emit_molded_top(cell, top_h, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
         let stage = relief.dig_stage_at(u, v);
         let (tn, ts, te, tw) = (v + 1 >= half_blocks, v <= -half_blocks, u + 1 >= half_blocks, u <= -half_blocks);
+        let vault = super::CrustVault::beneath(half_blocks);
         let mut suppressed = SuppressedTop;
         let top_out: &mut dyn MeshTarget = if stage == 0 { target } else { &mut suppressed };
 
@@ -48,7 +49,6 @@ impl ReliefFacet {
             self.corner.push_corner_pair(p0, p1, p2, p3, chamfer_col, top_out);
             ([h0, h1, h2, h3], chamfer_col)
         } else if relief.reworked_at(u, v) {
-            let vault = super::CrustVault::beneath(half_blocks);
             let top_c = if h < vault.floor_steps_at(u, v) + 4 {
                 vault.emit_crust_floor(cell, top_h, relief.breached_at(u, v), frame, top_out)
             } else {
@@ -114,7 +114,7 @@ impl ReliefFacet {
         };
 
         if stage > 0 { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, surf_col, palette, frame, target); }
-        self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, relief, frame, cliff_col, target);
+        self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, &vault, relief, frame, cliff_col, target);
     }
 
     #[allow(clippy::too_many_arguments)]

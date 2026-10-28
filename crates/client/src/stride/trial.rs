@@ -121,6 +121,9 @@ impl<'a> StrideTrial for AerialTrial<'a> {
         let surface_pos = self.probe.envelope.constrain_with_height(candidate, self.stance.eye, self.probe.world);
         let clearance = SurfaceClearance::between(self.stance.origin, candidate, surface_pos, self.stance.up, self.probe.world);
         let origin_surf = self.probe.envelope.constrain_with_height(self.stance.origin, self.stance.eye, self.probe.world);
+        if (origin_surf - self.stance.origin).dot(self.stance.up) > 0.04 && self.vertical.dot(self.stance.up) > 0.0 {
+            return false;
+        }
         let in_deep_shaft = (self.stance.origin - origin_surf).dot(self.stance.up) >= 2.5;
         let over_pit = (self.stance.origin - origin_surf).dot(self.stance.up) > 0.02 && !in_deep_shaft;
         let step_ref = if in_deep_shaft { self.stance.origin } else { origin_surf };
