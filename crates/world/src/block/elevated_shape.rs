@@ -39,7 +39,8 @@ impl ElevatedShape {
     pub fn constrain_support(&self, local_u: f32, local_v: f32, support_h: f32, foot_elev: f32, body_span: f32) -> f32 {
         let dh = self.shape.elevation_at(local_u, local_v);
         let req_clearance = if (body_span - 1.0).abs() < 1e-3 { 1.80 } else { body_span };
-        if dh <= 0.0 || (body_span > 1e-4 && self.elevation_offset >= support_h + req_clearance - 0.03 && (self.elevation_offset >= foot_elev + req_clearance - 0.08 || (self.elevation_offset < -2.0 && self.elevation_offset >= foot_elev + body_span.min(1.0)))) {
+        let head_margin = if foot_elev > support_h + 0.02 { 0.16 } else { -0.03 };
+        if dh <= 0.0 || (body_span > 1e-4 && self.elevation_offset >= support_h + req_clearance - 0.03 && self.elevation_offset >= foot_elev + req_clearance + head_margin) {
             support_h
         } else {
             support_h.max(self.elevation_offset + dh)

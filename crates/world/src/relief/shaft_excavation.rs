@@ -129,11 +129,12 @@ impl ShaftExcavation {
     }
 
     pub fn confine(&self, strata: &NaturalStrata, molds: &OverhangMolds, u: f32, v: f32, elev: f32) -> (f32, f32, f32) {
-        if self.ceilings.is_empty() && elev > -2.0 {
+        if self.ceilings.is_empty() && molds.empty() && elev > -2.0 {
             return (u, v, elev);
         }
         let (mut cu, mut cv, mut tu, mut tv) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32, u, v);
-        if self.solid_wall_at(strata, molds, cu, cv, elev) {
+        let deep_niche = !self.ceilings.is_empty() || elev <= -2.0;
+        if deep_niche && self.solid_wall_at(strata, molds, cu, cv, elev) {
             for (du, dv) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
                 let (nu, nv) = (cu + du, cv + dv);
                 if (self.upward_at(nu, nv) > 0 || self.breached_at(strata, nu, nv) || molds.present_at(nu, nv))
@@ -146,7 +147,7 @@ impl ShaftExcavation {
                 }
             }
         }
-        if (self.upward_at(cu, cv) > 0 || molds.present_at(cu, cv)) && !self.solid_wall_at(strata, molds, cu, cv, elev) {
+        if deep_niche && (self.upward_at(cu, cv) > 0 || molds.present_at(cu, cv)) && !self.solid_wall_at(strata, molds, cu, cv, elev) {
             let min_u = if self.solid_wall_at(strata, molds, cu - 1, cv, elev) { (cu as f32) * 0.5 + 0.21 } else { (cu as f32) * 0.5 };
             let max_u = if self.solid_wall_at(strata, molds, cu + 1, cv, elev) { ((cu + 1) as f32) * 0.5 - 0.21 } else { ((cu + 1) as f32) * 0.5 };
             let min_v = if self.solid_wall_at(strata, molds, cu, cv - 1, elev) { (cv as f32) * 0.5 + 0.21 } else { (cv as f32) * 0.5 };

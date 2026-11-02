@@ -114,14 +114,16 @@ impl OverhangMolds {
     }
 
     pub fn confine_niche_elevation(&self, u: i32, v: i32, ground_h: f32, elev: f32) -> Option<f32> {
-        self.niche_ceiling_at(u, v, ground_h).map(|niche_ceil| elev.clamp(ground_h + 0.18, niche_ceil - 0.18))
+        self.niche_ceiling_at(u, v, ground_h)
+            .filter(|&niche_ceil| elev <= niche_ceil + 0.25)
+            .map(|niche_ceil| elev.clamp(ground_h + 0.18, niche_ceil - 0.18))
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn constrain_support(&self, cell_u: i32, cell_v: i32, u: f32, v: f32, mut h: f32, foot_elev: f32, body_span: f32) -> f32 {
-        if h < -2.0 && body_span > 1e-4 {
+        if h < -5.0 && body_span > 1e-4 {
             if let Some(niche_ceil) = self.niche_ceiling_at(cell_u, cell_v, h) {
-                if foot_elev <= niche_ceil + 0.10 {
+                if niche_ceil - h < 0.75 && foot_elev <= niche_ceil + 0.10 {
                     return h.min(niche_ceil - 1.98);
                 }
             }

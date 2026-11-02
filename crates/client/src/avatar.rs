@@ -218,11 +218,14 @@ impl Avatar for PlanetaryAvatar {
         let mut order = LocomotionOrder::idle();
         SurfaceHeading::aligned(self.sight_line.surface_rot, &self.sight_line.look).drive_locomotion(controls, &mut order);
         order.calm_beneath_crust(world.weightless_at(self.body.position));
-        order.dispatch_jump(&mut *self.body.flight);
         let facing = (self.sight_line.look.combine_with_surface(self.sight_line.surface_rot) * Vec3::NEG_Z).normalize();
         let standing_env = self.gear.attire.body_envelope().with_crouch_and_facing(0.0, facing);
+        let obstructed = standing_env.overhead_obstructed(self.body.position, terrain_up, 1.0, world);
+        if !obstructed {
+            order.dispatch_jump(&mut *self.body.flight);
+        }
         let next_posture = order.advance_posture(self.body.posture, dt);
-        self.body.posture = if standing_env.overhead_obstructed(self.body.position, terrain_up, 1.0, world) {
+        self.body.posture = if obstructed {
             self.body.posture.transition_to(0.36, dt)
         } else {
             next_posture

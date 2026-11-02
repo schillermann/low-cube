@@ -190,4 +190,25 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
     assert!(walk_through(&door_1x4, slender, 0.25, false, false) < -0.20, "Slender width (< 0.47m) must walk forward through 1-block-wide doorframe");
     assert!(walk_through(&door_1x4, norm, 0.25, false, true) < -0.20, "Default depth (0.39m < 0.50m) must sidestep sideways through 1-block-wide doorframe");
     assert!(walk_through(&door_1x4, deep, 0.25, false, true) > 0.45, "Deep torso (0.54m > 0.50m) must be blocked even sidestepping into 1-block-wide doorframe");
+
+    let mut tunnel = TerracedRelief::in_span(Box::new(FlatRelief), 16);
+    for (u, v) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+        for _ in 0..6 { tunnel.excavate_cell(u, v); }
+    }
+    for (u, v) in [(0, -1), (1, -1), (0, -2), (1, -2)] {
+        for layer in [-2.75, -2.25, -1.75] { tunnel.excavate_layer(u, v, layer); }
+    }
+    let tunnel_world = DoorframeWorld(tunnel);
+    let valkyrie = crate::menu::AvatarArchetype::Knight.female_attire();
+    let mut valk = PlanetaryAvatar::with_attire(Vec3::new(0.50, -2.0, 0.25), Box::new(crate::flight::SurfaceFlight::terrestrial(1.0)), valkyrie);
+    let mut ctrl = KeyMotion::idle();
+    ctrl.register_key(KeyCode::KeyW, true);
+    for _ in 0..45 { valk.step_motion(1.0 / 60.0, &ctrl, &tunnel_world); }
+    ctrl.register_key(KeyCode::KeyW, false);
+    ctrl.register_key(KeyCode::Space, true);
+    for frame in 0..60 {
+        valk.step_motion(1.0 / 60.0, &ctrl, &tunnel_world);
+        let eye = valk.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+        assert!(eye.z < -0.15 && eye.y <= -1.50 - 0.12, "Frame {frame}: Valkyrie under 3-block (-3.0..-1.5m) overhang must never jump with head into ceiling blocks above -1.5m, got {eye:?}");
+    }
 }

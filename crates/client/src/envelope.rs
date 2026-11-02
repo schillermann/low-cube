@@ -45,11 +45,26 @@ impl BodyEnvelope {
     }
 
     pub fn constrain_with_height(&self, point: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> Vec3 {
-        let (base_surf, face_up) = (world.constrain_to_surface(point, eye), world::ClimateZone::dominant(point).normal());
+        let (base_surf, face_up) = (world.constrain_to_surface(point, eye), world.surface_up_at(point));
         let delta = base_surf - point;
         if (delta - face_up * delta.dot(face_up)).length_squared() > 1e-4 { return base_surf; }
         let span = if (self.height - 1.0).abs() < 2e-3 { 1.003 } else { self.height };
-        world.constrain_to_surface(point + face_up * (span - eye), span) - face_up * (span - eye)
+        let mut constrained = world.constrain_to_surface(point + face_up * (span - eye), span) - face_up * (span - eye);
+        let alt = (point - base_surf).dot(face_up);
+        if (0.02..1.20).contains(&alt) {
+            let f_tan = (self.facing - face_up * self.facing.dot(face_up)).normalize_or_zero();
+            if f_tan.length_squared() > 1e-4 {
+                let rgt = f_tan.cross(face_up).normalize_or_zero();
+                for off in [f_tan * 0.16, -f_tan * 0.14, rgt * 0.14, -rgt * 0.14] {
+                    let p_floor = world.constrain_to_surface(point + off - face_up * 0.45, span) - face_up * (span - eye);
+                    let p_ceil = world.constrain_to_surface(point + off + face_up * (span - eye), span) - face_up * (span - eye);
+                    if (p_ceil - p_floor).dot(face_up) > 0.35 && (p_ceil - constrained).dot(face_up) > 0.35 {
+                        constrained = point + face_up * (p_ceil - point).dot(face_up);
+                    }
+                }
+            }
+        }
+        constrained
     }
 
     fn oriented_extents(&self, dir: Vec3, right: Vec3, up: Vec3) -> (f32, f32) {
@@ -64,13 +79,17 @@ impl BodyEnvelope {
 
     pub fn overhead_obstructed(&self, position: Vec3, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> bool {
         let crouched = Self::with_dimensions(self.half_width, self.half_depth, (self.height - 0.44).max(0.95), self.facing);
-        let base_floor = crouched.constrain_with_height(position, eye, world);
+        let settled = position - up * 0.45;
+        let base_floor = crouched.constrain_with_height(settled, eye, world);
+        if (position - base_floor).dot(up).abs() > 0.65 { return false; }
         let f_tan = (self.facing - up * self.facing.dot(up)).normalize_or_zero();
         let fwd = if f_tan.length_squared() > 1e-4 { f_tan } else if up.y.abs() < 0.9 { up.cross(Vec3::Y).normalize() } else { Vec3::Z };
         let rgt = fwd.cross(up).normalize_or_zero();
-        for offset in [Vec3::ZERO, fwd * (self.half_depth * 0.7), -fwd * (self.half_depth * 0.7), rgt * (self.half_width * 0.7), -rgt * (self.half_width * 0.7)] {
+        let deep_ahead = (world.constrain_to_surface(position + fwd * (self.half_depth + 0.58), 0.0) - (base_floor - up * eye)).dot(up) > 1.8;
+        let reach = if (world.constrain_to_surface(position, 0.0) - position).dot(up) > 1.2 || deep_ahead { self.half_depth + 0.08 } else { self.half_depth * 0.7 };
+        for offset in [Vec3::ZERO, fwd * reach, -fwd * (self.half_depth * 0.7), rgt * (self.half_width * 0.7), -rgt * (self.half_width * 0.7)] {
             let pt = position + offset;
-            let low = crouched.constrain_with_height(pt, eye, world);
+            let low = crouched.constrain_with_height(pt - up * 0.45, eye, world);
             let high = self.constrain_with_height(pt, eye, world);
             if (low - base_floor).dot(up).abs() <= 0.35 && (high - low).dot(up) > 0.35 {
                 return true;

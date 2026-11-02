@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.42.2] - 2026-11-02
+
+### Fixed
+- Prevented avatar head and camera clipping into overhanging ceiling blocks when jumping inside 3-block-high subterranean tunnels (`ElevatedShape::constrain_support`, `OverhangMolds::constrain_support`, `OverhangMolds::confine_niche_elevation`, `ShaftExcavation::confine`, `BodyEnvelope::constrain_with_height`, `BodyEnvelope::overhead_obstructed`, `PlanetaryAvatar::step_motion`).
+
 ## [0.42.1] - 2026-11-02
 
 ### Fixed
