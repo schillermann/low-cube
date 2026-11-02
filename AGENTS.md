@@ -92,3 +92,10 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
   - `PalmEarthworks` (`earthworks.rs`) & `DigGrip`: Dual-hand excavation progress, foraging, block placement, and `BeltSatchel` (`attire/pouch.rs`).
   - `YouthAttire` & `SatchelWardrobe` (`attire/mod.rs`): Wardrobe composition (`GarmentEnsemble`, `IdentityTraits`, `HeldHands`).
   - `BodyPose` (`attire/pose.rs`) & `StrideRhythm` / `MartialStyle` (`attire/rhythm.rs`): 3D joint kinematics and polymorphic weapon/digging swings.
+
+---
+
+## Fast Iteration & Verification Rules
+
+- **Direct Navigation (No Git Archeology)**: Jump directly to the target files via the Domain & Decorator Map above. Read only the 1–3 directly involved files and apply edits immediately without running `git log`, `git show`, or broad exploratory searches.
+- **Targeted Test Execution**: Never run an unfiltered workspace-wide `cargo test` for localized changes. Run only the affected test module (e.g., `cargo test -p client --bin client attire::tests` or `cargo test -p world --lib relief::tests`) together with `wc -l` on modified files.

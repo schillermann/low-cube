@@ -5,3 +5,15 @@ members = [
     "crates/client",
 ]
 resolver = "2"
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package.world]
+opt-level = 1
+
+[profile.test]
+debug = "line-tables-only"
+
+[profile.test.package.world]
+opt-level = 1

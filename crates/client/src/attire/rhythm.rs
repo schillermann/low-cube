@@ -37,34 +37,39 @@ impl MartialStyle {
         crouch: f32,
     ) -> (f32, f32, Vec3, f32, f32, f32) {
         let abduct = match self {
-            Self::SwordplaySlash => 0.0,
+            Self::SwordplaySlash | Self::PalmCradle => 0.0,
             Self::SpadeDig | Self::BarePalmDig => 0.22 * wind + 0.08 * bow,
             _ => 0.36 * wind + 0.42 * bow,
         };
         let swing = match self {
             Self::SwordplaySlash => -0.18 * wind + 0.62 * strike + 0.30 * surge,
+            Self::PalmCradle => 0.12 * bow + 0.10 * strike,
             Self::BarePalmDig => 0.42 * wind + 0.68 * bow + 0.62 * strike,
             Self::SpadeDig => 0.22 * wind + 0.42 * bow + 0.38 * strike,
             _ => 0.38 * wind + 0.55 * bow + 0.52 * strike,
         };
         let elbow_delta = match self {
+            Self::PalmCradle => Vec3::new(0.0, 0.0, 0.04 * bow + 0.04 * strike),
             Self::BarePalmDig => Vec3::new(0.06 * wind + 0.02 * bow - 0.11 * strike, 0.0, 0.06 * wind + 0.14 * bow + 0.16 * strike),
             Self::SpadeDig => Vec3::new(0.05 * wind + 0.02 * bow - 0.04 * strike, -0.06 * wind - 0.10 * bow - 0.10 * strike, 0.06 * wind + 0.14 * bow + 0.16 * strike),
             Self::SwordplaySlash => Vec3::new(-0.02 * wind - 0.03 * strike, 0.0, 0.12 * strike + 0.08 * surge),
             _ => Vec3::new(0.04 * wind + 0.05 * bow - 0.06 * strike, 0.08 * wind, 0.08 * bow + 0.12 * strike),
         };
         let elbow_bend = match self {
+            Self::PalmCradle => 0.10 * wind - 0.12 * strike,
             Self::SwordplaySlash => 0.35 * wind - 0.55 * strike,
             Self::BarePalmDig => 0.45 * wind - 0.12 * bow - 0.58 * strike,
             Self::SpadeDig => 0.65 * wind + 0.18 * bow - 0.36 * strike,
             _ => 0.85 * wind - 0.15 * bow - 0.52 * strike,
         };
         let wrist_dx = match self {
+            Self::PalmCradle => 0.0,
             Self::BarePalmDig => 0.02 * wind - 0.05 * bow - (0.075 - 0.14 * crouch) * strike,
             Self::SwordplaySlash | Self::SpadeDig => -0.02 * wind - 0.04 * strike,
             _ => 0.04 * wind + 0.10 * bow + 0.04 * strike,
         };
         let wrist_dz = match self {
+            Self::PalmCradle => 0.04 * bow + 0.04 * strike,
             Self::SpadeDig | Self::BarePalmDig => 0.10 * bow + 0.12 * strike,
             _ => 0.0,
         };
@@ -96,12 +101,13 @@ impl MartialStyle {
             _ => (1.0, side * (0.08 * hold_factor + 0.55 * crouch - 0.25 * wind - 0.55 * bow - 0.68 * strike)),
         };
         let wrist_yaw = match self {
+            Self::PalmCradle => 0.0,
             Self::BarePalmDig => side * (crouch * 0.35 * (1.0 - surge - strike).max(0.0) + 0.12 * bow + 0.72 * strike),
             _ => side * crouch * 0.35,
         };
         let wrist_snap = match self {
             Self::SwordplaySlash => -0.18 * wind + 1.12 * strike + 0.16 * surge,
-            Self::PalmCradle => -0.14 + 0.36 * strike,
+            Self::PalmCradle => -0.14,
             Self::BarePalmDig => -0.10 * wind,
             Self::SpadeDig => -0.12 * wind + 0.48 * bow + 0.78 * strike,
             _ => -0.20 * wind + 0.35 * bow + 0.62 * strike,
@@ -109,14 +115,9 @@ impl MartialStyle {
         (rx, ry, wrist_yaw, wrist_snap)
     }
 
-    pub fn first_person_swing(
-        self,
-        wind: f32,
-        strike: f32,
-        bow: f32,
-        surge: f32,
-    ) -> (f32, f32, f32, f32, Vec3, f32) {
+    pub fn first_person_swing(self, wind: f32, strike: f32, bow: f32, surge: f32) -> (f32, f32, f32, f32, Vec3, f32) {
         let (sw_x, sw_y, sw_z, sw_yaw) = match self {
+            Self::PalmCradle => (0.0, -0.04 * bow - 0.03 * strike, 0.05 * bow + 0.04 * strike, 0.0),
             Self::SwordplaySlash => (
                 -0.015 * wind - 0.0350 * strike,
                 0.14 * wind + 0.2121 * strike,
@@ -143,12 +144,13 @@ impl MartialStyle {
             ),
         };
         let elbow_add = match self {
+            Self::PalmCradle => Vec3::ZERO,
             Self::SwordplaySlash => Vec3::new(-0.015 * wind - 0.02 * strike, 0.06 * wind - 0.02 * strike, 0.0),
             Self::SpadeDig | Self::BarePalmDig => Vec3::new(0.06 * wind + 0.02 * bow - 0.04 * strike, 0.02 * strike, 0.0),
             _ => Vec3::new(0.05 * wind + 0.06 * bow, 0.06 * wind - 0.02 * strike, 0.0),
         };
         let aim_dip = match self {
-            Self::SwordplaySlash | Self::SpadeDig | Self::BarePalmDig => 0.0,
+            Self::PalmCradle | Self::SwordplaySlash | Self::SpadeDig | Self::BarePalmDig => 0.0,
             _ => 0.14 * wind + 0.05 * bow,
         };
         (sw_x, sw_y, sw_z, sw_yaw, elbow_add, aim_dip)
@@ -174,7 +176,7 @@ impl MartialStyle {
         };
         let wrist_snap = match self {
             Self::SwordplaySlash => -0.18 * wind + 1.32 * strike,
-            Self::PalmCradle => -0.16 + 0.38 * strike,
+            Self::PalmCradle => -0.16,
             Self::SpadeDig => -0.12 * wind + 0.52 * bow + 0.85 * strike,
             Self::BarePalmDig => -0.10 * wind,
             _ => -0.22 * wind + 0.34 * bow + 0.550 * strike,

@@ -247,7 +247,7 @@ impl PalmEarthworks {
         if find.gathered() {
             let gathered = if matches!(find, SurfaceFind::DeadwoodBough) { HeldRelic::DeadwoodBough } else { HeldRelic::FlintStone };
             let (next_satchel, next_attire) = state.satchel.collect_foraged(side, gathered, attire);
-            return (Self::new(next_satchel, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, Self::trigger_hand_swing(next_attire, rhythm, side), true);
+            return (Self::new(next_satchel, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, rhythm, true);
         }
         let (right, left) = attire.held_pair();
         let (active, other) = if side > 0.0 { (right, left) } else { (left, right) };

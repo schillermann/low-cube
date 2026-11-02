@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.42.1] - 2026-11-02
+
+### Fixed
+- Prevented the arm from slapping inward across the screen when picking up or cradling items (`MartialStyle::external_drive`, `MartialStyle::external_wrist_orient`, `MartialStyle::first_person_swing`, `MartialStyle::first_person_wrist_orient`, `PalmEarthworks::act_with_hand`) by giving `MartialStyle::PalmCradle` dedicated neutral kinematics instead of falling back to the diagonal `LumberjackCleave` swing and omitting the cleave strike trigger when foraging surface items.
+
+### Changed
+- Accelerated incremental compilation and test execution (`Cargo.toml`, `AGENTS.md`) via `debug = "line-tables-only"`, `opt-level = 1` for `world` in `dev`/`test` profiles, and targeted module test verification rules.
+
 ## [0.42.0] - 2026-10-28
 
 ### Added
