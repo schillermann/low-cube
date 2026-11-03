@@ -119,16 +119,23 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
 
 #[test]
 fn test_mining_blocks_never_expands_geometry_outward() {
-    struct SpanBounds { min: Vec3, max: Vec3 }
+    struct SpanBounds { min: Vec3, max: Vec3, recessed_sides: [usize; 4] }
     impl SpanBounds {
-        fn empty() -> Self { Self { min: Vec3::splat(f32::MAX), max: Vec3::splat(f32::MIN) } }
+        fn empty() -> Self { Self { min: Vec3::splat(f32::MAX), max: Vec3::splat(f32::MIN), recessed_sides: [0; 4] } }
     }
     impl MeshTarget for SpanBounds {
         fn push_quad(&mut self, quad: Quad) {
-            quad.transfer(|v0, v1, v2, v3, _, _| {
+            quad.transfer(|v0, v1, v2, v3, norm, _| {
                 for v in [v0, v1, v2, v3] {
                     self.min = self.min.min(v);
                     self.max = self.max.max(v);
+                }
+                let c = (v0 + v1 + v2 + v3) * 0.25;
+                if c.y > 32.05 && c.y < 32.45 {
+                    if norm.x > 0.9 && c.x < 0.48 { self.recessed_sides[0] += 1; }
+                    if norm.x < -0.9 && c.x > 0.02 { self.recessed_sides[1] += 1; }
+                    if norm.z > 0.9 && c.z < 0.48 { self.recessed_sides[2] += 1; }
+                    if norm.z < -0.9 && c.z > 0.02 { self.recessed_sides[3] += 1; }
                 }
             });
         }
@@ -148,6 +155,17 @@ fn test_mining_blocks_never_expands_geometry_outward() {
             "Stage {stage} digging must never expand block bounds outward: idle=({:?}..{:?}), dug=({:?}..{:?})",
             idle.min, idle.max, dug.min, dug.max
         );
+        assert!(
+            dug.recessed_sides.iter().all(|&n| n >= 1),
+            "Stage {stage} digging must emit recessed crater floors on all 4 side walls, got {:?}",
+            dug.recessed_sides
+        );
     }
+    assert!(relief.excavate_cell(0, 0).1 && relief.excavate_cell(1, 0).1);
+    relief.mark_dig_stage(0, 0, 2);
+    let mut wall_dug = SpanBounds::empty();
+    ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut wall_dug);
+    let has_recessed_east_wall = wall_dug.min.x < 0.45;
+    assert!(has_recessed_east_wall, "Terrain cell side wall must also recess inward when mined");
 }
 

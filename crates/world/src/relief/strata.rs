@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{MeshTarget, Quad};
+use crate::{CrateredMeshTarget, MeshTarget, Quad};
 use crate::block::{EarthClods, GridCell};
 use crate::frame::SurfaceFrame;
 use super::elevation::ReliefElevation;
@@ -90,11 +90,13 @@ impl ReliefStrata {
                 let wall_top = c_steps.min(relief.elevation_at(nu, nv));
                 for layer in n_steps..wall_top {
                     let (y0, y1) = ((layer as f32) * 0.5, ((layer + 1) as f32) * 0.5);
+                    let l_stage = relief.layer_dig_stage_at(nu, nv, y0 + 0.25);
+                    let mut cratered = CrateredMeshTarget::new(target, l_stage);
                     if layer < n_floor + 4 {
-                        vault.emit_crust_flank(((a0, b0), (a1, b1)), layer, n_floor, norm, frame, target);
+                        vault.emit_crust_flank(((a0, b0), (a1, b1)), layer, n_floor, norm, frame, &mut cratered);
                     } else {
-                        target.push_quad(Quad::glowing(frame.point_at(a0, b0, y0), frame.point_at(a1, b1, y0), frame.point_at(a1, b1, y1), frame.point_at(a0, b0, y1), norm, dirt_col, 0.35));
-                        EarthClods::new(GridCell::new(nu, nv), y0).emit_flank(flank, frame, target);
+                        cratered.push_quad(Quad::glowing(frame.point_at(a0, b0, y0), frame.point_at(a1, b1, y0), frame.point_at(a1, b1, y1), frame.point_at(a0, b0, y1), norm, dirt_col, 0.35));
+                        if l_stage == 0 { EarthClods::new(GridCell::new(nu, nv), y0).emit_flank(flank, frame, target); }
                     }
                 }
             }

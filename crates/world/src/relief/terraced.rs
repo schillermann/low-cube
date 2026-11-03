@@ -155,6 +155,10 @@ impl ReliefElevation for TerracedRelief {
         self.molds.dig_stage_at(u, v)
     }
 
+    fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32) -> u8 {
+        self.molds.layer_dig_stage_at(u, v, layer_elev, (self.elevation_at(u, v) as f32) * 0.5 - 0.25)
+    }
+
     fn clear_dig_stage(&mut self) -> (i32, bool) {
         self.molds.reset_stage()
     }

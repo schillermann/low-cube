@@ -55,19 +55,19 @@ impl VoxelShape for PyramidPeak {
         let apex = frame.point_at(u_mid, v_mid, base_elevation + self.height);
 
         // South triangular face
-        let norm_s = (p1 - p0).cross(apex - p0).normalize();
+        let norm_s = (apex - p0).cross(p1 - p0).normalize();
         target.push_quad(Quad::new(p0, p1, apex, apex, norm_s, color));
 
         // East triangular face
-        let norm_e = (p2 - p1).cross(apex - p1).normalize();
+        let norm_e = (apex - p1).cross(p2 - p1).normalize();
         target.push_quad(Quad::new(p1, p2, apex, apex, norm_e, color));
 
         // North triangular face
-        let norm_n = (p3 - p2).cross(apex - p2).normalize();
+        let norm_n = (apex - p2).cross(p3 - p2).normalize();
         target.push_quad(Quad::new(p2, p3, apex, apex, norm_n, color));
 
         // West triangular face
-        let norm_w = (p0 - p3).cross(apex - p3).normalize();
+        let norm_w = (apex - p3).cross(p0 - p3).normalize();
         target.push_quad(Quad::new(p3, p0, apex, apex, norm_w, color));
     }
 }

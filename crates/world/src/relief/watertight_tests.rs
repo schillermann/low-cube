@@ -184,6 +184,6 @@ fn test_floating_lateral_block_dig_animation_on_floating_block_not_ground() {
         [frame.height_of(v0), frame.height_of(v1), frame.height_of(v2), frame.height_of(v3)].into_iter().any(|h| h < -0.01)
     }));
     assert!(!below_ground, "Ground underneath a floating block must not show a recessed dig crater");
-    assert!(dug_col.quads.len() > idle_col.quads.len() + 20, "Floating block itself must emit 3D digging craters across its faces");
+    assert!(dug_col.quads.len() >= 1 + 6 * 9, "Floating block itself must emit 9-quad 3D digging craters across all 6 faces");
 }
 

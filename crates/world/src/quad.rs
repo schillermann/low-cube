@@ -61,7 +61,6 @@ impl Quad {
         let span_b = (c.v3 - c.v0).length().max((c.v2 - c.v1).length());
         let min_span = span_a.min(span_b);
         if min_span < 0.22 {
-            target.push_quad(*self);
             return;
         }
         let (normal, color) = (self.shading.normal, self.shading.color);

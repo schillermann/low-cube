@@ -33,7 +33,7 @@ impl ReliefFacet {
         let (hn, hs, he, hw) = (relief.elevation_at(u, v + 1).max(crust), relief.elevation_at(u, v - 1).max(crust), relief.elevation_at(u + 1, v).max(crust), relief.elevation_at(u - 1, v).max(crust));
         let ((u0, u1), (v0, v1), top_h) = (cell.u_bounds(), cell.v_bounds(), (h as f32) * 0.5);
         let molded = relief.emit_molded_top(cell, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
-        let stage = relief.dig_stage_at(u, v);
+        let stage = relief.layer_dig_stage_at(u, v, top_h - 0.25);
         let (tn, ts, te, tw) = (v + 1 >= half_blocks, v <= -half_blocks, u + 1 >= half_blocks, u <= -half_blocks);
         let vault = super::CrustVault::beneath(half_blocks);
         let mut suppressed = SuppressedTop;

@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.42.5] - 2026-11-03
+
+### Fixed
+- Restored 3D excavation craters on all sides and bottoms of blocks and terrain walls by suppressing occluding micro-clod facets during active digging (`Quad::emit_crater`), correcting inward pyramid face normals (`PyramidPeak::emit_shape`), and evaluating per-layer digging stages across terrain walls and upward shafts (`ReliefElevation::layer_dig_stage_at`, `OverhangMolds::layer_dig_stage_at`, `ReliefWall::emit_side`, `ReliefStrata::emit_upward_shaft`).
+
 ## [0.42.4] - 2026-11-03
 
 ### Fixed

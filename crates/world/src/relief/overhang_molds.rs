@@ -37,6 +37,12 @@ impl DigStageFocus {
         if self.cell.0 == u && self.cell.1 == v && !layer_occupied { self.stage } else { 0 }
     }
 
+    pub fn layer_stage(self, u: i32, v: i32, layer_elev: f32, top_layer_elev: f32, layer_occupied: bool) -> u8 {
+        let (q, f) = (((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32, ((self.layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32);
+        let t = ((top_layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
+        if self.cell == (u, v) && !layer_occupied && (q == f || (q >= t && f >= t)) { self.stage } else { 0 }
+    }
+
     pub fn block_stage(self, u: i32, v: i32, block: &ElevatedShape) -> u8 {
         if self.cell == (u, v) && block.occupies_layer(self.layer_elev) { self.stage } else { 0 }
     }
@@ -87,38 +93,22 @@ impl OverhangMolds {
         Self::new(HashMap::new(), HashMap::new(), DigStageFocus::idle())
     }
 
-    pub fn empty(&self) -> bool {
-        self.blocks.is_empty()
-    }
-
-    pub fn present_at(&self, u: i32, v: i32) -> bool {
-        self.blocks.contains_key(&(u, v))
-    }
-
-    pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool {
-        self.bare_dirt.contains_key(&(u, v))
-    }
-
-    pub fn expose_dirt(&mut self, u: i32, v: i32) {
-        self.bare_dirt.insert((u, v), 0.0);
-    }
+    pub fn empty(&self) -> bool { self.blocks.is_empty() }
+    pub fn present_at(&self, u: i32, v: i32) -> bool { self.blocks.contains_key(&(u, v)) }
+    pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool { self.bare_dirt.contains_key(&(u, v)) }
+    pub fn expose_dirt(&mut self, u: i32, v: i32) { self.bare_dirt.insert((u, v), 0.0); }
 
     pub fn dig_stage_at(&self, u: i32, v: i32) -> u8 {
         self.dig_stage.ground_stage(u, v, self.layer_occupied_at(u, v, self.dig_stage.layer_elev()))
     }
 
-    pub fn clear_stage(&mut self, u: i32, v: i32) -> i32 {
-        self.dig_stage.clear_at(u, v)
+    pub fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32, top_layer_elev: f32) -> u8 {
+        self.dig_stage.layer_stage(u, v, layer_elev, top_layer_elev, self.layer_occupied_at(u, v, self.dig_stage.layer_elev()))
     }
 
-    pub fn clear_if_at(&mut self, u: i32, v: i32) {
-        self.dig_stage.clear_if_at(u, v);
-    }
-
-    pub fn reset_stage(&mut self) -> (i32, bool) {
-        self.dig_stage.reset()
-    }
-
+    pub fn clear_stage(&mut self, u: i32, v: i32) -> i32 { self.dig_stage.clear_at(u, v) }
+    pub fn clear_if_at(&mut self, u: i32, v: i32) { self.dig_stage.clear_if_at(u, v); }
+    pub fn reset_stage(&mut self) -> (i32, bool) { self.dig_stage.reset() }
     pub fn record_stage(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> (i32, bool) {
         self.dig_stage.record(u, v, layer_elev, stage)
     }
