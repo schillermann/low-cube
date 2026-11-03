@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.42.7] - 2026-11-03
+
+### Fixed
+- Sealed triangular see-through gaps in the subterranean crust vault ceiling (`CrustVault::corners_at`, `CrustVault::emit_ceiling`) by splitting crossed neighbor edge steps at their midpoint into inward-facing triangles, correcting East/West step-wall winding, and clamping outer pyramid-seam corners directly to the spherical shell surface.
+
 ## [0.42.6] - 2026-11-03
 
 ### Fixed

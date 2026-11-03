@@ -68,6 +68,31 @@ fn test_crust_vault_ceiling_is_a_closed_magma_lit_beveled_block_dome() {
             }
         }
     }
+    use std::collections::HashMap;
+    let quant = |p: glam::Vec3| ((p.x * 500.0).round() as i32, (p.y * 500.0).round() as i32, (p.z * 500.0).round() as i32);
+    let mut edge_counts: HashMap<((i32, i32, i32), (i32, i32, i32)), i32> = HashMap::new();
+    let mut open_edges = 0;
+    for quad in &patches.quads {
+        quad.transfer(|v0, v1, v2, v3, _, _| {
+            let pts = [quant(v0), quant(v1), quant(v2), quant(v3)];
+            for i in 0..4 {
+                let (a, b) = (pts[i], pts[(i + 1) & 3]);
+                if a != b {
+                    let key = if a < b { (a, b) } else { (b, a) };
+                    *edge_counts.entry(key).or_insert(0) += 1;
+                }
+            }
+        });
+    }
+    for (&(a, b), &c) in &edge_counts {
+        if c == 1 {
+            let axes = (a.0 != b.0) as i32 + (a.1 != b.1) as i32 + (a.2 != b.2) as i32;
+            if axes > 1 {
+                open_edges += 1;
+            }
+        }
+    }
+    assert_eq!(open_edges, 0, "Ceiling bevels must join neighbors without diagonal step gaps");
     let area: f32 = patches.quads.iter().map(quad_area).sum();
     let sphere = 4.0 * std::f32::consts::PI * 54.0 * 54.0;
     assert!(area > sphere && area < sphere * 1.25, "Beveled block dome ceiling must wrap the whole core, got area {area} vs {sphere}");

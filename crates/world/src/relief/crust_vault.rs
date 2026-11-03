@@ -218,8 +218,15 @@ impl CrustVault {
         (floor_elev, InvertedShape::from_corner_drops(drops[0], drops[1], drops[2], drops[3]))
     }
     fn corners_at(&self, u: i32, v: i32) -> [f32; 4] {
+        let ((u0, u1), (v0, v1)) = (GridCell::new(u, v).u_bounds(), GridCell::new(u, v).v_bounds());
         let (floor_elev, block) = self.block_at(GridCell::new(u, v));
-        block.ceiling_corners(floor_elev)
+        let c = block.ceiling_corners(floor_elev);
+        [
+            if self.opens_at(u0, v0) { c[0] } else { self.shell_point(u0, v0).2 },
+            if self.opens_at(u1, v0) { c[1] } else { self.shell_point(u1, v0).2 },
+            if self.opens_at(u1, v1) { c[2] } else { self.shell_point(u1, v1).2 },
+            if self.opens_at(u0, v1) { c[3] } else { self.shell_point(u0, v1).2 },
+        ]
     }
     /// Emits the magma-lit inward-facing beveled block ceiling beneath this cell.
     pub fn emit_ceiling(&self, cell: GridCell, dig_stage: u8, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
@@ -227,7 +234,7 @@ impl CrustVault {
         if !self.cell_opens(u, v) { return; }
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
         let (floor_elev, block) = self.block_at(cell);
-        let c = block.ceiling_corners(floor_elev);
+        let c = self.corners_at(u, v);
         let mut ceiling_out = VaultCeilingTarget { vault: self, frame, tint: 1.0 - (dig_stage.min(3) as f32) * 0.14, target };
         if [(u0, v0), (u1, v0), (u1, v1), (u0, v1)].iter().all(|&(a, b)| self.opens_at(a, b)) {
             block.emit_shape(cell, floor_elev, frame, Vec3::ONE, &mut ceiling_out);
@@ -237,16 +244,24 @@ impl CrustVault {
         let steps = [
             ((u0, v1), (u1, v1), c[3], c[2], self.corners_at(u, v + 1)[0], self.corners_at(u, v + 1)[1], frame.bitangent()),
             ((u1, v0), (u0, v0), c[1], c[0], self.corners_at(u, v - 1)[2], self.corners_at(u, v - 1)[3], -frame.bitangent()),
-            ((u1, v0), (u1, v1), c[1], c[2], self.corners_at(u + 1, v)[0], self.corners_at(u + 1, v)[3], frame.tangent()),
-            ((u0, v1), (u0, v0), c[3], c[0], self.corners_at(u - 1, v)[2], self.corners_at(u - 1, v)[1], -frame.tangent()),
+            ((u1, v1), (u1, v0), c[2], c[1], self.corners_at(u + 1, v)[3], self.corners_at(u + 1, v)[0], frame.tangent()),
+            ((u0, v0), (u0, v1), c[0], c[3], self.corners_at(u - 1, v)[1], self.corners_at(u - 1, v)[2], -frame.tangent()),
         ];
         for ((a0, b0), (a1, b1), ca, cb, na, nb, side_n) in steps {
             if (self.opens_at(a0, b0) || self.opens_at(a1, b1)) && (ca < na - 1e-3 || cb < nb - 1e-3) {
                 let norm = (side_n * 0.2 - frame.normal()).normalize();
-                ceiling_out.push_quad(Quad::new(
-                    frame.point_at(a0, b0, ca.min(na)), frame.point_at(a1, b1, cb.min(nb)),
-                    frame.point_at(a1, b1, nb.max(cb)), frame.point_at(a0, b0, na.max(ca)), norm, Vec3::ONE,
-                ));
+                if ca < na - 1e-3 && cb > nb + 1e-3 {
+                    let mid = (frame.point_at(a0, b0, ca) + frame.point_at(a1, b1, nb)) * 0.5;
+                    ceiling_out.push_quad(Quad::new(frame.point_at(a0, b0, ca), mid, mid, frame.point_at(a0, b0, na), norm, Vec3::ONE));
+                } else if cb < nb - 1e-3 && ca > na + 1e-3 {
+                    let mid = (frame.point_at(a0, b0, na) + frame.point_at(a1, b1, cb)) * 0.5;
+                    ceiling_out.push_quad(Quad::new(mid, frame.point_at(a1, b1, cb), frame.point_at(a1, b1, nb), mid, norm, Vec3::ONE));
+                } else {
+                    ceiling_out.push_quad(Quad::new(
+                        frame.point_at(a0, b0, ca.min(na)), frame.point_at(a1, b1, cb.min(nb)),
+                        frame.point_at(a1, b1, nb.max(cb)), frame.point_at(a0, b0, na.max(ca)), norm, Vec3::ONE,
+                    ));
+                }
             }
         }
     }
