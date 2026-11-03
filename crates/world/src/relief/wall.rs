@@ -39,31 +39,32 @@ impl ReliefWall {
         corners: [f32; 4], vault: &CrustVault, relief: &dyn ReliefElevation, frame: &SurfaceFrame, cliff_col: Vec3, target: &mut dyn MeshTarget,
     ) {
         let (dug_self, dirt_col, cell, floor_step) = (relief.reworked_at(u, v), Vec3::new(0.41, 0.27, 0.15), GridCell::new(u, v), vault.floor_steps_at(u, v));
+        let (nhn, nhs, nhe, nhw) = (relief.natural_elevation_at(u, v + 1), relief.natural_elevation_at(u, v - 1), relief.natural_elevation_at(u + 1, v), relief.natural_elevation_at(u - 1, v));
         if h >= hn {
             let fn_flat = relief.reworked_at(u, v + 1);
-            let bn_l = ((if !fn_flat && (hw < hn || relief.elevation_at(u - 1, v + 1) < hn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[3]);
-            let bn_r = ((if !fn_flat && (he < hn || relief.elevation_at(u + 1, v + 1) < hn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[2]);
+            let bn_l = ((if !fn_flat && (nhw < nhn || relief.natural_elevation_at(u - 1, v + 1) < nhn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[3]);
+            let bn_r = ((if !fn_flat && (nhe < nhn || relief.natural_elevation_at(u + 1, v + 1) < nhn) { hn - 1 } else { hn }) as f32 * 0.5).min(corners[2]);
             let dug = dug_self || fn_flat;
             self.emit_side(cell, 1, ((u0, v1), (u1, v1)), bn_l, bn_r, corners[3], corners[2], dug, frame.bitangent(), if dug { dirt_col } else { cliff_col }, floor_step, vault, frame, target);
         }
         if h >= hs {
             let fs_flat = relief.reworked_at(u, v - 1);
-            let bs_l = ((if !fs_flat && (he < hs || relief.elevation_at(u + 1, v - 1) < hs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[1]);
-            let bs_r = ((if !fs_flat && (hw < hs || relief.elevation_at(u - 1, v - 1) < hs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[0]);
+            let bs_l = ((if !fs_flat && (nhe < nhs || relief.natural_elevation_at(u + 1, v - 1) < nhs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[1]);
+            let bs_r = ((if !fs_flat && (nhw < nhs || relief.natural_elevation_at(u - 1, v - 1) < nhs) { hs - 1 } else { hs }) as f32 * 0.5).min(corners[0]);
             let dug = dug_self || fs_flat;
             self.emit_side(cell, 0, ((u1, v0), (u0, v0)), bs_l, bs_r, corners[1], corners[0], dug, -frame.bitangent(), if dug { dirt_col } else { cliff_col }, floor_step, vault, frame, target);
         }
         if h >= he {
             let fe_flat = relief.reworked_at(u + 1, v);
-            let be_l = ((if !fe_flat && (hs < he || relief.elevation_at(u + 1, v - 1) < he) { he - 1 } else { he }) as f32 * 0.5).min(corners[1]);
-            let be_r = ((if !fe_flat && (hn < he || relief.elevation_at(u + 1, v + 1) < he) { he - 1 } else { he }) as f32 * 0.5).min(corners[2]);
+            let be_l = ((if !fe_flat && (nhs < nhe || relief.natural_elevation_at(u + 1, v - 1) < nhe) { he - 1 } else { he }) as f32 * 0.5).min(corners[1]);
+            let be_r = ((if !fe_flat && (nhn < nhe || relief.natural_elevation_at(u + 1, v + 1) < nhe) { he - 1 } else { he }) as f32 * 0.5).min(corners[2]);
             let dug = dug_self || fe_flat;
             self.emit_side(cell, 3, ((u1, v0), (u1, v1)), be_l, be_r, corners[1], corners[2], dug, frame.tangent(), if dug { dirt_col } else { cliff_col }, floor_step, vault, frame, target);
         }
         if h >= hw {
             let fw_flat = relief.reworked_at(u - 1, v);
-            let bw_l = ((if !fw_flat && (hn < hw || relief.elevation_at(u - 1, v + 1) < hw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[3]);
-            let bw_r = ((if !fw_flat && (hs < hw || relief.elevation_at(u - 1, v - 1) < hw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[0]);
+            let bw_l = ((if !fw_flat && (nhn < nhw || relief.natural_elevation_at(u - 1, v + 1) < nhw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[3]);
+            let bw_r = ((if !fw_flat && (nhs < nhw || relief.natural_elevation_at(u - 1, v - 1) < nhw) { hw - 1 } else { hw }) as f32 * 0.5).min(corners[0]);
             let dug = dug_self || fw_flat;
             self.emit_side(cell, 2, ((u0, v1), (u0, v0)), bw_l, bw_r, corners[3], corners[0], dug, -frame.tangent(), if dug { dirt_col } else { cliff_col }, floor_step, vault, frame, target);
         }

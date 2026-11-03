@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.42.4] - 2026-11-03
+
+### Fixed
+- Prevented blocks and sloped terrain facets from expanding outward during or after excavation (`Quad::emit_crater`, `ShaftExcavation::crust_hit_top_at`, `NaturalStrata::crown_shape_at`, `OverhangMolds::retain_overhang`, `ReliefFacet::emit_dig_crater`, `ReliefWall::emit_walls`).
+
 ## [0.42.3] - 2026-11-03
 
 ### Changed

@@ -116,3 +116,38 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
     assert!(probe.quartz_veins >= 60, "4-layer planetary crust walls must emit Variant 2A 3D glowing quartz/amber mineral veins, got {}", probe.quartz_veins);
     assert!(probe.upper_pebbles > 0, "Soil layers above the 4-layer crust must retain soil clods");
 }
+
+#[test]
+fn test_mining_blocks_never_expands_geometry_outward() {
+    struct SpanBounds { min: Vec3, max: Vec3 }
+    impl SpanBounds {
+        fn empty() -> Self { Self { min: Vec3::splat(f32::MAX), max: Vec3::splat(f32::MIN) } }
+    }
+    impl MeshTarget for SpanBounds {
+        fn push_quad(&mut self, quad: Quad) {
+            quad.transfer(|v0, v1, v2, v3, _, _| {
+                for v in [v0, v1, v2, v3] {
+                    self.min = self.min.min(v);
+                    self.max = self.max.max(v);
+                }
+            });
+        }
+    }
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+    assert!(relief.stack_cell(0, 0));
+    let mut idle = SpanBounds::empty();
+    ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut idle);
+    for stage in 1..=3 {
+        relief.mark_dig_stage(0, 0, stage);
+        let mut dug = SpanBounds::empty();
+        ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut dug);
+        assert!(
+            !dug.min.cmplt(idle.min - Vec3::splat(1e-4)).any() && !dug.max.cmpgt(idle.max + Vec3::splat(1e-4)).any(),
+            "Stage {stage} digging must never expand block bounds outward: idle=({:?}..{:?}), dug=({:?}..{:?})",
+            idle.min, idle.max, dug.min, dug.max
+        );
+    }
+}
+

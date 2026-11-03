@@ -237,11 +237,12 @@ impl OverhangMolds {
         Some(self.clear_stage(u, v))
     }
 
-    pub fn retain_overhang(&mut self, u: i32, v: i32, next_elev: i32, elev: i32) {
-        let ground_top = (next_elev as f32) * BLOCK_STEP;
+    pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32) {
+        let (ground_top, nat) = ((next_elev as f32) * BLOCK_STEP, strata.elevation_at(u, v));
         let list = self.blocks.entry((u, v)).or_default();
         for step in (next_elev + 1)..elev {
-            list.push(ElevatedShape::new(Box::new(CuboidShape::new(BLOCK_STEP)), (step as f32) * BLOCK_STEP));
+            let shape = if step == nat - 1 { strata.crown_shape_at(u, v) } else { Box::new(CuboidShape::new(BLOCK_STEP)) };
+            list.push(ElevatedShape::new(shape, (step as f32) * BLOCK_STEP));
         }
         list.sort_by(|a, b| a.ceiling_above(ground_top).total_cmp(&b.ceiling_above(ground_top)));
     }

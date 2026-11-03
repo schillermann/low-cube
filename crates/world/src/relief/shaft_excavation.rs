@@ -200,7 +200,7 @@ impl ShaftExcavation {
         if !self.breached_at(strata, cu, cv) && ray_elev >= ceil_floor && ray_elev <= ground_surf + SURFACE_HIT_TOLERANCE {
             let hit = if ray_elev < ceil_h - CEILING_HIT_MARGIN {
                 ceil_h - HALF_BLOCK_STEP
-            } else if ray_elev < ground_h - BLOCK_STEP {
+            } else if ray_elev < ground_h - BLOCK_STEP && ray_elev < ground_surf - SHAFT_FLOOR_TOLERANCE {
                 ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).min(ground_h)
             } else {
                 ground_h
@@ -237,7 +237,7 @@ impl ShaftExcavation {
             return (v, false);
         }
         if step_at < elev - 1 {
-            molds.retain_overhang(u, v, next_elev, elev);
+            molds.retain_overhang(strata, u, v, next_elev, elev);
         } else if !molds.present_at(u, v) {
             molds.expose_dirt(u, v);
         }

@@ -123,7 +123,9 @@ impl ReliefFacet {
         top_col: Vec3, palette: &ReliefPalette, frame: &SurfaceFrame, target: &mut dyn MeshTarget,
     ) {
         let pt = |fu: f32, fv: f32, drop: f32| {
-            let h = c[0] * (1.0 - fu) * (1.0 - fv) + c[1] * fu * (1.0 - fv) + c[2] * fu * fv + c[3] * (1.0 - fu) * fv - drop;
+            let h_a = if fu >= fv { c[1] + (1.0 - fu) * (c[0] - c[1]) + fv * (c[2] - c[1]) } else { c[3] + fu * (c[2] - c[3]) + (1.0 - fv) * (c[0] - c[3]) };
+            let h_b = if fu + fv <= 1.0 { c[0] + fu * (c[1] - c[0]) + fv * (c[3] - c[0]) } else { c[2] + (1.0 - fu) * (c[3] - c[2]) + (1.0 - fv) * (c[1] - c[2]) };
+            let h = if (c[0] - c[2]).abs() < (c[1] - c[3]).abs() { h_a } else { h_b } - drop;
             frame.point_at(u0 + (u1 - u0) * fu, v0 + (v1 - v0) * fv, h)
         };
         let (r0, depth) = (0.40 - (stage.min(3) as f32) * 0.10, (stage.min(3) as f32) * 0.125);

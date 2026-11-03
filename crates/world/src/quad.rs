@@ -57,6 +57,13 @@ impl Quad {
             return;
         }
         let c = self.corners;
+        let span_a = (c.v1 - c.v0).length().max((c.v2 - c.v3).length());
+        let span_b = (c.v3 - c.v0).length().max((c.v2 - c.v1).length());
+        let min_span = span_a.min(span_b);
+        if min_span < 0.22 {
+            target.push_quad(*self);
+            return;
+        }
         let (normal, color) = (self.shading.normal, self.shading.color);
         let bilerp = |fu: f32, fv: f32| {
             c.v0 * ((1.0 - fu) * (1.0 - fv))
@@ -65,7 +72,7 @@ impl Quad {
                 + c.v3 * ((1.0 - fu) * fv)
         };
         let s = stage.min(3) as f32;
-        let (r0, depth) = (0.40 - s * 0.10, s * 0.09);
+        let (r0, depth) = (0.40 - s * 0.10, (s * 0.09).min(min_span * 0.36));
         let (r1, f0, f1, drop) = (1.0 - r0, r0 + 0.08, 0.92 - r0, normal * depth);
         let o = [c.v0, c.v1, c.v2, c.v3];
         let m = [bilerp(r0, r0), bilerp(r1, r0), bilerp(r1, r1), bilerp(r0, r1)];
