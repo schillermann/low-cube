@@ -249,8 +249,8 @@ impl HeldRelic {
         }
     }
 
-    pub fn emit_in_satchel_slot(self, mold: BlockMold, rim: Vec3, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
-        let bg = if rim.x > 0.7 { Vec3::new(0.28, 0.33, 0.44) } else { Vec3::new(0.16, 0.19, 0.27) };
+    pub fn emit_in_satchel_slot(self, mold: BlockMold, selected: bool, rim: Vec3, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
+        let bg = if selected { Vec3::new(0.28, 0.33, 0.44) } else { Vec3::new(0.16, 0.19, 0.27) };
         slot_frame.emit_framed_plaque(0.044, 0.044, 0.0032, bg, rim * 1.25, target);
         let light_dir = (slot_frame.point(0.4, 0.6, -0.7) - slot_frame.point(0.0, 0.0, 0.0)).normalize_or_zero();
         let zenith = (slot_frame.point(0.0, 1.0, -1.0) - slot_frame.point(0.0, 0.0, 0.0)).normalize_or_zero();

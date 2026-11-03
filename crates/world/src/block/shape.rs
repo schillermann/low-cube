@@ -19,6 +19,7 @@ pub trait VoxelShape: Send + Sync {
         color: Vec3,
         target: &mut dyn MeshTarget,
     );
+    #[allow(clippy::too_many_arguments)]
     fn emit_terraced_shape(
         &self,
         cell: GridCell,
@@ -26,10 +27,12 @@ pub trait VoxelShape: Send + Sync {
         frame: &SurfaceFrame,
         top_color: Vec3,
         wall_color: Vec3,
+        bare_top: bool,
         target: &mut dyn MeshTarget,
     ) {
+        let cap = if bare_top { wall_color } else { top_color };
         let corners = cell.corner_points(frame, base_elevation);
-        let mut turf = TurfMeshTarget::new(target, frame.normal(), corners, top_color, wall_color, false);
+        let mut turf = TurfMeshTarget::new(target, frame.normal(), corners, cap, wall_color, false);
         self.emit_shape(cell, base_elevation, frame, wall_color, &mut turf);
         turf.seal_underside();
     }

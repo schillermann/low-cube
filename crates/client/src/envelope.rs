@@ -2,6 +2,29 @@ use glam::Vec3;
 use world::PlanetaryWorld;
 use crate::threshold::{StepThreshold, SurfaceClearance, SurfaceStep};
 
+const MIN_CROUCH_HEIGHT: f32 = 0.95;
+const CROUCH_HEAD_DROP: f32 = 0.44;
+const CROWN_REACH_MIN: f32 = 0.36;
+const CROWN_REACH_MAX: f32 = 0.80;
+const FOOTPRINT_PROBE_RATIO: f32 = 0.70;
+const GROUND_SETTLE_OFFSET: f32 = 0.45;
+const OVERHEAD_SCAN_WINDOW: f32 = 0.65;
+const STEP_RISE_LIMIT: f32 = 0.35;
+const POST_WALL_RISE: f32 = 0.50;
+const NARROW_CHEST_REACH: f32 = 0.18;
+const HEEL_STEP_OFFSET: f32 = 0.25;
+const DROP_LEDGE_MARGIN: f32 = 0.10;
+const FLANK_DOORPOST_RATIO: f32 = 1.35;
+const PIT_RIM_DROP: f32 = 0.52;
+const DEEP_SHAFT_SPAN: f32 = 2.50;
+const SHAFT_WALL_RISE: f32 = 1.25;
+const SHAFT_WALL_STEP: f32 = 0.05;
+const SHAFT_MAX_SPAN: f32 = 1.20;
+const SHAFT_DEEP_WALL: f32 = 2.20;
+const SHAFT_FOOT_SNAP: f32 = 1.80;
+const RIM_PROBE_OFFSET: f32 = 0.50;
+const RIM_STEP_TOLERANCE: f32 = 0.45;
+
 /// Interface for physical avatar collision volumes preventing wall penetration and camera clipping.
 pub trait PhysicalEnvelope {
     #[allow(clippy::too_many_arguments)]
@@ -32,39 +55,71 @@ impl BodyEnvelope {
     }
 
     pub fn with_crouch_and_facing(self, crouch_drop: f32, facing: Vec3) -> Self {
-        Self::with_dimensions(self.half_width, self.half_depth, (self.height - crouch_drop.max(0.0)).max(0.95), facing)
+        Self::with_dimensions(self.half_width, self.half_depth, (self.height - crouch_drop.max(0.0)).max(MIN_CROUCH_HEIGHT), facing)
     }
 
     pub fn confine_beneath_crust(&self, point: Vec3, origin: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> Vec3 {
-        let head_off = if world.weightless_at(point) || world.weightless_at(origin) {
-            Vec3::ZERO
-        } else {
-            up * (self.height - 0.95).clamp(0.36, 0.80)
-        };
-        world.confine_beneath_crust(point + head_off) - head_off
-    }
-
-    pub fn constrain_with_height(&self, point: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> Vec3 {
-        let (base_surf, face_up) = (world.constrain_to_surface(point, eye), world.surface_up_at(point));
-        let delta = base_surf - point;
-        if (delta - face_up * delta.dot(face_up)).length_squared() > 1e-4 { return base_surf; }
-        let span = if (self.height - 1.0).abs() < 2e-3 { 1.003 } else { self.height };
-        let mut constrained = world.constrain_to_surface(point + face_up * (span - eye), span) - face_up * (span - eye);
-        let alt = (point - base_surf).dot(face_up);
-        if (0.02..1.20).contains(&alt) {
-            let f_tan = (self.facing - face_up * self.facing.dot(face_up)).normalize_or_zero();
-            if f_tan.length_squared() > 1e-4 {
-                let rgt = f_tan.cross(face_up).normalize_or_zero();
-                for off in [f_tan * 0.16, -f_tan * 0.14, rgt * 0.14, -rgt * 0.14] {
-                    let p_floor = world.constrain_to_surface(point + off - face_up * 0.45, span) - face_up * (span - eye);
-                    let p_ceil = world.constrain_to_surface(point + off + face_up * (span - eye), span) - face_up * (span - eye);
-                    if (p_ceil - p_floor).dot(face_up) > 0.35 && (p_ceil - constrained).dot(face_up) > 0.35 {
-                        constrained = point + face_up * (p_ceil - point).dot(face_up);
-                    }
+        if world.weightless_at(point) || world.weightless_at(origin) {
+            return world.confine_beneath_crust(point);
+        }
+        let head_off = up * (self.height - 1.0).clamp(CROWN_REACH_MIN, CROWN_REACH_MAX);
+        let mut confined = world.confine_beneath_crust(point + head_off) - head_off;
+        let f_tan = (self.facing - up * self.facing.dot(up)).normalize_or_zero();
+        if f_tan.length_squared() > 1e-4 {
+            let rgt = f_tan.cross(up).normalize_or_zero();
+            let (d_probe, w_probe) = (self.half_depth * FOOTPRINT_PROBE_RATIO, self.half_width * FOOTPRINT_PROBE_RATIO);
+            for off in [f_tan * d_probe, -f_tan * d_probe, rgt * w_probe, -rgt * w_probe] {
+                let probe = world.confine_beneath_crust(point + off + head_off) - head_off - off;
+                if (probe - point).dot(up) < -1e-4 && (probe - confined).dot(up) < 0.0 {
+                    confined += up * (probe - confined).dot(up);
                 }
             }
         }
-        constrained
+        let floor_pt = self.constrain_with_height(point, 1.0, world);
+        if (point - floor_pt).dot(up) >= -0.05 && (confined - floor_pt).dot(up) < 0.0 {
+            confined += up * (floor_pt - confined).dot(up);
+        }
+        confined
+    }
+
+    fn cardinal_up(up: Vec3) -> Vec3 {
+        let ax = up.abs();
+        if ax.x >= ax.y && ax.x >= ax.z {
+            Vec3::new(up.x.signum(), 0.0, 0.0)
+        } else if ax.y >= ax.x && ax.y >= ax.z {
+            Vec3::new(0.0, up.y.signum(), 0.0)
+        } else {
+            Vec3::new(0.0, 0.0, up.z.signum())
+        }
+    }
+
+    pub fn constrain_with_height(&self, point: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> Vec3 {
+        let (base_surf, face_up) = (world.constrain_to_surface(point, eye), Self::cardinal_up(world.surface_up_at(point)));
+        let delta = base_surf - point;
+        if (delta - face_up * delta.dot(face_up)).length_squared() > 1e-4 { return base_surf; }
+        world.constrain_to_surface(point + face_up * (self.height - eye), self.height) - face_up * (self.height - eye)
+    }
+
+    pub fn in_deep_shaft(&self, point: Vec3, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> bool {
+        (point - self.constrain_with_height(point, eye, world)).dot(up) > DEEP_SHAFT_SPAN
+    }
+
+    pub fn catch_shaft_rim(&self, origin: Vec3, next_pos: Vec3, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> Option<Vec3> {
+        if (next_pos - origin).dot(up) <= 0.0
+            || world.weightless_at(next_pos)
+            || (next_pos - world.constrain_to_surface(next_pos, eye)).dot(up) <= DEEP_SHAFT_SPAN
+        {
+            return None;
+        }
+        let axis_a = if up.x.abs() < 0.5 { Vec3::X } else { Vec3::Z };
+        let axis_b = up.cross(axis_a).normalize();
+        for dir in [axis_a, -axis_a, axis_b, -axis_b] {
+            let rim = world.constrain_to_surface(next_pos + dir * RIM_PROBE_OFFSET + up * RIM_PROBE_OFFSET, eye);
+            if (next_pos - rim).dot(up).abs() <= RIM_STEP_TOLERANCE && !world.weightless_at(rim) {
+                return Some(rim);
+            }
+        }
+        None
     }
 
     fn oriented_extents(&self, dir: Vec3, right: Vec3, up: Vec3) -> (f32, f32) {
@@ -78,20 +133,19 @@ impl BodyEnvelope {
     }
 
     pub fn overhead_obstructed(&self, position: Vec3, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> bool {
-        let crouched = Self::with_dimensions(self.half_width, self.half_depth, (self.height - 0.44).max(0.95), self.facing);
-        let settled = position - up * 0.45;
+        let crouched = Self::with_dimensions(self.half_width, self.half_depth, (self.height - CROUCH_HEAD_DROP).max(MIN_CROUCH_HEIGHT), self.facing);
+        let settled = position - up * GROUND_SETTLE_OFFSET;
         let base_floor = crouched.constrain_with_height(settled, eye, world);
-        if (position - base_floor).dot(up).abs() > 0.65 { return false; }
+        if (position - base_floor).dot(up).abs() > OVERHEAD_SCAN_WINDOW { return false; }
         let f_tan = (self.facing - up * self.facing.dot(up)).normalize_or_zero();
         let fwd = if f_tan.length_squared() > 1e-4 { f_tan } else if up.y.abs() < 0.9 { up.cross(Vec3::Y).normalize() } else { Vec3::Z };
         let rgt = fwd.cross(up).normalize_or_zero();
-        let deep_ahead = (world.constrain_to_surface(position + fwd * (self.half_depth + 0.58), 0.0) - (base_floor - up * eye)).dot(up) > 1.8;
-        let reach = if (world.constrain_to_surface(position, 0.0) - position).dot(up) > 1.2 || deep_ahead { self.half_depth + 0.08 } else { self.half_depth * 0.7 };
-        for offset in [Vec3::ZERO, fwd * reach, -fwd * (self.half_depth * 0.7), rgt * (self.half_width * 0.7), -rgt * (self.half_width * 0.7)] {
-            let pt = position + offset;
-            let low = crouched.constrain_with_height(pt - up * 0.45, eye, world);
+        let (d_probe, w_probe) = (self.half_depth * FOOTPRINT_PROBE_RATIO, self.half_width * FOOTPRINT_PROBE_RATIO);
+        for offset in [Vec3::ZERO, fwd * d_probe, -fwd * d_probe, rgt * w_probe, -rgt * w_probe] {
+            let pt = position + offset - up * GROUND_SETTLE_OFFSET;
+            let low = crouched.constrain_with_height(pt, eye, world);
             let high = self.constrain_with_height(pt, eye, world);
-            if (low - base_floor).dot(up).abs() <= 0.35 && (high - low).dot(up) > 0.35 {
+            if (low - base_floor).dot(up).abs() <= STEP_RISE_LIMIT && (high - low).dot(up) > STEP_RISE_LIMIT {
                 return true;
             }
         }
@@ -101,12 +155,12 @@ impl BodyEnvelope {
     fn wall_rise(base: Vec3, dir: Vec3, dist: f32, up: Vec3, world: &dyn PlanetaryWorld) -> Option<f32> {
         let surf = world.constrain_to_surface(base + dir * dist, 0.0);
         let rise = (surf - base).dot(up);
-        if up.dot(world.surface_up_at(surf)) >= 0.7 && rise >= 1.25 { Some(rise) } else { None }
+        if up.dot(world.surface_up_at(surf)) >= 0.7 && rise >= SHAFT_WALL_RISE { Some(rise) } else { None }
     }
 
     fn wall_distance(base: Vec3, dir: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> (f32, f32) {
         for step in 1..=24 {
-            let d = (step as f32) * 0.05;
+            let d = (step as f32) * SHAFT_WALL_STEP;
             if let Some(rise) = Self::wall_rise(base, dir, d, up, world) { return (d, rise); }
         }
         (2.0, 0.0)
@@ -114,13 +168,19 @@ impl BodyEnvelope {
 
     fn axis_wedged(&self, base: Vec3, axis: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> bool {
         let ((d_pos, r_pos), (d_neg, r_neg)) = (Self::wall_distance(base, axis, up, world), Self::wall_distance(base, -axis, up, world));
-        d_pos <= 1.2 && d_neg <= 1.2 && (d_pos + d_neg - 0.05) < self.half_width * 2.0 && ((r_pos - r_neg).abs() < 1.2 || r_pos.min(r_neg) > 2.2)
+        d_pos <= SHAFT_MAX_SPAN && d_neg <= SHAFT_MAX_SPAN && (d_pos + d_neg - SHAFT_WALL_STEP) < self.half_width * 2.0 && ((r_pos - r_neg).abs() < SHAFT_MAX_SPAN || r_pos.min(r_neg) > SHAFT_DEEP_WALL)
     }
 
     #[allow(clippy::too_many_arguments)]
     fn post_obstructed(&self, pt: Vec3, floor: Vec3, orig_floor: Vec3, up: Vec3, eye: f32, limit: StepThreshold, world: &dyn PlanetaryWorld) -> bool {
         let s = self.constrain_with_height(pt, eye, world);
-        up.dot(world.surface_up_at(s)) >= 0.7 && (s - floor).dot(up) > 0.50 && (s - orig_floor).dot(up) > 0.35 && !SurfaceStep::new(floor, s, up).walkable_with(limit)
+        up.dot(world.surface_up_at(s)) >= 0.7 && (s - floor).dot(up) > POST_WALL_RISE && (s - orig_floor).dot(up) > STEP_RISE_LIMIT && !SurfaceStep::new(floor, s, up).walkable_with(limit)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn chest_reach(&self, origin: Vec3, dir: Vec3, orig_center: Vec3, floor: Vec3, raw_depth: f32, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> f32 {
+        let back_surf = self.constrain_with_height(origin - dir * HEEL_STEP_OFFSET, eye, world);
+        if (orig_center - floor).dot(up) > DROP_LEDGE_MARGIN || (back_surf - floor).dot(up) > GROUND_SETTLE_OFFSET { NARROW_CHEST_REACH.min(raw_depth) } else { raw_depth }
     }
 }
 
@@ -130,31 +190,28 @@ impl PhysicalEnvelope for BodyEnvelope {
         if tangent.length_squared() <= 1e-6 { return true; }
         let dir = tangent.normalize();
         let right = dir.cross(up).normalize_or_zero();
-        let (raw_depth, raw_lat) = self.oriented_extents(dir, right, up);
+        let (raw_depth, lateral_span) = self.oriented_extents(dir, right, up);
         let origin = candidate - step;
-        let sub = (world.constrain_to_surface(origin, 0.0) - origin).dot(up) > 2.2;
-        let lateral_span = if sub { raw_lat.min(0.15) } else { raw_lat };
         let orig_center = self.constrain_with_height(origin, eye, world);
-        let back_surf = self.constrain_with_height(origin - dir * 0.25, eye, world);
-        let dropping = (orig_center - surface_pos).dot(up) > 0.1;
+        let dropping = (orig_center - surface_pos).dot(up) > DROP_LEDGE_MARGIN;
         let ref_floor = if dropping { orig_center } else { surface_pos };
-        let chest_reach = if sub { raw_depth.min(0.15) } else if dropping || (back_surf - surface_pos).dot(up) > 0.45 { 0.18_f32.min(raw_depth) } else { raw_depth };
+        let chest_reach = self.chest_reach(origin, dir, orig_center, surface_pos, raw_depth, up, eye, world);
         let (ahead, front) = (candidate + dir * (chest_reach * 0.5), candidate + dir * chest_reach);
         let (l_off, r_off) = (-right * lateral_span, right * lateral_span);
         let l_hit = self.post_obstructed(ahead + l_off, ref_floor, orig_center, up, eye, limit, world) || self.post_obstructed(front + l_off, ref_floor, orig_center, up, eye, limit, world);
         let r_hit = self.post_obstructed(ahead + r_off, ref_floor, orig_center, up, eye, limit, world) || self.post_obstructed(front + r_off, ref_floor, orig_center, up, eye, limit, world);
-        let orig_l = (self.constrain_with_height(origin + l_off, eye, world) - ref_floor).dot(up) > 0.50;
-        let orig_r = (self.constrain_with_height(origin + r_off, eye, world) - ref_floor).dot(up) > 0.50;
+        let orig_l = (self.constrain_with_height(origin + l_off, eye, world) - ref_floor).dot(up) > POST_WALL_RISE;
+        let orig_r = (self.constrain_with_height(origin + r_off, eye, world) - ref_floor).dot(up) > POST_WALL_RISE;
         if (l_hit && r_hit)
-            || (l_hit && (!orig_l || self.post_obstructed(ahead + right * (lateral_span * 1.35), ref_floor, orig_center, up, eye, limit, world)))
-            || (r_hit && (!orig_r || self.post_obstructed(ahead - right * (lateral_span * 1.35), ref_floor, orig_center, up, eye, limit, world)))
+            || (l_hit && (!orig_l || self.post_obstructed(ahead + right * (lateral_span * FLANK_DOORPOST_RATIO), ref_floor, orig_center, up, eye, limit, world)))
+            || (r_hit && (!orig_r || self.post_obstructed(ahead - right * (lateral_span * FLANK_DOORPOST_RATIO), ref_floor, orig_center, up, eye, limit, world)))
         {
             return false;
         }
         let mid_surface = self.constrain_with_height(ahead, eye, world);
         let probe_surface = self.constrain_with_height(front, eye, world);
         let cand_back = self.constrain_with_height(candidate - dir * raw_depth, eye, world);
-        if (probe_surface - ref_floor).dot(up) > 0.50 && (cand_back - ref_floor).dot(up) > 0.50 {
+        if (probe_surface - ref_floor).dot(up) > POST_WALL_RISE && (cand_back - ref_floor).dot(up) > POST_WALL_RISE {
             return false;
         }
         if up.dot(world.surface_up_at(probe_surface)) < 0.7 { return true; }
@@ -172,28 +229,25 @@ impl PhysicalEnvelope for BodyEnvelope {
         let base = if on_slope && (candidate_surf - candidate).dot(up) > 0.0 { candidate_surf } else { candidate };
         let dir = tangent.normalize();
         let right = dir.cross(up).normalize_or_zero();
-        let (raw_depth, raw_lat) = self.oriented_extents(dir, right, up);
-        let sub = (world.constrain_to_surface(origin, 0.0) - origin).dot(up) > 2.2;
-        let lateral_span = if sub { raw_lat.min(0.15) } else { raw_lat };
-        let back_surf = self.constrain_with_height(origin - dir * 0.25, eye, world);
-        let chest_reach = if sub { raw_depth.min(0.15) } else if (orig_center - candidate_surf).dot(up) > 0.1 || (back_surf - candidate_surf).dot(up) > 0.45 { 0.18_f32.min(raw_depth) } else { raw_depth };
+        let (raw_depth, lateral_span) = self.oriented_extents(dir, right, up);
+        let chest_reach = self.chest_reach(origin, dir, orig_center, candidate_surf, raw_depth, up, eye, world);
         let (ahead, probe) = (base + dir * (chest_reach * 0.5), base + dir * chest_reach);
         let (l_off, r_off) = (-right * lateral_span, right * lateral_span);
         let l_hit = self.post_obstructed(ahead + l_off, candidate, orig_center, up, eye, limit, world);
         let r_hit = self.post_obstructed(ahead + r_off, candidate, orig_center, up, eye, limit, world);
-        let orig_l = (self.constrain_with_height(origin + l_off, eye, world) - origin).dot(up) > 0.45;
-        let orig_r = (self.constrain_with_height(origin + r_off, eye, world) - origin).dot(up) > 0.45;
+        let orig_l = (self.constrain_with_height(origin + l_off, eye, world) - origin).dot(up) > GROUND_SETTLE_OFFSET;
+        let orig_r = (self.constrain_with_height(origin + r_off, eye, world) - origin).dot(up) > GROUND_SETTLE_OFFSET;
         if (l_hit && r_hit && !(orig_l && orig_r)) || (l_hit && !orig_l) || (r_hit && !orig_r) {
             return false;
         }
         let mid_surface = self.constrain_with_height(ahead, eye, world);
         let probe_surface = self.constrain_with_height(probe, eye, world);
-        let in_deep_shaft = (origin - orig_center).dot(up) >= 2.5;
+        let in_deep_shaft = (origin - orig_center).dot(up) >= DEEP_SHAFT_SPAN;
         let over_pit = (origin - orig_center).dot(up) > 0.02 && !in_deep_shaft;
         let step_ref = if in_deep_shaft { origin } else { orig_center };
         if (candidate - origin).dot(up) <= 0.0
-            && (((origin - probe_surface).dot(up) < if over_pit { 0.52 } else { -1e-4 } && !SurfaceStep::new(step_ref, probe_surface, up).walkable_with(limit))
-                || (over_pit && (origin - mid_surface).dot(up) < 0.52 && !SurfaceStep::new(step_ref, mid_surface, up).walkable_with(limit)))
+            && (((origin - probe_surface).dot(up) < if over_pit { PIT_RIM_DROP } else { -1e-4 } && !SurfaceStep::new(step_ref, probe_surface, up).walkable_with(limit))
+                || (over_pit && (origin - mid_surface).dot(up) < PIT_RIM_DROP && !SurfaceStep::new(step_ref, mid_surface, up).walkable_with(limit)))
         {
             return false;
         }
@@ -204,9 +258,9 @@ impl PhysicalEnvelope for BodyEnvelope {
     }
 
     fn wedged_in_shaft(&self, position: Vec3, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> bool {
-        if world.weightless_at(position) || (world.constrain_to_surface(position, 0.0) - position).dot(up) > 0.5 { return false; }
+        if world.weightless_at(position) || (world.constrain_to_surface(position, 0.0) - position).dot(up) > POST_WALL_RISE { return false; }
         let foot_pos = self.constrain_with_height(position, eye, world) - up * eye;
-        let base = if (position - foot_pos).dot(up) < eye + 1.8 { foot_pos } else { position - up * eye };
+        let base = if (position - foot_pos).dot(up) < eye + SHAFT_FOOT_SNAP { foot_pos } else { position - up * eye };
         let ref_vec = if up.y.abs() < 0.9 { Vec3::Y } else { Vec3::X };
         let axis_a = up.cross(ref_vec).normalize();
         let axis_b = up.cross(axis_a).normalize();

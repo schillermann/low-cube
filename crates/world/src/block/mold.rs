@@ -146,16 +146,31 @@ impl BlockMold {
         self, origin: Vec3, right: Vec3, up: Vec3, forward: Vec3,
         scale: f32, side_color: Vec3, top_color: Vec3, target: &mut dyn MeshTarget,
     ) {
+        struct MiniatureBasis {
+            origin: Vec3,
+            right: Vec3,
+            up: Vec3,
+            back: Vec3,
+        }
+        struct MiniatureCoat {
+            scale: f32,
+            side_col: Vec3,
+            top_col: Vec3,
+            self_pigmented: bool,
+        }
         struct MiniatureTarget<'a> {
-            origin: Vec3, right: Vec3, up: Vec3, back: Vec3,
-            scale: f32, side_col: Vec3, top_col: Vec3, self_pigmented: bool, out: &'a mut dyn MeshTarget,
+            basis: MiniatureBasis,
+            coat: MiniatureCoat,
+            out: &'a mut dyn MeshTarget,
         }
         impl MeshTarget for MiniatureTarget<'_> {
             fn push_quad(&mut self, quad: Quad) {
-                let map_pt = |p: Vec3| self.origin + self.right * ((p.x - 0.25) * self.scale) + self.up * (p.y * self.scale) + self.back * ((p.z - 0.25) * self.scale);
-                let map_n = |n: Vec3| (self.right * n.x + self.up * n.y + self.back * n.z).normalize_or_zero();
+                let b = &self.basis;
+                let s = self.coat.scale;
+                let map_pt = |p: Vec3| b.origin + b.right * ((p.x - 0.25) * s) + b.up * (p.y * s) + b.back * ((p.z - 0.25) * s);
+                let map_n = |n: Vec3| (b.right * n.x + b.up * n.y + b.back * n.z).normalize_or_zero();
                 let mapped = quad.transfer(|v0, v1, v2, v3, n, col| {
-                    let c = if self.self_pigmented { col } else if n.y > 0.25 { self.top_col } else { self.side_col };
+                    let c = if self.coat.self_pigmented { col } else if n.y > 0.25 { self.coat.top_col } else { self.coat.side_col };
                     Quad::new(map_pt(v0), map_pt(v1), map_pt(v2), map_pt(v3), map_n(n), c)
                 });
                 self.out.push_quad(mapped);
@@ -176,7 +191,11 @@ impl BlockMold {
             target.push_quad(Quad::new(b3, b0, b0 + lift, b3 + lift, -right, side_color));
             lift
         };
-        let mut mini = MiniatureTarget { origin: origin + lift, right, up, back: -forward, scale, side_col: side_color, top_col: top_color, self_pigmented, out: target };
+        let mut mini = MiniatureTarget {
+            basis: MiniatureBasis { origin: origin + lift, right, up, back: -forward },
+            coat: MiniatureCoat { scale, side_col: side_color, top_col: top_color, self_pigmented },
+            out: target,
+        };
         shape.emit_shape(GridCell::new(0, 0), 0.0, &unit_frame, side_color, &mut mini);
     }
 }

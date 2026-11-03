@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{ClimateZone, PlanarFace, SurfaceFrame};
+use crate::{ClimateZone, FacetedReliefFace, SurfaceFrame};
 use super::arboreal::Arboreal;
 use super::full_cube_ground::FullCubeGround;
 use super::planting_ground::PlantingGround;
@@ -11,8 +11,8 @@ use super::woodland_ground::WoodlandGround;
 
 #[test]
 fn test_woodland_ground_decorator_differentiates_clearing_and_groves() {
-    let frame = SurfaceFrame::new(Vec3::Y, Vec3::X, Vec3::Z, 16.0);
-    let face = Box::new(PlanarFace::new(Vec3::Y, Vec3::X, Vec3::Z, Vec3::ONE, 16.0, 16));
+    let frame = ClimateZone::Temperate.surface_frame(16.0);
+    let face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, 16.0, 32));
     let base = Box::new(SurfaceGround::new(face.as_ref(), &frame, 16.0));
     let woodland = WoodlandGround::in_zone(base, ClimateZone::Temperate);
 
@@ -33,25 +33,33 @@ fn test_woodland_ground_decorator_differentiates_clearing_and_groves() {
 
 #[test]
 fn test_full_cube_ground_decorator_identifies_flat_full_cube() {
-    let frame = SurfaceFrame::new(Vec3::Y, Vec3::X, Vec3::Z, 16.0);
-    let face = Box::new(PlanarFace::new(Vec3::Y, Vec3::X, Vec3::Z, Vec3::ONE, 16.0, 16));
+    let frame = ClimateZone::Temperate.surface_frame(16.0);
+    let face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, 16.0, 32));
     let base = Box::new(SurfaceGround::new(face.as_ref(), &frame, 16.0));
     let full_cube = FullCubeGround::new(base, face.as_ref(), &frame, 16.0);
 
-    assert!(full_cube.receptive(0, 0, 0), "Flat planar face cell must be receptive Full-Cube");
+    assert!(full_cube.receptive(0, 0, 0), "Flat spawn sanctuary cell must be receptive Full-Cube");
 }
 
 #[test]
 fn test_solid_arboreal_decorator_enforces_physical_trunk_collision() {
     let frame = SurfaceFrame::new(Vec3::Y, Vec3::X, Vec3::Z, 16.0);
-    let tree = Box::new(StandingTree::of_species(Box::new(TemperateOak::new()), frame, 0.0, 0.0, 0.0));
-    let solid = SolidArboreal::new(tree, 0.0, 0.0, 0.65, 3.0);
+    let tree = Box::new(StandingTree::of_species(Box::new(TemperateOak::new()), frame, 0.0, 0.0, 1.5));
+    let solid = SolidArboreal::rooted(tree, 0.0, 0.0, 1.5, 0.65, 3.0);
 
-    let base = frame.point_at(0.2, 0.2, 0.0);
-    let constrained = solid.constrain_surface(base, 0.2, 0.2, &frame, 0.0);
+    let hill_base = frame.point_at(0.2, 0.2, 1.5);
+    let constrained = solid.constrain_surface(hill_base, 0.2, 0.2, &frame, 0.0);
     assert!(
-        frame.height_of(constrained) >= 2.9,
-        "SolidArboreal must elevate surface to block passage within trunk radius"
+        frame.elevation_of(constrained) >= 4.4,
+        "SolidArboreal must elevate surface to block passage within trunk radius at root elevation"
+    );
+
+    let tunnel_base = frame.point_at(0.2, 0.2, -0.5);
+    let tunnel_constrained = solid.constrain_surface(tunnel_base, 0.2, 0.2, &frame, 0.0);
+    assert_eq!(
+        tunnel_constrained,
+        tunnel_base,
+        "SolidArboreal must not block passage in an excavated tunnel beneath the tree's root elevation"
     );
 }
 

@@ -40,13 +40,15 @@ fn check_rs_files_in_dir(dir: &Path) {
                     }
                     in_struct = true;
                     struct_header = clean.trim().to_string();
-                    field_count = 0;
+                    field_count = after_brace.replace("::", "").matches(':').count();
                 } else if in_struct {
                     if clean.contains('}') {
+                        let before_brace = clean.split('}').next().unwrap_or("");
+                        field_count += before_brace.replace("::", "").matches(':').count();
                         assert!(field_count <= 4, "{} exceeds 4 fields ({}): {}", path.display(), field_count, struct_header);
                         in_struct = false;
-                    } else if clean.replace("::", "").contains(':') {
-                        field_count += 1;
+                    } else {
+                        field_count += clean.replace("::", "").matches(':').count();
                     }
                 }
             }

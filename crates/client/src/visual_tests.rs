@@ -1,17 +1,17 @@
 use glam::Vec3;
 use world::{BiomedCubeWorld, ClimateZone, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology, PlanetaryWorld, Quad, Topology};
 
-struct QuadAccumulator {
+struct QuadLedger {
     quads: Vec<Quad>,
 }
 
-impl QuadAccumulator {
+impl QuadLedger {
     fn new() -> Self {
         Self { quads: Vec::new() }
     }
 }
 
-impl MeshTarget for QuadAccumulator {
+impl MeshTarget for QuadLedger {
     fn push_quad(&mut self, quad: Quad) {
         self.quads.push(quad);
     }
@@ -83,7 +83,7 @@ fn test_directional_lighting_continuity_across_all_12_seam_transitions() {
 fn test_biome_transitions_and_quad_alignment_at_all_seams() {
     let size = 16;
     let world = BiomedCubeWorld::of_size(size);
-    let mut accumulator = QuadAccumulator::new();
+    let mut accumulator = QuadLedger::new();
     world.emit_surface(&mut accumulator);
 
     assert!(
@@ -123,7 +123,7 @@ fn test_shadow_continuity_faces_in_umbra_clamp_smoothly_to_ambient() {
 fn test_tron_wireframe_world_emission_contains_distinct_shape_colors_and_warning_cliffs() {
     let size = 64;
     let world = BiomedCubeWorld::beveled_tron(size, 1.0);
-    let mut accumulator = QuadAccumulator::new();
+    let mut accumulator = QuadLedger::new();
     world.emit_surface(&mut accumulator);
 
     assert!(!accumulator.quads.is_empty(), "Tron world must emit quads for wireframe batching");

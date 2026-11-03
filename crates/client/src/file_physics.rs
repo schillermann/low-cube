@@ -1,6 +1,6 @@
-use std::fs;
 use crate::flight::GravitationalFlight;
 use crate::physics::{PlanetaryPhysics, TunedPhysics};
+use crate::toml_document::TomlDocument;
 
 /// Configuration file-driven planetary physics decorator.
 pub struct FilePhysics {
@@ -19,24 +19,11 @@ impl FilePhysics {
         Self::new("server.toml".to_string(), fallback)
     }
 
-    fn property_in_text(content: &str, key_name: &str) -> Option<f32> {
-        content
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty() && !line.starts_with('#') && !line.starts_with('['))
-            .find_map(|line| {
-                let (key, val) = line.split_once('=')?;
-                if key.trim() == key_name {
-                    val.split('#').next()?.trim().parse::<f32>().ok()
-                } else {
-                    None
-                }
-            })
-    }
-
     fn read_gravity(&self) -> Option<f32> {
-        let content = fs::read_to_string(&self.path).ok()?;
-        Self::property_in_text(&content, "gravity")
+        TomlDocument::from_file(&self.path)?
+            .property("gravity")?
+            .parse::<f32>()
+            .ok()
     }
 }
 

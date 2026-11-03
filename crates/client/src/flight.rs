@@ -158,8 +158,7 @@ impl GravitationalFlight for SurfaceFlight {
         surface_up: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> Vec3 {
-        let constrained = self.aero.envelope.constrain_with_height(position, self.state.eye_height, world);
-        let in_shaft = (position - constrained).dot(surface_up) > 2.5;
+        let in_shaft = self.aero.envelope.in_deep_shaft(position, surface_up, self.state.eye_height, world);
         let thrust = self.state.vertical_thrust;
         self.state.vertical_thrust = 0;
         if thrust > 0 {
@@ -207,19 +206,9 @@ impl GravitationalFlight for SurfaceFlight {
         } else {
             advanced
         };
-        if (next_pos - position).dot(surface_up) > 0.0
-            && !world.weightless_at(next_pos)
-            && (next_pos - world.constrain_to_surface(next_pos, self.state.eye_height)).dot(surface_up) > 2.5
-        {
-            let ortho = if surface_up.x.abs() < 0.5 { Vec3::X } else { Vec3::Z };
-            let rim = world.constrain_to_surface(
-                next_pos + ortho * 0.5 + surface_up * 32.0,
-                self.state.eye_height,
-            );
-            if (next_pos - rim).dot(surface_up) >= -0.05 && !world.weightless_at(rim) {
-                self.state.phase = FlightPhase::Grounded(GroundedFlight::human());
-                return rim;
-            }
+        if let Some(rim) = self.aero.envelope.catch_shaft_rim(position, next_pos, surface_up, self.state.eye_height, world) {
+            self.state.phase = FlightPhase::Grounded(GroundedFlight::human());
+            return rim;
         }
         if world.lethal_at(next_pos) || world.lethal_at(position) {
             self.state.phase = FlightPhase::Airborne(AirborneFlight::new(0.0, StepThreshold::human_stride()));

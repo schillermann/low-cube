@@ -5,14 +5,14 @@ use world::PlanetaryWorld;
 use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 
-pub struct TrackingAllocator;
+pub struct HeapLedger;
 
 thread_local! {
     static TRACKING_ACTIVE: Cell<bool> = const { Cell::new(false) };
     static ALLOCATION_COUNT: Cell<usize> = const { Cell::new(0) };
 }
 
-unsafe impl GlobalAlloc for TrackingAllocator {
+unsafe impl GlobalAlloc for HeapLedger {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         TRACKING_ACTIVE.with(|active| {
             if active.get() {
@@ -68,7 +68,7 @@ fn test_tracking_allocator_detects_heap_allocation() {
 
 #[test]
 fn test_hot_simulation_loop_zero_runtime_allocations() {
-    let world = world::BiomedCubeWorld::centripetal(32, 2.5, 4.0);
+    let world = world::BiomedCubeWorld::beveled(32, 1.0);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn);
     let walk_ctrl = WalkControls;

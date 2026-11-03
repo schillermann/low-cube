@@ -1,6 +1,6 @@
 use std::fs;
 use glam::Vec3;
-use world::{ClimateZone, CubePlanet, NullFace, PlanarFace, PlanetaryWorld, VoxelMountain};
+use world::{ClimateZone, CubePlanet, CuboidShape, FacetedReliefFace, NullFace, PlanetaryWorld};
 use crate::argument_physics::ArgumentPhysics;
 use crate::environment_physics::EnvironmentPhysics;
 use crate::file_physics::FilePhysics;
@@ -10,9 +10,12 @@ use crate::server_physics::ServerPhysics;
 
 fn evaluate_leap(physics: &dyn PlanetaryPhysics) -> f32 {
     let half = 8.0;
-    let base = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ZERO, half, 16));
-    let mountain = Box::new(VoxelMountain::alpine(base, half));
-    let world = CubePlanet::new(vec![mountain], Box::new(NullFace));
+    let shelf = Box::new(
+        FacetedReliefFace::in_zone(ClimateZone::Temperate, half, 16)
+            .with_molded_block(0, 2, 0.0, Box::new(CuboidShape::full_cube()))
+            .with_molded_block(0, 3, 0.0, Box::new(CuboidShape::full_cube())),
+    );
+    let world = CubePlanet::new(vec![shelf], Box::new(NullFace));
     let mut flight = physics.surface_flight(1.0);
 
     let start_pos = world.constrain_to_surface(Vec3::new(0.25, 5.0, 0.85), 1.0);

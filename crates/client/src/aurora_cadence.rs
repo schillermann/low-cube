@@ -97,6 +97,34 @@ impl StochasticAuroraCadence {
     pub fn frequent(day_duration: f32, origin: Box<dyn AuroraCadence>) -> Self {
         Self::new(0.80, day_duration, origin)
     }
+
+    /// Parses a named aurora mode into the corresponding polymorphic AuroraCadence.
+    pub fn from_mode(mode: &str, day_duration: f32) -> Box<dyn AuroraCadence> {
+        let trimmed = mode.trim().to_ascii_lowercase();
+        match trimmed.as_str() {
+            "off" | "aus" | "disabled" | "dormant" | "none" | "false" | "0" => {
+                Box::new(DormantAuroraCadence::new())
+            }
+            "nightly" | "jede_nacht" | "every_night" | "always" | "true" | "1" => {
+                Box::new(NightlyAuroraCadence::new())
+            }
+            "rare" | "selten" | "seldom" => {
+                Box::new(Self::rare(day_duration, Box::new(NightlyAuroraCadence::new())))
+            }
+            "normal" | "regular" | "moderate" | "random" | "zufall" | "stochastic" => {
+                Box::new(Self::normal(day_duration, Box::new(NightlyAuroraCadence::new())))
+            }
+            "frequent" | "often" | "haeufig" => {
+                Box::new(Self::frequent(day_duration, Box::new(NightlyAuroraCadence::new())))
+            }
+            _ if mode.eq_ignore_ascii_case("häufig") => {
+                Box::new(Self::frequent(day_duration, Box::new(NightlyAuroraCadence::new())))
+            }
+            other => panic!(
+                "Invalid aurora mode '{other}'. Supported modes: 'off', 'nightly', 'rare', 'normal', 'frequent'."
+            ),
+        }
+    }
 }
 
 impl AuroraCadence for StochasticAuroraCadence {

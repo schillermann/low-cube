@@ -59,4 +59,26 @@ impl GridCell {
             ((v - v0) / (v1 - v0)).clamp(0.0, 1.0),
         )
     }
+
+    pub fn center(&self) -> (f32, f32) {
+        let (u0, u1) = self.u_bounds();
+        let (v0, v1) = self.v_bounds();
+        ((u0 + u1) * 0.5, (v0 + v1) * 0.5)
+    }
+
+    pub fn clamp_interior(&self, u: f32, v: f32, margin: f32) -> (f32, f32) {
+        let (u0, u1) = self.u_bounds();
+        let (v0, v1) = self.v_bounds();
+        (u.clamp(u0 + margin, u1 - margin), v.clamp(v0 + margin, v1 - margin))
+    }
+
+    pub fn clamp_walled(&self, u: f32, v: f32, margin: f32, walls: (bool, bool, bool, bool)) -> (f32, f32) {
+        let (u0, u1) = self.u_bounds();
+        let (v0, v1) = self.v_bounds();
+        let min_u = if walls.0 { u0 + margin } else { u0 };
+        let max_u = if walls.1 { u1 - margin } else { u1 };
+        let min_v = if walls.2 { v0 + margin } else { v0 };
+        let max_v = if walls.3 { v1 - margin } else { v1 };
+        (u.clamp(min_u, max_u), v.clamp(min_v, max_v))
+    }
 }

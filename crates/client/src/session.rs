@@ -28,6 +28,75 @@ struct SessionDisplay {
     tron_active: bool,
 }
 
+impl SessionDisplay {
+    fn refresh_face_slice(&mut self, world: &dyn PlanetaryWorld, idx: usize) {
+        if self.tron_active {
+            let mut tron_buf = CpuTronBatch::empty();
+            world.emit_face(idx, &mut tron_buf);
+            let next = self.surface.replace_tron_mesh(self.tron.mesh.slice_at(idx), &tron_buf);
+            self.tron.mesh.store_slice(idx, next);
+        } else {
+            let mut cpu_buf = CpuMeshBatch::empty();
+            world.emit_face(idx, &mut cpu_buf);
+            let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
+            self.primary.mesh.store_slice(idx, next);
+        }
+    }
+
+    fn refresh_modified_face(&mut self, world: &mut dyn PlanetaryWorld) {
+        if self.tron_active {
+            let mut tron_buf = CpuTronBatch::empty();
+            let idx = world.emit_modified_face(&mut tron_buf);
+            let next = self.surface.replace_tron_mesh(self.tron.mesh.slice_at(idx), &tron_buf);
+            self.tron.mesh.store_slice(idx, next);
+        } else {
+            let mut cpu_buf = CpuMeshBatch::empty();
+            let idx = world.emit_modified_face(&mut cpu_buf);
+            let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
+            self.primary.mesh.store_slice(idx, next);
+        }
+    }
+
+    fn refresh_world_mesh(&mut self, world: &dyn PlanetaryWorld) {
+        for idx in 0..(world.face_count() * 2) {
+            self.refresh_face_slice(world, idx);
+        }
+    }
+
+    fn toggle_tron(&mut self, world: &dyn PlanetaryWorld) {
+        self.tron_active = !self.tron_active;
+        self.refresh_world_mesh(world);
+    }
+
+    fn render_stage(&self, stage: &SessionStage) {
+        if self.tron_active {
+            let mut avatar_tron = CpuTronBatch::empty();
+            stage.avatar.emit_appearance(&mut avatar_tron);
+            let composed = CompositeMesh::new(&self.tron.mesh, &avatar_tron);
+            self.surface.render_frame(
+                self.tron.pipeline.as_ref(),
+                self.tron.shader.as_ref(),
+                &composed,
+                stage.avatar.as_ref(),
+                self.primary.shader.as_ref(),
+                stage.modal.as_ref(),
+            );
+        } else {
+            let mut avatar_batch = CpuMeshBatch::empty();
+            stage.avatar.emit_appearance(&mut avatar_batch);
+            let composed = CompositeMesh::new(&self.primary.mesh, &avatar_batch);
+            self.surface.render_frame(
+                self.primary.pipeline.as_ref(),
+                self.primary.shader.as_ref(),
+                &composed,
+                stage.avatar.as_ref(),
+                self.primary.shader.as_ref(),
+                stage.modal.as_ref(),
+            );
+        }
+    }
+}
+
 struct SessionStage {
     world: Box<dyn PlanetaryWorld>,
     avatar: Box<dyn Avatar>,
@@ -82,45 +151,10 @@ impl GameSession {
         }
     }
 
-    fn refresh_face_slice(&mut self, idx: usize) {
-        if self.display.tron_active {
-            let mut tron_buf = CpuTronBatch::empty();
-            self.stage.world.emit_face(idx, &mut tron_buf);
-            let next = self.display.surface.replace_tron_mesh(self.display.tron.mesh.slice_at(idx), &tron_buf);
-            self.display.tron.mesh.store_slice(idx, next);
-        } else {
-            let mut cpu_buf = CpuMeshBatch::empty();
-            self.stage.world.emit_face(idx, &mut cpu_buf);
-            let next = self.display.surface.replace_mesh(self.display.primary.mesh.slice_at(idx), &cpu_buf);
-            self.display.primary.mesh.store_slice(idx, next);
-        }
-    }
-
-    fn refresh_modified_face(&mut self) {
-        if self.display.tron_active {
-            let mut tron_buf = CpuTronBatch::empty();
-            let idx = self.stage.world.emit_modified_face(&mut tron_buf);
-            let next = self.display.surface.replace_tron_mesh(self.display.tron.mesh.slice_at(idx), &tron_buf);
-            self.display.tron.mesh.store_slice(idx, next);
-        } else {
-            let mut cpu_buf = CpuMeshBatch::empty();
-            let idx = self.stage.world.emit_modified_face(&mut cpu_buf);
-            let next = self.display.surface.replace_mesh(self.display.primary.mesh.slice_at(idx), &cpu_buf);
-            self.display.primary.mesh.store_slice(idx, next);
-        }
-    }
-
-    fn refresh_world_mesh(&mut self) {
-        for idx in 0..(self.stage.world.face_count() * 2) {
-            self.refresh_face_slice(idx);
-        }
-    }
-
     fn dispatch_gameplay_trigger(&mut self, trigger: InputTrigger, pressed: bool) {
         if self.stage.controls.matches_action(ControlAction::TronMode, trigger) {
             if pressed {
-                self.display.tron_active = !self.display.tron_active;
-                self.refresh_world_mesh();
+                self.display.toggle_tron(self.stage.world.as_ref());
             }
         } else if !pressed || !self.stage.avatar.dispatch_trigger(trigger) {
             self.stage.controls.register_trigger(trigger, pressed);
@@ -165,18 +199,18 @@ impl Session for GameSession {
                     match button {
                         MouseButton::Left => {
                             let _ = self.stage.avatar.use_left_hand(self.stage.world.as_mut());
-                            self.refresh_modified_face();
+                            self.display.refresh_modified_face(self.stage.world.as_mut());
                         }
                         MouseButton::Right => {
                             let _ = self.stage.avatar.use_right_hand(self.stage.world.as_mut());
-                            self.refresh_modified_face();
+                            self.display.refresh_modified_face(self.stage.world.as_mut());
                         }
                         _ => {}
                     }
                 } else if matches!(button, MouseButton::Left | MouseButton::Right)
                     && self.stage.avatar.release_hand(self.stage.world.as_mut())
                 {
-                    self.refresh_modified_face();
+                    self.display.refresh_modified_face(self.stage.world.as_mut());
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -226,35 +260,11 @@ impl Session for GameSession {
                     let dug = self.stage.avatar.step_digging(self.stage.world.as_mut());
                     let regrown = self.stage.world.step_surface(dt);
                     if dug || regrown {
-                        self.refresh_modified_face();
+                        self.display.refresh_modified_face(self.stage.world.as_mut());
                     }
                 }
 
-                if self.display.tron_active {
-                    let mut avatar_tron = CpuTronBatch::empty();
-                    self.stage.avatar.emit_appearance(&mut avatar_tron);
-                    let composed = CompositeMesh::new(&self.display.tron.mesh, &avatar_tron);
-                    self.display.surface.render_frame(
-                        self.display.tron.pipeline.as_ref(),
-                        self.display.tron.shader.as_ref(),
-                        &composed,
-                        self.stage.avatar.as_ref(),
-                        self.display.primary.shader.as_ref(),
-                        self.stage.modal.as_ref(),
-                    );
-                } else {
-                    let mut avatar_batch = CpuMeshBatch::empty();
-                    self.stage.avatar.emit_appearance(&mut avatar_batch);
-                    let composed = CompositeMesh::new(&self.display.primary.mesh, &avatar_batch);
-                    self.display.surface.render_frame(
-                        self.display.primary.pipeline.as_ref(),
-                        self.display.primary.shader.as_ref(),
-                        &composed,
-                        self.stage.avatar.as_ref(),
-                        self.display.primary.shader.as_ref(),
-                        self.stage.modal.as_ref(),
-                    );
-                }
+                self.display.render_stage(&self.stage);
             }
             _ => {}
         }

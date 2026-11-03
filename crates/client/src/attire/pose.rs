@@ -190,9 +190,9 @@ impl BodyPose {
         let (s, breath) = (phase.sin(), rhythm.breath_wave(walk));
         let hold_factor = if holding || self.striking_on(side) { (1.0 - run).max(0.35) } else { 0.0 };
         let style = martial.active_for(self.striking_on(side));
-        let (wind, strike, bow, surge) = style.cleave_impulse(rhythm, side);
+        let imp = style.cleave_impulse(rhythm, side);
         let (abduct_add, swing_add, elbow_delta, elbow_bend_add, wrist_dx, wrist_dz) =
-            style.external_drive(wind, strike, bow, surge, crouch);
+            style.external_drive(imp, crouch);
         let (upper_len, fore_len) = (self.arm_size(0.26), self.arm_size(0.24));
         let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + (0.42 + 0.08 * s.abs()) * hover + 0.08 * hold_factor + (crouch + ext) * 0.10 + abduct_add;
         let r_sag = upper_len * theta_abduct.cos();
@@ -212,11 +212,7 @@ impl BodyPose {
         );
         let (shoulder_w, elbow_w, wrist_w) = (torso.point(shoulder.x, shoulder.y, shoulder.z), torso.point(elbow.x, elbow.y, elbow.z), torso.point(wrist.x, wrist.y, wrist.z));
         let (forearm_len, forearm_dir) = ((wrist_w - elbow_w).length(), (wrist_w - elbow_w).normalize());
-        let (rx, ry, wrist_yaw, wrist_snap) = style.external_wrist_orient(side, hold_factor, crouch, wind, strike, bow, surge);
-        let hand_up = (torso.point(rx, ry, 0.0) - torso.point(0.0, 0.0, 0.0)).normalize().cross(forearm_dir).normalize();
-        let hand_frame = LimbFrame::new(wrist_w, forearm_dir.cross(hand_up).normalize(), hand_up, forearm_dir)
-            .yawed(wrist_yaw)
-            .pitched(wrist_snap);
+        let hand_frame = style.external_wrist_orient(side, hold_factor, crouch, imp).orient_hand(&torso, wrist_w, forearm_dir);
         (shoulder_w, elbow_w, hand_frame, forearm_len)
     }
 
@@ -228,7 +224,8 @@ impl BodyPose {
             (self.stance.view_rot * Vec3::X).normalize(),
         );
         let style = martial.active_for(self.striking_on(side));
-        let (wind, strike, bow, surge) = style.cleave_impulse(rhythm, side);
+        let imp = style.cleave_impulse(rhythm, side);
+        let strike = imp.strike();
         let look_pitch = view_fwd.dot(up).clamp(-0.99, 0.99).asin();
         let pitch_follow = (if look_pitch >= 0.0 { 0.85 } else { 0.62 }) * (1.0 - strike) + strike;
         let eye_frame = LimbFrame::new(self.eye_origin(), right, up, up.cross(right).normalize()).pitched(-look_pitch * pitch_follow);
@@ -236,7 +233,7 @@ impl BodyPose {
         let offset = if side > 0.0 { 0.0 } else { std::f32::consts::PI };
         let (phase, walk, run) = rhythm.limb_gait(offset, calm);
         let (primary, lagged) = (phase.sin(), (phase - 0.48).sin());
-        let (sw_x, sw_y, sw_z, sw_yaw, elbow_add, aim_dip) = style.first_person_swing(wind, strike, bow, surge);
+        let (sw_x, sw_y, sw_z, sw_yaw, elbow_add, aim_dip) = style.first_person_swing(imp);
         let spread_x = side * (self.scale(0.195) + down * 0.05 + sw_x - (0.006 * walk + 0.010 * run + primary * (0.010 * walk + 0.014 * run)));
         let arc_y = 0.020 * run + sw_y + self.motion.leap * 0.025 * calm + primary * (0.018 * walk + 0.024 * run) + rhythm.breath_wave(walk) * 0.004 * calm;
         let arc_z = -0.035 * run + sw_z + (primary * 0.022 + lagged * 0.008) * (0.55 * walk + 0.45 * run);
@@ -246,15 +243,11 @@ impl BodyPose {
         let elbow_local = Vec3::new(
             side * (0.028 + 0.038 * run + elbow_add.x),
             -0.155 - 0.010 * run - elbow_add.y,
-            -0.155 + 0.010 * run + 0.04 * wind + 0.02 * strike,
+            -0.155 + 0.010 * run + 0.04 * imp.wind() + 0.02 * strike,
         );
         let (wrist_w, elbow_w) = (raw_frame.point(0.0, 0.0, 0.0), raw_frame.point(elbow_local.x, elbow_local.y, elbow_local.z));
         let (forearm_len, hand_dir) = ((wrist_w - elbow_w).length(), (wrist_w - raw_frame.point(side * 0.015, 0.035 - aim_dip, -0.22)).normalize());
-        let (rx, ry, wrist_yaw, wrist_snap) = style.first_person_wrist_orient(side, wind, strike, bow);
-        let hand_up = (raw_frame.point(rx, ry, 0.0) - wrist_w).cross(hand_dir).normalize();
-        let hand_frame = LimbFrame::new(wrist_w, hand_dir.cross(hand_up).normalize(), hand_up, hand_dir)
-            .yawed(wrist_yaw)
-            .pitched(wrist_snap);
+        let hand_frame = style.first_person_wrist_orient(side, imp).orient_hand(&raw_frame, wrist_w, hand_dir);
         (shoulder_w, elbow_w, hand_frame, forearm_len)
     }
 

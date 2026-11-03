@@ -18,6 +18,47 @@ struct StrideStance {
     limit: StepThreshold,
 }
 
+impl StrideStance {
+    const OVERHEAD_PIN_TOLERANCE: f32 = 0.04;
+    const DEEP_SHAFT_CLEARANCE: f32 = 2.5;
+    const PIT_HOVER_TOLERANCE: f32 = 0.02;
+    const PIT_RIM_CLEARANCE: f32 = 0.52;
+    const LEVEL_CONTACT_EPSILON: f32 = -1e-4;
+
+    fn pinned_under_ceiling(&self, origin_surf: Vec3, vertical: Vec3) -> bool {
+        (origin_surf - self.origin).dot(self.up) > Self::OVERHEAD_PIN_TOLERANCE
+            && vertical.dot(self.up) > 0.0
+    }
+
+    fn permits_aerial_step(
+        &self,
+        origin_surf: Vec3,
+        surface_pos: Vec3,
+        vertical: Vec3,
+        clearance: SurfaceClearance,
+    ) -> bool {
+        let altitude_above_floor = (self.origin - origin_surf).dot(self.up);
+        let in_deep_shaft = altitude_above_floor >= Self::DEEP_SHAFT_CLEARANCE;
+        let over_pit = altitude_above_floor > Self::PIT_HOVER_TOLERANCE && !in_deep_shaft;
+        let step_ref = if in_deep_shaft { self.origin } else { origin_surf };
+        let drop_limit = if over_pit {
+            Self::PIT_RIM_CLEARANCE
+        } else {
+            Self::LEVEL_CONTACT_EPSILON
+        };
+        let falling_into_pit = vertical.dot(self.up) <= 0.0
+            && (self.origin - surface_pos).dot(self.up) < drop_limit
+            && !SurfaceStep::new(step_ref, surface_pos, self.up).walkable_with(self.limit);
+        if falling_into_pit {
+            false
+        } else if !clearance.cliff_impact(self.limit) {
+            true
+        } else {
+            SurfaceStep::new(step_ref, surface_pos, self.up).walkable_with(self.limit)
+        }
+    }
+}
+
 /// Encapsulated physical probe against planetary terrain.
 #[derive(Clone, Copy)]
 struct StrideProbe<'a> {
@@ -121,23 +162,10 @@ impl<'a> StrideTrial for AerialTrial<'a> {
         let surface_pos = self.probe.envelope.constrain_with_height(candidate, self.stance.eye, self.probe.world);
         let clearance = SurfaceClearance::between(self.stance.origin, candidate, surface_pos, self.stance.up, self.probe.world);
         let origin_surf = self.probe.envelope.constrain_with_height(self.stance.origin, self.stance.eye, self.probe.world);
-        if (origin_surf - self.stance.origin).dot(self.stance.up) > 0.04 && self.vertical.dot(self.stance.up) > 0.0 {
+        if self.stance.pinned_under_ceiling(origin_surf, self.vertical) {
             return false;
         }
-        let in_deep_shaft = (self.stance.origin - origin_surf).dot(self.stance.up) >= 2.5;
-        let over_pit = (self.stance.origin - origin_surf).dot(self.stance.up) > 0.02 && !in_deep_shaft;
-        let step_ref = if in_deep_shaft { self.stance.origin } else { origin_surf };
-        let falling_into_pit = self.vertical.dot(self.stance.up) <= 0.0
-            && (self.stance.origin - surface_pos).dot(self.stance.up) < if over_pit { 0.52 } else { -1e-4 }
-            && !SurfaceStep::new(step_ref, surface_pos, self.stance.up).walkable_with(self.stance.limit);
-        let center_ok = if falling_into_pit {
-            false
-        } else if !clearance.cliff_impact(self.stance.limit) {
-            true
-        } else {
-            SurfaceStep::new(step_ref, surface_pos, self.stance.up).walkable_with(self.stance.limit)
-        };
-        center_ok
+        self.stance.permits_aerial_step(origin_surf, surface_pos, self.vertical, clearance)
             && self.probe.envelope.unobstructed_aerial(
                 self.stance.origin,
                 candidate,

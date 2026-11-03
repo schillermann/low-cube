@@ -23,7 +23,7 @@ impl TreeSpecies for TemperateOak {
     }
 
     fn yield_harvest(&self, recipient: &mut dyn TimberDepository) {
-        recipient.deposit_timber(TimberYield::StandardLumber, 4);
+        recipient.deposit_timber(TimberYield::OakTimber, 4);
         recipient.deposit_timber(TimberYield::Twig, 2);
         recipient.deposit_timber(TimberYield::Sapling, 1);
     }

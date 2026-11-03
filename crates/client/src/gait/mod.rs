@@ -4,6 +4,13 @@ use crate::phase::{AirborneFlight, FlightContext, FlightPhase, FlightProgress, G
 use crate::posture::AvatarPosture;
 use crate::threshold::StepThreshold;
 
+const UPRIGHT_EYE_OFFSET: f32 = 0.80;
+const CROUCH_EYE_OFFSET: f32 = 0.36;
+const WALK_FOV_DEGREES: f32 = 65.0;
+const SPRINT_FOV_DEGREES: f32 = 78.0;
+const SNEAK_PACE_FACTOR: f32 = 0.35;
+const SPRINT_PACE_FACTOR: f32 = 1.60;
+
 /// Locomotion gait determining pacing scale, posture shaping, and precipice crossing behavior.
 pub trait LocomotionGait: Send + Sync {
     fn pace_distance(&self, distance: f32) -> f32;
@@ -31,7 +38,7 @@ impl WalkGait {
     }
 
     pub fn upright() -> Self {
-        Self::new(0.8, 65.0f32.to_radians())
+        Self::new(UPRIGHT_EYE_OFFSET, WALK_FOV_DEGREES.to_radians())
     }
 }
 
@@ -84,7 +91,7 @@ impl<G: LocomotionGait> SneakGait<G> {
 impl SneakGait<WalkGait> {
     /// Secondary constructor wrapping standard upright gait in crouching posture.
     pub fn crouching() -> Self {
-        Self::new(WalkGait::upright(), 0.35, 0.36)
+        Self::new(WalkGait::upright(), SNEAK_PACE_FACTOR, CROUCH_EYE_OFFSET)
     }
 }
 
@@ -141,7 +148,7 @@ impl<G: LocomotionGait> SprintGait<G> {
 impl SprintGait<WalkGait> {
     /// Secondary constructor wrapping standard upright gait in swift sprint pacing.
     pub fn swift() -> Self {
-        Self::new(WalkGait::upright(), 1.6, 78.0f32.to_radians())
+        Self::new(WalkGait::upright(), SPRINT_PACE_FACTOR, SPRINT_FOV_DEGREES.to_radians())
     }
 }
 

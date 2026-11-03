@@ -1,4 +1,5 @@
 use std::fs;
+use crate::toml_document::TomlDocument;
 use super::crown::CrownStyle;
 use super::footwear::FootwearStyle;
 use super::garments::{GirdleStyle, TunicStyle};
@@ -31,46 +32,31 @@ impl FileAttire {
     pub fn profile() -> Self {
         Self::new("character.toml".to_string())
     }
-
-    fn code_in_text(&self, content: &str, key_name: &str) -> Option<u8> {
-        content
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty() && !line.starts_with('#') && !line.starts_with('['))
-            .find_map(|line| {
-                let (key, val) = line.split_once('=')?;
-                if key.trim() == key_name {
-                    val.split('#').next()?.trim().parse::<u8>().ok()
-                } else {
-                    None
-                }
-            })
-    }
 }
 
 impl AttireProfile for FileAttire {
     /// Loads customized attire from file or returns squire attire when no profile exists yet.
     fn load_or_squire(&self) -> YouthAttire {
-        let Ok(content) = fs::read_to_string(&self.path) else {
+        let Some(doc) = TomlDocument::from_file(&self.path) else {
             return YouthAttire::squire();
         };
         let bytes = [
-            self.code_in_text(&content, "tunic").unwrap_or(0),
-            self.code_in_text(&content, "vambrace").unwrap_or(1),
-            self.code_in_text(&content, "girdle").unwrap_or(0),
-            self.code_in_text(&content, "footwear").unwrap_or(0),
-            self.code_in_text(&content, "crown").unwrap_or(0),
-            self.code_in_text(&content, "relic").unwrap_or(0),
-            self.code_in_text(&content, "pigment").unwrap_or(0),
-            self.code_in_text(&content, "complexion").unwrap_or(0),
-            self.code_in_text(&content, "physique").unwrap_or(0),
+            doc.parsed_property("tunic").unwrap_or(0),
+            doc.parsed_property("vambrace").unwrap_or(1),
+            doc.parsed_property("girdle").unwrap_or(0),
+            doc.parsed_property("footwear").unwrap_or(0),
+            doc.parsed_property("crown").unwrap_or(0),
+            doc.parsed_property("relic").unwrap_or(0),
+            doc.parsed_property("pigment").unwrap_or(0),
+            doc.parsed_property("complexion").unwrap_or(0),
+            doc.parsed_property("physique").unwrap_or(0),
         ];
         let mut attire = self.decode_multiplayer(bytes);
         if let (Some(c), Some(t), Some(a), Some(l)) = (
-            self.code_in_text(&content, "crown_body"),
-            self.code_in_text(&content, "torso_body"),
-            self.code_in_text(&content, "arm_body"),
-            self.code_in_text(&content, "leg_body"),
+            doc.parsed_property("crown_body"),
+            doc.parsed_property("torso_body"),
+            doc.parsed_property("arm_body"),
+            doc.parsed_property("leg_body"),
         ) {
             attire = attire.with_physique(YouthPhysique::from_region_bytes([c, t, a, l]));
         }

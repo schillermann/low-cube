@@ -1,59 +1,18 @@
 use glam::Vec3;
-use super::{
-    Block, CornerHeading, DirtBlock, FormBlock, SandBlock, SnowBlock,
-    StoneBlock, WedgeHeading,
-};
+use super::{CornerHeading, CuboidShape, ElevatedShape, RampWedge, WedgeHeading};
 use crate::frame::SurfaceFrame;
 
 #[test]
-fn test_form_block_cube_constraint() {
-    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
-    let form = FormBlock::cube(1, 1, 0.0);
+fn test_elevated_shape_cube_and_wedge_support_constraint() {
+    let cube = ElevatedShape::new(Box::new(CuboidShape::full_cube()), 0.0);
 
-    // Inside form (u in [0.5, 1.0], v in [0.5, 1.0]): elevation 0.5, player height 1.0 -> y = 8.0 + 0.5 + 1.0 = 9.5
-    let pos = form.constrain_surface(Vec3::new(0.75, 9.0, 0.75), 0.75, 0.75, &frame, 1.0);
-    assert_eq!(pos.y, 9.5);
+    // At local fraction (0.5, 0.5): support height is 0.5m
+    let support = cube.constrain_support(0.5, 0.5, 0.0, 0.0, 1.0);
+    assert_eq!(support, 0.5);
 
-    // Outside form: position unchanged
-    let out = form.constrain_surface(Vec3::new(0.25, 9.0, 0.25), 0.25, 0.25, &frame, 1.0);
-    assert_eq!(out.y, 9.0);
-}
-
-#[test]
-fn test_material_blocks_derived_from_forms() {
-    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
-
-    // StoneBlock derived from wedge at (0, 0) -> u in [0.0, 0.5], v in [0.0, 0.5]
-    let stone_wedge = StoneBlock::wedge(0, 0, 0.0, WedgeHeading::North);
-    let on_wedge = stone_wedge.constrain_surface(Vec3::new(0.25, 9.0, 0.25), 0.25, 0.25, &frame, 1.0);
-    assert!((on_wedge.y - 9.25).abs() < 1e-4);
-
-    // SandBlock derived from slab at (1, 0) -> u in [0.5, 1.0], v in [0.0, 0.5]
-    let sand_slab = SandBlock::slab(1, 0, 0.0);
-    let on_slab = sand_slab.constrain_surface(Vec3::new(0.75, 9.0, 0.25), 0.75, 0.25, &frame, 1.0);
-    assert_eq!(on_slab.y, 9.25);
-
-    // DirtBlock derived from cube at (2, 0) -> u in [1.0, 1.5], v in [0.0, 0.5]
-    let dirt_cube = DirtBlock::cube(2, 0, 0.0);
-    let on_cube = dirt_cube.constrain_surface(Vec3::new(1.25, 9.0, 0.25), 1.25, 0.25, &frame, 1.0);
-    assert_eq!(on_cube.y, 9.5);
-
-    // SnowBlock derived from ridge corner at (0, 1) -> u in [0.0, 0.5], v in [0.5, 1.0]
-    let snow_ridge = SnowBlock::ridge_corner(0, 1, 0.0, CornerHeading::NorthEast);
-    let on_ridge = snow_ridge.constrain_surface(Vec3::new(0.375, 9.0, 0.875), 0.375, 0.875, &frame, 1.0);
-    assert!((on_ridge.y - 9.25).abs() < 1e-4);
-
-    // SnowBlock derived from pyramidal peak (0.25m height, 45° slope) at (1, 1) -> center (0.75, 0.75)
-    let snow_peak = SnowBlock::peak(1, 1, 0.0);
-    let on_peak_tip = snow_peak.constrain_surface(Vec3::new(0.75, 9.0, 0.75), 0.75, 0.75, &frame, 1.0);
-    assert_eq!(on_peak_tip.y, 9.25);
-
-    // StoneBlock derived from stair at (2, 1) -> u in [1.0, 1.5], v in [0.5, 1.0]
-    let stone_stair = StoneBlock::stair(2, 1, 0.0, WedgeHeading::North);
-    let on_stair_lower = stone_stair.constrain_surface(Vec3::new(1.25, 9.0, 0.625), 1.25, 0.625, &frame, 1.0);
-    assert_eq!(on_stair_lower.y, 9.25);
-    let on_stair_upper = stone_stair.constrain_surface(Vec3::new(1.25, 9.0, 0.875), 1.25, 0.875, &frame, 1.0);
-    assert_eq!(on_stair_upper.y, 9.5);
+    let wedge = ElevatedShape::new(Box::new(RampWedge::new(WedgeHeading::North)), 0.0);
+    let on_wedge = wedge.constrain_support(0.5, 0.5, 0.0, 0.0, 1.0);
+    assert!((on_wedge - 0.25).abs() < 1e-4);
 }
 
 #[test]

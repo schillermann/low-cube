@@ -117,7 +117,7 @@ impl Arboreal for FloorLitter {
             let (su, sv) = (eu + du * t, ev + dv * t);
             let sh = self.frame.elevation_of(eye + dir * t) - elevation;
             if (su - u).hypot(sv - v) <= 0.46 && (-0.28..=0.52).contains(&sh) {
-                return (Box::new(ClearedPlot::new(u, v, elevation)), self.find);
+                return (Box::new(ClearedPlot::vacant(self.frame, u, v, elevation)), self.find);
             }
         }
         (Box::new(*self), SurfaceFind::EmptyHanded)

@@ -17,6 +17,9 @@ use crate::order::LocomotionOrder;
 use crate::orientation::{MouseLook, SensitivityLook, ViewOrientation};
 use crate::posture::AvatarPosture;
 
+const EYE_SUPPORT_HEIGHT: f32 = 1.0;
+const WALK_PACE_SPEED: f32 = 6.0;
+
 /// Interface for player avatars acting within planetary gravity.
 pub trait Avatar {
     fn rotate_view(&mut self, dx: f32, dy: f32);
@@ -218,37 +221,30 @@ impl Avatar for PlanetaryAvatar {
         let mut order = LocomotionOrder::idle();
         SurfaceHeading::aligned(self.sight_line.surface_rot, &self.sight_line.look).drive_locomotion(controls, &mut order);
         order.calm_beneath_crust(world.weightless_at(self.body.position));
+        order.dispatch_jump(&mut *self.body.flight);
         let facing = (self.sight_line.look.combine_with_surface(self.sight_line.surface_rot) * Vec3::NEG_Z).normalize();
         let standing_env = self.gear.attire.body_envelope().with_crouch_and_facing(0.0, facing);
-        let obstructed = standing_env.overhead_obstructed(self.body.position, terrain_up, 1.0, world);
-        if !obstructed {
-            order.dispatch_jump(&mut *self.body.flight);
-        }
         let next_posture = order.advance_posture(self.body.posture, dt);
-        self.body.posture = if obstructed {
-            self.body.posture.transition_to(0.36, dt)
+        self.body.posture = if standing_env.overhead_obstructed(self.body.position, terrain_up, EYE_SUPPORT_HEIGHT, world) {
+            self.body.posture.crouch_down(dt)
         } else {
             next_posture
         };
-        let crouch_drop = (0.80 - self.body.posture.eye_elevation()).clamp(0.0, 0.44);
-        let active_env = standing_env.with_crouch_and_facing(crouch_drop, facing);
+        let active_env = standing_env.with_crouch_and_facing(self.body.posture.crouch_drop(), facing);
         self.body.flight.apply_envelope(active_env);
         self.sight_line.lens = order.advance_lens(self.sight_line.lens, dt);
         self.bearing.tilt_radians *= 1.0 - (8.0 * dt).min(1.0);
-        let raw_next = order.advance_flight(&mut *self.body.flight, dt, self.body.position, terrain_up, 6.0, world);
+        let raw_next = order.advance_flight(&mut *self.body.flight, dt, self.body.position, terrain_up, WALK_PACE_SPEED, world);
         if world.lethal_at(raw_next) {
             self.body.position = raw_next;
             self.step_perish(dt, world);
             return;
         }
         let weightless = world.weightless_at(raw_next) || world.weightless_at(self.body.position);
-        let eye_off = if weightless { Vec3::ZERO } else { terrain_up * self.body.posture.eye_elevation() };
-        let in_shaft = weightless
-            || (raw_next - active_env.constrain_with_height(raw_next, 1.0, world)).dot(terrain_up) > 2.5
-            || (world.constrain_to_surface(raw_next, 0.0) - (raw_next + eye_off)).dot(terrain_up) > 0.15;
-        let next_pos = if in_shaft { world.confine_beneath_crust(raw_next + eye_off) - eye_off } else { raw_next };
+        let in_shaft = weightless || active_env.in_deep_shaft(raw_next, terrain_up, EYE_SUPPORT_HEIGHT, world);
+        let next_pos = if in_shaft { world.confine_beneath_crust(raw_next) } else { active_env.confine_beneath_crust(raw_next, self.body.position, terrain_up, world) };
         let core_closeness = if weightless {
-            let core_pt = world.constrain_to_surface(next_pos, 1.0);
+            let core_pt = world.constrain_to_surface(next_pos, EYE_SUPPORT_HEIGHT);
             let span = (core_pt.length() * 0.36).clamp(6.4, 13.0);
             (1.0 - (next_pos.length() - core_pt.length()).max(0.0) / span).clamp(0.0, 1.0)
         } else {
@@ -267,9 +263,9 @@ impl Avatar for PlanetaryAvatar {
         }
         self.bearing.rhythm = self.bearing.rhythm.advance(self.body.position, next_pos, terrain_up, dt);
         let post_eye = terrain_up * self.body.posture.eye_elevation();
-        self.body.position = if in_shaft { world.confine_beneath_crust(next_pos + post_eye) - post_eye } else { next_pos };
+        self.body.position = if in_shaft { world.confine_beneath_crust(next_pos + post_eye) - post_eye } else { active_env.confine_beneath_crust(next_pos, self.body.position, terrain_up, world) };
         self.sight_line.look.constrain_shoulders(
-            active_env.wedged_in_shaft(self.body.position, terrain_up, 1.0, world),
+            active_env.wedged_in_shaft(self.body.position, terrain_up, EYE_SUPPORT_HEIGHT, world),
             self.gear.attire.shaft_yaw_play(),
         );
     }

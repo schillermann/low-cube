@@ -114,12 +114,13 @@ impl VoxelShape for MediumShape {
     fn block_medium(&self) -> BlockMedium { self.medium }
 
     fn emit_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, color: Vec3, target: &mut dyn MeshTarget) {
-        self.emit_terraced_shape(cell, floor_elevation, frame, color, color, target);
+        self.emit_terraced_shape(cell, floor_elevation, frame, color, color, true, target);
     }
 
-    fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, target: &mut dyn MeshTarget) {
+    #[allow(clippy::too_many_arguments)]
+    fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, bare_top: bool, target: &mut dyn MeshTarget) {
         match (self.medium, self.full_cube) {
-            (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_terraced(top_color, top_color == wall_color, frame, target),
+            (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_terraced(top_color, bare_top, frame, target),
             (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
             (BlockMedium::PlanedPlanks, true) => BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain, frame, target),
             (BlockMedium::RawTimber, false) => {
@@ -138,7 +139,8 @@ impl VoxelShape for MediumShape {
                 turf.seal_underside();
             }
             (BlockMedium::TurfEarth, false) => {
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), top_color, wall_color, false);
+                let cap = if bare_top { wall_color } else { top_color };
+                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), cap, wall_color, false);
                 self.inner.emit_shape(cell, floor_elevation, frame, wall_color, &mut turf);
                 turf.seal_underside();
             }

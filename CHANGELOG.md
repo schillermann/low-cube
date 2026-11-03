@@ -8,6 +8,19 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.42.3] - 2026-11-03
+
+### Changed
+- Eliminated all remaining procedural patchwork ("Flickwerk") across `world` and `client` in strict adherence to Elegant Objects principles:
+  - Replaced raw raycast contact flags (`is_side`, `is_bottom`, `is_ceiling`) with polymorphic `ContactFace` (`Top`, `Underside`, `Lateral`, `CrustCeiling`) in `SurfaceSightRay`.
+  - Encapsulated shaft excavation, overhang preservation, and grass regrowth inside `ShaftExcavation` and `OverhangMolds` (`DigStageFocus`), and unified shaft-rim physics (`BodyEnvelope::in_deep_shaft`, `BodyEnvelope::catch_shaft_rim`, `BodyEnvelope::chest_reach`).
+  - Decomposed `AvatarPosture` (`LeapSpring`, `VitalStrain`), `FlightContext` (`FlightStep`, `FlightBody`, `FlightDynamics`, `FlightTerrain`), and `MiniatureTarget` (`MiniatureBasis`, `MiniatureCoat`) to strictly obey the 4-field limit, and hardened `test_workspace_architecture_guard_enforces_line_and_field_limits` to count colons across every struct field.
+  - Unified CLI flag and TOML configuration parsing via `CommandFlags` (`crates/client/src/command_flags.rs`) and `TomlDocument` (`crates/client/src/toml_document.rs`), eliminating duplicated parsers across `argument_*`, `file_*`, `FileBindings`, and `FileAttire`.
+  - Replaced ad-hoc RGB/color-equality heuristics and setters with explicit domain contracts (`ReliefPalette::inspect_subterranean`, `CraftingEntry::batch_yield`, `SatchelTray::with_selected`, `HeldRelic::emit_in_satchel_slot`, `VoxelShape::emit_terraced`, `TimberYield::OakTimber`, `ClearedPlot::vacant`, `SolidArboreal::retain_if_standing`, `SessionDisplay::step_and_render`).
+
+### Removed
+- Removed all unused first-generation prototype modules and dead scaffolding (`chunk/*`, `landscape/*`, `block/material/*`, `block/form.rs`, `trait Block`, `face.rs`, `cluster.rs`, `elevated_face.rs`, `tinted_face.rs`, `mountain.rs`, `centripetal_world.rs`, `gallery.rs`, `relief/cavity.rs`, `examples/export_blocks.rs`) along with all `#[allow(dead_code)]` suppressions.
+
 ## [0.42.2] - 2026-11-02
 
 ### Fixed

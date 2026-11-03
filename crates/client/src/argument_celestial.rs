@@ -1,5 +1,6 @@
 use glam::{Vec3, Vec4};
 use crate::celestial::{CelestialCadence, TunedCadence};
+use crate::command_flags::CommandFlags;
 use crate::cycle_duration::CycleDuration;
 
 /// Command-line argument-driven celestial cadence decorator.
@@ -21,24 +22,12 @@ impl ArgumentCelestial {
 
     /// Secondary constructor parsing an explicit arguments slice.
     pub fn from_arguments(args: &[String], fallback: Box<dyn CelestialCadence>) -> Self {
-        if let Some(raw) = Self::flag_value(args, "--cycle") {
+        if let Some(raw) = CommandFlags::from_slice(args).value_of("--cycle") {
             if let Some(dur) = CycleDuration::parse(&raw) {
                 return Self::new(Box::new(TunedCadence::new(dur.seconds(), fallback)));
             }
         }
         Self::new(fallback)
-    }
-
-    fn flag_value(args: &[String], flag: &str) -> Option<String> {
-        args.windows(2)
-            .find(|pair| pair[0] == flag)
-            .map(|pair| pair[1].clone())
-            .or_else(|| {
-                args.iter()
-                    .find(|arg| arg.starts_with(flag) && arg[flag.len()..].starts_with('='))
-                    .and_then(|arg| arg.split_once('='))
-                    .map(|(_, val)| val.to_string())
-            })
     }
 }
 

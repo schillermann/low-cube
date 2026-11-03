@@ -32,7 +32,7 @@ impl ReliefFacet {
         let (crust, h) = (if relief.breached_at(u, v) { i32::MIN } else { relief.crust_floor_at(u, v) }, relief.elevation_at(u, v));
         let (hn, hs, he, hw) = (relief.elevation_at(u, v + 1).max(crust), relief.elevation_at(u, v - 1).max(crust), relief.elevation_at(u + 1, v).max(crust), relief.elevation_at(u - 1, v).max(crust));
         let ((u0, u1), (v0, v1), top_h) = (cell.u_bounds(), cell.v_bounds(), (h as f32) * 0.5);
-        let molded = relief.emit_molded_top(cell, top_h, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
+        let molded = relief.emit_molded_top(cell, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
         let stage = relief.dig_stage_at(u, v);
         let (tn, ts, te, tw) = (v + 1 >= half_blocks, v <= -half_blocks, u + 1 >= half_blocks, u <= -half_blocks);
         let vault = super::CrustVault::beneath(half_blocks);
@@ -113,14 +113,14 @@ impl ReliefFacet {
             }
         };
 
-        if stage > 0 { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, surf_col, palette, frame, target); }
+        if stage > 0 { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, palette, frame, target); }
         self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, &vault, relief, frame, cliff_col, target);
     }
 
     #[allow(clippy::too_many_arguments)]
     fn emit_dig_crater(
         &self, u0: f32, u1: f32, v0: f32, v1: f32, c: [f32; 4], stage: u8,
-        top_col: Vec3, surf_col: Vec3, palette: &ReliefPalette, frame: &SurfaceFrame, target: &mut dyn MeshTarget,
+        top_col: Vec3, palette: &ReliefPalette, frame: &SurfaceFrame, target: &mut dyn MeshTarget,
     ) {
         let pt = |fu: f32, fv: f32, drop: f32| {
             let h = c[0] * (1.0 - fu) * (1.0 - fv) + c[1] * fu * (1.0 - fv) + c[2] * fu * fv + c[3] * (1.0 - fu) * fv - drop;
@@ -133,9 +133,7 @@ impl ReliefFacet {
         let b = [pt(f0, f0, depth), pt(f1, f0, depth), pt(f1, f1, depth), pt(f0, f1, depth)];
         let raw_n = (o[3] - o[0]).cross(o[1] - o[0]);
         let surf_n = if raw_n.dot(frame.normal()) >= 0.0 { raw_n.normalize_or_zero() } else { -raw_n.normalize_or_zero() };
-        let (floor_col, wall_col) = if surf_col.y > surf_col.x && surf_col.y > surf_col.z {
-            (Vec3::new(0.28, 0.19, 0.11), Vec3::new(0.42, 0.29, 0.17))
-        } else { palette.inspect_subterranean(|f, w, _| (f, w)) };
+        let (floor_col, wall_col) = palette.inspect_subterranean(|f, w| (f, w));
         let (up, tan, bitan) = (frame.normal() * 0.6, frame.tangent(), frame.bitangent());
         let wall_n = [(up + bitan).normalize(), (up - tan).normalize(), (up - bitan).normalize(), (up + tan).normalize()];
         for i in 0..4 {

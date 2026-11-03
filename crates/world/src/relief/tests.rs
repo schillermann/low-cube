@@ -35,17 +35,17 @@ fn test_tron_palette_distinct_colors_for_facets_and_mismatches() {
     assert_eq!(chamfer, Vec3::new(1.0, 1.0, 1.0), "Planet seam chamfers must be white");
 }
 
-struct QuadCollector;
+struct QuadLedger;
 
-impl crate::MeshTarget for QuadCollector {
+impl crate::MeshTarget for QuadLedger {
     fn push_quad(&mut self, _quad: crate::Quad) {}
 }
 
 #[test]
 fn test_faceted_relief_face_quad_emission() {
     let face = FacetedReliefFace::in_zone(ClimateZone::Arctic, 8.0, 8);
-    let mut collector = QuadCollector;
-    let mut counter = CountedMeshTarget::new(&mut collector);
+    let mut ledger = QuadLedger;
+    let mut counter = CountedMeshTarget::new(&mut ledger);
     face.emit_surface(&mut counter);
 
     assert!(counter.count() > 0, "Relief face must emit faceted surface and cave quads");
@@ -60,16 +60,13 @@ fn test_subterranean_cavity_depth_constraint() {
 }
 
 #[test]
-fn test_zoned_cavity_and_relief_direct_sampling() {
+fn test_zoned_relief_direct_sampling() {
     use crate::noise::CoherentNoise;
     let frame = ClimateZone::Temperate.surface_frame(8.0);
     let relief = ZonedRelief::new(Box::new(CoherentNoise::new(123, 0.1)), frame.normal(), frame.tangent(), frame.bitangent(), 8.0, 0, 3);
     assert!((0..=3).contains(&relief.elevation_at(2, 2)));
-    let cavity = ZonedCavity::new(Box::new(CoherentNoise::new(456, 0.1)), frame.normal(), frame.tangent(), frame.bitangent(), 8.0, 0.3);
-    let depth = cavity.constrain_depth(2.0, 2.0, -1.0, 1.0);
-    assert!(depth == -2.0 || depth == 1.0);
-    let mut collector = QuadCollector;
-    ReliefStrata::new().emit_cell(crate::block::GridCell::new(2, 2), &frame, &relief, &cavity, &ReliefPalette::for_zone(ClimateZone::Temperate), 8, &mut collector);
+    let mut collector = QuadLedger;
+    ReliefStrata::new().emit_cell(crate::block::GridCell::new(2, 2), &frame, &relief, &ReliefPalette::for_zone(ClimateZone::Temperate), 8, &mut collector);
 }
 
 #[test]
@@ -126,7 +123,7 @@ fn test_scale_64_mountain_elevation_reaches_authentic_height() {
 #[test]
 fn test_watertight_surface_emission_always_emits_top_quad() {
     let face = FacetedReliefFace::in_zone(ClimateZone::Arctic, 32.0, 16);
-    let mut collector = QuadCollector;
+    let mut collector = QuadLedger;
     let mut counter = CountedMeshTarget::new(&mut collector);
     face.emit_surface(&mut counter);
     // 16x16 grid must emit at least 256 top quads plus side cliff walls
@@ -153,10 +150,10 @@ impl ReliefElevation for TestRelief {
 fn test_beveled_slope_and_corner_emission() {
     let frame = ClimateZone::Temperate.surface_frame(16.0);
     let facet = ReliefFacet::new();
-    let mut collector = QuadCollector;
+    let mut collector = QuadLedger;
     let mut counter = CountedMeshTarget::new(&mut collector);
 
-    let palette = ReliefPalette::uniform(Vec3::ONE, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+    let palette = ReliefPalette::uniform(Vec3::ONE, Vec3::ZERO, Vec3::ZERO);
 
     // 1-block drop to North: emits 45° ramp quad
     let cell_ramp = crate::block::GridCell::new(0, 0);
@@ -181,9 +178,9 @@ fn test_beveled_slope_and_corner_emission() {
 fn test_seam_chamfer_emission_at_world_border() {
     let frame = ClimateZone::Temperate.surface_frame(16.0);
     let facet = ReliefFacet::new();
-    let mut collector = QuadCollector;
+    let mut collector = QuadLedger;
     let mut counter = CountedMeshTarget::new(&mut collector);
-    let palette = ReliefPalette::uniform(Vec3::ONE, Vec3::ZERO, Vec3::ZERO, Vec3::ZERO);
+    let palette = ReliefPalette::uniform(Vec3::ONE, Vec3::ZERO, Vec3::ZERO);
 
     // Border cell touching North seam (v1 = 16)
     let border_cell = crate::block::GridCell::new(0, 15);

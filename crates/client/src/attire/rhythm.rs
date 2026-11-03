@@ -1,4 +1,50 @@
 use glam::Vec3;
+use super::limb::LimbFrame;
+
+/// Instantaneous windup, strike, bow, and surge factors of a single hand's martial cleave cycle.
+#[derive(Clone, Copy, Debug)]
+pub struct CleaveImpulse {
+    wind: f32,
+    strike: f32,
+    bow: f32,
+    surge: f32,
+}
+
+impl CleaveImpulse {
+    pub const fn new(wind: f32, strike: f32, bow: f32, surge: f32) -> Self {
+        Self { wind, strike, bow, surge }
+    }
+
+    pub const fn calm() -> Self {
+        Self::new(0.0, 0.0, 0.0, 0.0)
+    }
+
+    pub const fn wind(self) -> f32 { self.wind }
+    pub const fn strike(self) -> f32 { self.strike }
+}
+
+/// Wrist roll axis, yaw twist, and pitch snap assembling a hand's LimbFrame.
+#[derive(Clone, Copy, Debug)]
+pub struct WristPosture {
+    roll_x: f32,
+    roll_y: f32,
+    yaw: f32,
+    snap: f32,
+}
+
+impl WristPosture {
+    pub const fn new(roll_x: f32, roll_y: f32, yaw: f32, snap: f32) -> Self {
+        Self { roll_x, roll_y, yaw, snap }
+    }
+
+    pub fn orient_hand(self, ref_frame: &LimbFrame, wrist_w: Vec3, forearm_dir: Vec3) -> LimbFrame {
+        let roll_dir = (ref_frame.point(self.roll_x, self.roll_y, 0.0) - ref_frame.point(0.0, 0.0, 0.0)).normalize();
+        let hand_up = roll_dir.cross(forearm_dir).normalize();
+        LimbFrame::new(wrist_w, forearm_dir.cross(hand_up).normalize(), hand_up, forearm_dir)
+            .yawed(self.yaw)
+            .pitched(self.snap)
+    }
+}
 
 /// Polymorphic martial action style bound to the held relic or active bare-hand strike.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -19,23 +65,17 @@ impl MartialStyle {
         }
     }
 
-    pub fn cleave_impulse(self, rhythm: StrideRhythm, side: f32) -> (f32, f32, f32, f32) {
+    pub fn cleave_impulse(self, rhythm: StrideRhythm, side: f32) -> CleaveImpulse {
         if matches!(self, Self::Unarmed) {
-            return (0.0, 0.0, 0.0, 0.0);
+            return CleaveImpulse::calm();
         }
         let arc = rhythm.cleave_arc(side);
         let surge = rhythm.cleave_surge(side);
-        ((-arc).max(0.0), arc.max(0.0), (1.0 - arc * arc) * surge, surge)
+        CleaveImpulse::new((-arc).max(0.0), arc.max(0.0), (1.0 - arc * arc) * surge, surge)
     }
 
-    pub fn external_drive(
-        self,
-        wind: f32,
-        strike: f32,
-        bow: f32,
-        surge: f32,
-        crouch: f32,
-    ) -> (f32, f32, Vec3, f32, f32, f32) {
+    pub fn external_drive(self, imp: CleaveImpulse, crouch: f32) -> (f32, f32, Vec3, f32, f32, f32) {
+        let (wind, strike, bow, surge) = (imp.wind, imp.strike, imp.bow, imp.surge);
         let abduct = match self {
             Self::SwordplaySlash | Self::PalmCradle => 0.0,
             Self::SpadeDig | Self::BarePalmDig => 0.22 * wind + 0.08 * bow,
@@ -76,17 +116,8 @@ impl MartialStyle {
         (abduct, swing, elbow_delta, elbow_bend, wrist_dx, wrist_dz)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn external_wrist_orient(
-        self,
-        side: f32,
-        hold_factor: f32,
-        crouch: f32,
-        wind: f32,
-        strike: f32,
-        bow: f32,
-        surge: f32,
-    ) -> (f32, f32, f32, f32) {
+    pub fn external_wrist_orient(self, side: f32, hold_factor: f32, crouch: f32, imp: CleaveImpulse) -> WristPosture {
+        let (wind, strike, bow, surge) = (imp.wind, imp.strike, imp.bow, imp.surge);
         let (rx, ry) = match self {
             Self::SpadeDig => {
                 let a = 0.75 * wind + 1.95 * bow + 2.35 * strike;
@@ -112,36 +143,17 @@ impl MartialStyle {
             Self::SpadeDig => -0.12 * wind + 0.48 * bow + 0.78 * strike,
             _ => -0.20 * wind + 0.35 * bow + 0.62 * strike,
         };
-        (rx, ry, wrist_yaw, wrist_snap)
+        WristPosture::new(rx, ry, wrist_yaw, wrist_snap)
     }
 
-    pub fn first_person_swing(self, wind: f32, strike: f32, bow: f32, surge: f32) -> (f32, f32, f32, f32, Vec3, f32) {
+    pub fn first_person_swing(self, imp: CleaveImpulse) -> (f32, f32, f32, f32, Vec3, f32) {
+        let (wind, strike, bow, surge) = (imp.wind, imp.strike, imp.bow, imp.surge);
         let (sw_x, sw_y, sw_z, sw_yaw) = match self {
             Self::PalmCradle => (0.0, -0.04 * bow - 0.03 * strike, 0.05 * bow + 0.04 * strike, 0.0),
-            Self::SwordplaySlash => (
-                -0.015 * wind - 0.0350 * strike,
-                0.14 * wind + 0.2121 * strike,
-                -0.05 * wind + 0.18 * strike + 0.04 * surge,
-                -0.05 * wind - 0.0221 * strike,
-            ),
-            Self::BarePalmDig => (
-                -0.03 * wind - 0.12 * bow - 0.165 * strike,
-                0.14 * wind + 0.06 * bow - 0.10 * strike,
-                0.06 * wind + 0.22 * bow + 0.20 * strike,
-                0.12 * wind + 0.22 * bow + 0.28 * strike,
-            ),
-            Self::SpadeDig => (
-                -0.02 * wind - 0.08 * bow - 0.14 * strike,
-                0.14 * wind + 0.06 * bow - 0.10 * strike,
-                0.05 * wind + 0.20 * bow + 0.18 * strike,
-                -0.06 * bow - 0.12 * strike,
-            ),
-            _ => (
-                0.04 * wind + 0.11 * bow - 0.2307 * strike,
-                0.30 * wind + 0.21 * bow + 0.1516 * strike,
-                -0.03 * wind + 0.025 * bow + 0.025 * strike,
-                -0.10 * wind - 0.16 * bow - 0.2044 * strike,
-            ),
+            Self::SwordplaySlash => (-0.015 * wind - 0.0350 * strike, 0.14 * wind + 0.2121 * strike, -0.05 * wind + 0.18 * strike + 0.04 * surge, -0.05 * wind - 0.0221 * strike),
+            Self::BarePalmDig => (-0.03 * wind - 0.12 * bow - 0.165 * strike, 0.14 * wind + 0.06 * bow - 0.10 * strike, 0.06 * wind + 0.22 * bow + 0.20 * strike, 0.12 * wind + 0.22 * bow + 0.28 * strike),
+            Self::SpadeDig => (-0.02 * wind - 0.08 * bow - 0.14 * strike, 0.14 * wind + 0.06 * bow - 0.10 * strike, 0.05 * wind + 0.20 * bow + 0.18 * strike, -0.06 * bow - 0.12 * strike),
+            _ => (0.04 * wind + 0.11 * bow - 0.2307 * strike, 0.30 * wind + 0.21 * bow + 0.1516 * strike, -0.03 * wind + 0.025 * bow + 0.025 * strike, -0.10 * wind - 0.16 * bow - 0.2044 * strike),
         };
         let elbow_add = match self {
             Self::PalmCradle => Vec3::ZERO,
@@ -156,7 +168,8 @@ impl MartialStyle {
         (sw_x, sw_y, sw_z, sw_yaw, elbow_add, aim_dip)
     }
 
-    pub fn first_person_wrist_orient(self, side: f32, wind: f32, strike: f32, bow: f32) -> (f32, f32, f32, f32) {
+    pub fn first_person_wrist_orient(self, side: f32, imp: CleaveImpulse) -> WristPosture {
+        let (wind, strike, bow) = (imp.wind, imp.strike, imp.bow);
         let (rx, ry) = match self {
             Self::SpadeDig => {
                 let a = 0.75 * wind + 1.95 * bow + 2.35 * strike;
@@ -181,7 +194,7 @@ impl MartialStyle {
             Self::BarePalmDig => -0.10 * wind,
             _ => -0.22 * wind + 0.34 * bow + 0.550 * strike,
         };
-        (rx, ry, wrist_yaw, wrist_snap)
+        WristPosture::new(rx, ry, wrist_yaw, wrist_snap)
     }
 }
 
@@ -203,25 +216,13 @@ impl StrideRhythm {
         Self::with_dual_cleave(phase, blend, cleave, cleave)
     }
 
-    pub fn new(phase: f32, blend: f32) -> Self {
-        Self::with_dual_cleave(phase, blend, 0.0, 0.0)
-    }
-
-    pub fn idle() -> Self {
-        Self::new(0.0, 0.0)
-    }
-
-    pub fn trigger_right_strike(self) -> Self {
-        Self::with_dual_cleave(self.phase, self.blend, 0.001, self.left_cleave)
-    }
-
-    pub fn trigger_left_strike(self) -> Self {
-        Self::with_dual_cleave(self.phase, self.blend, self.right_cleave, 0.001)
-    }
-
-    pub fn hand_cleave(self, side: f32) -> f32 {
-        if side > 0.0 { self.right_cleave } else { self.left_cleave }
-    }
+    pub fn new(phase: f32, blend: f32) -> Self { Self::with_dual_cleave(phase, blend, 0.0, 0.0) }
+    pub fn idle() -> Self { Self::new(0.0, 0.0) }
+    pub fn trigger_right_strike(self) -> Self { Self::with_dual_cleave(self.phase, self.blend, 0.001, self.left_cleave) }
+    pub fn trigger_left_strike(self) -> Self { Self::with_dual_cleave(self.phase, self.blend, self.right_cleave, 0.001) }
+    pub fn hand_cleave(self, side: f32) -> f32 { if side > 0.0 { self.right_cleave } else { self.left_cleave } }
+    pub fn breath_wave(self, walk: f32) -> f32 { self.phase.sin() * (1.0 - walk) }
+    pub fn strike_progress(self) -> f32 { self.right_cleave.max(self.left_cleave) }
 
     fn step_cleave(c: f32, dt: f32) -> f32 {
         if c > 0.0 && c + dt * 1.65 < 1.0 { c + dt * 1.65 } else { 0.0 }
@@ -243,10 +244,6 @@ impl StrideRhythm {
         (self.phase + side_phase_offset, walk, run)
     }
 
-    pub fn breath_wave(self, walk: f32) -> f32 {
-        self.phase.sin() * (1.0 - walk)
-    }
-
     pub fn cleave_arc(self, side: f32) -> f32 {
         let c = self.hand_cleave(side);
         if c <= 0.0 {
@@ -263,10 +260,6 @@ impl StrideRhythm {
     pub fn cleave_surge(self, side: f32) -> f32 {
         let c = self.hand_cleave(side);
         if c > 0.0 { (c * std::f32::consts::PI).sin() } else { 0.0 }
-    }
-
-    pub fn strike_progress(self) -> f32 {
-        self.right_cleave.max(self.left_cleave)
     }
 
     pub fn advance(self, previous: Vec3, next: Vec3, terrain_up: Vec3, dt: f32) -> Self {

@@ -67,7 +67,7 @@ fn temperate_tree_harvest_lifecycle_transitions() {
     // First strike: vitality 3 -> 2
     let tree = tree.strike(1, &mut depository);
     assert!(tree.standing());
-    assert_eq!(depository.amount_of(TimberYield::StandardLumber), 0);
+    assert_eq!(depository.amount_of(TimberYield::OakTimber), 0);
 
     // Second strike: vitality 2 -> 1
     let tree = tree.strike(1, &mut depository);
@@ -77,7 +77,7 @@ fn temperate_tree_harvest_lifecycle_transitions() {
     let plot = tree.strike(1, &mut depository);
     assert!(!plot.standing());
     assert!(!plot.solid());
-    assert_eq!(depository.amount_of(TimberYield::StandardLumber), 4);
+    assert_eq!(depository.amount_of(TimberYield::OakTimber), 4);
     assert_eq!(depository.amount_of(TimberYield::Twig), 2);
     assert_eq!(depository.amount_of(TimberYield::Sapling), 1);
 
@@ -95,7 +95,7 @@ fn all_climate_zones_render_and_yield_distinct_resources() {
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 32.0);
 
     let expectations = [
-        (ClimateZone::Temperate, TimberYield::StandardLumber),
+        (ClimateZone::Temperate, TimberYield::OakTimber),
         (ClimateZone::Arctic, TimberYield::AlpineHardwood),
         (ClimateZone::Jungle, TimberYield::TropicalHardwood),
         (ClimateZone::Desert, TimberYield::SucculentFiber),

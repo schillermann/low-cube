@@ -3,77 +3,42 @@ use glam::Vec3;
 mod beveled_world;
 mod biome;
 mod block;
-mod centripetal_world;
-mod chunk;
-mod cluster;
-mod elevated_face;
-mod face;
 mod frame;
-mod gallery;
-mod landscape;
 mod mesh_target;
-mod mountain;
 mod noise;
 mod null_face;
 mod planet;
 mod quad;
 mod relief;
-mod tinted_face;
 mod topology;
 mod tree;
 
 #[cfg(test)]
 mod beveled_world_tests;
 #[cfg(test)]
-mod centripetal_tests;
-#[cfg(test)]
-mod cluster_tests;
-#[cfg(test)]
-mod elevation_tint_tests;
-#[cfg(test)]
-mod gallery_tests;
-#[cfg(test)]
 mod gravity_tests;
 #[cfg(test)]
 mod mesh_target_tests;
-#[cfg(test)]
-mod mountain_tests;
 
 pub use beveled_world::BeveledWorld;
 pub use biome::BiomedCubeWorld;
-pub use centripetal_world::CentripetalWorld;
 pub use block::{
-    Block, BlockMedium, BlockMold, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
-    DirtBlock, ElevatedShape, FormBlock, GentleRidge, GentleValley, GentleWedge, GridCell,
-    MaterialBlock, MediumShape, MoldArchetype, PyramidPeak, RampWedge, RidgeCorner, SandBlock,
-    SnowBlock, StairCorner, StairFlight, StoneBlock, ValleyCorner, VoxelShape, WedgeHeading,
+    BlockMedium, BlockMold, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
+    ElevatedShape, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape,
+    MoldArchetype, PyramidPeak, RampWedge, RidgeCorner, StairCorner, StairFlight, ValleyCorner,
+    VoxelShape, WedgeHeading,
 };
-
-pub use chunk::{
-    BedrockShell, FacetedVolume, MonolithVolume, PlanetaryCrust,
-    PlanetaryNeighborhood, SparsePlanetaryGrid, StratifiedVolume, VoidNeighborhood,
-    VoidVolume, VolumeCoord, VolumePlanet, VoxelBarrier, VoxelCoord,
-    VoxelNeighborhood, VoxelVolume, VOLUME_EDGE_LENGTH, VOXEL_COUNT_PER_VOLUME,
-};
-pub use cluster::VoxelCluster;
-pub use elevated_face::ElevatedFace;
-pub use face::PlanarFace;
 pub use frame::SurfaceFrame;
-pub use gallery::BlockGallery;
-pub use landscape::{DesertDunes, GlacialMassif, JungleKarst, SteppeTerrace, VolcanicCaldera};
 pub use mesh_target::{
-    ColoredMeshTarget, CountedMeshTarget, CrateredMeshTarget, OffsetMeshTarget, TintedMeshTarget,
-    TurfMeshTarget,
+    CountedMeshTarget, CrateredMeshTarget, TurfMeshTarget,
 };
-pub use mountain::VoxelMountain;
 pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
 pub use planet::CubePlanet;
 pub use relief::{
-    CavitySpan, CrustVault, FacetedReliefFace, NullCavity, ReliefElevation, ReliefFacet,
-    ReliefPalette, SubterraneanCavity, SurfaceSightRay, TerracedRelief, ZonedCavity,
+    CrustVault, FacetedReliefFace, ReliefElevation, ReliefFacet, ReliefPalette, SurfaceSightRay,
+    TerracedRelief,
 };
-pub use tinted_face::TintedFace;
 pub use topology::{
     BevelTransition, ClimateZone, CoordinateFold, CubeFace, FacePerimeter, FoldedFace,
     FoldedPoint, PerimeterCrossing, PerimeterEdge, PlanetaryTopology, SeamBevel,

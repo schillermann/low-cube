@@ -60,9 +60,9 @@ impl ClearedPlot {
     }
 
     /// Secondary constructor for a calm vacant plot with zero residual particles.
-    pub fn new(u: f32, v: f32, elevation: f32) -> Self {
+    pub fn vacant(frame: SurfaceFrame, u: f32, v: f32, elevation: f32) -> Self {
         Self::with_salvage(
-            SurfaceFrame::new(Vec3::Y, Vec3::X, Vec3::Z, 0.0),
+            frame,
             u,
             v,
             elevation,
@@ -83,7 +83,7 @@ impl Arboreal for ClearedPlot {
     fn forage_at(&self, eye: Vec3, direction: Vec3) -> (Box<dyn Arboreal>, SurfaceFind) {
         let (a, f) = (self.anchor, self.aftermath);
         if !f.salvage.gathered() {
-            return (Box::new(Self::new(a.u, a.v, a.elevation)), SurfaceFind::EmptyHanded);
+            return (Box::new(Self::vacant(a.frame, a.u, a.v, a.elevation)), SurfaceFind::EmptyHanded);
         }
         let litter = FloorLitter::new(a.frame, a.u, a.v, a.elevation, f.salvage, 0.45);
         let (_, find) = litter.forage_at(eye, direction);

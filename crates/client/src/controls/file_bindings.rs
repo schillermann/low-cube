@@ -1,6 +1,6 @@
 use std::fs;
-use winit::keyboard::KeyCode;
-use super::bindings::{ActionBindings, ControlAction, InputTrigger, TriggerNotation};
+use crate::toml_document::TomlDocument;
+use super::bindings::{ActionBindings, ControlAction, TriggerNotation};
 
 /// Interface for persistent TOML storage of player keybindings.
 pub trait BindingProfile {
@@ -23,32 +23,19 @@ impl FileBindings {
     pub fn profile() -> Self {
         Self::new("controls.toml".to_string())
     }
-
-    fn trigger_in_text(&self, content: &str, key_name: &str) -> Option<InputTrigger> {
-        content
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty() && !line.starts_with('#') && !line.starts_with('['))
-            .find_map(|line| {
-                let (key, val) = line.split_once('=')?;
-                if key.trim() == key_name {
-                    InputTrigger::Key(KeyCode::KeyW).parse_token(val.split('#').next()?)
-                } else {
-                    None
-                }
-            })
-    }
 }
 
 impl BindingProfile for FileBindings {
     fn load_or_seeded(&self) -> ActionBindings {
-        let Ok(content) = fs::read_to_string(&self.path) else {
+        let Some(doc) = TomlDocument::from_file(&self.path) else {
             return ActionBindings::seeded();
         };
         let mut bindings = ActionBindings::seeded();
         for action in ControlAction::all() {
-            if let Some(trigger) = self.trigger_in_text(&content, action.config_key()) {
-                bindings = bindings.with_binding(action, trigger);
+            if let Some(token) = doc.property(action.config_key()) {
+                if let Some(trigger) = bindings.trigger_for(action).parse_token(&token) {
+                    bindings = bindings.with_binding(action, trigger);
+                }
             }
         }
         bindings

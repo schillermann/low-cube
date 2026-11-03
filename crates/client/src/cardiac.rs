@@ -39,6 +39,28 @@ pub trait AcousticWave: Send + Sync {
         }
         wav
     }
+
+    #[cfg(not(test))]
+    fn play_cached_wav(&self, bytes: &[u8], filename: &str) {
+        #[cfg(target_os = "windows")]
+        unsafe {
+            let _ = filename;
+            let _ = PlaySoundA(bytes.as_ptr(), core::ptr::null_mut(), 0x0001 | 0x0002 | 0x0004);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            use std::process::{Command, Stdio};
+            let path = std::env::temp_dir().join(filename);
+            if !path.exists() {
+                let _ = std::fs::write(&path, bytes);
+            }
+            if Command::new("paplay").arg(&path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().is_err()
+                && Command::new("pw-play").arg(&path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().is_err()
+            {
+                let _ = Command::new("aplay").arg("-q").arg(&path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            }
+        }
+    }
 }
 
 /// Acoustic low-frequency cardiac double-thump ("lub-dub") waveform emitted during heart-attack death.
@@ -90,25 +112,7 @@ impl AcousticWave for CardiacPulse {
         {
             static WAVE_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
             let bytes = WAVE_CACHE.get_or_init(|| self.riff_wave());
-            #[cfg(target_os = "windows")]
-            unsafe {
-                let _ = PlaySoundA(bytes.as_ptr(), core::ptr::null_mut(), 0x0001 | 0x0002 | 0x0004);
-            }
-            #[cfg(target_os = "linux")]
-            {
-                use std::process::{Command, Stdio};
-                static PATH_CACHE: OnceLock<std::path::PathBuf> = OnceLock::new();
-                let path = PATH_CACHE.get_or_init(|| {
-                    let file = std::env::temp_dir().join("low_cube_cardiac_pulse.wav");
-                    let _ = std::fs::write(&file, bytes);
-                    file
-                });
-                if Command::new("paplay").arg(path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().is_err()
-                    && Command::new("pw-play").arg(path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().is_err()
-                {
-                    let _ = Command::new("aplay").arg("-q").arg(path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
-                }
-            }
+            self.play_cached_wav(bytes, "low_cube_cardiac_pulse.wav");
         }
         #[cfg(test)]
         {
@@ -166,25 +170,7 @@ impl<W: AcousticWave> AcousticWave for MonitoredPulse<W> {
         {
             static MONITOR_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
             let bytes = MONITOR_CACHE.get_or_init(|| self.riff_wave());
-            #[cfg(target_os = "windows")]
-            unsafe {
-                let _ = PlaySoundA(bytes.as_ptr(), core::ptr::null_mut(), 0x0001 | 0x0002 | 0x0004);
-            }
-            #[cfg(target_os = "linux")]
-            {
-                use std::process::{Command, Stdio};
-                static PATH_CACHE: OnceLock<std::path::PathBuf> = OnceLock::new();
-                let path = PATH_CACHE.get_or_init(|| {
-                    let file = std::env::temp_dir().join("low_cube_monitored_pulse.wav");
-                    let _ = std::fs::write(&file, bytes);
-                    file
-                });
-                if Command::new("paplay").arg(path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().is_err()
-                    && Command::new("pw-play").arg(path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn().is_err()
-                {
-                    let _ = Command::new("aplay").arg("-q").arg(path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
-                }
-            }
+            self.play_cached_wav(bytes, "low_cube_monitored_pulse.wav");
         }
         #[cfg(test)]
         {

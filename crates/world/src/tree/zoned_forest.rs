@@ -33,7 +33,7 @@ impl ZonedForest {
     pub fn plant(&self, frame: SurfaceFrame, u: f32, v: f32, elevation: f32) -> Box<dyn Arboreal> {
         let species = self.native_species();
         let tree = Box::new(StandingTree::of_species(species, frame, u, v, elevation));
-        Box::new(SolidArboreal::new(tree, u, v, 0.65, 3.0))
+        Box::new(SolidArboreal::rooted(tree, u, v, elevation, 0.65, 3.0))
     }
 
     /// Populates native trees and gatherable deadwood/flint litter across a planetary face.

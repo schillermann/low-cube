@@ -10,6 +10,7 @@ mod cadence;
 mod cardiac;
 mod celestial;
 mod clock;
+mod command_flags;
 mod controls;
 mod cycle_duration;
 mod diurnal_pipeline;
@@ -26,6 +27,7 @@ mod firmament_glsl;
 mod flight;
 mod gait;
 mod gl_firmament;
+mod grip;
 mod heading;
 mod horizon;
 mod host_env;
@@ -45,12 +47,13 @@ mod session;
 mod stride;
 mod surface;
 mod threshold;
+mod toml_document;
 
 #[cfg(test)]
 mod allocation_audit;
 #[cfg(test)]
 #[global_allocator]
-static ALLOCATOR: allocation_audit::TrackingAllocator = allocation_audit::TrackingAllocator;
+static ALLOCATOR: allocation_audit::HeapLedger = allocation_audit::HeapLedger;
 
 #[cfg(test)]
 mod aurora_tests;
@@ -61,8 +64,6 @@ mod cadence_tests;
 #[cfg(test)]
 mod celestial_tests;
 #[cfg(test)]
-mod chunk_traversal_tests;
-#[cfg(test)]
 mod circuit_tests;
 #[cfg(test)]
 mod controls_tests;
@@ -72,8 +73,6 @@ mod earthworks_tests;
 mod crust_ceiling_tests;
 #[cfg(test)]
 mod flight_tests;
-#[cfg(test)]
-mod mountain_tests;
 #[cfg(test)]
 mod physics_tests;
 #[cfg(test)]
@@ -93,11 +92,13 @@ mod visual_tests;
 
 use winit::event_loop::{ControlFlow, EventLoop};
 use app::LowCubeApp;
+use command_flags::CommandFlags;
 use launch::SessionLaunch;
 use server_scale::{PlanetaryScale, ServerScale};
 
 fn tron_active() -> bool {
-    std::env::args().any(|arg| arg == "--tron" || arg == "tron")
+    let flags = CommandFlags::process();
+    flags.contains_switch("--tron") || flags.contains_switch("tron")
 }
 
 fn main() {

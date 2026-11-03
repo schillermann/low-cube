@@ -5,6 +5,16 @@ use super::cell::GridCell;
 use super::shape::VoxelShape;
 use super::timber_grain::BlockMedium;
 
+const BLOCK_HEIGHT: f32 = GridCell::SPAN;
+const SURFACE_CONTACT_TOLERANCE: f32 = 0.1;
+const EYE_SPAN_SENTINEL: f32 = 1.0;
+const UPRIGHT_STATURE_CLEARANCE: f32 = 1.80;
+const HEADROOM_TOLERANCE: f32 = 0.03;
+const FOOT_SUPPORT_TOLERANCE: f32 = 0.08;
+const LAYER_FLOOR_MARGIN: f32 = 0.05;
+const LAYER_CEILING_MARGIN: f32 = 0.48;
+const RAY_INTERCEPT_MARGIN: f32 = 0.02;
+
 /// Decorator elevating a voxel shape's base height by an encapsulated offset.
 pub struct ElevatedShape {
     shape: Box<dyn VoxelShape>,
@@ -27,20 +37,27 @@ impl ElevatedShape {
 
     /// Indicates whether this elevated block sits away from the primary surface contact layer.
     pub fn floating_above(&self, ground_top: f32) -> bool {
-        (self.elevation_offset - ground_top).abs() >= 0.1
+        (self.elevation_offset - ground_top).abs() >= SURFACE_CONTACT_TOLERANCE
     }
 
     /// Upper block boundary elevation above ground datum.
     pub fn ceiling_above(&self, _ground_top: f32) -> f32 {
-        self.elevation_offset + 0.5
+        self.elevation_offset + BLOCK_HEIGHT
     }
 
     /// Elevates the supporting surface height when this block sits beneath the avatar or obstructs passage.
     pub fn constrain_support(&self, local_u: f32, local_v: f32, support_h: f32, foot_elev: f32, body_span: f32) -> f32 {
         let dh = self.shape.elevation_at(local_u, local_v);
-        let req_clearance = if (body_span - 1.0).abs() < 1e-3 { 1.80 } else { body_span };
-        let head_margin = if foot_elev > support_h + 0.02 { 0.16 } else { -0.03 };
-        if dh <= 0.0 || (body_span > 1e-4 && self.elevation_offset >= support_h + req_clearance - 0.03 && self.elevation_offset >= foot_elev + req_clearance + head_margin) {
+        let req_clearance = if (body_span - EYE_SPAN_SENTINEL).abs() < 1e-3 {
+            UPRIGHT_STATURE_CLEARANCE
+        } else {
+            body_span
+        };
+        if dh <= 0.0
+            || (body_span > 1e-4
+                && self.elevation_offset >= support_h + req_clearance - HEADROOM_TOLERANCE
+                && foot_elev + FOOT_SUPPORT_TOLERANCE <= self.elevation_offset)
+        {
             support_h
         } else {
             support_h.max(self.elevation_offset + dh)
@@ -49,27 +66,32 @@ impl ElevatedShape {
 
     /// Indicates whether the given vertical layer elevation falls within this block's 0.5m slot.
     pub fn occupies_layer(&self, layer_elev: f32) -> bool {
-        layer_elev >= self.elevation_offset - 0.05 && layer_elev <= self.elevation_offset + 0.48
+        layer_elev >= self.elevation_offset - LAYER_FLOOR_MARGIN
+            && layer_elev <= self.elevation_offset + LAYER_CEILING_MARGIN
     }
 
     /// Indicates whether a 3D sight ray point intercepts the occupied volume of this shape.
     pub fn intercepts(&self, local_u: f32, local_v: f32, ray_elev: f32) -> bool {
         let dh = self.shape.elevation_at(local_u, local_v);
-        dh > 0.0 && ray_elev >= self.elevation_offset - 0.02 && ray_elev <= self.elevation_offset + dh + 0.02
+        dh > 0.0
+            && ray_elev >= self.elevation_offset - RAY_INTERCEPT_MARGIN
+            && ray_elev <= self.elevation_offset + dh + RAY_INTERCEPT_MARGIN
     }
 
     /// Emits this elevated shape through CrateredMeshTarget and polymorphic terraced shape rendering.
+    #[allow(clippy::too_many_arguments)]
     pub fn emit_terraced(
         &self,
         cell: GridCell,
         frame: &SurfaceFrame,
         top_color: Vec3,
         wall_color: Vec3,
+        bare_top: bool,
         stage: u8,
         target: &mut dyn MeshTarget,
     ) {
         let mut cratered = CrateredMeshTarget::new(target, stage);
-        self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, &mut cratered);
+        self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, bare_top, &mut cratered);
     }
 }
 

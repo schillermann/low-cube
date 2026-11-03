@@ -17,6 +17,7 @@ mod relic;
 mod rhythm;
 mod sight;
 mod tome;
+mod tray;
 #[cfg(test)]
 mod tests;
 
@@ -133,7 +134,14 @@ impl YouthAttire {
     pub fn right_armed(&self) -> bool { !matches!(self.hands.relic.martial_style(), MartialStyle::Unarmed) }
     pub fn left_armed(&self) -> bool { !matches!(self.hands.offhand.martial_style(), MartialStyle::Unarmed) }
     pub fn armed(&self) -> bool { self.right_armed() || self.left_armed() }
-    pub fn held_pair(&self) -> (HeldRelic, HeldRelic) { (self.hands.relic, self.hands.offhand) }
+    pub const fn held_pair(&self) -> (HeldRelic, HeldRelic) { (self.hands.relic, self.hands.offhand) }
+    pub const fn hand_pair(&self, side: f32) -> (HeldRelic, HeldRelic) {
+        if side > 0.0 { (self.hands.relic, self.hands.offhand) } else { (self.hands.offhand, self.hands.relic) }
+    }
+    pub const fn with_hand_relic(mut self, side: f32, relic: HeldRelic) -> Self {
+        if side > 0.0 { self.hands.relic = relic; } else { self.hands.offhand = relic; }
+        self
+    }
     pub fn with_next_pigment(mut self) -> Self { self.identity.pigment = self.identity.pigment.next(); self }
 
     pub fn with_next_complexion(mut self) -> Self {

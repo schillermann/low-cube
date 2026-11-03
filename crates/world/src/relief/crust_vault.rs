@@ -113,6 +113,9 @@ impl CrustVault {
 
     /// Pushes an eye elevation that rose into the vault ceiling back beneath it so the crust stays opaque.
     pub fn confine(&self, u: f32, v: f32, elev: f32) -> f32 {
+        if elev >= -0.5 {
+            return elev;
+        }
         let (su, sv, shell_h) = self.shell_point(u, v);
         let inner_r = (self.radius - 0.30).max(1.0);
         let inner_h = (inner_r * inner_r - su * su - sv * sv).max(0.0).sqrt() - self.half_size();

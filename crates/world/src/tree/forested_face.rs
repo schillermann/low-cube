@@ -69,9 +69,6 @@ impl Face for ForestedFace {
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
         let mut position = self.origin.constrain(point, distance);
-        if self.frame.elevation_of(point) < -2.0 {
-            return position;
-        }
         let (u, v) = self.frame.decompose(point);
         for tree in &self.trees {
             position = tree.constrain_surface(position, u, v, &self.frame, distance);

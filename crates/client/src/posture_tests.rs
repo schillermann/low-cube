@@ -148,6 +148,7 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
     impl PlanetaryWorld for DoorframeWorld {
         fn emit_surface(&self, _: &mut dyn MeshTarget) {}
         fn constrain_to_surface(&self, p: Vec3, d: f32) -> Vec3 { Vec3::new(p.x, self.0.support_height_at(p.x, p.z, p.y - d, d) + d, p.z) }
+        fn confine_beneath_crust(&self, p: Vec3) -> Vec3 { let (u, v, z) = self.0.confine(p.x, p.z, p.y); Vec3::new(u, z, v) }
     }
     let build_world = |wide_two: bool, lintel_base: f32| -> DoorframeWorld {
         let mut t = TerracedRelief::in_span(Box::new(FlatRelief), 16);
@@ -202,13 +203,30 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
     let valkyrie = crate::menu::AvatarArchetype::Knight.female_attire();
     let mut valk = PlanetaryAvatar::with_attire(Vec3::new(0.50, -2.0, 0.25), Box::new(crate::flight::SurfaceFlight::terrestrial(1.0)), valkyrie);
     let mut ctrl = KeyMotion::idle();
+    ctrl.register_key(KeyCode::ShiftLeft, true);
     ctrl.register_key(KeyCode::KeyW, true);
     for _ in 0..45 { valk.step_motion(1.0 / 60.0, &ctrl, &tunnel_world); }
     ctrl.register_key(KeyCode::KeyW, false);
+    ctrl.register_key(KeyCode::ShiftLeft, false);
     ctrl.register_key(KeyCode::Space, true);
     for frame in 0..60 {
         valk.step_motion(1.0 / 60.0, &ctrl, &tunnel_world);
         let eye = valk.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
         assert!(eye.z < -0.15 && eye.y <= -1.50 - 0.12, "Frame {frame}: Valkyrie under 3-block (-3.0..-1.5m) overhang must never jump with head into ceiling blocks above -1.5m, got {eye:?}");
+    }
+    let mut tunnel_4 = TerracedRelief::in_span(Box::new(FlatRelief), 16);
+    for (u, v) in [(0, 0), (1, 0), (0, 1), (1, 1)] { for _ in 0..6 { tunnel_4.excavate_cell(u, v); } }
+    for (u, v) in [(0, -1), (1, -1), (0, -2), (1, -2)] { for layer in [-2.75, -2.25, -1.75, -1.25] { tunnel_4.excavate_layer(u, v, layer); } }
+    let tunnel_4_world = DoorframeWorld(tunnel_4);
+    let mut valk_4 = PlanetaryAvatar::with_attire(Vec3::new(0.50, -2.0, 0.25), Box::new(crate::flight::SurfaceFlight::terrestrial(1.0)), valkyrie);
+    let mut ctrl_4 = KeyMotion::idle();
+    ctrl_4.register_key(KeyCode::KeyW, true);
+    for _ in 0..45 { valk_4.step_motion(1.0 / 60.0, &ctrl_4, &tunnel_4_world); }
+    ctrl_4.register_key(KeyCode::KeyW, false);
+    ctrl_4.register_key(KeyCode::Space, true);
+    for frame in 0..60 {
+        valk_4.step_motion(1.0 / 60.0, &ctrl_4, &tunnel_4_world);
+        let eye = valk_4.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+        assert!(eye.z < -0.15 && eye.y <= -1.00 - 0.12, "Frame {frame}: Upright Valkyrie in 4-block (-3.0..-1.0m) tunnel must bonk against -1.0m ceiling without clipping or roof-snapping, got {eye:?}");
     }
 }

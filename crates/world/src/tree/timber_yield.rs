@@ -1,7 +1,7 @@
 /// Discrete varieties of forestry yields and ecological harvests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TimberYield {
-    StandardLumber,
+    OakTimber,
     AlpineHardwood,
     TropicalHardwood,
     SucculentFiber,

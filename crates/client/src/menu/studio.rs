@@ -105,6 +105,24 @@ impl WardrobeStudio {
         FileAttire::profile().save(&self.attire);
     }
 
+    fn rotate_left_button() -> ScreenBounds { ScreenBounds::new(-0.36, 0.72, -0.14, 0.81) }
+    fn front_button() -> ScreenBounds { ScreenBounds::new(-0.11, 0.72, 0.11, 0.81) }
+    fn rotate_right_button() -> ScreenBounds { ScreenBounds::new(0.14, 0.72, 0.36, 0.81) }
+    fn male_button() -> ScreenBounds { ScreenBounds::new(-0.94, -0.74, -0.72, -0.66) }
+    fn female_button() -> ScreenBounds { ScreenBounds::new(-0.70, -0.74, -0.48, -0.66) }
+    fn reset_button() -> ScreenBounds { ScreenBounds::new(0.48, -0.78, 0.94, -0.68) }
+    fn back_button() -> ScreenBounds { ScreenBounds::new(-0.18, -0.95, 0.18, -0.84) }
+    fn turntable_viewport() -> ScreenBounds { ScreenBounds::new(-0.43, -0.80, 0.43, 0.70) }
+
+    fn grid_slot(idx: usize, top_y: f32, row_step: f32, height: f32) -> ScreenBounds {
+        let (x0, y1) = (-0.94 + ((idx % 2) as f32) * 0.24, top_y - ((idx / 2) as f32) * row_step);
+        ScreenBounds::new(x0, y1 - height, x0 + 0.22, y1)
+    }
+
+    fn archetype_slot(idx: usize) -> ScreenBounds { Self::grid_slot(idx, 0.68, 0.10, 0.08) }
+    fn swatch_slot(idx: usize) -> ScreenBounds { Self::grid_slot(idx, 0.26, 0.095, 0.075) }
+    fn clothing_slot(idx: usize) -> ScreenBounds { Self::grid_slot(idx, -0.24, 0.10, 0.08) }
+
     fn region_rows(idx: usize) -> (f32, ScreenBounds, ScreenBounds, ScreenBounds, ScreenBounds, ScreenBounds, ScreenBounds) {
         let top = 0.68 - (idx as f32) * 0.33;
         let (r1, r2) = ((top - 0.13, top - 0.05), (top - 0.24, top - 0.16));
@@ -121,50 +139,47 @@ impl WardrobeStudio {
 
     pub fn press_pointer(&mut self) -> StudioDirective {
         let pt = self.pointer.point;
-        if ScreenBounds::new(-0.36, 0.72, -0.14, 0.81).contains(pt) {
+        if Self::rotate_left_button().contains(pt) {
             self.stage = self.stage.rotated(-0.35);
             return StudioDirective::StayInStudio;
         }
-        if ScreenBounds::new(-0.11, 0.72, 0.11, 0.81).contains(pt) {
+        if Self::front_button().contains(pt) {
             self.stage = self.stage.reset_angle();
             return StudioDirective::StayInStudio;
         }
-        if ScreenBounds::new(0.14, 0.72, 0.36, 0.81).contains(pt) {
+        if Self::rotate_right_button().contains(pt) {
             self.stage = self.stage.rotated(0.35);
             return StudioDirective::StayInStudio;
         }
 
         let (held_r, held_l) = self.attire.held_pair();
         for (i, arch) in AvatarArchetype::all().iter().enumerate() {
-            let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, 0.68 - ((i / 2) as f32) * 0.10);
-            if ScreenBounds::new(x0, y1 - 0.08, x0 + 0.22, y1).contains(pt) {
+            if Self::archetype_slot(i).contains(pt) {
                 self.archetype = *arch;
                 self.update_attire(arch.attire_for(self.attire.feminine()).with_relics(held_r, held_l));
                 return StudioDirective::StayInStudio;
             }
         }
         for (i, swatch) in ComplexionSwatch::all().iter().enumerate() {
-            let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, 0.26 - ((i / 2) as f32) * 0.095);
-            if ScreenBounds::new(x0, y1 - 0.075, x0 + 0.22, y1).contains(pt) {
+            if Self::swatch_slot(i).contains(pt) {
                 self.update_attire(self.attire.with_complexion(*swatch));
                 return StudioDirective::StayInStudio;
             }
         }
         let clothing_keys = [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, KeyCode::Digit6];
         for (i, key) in clothing_keys.iter().enumerate() {
-            let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, -0.24 - ((i / 2) as f32) * 0.10);
-            if ScreenBounds::new(x0, y1 - 0.08, x0 + 0.22, y1).contains(pt) {
+            if Self::clothing_slot(i).contains(pt) {
                 if let Some(next) = self.attire.with_wardrobe_key(*key) {
                     self.update_attire(next);
                 }
                 return StudioDirective::StayInStudio;
             }
         }
-        if ScreenBounds::new(-0.94, -0.74, -0.72, -0.66).contains(pt) {
+        if Self::male_button().contains(pt) {
             self.update_attire(self.archetype.attire_for(false).with_relics(held_r, held_l));
             return StudioDirective::StayInStudio;
         }
-        if ScreenBounds::new(-0.70, -0.74, -0.48, -0.66).contains(pt) {
+        if Self::female_button().contains(pt) {
             self.update_attire(self.archetype.attire_for(true).with_relics(held_r, held_l));
             return StudioDirective::StayInStudio;
         }
@@ -187,14 +202,14 @@ impl WardrobeStudio {
                 return StudioDirective::StayInStudio;
             }
         }
-        if ScreenBounds::new(0.48, -0.78, 0.94, -0.68).contains(pt) {
+        if Self::reset_button().contains(pt) {
             self.update_attire(self.attire.with_physique(YouthPhysique::SlenderSquire.as_feminine(self.attire.feminine())));
             return StudioDirective::StayInStudio;
         }
-        if ScreenBounds::new(-0.18, -0.95, 0.18, -0.84).contains(pt) {
+        if Self::back_button().contains(pt) {
             return StudioDirective::ReturnToPauseMenu;
         }
-        if ScreenBounds::new(-0.43, -0.80, 0.43, 0.70).contains(pt) {
+        if Self::turntable_viewport().contains(pt) {
             self.pointer.dragging = true;
         }
         StudioDirective::StayInStudio
@@ -210,15 +225,14 @@ impl WardrobeStudio {
         );
         ScreenBounds::new(-0.97, 0.84, 0.97, 0.96).emit_framed(panel_bg, panel_rim, 0.006, target);
         PixelStamp::title(gold).emit_centered("CHARACTER STUDIO - SELECTION AND CUSTOMIZATION", 0.0, 0.90, target);
-        ScreenBounds::new(-0.36, 0.72, -0.14, 0.81).emit_button("< ROTATE", pt, btn_col, false, target);
-        ScreenBounds::new(-0.11, 0.72, 0.11, 0.81).emit_button("FRONT", pt, btn_col, false, target);
-        ScreenBounds::new(0.14, 0.72, 0.36, 0.81).emit_button("ROTATE >", pt, btn_col, false, target);
+        Self::rotate_left_button().emit_button("< ROTATE", pt, btn_col, false, target);
+        Self::front_button().emit_button("FRONT", pt, btn_col, false, target);
+        Self::rotate_right_button().emit_button("ROTATE >", pt, btn_col, false, target);
 
         ScreenBounds::new(-0.97, -0.81, -0.45, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
         PixelStamp::caption(gold).emit_centered("CHARACTER BODY", -0.71, 0.75, target);
         for (i, arch) in AvatarArchetype::all().iter().enumerate() {
-            let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, 0.68 - ((i / 2) as f32) * 0.10);
-            ScreenBounds::new(x0, y1 - 0.08, x0 + 0.22, y1).emit_button(
+            Self::archetype_slot(i).emit_button(
                 arch.gender_title(self.attire.feminine()),
                 pt,
                 btn_col,
@@ -228,8 +242,7 @@ impl WardrobeStudio {
         }
         PixelStamp::caption(gold).emit_centered("SKIN COLOR", -0.71, 0.32, target);
         for (i, swatch) in ComplexionSwatch::all().iter().enumerate() {
-            let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, 0.26 - ((i / 2) as f32) * 0.095);
-            ScreenBounds::new(x0, y1 - 0.075, x0 + 0.22, y1).emit_swatch(
+            Self::swatch_slot(i).emit_swatch(
                 swatch.label(),
                 pt,
                 swatch.skin(),
@@ -240,12 +253,11 @@ impl WardrobeStudio {
         PixelStamp::caption(gold).emit_centered("CLOTHING", -0.71, -0.18, target);
         let clothing_labels = ["TUNIC", "SLEEVES", "BELT", "BOOTS", "HEADGEAR", "DYE COLOR"];
         for (i, lbl) in clothing_labels.iter().enumerate() {
-            let (x0, y1) = (-0.94 + ((i % 2) as f32) * 0.24, -0.24 - ((i / 2) as f32) * 0.10);
-            ScreenBounds::new(x0, y1 - 0.08, x0 + 0.22, y1).emit_button(lbl, pt, btn_col, false, target);
+            Self::clothing_slot(i).emit_button(lbl, pt, btn_col, false, target);
         }
         PixelStamp::caption(gold).emit_centered("GENDER", -0.71, -0.60, target);
-        ScreenBounds::new(-0.94, -0.74, -0.72, -0.66).emit_button("MALE", pt, btn_col, !self.attire.feminine(), target);
-        ScreenBounds::new(-0.70, -0.74, -0.48, -0.66).emit_button("FEMALE", pt, btn_col, self.attire.feminine(), target);
+        Self::male_button().emit_button("MALE", pt, btn_col, !self.attire.feminine(), target);
+        Self::female_button().emit_button("FEMALE", pt, btn_col, self.attire.feminine(), target);
 
         ScreenBounds::new(0.45, -0.81, 0.97, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
         PixelStamp::caption(gold).emit_centered("BODY PARTS", 0.71, 0.75, target);
@@ -260,7 +272,7 @@ impl WardrobeStudio {
             g_bar.emit_gauge("THICKNESS", prop.girth_ratio(), Vec3::new(0.68, 0.44, 0.22), target);
             g_inc.emit_button("+", pt, btn_col, false, target);
         }
-        ScreenBounds::new(0.48, -0.78, 0.94, -0.68).emit_button("RESET PROPORTIONS", pt, btn_col, false, target);
-        ScreenBounds::new(-0.18, -0.95, 0.18, -0.84).emit_button("BACK", pt, btn_col, false, target);
+        Self::reset_button().emit_button("RESET PROPORTIONS", pt, btn_col, false, target);
+        Self::back_button().emit_button("BACK", pt, btn_col, false, target);
     }
 }

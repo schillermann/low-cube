@@ -1,11 +1,11 @@
 use glam::Vec3;
-use crate::{ClimateZone, Face, FoldedFace, PlanarFace};
+use crate::{ClimateZone, Face, FacetedReliefFace, FoldedFace};
 
 const HALF_SIZE: f32 = 16.0;
 const EYE_HEIGHT: f32 = 1.0;
 
 fn top_folded_face() -> FoldedFace {
-    let base = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ONE, HALF_SIZE, 16));
+    let base = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, HALF_SIZE, 32));
     FoldedFace::in_zone(base, ClimateZone::Temperate, HALF_SIZE)
 }
 

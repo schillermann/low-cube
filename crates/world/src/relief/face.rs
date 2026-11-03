@@ -1,11 +1,10 @@
 use std::sync::RwLock;
 use glam::Vec3;
-use crate::block::{BlockMedium, BlockMold, GridCell};
+use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics};
 use crate::topology::ClimateZone;
 use crate::{Face, MeshTarget, Quad};
-use super::cavity::{NullCavity, SubterraneanCavity};
 use super::elevation::{ReliefElevation, ZonedRelief};
 use super::palette::ReliefPalette;
 use super::sight_ray::SurfaceSightRay;
@@ -23,7 +22,6 @@ impl MeshTarget for RowQuadTarget<'_> {
 struct ReliefDomain {
     frame: SurfaceFrame,
     relief: Box<dyn ReliefElevation>,
-    cavity: Box<dyn SubterraneanCavity>,
 }
 
 struct ReliefRowCache {
@@ -44,14 +42,13 @@ impl FacetedReliefFace {
     pub fn new(
         frame: SurfaceFrame,
         relief: Box<dyn ReliefElevation>,
-        cavity: Box<dyn SubterraneanCavity>,
         palette: ReliefPalette,
         strata: ReliefStrata,
         divisions: u32,
         cached_rows: RwLock<Vec<Vec<Quad>>>,
     ) -> Self {
         Self {
-            domain: ReliefDomain { frame, relief, cavity },
+            domain: ReliefDomain { frame, relief },
             palette,
             cache: ReliefRowCache { strata, divisions, cached_rows },
         }
@@ -104,7 +101,7 @@ impl FacetedReliefFace {
         };
         let zoned = Box::new(ZonedRelief::new(warped, frame.normal(), frame.tangent(), frame.bitangent(), half_size, min_elev, max_elev));
         let relief = Box::new(TerracedRelief::in_span(zoned, (divisions as i32) / 2));
-        Self::new(frame, relief, Box::new(NullCavity), palette, strata, divisions, RwLock::new(Vec::new()))
+        Self::new(frame, relief, palette, strata, divisions, RwLock::new(Vec::new()))
     }
 
     /// Secondary constructor assembling a relief face calibrated for Tron wireframe visualization.
@@ -112,6 +109,15 @@ impl FacetedReliefFace {
         let mut face = Self::in_zone(zone, half_size, divisions);
         face.palette = ReliefPalette::tron();
         face
+    }
+
+    /// Returns this relief face with an additional molded voxel shape stacked at `(u, v, base)`.
+    pub fn with_molded_block(mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>) -> Self {
+        let full_flat = (shape.elevation_at(0.5, 0.5) - 0.5).abs() < 1e-4
+            && (shape.elevation_at(0.0, 0.0) - 0.5).abs() < 1e-4
+            && (shape.elevation_at(1.0, 1.0) - 0.5).abs() < 1e-4;
+        self.domain.relief.stack_molded_cell(u, v, base, shape, full_flat);
+        self
     }
 
     fn build_row(&self, v: i32, half: i32) -> Vec<Quad> {
@@ -122,7 +128,6 @@ impl FacetedReliefFace {
                 GridCell::new(u, v),
                 &self.domain.frame,
                 self.domain.relief.as_ref(),
-                self.domain.cavity.as_ref(),
                 &self.palette,
                 half,
                 &mut target,
@@ -155,10 +160,8 @@ impl Face for FacetedReliefFace {
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
         let (u, v) = self.domain.frame.decompose(point);
-        let current_h = self.domain.frame.height_of(point);
         let surface_h = self.domain.relief.support_height_at(u, v, self.domain.frame.elevation_of(point) - distance, distance);
-        let depth_h = self.domain.cavity.constrain_depth(u, v, current_h, surface_h);
-        self.domain.frame.point_at(u, v, depth_h + distance)
+        self.domain.frame.point_at(u, v, surface_h + distance)
     }
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
@@ -217,7 +220,7 @@ impl Face for FacetedReliefFace {
     fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
         let half = (self.cache.divisions as i32) / 2;
         if stage == 0 {
-            let (prev_v, changed) = self.domain.relief.mark_dig_stage(0, 0, 0);
+            let (prev_v, changed) = self.domain.relief.clear_dig_stage();
             if changed {
                 self.refresh_rows(prev_v, half);
             }

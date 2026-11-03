@@ -1,4 +1,3 @@
-mod cavity;
 mod corner;
 mod crust_vault;
 mod elevation;
@@ -27,7 +26,6 @@ mod watertight_tests;
 #[cfg(test)]
 mod wedge_seam_tests;
 
-pub use cavity::{CavitySpan, NullCavity, SubterraneanCavity, ZonedCavity};
 pub use corner::ReliefCorner;
 pub use crust_vault::CrustVault;
 pub use elevation::ReliefElevation;

@@ -5,17 +5,17 @@ use crate::topology::ClimateZone;
 use crate::{MeshTarget, Quad};
 use super::{ReliefElevation, ReliefFacet, ReliefPalette, TerracedRelief};
 
-struct QuadListCollector {
+struct QuadLedger {
     quads: Vec<Quad>,
 }
 
-impl QuadListCollector {
+impl QuadLedger {
     fn new() -> Self {
         Self { quads: Vec::new() }
     }
 }
 
-impl MeshTarget for QuadListCollector {
+impl MeshTarget for QuadLedger {
     fn push_quad(&mut self, quad: Quad) {
         self.quads.push(quad);
     }
@@ -37,7 +37,7 @@ impl ReliefElevation for TestReliefGrid {
 fn test_stacked_cubes_adjacent_to_ramp_wedge_seals_lower_cube() {
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
     let facet = ReliefFacet::new();
-    let mut collector = QuadListCollector::new();
+    let mut collector = QuadLedger::new();
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
 
     // Cell (0, 0) has height 2 (two stacked Full-Cubes).
@@ -81,7 +81,7 @@ fn test_stacked_cubes_adjacent_to_ramp_wedge_seals_lower_cube() {
 fn test_ramp_wedge_seals_against_higher_neighbor() {
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
     let facet = ReliefFacet::new();
-    let mut collector = QuadListCollector::new();
+    let mut collector = QuadLedger::new();
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
 
     // Cell (0, 0) has height 3 (three Full-Cubes high).
@@ -125,7 +125,7 @@ fn test_ramp_wedge_seals_against_higher_neighbor() {
 fn test_single_full_cube_adjacent_to_ramp_wedge_seals_cube_wall() {
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
     let facet = ReliefFacet::new();
-    let mut collector = QuadListCollector::new();
+    let mut collector = QuadLedger::new();
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
 
     // Cell (0, 0) has height 1 (single Full-Cube, with cliff at (0, 1) of height 2).
@@ -172,12 +172,12 @@ fn test_floating_lateral_block_dig_animation_on_floating_block_not_ground() {
 
     // Place a floating block at (0, 0) at base = 1.0 (air in 0.0..1.0 above ground 0.0)
     assert!(terraced.stack_molded_cell(0, 0, 1.0, Box::new(CuboidShape::new(0.5)), true));
-    let mut idle_col = QuadListCollector::new();
+    let mut idle_col = QuadLedger::new();
     facet.emit_facet(GridCell::new(0, 0), &frame, &terraced, 16, &palette, &mut idle_col);
 
     // Mark dig stage 2 on cell (0, 0)
     terraced.mark_dig_stage(0, 0, 2);
-    let mut dug_col = QuadListCollector::new();
+    let mut dug_col = QuadLedger::new();
     facet.emit_facet(GridCell::new(0, 0), &frame, &terraced, 16, &palette, &mut dug_col);
 
     let below_ground = dug_col.quads.iter().any(|q| q.transfer(|v0, v1, v2, v3, _, _| {

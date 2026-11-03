@@ -11,14 +11,18 @@ use super::YouthAttire;
 /// Single craftable recipe entry inside the medieval Crafting Book.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CraftingEntry {
-    product: HeldRelic, category: &'static str, ingredients: [(HeldRelic, u32); 2],
+    product: HeldRelic,
+    batch_yield: u32,
+    category: &'static str,
+    ingredients: [(HeldRelic, u32); 2],
 }
 
 impl CraftingEntry {
-    pub const fn new(product: HeldRelic, category: &'static str, ingredients: [(HeldRelic, u32); 2]) -> Self {
-        Self { product, category, ingredients }
+    pub const fn new(product: HeldRelic, batch_yield: u32, category: &'static str, ingredients: [(HeldRelic, u32); 2]) -> Self {
+        Self { product, batch_yield, category, ingredients }
     }
     pub const fn product(&self) -> HeldRelic { self.product }
+    pub const fn batch_yield(&self) -> u32 { self.batch_yield }
     pub const fn ingredients(&self) -> [(HeldRelic, u32); 2] { self.ingredients }
 
     pub fn craftable(&self, satchel: &BeltSatchel, attire: YouthAttire) -> bool {
@@ -47,13 +51,13 @@ impl ArtisanTome {
 
     pub const fn entries() -> [CraftingEntry; 7] {
         [
-            CraftingEntry::new(HeldRelic::WoodmanAxe, "TOOL", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
-            CraftingEntry::new(HeldRelic::PlankBlock, "BLOCK", [(HeldRelic::TimberBlock, 1), (HeldRelic::EmptyPalm, 0)]),
-            CraftingEntry::new(HeldRelic::WoodenMallet, "TOOL", [(HeldRelic::DeadwoodBough, 2), (HeldRelic::FlintStone, 1)]),
-            CraftingEntry::new(HeldRelic::IronSpade, "TOOL", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 2)]),
-            CraftingEntry::new(HeldRelic::KnightlySword, "WEAPON", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 3)]),
-            CraftingEntry::new(HeldRelic::TimberTorch, "ITEM", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
-            CraftingEntry::new(HeldRelic::QuarriedStone, "BLOCK", [(HeldRelic::FlintStone, 2), (HeldRelic::EmptyPalm, 0)]),
+            CraftingEntry::new(HeldRelic::WoodmanAxe, 1, "TOOL", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
+            CraftingEntry::new(HeldRelic::PlankBlock, 4, "BLOCK", [(HeldRelic::TimberBlock, 1), (HeldRelic::EmptyPalm, 0)]),
+            CraftingEntry::new(HeldRelic::WoodenMallet, 1, "TOOL", [(HeldRelic::DeadwoodBough, 2), (HeldRelic::FlintStone, 1)]),
+            CraftingEntry::new(HeldRelic::IronSpade, 1, "TOOL", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 2)]),
+            CraftingEntry::new(HeldRelic::KnightlySword, 1, "WEAPON", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 3)]),
+            CraftingEntry::new(HeldRelic::TimberTorch, 1, "ITEM", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
+            CraftingEntry::new(HeldRelic::QuarriedStone, 1, "BLOCK", [(HeldRelic::FlintStone, 2), (HeldRelic::EmptyPalm, 0)]),
         ]
     }
 
@@ -73,7 +77,7 @@ impl ArtisanTome {
     pub fn craft_selected(self, side: f32, satchel: BeltSatchel, attire: YouthAttire) -> (Self, BeltSatchel, YouthAttire, bool) {
         let (state, entry) = (satchel.reconcile_attire(attire), self.selected_entry());
         if !entry.craftable(&state, attire) { return (self, state, attire, false); }
-        let (next_satchel, next_attire) = state.consume_and_equip(entry.ingredients(), entry.product(), side, attire);
+        let (next_satchel, next_attire) = state.consume_and_equip(entry.ingredients(), entry.product(), entry.batch_yield(), side, attire);
         (self.with_open(false), next_satchel, next_attire, true)
     }
 
@@ -127,7 +131,7 @@ impl ArtisanTome {
             row_frame.emit_framed_plaque(0.262, 0.021, 0.0020, row_bg, row_rim, target);
 
             let icon_frame = row_frame.shifted(-0.225, 0.0, -0.010).scaled(0.42);
-            entry.product.emit_in_satchel_slot(BlockMold::cube(), row_rim, &icon_frame, target);
+            entry.product.emit_in_satchel_slot(BlockMold::cube(), selected, row_rim, &icon_frame, target);
 
             let title_col = if ready { Vec3::new(1.10, 1.55, 0.95) } else { Vec3::new(1.48, 1.36, 1.12) };
             let status = if ready { "READY" } else { "NEED RESOURCES" };

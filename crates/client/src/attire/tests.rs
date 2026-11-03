@@ -1,8 +1,7 @@
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{
-    ClimateZone, Face, GravityField, MeshTarget, PlanarFace, PlanetaryWorld, Quad, StoneBlock,
-    SurfaceFrame, VoxelCluster,
+    ClimateZone, CubePlanet, CuboidShape, FacetedReliefFace, MeshTarget, NullFace, PlanetaryWorld, Quad,
 };
 use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
@@ -31,24 +30,12 @@ impl MeshTarget for QuadLedger {
     fn push_quad(&mut self, quad: Quad) { self.quads.push(quad); }
 }
 
-struct WallTestWorld { cluster: VoxelCluster }
-
-impl WallTestWorld {
-    fn with_cube_at(u: i32, v: i32) -> Self {
-        let face = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ONE, 8.0, 16));
-        let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
-        Self { cluster: VoxelCluster::new(face, frame, vec![Box::new(StoneBlock::cube(u, v, 0.0))]) }
-    }
-}
-
-impl GravityField for WallTestWorld {
-    fn pull_direction_at(&self, _position: Vec3) -> Vec3 { Vec3::NEG_Y }
-    fn surface_up_at(&self, _position: Vec3) -> Vec3 { Vec3::Y }
-}
-
-impl PlanetaryWorld for WallTestWorld {
-    fn emit_surface(&self, target: &mut dyn MeshTarget) { self.cluster.emit_surface(target); }
-    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 { self.cluster.constrain(position, player_height) }
+fn world_with_cube_at(u: i32, v: i32) -> CubePlanet {
+    let face = Box::new(
+        FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 16)
+            .with_molded_block(u, v, 0.0, Box::new(CuboidShape::full_cube())),
+    );
+    CubePlanet::new(vec![face], Box::new(NullFace))
 }
 
 struct WalkEastControls;
@@ -63,7 +50,7 @@ impl KeyboardControls for WalkEastControls {
 #[test]
 fn test_body_envelope_prevents_camera_from_clipping_into_block_wall() {
     // Solid 0.5x0.5x0.5 stone cube occupies x in [0.5, 1.0], z in [0.0, 0.5]
-    let world = WallTestWorld::with_cube_at(1, 0);
+    let world = world_with_cube_at(1, 0);
     let start = world.constrain_to_surface(Vec3::new(0.0, 5.0, 0.25), 1.0);
     let mut avatar = PlanetaryAvatar::at(start);
     let controls = WalkEastControls;

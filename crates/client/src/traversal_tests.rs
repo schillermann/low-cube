@@ -1,45 +1,22 @@
 use glam::Vec3;
 use world::{
-    BiomedCubeWorld, Block, ClimateZone, Face, GravityField, MeshTarget, PlanarFace,
-    PlanetaryWorld, StoneBlock, SurfaceFrame, VoxelCluster, WedgeHeading,
+    BiomedCubeWorld, ClimateZone, CubePlanet, CuboidShape, FacetedReliefFace, NullFace,
+    PlanetaryWorld, RampWedge, VoxelShape, WedgeHeading,
 };
 use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::gait::{SneakGait, SprintGait, WalkGait};
 
-struct ObstacleWorld {
-    cluster: VoxelCluster,
-}
-
-impl ObstacleWorld {
-    fn with_block(block: Box<dyn Block>) -> Self {
-        let face = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ONE, 8.0, 16));
-        let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
-        let cluster = VoxelCluster::new(face, frame, vec![block]);
-        Self { cluster }
-    }
-}
-
-impl GravityField for ObstacleWorld {
-    fn pull_direction_at(&self, _position: Vec3) -> Vec3 {
-        Vec3::NEG_Y
-    }
-    fn surface_up_at(&self, _position: Vec3) -> Vec3 {
-        Vec3::Y
-    }
-}
-
-impl PlanetaryWorld for ObstacleWorld {
-    fn emit_surface(&self, target: &mut dyn MeshTarget) {
-        self.cluster.emit_surface(target);
-    }
-    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
-        self.cluster.constrain(position, player_height)
-    }
+fn world_with_shape(u: i32, v: i32, shape: Box<dyn VoxelShape>) -> CubePlanet {
+    let face = Box::new(
+        FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 16)
+            .with_molded_block(u, v, 0.0, shape),
+    );
+    CubePlanet::new(vec![face], Box::new(NullFace))
 }
 
 #[test]
 fn test_walk_into_solid_cube_blocked() {
-    let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
+    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // At x = 0.45, z = 0.25: just in front of the SolidCube at grid (1, 0) spanning x in [0.5, 1.0]
     let start_pos = world.constrain_to_surface(Vec3::new(0.45, 5.0, 0.25), 1.0);
@@ -54,7 +31,7 @@ fn test_walk_into_solid_cube_blocked() {
 
 #[test]
 fn test_walk_up_ramp_wedge_smoothly() {
-    let world = ObstacleWorld::with_block(Box::new(StoneBlock::wedge(0, 0, 0.0, WedgeHeading::North)));
+    let world = world_with_shape(0, 0, Box::new(RampWedge::new(WedgeHeading::North)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // At x = 0.25, z = 0.1: on the 45° RampWedge rising along +Z
     let start_pos = world.constrain_to_surface(Vec3::new(0.25, 5.0, 0.1), 1.0);
@@ -69,7 +46,7 @@ fn test_walk_up_ramp_wedge_smoothly() {
 
 #[test]
 fn test_walk_into_wall_while_strafing_preserves_lateral_motion() {
-    let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
+    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // At x = 0.45, z = 0.15: in front of the SolidCube at grid (1, 0)
     let start_pos = world.constrain_to_surface(Vec3::new(0.45, 5.0, 0.15), 1.0);
@@ -86,7 +63,7 @@ fn test_walk_into_wall_while_strafing_preserves_lateral_motion() {
 
 #[test]
 fn test_walk_off_elevated_block_falls_when_not_sneaking() {
-    let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
+    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // On the 0.5m cube at x = 0.95, z = 0.25 (edge is at x = 1.0, elevation 9.5)
     let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.25), 1.0);
@@ -107,7 +84,7 @@ fn test_walk_off_elevated_block_falls_when_not_sneaking() {
 
 #[test]
 fn test_sneak_on_elevated_block_prevents_falling() {
-    let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
+    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // On the 0.5m cube at x = 0.95, z = 0.25 (edge is at x = 1.0, elevation 9.5)
     let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.25), 1.0);
@@ -124,7 +101,7 @@ fn test_sneak_on_elevated_block_prevents_falling() {
 
 #[test]
 fn test_sneak_on_elevated_block_diagonal_slides_along_edge() {
-    let world = ObstacleWorld::with_block(Box::new(StoneBlock::cube(1, 0, 0.0)));
+    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.15), 1.0);
     let stride = Vec3::new(0.1, 0.0, 0.1);
@@ -157,7 +134,7 @@ fn test_sneak_paces_stride_distance() {
 
 #[test]
 fn test_sprint_jump_over_ramp_wedge_does_not_get_stuck() {
-    let world = ObstacleWorld::with_block(Box::new(StoneBlock::wedge(0, 0, 0.0, WedgeHeading::North)));
+    let world = world_with_shape(0, 0, Box::new(RampWedge::new(WedgeHeading::North)));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // Start on flat ground before the ramp (z = -0.60) so the jump lands mid-slope on the wedge
     let mut pos = world.constrain_to_surface(Vec3::new(0.25, 5.0, -0.60), 1.0);
@@ -194,17 +171,16 @@ fn test_sprint_jump_on_biomed_cube_world_slopes() {
 
 #[test]
 fn test_full_cube_staircase_jump_climbs_block_by_block_without_flying() {
-    let face = Box::new(PlanarFace::in_zone(ClimateZone::Temperate, Vec3::ONE, 8.0, 16));
-    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 8.0);
-    let blocks: Vec<Box<dyn Block>> = vec![
-        Box::new(StoneBlock::cube(0, 2, 0.0)),
-        Box::new(StoneBlock::cube(0, 3, 0.0)),
-        Box::new(StoneBlock::cube(0, 3, 0.5)),
-        Box::new(StoneBlock::cube(0, 4, 0.0)),
-        Box::new(StoneBlock::cube(0, 4, 0.5)),
-        Box::new(StoneBlock::cube(0, 4, 1.0)),
-    ];
-    let world = ObstacleWorld { cluster: VoxelCluster::new(face, frame, blocks) };
+    let face = Box::new(
+        FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 16)
+            .with_molded_block(0, 2, 0.0, Box::new(CuboidShape::full_cube()))
+            .with_molded_block(0, 3, 0.0, Box::new(CuboidShape::full_cube()))
+            .with_molded_block(0, 3, 0.5, Box::new(CuboidShape::full_cube()))
+            .with_molded_block(0, 4, 0.0, Box::new(CuboidShape::full_cube()))
+            .with_molded_block(0, 4, 0.5, Box::new(CuboidShape::full_cube()))
+            .with_molded_block(0, 4, 1.0, Box::new(CuboidShape::full_cube())),
+    );
+    let world = CubePlanet::new(vec![face], Box::new(NullFace));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     let mut pos = world.constrain_to_surface(Vec3::new(0.25, 12.0, 0.75), 1.0);
     let stride = Vec3::new(0.0, 0.0, 0.10);

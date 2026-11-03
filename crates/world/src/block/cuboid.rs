@@ -58,6 +58,7 @@ impl VoxelShape for CuboidShape {
         target.push_quad(Quad::new(b1, b2, p2, p1, frame.tangent(), color));
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn emit_terraced_shape(
         &self,
         cell: GridCell,
@@ -65,12 +66,14 @@ impl VoxelShape for CuboidShape {
         frame: &SurfaceFrame,
         top_color: Vec3,
         wall_color: Vec3,
+        bare_top: bool,
         target: &mut dyn MeshTarget,
     ) {
         if self.height >= 0.45 {
-            EarthClods::new(cell, base_elevation).emit_terraced(top_color, top_color == wall_color, frame, target);
+            EarthClods::new(cell, base_elevation).emit_terraced(top_color, bare_top, frame, target);
         } else {
-            let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, base_elevation), top_color, wall_color, true);
+            let cap = if bare_top { wall_color } else { top_color };
+            let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, base_elevation), cap, wall_color, true);
             self.emit_shape(cell, base_elevation, frame, wall_color, &mut turf);
             turf.seal_underside();
         }

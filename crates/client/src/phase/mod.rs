@@ -143,7 +143,9 @@ impl AirborneFlight {
                 confined,
             );
         }
-        let rebound = ctx.resolve_aerial_stride(airborne_stride, surface_up, vertical_step, self.threshold);
+        let raw_rebound = ctx.resolve_aerial_stride(airborne_stride, surface_up, vertical_step, self.threshold);
+        let rebound = if next_speed > 0.0 { ctx.confine_crust(raw_rebound) } else { raw_rebound };
+        let next_speed = if (rebound - raw_rebound).dot(surface_up) < -1e-4 { next_speed.min(0.0) } else { next_speed };
         let supported = ctx.constrain_surface(rebound);
         let clearance = ctx.clearance(rebound, supported);
         let orig_pt = ctx.candidate_point(Vec3::ZERO);

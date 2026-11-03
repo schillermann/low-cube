@@ -42,8 +42,8 @@ fn test_excavated_terrain_soil_wears_the_hand_held_earth_block_clods() {
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
     let (mut pit, mut rim) = (ToneLedger { tones: Vec::new(), down_pebbles: 0 }, ToneLedger { tones: Vec::new(), down_pebbles: 0 });
-    ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &super::NullCavity, &palette, 64, &mut pit);
-    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &super::NullCavity, &palette, 64, &mut rim);
+    ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut pit);
+    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &palette, 64, &mut rim);
     let hand = hand_block_tones();
     let pebble = Vec3::new(0.64, 0.61, 0.55);
     assert!(hand.contains(&pebble) && pit.tones.contains(&pebble), "Bare excavated pit floor must show the hand block's clods and pebbles");
@@ -60,7 +60,7 @@ fn test_sideways_excavated_dirt_preserves_overhang_clod_structure() {
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
     let mut overhung = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
-    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &super::NullCavity, &palette, 64, &mut overhung);
+    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &palette, 64, &mut overhung);
     let pebble = Vec3::new(0.64, 0.61, 0.55);
     let overhang_pebbles = overhung.tones.iter().filter(|&&c| c == pebble).count();
     assert!(overhang_pebbles >= 50, "Blocks above a sideways-dug dirt block must retain their full 3D clod structure, got {overhang_pebbles}");
@@ -111,7 +111,7 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
         }
     }
     let mut probe = CrustWallProbe { crust_pebbles: 0, quartz_veins: 0, upper_pebbles: 0, top_y: crust_top_y };
-    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &super::NullCavity, &palette, 64, &mut probe);
+    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &palette, 64, &mut probe);
     assert_eq!(probe.crust_pebbles, 0, "4-layer planetary crust walls must never carry dirt color or soil clods");
     assert!(probe.quartz_veins >= 60, "4-layer planetary crust walls must emit Variant 2A 3D glowing quartz/amber mineral veins, got {}", probe.quartz_veins);
     assert!(probe.upper_pebbles > 0, "Soil layers above the 4-layer crust must retain soil clods");

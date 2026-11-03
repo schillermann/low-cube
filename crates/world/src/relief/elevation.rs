@@ -55,13 +55,16 @@ pub trait ReliefElevation: Send + Sync {
     fn bare_dirt_at(&self, _u: i32, _v: i32) -> bool { false }
 
     /// Emits molded voxel shapes at cell if present, returning true when emitted.
-    fn emit_molded_top(&self, _cell: GridCell, _base: f32, _frame: &SurfaceFrame, _top_col: Vec3, _wall_col: Vec3, _target: &mut dyn MeshTarget) -> bool { false }
+    fn emit_molded_top(&self, _cell: GridCell, _frame: &SurfaceFrame, _top_col: Vec3, _wall_col: Vec3, _target: &mut dyn MeshTarget) -> bool { false }
 
     /// Advances grass regrowth across bare dirt cells bordering grass within 1 block height.
     fn step_grass(&mut self, _dt: f32) -> Vec<i32> { Vec::new() }
 
     /// Partial digging stage (0..=3) at discrete cell (u, v) before full block excavation.
     fn dig_stage_at(&self, _u: i32, _v: i32) -> u8 { 0 }
+
+    /// Clears any active partial digging stage, returning the affected row and whether a stage was active.
+    fn clear_dig_stage(&mut self) -> (i32, bool) { (0, false) }
 
     /// Marks partial digging progress (0..=3) at discrete cell (u, v).
     fn mark_dig_stage(&mut self, _u: i32, _v: i32, _stage: u8) -> (i32, bool) { (0, false) }

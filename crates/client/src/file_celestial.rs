@@ -1,7 +1,7 @@
-use std::fs;
 use glam::{Vec3, Vec4};
 use crate::celestial::{CelestialCadence, TunedCadence};
 use crate::cycle_duration::CycleDuration;
+use crate::toml_document::TomlDocument;
 
 /// Configuration file-driven celestial cadence decorator.
 pub struct FileCelestial {
@@ -23,33 +23,14 @@ impl FileCelestial {
 
     /// Secondary constructor loading celestial cadence configuration from an explicit file path.
     pub fn from_path(path: &str, fallback: Box<dyn CelestialCadence>) -> Self {
-        let content = match fs::read_to_string(path) {
-            Ok(c) => c,
-            Err(_) => return Self::new(fallback),
+        let Some(doc) = TomlDocument::from_file(path) else {
+            return Self::new(fallback);
         };
-        if let Some(seconds) = Self::property_in_text(&content) {
-            Self::new(Box::new(TunedCadence::new(seconds, fallback)))
+        if let Some(cycle) = doc.property(Self::KEY).and_then(|raw| CycleDuration::parse(&raw)) {
+            Self::new(Box::new(TunedCadence::new(cycle.seconds(), fallback)))
         } else {
             Self::new(fallback)
         }
-    }
-
-    fn property_in_text(content: &str) -> Option<f32> {
-        for line in content.lines().map(str::trim) {
-            if line.is_empty() || line.starts_with('#') || (line.starts_with('[') && line.ends_with(']')) {
-                continue;
-            }
-            if let Some((key, val)) = line.split_once('=') {
-                if key.trim().eq_ignore_ascii_case(Self::KEY) {
-                    let raw = val.split('#').next().unwrap_or("").trim();
-                    let unquoted = raw.trim_matches('"').trim_matches('\'').trim();
-                    if let Some(cycle) = CycleDuration::parse(unquoted) {
-                        return Some(cycle.seconds());
-                    }
-                }
-            }
-        }
-        None
     }
 }
 

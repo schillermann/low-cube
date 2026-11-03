@@ -7,8 +7,8 @@ use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, KeyMotion};
 use crate::menu::StudioAnimation;
 
-struct QuadCollector { quads: Vec<Quad> }
-impl QuadCollector {
+struct QuadLedger { quads: Vec<Quad> }
+impl QuadLedger {
     fn empty() -> Self { Self { quads: Vec::new() } }
     fn count(&self) -> usize { self.quads.len() }
 
@@ -22,7 +22,7 @@ impl QuadCollector {
     }
 }
 
-impl MeshTarget for QuadCollector {
+impl MeshTarget for QuadLedger {
     fn push_quad(&mut self, quad: Quad) { self.quads.push(quad); }
 }
 
@@ -33,11 +33,11 @@ fn test_spawn_contains_only_player_avatar_without_persons_or_items() {
     let attire = YouthAttire::squire();
 
     let avatar = PlanetaryAvatar::at(spawn);
-    let mut spawn_collector = QuadCollector::empty();
+    let mut spawn_collector = QuadLedger::empty();
     avatar.emit_appearance(&mut spawn_collector);
 
     let first_person_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
-    let mut expected_collector = QuadCollector::empty();
+    let mut expected_collector = QuadLedger::empty();
     attire.emit(&first_person_pose, SightMode::FirstPersonSight, &mut expected_collector);
 
     assert_eq!(
@@ -60,7 +60,7 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
     let attire = YouthAttire::squire();
 
     let (mut stand_quads, mut sneak_quads, mut walk_quads, mut run_quads, mut jump_quads) = (
-        QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(), QuadCollector::empty(),
+        QuadLedger::empty(), QuadLedger::empty(), QuadLedger::empty(), QuadLedger::empty(), QuadLedger::empty(),
     );
     StudioAnimation::StandingIdle.emit_figure(pos, 0.0, 0.25, &attire, &mut stand_quads);
     StudioAnimation::CrouchingSneak.emit_figure(pos, 0.0, 0.25, &attire, &mut sneak_quads);
@@ -68,7 +68,7 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
     StudioAnimation::RunningSprint.emit_figure(pos, 0.0, 0.25, &attire, &mut run_quads);
     StudioAnimation::JumpingLeap.emit_figure(pos, 0.0, 0.55, &attire, &mut jump_quads);
 
-    let extract_vertices = |collector: &QuadCollector| -> Vec<Vec3> {
+    let extract_vertices = |collector: &QuadLedger| -> Vec<Vec3> {
         collector.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect()
     };
 
@@ -97,7 +97,7 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
         assert!(shoulder_w.y - elbow_w.y >= 0.20 && elbow_w.x > stand_elbow.x + 0.04);
     }
 
-    let world = BiomedCubeWorld::centripetal(32, 2.5, 4.0);
+    let world = BiomedCubeWorld::beveled(32, 1.0);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let (mut avatar, controls) = (PlanetaryAvatar::at(spawn), KeyMotion::idle());
     avatar.step_motion(1.0 / 60.0, &controls, &world);
@@ -113,19 +113,19 @@ fn test_dual_hand_weapons_and_strike_trajectories() {
     let controls = KeyMotion::idle();
 
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::KnightlySword));
-    let mut dual_quads = QuadCollector::empty();
+    let mut dual_quads = QuadLedger::empty();
     avatar.emit_appearance(&mut dual_quads);
 
     avatar.use_right_hand(&mut world);
     for _ in 0..8 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
-    let mut right_striking_quads = QuadCollector::empty();
+    let mut right_striking_quads = QuadLedger::empty();
     avatar.emit_appearance(&mut right_striking_quads);
-    let vertices = |c: &QuadCollector| c.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect::<Vec<_>>();
+    let vertices = |c: &QuadLedger| c.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect::<Vec<_>>();
     assert_ne!(vertices(&dual_quads), vertices(&right_striking_quads), "Right mouse strike must animate the right-hand weapon posture");
 
     avatar.use_left_hand(&mut world);
     for _ in 0..8 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
-    let mut left_striking_quads = QuadCollector::empty();
+    let mut left_striking_quads = QuadLedger::empty();
     avatar.emit_appearance(&mut left_striking_quads);
     assert_ne!(vertices(&right_striking_quads), vertices(&left_striking_quads), "Left mouse strike must animate the left-hand weapon posture");
 
@@ -163,10 +163,10 @@ fn test_satchel_open_shows_weapons_behind_and_outside_satchel_without_overlap() 
     armed.rotate_view(0.0, 380.0);
     armed.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::KnightlySword));
 
-    let mut closed_unarmed = QuadCollector::empty();
+    let mut closed_unarmed = QuadLedger::empty();
     unarmed.emit_appearance(&mut closed_unarmed);
     assert!(unarmed.dispatch_wardrobe_key(KeyCode::Tab) && armed.dispatch_wardrobe_key(KeyCode::Tab));
-    let (mut open_unarmed, mut open_armed) = (QuadCollector::empty(), QuadCollector::empty());
+    let (mut open_unarmed, mut open_armed) = (QuadLedger::empty(), QuadLedger::empty());
     unarmed.emit_appearance(&mut open_unarmed);
     armed.emit_appearance(&mut open_armed);
     assert!(open_armed.count() > open_unarmed.count(), "Held tools and weapons must remain visible while satchel menu is open");
@@ -190,7 +190,7 @@ fn test_satchel_open_shows_weapons_behind_and_outside_satchel_without_overlap() 
 
     let mut dual_axes = PlanetaryAvatar::at(spawn);
     dual_axes.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::WoodmanAxe));
-    let (mut initial_axes_mesh, mut unpacked_axes_mesh) = (QuadCollector::empty(), QuadCollector::empty());
+    let (mut initial_axes_mesh, mut unpacked_axes_mesh) = (QuadLedger::empty(), QuadLedger::empty());
     dual_axes.emit_appearance(&mut initial_axes_mesh);
     assert!(dual_axes.dispatch_wardrobe_key(KeyCode::KeyQ) && dual_axes.dispatch_wardrobe_key(KeyCode::KeyE));
     assert!(dual_axes.dispatch_wardrobe_key(KeyCode::KeyQ) && dual_axes.dispatch_wardrobe_key(KeyCode::KeyQ));

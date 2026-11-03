@@ -1,4 +1,5 @@
-use std::fs;
+use crate::command_flags::CommandFlags;
+use crate::toml_document::TomlDocument;
 
 /// Interface representing the configurable planetary world-cube scale (minimum factor 1 = 128 blocks).
 pub trait PlanetaryScale: Send + Sync {
@@ -58,31 +59,15 @@ impl FileScale {
 
     /// Secondary constructor loading world-cube size from an explicit configuration file path.
     pub fn from_path(path: &str, fallback: Box<dyn PlanetaryScale>) -> Self {
-        let Ok(content) = fs::read_to_string(path) else { return Self::new(fallback) };
-        if let Some(raw) = Self::extract_size(&content) {
-            Self::new(Box::new(ScaledCube::parse(&raw, path)))
+        let Some(doc) = TomlDocument::from_file(path) else { return Self::new(fallback) };
+        let raw = doc
+            .section_property("world", "size", true)
+            .or_else(|| doc.section_property("world", "scale", true));
+        if let Some(val) = raw {
+            Self::new(Box::new(ScaledCube::parse(&val, path)))
         } else {
             Self::new(fallback)
         }
-    }
-
-    fn extract_size(content: &str) -> Option<String> {
-        let mut in_world = true;
-        for line in content.lines().map(str::trim) {
-            if line.starts_with('[') && line.ends_with(']') {
-                in_world = line[1..line.len() - 1].trim().eq_ignore_ascii_case("world");
-                continue;
-            }
-            if in_world && !line.is_empty() && !line.starts_with('#') {
-                if let Some((k, v)) = line.split_once('=') {
-                    let key = k.trim();
-                    if key.eq_ignore_ascii_case("size") || key.eq_ignore_ascii_case("scale") {
-                        return Some(v.split('#').next().unwrap_or("").trim().to_string());
-                    }
-                }
-            }
-        }
-        None
     }
 }
 
@@ -130,20 +115,12 @@ impl ArgumentScale {
 
     /// Secondary constructor parsing an explicit arguments slice.
     pub fn from_arguments(args: &[String], fallback: Box<dyn PlanetaryScale>) -> Self {
-        if let Some(raw) = Self::flag_value(args, "--size").or_else(|| Self::flag_value(args, "--scale")) {
+        let flags = CommandFlags::from_slice(args);
+        if let Some(raw) = flags.value_of("--size").or_else(|| flags.value_of("--scale")) {
             Self::new(Box::new(ScaledCube::parse(&raw, "--size")))
         } else {
             Self::new(fallback)
         }
-    }
-
-    fn flag_value(args: &[String], flag: &str) -> Option<String> {
-        args.windows(2).find(|pair| pair[0] == flag).map(|pair| pair[1].clone()).or_else(|| {
-            args.iter()
-                .find(|arg| arg.starts_with(flag) && arg[flag.len()..].starts_with('='))
-                .and_then(|arg| arg.split_once('='))
-                .map(|(_, val)| val.to_string())
-        })
     }
 }
 
