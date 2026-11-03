@@ -93,7 +93,7 @@ impl<'a> FlightContext<'a> {
     }
 
     pub fn gravitational_acceleration(&self, vertical_speed: f32) -> f32 {
-        if self.weightless_ascent(vertical_speed) {
+        if self.terrain.world.weightless_at(self.step.position) {
             if vertical_speed < 0.0 {
                 vertical_speed - vertical_speed.max(-3.6) * (1.0 - (16.0 * self.step.dt).min(1.0))
             } else {

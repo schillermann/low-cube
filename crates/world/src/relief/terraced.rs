@@ -124,8 +124,9 @@ impl ReliefElevation for TerracedRelief {
     fn weightless_at(&self, u: f32, v: f32, elev: f32) -> bool {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
         let in_upward = self.shafts.in_upward_shaft(&self.strata, cu, cv, elev);
+        let margin = if in_upward { -1.5 } else { 0.10 };
         !self.shafts.in_unbreached_shaft(&self.strata, cu, cv, elev)
-            && if in_upward { self.shafts.upward_at(cu, cv) < 4 } else { self.strata.vault().encloses(u, v, elev, 0.10) }
+            && self.strata.vault().encloses(u, v, elev, margin)
             && !self.lethal_at(u, v, elev)
     }
 

@@ -179,7 +179,7 @@ impl GravitationalFlight for SurfaceFlight {
                 );
                 self.state.phase = self.state.phase.launch(launch_speed, launch_momentum);
             }
-        } else if thrust < 0 && world.weightless_at(position) {
+        } else if thrust < 0 && (world.weightless_at(position) || in_shaft) {
             self.state.phase = FlightPhase::Airborne(AirborneFlight::new(
                 -self.state.jump_strength,
                 StepThreshold::human_stride(),

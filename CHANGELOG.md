@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.42.6] - 2026-11-03
+
+### Fixed
+- Restored gravitational descent back to the hollow-world Earth's core when digging upward above the spherical 4-layer crust by evaluating weightlessness against the spherical crust boundary (`CrustVault::encloses` in `TerracedRelief::weightless_at`) and re-engaging gravity immediately above the crust shell (`FlightContext::gravitational_acceleration`, `PlanetaryAvatar::step_motion`, `SurfaceFlight::advance`).
+
 ## [0.42.5] - 2026-11-03
 
 ### Fixed

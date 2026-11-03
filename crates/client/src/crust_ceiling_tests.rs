@@ -107,6 +107,23 @@ fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface
     assert!(strained_scale > first_vp.x_axis.x && first_vp.x_axis.x > start_fov_scale, "Staying near the core must progressively narrow the FOV ({} -> {} -> {})", start_fov_scale, first_vp.x_axis.x, strained_scale);
     assert!(!world.weightless_at(crust_eye), "Weightlessness must end once the 4-layer crust is dug upward, got {crust_eye:?}");
 
+    assert!(!avatar.use_right_hand(&mut world));
+    assert!(avatar.use_right_hand(&mut world), "Digging one dirt block above the 4-layer crust");
+    for _ in 0..30 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
+    let dirt_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!(dirt_eye.y > crust_eye.y + 0.3 && !world.weightless_at(dirt_eye), "Avatar must ascend ~1 dirt block above crust, got {dirt_eye:?}");
+    controls.register_key(KeyCode::Space, false);
+    for _ in 0..90 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
+    let settled_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!(settled_eye.y < crust_eye.y && world.weightless_at(settled_eye), "Releasing Space ~1 dirt block above crust must descend back into weightless hollow world, got {settled_eye:?}");
+    controls.register_key(KeyCode::ShiftLeft, true);
+    for _ in 0..60 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
+    let core_bound_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!(core_bound_eye.y < 23.5 && world.weightless_at(core_bound_eye), "Pressing Shift after descending from dirt block above crust must reach hollow world toward core, got {core_bound_eye:?}");
+    controls.register_key(KeyCode::ShiftLeft, false);
+    controls.register_key(KeyCode::Space, true);
+    for _ in 0..120 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
+
     for _ in 0..25 {
         assert!(!avatar.use_right_hand(&mut world));
         if !avatar.use_right_hand(&mut world) { break; }
