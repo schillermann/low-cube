@@ -73,13 +73,14 @@ fn test_zoned_relief_direct_sampling() {
 fn test_deep_crust_excavation_hollow_world_breach_and_indestructible_magma_core() {
     let mut deep = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 64);
     for step in 1..=15 {
-        assert!(deep.excavate_cell(0, 0).1, "Must excavate through mantle and first 3 crust layers (step {step})");
+        let layer = -((step as f32) * 0.5) + 0.25;
+        assert!(deep.excavate_layer(0, 0, layer).1, "Must excavate through mantle and first 3 crust layers (step {step})");
     }
     assert_eq!(deep.elevation_at(0, 0), -15);
     assert!(!deep.breached_at(0, 0));
-    assert!(deep.excavate_cell(0, 0).1, "Excavating 4th crust layer above the vault must breach into hollow world");
+    assert!(deep.excavate_layer(0, 0, -7.75).1, "Excavating 4th crust layer above the vault must breach into hollow world");
     assert!(deep.breached_at(0, 0) && deep.elevation_at(0, 0) == -32);
-    assert!(!deep.excavate_cell(0, 0).1 && deep.mark_dig_stage(0, 0, 1).1.is_none(), "Magma core summit at -32 must be indestructible");
+    assert!(!deep.excavate_layer(0, 0, -16.25).1 && deep.mark_dig_layer(0, 0, -16.25, 1).1.is_none(), "Magma core summit at -32 must be indestructible");
     assert!(deep.weightless_at(0.0, 0.0, -13.0) && !deep.lethal_at(0.0, 0.0, -13.0), "Hollow world cavity must be weightless");
     assert!(deep.lethal_at(0.0, 0.0, -15.5) && !deep.weightless_at(0.0, 0.0, -15.5), "Magma core surface must be lethal");
     assert!(deep.weightless_at(14.0, 0.0, -16.0) && !deep.weightless_at(24.0, 24.0, -9.0), "Hollow beside the core floats while the rounded crust beyond the vault stays solid");
@@ -190,8 +191,12 @@ fn test_seam_chamfer_emission_at_world_border() {
 
     // Grass regrowth: scales with adjacent grass count (8 neighbors ~40-95s, 1 neighbor 8x slower, 2-block-high pillar never regrows)
     let mut terraced = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 8);
-    assert!(terraced.stack_cell(0, 0) && terraced.bare_dirt_at(0, 0));
-    assert!(terraced.stack_cell(3, 3) && terraced.stack_cell(3, 3) && terraced.bare_dirt_at(3, 3));
+    assert!(terraced.stack_molded_cell(0, 0, 0.0, Box::new(crate::block::CuboidShape::new(0.5))) && terraced.bare_dirt_at(0, 0));
+    assert!(
+        terraced.stack_molded_cell(3, 3, 0.0, Box::new(crate::block::CuboidShape::new(0.5)))
+            && terraced.stack_molded_cell(3, 3, 0.5, Box::new(crate::block::CuboidShape::new(0.5)))
+            && terraced.bare_dirt_at(3, 3)
+    );
     assert!(terraced.step_grass(15.0).is_empty() && terraced.bare_dirt_at(0, 0));
     assert!(!terraced.step_grass(30.0).is_empty() && !terraced.bare_dirt_at(0, 0), "Dirt block surrounded by 8 grass blocks within 1 block height must regrow grass in ~40-95s");
     assert!(terraced.step_grass(500.0).is_empty() && terraced.bare_dirt_at(3, 3), "Dirt block 2 blocks higher than neighboring grass must remain bare dirt");
@@ -218,7 +223,7 @@ fn test_upward_excavation_from_core_shares_identical_layer_logic_and_watertight_
         let expected_mid = ((step - 16) as f32) * 0.5 + 0.25;
         let expected_med = if step < 4 { crate::block::BlockMedium::CrustRock } else { crate::block::BlockMedium::TurfEarth };
         let (_, _, confined_z) = upward.confine(0.25, 0.25, expected_mid - 0.55);
-        assert!(upward.weightless_at(0.25, 0.25, confined_z), "Upward shaft must remain weightless at step {step} (z={confined_z})");
+        assert_eq!(upward.weightless_at(0.25, 0.25, confined_z), step < 4, "Weightlessness holds across the 4 crust layers and ends in mantle dirt above at step {step} (z={confined_z})");
         let eye = frame.point_at(0.25, 0.25, confined_z);
         let (cu, cv, layer) = SurfaceSightRay::new(eye, frame.normal()).target_layer(&frame, &upward, 64, 32.0).expect("Upward ray must hit ceiling block");
         assert_eq!((cu, cv, layer), (0, 0, expected_mid), "Upward ray at step {step} must address exact block midpoint {expected_mid}");

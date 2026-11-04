@@ -172,14 +172,6 @@ impl Face for ForestedFace {
         SurfaceFind::EmptyHanded
     }
 
-    fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
-        let changed = self.origin.place_block(eye, direction, avatar_pos);
-        if changed {
-            self.settle_flora();
-        }
-        changed
-    }
-
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let changed = self.origin.place_molded_block(eye, direction, avatar_pos, mold);
         if changed {

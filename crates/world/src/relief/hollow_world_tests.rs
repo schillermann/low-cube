@@ -113,11 +113,9 @@ fn test_crust_vault_ceiling_is_a_closed_magma_lit_beveled_block_dome() {
 fn test_crust_vault_breaches_after_four_layers_never_lifts_ceiling_and_confines_rising_eyes() {
     let vault = CrustVault::beneath(64);
     assert_eq!(vault.floor_steps_at(0, 0), -16);
-    assert_eq!(vault.excavated_steps(0, 0, -12, -32), -13, "1st crust layer digs to -13");
-    assert_eq!(vault.excavated_steps(0, 0, -13, -32), -14, "2nd crust layer digs to -14");
-    assert_eq!(vault.excavated_steps(0, 0, -14, -32), -15, "3rd crust layer digs to -15");
-    assert_eq!(vault.excavated_steps(0, 0, -15, -32), -32, "4th crust layer breaches into the hollow world shaft");
-    assert_eq!(vault.excavated_steps(60, 60, -35, -55), -36, "Crust outside the vault stops at the floor without breaching");
+    assert_eq!(vault.crust_top_step_at(0, 0), -12, "4-layer crust spans steps -16..-12");
+    assert!(vault.crust_layer_at(0, 0, -13) && !vault.crust_layer_at(0, 0, -12));
+    assert!(vault.cell_opens(0, 0) && !vault.cell_opens(60, 60));
     assert_eq!(vault.confine(0.0, 0.0, -9.0), -9.0, "Eyes well beneath the ceiling move freely");
     assert!((vault.confine(0.0, 0.0, -8.1) + 8.3).abs() < 1e-4, "Eyes rising into the ceiling are pushed back beneath it");
     assert!(vault.encloses(0.0, 0.0, -8.5, 0.1) && !vault.encloses(0.0, 0.0, -7.95, 0.1));

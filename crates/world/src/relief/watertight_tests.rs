@@ -175,8 +175,8 @@ fn test_floating_lateral_block_dig_animation_on_floating_block_not_ground() {
     let mut idle_col = QuadLedger::new();
     facet.emit_facet(GridCell::new(0, 0), &frame, &terraced, 16, &palette, &mut idle_col);
 
-    // Mark dig stage 2 on cell (0, 0)
-    terraced.mark_dig_stage(0, 0, 2);
+    // Mark dig stage 2 on the floating block layer (1.0..1.5, midpoint = 1.25)
+    terraced.mark_dig_layer(0, 0, 1.25, 2);
     let mut dug_col = QuadLedger::new();
     facet.emit_facet(GridCell::new(0, 0), &frame, &terraced, 16, &palette, &mut dug_col);
 

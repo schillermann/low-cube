@@ -64,14 +64,8 @@ pub trait ReliefElevation: Send + Sync {
     /// Clears any active partial digging stage, returning the affected cell and whether a stage was active.
     fn clear_dig_stage(&mut self) -> ((i32, i32), bool) { ((0, 0), false) }
 
-    /// Marks partial digging progress (0..=3) at discrete cell (u, v).
-    fn mark_dig_stage(&mut self, _u: i32, _v: i32, _stage: u8) -> ((i32, i32), Option<BlockMedium>) { ((0, 0), None) }
-
     /// Marks partial digging progress (0..=3) at a specific vertical layer within (u, v).
-    fn mark_dig_layer(&mut self, u: i32, v: i32, _layer_elev: f32, stage: u8) -> ((i32, i32), Option<BlockMedium>) { self.mark_dig_stage(u, v, stage) }
-
-    /// Excavates one discrete block layer at (u, v).
-    fn excavate_cell(&mut self, _u: i32, _v: i32) -> ((i32, i32), bool) { ((0, 0), false) }
+    fn mark_dig_layer(&mut self, _u: i32, _v: i32, _layer_elev: f32, _stage: u8) -> ((i32, i32), Option<BlockMedium>) { ((0, 0), None) }
 
     /// Excavates a specific vertical block layer within (u, v).
     fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), bool) {
@@ -80,16 +74,12 @@ pub trait ReliefElevation: Send + Sync {
     }
 
     /// Excavates a specific vertical block layer within (u, v), returning the harvested block medium.
-    fn harvest_layer(&mut self, u: i32, v: i32, _layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
-        let (cell, ok) = self.excavate_cell(u, v);
-        (cell, ok.then_some(BlockMedium::TurfEarth))
+    fn harvest_layer(&mut self, _u: i32, _v: i32, _layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
+        ((0, 0), None)
     }
 
-    /// Stacks one discrete block layer at (u, v).
-    fn stack_cell(&mut self, _u: i32, _v: i32) -> bool { false }
-
     /// Stacks one molded voxel block layer at (u, v).
-    fn stack_molded_cell(&mut self, u: i32, v: i32, _base: f32, _shape: Box<dyn VoxelShape>) -> bool { self.stack_cell(u, v) }
+    fn stack_molded_cell(&mut self, _u: i32, _v: i32, _base: f32, _shape: Box<dyn VoxelShape>) -> bool { false }
 }
 
 /// Zoned planetary relief evaluating continuous spatial frequency into stepped voxel strata.

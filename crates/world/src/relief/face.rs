@@ -221,10 +221,6 @@ impl Face for FacetedReliefFace {
         None
     }
 
-    fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
-        self.place_molded_block(eye, direction, avatar_pos, BlockMold::cube())
-    }
-
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let half = (self.cache.divisions as i32) / 2;
         let half_size = self.domain.frame.step_elevation(half);

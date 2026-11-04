@@ -93,10 +93,6 @@ impl Face for FoldedFace {
         self.origin.forage_timber(eye, direction)
     }
 
-    fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
-        self.origin.place_block(eye, direction, avatar_pos)
-    }
-
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         self.origin.place_molded_block(eye, direction, avatar_pos, mold)
     }

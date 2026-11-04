@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, CuboidShape, GridCell, VoxelShape};
+use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::elevation::ReliefElevation;
 use super::natural_strata::NaturalStrata;
@@ -27,11 +27,6 @@ impl TerracedRelief {
             ShaftExcavation::untouched(),
             OverhangMolds::untouched(),
         )
-    }
-
-    fn top_layer_at(&self, u: i32, v: i32) -> f32 {
-        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
-        self.molds.top_layer_at(u, v, ground_top)
     }
 }
 
@@ -114,9 +109,10 @@ impl ReliefElevation for TerracedRelief {
 
     fn weightless_at(&self, u: f32, v: f32, elev: f32) -> bool {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
-        let in_upward = self.shafts.in_upward_shaft(&self.strata, cu, cv, elev);
+        let crust_top_h = (self.strata.vault().crust_top_step_at(cu, cv) as f32) * 0.5;
+        let in_crust_upward = self.shafts.in_upward_shaft(&self.strata, cu, cv, elev) && elev < crust_top_h - 0.35;
         !self.shafts.in_unbreached_shaft(&self.strata, cu, cv, elev)
-            && (in_upward || self.strata.vault().encloses(u, v, elev, 0.10))
+            && (in_crust_upward || self.strata.vault().encloses(u, v, elev, 0.10))
             && !self.lethal_at(u, v, elev)
     }
 
@@ -143,15 +139,11 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32) -> u8 {
-        self.molds.layer_dig_stage_at(u, v, layer_elev, (self.elevation_at(u, v) as f32) * 0.5 - 0.25)
+        self.molds.layer_dig_stage_at(u, v, layer_elev)
     }
 
     fn clear_dig_stage(&mut self) -> ((i32, i32), bool) {
         self.molds.reset_stage()
-    }
-
-    fn mark_dig_stage(&mut self, u: i32, v: i32, stage: u8) -> ((i32, i32), Option<BlockMedium>) {
-        self.mark_dig_layer(u, v, self.top_layer_at(u, v), stage)
     }
 
     fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), Option<BlockMedium>) {
@@ -163,19 +155,11 @@ impl ReliefElevation for TerracedRelief {
         (prev, changed.then_some(medium))
     }
 
-    fn excavate_cell(&mut self, u: i32, v: i32) -> ((i32, i32), bool) {
-        self.excavate_layer(u, v, self.top_layer_at(u, v))
-    }
-
     fn harvest_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
         if let Some((prev_cell, medium)) = self.molds.remove_layer(u, v, layer_elev) {
             return (prev_cell, Some(medium));
         }
         self.shafts.excavate_layer(&self.strata, &mut self.molds, u, v, layer_elev)
-    }
-
-    fn stack_cell(&mut self, u: i32, v: i32) -> bool {
-        self.stack_molded_cell(u, v, (self.elevation_at(u, v) as f32) * 0.5, Box::new(CuboidShape::new(0.5)))
     }
 
     fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>) -> bool {

@@ -38,7 +38,7 @@ fn hand_block_tones() -> Vec<Vec3> {
 #[test]
 fn test_excavated_terrain_soil_wears_the_hand_held_earth_block_clods() {
     let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
-    for _ in 0..3 { assert!(relief.excavate_cell(0, 0).1); }
+    for step in 0..3 { assert!(relief.excavate_layer(0, 0, -((step as f32) * 0.5) - 0.25).1); }
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
     let (mut pit, mut rim) = (ToneLedger { tones: Vec::new(), down_pebbles: 0 }, ToneLedger { tones: Vec::new(), down_pebbles: 0 });
@@ -55,7 +55,7 @@ fn test_excavated_terrain_soil_wears_the_hand_held_earth_block_clods() {
 #[test]
 fn test_sideways_excavated_dirt_preserves_overhang_clod_structure() {
     let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
-    for _ in 0..7 { assert!(relief.excavate_cell(0, 0).1); }
+    for step in 0..7 { assert!(relief.excavate_layer(0, 0, -((step as f32) * 0.5) - 0.25).1); }
     assert!(relief.excavate_layer(1, 0, -1.25).1, "Must excavate side block below column top");
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
@@ -70,7 +70,7 @@ fn test_sideways_excavated_dirt_preserves_overhang_clod_structure() {
 #[test]
 fn test_sight_ray_targets_all_four_side_wall_layers_below_head_height() {
     let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
-    for _ in 0..7 { assert!(relief.excavate_cell(0, 0).1); }
+    for step in 0..7 { assert!(relief.excavate_layer(0, 0, -((step as f32) * 0.5) - 0.25).1); }
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let eye = frame.point_at(0.35, 0.25, -3.5 + 1.80);
     for (pitch_deg, expected_layer) in [(-10.0f32, -1.75f32), (-38.0, -2.25), (-58.0, -2.75), (-72.0, -3.25)] {
@@ -86,7 +86,8 @@ fn test_sight_ray_targets_all_four_side_wall_layers_below_head_height() {
 fn test_earth_crust_side_walls_never_emit_dirt_clods() {
     let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
     while !relief.breached_at(0, 0) {
-        assert!(relief.excavate_cell(0, 0).1);
+        let top_layer = (relief.elevation_at(0, 0) as f32) * 0.5 - 0.25;
+        assert!(relief.excavate_layer(0, 0, top_layer).1);
     }
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
@@ -118,7 +119,8 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
 
     let crust_top_step = vault.floor_steps_at(1, 0) + 4;
     while relief.elevation_at(1, 0) > crust_top_step {
-        assert!(relief.excavate_cell(1, 0).1);
+        let top_layer = (relief.elevation_at(1, 0) as f32) * 0.5 - 0.25;
+        assert!(relief.excavate_layer(1, 0, top_layer).1);
     }
     let mut top_idle = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
     ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &palette, 64, &mut top_idle);
@@ -128,8 +130,9 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
     );
     assert!(top_idle.tones.contains(&Vec3::new(0.35, 0.31, 0.28)), "Top of exposed crust block must show crust rock tone");
 
+    let crust_layer_elev = (crust_top_step as f32) * 0.5 - 0.25;
     assert_eq!(
-        relief.mark_dig_stage(1, 0, 2).1,
+        relief.mark_dig_layer(1, 0, crust_layer_elev, 2).1,
         Some(crate::block::BlockMedium::CrustRock),
         "Exposed crust block must report CrustRock medium for rock debris particles"
     );
@@ -143,9 +146,9 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
         top_dug.tones.iter().any(|c| (*c - Vec3::new(0.35, 0.31, 0.28) * 0.52).length() < 1e-3),
         "Digging a crust block from above must recess into dark crust rock tones matching side excavation"
     );
-    let crust_layer_elev = (crust_top_step as f32) * 0.5 - 0.25;
     assert_eq!(relief.harvest_layer(1, 0, crust_layer_elev).1, Some(crate::block::BlockMedium::CrustRock));
-    assert!(relief.stack_cell(1, 0));
+    let placed_base = (relief.elevation_at(1, 0) as f32) * 0.5;
+    assert!(relief.stack_molded_cell(1, 0, placed_base, Box::new(crate::block::CuboidShape::new(0.5))));
     assert_eq!(
         relief.mark_dig_layer(1, 0, crust_layer_elev, 1).1,
         Some(crate::block::BlockMedium::TurfEarth),
@@ -179,11 +182,11 @@ fn test_mining_blocks_never_expands_geometry_outward() {
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
     let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
-    assert!(relief.stack_cell(0, 0));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, Box::new(crate::block::CuboidShape::new(0.5))));
     let mut idle = SpanBounds::empty();
     ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut idle);
     for stage in 1..=3 {
-        relief.mark_dig_stage(0, 0, stage);
+        relief.mark_dig_layer(0, 0, 0.25, stage);
         let mut dug = SpanBounds::empty();
         ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut dug);
         assert!(
@@ -197,8 +200,8 @@ fn test_mining_blocks_never_expands_geometry_outward() {
             dug.recessed_sides
         );
     }
-    assert!(relief.excavate_cell(0, 0).1 && relief.excavate_cell(1, 0).1);
-    relief.mark_dig_stage(0, 0, 2);
+    assert!(relief.excavate_layer(0, 0, 0.25).1 && relief.excavate_layer(1, 0, -0.25).1);
+    relief.mark_dig_layer(0, 0, -0.25, 2);
     let mut wall_dug = SpanBounds::empty();
     ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut wall_dug);
     let has_recessed_east_wall = wall_dug.min.x < 0.45;

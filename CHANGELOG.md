@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.44.3] - 2026-11-04
+
+### Changed
+- Unified camera viewpoint and sight-ray brow origin in `CameraHorizon::view_matrix_at` (`crates/client/src/horizon.rs`) by delegating directly to `SurfaceSightRay::brow_origin`.
+- Updated `RayProbe::step_hit_top` and `ContactFace::classify` (`crates/world/src/relief/sight_ray.rs`) to evaluate full 3D cell-entry coordinates `(entry_u, entry_v, entry_elev)` and attach lateral wall placements at `block_top - CELL_SPAN` instead of the 2D-heightmap column top.
+- Updated `DigStageFocus::layer_stage` (`crates/world/src/relief/overhang_molds.rs`) and `ShaftExcavation::confine` (`crates/world/src/relief/shaft_excavation.rs`) to evaluate exact 3D layer indices and overhang niche ceilings without 2D-heightmap top-layer fallbacks.
+
+### Removed
+- Removed legacy 2D-heightmap methods across `ReliefElevation`, `TerracedRelief`, `OverhangMolds`, `CrustVault`, `SurfaceSightRay`, `PlanetaryWorld`, and `Face` (`mark_dig_stage`, `excavate_cell`, `stack_cell`, `top_layer_at`, `target_cell`, `excavated_steps`, `place_surface_block`, `place_block`).
+
 ## [0.44.2] - 2026-11-04
 
 ### Fixed

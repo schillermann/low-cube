@@ -33,10 +33,9 @@ impl DigStageFocus {
     pub const fn idle() -> Self { Self::new((0, 0), 0.0, 0) }
     pub const fn layer_elev(self) -> f32 { self.layer_elev }
 
-    pub fn layer_stage(self, u: i32, v: i32, layer_elev: f32, top_layer_elev: f32, layer_occupied: bool) -> u8 {
+    pub fn layer_stage(self, u: i32, v: i32, layer_elev: f32, layer_occupied: bool) -> u8 {
         let (q, f) = (((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32, ((self.layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32);
-        let t = ((top_layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
-        if self.cell == (u, v) && !layer_occupied && (q == f || (q >= t && f >= t)) { self.stage } else { 0 }
+        if self.cell == (u, v) && !layer_occupied && q == f { self.stage } else { 0 }
     }
 
     pub fn block_stage(self, u: i32, v: i32, block: &ElevatedShape) -> u8 {
@@ -94,8 +93,8 @@ impl OverhangMolds {
     pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool { self.bare_dirt.contains_key(&(u, v)) }
     pub fn expose_dirt(&mut self, u: i32, v: i32) { self.bare_dirt.insert((u, v), 0.0); }
 
-    pub fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32, top_layer_elev: f32) -> u8 {
-        self.dig_stage.layer_stage(u, v, layer_elev, top_layer_elev, self.layer_occupied_at(u, v, self.dig_stage.layer_elev()))
+    pub fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32) -> u8 {
+        self.dig_stage.layer_stage(u, v, layer_elev, self.layer_occupied_at(u, v, self.dig_stage.layer_elev()))
     }
 
     pub fn clear_stage(&mut self, u: i32, v: i32) -> (i32, i32) { self.dig_stage.clear_at(u, v) }
@@ -111,13 +110,6 @@ impl OverhangMolds {
             let max_h = list.iter().map(ElevatedShape::ceiling).fold(ground_top, f32::max);
             (max_h / BLOCK_STEP).round() as i32
         })
-    }
-
-    pub fn top_layer_at(&self, u: i32, v: i32, ground_top: f32) -> f32 {
-        self.blocks
-            .get(&(u, v))
-            .and_then(|list| list.last())
-            .map_or(ground_top - HALF_BLOCK_STEP, |block| block.ceiling() - HALF_BLOCK_STEP)
     }
 
     fn niche_ceiling_at(&self, u: i32, v: i32, ground_h: f32) -> Option<f32> {

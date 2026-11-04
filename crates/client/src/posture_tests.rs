@@ -194,7 +194,7 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
 
     let mut tunnel = TerracedRelief::in_span(Box::new(FlatRelief), 16);
     for (u, v) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-        for _ in 0..6 { tunnel.excavate_cell(u, v); }
+        for step in 0..6 { tunnel.excavate_layer(u, v, -((step as f32) * 0.5) - 0.25); }
     }
     for (u, v) in [(0, -1), (1, -1), (0, -2), (1, -2)] {
         for layer in [-2.75, -2.25, -1.75] { tunnel.excavate_layer(u, v, layer); }
@@ -215,7 +215,9 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
         assert!(eye.z < -0.15 && eye.y <= -1.50 - 0.12, "Frame {frame}: Valkyrie under 3-block (-3.0..-1.5m) overhang must never jump with head into ceiling blocks above -1.5m, got {eye:?}");
     }
     let mut tunnel_4 = TerracedRelief::in_span(Box::new(FlatRelief), 16);
-    for (u, v) in [(0, 0), (1, 0), (0, 1), (1, 1)] { for _ in 0..6 { tunnel_4.excavate_cell(u, v); } }
+    for (u, v) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+        for step in 0..6 { tunnel_4.excavate_layer(u, v, -((step as f32) * 0.5) - 0.25); }
+    }
     for (u, v) in [(0, -1), (1, -1), (0, -2), (1, -2)] { for layer in [-2.75, -2.25, -1.75, -1.25] { tunnel_4.excavate_layer(u, v, layer); } }
     let tunnel_4_world = DoorframeWorld(tunnel_4);
     let mut valk_4 = PlanetaryAvatar::with_attire(Vec3::new(0.50, -2.0, 0.25), Box::new(crate::flight::SurfaceFlight::terrestrial(1.0)), valkyrie);

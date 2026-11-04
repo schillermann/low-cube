@@ -43,14 +43,13 @@ impl ContactFace {
         {
             return Self::Underside(block_top - Self::UNDERSIDE_DROP);
         }
-        let col_top = ground_top.max((hit_top * 2.0).ceil() * Self::CELL_SPAN);
         if (prev_cu, prev_cv) != (cu, cv) && prev_cu >= min_c && prev_cu <= max_c && prev_cv >= min_c && prev_cv <= max_c {
             let ground_prev = (relief.elevation_at(prev_cu, prev_cv) as f32) * Self::CELL_SPAN;
-            if col_top >= ground_prev + Self::LATERAL_MIN_WALL
-                && prior_elev >= col_top - Self::LATERAL_BAND_DEPTH
-                && prior_elev <= col_top
+            if block_top >= ground_prev + Self::LATERAL_MIN_WALL
+                && prior_elev >= block_top - Self::LATERAL_BAND_DEPTH
+                && prior_elev <= block_top
             {
-                return Self::Lateral((prev_cu, prev_cv), col_top - Self::CELL_SPAN);
+                return Self::Lateral((prev_cu, prev_cv), block_top - Self::CELL_SPAN);
             }
         }
         Self::Top(block_top)
@@ -67,10 +66,6 @@ struct SightContact {
 impl SightContact {
     const CELL_SPAN: f32 = 0.5;
     const LAYER_HALF: f32 = 0.25;
-
-    fn target_cell(&self) -> (i32, i32) {
-        self.cell
-    }
 
     fn target_layer(&self) -> (i32, i32, f32) {
         let (cu, cv) = self.cell;
@@ -164,9 +159,11 @@ impl RayProbe {
             } else {
                 0.0
             };
-            let entry_elev = prev_elev + alpha_u.max(alpha_v) * (ray_elev - prev_elev);
+            let alpha = (alpha_u.max(alpha_v) + 1e-4).min(1.0);
+            let (entry_u, entry_v) = (prev_u + alpha * (u - prev_u), prev_v + alpha * (v - prev_v));
+            let entry_elev = prev_elev + alpha * (ray_elev - prev_elev);
             let entry_probe = self.probe_elevation(cu, cv, wall_top, entry_elev, d_up);
-            if let Some(hit) = relief.hit_top_at(u, v, entry_probe) {
+            if let Some(hit) = relief.hit_top_at(entry_u, entry_v, entry_probe) {
                 return Some(hit);
             }
         }
@@ -211,14 +208,6 @@ impl SurfaceSightRay {
         Self::BROW_FORWARD + (-d_up).clamp(0.0, 1.0) * Self::BROW_PITCH_REACH
     }
 
-    /// Resolves the targeted discrete grid cell (u, v) along the sight ray within at most three blocks of planar reach.
-    pub fn target_cell(
-        &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32,
-    ) -> Option<(i32, i32)> {
-        self.trace_contact(frame, relief, half_blocks, half_size)
-            .map(|contact| contact.target_cell())
-    }
-
     /// Resolves the targeted discrete grid cell (u, v) and vertical layer midpoint along the sight ray.
     pub fn target_layer(
         &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32,
@@ -240,7 +229,7 @@ impl SurfaceSightRay {
         let max_stand_top = prev_elev - Self::STAND_FLOOR_CLEARANCE;
         let (up, eye_steps, eye_crust) = (d_up > Self::STEEP_UP_DOT, relief.elevation_at(ecu, ecv), relief.crust_floor_at(ecu, ecv));
         let weightless = relief.weightless_at(eu, ev, prev_elev);
-        let (steps, max_span) = if weightless { (100, 4) } else { (85, 3) };
+        let (steps, max_span) = if weightless || up { (100, 4) } else { (85, 3) };
 
         for step in 1..=steps {
             let sample = self.eye + dir * ((step as f32) * Self::RAY_STEP);

@@ -160,10 +160,6 @@ impl PlanetaryWorld for CubePlanet {
         SurfaceFind::EmptyHanded
     }
 
-    fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
-        self.place_molded_surface_block(eye, direction, avatar_pos, BlockMold::cube())
-    }
-
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let (primary, secondary) = self.aimed_indices(eye, direction);
         if let Some(face) = self.faces.get_mut(primary) {

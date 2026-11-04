@@ -80,7 +80,11 @@ impl<'a> FlightContext<'a> {
     }
 
     pub fn confine_crust(&self, point: Vec3) -> Vec3 {
-        self.body.envelope.confine_beneath_crust(point, self.step.position, self.step.surface_up, self.terrain.world)
+        if self.body.envelope.in_upward_shaft(point, self.step.surface_up, self.body.eye_height, self.terrain.world) {
+            self.terrain.world.confine_beneath_crust(point)
+        } else {
+            self.body.envelope.confine_beneath_crust(point, self.step.position, self.step.surface_up, self.terrain.world)
+        }
     }
 
     pub fn origin_supported(&self) -> bool {
@@ -92,7 +96,8 @@ impl<'a> FlightContext<'a> {
     }
 
     pub fn gravitational_acceleration(&self, vertical_speed: f32) -> f32 {
-        if self.terrain.world.weightless_at(self.step.position) {
+        let probe = if vertical_speed < 0.0 { self.step.position + self.step.surface_up * 0.25 } else { self.step.position };
+        if self.terrain.world.weightless_at(probe) {
             if vertical_speed < 0.0 {
                 vertical_speed - vertical_speed.max(-3.6) * (1.0 - (16.0 * self.step.dt).min(1.0))
             } else {

@@ -176,10 +176,10 @@ impl ShaftExcavation {
             (tu, tv) = GridCell::new(cu, cv).clamp_walled(tu, tv, SHAFT_WALL_MARGIN, walls);
         }
         let ground = (self.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP;
-        let z = if self.breached_at(strata, cu, cv) || elev >= ground {
-            elev
-        } else if let Some(confined) = molds.confine_niche_elevation(cu, cv, ground, elev) {
+        let z = if let Some(confined) = molds.confine_niche_elevation(cu, cv, ground, elev).filter(|_| elev >= ground - SHAFT_FLOOR_TOLERANCE) {
             confined
+        } else if self.breached_at(strata, cu, cv) || elev >= ground {
+            elev
         } else if self.upward_at(cu, cv) > 0 {
             let ceiling = (self.crust_floor_at(strata, cu, cv) as f32) * BLOCK_STEP - CEILING_CLEARANCE_INSET;
             if elev < ceiling + UPWARD_CEILING_CATCH_SPAN && elev > ceiling { ceiling } else { elev }
@@ -198,7 +198,8 @@ impl ShaftExcavation {
             (strata.vault().ceiling_height_at(u, v) - VAULT_CEILING_FLOOR_INSET).min(ground_h - VAULT_CEILING_FLOOR_INSET)
         };
         if !self.breached_at(strata, cu, cv) && ray_elev >= ceil_floor && ray_elev <= ground_surf + SURFACE_HIT_TOLERANCE {
-            let hit = if ray_elev < ceil_h + BLOCK_STEP || (ray_elev < ground_h - BLOCK_STEP && ray_elev < ground_surf - SHAFT_FLOOR_TOLERANCE) {
+            let top_layer_floor = (ground_h - BLOCK_STEP).min(ground_surf - SHAFT_FLOOR_TOLERANCE);
+            let hit = if ray_elev < ceil_h + BLOCK_STEP || ray_elev < top_layer_floor {
                 ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp(ceil_h + BLOCK_STEP, ground_h)
             } else {
                 ground_h
