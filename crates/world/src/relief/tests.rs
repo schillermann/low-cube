@@ -239,4 +239,36 @@ fn test_upward_excavation_from_core_shares_identical_layer_logic_and_watertight_
     assert_eq!(downward.elevation_at(0, 0), upward.elevation_at(0, 0));
 }
 
+#[test]
+fn test_close_wall_crosshair_targets_head_height_block_until_sight_line_crosses_lower_seam() {
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let mut hole = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 64);
+    for step in (12..16).rev() {
+        let mid = ((step - 16) as f32) * 0.5 + 0.25;
+        assert!(hole.excavate_layer(0, 0, mid).1);
+    }
+    assert_eq!(hole.elevation_at(0, 0), -4);
+    assert_eq!(hole.elevation_at(1, 0), 0);
+
+    // Standing on floor -2.0m with eye at -0.20m (head-height wall block spans [-0.50m, 0.00m], mid = -0.25m)
+    let eye = frame.point_at(0.44, 0.25, -0.20);
+    for target_z in [-0.20, -0.30, -0.42, -0.48] {
+        let wall_pt = frame.point_at(0.50, 0.25, target_z);
+        let ray = SurfaceSightRay::new(eye, (wall_pt - eye).normalize());
+        assert_eq!(
+            ray.target_layer(&frame, &hole, 64, 32.0),
+            Some((1, 0, -0.25)),
+            "Crosshair aimed at z={target_z} on the head-height block face [-0.50, 0.00] must target head-height layer -0.25"
+        );
+    }
+    let lower_wall_pt = frame.point_at(0.50, 0.25, -0.58);
+    let lower_ray = SurfaceSightRay::new(eye, (lower_wall_pt - eye).normalize());
+    assert_eq!(
+        lower_ray.target_layer(&frame, &hole, 64, 32.0),
+        Some((1, 0, -0.75)),
+        "Crosshair aimed below -0.50m onto the lower block face [-1.00, -0.50] must target lower layer -0.75"
+    );
+}
+
+
 

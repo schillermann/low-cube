@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.44.2] - 2026-11-04
+
+### Fixed
+- Eliminated downward crosshair parallax against close block walls in `SurfaceSightRay::trace_contact` and `RayProbe` (`crates/world/src/relief/sight_ray.rs`) by removing the `0.28m` backward ray-origin retreat and interpolating the exact vertical cell-boundary entry elevation (`RayProbe::step_hit_top`), ensuring the head-height block is targeted until the crosshair crosses below its lower seam.
+
 ## [0.44.1] - 2026-11-04
 
 ### Fixed

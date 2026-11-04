@@ -22,13 +22,8 @@ impl ContactFace {
 
     #[allow(clippy::too_many_arguments)]
     fn classify(
-        cell: (i32, i32),
-        prior_cell: (i32, i32),
-        prior_elev: f32,
-        hit_top: f32,
-        d_up: f32,
-        bounds: (i32, i32),
-        relief: &dyn ReliefElevation,
+        cell: (i32, i32), prior_cell: (i32, i32), prior_elev: f32,
+        hit_top: f32, d_up: f32, bounds: (i32, i32), relief: &dyn ReliefElevation,
     ) -> Self {
         let ((cu, cv), (prev_cu, prev_cv), (min_c, max_c)) = (cell, prior_cell, bounds);
         let crust_h = (relief.crust_floor_at(cu, cv) as f32) * Self::CELL_SPAN;
@@ -49,12 +44,7 @@ impl ContactFace {
             return Self::Underside(block_top - Self::UNDERSIDE_DROP);
         }
         let col_top = ground_top.max((hit_top * 2.0).ceil() * Self::CELL_SPAN);
-        if (prev_cu, prev_cv) != (cu, cv)
-            && prev_cu >= min_c
-            && prev_cu <= max_c
-            && prev_cv >= min_c
-            && prev_cv <= max_c
-        {
+        if (prev_cu, prev_cv) != (cu, cv) && prev_cu >= min_c && prev_cu <= max_c && prev_cv >= min_c && prev_cv <= max_c {
             let ground_prev = (relief.elevation_at(prev_cu, prev_cv) as f32) * Self::CELL_SPAN;
             if col_top >= ground_prev + Self::LATERAL_MIN_WALL
                 && prior_elev >= col_top - Self::LATERAL_BAND_DEPTH
@@ -88,12 +78,7 @@ impl SightContact {
     }
 
     fn resolve_placement(
-        &self,
-        direction: Vec3,
-        frame: &SurfaceFrame,
-        relief: &dyn ReliefElevation,
-        bounds: (i32, i32),
-        avatar_pos: Vec3,
+        &self, direction: Vec3, frame: &SurfaceFrame, relief: &dyn ReliefElevation, bounds: (i32, i32), avatar_pos: Vec3,
     ) -> (i32, i32, f32) {
         let ((mut cu, mut cv), (min_c, max_c)) = (self.cell, bounds);
         match self.face {
@@ -120,7 +105,6 @@ impl SightContact {
 
 #[derive(Clone, Copy, Debug)]
 struct RayProbe {
-    origin: Vec3,
     eye_cell: (i32, i32),
     stand_cell: (i32, i32),
     elevations: (f32, f32, bool),
@@ -140,9 +124,8 @@ impl RayProbe {
         let stand_top = (stand_steps as f32) * SurfaceSightRay::CELL_SPAN;
         let front_steps = relief.elevation_at((fu * 2.0).floor() as i32, (fv * 2.0).floor() as i32);
         let close_wall = slanted && d_up < SurfaceSightRay::CLOSE_WALL_MAX_SLOPE && d_up > SurfaceSightRay::STEEP_DOWN_DOT && front_steps > stand_steps;
-        let origin = if close_wall { ray.eye - flat_dir * SurfaceSightRay::CLOSE_WALL_RETREAT } else { ray.eye };
         let start_elev = frame.height_of(ray.eye) - half_size;
-        Self { origin, eye_cell: (ecu, ecv), stand_cell: (scu, scv), elevations: (stand_top, start_elev, close_wall) }
+        Self { eye_cell: (ecu, ecv), stand_cell: (scu, scv), elevations: (stand_top, start_elev, close_wall) }
     }
 
     fn probe_elevation(&self, cu: i32, cv: i32, wall_top: f32, ray_elev: f32, d_up: f32) -> f32 {
@@ -156,6 +139,38 @@ impl RayProbe {
         } else {
             ray_elev
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn step_hit_top(
+        &self,
+        relief: &dyn ReliefElevation,
+        prev_cell: (i32, i32),
+        cell: (i32, i32),
+        prev_uv: (f32, f32),
+        uv: (f32, f32),
+        elevs: (f32, f32, f32, f32),
+    ) -> Option<f32> {
+        let ((prev_cu, prev_cv), (cu, cv), (prev_u, prev_v), (u, v)) = (prev_cell, cell, prev_uv, uv);
+        let (prev_elev, ray_elev, wall_top, d_up) = elevs;
+        if (cu, cv) != (prev_cu, prev_cv) {
+            let alpha_u = if cu != prev_cu && (u - prev_u).abs() > 1e-6 {
+                (((cu.max(prev_cu) as f32) * SurfaceSightRay::CELL_SPAN - prev_u) / (u - prev_u)).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let alpha_v = if cv != prev_cv && (v - prev_v).abs() > 1e-6 {
+                (((cv.max(prev_cv) as f32) * SurfaceSightRay::CELL_SPAN - prev_v) / (v - prev_v)).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let entry_elev = prev_elev + alpha_u.max(alpha_v) * (ray_elev - prev_elev);
+            let entry_probe = self.probe_elevation(cu, cv, wall_top, entry_elev, d_up);
+            if let Some(hit) = relief.hit_top_at(u, v, entry_probe) {
+                return Some(hit);
+            }
+        }
+        relief.hit_top_at(u, v, self.probe_elevation(cu, cv, wall_top, ray_elev, d_up))
     }
 }
 
@@ -173,7 +188,6 @@ impl SurfaceSightRay {
     const BROW_PITCH_REACH: f32 = 0.07;
     const RAY_STEP: f32 = 0.04;
     const FRONT_PROBE_DIST: f32 = 0.35;
-    const CLOSE_WALL_RETREAT: f32 = 0.28;
     const CLOSE_WALL_MAX_SLOPE: f32 = -0.10;
     const STEEP_DOWN_DOT: f32 = -0.96;
     const STEEP_UP_DOT: f32 = 0.75;
@@ -199,11 +213,7 @@ impl SurfaceSightRay {
 
     /// Resolves the targeted discrete grid cell (u, v) along the sight ray within at most three blocks of planar reach.
     pub fn target_cell(
-        &self,
-        frame: &SurfaceFrame,
-        relief: &dyn ReliefElevation,
-        half_blocks: i32,
-        half_size: f32,
+        &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32,
     ) -> Option<(i32, i32)> {
         self.trace_contact(frame, relief, half_blocks, half_size)
             .map(|contact| contact.target_cell())
@@ -211,22 +221,14 @@ impl SurfaceSightRay {
 
     /// Resolves the targeted discrete grid cell (u, v) and vertical layer midpoint along the sight ray.
     pub fn target_layer(
-        &self,
-        frame: &SurfaceFrame,
-        relief: &dyn ReliefElevation,
-        half_blocks: i32,
-        half_size: f32,
+        &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32,
     ) -> Option<(i32, i32, f32)> {
         self.trace_contact(frame, relief, half_blocks, half_size)
             .map(|contact| contact.target_layer())
     }
 
     fn trace_contact(
-        &self,
-        frame: &SurfaceFrame,
-        relief: &dyn ReliefElevation,
-        half_blocks: i32,
-        half_size: f32,
+        &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32,
     ) -> Option<SightContact> {
         let (dir, up_norm) = (self.direction.normalize_or_zero(), frame.normal());
         let (d_up, (eu, ev)) = (dir.dot(up_norm), frame.decompose(self.eye));
@@ -234,14 +236,14 @@ impl SurfaceSightRay {
         let ((ecu, ecv), (scu, scv), (_, start_elev, close_wall)) = (probe.eye_cell, probe.stand_cell, probe.elevations);
         let slanted = (dir - up_norm * d_up).length_squared() > 1e-4;
         let bounds @ (min_c, max_c) = (-half_blocks + 1, half_blocks - 2);
-        let (mut prev_cu, mut prev_cv, mut prev_elev) = (ecu, ecv, start_elev);
+        let (mut prev_cu, mut prev_cv, mut prev_u, mut prev_v, mut prev_elev) = (ecu, ecv, eu, ev, start_elev);
         let max_stand_top = prev_elev - Self::STAND_FLOOR_CLEARANCE;
         let (up, eye_steps, eye_crust) = (d_up > Self::STEEP_UP_DOT, relief.elevation_at(ecu, ecv), relief.crust_floor_at(ecu, ecv));
         let weightless = relief.weightless_at(eu, ev, prev_elev);
         let (steps, max_span) = if weightless { (100, 4) } else { (85, 3) };
 
         for step in 1..=steps {
-            let sample = probe.origin + dir * ((step as f32) * Self::RAY_STEP);
+            let sample = self.eye + dir * ((step as f32) * Self::RAY_STEP);
             let (u, v) = frame.decompose(sample);
             let (cu, cv) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32);
             if (cu - ecu).abs().max((cv - ecv).abs()) > max_span {
@@ -253,8 +255,9 @@ impl SurfaceSightRay {
                     continue;
                 }
                 let wall_top = (relief.elevation_at(cu, cv) as f32) * Self::CELL_SPAN;
-                let probe_elev = probe.probe_elevation(cu, cv, wall_top, ray_elev, d_up);
-                if let Some(hit_top) = relief.hit_top_at(u, v, probe_elev) {
+                if let Some(hit_top) = probe.step_hit_top(
+                    relief, (prev_cu, prev_cv), (cu, cv), (prev_u, prev_v), (u, v), (prev_elev, ray_elev, wall_top, d_up),
+                ) {
                     if !weightless && slanted && d_up < 0.0 && (cu, cv) == (scu, scv) && hit_top <= max_stand_top {
                         if close_wall { continue; }
                         return None;
@@ -263,7 +266,7 @@ impl SurfaceSightRay {
                     return Some(SightContact { cell: (cu, cv), hit_top, face });
                 }
             }
-            (prev_cu, prev_cv, prev_elev) = (cu, cv, ray_elev);
+            (prev_cu, prev_cv, prev_u, prev_v, prev_elev) = (cu, cv, u, v, ray_elev);
         }
         if d_up < Self::NADIR_DOT && ecu >= min_c && ecu <= max_c && ecv >= min_c && ecv <= max_c {
             let floor_h = (eye_steps as f32) * Self::CELL_SPAN;
@@ -277,12 +280,7 @@ impl SurfaceSightRay {
 
     /// Resolves a placement cell and base elevation within three-block reach, attaching laterally or on the underside of elevated blocks.
     pub fn placement_cell(
-        &self,
-        frame: &SurfaceFrame,
-        relief: &dyn ReliefElevation,
-        half_blocks: i32,
-        half_size: f32,
-        avatar_pos: Vec3,
+        &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32, avatar_pos: Vec3,
     ) -> Option<(i32, i32, f32)> {
         let contact = self.trace_contact(frame, relief, half_blocks, half_size)?;
         let bounds = (-half_blocks + 1, half_blocks - 2);
