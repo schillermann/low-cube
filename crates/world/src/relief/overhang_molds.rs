@@ -172,15 +172,19 @@ impl OverhangMolds {
         self.blocks.get(&(u, v)).is_some_and(|list| list.iter().any(|b| b.occupies_layer(layer_elev)))
     }
 
-    pub fn layer_medium_at(&self, strata: &NaturalStrata, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
+    pub fn layer_medium_at(
+        &self,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        u: i32,
+        v: i32,
+        layer_elev: f32,
+    ) -> BlockMedium {
         self.blocks
             .get(&(u, v))
             .and_then(|list| list.iter().rfind(|b| b.occupies_layer(layer_elev)))
             .map_or_else(
-                || {
-                    let step = ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
-                    if strata.vault().crust_layer_at(u, v, step) { BlockMedium::CrustRock } else { BlockMedium::TurfEarth }
-                },
+                || shafts.excavated_medium_at(strata, u, v, layer_elev),
                 ElevatedShape::block_medium,
             )
     }
@@ -196,33 +200,27 @@ impl OverhangMolds {
         None
     }
 
-    pub fn emit_molded_top(&self, cell: GridCell, surf_base: f32, vault: &super::CrustVault, frame: &SurfaceFrame, colors: (Vec3, Vec3), target: &mut dyn MeshTarget) -> bool {
+    pub fn emit_molded_top(&self, cell: GridCell, surf_base: f32, frame: &SurfaceFrame, colors: (Vec3, Vec3), target: &mut dyn MeshTarget) -> bool {
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let Some(list) = self.blocks.get(&(u, v)) else { return false };
-        let floor_step = vault.floor_steps_at(u, v);
         let (top_col, wall_col) = colors;
         for block in list {
             let stage = self.dig_stage.block_stage(u, v, block);
-            let layer = (block.floor() * 2.0).round() as i32;
-            if block.block_medium() == BlockMedium::CrustRock {
-                vault.emit_crust_block(cell, layer, floor_step, stage, frame, target);
-            } else {
-                let bare_top = block.floating_above(surf_base) || self.bare_dirt_at(u, v);
-                block.emit_terraced(cell, frame, top_col, wall_col, bare_top, stage, target);
-            }
+            let bare_top = block.floating_above(surf_base) || self.bare_dirt_at(u, v);
+            block.emit_terraced(cell, frame, top_col, wall_col, bare_top, stage, target);
         }
         !list.is_empty()
     }
 
-    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<(i32, i32)> {
+    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<((i32, i32), BlockMedium)> {
         let list = self.blocks.get_mut(&(u, v))?;
         let pos = list.iter().rposition(|b| b.occupies_layer(layer_elev))?;
-        list.remove(pos);
+        let removed = list.remove(pos);
         if list.is_empty() {
             self.blocks.remove(&(u, v));
             self.bare_dirt.insert((u, v), 0.0);
         }
-        Some(self.clear_stage(u, v))
+        Some((self.clear_stage(u, v), removed.block_medium()))
     }
 
     pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32) {

@@ -79,7 +79,7 @@ fn test_deep_crust_excavation_hollow_world_breach_and_indestructible_magma_core(
     assert!(!deep.breached_at(0, 0));
     assert!(deep.excavate_cell(0, 0).1, "Excavating 4th crust layer above the vault must breach into hollow world");
     assert!(deep.breached_at(0, 0) && deep.elevation_at(0, 0) == -32);
-    assert!(!deep.excavate_cell(0, 0).1 && !deep.mark_dig_stage(0, 0, 1).1, "Magma core summit at -32 must be indestructible");
+    assert!(!deep.excavate_cell(0, 0).1 && deep.mark_dig_stage(0, 0, 1).1.is_none(), "Magma core summit at -32 must be indestructible");
     assert!(deep.weightless_at(0.0, 0.0, -13.0) && !deep.lethal_at(0.0, 0.0, -13.0), "Hollow world cavity must be weightless");
     assert!(deep.lethal_at(0.0, 0.0, -15.5) && !deep.weightless_at(0.0, 0.0, -15.5), "Magma core surface must be lethal");
     assert!(deep.weightless_at(14.0, 0.0, -16.0) && !deep.weightless_at(24.0, 24.0, -9.0), "Hollow beside the core floats while the rounded crust beyond the vault stays solid");
@@ -210,25 +210,27 @@ fn test_upward_excavation_from_core_shares_identical_layer_logic_and_watertight_
         let eye = frame.point_at(0.25, 0.25, expected_mid + 0.75);
         let (cu, cv, layer) = SurfaceSightRay::new(eye, -frame.normal()).target_layer(&frame, &downward, 64, 32.0).expect("Downward ray must hit top block");
         assert_eq!((cu, cv, layer), (0, 0, expected_mid));
-        assert!(downward.mark_dig_layer(0, 0, layer, 2).1 && downward.layer_dig_stage_at(0, 0, layer) == 2);
+        assert!(downward.mark_dig_layer(0, 0, layer, 2).1.is_some() && downward.layer_dig_stage_at(0, 0, layer) == 2);
         assert!(downward.excavate_layer(0, 0, layer).1);
         down_layers.push(layer);
     }
     for step in 0..16 {
         let expected_mid = ((step - 16) as f32) * 0.5 + 0.25;
+        let expected_med = if step < 4 { crate::block::BlockMedium::CrustRock } else { crate::block::BlockMedium::TurfEarth };
         let (_, _, confined_z) = upward.confine(0.25, 0.25, expected_mid - 0.55);
         assert!(upward.weightless_at(0.25, 0.25, confined_z), "Upward shaft must remain weightless at step {step} (z={confined_z})");
         let eye = frame.point_at(0.25, 0.25, confined_z);
         let (cu, cv, layer) = SurfaceSightRay::new(eye, frame.normal()).target_layer(&frame, &upward, 64, 32.0).expect("Upward ray must hit ceiling block");
         assert_eq!((cu, cv, layer), (0, 0, expected_mid), "Upward ray at step {step} must address exact block midpoint {expected_mid}");
-        assert!(upward.mark_dig_layer(0, 0, layer, 2).1 && upward.layer_dig_stage_at(0, 0, layer) == 2);
+        assert_eq!(upward.mark_dig_layer(0, 0, layer, 2).1, Some(expected_med), "Upward excavation at step {step} must report exact medium {expected_med:?}");
+        assert_eq!(upward.layer_dig_stage_at(0, 0, layer), 2);
         let mut ledger = QuadLedger;
         let mut counter = CountedMeshTarget::new(&mut ledger);
         ReliefStrata::new().emit_cell(crate::block::GridCell::new(0, 0), &frame, &upward, &palette, 64, &mut counter);
         if step > 0 {
             assert!(counter.count() >= 10, "Upward shaft ceiling and walls at stage 2 must emit recessed 3D crater quads and intact seams");
         }
-        assert!(upward.excavate_layer(0, 0, layer).1);
+        assert_eq!(upward.harvest_layer(0, 0, layer).1, Some(expected_med));
         up_layers.push(layer);
     }
     down_layers.reverse();

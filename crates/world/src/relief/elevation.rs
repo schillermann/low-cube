@@ -22,9 +22,6 @@ pub trait ReliefElevation: Send + Sync {
     /// Indicates whether a placed block occupies the vertical layer at (u, v).
     fn layer_occupied_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> bool { false }
 
-    /// Resolves the material medium of the block layer at (u, v, layer_elev).
-    fn layer_medium_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> BlockMedium { BlockMedium::TurfEarth }
-
     /// Checks whether a 3D sight ray point (u, v, ray_elev) hits solid terrain or a placed block, returning its top elevation.
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         let surf = self.surface_height_at(u, v);
@@ -68,16 +65,25 @@ pub trait ReliefElevation: Send + Sync {
     fn clear_dig_stage(&mut self) -> ((i32, i32), bool) { ((0, 0), false) }
 
     /// Marks partial digging progress (0..=3) at discrete cell (u, v).
-    fn mark_dig_stage(&mut self, _u: i32, _v: i32, _stage: u8) -> ((i32, i32), bool) { ((0, 0), false) }
+    fn mark_dig_stage(&mut self, _u: i32, _v: i32, _stage: u8) -> ((i32, i32), Option<BlockMedium>) { ((0, 0), None) }
 
     /// Marks partial digging progress (0..=3) at a specific vertical layer within (u, v).
-    fn mark_dig_layer(&mut self, u: i32, v: i32, _layer_elev: f32, stage: u8) -> ((i32, i32), bool) { self.mark_dig_stage(u, v, stage) }
+    fn mark_dig_layer(&mut self, u: i32, v: i32, _layer_elev: f32, stage: u8) -> ((i32, i32), Option<BlockMedium>) { self.mark_dig_stage(u, v, stage) }
 
     /// Excavates one discrete block layer at (u, v).
     fn excavate_cell(&mut self, _u: i32, _v: i32) -> ((i32, i32), bool) { ((0, 0), false) }
 
     /// Excavates a specific vertical block layer within (u, v).
-    fn excavate_layer(&mut self, u: i32, v: i32, _layer_elev: f32,) -> ((i32, i32), bool) { self.excavate_cell(u, v) }
+    fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), bool) {
+        let (cell, dug) = self.harvest_layer(u, v, layer_elev);
+        (cell, dug.is_some())
+    }
+
+    /// Excavates a specific vertical block layer within (u, v), returning the harvested block medium.
+    fn harvest_layer(&mut self, u: i32, v: i32, _layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
+        let (cell, ok) = self.excavate_cell(u, v);
+        (cell, ok.then_some(BlockMedium::TurfEarth))
+    }
 
     /// Stacks one discrete block layer at (u, v).
     fn stack_cell(&mut self, _u: i32, _v: i32) -> bool { false }

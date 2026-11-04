@@ -6,14 +6,14 @@ use super::relic::HeldRelic;
 /// Encapsulates stowed satchel items, WASD inspection cursor, and waist-grid rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SatchelTray {
-    stowed: [u32; 12],
+    stowed: [u32; 13],
     active_side: f32,
     cursor: usize,
     open: bool,
 }
 
 impl SatchelTray {
-    pub const fn new(stowed: [u32; 12], active_side: f32, cursor: usize, open: bool) -> Self {
+    pub const fn new(stowed: [u32; 13], active_side: f32, cursor: usize, open: bool) -> Self {
         Self {
             stowed,
             active_side,
@@ -60,6 +60,7 @@ impl SatchelTray {
     pub fn any_stowed_blocks(&self) -> bool {
         [
             HeldRelic::ExcavatedEarth,
+            HeldRelic::CrustBlock,
             HeldRelic::QuarriedStone,
             HeldRelic::TimberBlock,
             HeldRelic::PlankBlock,
@@ -72,6 +73,7 @@ impl SatchelTray {
         let (mut slots, mut len) = ([HeldRelic::EmptyPalm; 9], 0usize);
         let materials = [
             HeldRelic::ExcavatedEarth,
+            HeldRelic::CrustBlock,
             HeldRelic::QuarriedStone,
             HeldRelic::TimberBlock,
             HeldRelic::PlankBlock,

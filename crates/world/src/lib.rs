@@ -72,14 +72,14 @@ pub trait PlanetaryWorld: GravityField {
     fn canopy_drag(&self, _position: Vec3) -> f32 {
         0.0
     }
-    fn excavate_surface(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
-        false
+    fn excavate_surface(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        self.harvest_surface(eye, direction).is_some()
     }
-    fn surface_medium(&self, _eye: Vec3, _direction: Vec3) -> BlockMedium {
-        BlockMedium::TurfEarth
+    fn harvest_surface(&mut self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> {
+        None
     }
-    fn loosen_surface(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> bool {
-        false
+    fn loosen_surface(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> Option<BlockMedium> {
+        None
     }
     fn strike_timber(&mut self, _eye: Vec3, _direction: Vec3) -> CleaveOutcome {
         CleaveOutcome::Missed
@@ -129,14 +129,14 @@ pub trait Face: Send + Sync {
     fn canopy_drag(&self, _point: Vec3) -> f32 {
         0.0
     }
-    fn excavate(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
-        false
+    fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        self.harvest(eye, direction).is_some()
     }
-    fn surface_medium(&self, _eye: Vec3, _direction: Vec3) -> BlockMedium {
-        BlockMedium::TurfEarth
+    fn harvest(&mut self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> {
+        None
     }
-    fn loosen(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> bool {
-        false
+    fn loosen(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> Option<BlockMedium> {
+        None
     }
     fn strike_timber(&mut self, _eye: Vec3, _direction: Vec3) -> CleaveOutcome {
         CleaveOutcome::Missed

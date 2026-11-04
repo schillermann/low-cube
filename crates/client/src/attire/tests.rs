@@ -179,41 +179,41 @@ fn test_foraging_deadwood_and_flint_into_hand_or_satchel_crafts_axe_in_crafting_
     assert_eq!(satchel_planks.resource_tally(HeldRelic::PlankBlock, attire_planks), 4, "Crafting WOOD PLANKS from 1 WOOD BLOCK must yield 4 planks");
     let (aim_eye, aim_dir) = (Vec3::new(0.25, 16.92, 0.25), Vec3::new(0.0, -0.75, -0.75).normalize());
     assert!(world.place_molded_surface_block(aim_eye, aim_dir, Vec3::new(0.25, 16.0, 0.25), world::BlockMold::cube().in_medium(world::BlockMedium::PlanedPlanks)));
-    assert_eq!(HeldRelic::from_medium(world.surface_medium(aim_eye, aim_dir)), HeldRelic::PlankBlock, "Excavating a placed WOOD PLANKS block must yield WOOD PLANKS back into the hand");
+    assert_eq!(world.harvest_surface(aim_eye, aim_dir).map(HeldRelic::from_medium), Some(HeldRelic::PlankBlock), "Excavating a placed WOOD PLANKS block must yield WOOD PLANKS back into the hand");
 }
 
 #[test]
-fn test_spade_in_right_hand_and_axe_in_left_hand_stows_excavated_block_preserving_both_tools() {
+fn test_spade_and_dirt_block_replaces_held_block_when_excavating_different_medium() {
     let dual_tools = YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::WoodmanAxe);
     let (satchel, next_attire) = super::BeltSatchel::empty().collect_excavated_block(1.0, HeldRelic::ExcavatedEarth, dual_tools);
+    assert_eq!(next_attire.held_pair(), (HeldRelic::IronSpade, HeldRelic::WoodmanAxe));
+    assert_eq!(satchel.resource_tally(HeldRelic::ExcavatedEarth, next_attire), 1);
+
+    let spade_and_dirt = YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::ExcavatedEarth);
+    let satchel = super::BeltSatchel::empty().reconcile_attire(spade_and_dirt);
+    let crust_harvested = HeldRelic::from_medium(world::BlockMedium::CrustRock);
+    assert_eq!(crust_harvested, HeldRelic::CrustBlock, "Excavating planetary crust rock must yield CrustBlock");
+    let (satchel_after_crust, attire_after_crust) =
+        satchel.collect_excavated_block(-1.0, crust_harvested, spade_and_dirt);
     assert_eq!(
-        next_attire.held_pair(),
-        (HeldRelic::IronSpade, HeldRelic::WoodmanAxe),
-        "Excavating when no hand is free must keep both held tools in hand"
+        attire_after_crust.held_pair(),
+        (HeldRelic::IronSpade, HeldRelic::CrustBlock),
+        "Excavating a crust block with spade must replace the held dirt block in the other hand"
     );
     assert_eq!(
-        satchel.resource_tally(HeldRelic::ExcavatedEarth, next_attire),
+        satchel_after_crust.resource_tally(HeldRelic::ExcavatedEarth, attire_after_crust),
         1,
-        "Excavated block must be stowed directly into the satchel when both hands are occupied"
+        "Replaced dirt block must be stowed into the satchel"
     );
-
-    let mut world = world::BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
-    let mut avatar = PlanetaryAvatar::at(spawn);
-    avatar.rotate_degrees(0.0, 70.5);
-    avatar.apply_attire(dual_tools);
-
-    let mut before_dig = QuadLedger::empty();
-    avatar.emit_appearance(&mut before_dig);
-    assert!(!avatar.use_right_hand(&mut world));
-    assert!(avatar.use_right_hand(&mut world));
-
-    let mut after_dig = QuadLedger::empty();
-    avatar.emit_appearance(&mut after_dig);
     assert_eq!(
-        before_dig.quads.len(),
-        after_dig.quads.len(),
-        "Avatar must still hold IronSpade and WoodmanAxe after excavating a block"
+        satchel_after_crust.resource_tally(HeldRelic::CrustBlock, attire_after_crust),
+        1,
+        "Newly excavated crust block must be held in hand"
     );
+
+    let (satchel_same, attire_same) =
+        satchel_after_crust.collect_excavated_block(-1.0, HeldRelic::CrustBlock, attire_after_crust);
+    assert_eq!(attire_same.held_pair(), (HeldRelic::IronSpade, HeldRelic::CrustBlock));
+    assert_eq!(satchel_same.resource_tally(HeldRelic::CrustBlock, attire_same), 2);
 }
 

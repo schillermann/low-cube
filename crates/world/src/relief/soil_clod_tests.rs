@@ -128,7 +128,11 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
     );
     assert!(top_idle.tones.contains(&Vec3::new(0.35, 0.31, 0.28)), "Top of exposed crust block must show crust rock tone");
 
-    relief.mark_dig_stage(1, 0, 2);
+    assert_eq!(
+        relief.mark_dig_stage(1, 0, 2).1,
+        Some(crate::block::BlockMedium::CrustRock),
+        "Exposed crust block must report CrustRock medium for rock debris particles"
+    );
     let mut top_dug = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
     ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &palette, 64, &mut top_dug);
     assert!(
@@ -140,15 +144,11 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
         "Digging a crust block from above must recess into dark crust rock tones matching side excavation"
     );
     let crust_layer_elev = (crust_top_step as f32) * 0.5 - 0.25;
+    assert_eq!(relief.harvest_layer(1, 0, crust_layer_elev).1, Some(crate::block::BlockMedium::CrustRock));
+    assert!(relief.stack_cell(1, 0));
     assert_eq!(
-        relief.layer_medium_at(1, 0, crust_layer_elev),
-        crate::block::BlockMedium::CrustRock,
-        "Exposed crust block must report CrustRock medium for rock debris particles"
-    );
-    assert!(relief.excavate_cell(1, 0).1 && relief.stack_cell(1, 0));
-    assert_eq!(
-        relief.layer_medium_at(1, 0, crust_layer_elev),
-        crate::block::BlockMedium::TurfEarth,
+        relief.mark_dig_layer(1, 0, crust_layer_elev, 1).1,
+        Some(crate::block::BlockMedium::TurfEarth),
         "Dirt block placed inside crust cavity must preserve TurfEarth identity instead of mutating into CrustRock"
     );
 }

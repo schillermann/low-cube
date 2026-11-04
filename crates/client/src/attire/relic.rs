@@ -35,16 +35,17 @@ pub enum HeldRelic {
     FlintStone,
     TimberBlock,
     PlankBlock,
+    CrustBlock,
 }
 
 impl HeldRelic {
     #[cfg(test)]
     pub fn next(self) -> Self {
-        Self::from_code((self.code() + 1) % 12)
+        Self::from_code((self.code() + 1) % 13)
     }
 
     pub const fn from_code(code: u8) -> Self {
-        match code % 12 {
+        match code % 13 {
             0 => Self::EmptyPalm,
             1 => Self::QuarriedStone,
             2 => Self::TimberTorch,
@@ -56,7 +57,8 @@ impl HeldRelic {
             8 => Self::DeadwoodBough,
             9 => Self::FlintStone,
             10 => Self::TimberBlock,
-            _ => Self::PlankBlock,
+            11 => Self::PlankBlock,
+            _ => Self::CrustBlock,
         }
     }
 
@@ -74,6 +76,7 @@ impl HeldRelic {
             Self::FlintStone => 9,
             Self::TimberBlock => 10,
             Self::PlankBlock => 11,
+            Self::CrustBlock => 12,
         }
     }
 
@@ -91,6 +94,7 @@ impl HeldRelic {
             Self::FlintStone => "FLINT STONE",
             Self::TimberBlock => "WOOD BLOCK",
             Self::PlankBlock => "WOOD PLANKS",
+            Self::CrustBlock => "CRUST BLOCK",
         }
     }
 
@@ -111,11 +115,15 @@ impl HeldRelic {
     }
 
     pub const fn placeable_block(self) -> bool {
-        matches!(self, Self::ExcavatedEarth | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock)
+        matches!(
+            self,
+            Self::ExcavatedEarth | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock | Self::CrustBlock
+        )
     }
 
     pub const fn block_medium(self) -> BlockMedium {
         match self {
+            Self::CrustBlock => BlockMedium::CrustRock,
             Self::QuarriedStone => BlockMedium::QuarriedStone,
             Self::TimberBlock => BlockMedium::RawTimber,
             Self::PlankBlock => BlockMedium::PlanedPlanks,
@@ -125,7 +133,8 @@ impl HeldRelic {
 
     pub const fn from_medium(medium: BlockMedium) -> Self {
         match medium {
-            BlockMedium::TurfEarth | BlockMedium::CrustRock => Self::ExcavatedEarth,
+            BlockMedium::TurfEarth => Self::ExcavatedEarth,
+            BlockMedium::CrustRock => Self::CrustBlock,
             BlockMedium::QuarriedStone => Self::QuarriedStone,
             BlockMedium::RawTimber => Self::TimberBlock,
             BlockMedium::PlanedPlanks => Self::PlankBlock,
@@ -135,7 +144,9 @@ impl HeldRelic {
     pub const fn martial_style(self) -> MartialStyle {
         match self {
             Self::EmptyPalm => MartialStyle::Unarmed,
-            Self::ExcavatedEarth | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock | Self::DeadwoodBough | Self::FlintStone => MartialStyle::PalmCradle,
+            Self::ExcavatedEarth | Self::CrustBlock | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock | Self::DeadwoodBough | Self::FlintStone => {
+                MartialStyle::PalmCradle
+            }
             Self::IronSpade => MartialStyle::SpadeDig,
             Self::WoodenMallet | Self::WoodmanAxe => MartialStyle::LumberjackCleave,
             Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,
@@ -178,7 +189,7 @@ impl HeldRelic {
         let (gx, gz) = (-side * 0.025, 0.054);
         match self {
             Self::EmptyPalm => {}
-            Self::QuarriedStone | Self::ExcavatedEarth | Self::TimberBlock | Self::PlankBlock => {
+            Self::QuarriedStone | Self::ExcavatedEarth | Self::TimberBlock | Self::PlankBlock | Self::CrustBlock => {
                 frame.emit_cradled_block(
                     side,
                     Vec3::new(-side * 0.015, 0.001, 0.048),
@@ -258,7 +269,7 @@ impl HeldRelic {
         let showcase = slot_frame.shifted(0.0, 0.0, -0.048).pitched(-0.46).yawed(0.64);
         match self {
             Self::EmptyPalm => {}
-            Self::ExcavatedEarth | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock => {
+            Self::ExcavatedEarth | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock | Self::CrustBlock => {
                 showcase.emit_upright_block(Vec3::new(0.0, -0.025, 0.0), mold.in_medium(self.block_medium()), 0.082, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.56, 0.41, 0.25), &mut lit);
             }
             Self::DeadwoodBough => Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit),

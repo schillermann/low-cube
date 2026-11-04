@@ -77,7 +77,21 @@ impl BlockMedium {
         }
     }
 
-    /// Emits Variant 2B Plank Block: Planed honey-oak floorboards separated by deep dark shadow grooves.
+    /// Emits a full-cube planetary crust rock block with dark craggy relief and glowing mineral seams.
+    fn emit_crust_rock_cube(cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
+        let vault = crate::CrustVault::beneath(64);
+        let ((u0, u1), (v0, v1), y0, y1) = (cell.u_bounds(), cell.v_bounds(), floor_elev, floor_elev + 0.5);
+        vault.emit_crust_floor(cell, y1, false, frame, target);
+        vault.emit_shaft_ceiling(cell, y0, 1.0, frame, target);
+        for (edge, norm) in [
+            (((u0, v1), (u1, v1)), frame.bitangent()),
+            (((u1, v0), (u0, v0)), -frame.bitangent()),
+            (((u1, v0), (u1, v1)), frame.tangent()),
+            (((u0, v1), (u0, v0)), -frame.tangent()),
+        ] {
+            vault.emit_crust_flank(edge, 0, -2, norm, frame, target);
+        }
+    }
     fn emit_planed_planks_cube(cell: GridCell, floor_elev: f32, cross_grain: bool, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let ((u0, u1), (v0, v1), top_elev) = (cell.u_bounds(), cell.v_bounds(), floor_elev + 0.5);
         let groove_core = Vec3::new(0.22, 0.14, 0.08);
@@ -132,6 +146,7 @@ impl VoxelShape for MediumShape {
     fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, bare_top: bool, target: &mut dyn MeshTarget) {
         match (self.medium, self.full_cube) {
             (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_terraced(top_color, bare_top, frame, target),
+            (BlockMedium::CrustRock, true) => BlockMedium::emit_crust_rock_cube(cell, floor_elevation, frame, target),
             (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
             (BlockMedium::PlanedPlanks, true) => BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain, frame, target),
             (BlockMedium::RawTimber, false) => {
@@ -149,7 +164,7 @@ impl VoxelShape for MediumShape {
                 self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.50, 0.51, 0.53), &mut turf);
                 turf.seal_underside();
             }
-            (BlockMedium::CrustRock, _) => {
+            (BlockMedium::CrustRock, false) => {
                 let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.31, 0.27, 0.25), false);
                 self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.31, 0.27, 0.25), &mut turf);
                 turf.seal_underside();

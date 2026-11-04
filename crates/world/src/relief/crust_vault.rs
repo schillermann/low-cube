@@ -192,20 +192,6 @@ impl CrustVault {
         col
     }
 
-    pub fn emit_crust_block(&self, cell: GridCell, layer: i32, floor_step: i32, stage: u8, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
-        let ((u0, u1), (v0, v1), y0, y1) = (cell.u_bounds(), cell.v_bounds(), (layer as f32) * 0.5, ((layer + 1) as f32) * 0.5);
-        let mut cratered = crate::CrateredMeshTarget::new(target, stage);
-        self.emit_crust_floor(cell, y1, false, frame, &mut cratered);
-        self.emit_shaft_ceiling(cell, y0, 1.0, frame, &mut cratered);
-        for (edge, norm) in [
-            (((u0, v1), (u1, v1)), frame.bitangent()),
-            (((u1, v0), (u0, v0)), -frame.bitangent()),
-            (((u1, v0), (u1, v1)), frame.tangent()),
-            (((u0, v1), (u0, v0)), -frame.tangent()),
-        ] {
-            self.emit_crust_flank(edge, layer, floor_step, norm, frame, &mut cratered);
-        }
-    }
     fn block_at(&self, cell: GridCell) -> (f32, InvertedShape) {
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
         let q = [

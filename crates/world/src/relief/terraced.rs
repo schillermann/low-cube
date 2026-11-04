@@ -85,10 +85,6 @@ impl ReliefElevation for TerracedRelief {
         self.molds.layer_occupied_at(u, v, layer_elev)
     }
 
-    fn layer_medium_at(&self, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
-        self.molds.layer_medium_at(&self.strata, u, v, layer_elev)
-    }
-
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
         self.molds
@@ -139,7 +135,7 @@ impl ReliefElevation for TerracedRelief {
     fn emit_molded_top(&self, cell: GridCell, frame: &SurfaceFrame, top_col: Vec3, wall_col: Vec3, target: &mut dyn MeshTarget) -> bool {
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let surf_base = ((self.natural_elevation_at(u, v) - 1) as f32 * 0.5).max((self.elevation_at(u, v) as f32) * 0.5);
-        self.molds.emit_molded_top(cell, surf_base, &self.strata.vault(), frame, (top_col, wall_col), target)
+        self.molds.emit_molded_top(cell, surf_base, frame, (top_col, wall_col), target)
     }
 
     fn step_grass(&mut self, dt: f32) -> Vec<(i32, i32)> {
@@ -154,24 +150,26 @@ impl ReliefElevation for TerracedRelief {
         self.molds.reset_stage()
     }
 
-    fn mark_dig_stage(&mut self, u: i32, v: i32, stage: u8) -> ((i32, i32), bool) {
+    fn mark_dig_stage(&mut self, u: i32, v: i32, stage: u8) -> ((i32, i32), Option<BlockMedium>) {
         self.mark_dig_layer(u, v, self.top_layer_at(u, v), stage)
     }
 
-    fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
+    fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), Option<BlockMedium>) {
         if stage > 0 && !self.shafts.diggable_at(&self.strata, u, v, layer_elev) && !self.molds.present_at(u, v) {
-            return ((u, v), false);
+            return ((u, v), None);
         }
-        self.molds.record_stage(u, v, layer_elev, stage)
+        let medium = self.molds.layer_medium_at(&self.strata, &self.shafts, u, v, layer_elev);
+        let (prev, changed) = self.molds.record_stage(u, v, layer_elev, stage);
+        (prev, changed.then_some(medium))
     }
 
     fn excavate_cell(&mut self, u: i32, v: i32) -> ((i32, i32), bool) {
         self.excavate_layer(u, v, self.top_layer_at(u, v))
     }
 
-    fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), bool) {
-        if let Some(prev_cell) = self.molds.remove_layer(u, v, layer_elev) {
-            return (prev_cell, true);
+    fn harvest_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
+        if let Some((prev_cell, medium)) = self.molds.remove_layer(u, v, layer_elev) {
+            return (prev_cell, Some(medium));
         }
         self.shafts.excavate_layer(&self.strata, &mut self.molds, u, v, layer_elev)
     }

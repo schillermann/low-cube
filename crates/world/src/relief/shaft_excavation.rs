@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::block::GridCell;
+use crate::block::{BlockMedium, GridCell};
 use super::natural_strata::NaturalStrata;
 use super::overhang_molds::OverhangMolds;
 
@@ -215,22 +215,36 @@ impl ShaftExcavation {
         !self.breached_at(strata, u, v) && (self.deepened_steps(strata, u, v) != self.elevation_at(strata, u, v) || up_dig)
     }
 
-    pub fn excavate_layer(&mut self, strata: &NaturalStrata, molds: &mut OverhangMolds, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), bool) {
+    pub fn excavated_medium_at(&self, strata: &NaturalStrata, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
+        let (crust, elev, vault) = (self.crust_floor_at(strata, u, v), self.elevation_at(strata, u, v), strata.vault());
+        let step_at = ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
+        let dug_step = if step_at <= crust && step_at < elev - 1 {
+            crust
+        } else if step_at < elev - 1 {
+            step_at.max(crust)
+        } else {
+            elev - 1
+        };
+        if vault.crust_layer_at(u, v, dug_step) { BlockMedium::CrustRock } else { BlockMedium::TurfEarth }
+    }
+
+    pub fn excavate_layer(&mut self, strata: &NaturalStrata, molds: &mut OverhangMolds, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
         let (crust, elev, nat) = (self.crust_floor_at(strata, u, v), self.elevation_at(strata, u, v), strata.elevation_at(u, v));
         let step_at = ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
         if self.breached_at(strata, u, v) {
-            return ((u, v), false);
+            return ((u, v), None);
         }
+        let medium = self.excavated_medium_at(strata, u, v, layer_elev);
         if step_at <= crust && step_at < elev - 1 {
             if self.adjacent_upward_at(strata, u, v) <= crust && !strata.vault().cell_opens(u, v) && self.upward_at(u, v) <= 0 {
-                return ((u, v), false);
+                return ((u, v), None);
             }
             self.record_ceiling(u, v, crust + 1 - strata.vault().floor_steps_at(u, v));
-            return (molds.clear_stage(u, v), true);
+            return (molds.clear_stage(u, v), Some(medium));
         }
         let next_elev = if step_at < elev - 1 { step_at.max(crust) } else { self.deepened_steps(strata, u, v) };
         if next_elev == elev {
-            return ((u, v), false);
+            return ((u, v), None);
         }
         if step_at < elev - 1 {
             molds.retain_overhang(strata, u, v, next_elev, elev);
@@ -238,6 +252,6 @@ impl ShaftExcavation {
             molds.expose_dirt(u, v);
         }
         self.record_delta(u, v, next_elev - nat);
-        (molds.clear_stage(u, v), true)
+        (molds.clear_stage(u, v), Some(medium))
     }
 }

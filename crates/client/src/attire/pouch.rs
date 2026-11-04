@@ -15,6 +15,9 @@ impl PalmStack {
     fn assign_blocks(&mut self, side: f32, blocks: u32) {
         if side > 0.0 { self.right_blocks = blocks; } else { self.left_blocks = blocks; }
     }
+    fn reset_mold(&mut self, side: f32) {
+        if side > 0.0 { self.right_mold = BlockMold::cube(); } else { self.left_mold = BlockMold::cube(); }
+    }
     fn sync_mold_from_opposite(&mut self, side: f32) {
         if side > 0.0 { self.right_mold = self.left_mold; } else { self.left_mold = self.right_mold; }
     }
@@ -30,7 +33,7 @@ pub struct BeltSatchel {
 impl BeltSatchel {
     #[allow(clippy::too_many_arguments)]
     pub const fn new(
-        right_blocks: u32, left_blocks: u32, stowed: [u32; 12], right_mold: BlockMold, left_mold: BlockMold,
+        right_blocks: u32, left_blocks: u32, stowed: [u32; 13], right_mold: BlockMold, left_mold: BlockMold,
         active_side: f32, cursor: usize, open: bool,
     ) -> Self {
         Self {
@@ -39,7 +42,7 @@ impl BeltSatchel {
         }
     }
 
-    pub const fn empty() -> Self { Self::new(0, 0, [0; 12], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false) }
+    pub const fn empty() -> Self { Self::new(0, 0, [0; 13], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false) }
     pub const fn open(&self) -> bool { self.tray.open() }
     pub const fn with_open(mut self, open: bool) -> Self { self.tray = self.tray.with_open(open); self }
 
@@ -132,16 +135,25 @@ impl BeltSatchel {
 
     pub fn collect_excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
         let (hand, other) = attire.hand_pair(side);
-        if !hand.free_palm() && !other.free_palm() {
-            self.tray.focus_side(side);
-            self.tray.stow_relic(relic, 1);
-            return (self, attire);
+        if hand.free_palm() || other.free_palm() {
+            let target = if hand.free_palm() { side } else { -side };
+            if hand.placeable_block() || other.placeable_block() { self.palms.sync_mold_from_opposite(target); }
+            self.palms.assign_blocks(target, 1);
+            self.tray.focus_side(target);
+            return (self, attire.with_hand_relic(target, relic));
         }
-        let target = if hand.free_palm() { side } else { -side };
-        if hand.placeable_block() || other.placeable_block() { self.palms.sync_mold_from_opposite(target); }
-        self.palms.assign_blocks(target, 1);
-        self.tray.focus_side(target);
-        (self, attire.with_hand_relic(target, relic))
+        let target = if hand.placeable_block() { side } else if other.placeable_block() { -side } else { 0.0 };
+        let held = if target > 0.0 { attire.held_pair().0 } else { attire.held_pair().1 };
+        if target != 0.0 && held != relic {
+            self.tray.stow_relic(held, self.palms.blocks_on(target));
+            self.palms.assign_blocks(target, 1);
+            self.palms.reset_mold(target);
+            self.tray.focus_side(target);
+            return (self, attire.with_hand_relic(target, relic));
+        }
+        self.tray.focus_side(if target != 0.0 { target } else { side });
+        self.tray.stow_relic(relic, 1);
+        (self, attire)
     }
 
     pub fn collect_foraged(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
@@ -207,7 +219,7 @@ impl BeltSatchel {
     }
 
     pub fn emit_in_palm(&self, side: f32, hand_relic: HeldRelic, frame: &LimbFrame, target: &mut dyn MeshTarget) {
-        hand_relic.emit_molded_in_palm(side, self.palms.mold_on(side), frame, target);
+        hand_relic.emit_molded_in_palm(side, BlockMold::cube(), frame, target);
     }
 
     pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {

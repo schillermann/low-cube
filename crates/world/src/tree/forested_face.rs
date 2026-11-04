@@ -132,16 +132,15 @@ impl Face for ForestedFace {
         peak
     }
 
-    fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        let changed = self.origin.excavate(eye, direction);
-        if changed {
+    fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        let harvested = self.origin.harvest(eye, direction);
+        if harvested.is_some() {
             self.settle_flora();
         }
-        changed
+        harvested
     }
 
-    fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium { self.origin.surface_medium(eye, direction) }
-    fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool { self.origin.loosen(eye, direction, stage) }
+    fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.origin.loosen(eye, direction, stage) }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
         let mut depository = WoodlandDepository::new();

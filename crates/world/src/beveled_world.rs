@@ -79,15 +79,11 @@ impl PlanetaryWorld for BeveledWorld {
         self.world.canopy_drag(position)
     }
 
-    fn excavate_surface(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        self.world.excavate_surface(eye, direction)
+    fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.world.harvest_surface(eye, direction)
     }
 
-    fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium {
-        self.world.surface_medium(eye, direction)
-    }
-
-    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
+    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
         self.world.loosen_surface(eye, direction, stage)
     }
 

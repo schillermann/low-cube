@@ -36,7 +36,7 @@ impl DigOperation {
     }
 
     fn clear_cracks(self, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.dig_progress > 0 { world.loosen_surface(eye, view_dir, 0) } else { false }
+        if self.dig_progress > 0 { world.loosen_surface(eye, view_dir, 0).is_some() } else { false }
     }
 
     fn resolve_site(self, eye: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> Vec3 {
@@ -219,8 +219,10 @@ impl PalmEarthworks {
             }
             let state = Self::with_tome_and_medium(self.satchel, self.tome, d.dig_progress, d.grip.promoted_to_dig(side), d.splash.site, d.splash.medium, d.splash.active).reconcile_attire(attire);
             if rhythm.cleave_surge(side) > 0.0 {
-                let (site, med, ok) = (d.resolve_site(eye, view_dir, world), world.surface_medium(eye, view_dir), world.loosen_surface(eye, view_dir, 1));
-                return (Self::with_tome_and_medium(state.satchel, state.tome, u32::from(ok), state.dig.grip, if ok { site } else { Vec3::ZERO }, med, ok), attire, rhythm, ok);
+                if let Some(med) = world.loosen_surface(eye, view_dir, 1) {
+                    return (Self::with_tome_and_medium(state.satchel, state.tome, 1, state.dig.grip, d.resolve_site(eye, view_dir, world), med, true), attire, rhythm, true);
+                }
+                return (Self::with_tome_and_medium(state.satchel, state.tome, 0, state.dig.grip, Vec3::ZERO, BlockMedium::TurfEarth, false), attire, rhythm, false);
             }
             let (next, next_attire, next_rhythm, excavated) = state.act_with_hand(side, attire, rhythm, eye, view_dir, world);
             return (next, next_attire, next_rhythm, excavated || next.dig.dig_progress > 0);
@@ -275,16 +277,16 @@ impl PalmEarthworks {
             let grip = if active.axe_blade() { DigGrip::with_dig_on(side, false) } else { DigGrip::idle() };
             return (Self::new(ns, 0, grip, Vec3::ZERO, false), na, Self::trigger_hand_swing(attire, rhythm, side), outcome.struck());
         };
-        let (site, med, progress, next_grip, next_rhythm) = (d.resolve_site(eye, view_dir, world), world.surface_medium(eye, view_dir), stroke.advance_progress(d.dig_progress), stroke.next_grip(), stroke.next_rhythm());
+        let (site, progress, next_grip, next_rhythm) = (d.resolve_site(eye, view_dir, world), stroke.advance_progress(d.dig_progress), stroke.next_grip(), stroke.next_rhythm());
         if progress >= EXCAVATION_THRESHOLD {
-            let harvested = HeldRelic::from_medium(med);
-            if world.excavate_surface(eye, view_dir) {
+            if let Some(med) = world.harvest_surface(eye, view_dir) {
+                let harvested = HeldRelic::from_medium(med);
                 let (next_satchel, next_attire) = state.satchel.collect_excavated_block(stroke.recipient_side(), harvested, attire);
                 return (Self::with_tome_and_medium(next_satchel, state.tome, 0, next_grip.without_pending_place(), site, med, true), next_attire, next_rhythm, true);
             }
             return (Self::new(state.satchel, 0, next_grip.without_pending_place(), Vec3::ZERO, false), attire, next_rhythm, false);
         }
-        if world.loosen_surface(eye, view_dir, progress.div_ceil(2).clamp(1, 3) as u8) {
+        if let Some(med) = world.loosen_surface(eye, view_dir, progress.div_ceil(2).clamp(1, 3) as u8) {
             return (Self::with_tome_and_medium(state.satchel, state.tome, progress, next_grip, site, med, true), attire, next_rhythm, false);
         }
         let fallback_grip = if w_place { DigGrip::with_pending_place(side) } else { next_grip.without_pending_place() };

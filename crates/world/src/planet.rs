@@ -77,54 +77,43 @@ impl PlanetaryWorld for CubePlanet {
         self.active_face(position).canopy_drag(position)
     }
 
-    fn excavate_surface(&mut self, eye: Vec3, direction: Vec3) -> bool {
+    fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
         let (primary, secondary) = self.aimed_indices(eye, direction);
         if let Some(face) = self.faces.get_mut(primary) {
-            if face.excavate(eye, direction) {
+            if let Some(medium) = face.harvest(eye, direction) {
                 self.modified_face = primary;
-                return true;
+                return Some(medium);
             }
         }
         if secondary != primary {
             if let Some(face) = self.faces.get_mut(secondary) {
-                if face.excavate(eye, direction) {
+                if let Some(medium) = face.harvest(eye, direction) {
                     self.modified_face = secondary;
-                    return true;
+                    return Some(medium);
                 }
             }
         }
-        false
+        None
     }
 
-    fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium {
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        let medium = self.active_face(eye).surface_medium(eye, direction);
-        if medium == BlockMedium::TurfEarth && secondary != primary {
-            if let Some(face) = self.faces.get(secondary) {
-                return face.surface_medium(eye, direction);
-            }
-        }
-        medium
-    }
-
-    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
+    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
         let (primary, secondary) = self.aimed_indices(eye, direction);
         if let Some(face) = self.faces.get_mut(primary) {
-            if face.loosen(eye, direction, stage) {
+            if let Some(medium) = face.loosen(eye, direction, stage) {
                 self.modified_face = primary;
-                return true;
+                return Some(medium);
             }
         }
         let alt = if stage == 0 && self.modified_face < self.faces.len() { self.modified_face } else { secondary };
         if alt != primary {
             if let Some(face) = self.faces.get_mut(alt) {
-                if face.loosen(eye, direction, stage) {
+                if let Some(medium) = face.loosen(eye, direction, stage) {
                     self.modified_face = alt;
-                    return true;
+                    return Some(medium);
                 }
             }
         }
-        false
+        None
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {

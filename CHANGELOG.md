@@ -8,6 +8,19 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-04
+
+### Added
+- Added `HeldRelic::CrustBlock` (`crates/client/src/attire/relic.rs`, `SatchelTray` in `crates/client/src/attire/tray.rs`) and polymorphic full-cube crust rock emission (`BlockMedium::emit_crust_rock_cube`, `MediumShape::emit_terraced_shape` in `crates/world/src/block/timber_grain.rs`) so excavated planetary crust layers equip, stow, and render as distinct crust blocks.
+- Added atomic "Tell, Don't Ask" excavation and loosening messages returning the affected `Option<BlockMedium>` (`PlanetaryWorld::harvest_surface`, `PlanetaryWorld::loosen_surface`, `Face::harvest`, `Face::loosen`, `ReliefElevation::harvest_layer`, `ReliefElevation::mark_dig_layer`).
+
+### Changed
+- Updated `BeltSatchel::collect_excavated_block` and `BeltSatchel::emit_in_palm` (`crates/client/src/attire/pouch.rs`) so excavating a different block medium with a tool in one hand and a placeable block in the other hand stows the previously held block into the satchel, replaces it in-hand with the newly harvested block reset to `BlockMold::cube()`, and always renders palm-held blocks in cuboid form.
+- Delegated `OverhangMolds::emit_molded_top` (`crates/world/src/relief/overhang_molds.rs`) polymorphically through `ElevatedShape::emit_terraced` and `MediumShape` instead of inspecting `BlockMedium::CrustRock`.
+
+### Removed
+- Removed "Ask, Then Tell" medium query methods (`PlanetaryWorld::surface_medium`, `Face::surface_medium`, `ReliefElevation::layer_medium_at`, `TerracedRelief::layer_medium_at`, `CrustVault::emit_crust_block`).
+
 ## [0.43.1] - 2026-11-04
 
 ### Changed
