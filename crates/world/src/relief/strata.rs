@@ -37,11 +37,13 @@ impl ReliefStrata {
             if c_steps > f_steps {
                 self.emit_upward_shaft(cell, u, v, c_steps, &vault, relief, frame, target);
             } else {
-                vault.emit_ceiling(cell, relief.dig_stage_at(u, v), frame, target);
+                vault.emit_ceiling(cell, relief.layer_dig_stage_at(u, v, (c_steps as f32) * 0.5 + 0.25), frame, target);
                 for side in [(0, 1), (0, -1), (1, 0), (-1, 0)] {
                     let (nu, nv) = (u + side.0, v + side.1);
-                    if relief.breached_at(nu, nv) || relief.crust_floor_at(nu, nv) > vault.floor_steps_at(nu, nv) {
-                        vault.emit_skirt(cell, side, frame, target);
+                    let (n_floor, n_crust) = (vault.floor_steps_at(nu, nv), relief.crust_floor_at(nu, nv));
+                    if relief.breached_at(nu, nv) || n_crust > n_floor {
+                        let collar_h = if relief.breached_at(nu, nv) { f32::INFINITY } else { (n_crust as f32) * 0.5 };
+                        vault.emit_skirt(cell, side, collar_h, frame, target);
                     }
                 }
             }
@@ -67,14 +69,16 @@ impl ReliefStrata {
         target: &mut dyn MeshTarget,
     ) {
         let ((u0, u1), (v0, v1), ceil_h) = (cell.u_bounds(), cell.v_bounds(), (c_steps as f32) * 0.5);
-        let tint = 1.0 - (relief.dig_stage_at(u, v).min(3) as f32) * 0.14;
+        let c_stage = relief.layer_dig_stage_at(u, v, ceil_h + 0.25);
+        let tint = 1.0 - (c_stage.min(3) as f32) * 0.14;
         let dirt_col = Vec3::new(0.41, 0.27, 0.15);
+        let mut ceil_crater = CrateredMeshTarget::new(target, c_stage);
         if vault.crust_layer_at(u, v, c_steps) {
-            vault.emit_shaft_ceiling(cell, ceil_h, tint, frame, target);
+            vault.emit_shaft_ceiling(cell, ceil_h, tint, frame, &mut ceil_crater);
         } else {
             let (c0, c1, c2, c3) = (frame.point_at(u0, v0, ceil_h), frame.point_at(u1, v0, ceil_h), frame.point_at(u1, v1, ceil_h), frame.point_at(u0, v1, ceil_h));
-            target.push_quad(Quad::glowing(c3, c2, c1, c0, -frame.normal(), dirt_col * tint, 0.45));
-            EarthClods::new(cell, ceil_h).emit_sole(frame, target);
+            ceil_crater.push_quad(Quad::glowing(c3, c2, c1, c0, -frame.normal(), dirt_col * tint, 0.45));
+            if c_stage == 0 { EarthClods::new(cell, ceil_h).emit_sole(frame, target); }
         }
         let sides = [
             ((0, 1), (u1, v1), (u0, v1), -frame.bitangent(), 0usize),
@@ -87,6 +91,9 @@ impl ReliefStrata {
             if !relief.breached_at(nu, nv) {
                 let n_floor = vault.floor_steps_at(nu, nv);
                 let n_steps = relief.crust_floor_at(nu, nv).max(n_floor);
+                if c_steps < n_steps && relief.crust_floor_at(nu, nv) <= n_floor {
+                    vault.emit_skirt(GridCell::new(nu, nv), (-du, -dv), ceil_h, frame, target);
+                }
                 let wall_top = c_steps.min(relief.elevation_at(nu, nv));
                 for layer in n_steps..wall_top {
                     let (y0, y1) = ((layer as f32) * 0.5, ((layer + 1) as f32) * 0.5);

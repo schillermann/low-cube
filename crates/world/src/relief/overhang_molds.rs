@@ -33,10 +33,6 @@ impl DigStageFocus {
     pub const fn idle() -> Self { Self::new((0, 0), 0.0, 0) }
     pub const fn layer_elev(self) -> f32 { self.layer_elev }
 
-    pub const fn ground_stage(self, u: i32, v: i32, layer_occupied: bool) -> u8 {
-        if self.cell.0 == u && self.cell.1 == v && !layer_occupied { self.stage } else { 0 }
-    }
-
     pub fn layer_stage(self, u: i32, v: i32, layer_elev: f32, top_layer_elev: f32, layer_occupied: bool) -> u8 {
         let (q, f) = (((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32, ((self.layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32);
         let t = ((top_layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
@@ -97,10 +93,6 @@ impl OverhangMolds {
     pub fn present_at(&self, u: i32, v: i32) -> bool { self.blocks.contains_key(&(u, v)) }
     pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool { self.bare_dirt.contains_key(&(u, v)) }
     pub fn expose_dirt(&mut self, u: i32, v: i32) { self.bare_dirt.insert((u, v), 0.0); }
-
-    pub fn dig_stage_at(&self, u: i32, v: i32) -> u8 {
-        self.dig_stage.ground_stage(u, v, self.layer_occupied_at(u, v, self.dig_stage.layer_elev()))
-    }
 
     pub fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32, top_layer_elev: f32) -> u8 {
         self.dig_stage.layer_stage(u, v, layer_elev, top_layer_elev, self.layer_occupied_at(u, v, self.dig_stage.layer_elev()))

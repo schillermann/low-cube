@@ -61,9 +61,12 @@ impl Quad {
         let span_b = (c.v3 - c.v0).length().max((c.v2 - c.v1).length());
         let min_span = span_a.min(span_b);
         if min_span < 0.22 {
+            if span_a.max(span_b) >= 0.49 {
+                target.push_quad(*self);
+            }
             return;
         }
-        let (normal, color) = (self.shading.normal, self.shading.color);
+        let (normal, color, glow) = (self.shading.normal, self.shading.color, self.shading.glow);
         let bilerp = |fu: f32, fv: f32| {
             c.v0 * ((1.0 - fu) * (1.0 - fv))
                 + c.v1 * (fu * (1.0 - fv))
@@ -87,17 +90,18 @@ impl Quad {
         );
         for i in 0..4 {
             let j = (i + 1) & 3;
-            target.push_quad(Self::new(o[i], o[j], m[j], m[i], normal, color));
+            target.push_quad(Self::glowing(o[i], o[j], m[j], m[i], normal, color, glow));
             let wn = (b[j] - b[i]).cross(m[i] - b[i]).normalize_or_zero();
-            target.push_quad(Self::new(
+            target.push_quad(Self::glowing(
                 b[i],
                 b[j],
                 m[j],
                 m[i],
                 if wn.length_squared() > 0.5 { wn } else { normal },
                 wall_col,
+                glow,
             ));
         }
-        target.push_quad(Self::new(b[0], b[1], b[2], b[3], normal, floor_col));
+        target.push_quad(Self::glowing(b[0], b[1], b[2], b[3], normal, floor_col, glow));
     }
 }

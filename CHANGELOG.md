@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.43.1] - 2026-11-04
+
+### Changed
+- Unified downward, lateral, and upward excavation layer addressing (`ShaftExcavation::crust_hit_top_at`, `ShaftExcavation::diggable_at`, `ShaftExcavation::excavate_layer`, `ShaftExcavation::deepened_steps`, `ContactFace::classify`) so every `0.5m` column block layer `step` is targeted, cracked (`stage = 1..=3`), and excavated via its true midpoint `step * 0.5 + 0.25` regardless of direction.
+- Preserved full-width `0.035m` block mortar seams and subterranean glow during active digging (`Quad::emit_crater`), added 3D digging craters to upward shaft ceilings (`ReliefStrata::emit_upward_shaft`), sealed dome-to-shaft ceiling steps (`CrustVault::emit_skirt`), and maintained weightlessness throughout upward shafts (`TerracedRelief::weightless_at`, `ShaftExcavation::in_upward_shaft`).
+
+### Removed
+- Removed legacy layerless digging stage methods (`ReliefElevation::dig_stage_at`, `TerracedRelief::dig_stage_at`, `OverhangMolds::dig_stage_at`, `DigStageFocus::ground_stage`).
+
 ## [0.43.0] - 2026-11-04
 
 ### Added

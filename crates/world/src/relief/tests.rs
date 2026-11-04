@@ -197,4 +197,44 @@ fn test_seam_chamfer_emission_at_world_border() {
     assert!(terraced.step_grass(500.0).is_empty() && terraced.bare_dirt_at(3, 3), "Dirt block 2 blocks higher than neighboring grass must remain bare dirt");
 }
 
+#[test]
+fn test_upward_excavation_from_core_shares_identical_layer_logic_and_watertight_seams_with_downward_digging() {
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let mut downward = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 64);
+    let mut upward = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 64);
+    let (mut down_layers, mut up_layers) = (Vec::new(), Vec::new());
+
+    for step in (0..16).rev() {
+        let expected_mid = ((step - 16) as f32) * 0.5 + 0.25;
+        let eye = frame.point_at(0.25, 0.25, expected_mid + 0.75);
+        let (cu, cv, layer) = SurfaceSightRay::new(eye, -frame.normal()).target_layer(&frame, &downward, 64, 32.0).expect("Downward ray must hit top block");
+        assert_eq!((cu, cv, layer), (0, 0, expected_mid));
+        assert!(downward.mark_dig_layer(0, 0, layer, 2).1 && downward.layer_dig_stage_at(0, 0, layer) == 2);
+        assert!(downward.excavate_layer(0, 0, layer).1);
+        down_layers.push(layer);
+    }
+    for step in 0..16 {
+        let expected_mid = ((step - 16) as f32) * 0.5 + 0.25;
+        let (_, _, confined_z) = upward.confine(0.25, 0.25, expected_mid - 0.55);
+        assert!(upward.weightless_at(0.25, 0.25, confined_z), "Upward shaft must remain weightless at step {step} (z={confined_z})");
+        let eye = frame.point_at(0.25, 0.25, confined_z);
+        let (cu, cv, layer) = SurfaceSightRay::new(eye, frame.normal()).target_layer(&frame, &upward, 64, 32.0).expect("Upward ray must hit ceiling block");
+        assert_eq!((cu, cv, layer), (0, 0, expected_mid), "Upward ray at step {step} must address exact block midpoint {expected_mid}");
+        assert!(upward.mark_dig_layer(0, 0, layer, 2).1 && upward.layer_dig_stage_at(0, 0, layer) == 2);
+        let mut ledger = QuadLedger;
+        let mut counter = CountedMeshTarget::new(&mut ledger);
+        ReliefStrata::new().emit_cell(crate::block::GridCell::new(0, 0), &frame, &upward, &palette, 64, &mut counter);
+        if step > 0 {
+            assert!(counter.count() >= 10, "Upward shaft ceiling and walls at stage 2 must emit recessed 3D crater quads and intact seams");
+        }
+        assert!(upward.excavate_layer(0, 0, layer).1);
+        up_layers.push(layer);
+    }
+    down_layers.reverse();
+    assert_eq!(down_layers, up_layers, "Downward and upward excavation must traverse the exact same 16 discrete block layers");
+    assert!(downward.breached_at(0, 0) && upward.breached_at(0, 0), "Both downward and upward excavation must breach the column after 16 layers");
+    assert_eq!(downward.elevation_at(0, 0), upward.elevation_at(0, 0));
+}
+
 

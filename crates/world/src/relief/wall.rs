@@ -32,11 +32,11 @@ impl ReliefWall {
         }
         let (ub_l, ub_r) = (b_l.max(crust_top).min(t_l), b_r.max(crust_top).min(t_r));
         if t_l > ub_l + 1e-4 || t_r > ub_r + 1e-4 {
-            if relief.dig_stage_at(u, v) == 0 {
+            let (s_low, s_high) = ((ub_l.min(ub_r) * 2.0).floor() as i32, (t_l.max(t_r) * 2.0).ceil() as i32);
+            if (s_low..s_high).all(|layer| relief.layer_dig_stage_at(u, v, (layer as f32) * 0.5 + 0.25) == 0) {
                 target.push_quad(Quad::new(frame.point_at(a0, b0, ub_l), frame.point_at(a1, b1, ub_r), frame.point_at(a1, b1, t_r), frame.point_at(a0, b0, t_l), norm, col));
                 if dug { self.emit_clods(cell, side, ub_l.max(ub_r), t_l.min(t_r), frame, target); }
             } else {
-                let (s_low, s_high) = ((ub_l.min(ub_r) * 2.0).floor() as i32, (t_l.max(t_r) * 2.0).ceil() as i32);
                 for layer in s_low..s_high {
                     let (y0, y1) = ((layer as f32) * 0.5, ((layer + 1) as f32) * 0.5);
                     let (ly0_l, ly0_r, ly1_l, ly1_r) = (y0.clamp(ub_l, t_l), y0.clamp(ub_r, t_r), y1.clamp(ub_l, t_l), y1.clamp(ub_r, t_r));

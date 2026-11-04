@@ -270,8 +270,8 @@ impl CrustVault {
         }
     }
 
-    /// Emits the crust skirt sealing the gap between this cell's 4-layer floor and the vault toward a breached neighbor.
-    pub fn emit_skirt(&self, cell: GridCell, side: (i32, i32), frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
+    /// Emits the crust skirt sealing the gap between this cell's 4-layer floor and the vault toward a breached or upward-dug neighbor.
+    pub fn emit_skirt(&self, cell: GridCell, side: (i32, i32), collar_h: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let (floor, c) = ((self.floor_steps_at(u, v) as f32) * 0.5, self.corners_at(u, v));
@@ -281,9 +281,11 @@ impl CrustVault {
             (1, _) => ((u1, v1), (u1, v0), c[2], c[1], frame.tangent()),
             _ => ((u0, v0), (u0, v1), c[0], c[3], -frame.tangent()),
         };
-        let (low0, low1) = (c0.min(self.ceiling_height_at(a0, b0)).min(floor), c1.min(self.ceiling_height_at(a1, b1)).min(floor));
+        let top = floor.min(collar_h);
+        let (low0, low1) = (c0.min(self.ceiling_height_at(a0, b0)).min(top), c1.min(self.ceiling_height_at(a1, b1)).min(top));
+        let (high0, high1) = (c0.max(top), c1.max(top));
         let (p0, p1) = (frame.point_at(a0, b0, low0), frame.point_at(a1, b1, low1));
-        let (p2, p3) = (frame.point_at(a1, b1, floor), frame.point_at(a0, b0, floor));
+        let (p2, p3) = (frame.point_at(a1, b1, high1), frame.point_at(a0, b0, high0));
         target.push_quad(Quad::glowing(p0, p1, p2, p3, normal, self.rock_tone((p0 + p2) * 0.5), 0.5));
     }
 }

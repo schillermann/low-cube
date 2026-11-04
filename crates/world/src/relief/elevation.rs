@@ -61,11 +61,8 @@ pub trait ReliefElevation: Send + Sync {
     /// Advances grass regrowth across bare dirt cells bordering grass within 1 block height.
     fn step_grass(&mut self, _dt: f32) -> Vec<(i32, i32)> { Vec::new() }
 
-    /// Partial digging stage (0..=3) at discrete cell (u, v) before full block excavation.
-    fn dig_stage_at(&self, _u: i32, _v: i32) -> u8 { 0 }
-
     /// Partial digging stage (0..=3) at a specific vertical layer within (u, v).
-    fn layer_dig_stage_at(&self, u: i32, v: i32, _layer_elev: f32) -> u8 { self.dig_stage_at(u, v) }
+    fn layer_dig_stage_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> u8 { 0 }
 
     /// Clears any active partial digging stage, returning the affected cell and whether a stage was active.
     fn clear_dig_stage(&mut self) -> ((i32, i32), bool) { ((0, 0), false) }

@@ -54,7 +54,8 @@ impl ReliefElevation for TerracedRelief {
         let crest = vault.core().crest_at(u, v);
         let center_elev = foot_elev + body_span.min(1.0);
         let ceil_limit = if self.shafts.upward_at(cell_u, cell_v) > 0 {
-            (self.crust_floor_at(cell_u, cell_v) as f32) * 0.5
+            let top = if self.breached_at(cell_u, cell_v) { self.natural_elevation_at(cell_u, cell_v) } else { self.crust_floor_at(cell_u, cell_v) };
+            (top as f32) * 0.5
         } else {
             vault.ceiling_height_at(u, v) + 0.5
         };
@@ -118,9 +119,8 @@ impl ReliefElevation for TerracedRelief {
     fn weightless_at(&self, u: f32, v: f32, elev: f32) -> bool {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
         let in_upward = self.shafts.in_upward_shaft(&self.strata, cu, cv, elev);
-        let margin = if in_upward { -1.5 } else { 0.10 };
         !self.shafts.in_unbreached_shaft(&self.strata, cu, cv, elev)
-            && self.strata.vault().encloses(u, v, elev, margin)
+            && (in_upward || self.strata.vault().encloses(u, v, elev, 0.10))
             && !self.lethal_at(u, v, elev)
     }
 
@@ -144,10 +144,6 @@ impl ReliefElevation for TerracedRelief {
 
     fn step_grass(&mut self, dt: f32) -> Vec<(i32, i32)> {
         self.molds.step_grass(&self.strata, &self.shafts, dt)
-    }
-
-    fn dig_stage_at(&self, u: i32, v: i32) -> u8 {
-        self.molds.dig_stage_at(u, v)
     }
 
     fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32) -> u8 {
