@@ -158,7 +158,7 @@ fn test_mouse_wheel_molds_rotates_and_places_sloped_and_slab_blocks() {
     let vertices = |ledger: &SurfaceLedger| -> Vec<Vec3> {
         ledger.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect()
     };
-    assert_eq!(vertices(&wedge_fwd_mesh), vertices(&wedge_right_mesh));
+    assert_ne!(vertices(&wedge_fwd_mesh), vertices(&wedge_right_mesh));
     for _ in 0..3 {
         assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
     }

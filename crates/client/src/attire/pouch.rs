@@ -136,8 +136,8 @@ impl BeltSatchel {
     pub fn collect_excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
         let (hand, other) = attire.hand_pair(side);
         if hand.free_palm() || other.free_palm() {
-            let target = if hand.free_palm() { side } else { -side };
-            if hand.placeable_block() || other.placeable_block() { self.palms.sync_mold_from_opposite(target); }
+            let (target, opp) = if hand.free_palm() { (side, other) } else { (-side, hand) };
+            if opp == relic { self.palms.sync_mold_from_opposite(target); } else { self.palms.reset_mold(target); }
             self.palms.assign_blocks(target, 1);
             self.tray.focus_side(target);
             return (self, attire.with_hand_relic(target, relic));
@@ -219,7 +219,7 @@ impl BeltSatchel {
     }
 
     pub fn emit_in_palm(&self, side: f32, hand_relic: HeldRelic, frame: &LimbFrame, target: &mut dyn MeshTarget) {
-        hand_relic.emit_molded_in_palm(side, BlockMold::cube(), frame, target);
+        hand_relic.emit_molded_in_palm(side, self.palms.mold_on(side), frame, target);
     }
 
     pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {

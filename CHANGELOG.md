@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-11-04
+
+### Fixed
+- Restored live palm-molded block shape preview in `BeltSatchel::emit_in_palm` (`crates/client/src/attire/pouch.rs`) while resetting the palm mold to `BlockMold::cube()` whenever a newly excavated block type is equipped into an empty hand or replaces a different block type.
+
 ## [0.44.0] - 2026-11-04
 
 ### Added
