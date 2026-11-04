@@ -15,7 +15,6 @@ mod tests;
 
 pub use bevel::{BevelTransition, SeamBevel};
 pub use climate_zone::ClimateZone;
-pub type CubeFace = ClimateZone;
 pub use folded_face::FoldedFace;
 pub use folded_point::FoldedPoint;
 pub use perimeter::{FacePerimeter, PerimeterCrossing, PerimeterEdge};

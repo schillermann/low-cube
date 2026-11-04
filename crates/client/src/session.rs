@@ -198,12 +198,14 @@ impl Session for GameSession {
                     self.display.surface.capture_cursor();
                     match button {
                         MouseButton::Left => {
-                            let _ = self.stage.avatar.use_left_hand(self.stage.world.as_mut());
-                            self.display.refresh_modified_face(self.stage.world.as_mut());
+                            if self.stage.avatar.use_left_hand(self.stage.world.as_mut()) {
+                                self.display.refresh_modified_face(self.stage.world.as_mut());
+                            }
                         }
                         MouseButton::Right => {
-                            let _ = self.stage.avatar.use_right_hand(self.stage.world.as_mut());
-                            self.display.refresh_modified_face(self.stage.world.as_mut());
+                            if self.stage.avatar.use_right_hand(self.stage.world.as_mut()) {
+                                self.display.refresh_modified_face(self.stage.world.as_mut());
+                            }
                         }
                         _ => {}
                     }
@@ -257,9 +259,10 @@ impl Session for GameSession {
                     self.stage.modal.step(dt);
                 } else {
                     self.stage.avatar.step_motion(dt, self.stage.controls.as_ref(), self.stage.world.as_ref());
-                    let dug = self.stage.avatar.step_digging(self.stage.world.as_mut());
-                    let regrown = self.stage.world.step_surface(dt);
-                    if dug || regrown {
+                    if self.stage.avatar.step_digging(self.stage.world.as_mut()) {
+                        self.display.refresh_modified_face(self.stage.world.as_mut());
+                    }
+                    if self.stage.world.step_surface(dt) {
                         self.display.refresh_modified_face(self.stage.world.as_mut());
                     }
                 }

@@ -78,6 +78,15 @@ impl Arboreal for SolidArboreal {
         self.origin.step_timber(dt)
     }
 
+    fn settle_onto(&mut self, face: &dyn crate::Face, frame: &SurfaceFrame) -> bool {
+        let probe = frame.point_at(self.trunk.u, self.trunk.v, self.trunk.base_elevation + 0.25);
+        let next_elev = frame.elevation_of(face.constrain(probe, 0.0));
+        if (next_elev - self.trunk.base_elevation).abs() > 1e-3 {
+            self.trunk.base_elevation = next_elev;
+        }
+        self.origin.settle_onto(face, frame)
+    }
+
     fn solid(&self) -> bool {
         self.origin.standing()
     }
@@ -108,8 +117,8 @@ impl Arboreal for SolidArboreal {
 
         let dist = (u - self.trunk.u).hypot(v - self.trunk.v);
         if dist <= self.trunk.radius {
-            let base_h = frame.height_of(delegated);
-            frame.point_at(u, v, base_h + self.barrier_height)
+            let base_elev = frame.elevation_of(delegated);
+            frame.point_at(u, v, base_elev + self.barrier_height)
         } else {
             delegated
         }

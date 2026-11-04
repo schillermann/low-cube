@@ -48,9 +48,9 @@ impl ReliefStrata {
         }
         vault.core().emit_patch(cell, frame, target);
 
-        self.facet.emit_facet(
+        self.facet.emit_with_vault(
             cell, frame, relief, half_blocks,
-            palette, target,
+            &vault, palette, target,
         );
     }
 
@@ -69,7 +69,7 @@ impl ReliefStrata {
         let ((u0, u1), (v0, v1), ceil_h) = (cell.u_bounds(), cell.v_bounds(), (c_steps as f32) * 0.5);
         let tint = 1.0 - (relief.dig_stage_at(u, v).min(3) as f32) * 0.14;
         let dirt_col = Vec3::new(0.41, 0.27, 0.15);
-        if c_steps < vault.floor_steps_at(u, v) + 4 {
+        if vault.crust_layer_at(u, v, c_steps) {
             vault.emit_shaft_ceiling(cell, ceil_h, tint, frame, target);
         } else {
             let (c0, c1, c2, c3) = (frame.point_at(u0, v0, ceil_h), frame.point_at(u1, v0, ceil_h), frame.point_at(u1, v1, ceil_h), frame.point_at(u0, v1, ceil_h));
@@ -92,7 +92,7 @@ impl ReliefStrata {
                     let (y0, y1) = ((layer as f32) * 0.5, ((layer + 1) as f32) * 0.5);
                     let l_stage = relief.layer_dig_stage_at(nu, nv, y0 + 0.25);
                     let mut cratered = CrateredMeshTarget::new(target, l_stage);
-                    if layer < n_floor + 4 {
+                    if vault.crust_layer_at(nu, nv, layer) {
                         vault.emit_crust_flank(((a0, b0), (a1, b1)), layer, n_floor, norm, frame, &mut cratered);
                     } else {
                         cratered.push_quad(Quad::glowing(frame.point_at(a0, b0, y0), frame.point_at(a1, b1, y0), frame.point_at(a1, b1, y1), frame.point_at(a0, b0, y1), norm, dirt_col, 0.35));

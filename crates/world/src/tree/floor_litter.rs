@@ -126,6 +126,21 @@ impl Arboreal for FloorLitter {
     fn solid(&self) -> bool { false }
     fn standing(&self) -> bool { false }
 
+    fn settle_onto(&mut self, face: &dyn crate::Face, frame: &SurfaceFrame) -> bool {
+        if !self.find.gathered() {
+            return false;
+        }
+        let (u, v, elev) = self.coords;
+        let probe = frame.point_at(u, v, elev + 0.25);
+        let next_elev = frame.elevation_of(face.constrain(probe, 0.0));
+        if (next_elev - elev).abs() > 1e-3 {
+            self.coords.2 = next_elev;
+            true
+        } else {
+            false
+        }
+    }
+
     fn constrain_surface(&self, base: Vec3, _u: f32, _v: f32, _frame: &SurfaceFrame, _distance: f32) -> Vec3 {
         base
     }

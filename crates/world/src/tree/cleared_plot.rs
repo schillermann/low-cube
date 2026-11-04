@@ -109,6 +109,17 @@ impl Arboreal for ClearedPlot {
         }
     }
 
+    fn settle_onto(&mut self, face: &dyn crate::Face, frame: &SurfaceFrame) -> bool {
+        let probe = frame.point_at(self.anchor.u, self.anchor.v, self.anchor.elevation + 0.25);
+        let next_elev = frame.elevation_of(face.constrain(probe, 0.0));
+        if (next_elev - self.anchor.elevation).abs() > 1e-3 {
+            self.anchor.elevation = next_elev;
+            self.aftermath.salvage.gathered() || self.aftermath.burst > 0.0
+        } else {
+            false
+        }
+    }
+
     fn solid(&self) -> bool {
         false
     }

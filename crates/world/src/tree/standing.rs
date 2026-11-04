@@ -153,6 +153,17 @@ impl Arboreal for StandingTree {
         }
     }
 
+    fn settle_onto(&mut self, face: &dyn crate::Face, frame: &SurfaceFrame) -> bool {
+        let probe = frame.point_at(self.root.u, self.root.v, self.root.elevation + 0.25);
+        let next_elev = frame.elevation_of(face.constrain(probe, 0.0));
+        if (next_elev - self.root.elevation).abs() > 1e-3 {
+            self.root.elevation = next_elev;
+            true
+        } else {
+            false
+        }
+    }
+
     fn solid(&self) -> bool {
         true
     }

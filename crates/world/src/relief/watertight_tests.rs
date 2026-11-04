@@ -171,7 +171,7 @@ fn test_floating_lateral_block_dig_animation_on_floating_block_not_ground() {
     let mut terraced = TerracedRelief::in_span(Box::new(TestReliefGrid(|_, _| 0)), 16);
 
     // Place a floating block at (0, 0) at base = 1.0 (air in 0.0..1.0 above ground 0.0)
-    assert!(terraced.stack_molded_cell(0, 0, 1.0, Box::new(CuboidShape::new(0.5)), true));
+    assert!(terraced.stack_molded_cell(0, 0, 1.0, Box::new(CuboidShape::new(0.5))));
     let mut idle_col = QuadLedger::new();
     facet.emit_facet(GridCell::new(0, 0), &frame, &terraced, 16, &palette, &mut idle_col);
 

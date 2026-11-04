@@ -115,6 +115,42 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
     assert_eq!(probe.crust_pebbles, 0, "4-layer planetary crust walls must never carry dirt color or soil clods");
     assert!(probe.quartz_veins >= 60, "4-layer planetary crust walls must emit Variant 2A 3D glowing quartz/amber mineral veins, got {}", probe.quartz_veins);
     assert!(probe.upper_pebbles > 0, "Soil layers above the 4-layer crust must retain soil clods");
+
+    let crust_top_step = vault.floor_steps_at(1, 0) + 4;
+    while relief.elevation_at(1, 0) > crust_top_step {
+        assert!(relief.excavate_cell(1, 0).1);
+    }
+    let mut top_idle = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &palette, 64, &mut top_idle);
+    assert!(
+        !top_idle.tones.contains(&Vec3::new(0.45, 0.30, 0.17)) && !top_idle.tones.contains(&Vec3::new(0.64, 0.61, 0.55)),
+        "Excavating the dirt block atop the highest crust block must leave no dirt layer or soil clods on top"
+    );
+    assert!(top_idle.tones.contains(&Vec3::new(0.35, 0.31, 0.28)), "Top of exposed crust block must show crust rock tone");
+
+    relief.mark_dig_stage(1, 0, 2);
+    let mut top_dug = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+    ReliefStrata::new().emit_cell(GridCell::new(1, 0), &frame, &relief, &palette, 64, &mut top_dug);
+    assert!(
+        !top_dug.tones.contains(&Vec3::new(0.28, 0.19, 0.11)) && !top_dug.tones.contains(&Vec3::new(0.42, 0.29, 0.17)),
+        "Digging a crust block from above must not emit brown dirt crater tones"
+    );
+    assert!(
+        top_dug.tones.iter().any(|c| (*c - Vec3::new(0.35, 0.31, 0.28) * 0.52).length() < 1e-3),
+        "Digging a crust block from above must recess into dark crust rock tones matching side excavation"
+    );
+    let crust_layer_elev = (crust_top_step as f32) * 0.5 - 0.25;
+    assert_eq!(
+        relief.layer_medium_at(1, 0, crust_layer_elev),
+        crate::block::BlockMedium::CrustRock,
+        "Exposed crust block must report CrustRock medium for rock debris particles"
+    );
+    assert!(relief.excavate_cell(1, 0).1 && relief.stack_cell(1, 0));
+    assert_eq!(
+        relief.layer_medium_at(1, 0, crust_layer_elev),
+        crate::block::BlockMedium::TurfEarth,
+        "Dirt block placed inside crust cavity must preserve TurfEarth identity instead of mutating into CrustRock"
+    );
 }
 
 #[test]

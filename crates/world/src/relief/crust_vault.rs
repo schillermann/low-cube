@@ -92,6 +92,10 @@ impl CrustVault {
         }
     }
 
+    pub fn crust_top_step_at(&self, u: i32, v: i32) -> i32 { self.floor_steps_at(u, v) + 4 }
+    pub fn crust_layer_at(&self, u: i32, v: i32, layer: i32) -> bool { layer < self.crust_top_step_at(u, v) }
+    pub fn crust_surface_at(&self, u: i32, v: i32, top_step: i32) -> bool { self.crust_layer_at(u, v, top_step - 1) }
+
     /// Elevation step reached by digging one layer below `elev`; breaching the 4-layer crust opens the hollow world.
     pub fn excavated_steps(&self, u: i32, v: i32, elev: i32, shaft_steps: i32) -> i32 {
         let floor = self.floor_steps_at(u, v);

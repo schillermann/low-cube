@@ -35,11 +35,6 @@ impl FoldedFace {
         let frame = zone.surface_frame(half_size);
         Self::new(origin, frame, perimeter, seams)
     }
-
-    /// Backwards-compatible alias for in_zone.
-    pub fn on_cube(origin: Box<dyn Face>, zone: ClimateZone, half_size: f32) -> Self {
-        Self::in_zone(origin, zone, half_size)
-    }
 }
 
 impl Face for FoldedFace {

@@ -125,7 +125,7 @@ impl HeldRelic {
 
     pub const fn from_medium(medium: BlockMedium) -> Self {
         match medium {
-            BlockMedium::TurfEarth => Self::ExcavatedEarth,
+            BlockMedium::TurfEarth | BlockMedium::CrustRock => Self::ExcavatedEarth,
             BlockMedium::QuarriedStone => Self::QuarriedStone,
             BlockMedium::RawTimber => Self::TimberBlock,
             BlockMedium::PlanedPlanks => Self::PlankBlock,

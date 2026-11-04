@@ -104,6 +104,11 @@ impl BodyEnvelope {
         (point - self.constrain_with_height(point, eye, world)).dot(up) > DEEP_SHAFT_SPAN
     }
 
+    pub fn in_upward_shaft(&self, point: Vec3, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> bool {
+        self.in_deep_shaft(point, up, eye, world)
+            && (world.constrain_to_surface(point, 0.0) - point).dot(up) > 0.2
+    }
+
     pub fn catch_shaft_rim(&self, origin: Vec3, next_pos: Vec3, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> Option<Vec3> {
         if (next_pos - origin).dot(up) <= 0.0
             || world.weightless_at(next_pos)
@@ -159,9 +164,16 @@ impl BodyEnvelope {
     }
 
     fn wall_distance(base: Vec3, dir: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> (f32, f32) {
-        for step in 1..=24 {
-            let d = (step as f32) * SHAFT_WALL_STEP;
-            if let Some(rise) = Self::wall_rise(base, dir, d, up, world) { return (d, rise); }
+        for coarse in (3..=24).step_by(3) {
+            if let Some(coarse_rise) = Self::wall_rise(base, dir, (coarse as f32) * SHAFT_WALL_STEP, up, world) {
+                for fine in (coarse - 2)..coarse {
+                    let d = (fine as f32) * SHAFT_WALL_STEP;
+                    if let Some(rise) = Self::wall_rise(base, dir, d, up, world) {
+                        return (d, rise);
+                    }
+                }
+                return ((coarse as f32) * SHAFT_WALL_STEP, coarse_rise);
+            }
         }
         (2.0, 0.0)
     }

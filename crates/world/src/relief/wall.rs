@@ -20,9 +20,11 @@ impl ReliefWall {
         dug: bool, norm: Vec3, col: Vec3, floor_step: i32, vault: &CrustVault, relief: &dyn ReliefElevation, frame: &SurfaceFrame, target: &mut dyn MeshTarget,
     ) {
         if t_l <= b_l && t_r <= b_r { return; }
-        let ((u, v), (a0, b0), (a1, b1), crust_top) = (cell.feed_coordinates(|u, v| (u, v)), edge.0, edge.1, ((floor_step + 4) as f32) * 0.5);
+        let (u, v) = cell.feed_coordinates(|u, v| (u, v));
+        let ((a0, b0), (a1, b1), top_step) = (edge.0, edge.1, vault.crust_top_step_at(u, v));
+        let crust_top = (top_step as f32) * 0.5;
         let low_step = ((b_l.min(b_r) * 2.0).round() as i32).max(floor_step);
-        let high_step = ((t_l.max(t_r) * 2.0).round() as i32).min(floor_step + 4);
+        let high_step = ((t_l.max(t_r) * 2.0).round() as i32).min(top_step);
         for layer in low_step..high_step {
             let l_stage = relief.layer_dig_stage_at(u, v, (layer as f32) * 0.5 + 0.25);
             let mut cratered = CrateredMeshTarget::new(target, l_stage);

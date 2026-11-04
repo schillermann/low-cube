@@ -26,7 +26,6 @@ mod watertight_tests;
 #[cfg(test)]
 mod wedge_seam_tests;
 
-pub use corner::ReliefCorner;
 pub use crust_vault::CrustVault;
 pub use elevation::ReliefElevation;
 pub use face::FacetedReliefFace;

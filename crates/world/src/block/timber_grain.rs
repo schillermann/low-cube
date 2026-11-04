@@ -9,6 +9,7 @@ use super::shape::VoxelShape;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BlockMedium {
     TurfEarth,
+    CrustRock,
     QuarriedStone,
     RawTimber,
     PlanedPlanks,
@@ -18,6 +19,16 @@ impl BlockMedium {
     /// Indicates whether this medium carries its own self-colored architectural geometry across all forms.
     pub const fn self_pigmented(self) -> bool {
         !matches!(self, Self::TurfEarth)
+    }
+
+    /// Primary and secondary debris particle colors emitted when striking this block medium.
+    pub const fn debris_tones(self) -> (Vec3, Vec3) {
+        match self {
+            Self::TurfEarth => (Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.32, 0.22, 0.13)),
+            Self::CrustRock => (Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.25, 0.21, 0.20)),
+            Self::QuarriedStone => (Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.46, 0.48, 0.50)),
+            Self::RawTimber | Self::PlanedPlanks => (Vec3::new(0.82, 0.66, 0.42), Vec3::new(0.58, 0.42, 0.24)),
+        }
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -136,6 +147,11 @@ impl VoxelShape for MediumShape {
             (BlockMedium::QuarriedStone, _) => {
                 let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.50, 0.51, 0.53), false);
                 self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.50, 0.51, 0.53), &mut turf);
+                turf.seal_underside();
+            }
+            (BlockMedium::CrustRock, _) => {
+                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.31, 0.27, 0.25), false);
+                self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.31, 0.27, 0.25), &mut turf);
                 turf.seal_underside();
             }
             (BlockMedium::TurfEarth, false) => {

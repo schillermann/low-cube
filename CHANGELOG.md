@@ -8,6 +8,24 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-11-04
+
+### Added
+- Introduced `BlockMedium::CrustRock` and `BlockMedium::debris_tones` (`crates/world/src/block/timber_grain.rs`, `HeldRelic::from_medium`, `DebrisSplash` in `PalmEarthworks`) so excavating planetary crust layers emits dark rock debris and preserves `TurfEarth` identity on player-placed dirt blocks inside crust cavities.
+- Added `NaturalCrown` (`crates/world/src/relief/corner.rs`) unifying 3x3 neighborhood slope, ridge, and valley classification across `ZonedRelief::surface_height_at`, `NaturalStrata::crown_shape_at`, and `ReliefFacet::emit_with_vault`.
+- Added `Arboreal::settle_onto` (`StandingTree`, `SolidArboreal`, `ClearedPlot`, `FloorLitter`, `ForestedFace::settle_flora`) so trees, fallen boughs, and flint nodules settle onto the newly exposed block when the ground beneath them is excavated.
+
+### Changed
+- Replaced whole-row mesh caching in `FacetedReliefFace` with per-cell 3x3 neighborhood caching (`ReliefCellCache`, `FacetedReliefFace::refresh_neighborhood`), rebuilding at most 9 cells per block edit instead of 768 cells across 3 rows.
+- Extracted `RayProbe` in `SurfaceSightRay` (`crates/world/src/relief/sight_ray.rs`), added cross-seam target resolution in `CubePlanet::aimed_indices`, and accelerated shaft wall probing in `BodyEnvelope::wall_distance` and `BodyEnvelope::in_upward_shaft`.
+
+### Fixed
+- Eliminated residual dirt layers, soil clods, and brown digging craters on top of the 4-layer planetary crust (`CrustVault::crust_top_step_at`, `CrustVault::crust_layer_at`, `CrustVault::crust_surface_at`, `ReliefFacet::emit_with_vault`, `OverhangMolds::retain_overhang`, `OverhangMolds::emit_molded_top`).
+- Fixed double-counted `half_size` in `SolidArboreal::constrain_surface` and datum-relative canopy height evaluation in `ForestedFace::canopy_drag`.
+
+### Removed
+- Removed 2D-heightmap legacy parameters and unused aliases (`ElevatedShape::ceiling_above`, `ReliefElevation::stack_molded_cell` `_full_flat` parameter, `OverhangMolds::hit_top_at` `ground_h` parameter, `TerracedRelief::pristine`, `FoldedFace::on_cube`, `CubeFace`).
+
 ## [0.42.7] - 2026-11-03
 
 ### Fixed

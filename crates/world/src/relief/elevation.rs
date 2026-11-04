@@ -3,6 +3,7 @@ use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use crate::noise::SpatialFrequency;
+use super::corner::NaturalCrown;
 
 /// Behavioral interface for planetary relief elevation evaluation ("Tell, Don't Ask").
 pub trait ReliefElevation: Send + Sync {
@@ -58,7 +59,7 @@ pub trait ReliefElevation: Send + Sync {
     fn emit_molded_top(&self, _cell: GridCell, _frame: &SurfaceFrame, _top_col: Vec3, _wall_col: Vec3, _target: &mut dyn MeshTarget) -> bool { false }
 
     /// Advances grass regrowth across bare dirt cells bordering grass within 1 block height.
-    fn step_grass(&mut self, _dt: f32) -> Vec<i32> { Vec::new() }
+    fn step_grass(&mut self, _dt: f32) -> Vec<(i32, i32)> { Vec::new() }
 
     /// Partial digging stage (0..=3) at discrete cell (u, v) before full block excavation.
     fn dig_stage_at(&self, _u: i32, _v: i32) -> u8 { 0 }
@@ -66,26 +67,26 @@ pub trait ReliefElevation: Send + Sync {
     /// Partial digging stage (0..=3) at a specific vertical layer within (u, v).
     fn layer_dig_stage_at(&self, u: i32, v: i32, _layer_elev: f32) -> u8 { self.dig_stage_at(u, v) }
 
-    /// Clears any active partial digging stage, returning the affected row and whether a stage was active.
-    fn clear_dig_stage(&mut self) -> (i32, bool) { (0, false) }
+    /// Clears any active partial digging stage, returning the affected cell and whether a stage was active.
+    fn clear_dig_stage(&mut self) -> ((i32, i32), bool) { ((0, 0), false) }
 
     /// Marks partial digging progress (0..=3) at discrete cell (u, v).
-    fn mark_dig_stage(&mut self, _u: i32, _v: i32, _stage: u8) -> (i32, bool) { (0, false) }
+    fn mark_dig_stage(&mut self, _u: i32, _v: i32, _stage: u8) -> ((i32, i32), bool) { ((0, 0), false) }
 
     /// Marks partial digging progress (0..=3) at a specific vertical layer within (u, v).
-    fn mark_dig_layer(&mut self, u: i32, v: i32, _layer_elev: f32, stage: u8) -> (i32, bool) { self.mark_dig_stage(u, v, stage) }
+    fn mark_dig_layer(&mut self, u: i32, v: i32, _layer_elev: f32, stage: u8) -> ((i32, i32), bool) { self.mark_dig_stage(u, v, stage) }
 
     /// Excavates one discrete block layer at (u, v).
-    fn excavate_cell(&mut self, _u: i32, _v: i32) -> (i32, bool) { (0, false) }
+    fn excavate_cell(&mut self, _u: i32, _v: i32) -> ((i32, i32), bool) { ((0, 0), false) }
 
     /// Excavates a specific vertical block layer within (u, v).
-    fn excavate_layer(&mut self, u: i32, v: i32, _layer_elev: f32,) -> (i32, bool) { self.excavate_cell(u, v) }
+    fn excavate_layer(&mut self, u: i32, v: i32, _layer_elev: f32,) -> ((i32, i32), bool) { self.excavate_cell(u, v) }
 
     /// Stacks one discrete block layer at (u, v).
     fn stack_cell(&mut self, _u: i32, _v: i32) -> bool { false }
 
     /// Stacks one molded voxel block layer at (u, v).
-    fn stack_molded_cell(&mut self, u: i32, v: i32, _base: f32, _shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool { self.stack_cell(u, v) }
+    fn stack_molded_cell(&mut self, u: i32, v: i32, _base: f32, _shape: Box<dyn VoxelShape>) -> bool { self.stack_cell(u, v) }
 }
 
 /// Zoned planetary relief evaluating continuous spatial frequency into stepped voxel strata.
@@ -155,60 +156,8 @@ impl ReliefElevation for ZonedRelief {
     fn surface_height_at(&self, u: f32, v: f32) -> f32 {
         let cell = GridCell::at_planar(u, v);
         let (cell_u, cell_v) = cell.feed_coordinates(|cu, cv| (cu, cv));
-        let h = self.elevation_at(cell_u, cell_v);
         let (frac_u, frac_v) = cell.local_fraction(u, v);
-
-        let hn = self.elevation_at(cell_u, cell_v + 1);
-        let hs = self.elevation_at(cell_u, cell_v - 1);
-        let he = self.elevation_at(cell_u + 1, cell_v);
-        let hw = self.elevation_at(cell_u - 1, cell_v);
-
-        let (dn, ds, de, dw) = (h - hn, h - hs, h - he, h - hw);
-        if dn == 1 && ds <= 0 && de <= 0 && dw <= 0 {
-            return ((h as f32) - frac_v) * GridCell::SPAN;
-        }
-        if ds == 1 && dn <= 0 && de <= 0 && dw <= 0 {
-            return ((h as f32) - (1.0 - frac_v)) * GridCell::SPAN;
-        }
-        if de == 1 && dn <= 0 && ds <= 0 && dw <= 0 {
-            return ((h as f32) - frac_u) * GridCell::SPAN;
-        }
-        if dw == 1 && dn <= 0 && ds <= 0 && de <= 0 {
-            return ((h as f32) - (1.0 - frac_u)) * GridCell::SPAN;
-        }
-
-        if dn == 1 && de == 1 && ds <= 0 && dw <= 0 {
-            return ((h as f32) - (frac_u + frac_v).min(1.0)) * GridCell::SPAN;
-        }
-        if dn == 1 && dw == 1 && ds <= 0 && de <= 0 {
-            return ((h as f32) - ((1.0 - frac_u) + frac_v).min(1.0)) * GridCell::SPAN;
-        }
-        if ds == 1 && de == 1 && dn <= 0 && dw <= 0 {
-            return ((h as f32) - (frac_u + (1.0 - frac_v)).min(1.0)) * GridCell::SPAN;
-        }
-        if ds == 1 && dw == 1 && dn <= 0 && de <= 0 {
-            return ((h as f32) - ((1.0 - frac_u) + (1.0 - frac_v)).min(1.0)) * GridCell::SPAN;
-        }
-
-        if dn <= 0 && ds <= 0 && de <= 0 && dw <= 0 {
-            let hse = self.elevation_at(cell_u + 1, cell_v - 1);
-            let hsw = self.elevation_at(cell_u - 1, cell_v - 1);
-            let hne = self.elevation_at(cell_u + 1, cell_v + 1);
-            let hnw = self.elevation_at(cell_u - 1, cell_v + 1);
-            if hse < h && hs == h && he == h {
-                return ((h as f32) - frac_u.min(1.0 - frac_v)) * GridCell::SPAN;
-            }
-            if hsw < h && hs == h && hw == h {
-                return ((h as f32) - (1.0 - frac_u).min(1.0 - frac_v)) * GridCell::SPAN;
-            }
-            if hne < h && hn == h && he == h {
-                return ((h as f32) - frac_u.min(frac_v)) * GridCell::SPAN;
-            }
-            if hnw < h && hn == h && hw == h {
-                return ((h as f32) - (1.0 - frac_u).min(frac_v)) * GridCell::SPAN;
-            }
-        }
-
-        self.frame.step_elevation(h)
+        NaturalCrown::at(cell_u, cell_v, |gu, gv| self.elevation_at(gu, gv))
+            .surface_height(self.elevation_at(cell_u, cell_v), frac_u, frac_v)
     }
 }

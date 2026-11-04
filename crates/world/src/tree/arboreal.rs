@@ -28,6 +28,11 @@ pub trait Arboreal: Send + Sync {
         false
     }
 
+    /// Settles the entity onto the supporting surface of `face` when the block beneath it changes.
+    fn settle_onto(&mut self, _face: &dyn crate::Face, _frame: &SurfaceFrame) -> bool {
+        false
+    }
+
     /// Indicates whether this entity presents a solid physical obstacle.
     fn solid(&self) -> bool;
 

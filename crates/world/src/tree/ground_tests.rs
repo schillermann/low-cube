@@ -50,8 +50,9 @@ fn test_solid_arboreal_decorator_enforces_physical_trunk_collision() {
     let hill_base = frame.point_at(0.2, 0.2, 1.5);
     let constrained = solid.constrain_surface(hill_base, 0.2, 0.2, &frame, 0.0);
     assert!(
-        frame.elevation_of(constrained) >= 4.4,
-        "SolidArboreal must elevate surface to block passage within trunk radius at root elevation"
+        (frame.elevation_of(constrained) - 4.5).abs() < 1e-3,
+        "SolidArboreal must elevate surface by barrier_height (1.5 + 3.0 = 4.5m) without double-counting half_size, got {}",
+        frame.elevation_of(constrained)
     );
 
     let tunnel_base = frame.point_at(0.2, 0.2, -0.5);
@@ -88,5 +89,46 @@ fn test_standing_tree_canopy_drag_and_cleared_plot_zero_drag() {
         felled.canopy_drag(0.5, 0.5, 3.0),
         0.0,
         "Felled cleared plot must provide zero canopy drag"
+    );
+}
+
+#[test]
+fn test_excavating_beneath_tree_and_floor_litter_settles_them_onto_new_ground() {
+    use crate::Face;
+    use super::floor_litter::FloorLitter;
+    use super::forested_face::ForestedFace;
+    use super::timber_yield::SurfaceFind;
+
+    let frame = ClimateZone::Temperate.surface_frame(8.0);
+    let relief = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32));
+    let tree = Box::new(SolidArboreal::rooted(
+        Box::new(StandingTree::of_species(Box::new(TemperateOak::new()), frame, 0.25, 0.25, 0.0)),
+        0.25,
+        0.25,
+        0.0,
+        0.65,
+        3.0,
+    ));
+    let litter = Box::new(FloorLitter::new(frame, 0.75, 0.25, 0.0, SurfaceFind::FlintStone, 0.0));
+    let mut forested = ForestedFace::new(relief, frame, vec![tree, litter], std::sync::RwLock::new(Vec::new()));
+    assert!(
+        forested.canopy_drag(frame.point_at(0.5, 0.5, 3.0)) > 0.8,
+        "ForestedFace canopy_drag must evaluate tree crown relative to face datum elevation"
+    );
+
+    // Excavate cell (0, 0) under the tree at (0.25, 0.25)
+    let eye = frame.point_at(0.25, 1.25, 0.90);
+    let dir = (frame.point_at(0.25, 0.25, -0.10) - eye).normalize();
+    assert!(forested.excavate(eye, dir), "Must excavate block beneath tree");
+    assert!(forested.step_flora(1.0 / 60.0), "Settled tree must signal flora slice update");
+
+    // Excavate cell (1, 0) under the flint stone at (0.75, 0.25) and forage it at its new -0.5m elevation
+    let dir_litter = (frame.point_at(0.75, 0.25, -0.10) - eye).normalize();
+    assert!(forested.excavate(eye, dir_litter), "Must excavate block beneath flint stone");
+    let settled_aim = (frame.point_at(0.75, 0.25, -0.45) - eye).normalize();
+    assert_eq!(
+        forested.forage_timber(eye, settled_aim),
+        SurfaceFind::FlintStone,
+        "Flint stone must settle down to -0.5m when the block underneath it is excavated"
     );
 }

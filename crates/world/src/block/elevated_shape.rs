@@ -40,8 +40,13 @@ impl ElevatedShape {
         (self.elevation_offset - ground_top).abs() >= SURFACE_CONTACT_TOLERANCE
     }
 
-    /// Upper block boundary elevation above ground datum.
-    pub fn ceiling_above(&self, _ground_top: f32) -> f32 {
+    /// Lower block boundary elevation above face datum.
+    pub fn floor(&self) -> f32 {
+        self.elevation_offset
+    }
+
+    /// Upper block boundary elevation above face datum.
+    pub fn ceiling(&self) -> f32 {
         self.elevation_offset + BLOCK_HEIGHT
     }
 

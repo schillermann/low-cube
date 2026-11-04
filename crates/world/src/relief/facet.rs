@@ -1,9 +1,10 @@
 use glam::Vec3;
-use crate::{MeshTarget, Quad};
+use crate::{CrateredMeshTarget, MeshTarget, Quad};
 use crate::block::GridCell;
 use crate::frame::SurfaceFrame;
 
-use super::{ReliefCorner, ReliefElevation, ReliefPalette};
+use super::corner::{NaturalCrown, ReliefCorner};
+use super::{ReliefElevation, ReliefPalette};
 use super::wall::ReliefWall;
 use crate::block::EarthClods;
 
@@ -27,6 +28,14 @@ impl ReliefFacet {
         &self, cell: GridCell, frame: &SurfaceFrame, relief: &dyn ReliefElevation,
         half_blocks: i32, palette: &ReliefPalette, target: &mut dyn MeshTarget,
     ) {
+        self.emit_with_vault(cell, frame, relief, half_blocks, &super::CrustVault::beneath(half_blocks), palette, target);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn emit_with_vault(
+        &self, cell: GridCell, frame: &SurfaceFrame, relief: &dyn ReliefElevation,
+        half_blocks: i32, vault: &super::CrustVault, palette: &ReliefPalette, target: &mut dyn MeshTarget,
+    ) {
         let (surf_col, ramp_col, ridge_col, valley_col, chamfer_col, cliff_col) = palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let (crust, h) = (if relief.breached_at(u, v) { i32::MIN } else { relief.crust_floor_at(u, v) }, relief.elevation_at(u, v));
@@ -35,7 +44,6 @@ impl ReliefFacet {
         let molded = relief.emit_molded_top(cell, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
         let stage = relief.layer_dig_stage_at(u, v, top_h - 0.25);
         let (tn, ts, te, tw) = (v + 1 >= half_blocks, v <= -half_blocks, u + 1 >= half_blocks, u <= -half_blocks);
-        let vault = super::CrustVault::beneath(half_blocks);
         let mut suppressed = SuppressedTop;
         let top_out: &mut dyn MeshTarget = if stage == 0 { target } else { &mut suppressed };
 
@@ -49,8 +57,9 @@ impl ReliefFacet {
             self.corner.push_corner_pair(p0, p1, p2, p3, chamfer_col, top_out);
             ([h0, h1, h2, h3], chamfer_col)
         } else if relief.reworked_at(u, v) {
-            let top_c = if h < vault.floor_steps_at(u, v) + 4 {
-                vault.emit_crust_floor(cell, top_h, relief.breached_at(u, v), frame, top_out)
+            let top_c = if vault.crust_surface_at(u, v, h) {
+                let mut cratered = CrateredMeshTarget::new(target, stage);
+                vault.emit_crust_floor(cell, top_h, relief.breached_at(u, v), frame, &mut cratered)
             } else {
                 let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
                 let sub_dirt = relief.bare_dirt_at(u, v) || molded;
@@ -61,60 +70,14 @@ impl ReliefFacet {
             };
             ([top_h, top_h, top_h, top_h], top_c)
         } else {
-            let (nhn, nhs, nhe, nhw) = (relief.natural_elevation_at(u, v + 1), relief.natural_elevation_at(u, v - 1), relief.natural_elevation_at(u + 1, v), relief.natural_elevation_at(u - 1, v));
-            let (dn, ds, de, dw) = (h - nhn, h - nhs, h - nhe, h - nhw);
-            if dn == 1 && ds <= 0 && de <= 0 && dw <= 0 {
-                self.emit_ramp(u0, u1, v0, v1, top_h, 0, frame, ramp_col, top_out);
-                ([top_h, top_h, top_h - 0.5, top_h - 0.5], ramp_col)
-            } else if ds == 1 && dn <= 0 && de <= 0 && dw <= 0 {
-                self.emit_ramp(u0, u1, v0, v1, top_h, 1, frame, ramp_col, top_out);
-                ([top_h - 0.5, top_h - 0.5, top_h, top_h], ramp_col)
-            } else if de == 1 && dn <= 0 && ds <= 0 && dw <= 0 {
-                self.emit_ramp(u0, u1, v0, v1, top_h, 2, frame, ramp_col, top_out);
-                ([top_h, top_h - 0.5, top_h - 0.5, top_h], ramp_col)
-            } else if dw == 1 && dn <= 0 && ds <= 0 && de <= 0 {
-                self.emit_ramp(u0, u1, v0, v1, top_h, 3, frame, ramp_col, top_out);
-                ([top_h - 0.5, top_h, top_h, top_h - 0.5], ramp_col)
-            } else if dn == 1 && de == 1 && ds <= 0 && dw <= 0 {
-                self.corner.emit_ridge(u0, u1, v0, v1, top_h, 0, frame, ridge_col, top_out);
-                ([top_h, top_h - 0.5, top_h - 0.5, top_h - 0.5], ridge_col)
-            } else if dn == 1 && dw == 1 && ds <= 0 && de <= 0 {
-                self.corner.emit_ridge(u0, u1, v0, v1, top_h, 1, frame, ridge_col, top_out);
-                ([top_h - 0.5, top_h, top_h - 0.5, top_h - 0.5], ridge_col)
-            } else if ds == 1 && de == 1 && dn <= 0 && dw <= 0 {
-                self.corner.emit_ridge(u0, u1, v0, v1, top_h, 2, frame, ridge_col, top_out);
-                ([top_h - 0.5, top_h - 0.5, top_h - 0.5, top_h], ridge_col)
-            } else if ds == 1 && dw == 1 && dn <= 0 && de <= 0 {
-                self.corner.emit_ridge(u0, u1, v0, v1, top_h, 3, frame, ridge_col, top_out);
-                ([top_h - 0.5, top_h - 0.5, top_h, top_h - 0.5], ridge_col)
-            } else if dn <= 0 && ds <= 0 && de <= 0 && dw <= 0 {
-                let (hse, hsw, hne, hnw) = (relief.natural_elevation_at(u + 1, v - 1), relief.natural_elevation_at(u - 1, v - 1), relief.natural_elevation_at(u + 1, v + 1), relief.natural_elevation_at(u - 1, v + 1));
-                if hse < h && nhs == h && nhe == h {
-                    self.corner.emit_valley(u0, u1, v0, v1, top_h, 0, frame, valley_col, top_out);
-                    ([top_h, top_h - 0.5, top_h, top_h], valley_col)
-                } else if hsw < h && nhs == h && nhw == h {
-                    self.corner.emit_valley(u0, u1, v0, v1, top_h, 1, frame, valley_col, top_out);
-                    ([top_h - 0.5, top_h, top_h, top_h], valley_col)
-                } else if hne < h && nhn == h && nhe == h {
-                    self.corner.emit_valley(u0, u1, v0, v1, top_h, 2, frame, valley_col, top_out);
-                    ([top_h, top_h, top_h - 0.5, top_h], valley_col)
-                } else if hnw < h && nhn == h && nhw == h {
-                    self.corner.emit_valley(u0, u1, v0, v1, top_h, 3, frame, valley_col, top_out);
-                    ([top_h, top_h, top_h, top_h - 0.5], valley_col)
-                } else {
-                    let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
-                    top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), surf_col));
-                    ([top_h, top_h, top_h, top_h], surf_col)
-                }
-            } else {
-                let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
-                top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), surf_col));
-                ([top_h, top_h, top_h, top_h], surf_col)
-            }
+            let colors = (surf_col, ramp_col, ridge_col, valley_col);
+            NaturalCrown::at(u, v, |gu, gv| relief.natural_elevation_at(gu, gv))
+                .emit_top(&self.corner, cell, top_h, frame, colors, top_out)
         };
 
-        if stage > 0 { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, palette, frame, target); }
-        self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, &vault, relief, frame, cliff_col, target);
+        let crust_top = relief.reworked_at(u, v) && vault.crust_surface_at(u, v, h);
+        if stage > 0 && !crust_top { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, palette, frame, target); }
+        self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, vault, relief, frame, cliff_col, target);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -144,21 +107,5 @@ impl ReliefFacet {
             target.push_quad(Quad::new(b[i], b[j], m[j], m[i], wall_n[i], wall_col));
         }
         target.push_quad(Quad::new(b[0], b[1], b[2], b[3], surf_n, floor_col));
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn emit_ramp(
-        &self, u0: f32, u1: f32, v0: f32, v1: f32, top_h: f32, mode: usize,
-        frame: &SurfaceFrame, surf_col: Vec3, target: &mut dyn MeshTarget,
-    ) {
-        let (d0, d1, d2, d3, norm) = match mode {
-            0 => (0.0, 0.0, -0.5, -0.5, (frame.normal() - frame.bitangent()).normalize()),
-            1 => (-0.5, -0.5, 0.0, 0.0, (frame.normal() + frame.bitangent()).normalize()),
-            2 => (0.0, -0.5, -0.5, 0.0, (frame.normal() - frame.tangent()).normalize()),
-            _ => (-0.5, 0.0, 0.0, -0.5, (frame.normal() + frame.tangent()).normalize()),
-        };
-        let (p0, p1) = (frame.point_at(u0, v0, top_h + d0), frame.point_at(u1, v0, top_h + d1));
-        let (p2, p3) = (frame.point_at(u1, v1, top_h + d2), frame.point_at(u0, v1, top_h + d3));
-        target.push_quad(Quad::new(p0, p1, p2, p3, norm, surf_col));
     }
 }

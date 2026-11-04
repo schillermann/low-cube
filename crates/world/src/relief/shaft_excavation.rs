@@ -216,11 +216,11 @@ impl ShaftExcavation {
         !self.breached_at(strata, u, v) && (self.deepened_steps(strata, u, v) != self.elevation_at(strata, u, v) || up_dig)
     }
 
-    pub fn excavate_layer(&mut self, strata: &NaturalStrata, molds: &mut OverhangMolds, u: i32, v: i32, layer_elev: f32) -> (i32, bool) {
+    pub fn excavate_layer(&mut self, strata: &NaturalStrata, molds: &mut OverhangMolds, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), bool) {
         let (crust, adj_up, nat) = (self.crust_floor_at(strata, u, v), self.adjacent_upward_at(strata, u, v), strata.elevation_at(u, v));
         if layer_elev < (crust as f32) * BLOCK_STEP {
             if self.breached_at(strata, u, v) || (adj_up <= crust && !strata.vault().cell_opens(u, v)) {
-                return (v, false);
+                return ((u, v), false);
             }
             let next_crust = crust + 1;
             if next_crust >= self.elevation_at(strata, u, v) {
@@ -234,11 +234,11 @@ impl ShaftExcavation {
         let (elev, step_at) = (self.elevation_at(strata, u, v), ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32);
         let next_elev = if step_at < elev - 1 { step_at.max(crust) } else { self.deepened_steps(strata, u, v) };
         if next_elev == elev {
-            return (v, false);
+            return ((u, v), false);
         }
         if step_at < elev - 1 {
             molds.retain_overhang(strata, u, v, next_elev, elev);
-        } else if !molds.present_at(u, v) {
+        } else {
             molds.expose_dirt(u, v);
         }
         self.record_delta(u, v, next_elev - nat);

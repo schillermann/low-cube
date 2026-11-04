@@ -75,9 +75,8 @@ impl<'a> FlightContext<'a> {
     pub fn permits_seam_fold(&self) -> bool { self.terrain.gait.permits_seam_fold() }
 
     pub fn weightless_ascent(&self, _vertical_speed: f32) -> bool {
-        let in_upward_shaft = (self.step.position - self.constrain_surface(self.step.position)).dot(self.step.surface_up) > 2.5
-            && (self.terrain.world.constrain_to_surface(self.step.position, 0.0) - self.step.position).dot(self.step.surface_up) > 0.2;
-        self.terrain.world.weightless_at(self.step.position) || in_upward_shaft
+        self.terrain.world.weightless_at(self.step.position)
+            || self.body.envelope.in_upward_shaft(self.step.position, self.step.surface_up, self.body.eye_height, self.terrain.world)
     }
 
     pub fn confine_crust(&self, point: Vec3) -> Vec3 {

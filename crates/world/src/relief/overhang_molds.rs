@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, CuboidShape, ElevatedShape, GridCell, VoxelShape};
+use crate::block::{BlockMedium, CuboidShape, ElevatedShape, GridCell, MediumShape, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
@@ -47,27 +47,27 @@ impl DigStageFocus {
         if self.cell == (u, v) && block.occupies_layer(self.layer_elev) { self.stage } else { 0 }
     }
 
-    pub fn clear_at(&mut self, u: i32, v: i32) -> i32 {
-        let prev_v = self.cell.1;
+    pub fn clear_at(&mut self, u: i32, v: i32) -> (i32, i32) {
+        let prev = self.cell;
         *self = Self::new((u, v), 0.0, 0);
-        prev_v
+        prev
     }
 
     pub fn clear_if_at(&mut self, u: i32, v: i32) {
         if self.cell == (u, v) { *self = Self::new((u, v), 0.0, 0); }
     }
 
-    pub fn reset(&mut self) -> (i32, bool) {
-        let (prev_v, active) = (self.cell.1, self.stage > 0);
+    pub fn reset(&mut self) -> ((i32, i32), bool) {
+        let (prev, active) = (self.cell, self.stage > 0);
         *self = Self::idle();
-        (prev_v, active)
+        (prev, active)
     }
 
-    pub fn record(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> (i32, bool) {
+    pub fn record(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
         if stage == 0 { return self.reset(); }
-        let prev_v = self.cell.1;
+        let prev = self.cell;
         *self = Self::new((u, v), layer_elev, stage.min(3));
-        (prev_v, true)
+        (prev, true)
     }
 }
 
@@ -106,17 +106,17 @@ impl OverhangMolds {
         self.dig_stage.layer_stage(u, v, layer_elev, top_layer_elev, self.layer_occupied_at(u, v, self.dig_stage.layer_elev()))
     }
 
-    pub fn clear_stage(&mut self, u: i32, v: i32) -> i32 { self.dig_stage.clear_at(u, v) }
+    pub fn clear_stage(&mut self, u: i32, v: i32) -> (i32, i32) { self.dig_stage.clear_at(u, v) }
     pub fn clear_if_at(&mut self, u: i32, v: i32) { self.dig_stage.clear_if_at(u, v); }
-    pub fn reset_stage(&mut self) -> (i32, bool) { self.dig_stage.reset() }
-    pub fn record_stage(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> (i32, bool) {
+    pub fn reset_stage(&mut self) -> ((i32, i32), bool) { self.dig_stage.reset() }
+    pub fn record_stage(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
         self.dig_stage.record(u, v, layer_elev, stage)
     }
 
     pub fn top_steps_at(&self, u: i32, v: i32, base_steps: i32) -> i32 {
         let ground_top = (base_steps as f32) * BLOCK_STEP;
         self.blocks.get(&(u, v)).map_or(base_steps, |list| {
-            let max_h = list.iter().map(|b| b.ceiling_above(ground_top)).fold(ground_top, f32::max);
+            let max_h = list.iter().map(ElevatedShape::ceiling).fold(ground_top, f32::max);
             (max_h / BLOCK_STEP).round() as i32
         })
     }
@@ -125,16 +125,16 @@ impl OverhangMolds {
         self.blocks
             .get(&(u, v))
             .and_then(|list| list.last())
-            .map_or(ground_top - HALF_BLOCK_STEP, |block| block.ceiling_above(ground_top) - HALF_BLOCK_STEP)
+            .map_or(ground_top - HALF_BLOCK_STEP, |block| block.ceiling() - HALF_BLOCK_STEP)
     }
 
     fn niche_ceiling_at(&self, u: i32, v: i32, ground_h: f32) -> Option<f32> {
         let list = self.blocks.get(&(u, v))?;
         let mut floor = ground_h;
         for block in list {
-            let base = block.ceiling_above(ground_h) - BLOCK_STEP;
+            let base = block.floor();
             if base <= floor + NICHE_CONTACT_TOLERANCE {
-                floor = floor.max(block.ceiling_above(ground_h));
+                floor = floor.max(block.ceiling());
             } else if base >= floor + NICHE_MIN_GAP {
                 return Some(base);
             }
@@ -180,19 +180,25 @@ impl OverhangMolds {
         self.blocks.get(&(u, v)).is_some_and(|list| list.iter().any(|b| b.occupies_layer(layer_elev)))
     }
 
-    pub fn layer_medium_at(&self, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
+    pub fn layer_medium_at(&self, strata: &NaturalStrata, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
         self.blocks
             .get(&(u, v))
             .and_then(|list| list.iter().rfind(|b| b.occupies_layer(layer_elev)))
-            .map_or(BlockMedium::TurfEarth, ElevatedShape::block_medium)
+            .map_or_else(
+                || {
+                    let step = ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
+                    if strata.vault().crust_layer_at(u, v, step) { BlockMedium::CrustRock } else { BlockMedium::TurfEarth }
+                },
+                ElevatedShape::block_medium,
+            )
     }
 
-    pub fn hit_top_at(&self, cu: i32, cv: i32, u: f32, v: f32, ray_elev: f32, ground_h: f32) -> Option<f32> {
+    pub fn hit_top_at(&self, cu: i32, cv: i32, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         let list = self.blocks.get(&(cu, cv))?;
         let (fu, fv) = GridCell::new(cu, cv).local_fraction(u, v);
         for block in list.iter().rev() {
             if block.intercepts(fu, fv, ray_elev) {
-                return Some(block.ceiling_above(ground_h));
+                return Some(block.ceiling());
             }
         }
         None
@@ -205,8 +211,8 @@ impl OverhangMolds {
         let (top_col, wall_col) = colors;
         for block in list {
             let stage = self.dig_stage.block_stage(u, v, block);
-            let layer = (block.ceiling_above(0.0) * 2.0).round() as i32 - 1;
-            if layer < floor_step + 4 && block.block_medium() == BlockMedium::TurfEarth {
+            let layer = (block.floor() * 2.0).round() as i32;
+            if block.block_medium() == BlockMedium::CrustRock {
                 vault.emit_crust_block(cell, layer, floor_step, stage, frame, target);
             } else {
                 let bare_top = block.floating_above(surf_base) || self.bare_dirt_at(u, v);
@@ -216,7 +222,7 @@ impl OverhangMolds {
         !list.is_empty()
     }
 
-    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<i32> {
+    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<(i32, i32)> {
         let list = self.blocks.get_mut(&(u, v))?;
         let pos = list.iter().rposition(|b| b.occupies_layer(layer_elev))?;
         list.remove(pos);
@@ -228,13 +234,19 @@ impl OverhangMolds {
     }
 
     pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32) {
-        let (ground_top, nat) = ((next_elev as f32) * BLOCK_STEP, strata.elevation_at(u, v));
+        let (nat, vault) = (strata.elevation_at(u, v), strata.vault());
         let list = self.blocks.entry((u, v)).or_default();
         for step in (next_elev + 1)..elev {
-            let shape = if step == nat - 1 { strata.crown_shape_at(u, v) } else { Box::new(CuboidShape::new(BLOCK_STEP)) };
+            let shape: Box<dyn VoxelShape> = if vault.crust_layer_at(u, v, step) {
+                Box::new(MediumShape::new(Box::new(CuboidShape::new(BLOCK_STEP)), BlockMedium::CrustRock, true, false))
+            } else if step == nat - 1 {
+                strata.crown_shape_at(u, v)
+            } else {
+                Box::new(CuboidShape::new(BLOCK_STEP))
+            };
             list.push(ElevatedShape::new(shape, (step as f32) * BLOCK_STEP));
         }
-        list.sort_by(|a, b| a.ceiling_above(ground_top).total_cmp(&b.ceiling_above(ground_top)));
+        list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
     }
 
     pub fn stack_molded(&mut self, u: i32, v: i32, ground_top: f32, sub: bool, base: f32, shape: Box<dyn VoxelShape>) -> bool {
@@ -247,13 +259,13 @@ impl OverhangMolds {
         }
         let list = self.blocks.entry((u, v)).or_default();
         list.push(ElevatedShape::new(shape, next_base));
-        list.sort_by(|a, b| a.ceiling_above(ground_top).total_cmp(&b.ceiling_above(ground_top)));
+        list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
         self.bare_dirt.insert((u, v), 0.0);
         self.clear_if_at(u, v);
         true
     }
 
-    pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> Vec<i32> {
+    pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> Vec<(i32, i32)> {
         if self.bare_dirt.is_empty() {
             return Vec::new();
         }
@@ -270,17 +282,17 @@ impl OverhangMolds {
             }
             (count > 0).then_some(((u, v), count))
         }).collect();
-        let mut regrown_rows = Vec::new();
+        let mut regrown_cells = Vec::new();
         for ((u, v), neighbors) in active {
             if let Some(effort) = self.bare_dirt.get_mut(&(u, v)) {
                 *effort += dt * (neighbors as f32);
                 let threshold = REGH_EFFORT_FLOOR + (((u.wrapping_mul(CELL_HASH_U) ^ v.wrapping_mul(CELL_HASH_V)).unsigned_abs() % 100) as f32 * 0.01) * REGH_EFFORT_SPAN;
                 if *effort >= threshold {
                     self.bare_dirt.remove(&(u, v));
-                    regrown_rows.push(v);
+                    regrown_cells.push((u, v));
                 }
             }
         }
-        regrown_rows
+        regrown_cells
     }
 }

@@ -36,6 +36,12 @@ impl CubePlanet {
         0
     }
 
+    fn aimed_indices(&self, eye: Vec3, direction: Vec3) -> (usize, usize) {
+        let primary = self.matching_index(eye);
+        let secondary = self.matching_index(eye + direction.normalize_or_zero() * 1.25);
+        (primary, secondary)
+    }
+
     fn active_face(&self, position: Vec3) -> &dyn Face {
         for face in &self.faces {
             if face.matches(position) {
@@ -43,15 +49,6 @@ impl CubePlanet {
             }
         }
         self.fallback.as_ref()
-    }
-
-    fn active_face_mut(&mut self, position: Vec3) -> &mut dyn Face {
-        for face in &mut self.faces {
-            if face.matches(position) {
-                return face.as_mut();
-            }
-        }
-        self.fallback.as_mut()
     }
 }
 
@@ -81,43 +78,97 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn excavate_surface(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        let idx = self.matching_index(eye);
-        let ok = self.active_face_mut(eye).excavate(eye, direction);
-        if ok {
-            self.modified_face = idx;
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        if let Some(face) = self.faces.get_mut(primary) {
+            if face.excavate(eye, direction) {
+                self.modified_face = primary;
+                return true;
+            }
         }
-        ok
+        if secondary != primary {
+            if let Some(face) = self.faces.get_mut(secondary) {
+                if face.excavate(eye, direction) {
+                    self.modified_face = secondary;
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium {
-        self.active_face(eye).surface_medium(eye, direction)
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        let medium = self.active_face(eye).surface_medium(eye, direction);
+        if medium == BlockMedium::TurfEarth && secondary != primary {
+            if let Some(face) = self.faces.get(secondary) {
+                return face.surface_medium(eye, direction);
+            }
+        }
+        medium
     }
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool {
-        let idx = self.matching_index(eye);
-        let ok = self.active_face_mut(eye).loosen(eye, direction, stage);
-        if ok {
-            self.modified_face = idx;
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        if let Some(face) = self.faces.get_mut(primary) {
+            if face.loosen(eye, direction, stage) {
+                self.modified_face = primary;
+                return true;
+            }
         }
-        ok
+        let alt = if stage == 0 && self.modified_face < self.faces.len() { self.modified_face } else { secondary };
+        if alt != primary {
+            if let Some(face) = self.faces.get_mut(alt) {
+                if face.loosen(eye, direction, stage) {
+                    self.modified_face = alt;
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        let (len, idx) = (self.faces.len(), self.matching_index(eye));
-        let outcome = self.active_face_mut(eye).strike_timber(eye, direction);
-        if outcome.struck() {
-            self.modified_face = len + idx;
+        let len = self.faces.len();
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        if let Some(face) = self.faces.get_mut(primary) {
+            let outcome = face.strike_timber(eye, direction);
+            if outcome.struck() {
+                self.modified_face = len + primary;
+                return outcome;
+            }
         }
-        outcome
+        if secondary != primary {
+            if let Some(face) = self.faces.get_mut(secondary) {
+                let outcome = face.strike_timber(eye, direction);
+                if outcome.struck() {
+                    self.modified_face = len + secondary;
+                    return outcome;
+                }
+            }
+        }
+        CleaveOutcome::Missed
     }
 
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        let (len, idx) = (self.faces.len(), self.matching_index(eye));
-        let find = self.active_face_mut(eye).forage_timber(eye, direction);
-        if find.gathered() {
-            self.modified_face = len + idx;
+        let len = self.faces.len();
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        if let Some(face) = self.faces.get_mut(primary) {
+            let find = face.forage_timber(eye, direction);
+            if find.gathered() {
+                self.modified_face = len + primary;
+                return find;
+            }
         }
-        find
+        if secondary != primary {
+            if let Some(face) = self.faces.get_mut(secondary) {
+                let find = face.forage_timber(eye, direction);
+                if find.gathered() {
+                    self.modified_face = len + secondary;
+                    return find;
+                }
+            }
+        }
+        SurfaceFind::EmptyHanded
     }
 
     fn place_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
@@ -125,12 +176,22 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        let idx = self.matching_index(eye);
-        let ok = self.active_face_mut(eye).place_molded_block(eye, direction, avatar_pos, mold);
-        if ok {
-            self.modified_face = idx;
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        if let Some(face) = self.faces.get_mut(primary) {
+            if face.place_molded_block(eye, direction, avatar_pos, mold) {
+                self.modified_face = primary;
+                return true;
+            }
         }
-        ok
+        if secondary != primary {
+            if let Some(face) = self.faces.get_mut(secondary) {
+                if face.place_molded_block(eye, direction, avatar_pos, mold) {
+                    self.modified_face = secondary;
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
@@ -140,7 +201,7 @@ impl PlanetaryWorld for CubePlanet {
             if face.step_surface(dt) {
                 self.modified_face = idx;
                 regrown = true;
-            } else if face.step_flora(dt) {
+            } else if !regrown && face.step_flora(dt) {
                 self.modified_face = len + idx;
                 regrown = true;
             }

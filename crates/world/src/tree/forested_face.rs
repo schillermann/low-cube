@@ -16,12 +16,17 @@ impl MeshTarget for FloraQuadTarget<'_> {
     }
 }
 
+struct FloraCache {
+    slots: RwLock<Vec<Vec<Quad>>>,
+    settled: bool,
+}
+
 /// Composite decorator populating a planetary face with climate-adapted arboreal specimens.
 pub struct ForestedFace {
     origin: Box<dyn Face>,
     frame: SurfaceFrame,
     trees: Vec<Box<dyn Arboreal>>,
-    cached_flora: RwLock<Vec<Vec<Quad>>>,
+    cache: FloraCache,
 }
 
 impl ForestedFace {
@@ -36,7 +41,7 @@ impl ForestedFace {
             origin,
             frame,
             trees,
-            cached_flora,
+            cache: FloraCache { slots: cached_flora, settled: false },
         }
     }
 
@@ -55,9 +60,18 @@ impl ForestedFace {
     }
 
     fn refresh_tree_cache(&mut self, idx: usize) {
-        let flora = self.cached_flora.get_mut().expect("Flora cache lock poisoned");
+        let flora = self.cache.slots.get_mut().expect("Flora cache lock poisoned");
         if flora.len() == self.trees.len() {
             flora[idx] = Self::build_tree_quads(self.trees[idx].as_ref());
+        }
+    }
+
+    fn settle_flora(&mut self) {
+        for idx in 0..self.trees.len() {
+            if self.trees[idx].settle_onto(self.origin.as_ref(), &self.frame) {
+                self.refresh_tree_cache(idx);
+                self.cache.settled = true;
+            }
         }
     }
 }
@@ -86,7 +100,7 @@ impl Face for ForestedFace {
     }
 
     fn emit_flora(&self, target: &mut dyn MeshTarget) {
-        if let Ok(flora) = self.cached_flora.read() {
+        if let Ok(flora) = self.cache.slots.read() {
             if flora.len() == self.trees.len() {
                 for tree_quads in flora.iter() {
                     for &quad in tree_quads { target.push_quad(quad); }
@@ -94,7 +108,7 @@ impl Face for ForestedFace {
                 return;
             }
         }
-        let mut flora = self.cached_flora.write().expect("Flora cache lock poisoned");
+        let mut flora = self.cache.slots.write().expect("Flora cache lock poisoned");
         if flora.len() != self.trees.len() {
             flora.clear();
             flora.reserve(self.trees.len());
@@ -109,16 +123,23 @@ impl Face for ForestedFace {
 
     fn canopy_drag(&self, point: Vec3) -> f32 {
         let (u, v) = self.frame.decompose(point);
-        let height = self.frame.height_of(point);
+        let elev = self.frame.elevation_of(point);
         let mut peak = self.origin.canopy_drag(point);
         for tree in &self.trees {
-            let drag = tree.canopy_drag(u, v, height);
+            let drag = tree.canopy_drag(u, v, elev);
             if drag > peak { peak = drag; }
         }
         peak
     }
 
-    fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool { self.origin.excavate(eye, direction) }
+    fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        let changed = self.origin.excavate(eye, direction);
+        if changed {
+            self.settle_flora();
+        }
+        changed
+    }
+
     fn surface_medium(&self, eye: Vec3, direction: Vec3) -> BlockMedium { self.origin.surface_medium(eye, direction) }
     fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> bool { self.origin.loosen(eye, direction, stage) }
 
@@ -153,11 +174,19 @@ impl Face for ForestedFace {
     }
 
     fn place_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
-        self.origin.place_block(eye, direction, avatar_pos)
+        let changed = self.origin.place_block(eye, direction, avatar_pos);
+        if changed {
+            self.settle_flora();
+        }
+        changed
     }
 
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        self.origin.place_molded_block(eye, direction, avatar_pos, mold)
+        let changed = self.origin.place_molded_block(eye, direction, avatar_pos, mold);
+        if changed {
+            self.settle_flora();
+        }
+        changed
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
@@ -165,7 +194,8 @@ impl Face for ForestedFace {
     }
 
     fn step_flora(&mut self, dt: f32) -> bool {
-        let mut timber_moved = false;
+        let mut timber_moved = self.cache.settled;
+        self.cache.settled = false;
         for idx in 0..self.trees.len() {
             if self.trees[idx].step_timber(dt) {
                 self.refresh_tree_cache(idx);

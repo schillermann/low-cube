@@ -29,11 +29,6 @@ impl TerracedRelief {
         )
     }
 
-    /// Secondary constructor for a 128-block baseline relief face.
-    pub fn pristine(origin: Box<dyn ReliefElevation>) -> Self {
-        Self::in_span(origin, 128)
-    }
-
     fn top_layer_at(&self, u: i32, v: i32) -> f32 {
         let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
         self.molds.top_layer_at(u, v, ground_top)
@@ -90,14 +85,13 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn layer_medium_at(&self, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
-        self.molds.layer_medium_at(u, v, layer_elev)
+        self.molds.layer_medium_at(&self.strata, u, v, layer_elev)
     }
 
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
-        let ground_h = (self.elevation_at(cu, cv) as f32) * GridCell::SPAN;
         self.molds
-            .hit_top_at(cu, cv, u, v, ray_elev, ground_h)
+            .hit_top_at(cu, cv, u, v, ray_elev)
             .or_else(|| self.shafts.crust_hit_top_at(&self.strata, cu, cv, u, v, ray_elev))
     }
 
@@ -148,7 +142,7 @@ impl ReliefElevation for TerracedRelief {
         self.molds.emit_molded_top(cell, surf_base, &self.strata.vault(), frame, (top_col, wall_col), target)
     }
 
-    fn step_grass(&mut self, dt: f32) -> Vec<i32> {
+    fn step_grass(&mut self, dt: f32) -> Vec<(i32, i32)> {
         self.molds.step_grass(&self.strata, &self.shafts, dt)
     }
 
@@ -160,37 +154,37 @@ impl ReliefElevation for TerracedRelief {
         self.molds.layer_dig_stage_at(u, v, layer_elev, (self.elevation_at(u, v) as f32) * 0.5 - 0.25)
     }
 
-    fn clear_dig_stage(&mut self) -> (i32, bool) {
+    fn clear_dig_stage(&mut self) -> ((i32, i32), bool) {
         self.molds.reset_stage()
     }
 
-    fn mark_dig_stage(&mut self, u: i32, v: i32, stage: u8) -> (i32, bool) {
+    fn mark_dig_stage(&mut self, u: i32, v: i32, stage: u8) -> ((i32, i32), bool) {
         self.mark_dig_layer(u, v, self.top_layer_at(u, v), stage)
     }
 
-    fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> (i32, bool) {
+    fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
         if stage > 0 && !self.shafts.diggable_at(&self.strata, u, v, layer_elev) && !self.molds.present_at(u, v) {
-            return (v, false);
+            return ((u, v), false);
         }
         self.molds.record_stage(u, v, layer_elev, stage)
     }
 
-    fn excavate_cell(&mut self, u: i32, v: i32) -> (i32, bool) {
+    fn excavate_cell(&mut self, u: i32, v: i32) -> ((i32, i32), bool) {
         self.excavate_layer(u, v, self.top_layer_at(u, v))
     }
 
-    fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> (i32, bool) {
-        if let Some(prev_v) = self.molds.remove_layer(u, v, layer_elev) {
-            return (prev_v, true);
+    fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), bool) {
+        if let Some(prev_cell) = self.molds.remove_layer(u, v, layer_elev) {
+            return (prev_cell, true);
         }
         self.shafts.excavate_layer(&self.strata, &mut self.molds, u, v, layer_elev)
     }
 
     fn stack_cell(&mut self, u: i32, v: i32) -> bool {
-        self.stack_molded_cell(u, v, (self.elevation_at(u, v) as f32) * 0.5, Box::new(CuboidShape::new(0.5)), true)
+        self.stack_molded_cell(u, v, (self.elevation_at(u, v) as f32) * 0.5, Box::new(CuboidShape::new(0.5)))
     }
 
-    fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>, _full_flat: bool) -> bool {
+    fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>) -> bool {
         let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
         let sub = !self.breached_at(u, v) && base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
         self.molds.stack_molded(u, v, ground_top, sub, base, shape)

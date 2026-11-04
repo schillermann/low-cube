@@ -155,11 +155,11 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
         let right_post = if wide_two { 2 } else { 1 };
         for h in 0..5 {
             let y = (h as f32) * 0.5;
-            t.stack_molded_cell(-1, 0, y, Box::new(CuboidShape::new(0.5)), true);
-            t.stack_molded_cell(right_post, 0, y, Box::new(CuboidShape::new(0.5)), true);
+            t.stack_molded_cell(-1, 0, y, Box::new(CuboidShape::new(0.5)));
+            t.stack_molded_cell(right_post, 0, y, Box::new(CuboidShape::new(0.5)));
         }
-        t.stack_molded_cell(0, 0, lintel_base, Box::new(CuboidShape::new(0.5)), true);
-        if wide_two { t.stack_molded_cell(1, 0, lintel_base, Box::new(CuboidShape::new(0.5)), true); }
+        t.stack_molded_cell(0, 0, lintel_base, Box::new(CuboidShape::new(0.5)));
+        if wide_two { t.stack_molded_cell(1, 0, lintel_base, Box::new(CuboidShape::new(0.5))); }
         DoorframeWorld(t)
     };
     let walk_through = |world: &DoorframeWorld, attire: YouthAttire, x: f32, sneak: bool, sideways: bool| -> f32 {

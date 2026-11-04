@@ -40,7 +40,7 @@ pub use relief::{
     TerracedRelief,
 };
 pub use topology::{
-    BevelTransition, ClimateZone, CoordinateFold, CubeFace, FacePerimeter, FoldedFace,
+    BevelTransition, ClimateZone, CoordinateFold, FacePerimeter, FoldedFace,
     FoldedPoint, PerimeterCrossing, PerimeterEdge, PlanetaryTopology, SeamBevel,
     SeamFold, Topology,
 };
