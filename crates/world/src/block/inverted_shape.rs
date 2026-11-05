@@ -114,16 +114,6 @@ impl InvertedShape {
         };
         Self::new(inner)
     }
-
-    /// Ceiling elevations at the four cell corners (SW, SE, NE, NW) for `floor_elevation`.
-    pub fn ceiling_corners(&self, floor_elevation: f32) -> [f32; 4] {
-        [
-            floor_elevation + 0.5 - self.inner.elevation_at(0.0, 0.0),
-            floor_elevation + 0.5 - self.inner.elevation_at(1.0, 0.0),
-            floor_elevation + 0.5 - self.inner.elevation_at(1.0, 1.0),
-            floor_elevation + 0.5 - self.inner.elevation_at(0.0, 1.0),
-        ]
-    }
 }
 
 impl VoxelShape for InvertedShape {

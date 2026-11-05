@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CleaveOutcome, ClimateZone, GravityField, MeshTarget, PerimeterEdge,
-    PlanetaryTopology, PlanetaryWorld, SeamBevel, SurfaceFind,
+    PlanetaryTopology, PlanetaryWorld, SeamBevel, SurfaceFind, VehicleAssembly,
 };
 
 /// Decorator enabling smooth, continuous surface normal transitions in bevel zones across planetary seams.
@@ -101,6 +101,18 @@ impl PlanetaryWorld for BeveledWorld {
 
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         self.world.adjust_rig(eye, direction, delta_steps, rotate_quarter)
+    }
+
+    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        self.world.lower_rig(eye, direction)
+    }
+
+    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
+        self.world.board_vehicle(eye, direction, holding_block)
+    }
+
+    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
+        self.world.park_vehicle(assembly)
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {

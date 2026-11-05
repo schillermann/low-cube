@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
-use crate::{BlockMedium, BlockMold, CleaveOutcome, Face, MeshTarget, SurfaceFind};
+use crate::{BlockMedium, BlockMold, CleaveOutcome, Face, MeshTarget, SurfaceFind, VehicleAssembly};
 use super::{ClimateZone, FacePerimeter, PerimeterCrossing, PlanetaryTopology, SeamFold};
 
 /// Decorator enabling seamless 90° coordinate folding across outer perimeter boundaries.
@@ -99,6 +99,18 @@ impl Face for FoldedFace {
 
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         self.origin.adjust_rig(eye, direction, delta_steps, rotate_quarter)
+    }
+
+    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        self.origin.lower_rig(eye, direction)
+    }
+
+    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
+        self.origin.board_vehicle(eye, direction, holding_block)
+    }
+
+    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
+        self.origin.park_vehicle(assembly)
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {

@@ -4,6 +4,7 @@ use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use crate::noise::SpatialFrequency;
 use super::corner::NaturalCrown;
+use super::vehicle_assembly::VehicleAssembly;
 
 /// Behavioral interface for planetary relief elevation evaluation ("Tell, Don't Ask").
 pub trait ReliefElevation: Send + Sync {
@@ -83,6 +84,21 @@ pub trait ReliefElevation: Send + Sync {
 
     /// Raises, lowers, or rotates a polyhedral cantilever rig at or holding (u, v).
     fn adjust_rig_at(&mut self, _u: i32, _v: i32, _delta_steps: i32, _rotate_quarter: bool) -> bool { false }
+
+    /// Lowers a polyhedral cantilever rig assembly onto the ground when its mast at (u, v) is clicked.
+    fn lower_rig_at(&mut self, _u: i32, _v: i32) -> bool { false }
+
+    /// Extracts a drivable vehicle assembly when clicking a cabin seat at (u, v, layer_elev).
+    fn board_vehicle_at(
+        &mut self, _frame: &SurfaceFrame, _u: i32, _v: i32, _layer_elev: f32, _view_dir: Vec3, _holding_block: bool,
+    ) -> Option<VehicleAssembly> {
+        None
+    }
+
+    /// Deposits a driven vehicle assembly back into the terrain grid on dismount.
+    fn park_vehicle_at(&mut self, _frame: &SurfaceFrame, _assembly: VehicleAssembly) -> (i32, i32) {
+        (0, 0)
+    }
 }
 
 /// Zoned planetary relief evaluating continuous spatial frequency into stepped voxel strata.

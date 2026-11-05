@@ -125,6 +125,10 @@ fn test_single_character_cycles_all_animations_and_archetypes_differ_fundamental
     stage_front.rotated(1.2).emit_stage(&attire, &mut turned_quads);
     assert_ne!(front_quads.positions(), turned_quads.positions());
 
+    assert!(
+        StudioAnimation::sequence().contains(&StudioAnimation::SeatedDrive),
+        "Character Studio animation sequence must include SeatedDrive"
+    );
     for idx in 0..(StudioAnimation::sequence().len() - 1) {
         let (t0, t1) = ((idx as f32) * 2.2 + 0.35, ((idx + 1) as f32) * 2.2 + 0.35);
         assert_ne!(StudioAnimation::from_elapsed(t0), StudioAnimation::from_elapsed(t1));
@@ -194,4 +198,9 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
     studio.move_pointer(ScreenPoint::new(-0.83, -0.70));
     studio.press_pointer();
     assert!(!studio.current_attire().feminine());
+    studio.move_pointer(ScreenPoint::new(0.0, 0.72));
+    studio.press_pointer();
+    let mut next_anim_stage = QuadCapture::empty();
+    studio.emit_stage(&mut next_anim_stage);
+    assert_ne!(male_stage.positions(), next_anim_stage.positions(), "Clicking animation button in Character Studio must cycle stage animation");
 }

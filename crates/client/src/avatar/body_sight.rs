@@ -1,7 +1,8 @@
 use glam::{Mat4, Quat, Vec3};
-use world::PlanetaryWorld;
+use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
 use crate::attire::{BodyPose, SightMode, StrideRhythm};
 use crate::controls::KeyboardControls;
+use crate::drive::{DrivenCar, VehiclePilot};
 use crate::envelope::BodyEnvelope;
 use crate::flight::GravitationalFlight;
 use crate::heading::SurfaceHeading;
@@ -13,17 +14,22 @@ use crate::posture::AvatarPosture;
 
 const EYE_SUPPORT_HEIGHT: f32 = 1.0;
 
-/// Encapsulated physical avatar body state: world position, gravitational flight, and posture.
+/// Encapsulated physical avatar body state: world position, gravitational flight, posture, and pilot state.
 pub struct AvatarBody {
     position: Vec3,
     flight: Box<dyn GravitationalFlight>,
     posture: AvatarPosture,
+    pilot: VehiclePilot,
 }
 
 impl AvatarBody {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_pilot(position: Vec3, flight: Box<dyn GravitationalFlight>, posture: AvatarPosture, pilot: VehiclePilot) -> Self {
+        Self { position, flight, posture, pilot }
+    }
+
     pub fn new(position: Vec3, flight: Box<dyn GravitationalFlight>, posture: AvatarPosture) -> Self {
-        Self { position, flight, posture }
+        Self::with_pilot(position, flight, posture, VehiclePilot::Pedestrian)
     }
 
     pub const fn position(&self) -> Vec3 {
@@ -32,6 +38,10 @@ impl AvatarBody {
 
     pub const fn posture(&self) -> AvatarPosture {
         self.posture
+    }
+
+    pub const fn driving(&self) -> bool {
+        self.pilot.driving()
     }
 
     pub fn perished(&self) -> bool {
@@ -49,7 +59,38 @@ impl AvatarBody {
     pub fn respawn(&mut self, spawn: Vec3) {
         self.position = spawn;
         self.posture = AvatarPosture::standing();
+        self.pilot = VehiclePilot::Pedestrian;
         self.flight.ground();
+    }
+
+    pub fn board_vehicle(&mut self, assembly: VehicleAssembly, world: &dyn PlanetaryWorld) {
+        let car = DrivenCar::boarded(assembly);
+        self.position = car.seat_position(world);
+        self.posture = AvatarPosture::crouching();
+        self.flight.ground();
+        self.pilot = VehiclePilot::Seated(car);
+    }
+
+    pub fn dismount_vehicle(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        if self.pilot.dismount(world) {
+            self.posture = AvatarPosture::standing();
+            self.position = world.constrain_to_surface(self.position, EYE_SUPPORT_HEIGHT);
+            self.flight.ground();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn step_driving(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) -> Option<f32> {
+        let (seat_pos, steer_px) = self.pilot.step(dt, controls, world)?;
+        self.position = seat_pos;
+        self.posture = self.posture.crouch_down(dt);
+        Some(steer_px)
+    }
+
+    pub fn emit_vehicle(&self, target: &mut dyn MeshTarget) {
+        self.pilot.emit(target);
     }
 
     pub fn advance_perish(&mut self, dt: f32) -> (bool, bool) {

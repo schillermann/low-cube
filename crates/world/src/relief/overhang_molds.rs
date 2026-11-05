@@ -7,6 +7,7 @@ use super::cantilever_rig::RigRegistry;
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
 use super::turf_scars::TurfScars;
+use super::vehicle_assembly::VehicleAssembly;
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
@@ -35,39 +36,19 @@ impl OverhangMolds {
         Self::new(HashMap::new(), RigRegistry::untouched(), TurfScars::untouched())
     }
 
-    pub fn empty(&self) -> bool {
-        self.blocks.is_empty() && self.rigs.empty()
-    }
-
-    pub fn present_at(&self, u: i32, v: i32) -> bool {
-        self.blocks.contains_key(&(u, v)) || self.rigs.present_at(u, v)
-    }
-
-    pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool {
-        self.scars.bare_at(u, v)
-    }
-
-    pub fn expose_dirt(&mut self, u: i32, v: i32) {
-        self.scars.expose_dirt(u, v);
-    }
+    pub fn empty(&self) -> bool { self.blocks.is_empty() && self.rigs.empty() }
+    pub fn present_at(&self, u: i32, v: i32) -> bool { self.blocks.contains_key(&(u, v)) || self.rigs.present_at(u, v) }
+    pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool { self.scars.bare_at(u, v) }
+    pub fn expose_dirt(&mut self, u: i32, v: i32) { self.scars.expose_dirt(u, v); }
 
     pub fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32) -> u8 {
         let occupied = self.scars.probes_occupied(|focus_elev| self.layer_occupied_at(u, v, focus_elev));
         self.scars.layer_stage(u, v, layer_elev, occupied)
     }
 
-    pub fn clear_stage(&mut self, u: i32, v: i32) -> (i32, i32) {
-        self.scars.clear_stage(u, v)
-    }
-
-    pub fn clear_if_at(&mut self, u: i32, v: i32) {
-        self.scars.clear_if_at(u, v);
-    }
-
-    pub fn reset_stage(&mut self) -> ((i32, i32), bool) {
-        self.scars.reset_stage()
-    }
-
+    pub fn clear_stage(&mut self, u: i32, v: i32) -> (i32, i32) { self.scars.clear_stage(u, v) }
+    pub fn clear_if_at(&mut self, u: i32, v: i32) { self.scars.clear_if_at(u, v); }
+    pub fn reset_stage(&mut self) -> ((i32, i32), bool) { self.scars.reset_stage() }
     pub fn record_stage(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
         self.scars.record_stage(u, v, layer_elev, stage)
     }
@@ -140,24 +121,14 @@ impl OverhangMolds {
             || self.blocks.get(&(u, v)).is_some_and(|list| list.iter().any(|b| b.occupies_layer(layer_elev)))
     }
 
-    pub fn layer_medium_at(
-        &self,
-        strata: &NaturalStrata,
-        shafts: &ShaftExcavation,
-        u: i32,
-        v: i32,
-        layer_elev: f32,
-    ) -> BlockMedium {
+    pub fn layer_medium_at(&self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
         if self.rigs.occupies_layer(u, v, layer_elev) {
             return BlockMedium::CantileverRig;
         }
         self.blocks
             .get(&(u, v))
             .and_then(|list| list.iter().rfind(|b| b.occupies_layer(layer_elev)))
-            .map_or_else(
-                || shafts.excavated_medium_at(strata, u, v, layer_elev),
-                ElevatedShape::block_medium,
-            )
+            .map_or_else(|| shafts.excavated_medium_at(strata, u, v, layer_elev), ElevatedShape::block_medium)
     }
 
     pub fn hit_top_at(&self, cu: i32, cv: i32, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
@@ -230,7 +201,7 @@ impl OverhangMolds {
             self.clear_if_at(u, v);
             return true;
         }
-        if shape.block_medium().vehicle_engine() {
+        if shape.block_medium().rig_mountable() {
             if let Some((eu, ev, hoist_z)) = self.rigs.mount_target(u, v, &self.blocks) {
                 let list = self.blocks.entry((eu, ev)).or_default();
                 list.push(ElevatedShape::new(shape, hoist_z));
@@ -240,6 +211,11 @@ impl OverhangMolds {
             }
         }
         let mut next_base = if sub { base } else { base.max(ground_top) };
+        if shape.block_medium().rig_mountable() && (next_base - ground_top).abs() <= 0.05 {
+            if let Some(hoist_z) = self.rigs.attach_elevation(u, v, &self.blocks) {
+                next_base = hoist_z;
+            }
+        }
         while self.blocks.get(&(u, v)).is_some_and(|l| l.iter().any(|b| b.occupies_layer(next_base + HALF_BLOCK_STEP))) {
             next_base += if sub { -BLOCK_STEP } else { BLOCK_STEP };
         }
@@ -259,6 +235,22 @@ impl OverhangMolds {
 
     pub fn adjust_rig(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool) -> bool {
         self.rigs.adjust_at(strata, shafts, u, v, delta_steps, rotate_quarter, &mut self.blocks)
+    }
+
+    pub fn lower_rig(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32) -> bool {
+        self.rigs.lower_mast_at(strata, shafts, u, v, &mut self.blocks)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn board_vehicle(
+        &mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame,
+        u: i32, v: i32, layer_elev: f32, view_dir: Vec3, holding_block: bool,
+    ) -> Option<VehicleAssembly> {
+        VehicleAssembly::board_from_blocks(&mut self.blocks, &mut self.rigs, strata, shafts, frame, u, v, layer_elev, view_dir, holding_block)
+    }
+
+    pub fn park_vehicle(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {
+        assembly.park_into_blocks(&mut self.blocks, strata, shafts, frame)
     }
 
     pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> Vec<(i32, i32)> {

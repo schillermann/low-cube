@@ -101,7 +101,8 @@ impl PlanetaryAvatar {
     }
 
     fn current_pose(&self) -> BodyPose {
-        self.sight_line.body_pose(self.body.position(), self.body.posture(), self.bearing.rhythm())
+        let pose = self.sight_line.body_pose(self.body.position(), self.body.posture(), self.bearing.rhythm());
+        if self.body.driving() { pose.with_seated(1.0) } else { pose }
     }
 
     fn hand_ray(&self) -> (Vec3, Vec3) {
@@ -118,7 +119,15 @@ impl PlanetaryAvatar {
         if self.body.perished() || world.lethal_at(self.body.position()) || self.gear.blocks_hand_action() {
             return false;
         }
+        if self.body.driving() {
+            return self.body.dismount_vehicle(world);
+        }
         let (eye, view_dir) = self.hand_ray();
+        if let Some(assembly) = world.board_vehicle(eye, view_dir, self.gear.holding_placeable_on(side)) {
+            self.body.board_vehicle(assembly, world);
+            self.bearing.calm();
+            return true;
+        }
         let (next_rhythm, changed) = self.gear.act_with_hand(side, self.bearing.rhythm(), eye, view_dir, world);
         self.bearing.apply_rhythm(next_rhythm);
         changed
@@ -190,6 +199,16 @@ impl Avatar for PlanetaryAvatar {
         }
         let terrain_up = world.surface_up_at(pos);
         self.sight_line.reorient_surface(terrain_up, dt);
+        if let Some(steer_px) = self.body.step_driving(dt, controls, world) {
+            if steer_px.abs() > 1e-5 {
+                self.sight_line.rotate(steer_px, 0.0);
+            }
+            let next_up = world.surface_up_at(self.body.position());
+            self.sight_line.reorient_surface(next_up, dt);
+            self.bearing.advance_stride(pos, self.body.position(), next_up, dt);
+            self.bearing.decay_tilt(dt);
+            return;
+        }
         let mut order = LocomotionOrder::idle();
         self.sight_line.drive_order(controls, &mut order);
         let facing = self.sight_line.view_direction();
@@ -255,6 +274,7 @@ impl Avatar for PlanetaryAvatar {
     fn surface_rotation(&self) -> Quat { self.sight_line.surface_rotation() }
 
     fn emit_appearance(&self, target: &mut dyn MeshTarget) {
+        self.body.emit_vehicle(target);
         self.gear.emit_appearance(
             &self.current_pose(),
             self.bearing.sight(),

@@ -4,6 +4,8 @@ use crate::{MeshTarget, Quad, TurfMeshTarget};
 use super::cell::GridCell;
 use super::earth_clods::EarthClods;
 use super::shape::VoxelShape;
+use super::vehicle_parts::VehicleBlockMesh;
+use super::wedge::WedgeHeading;
 
 /// Material medium governing the sculpted 3D surface of a molded block in hand and world.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -18,6 +20,8 @@ pub enum BlockMedium {
     CarEngine,
     AircraftEngine,
     RocketEngine,
+    CabinSeat,
+    CarWheel,
 }
 
 impl BlockMedium {
@@ -36,6 +40,11 @@ impl BlockMedium {
         matches!(self, Self::CarEngine | Self::AircraftEngine | Self::RocketEngine)
     }
 
+    /// Indicates whether this block medium is a vehicle component that can initiate or attach to a crane assembly.
+    pub const fn rig_mountable(self) -> bool {
+        self.vehicle_engine() || matches!(self, Self::CabinSeat | Self::CarWheel)
+    }
+
     /// Primary and secondary debris particle colors emitted when striking this block medium.
     pub const fn debris_tones(self) -> (Vec3, Vec3) {
         match self {
@@ -47,6 +56,8 @@ impl BlockMedium {
             Self::CarEngine => (Vec3::new(0.98, 0.68, 0.18), Vec3::new(0.34, 0.38, 0.44)),
             Self::AircraftEngine => (Vec3::new(0.22, 0.88, 0.98), Vec3::new(0.54, 0.62, 0.72)),
             Self::RocketEngine => (Vec3::new(0.99, 0.32, 0.14), Vec3::new(0.24, 0.22, 0.28)),
+            Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.24, 0.27, 0.32)),
+            Self::CarWheel => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
         }
     }
 
@@ -144,13 +155,21 @@ pub struct MediumShape {
     inner: Box<dyn VoxelShape>,
     medium: BlockMedium,
     full_cube: bool,
-    cross_grain: bool,
+    heading: WedgeHeading,
 }
 
 impl MediumShape {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_heading(inner: Box<dyn VoxelShape>, medium: BlockMedium, full_cube: bool, heading: WedgeHeading) -> Self {
+        Self { inner, medium, full_cube, heading }
+    }
+
     pub fn new(inner: Box<dyn VoxelShape>, medium: BlockMedium, full_cube: bool, cross_grain: bool) -> Self {
-        Self { inner, medium, full_cube, cross_grain }
+        Self::with_heading(inner, medium, full_cube, if cross_grain { WedgeHeading::East } else { WedgeHeading::South })
+    }
+
+    const fn cross_grain(&self) -> bool {
+        matches!(self.heading, WedgeHeading::East | WedgeHeading::West)
     }
 }
 
@@ -158,6 +177,8 @@ impl VoxelShape for MediumShape {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 { self.inner.elevation_at(local_u, local_v) }
     fn shape_color(&self) -> Vec3 { self.inner.shape_color() }
     fn block_medium(&self) -> BlockMedium { self.medium }
+    fn block_heading(&self) -> WedgeHeading { self.heading }
+    fn rotate_quarter(&mut self) { self.heading = self.heading.rotated_ccw(); }
 
     fn emit_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, color: Vec3, target: &mut dyn MeshTarget) {
         self.emit_terraced_shape(cell, floor_elevation, frame, color, color, true, target);
@@ -169,7 +190,7 @@ impl VoxelShape for MediumShape {
             (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_terraced(top_color, bare_top, frame, target),
             (BlockMedium::CrustRock, true) => BlockMedium::emit_crust_rock_cube(cell, floor_elevation, frame, target),
             (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
-            (BlockMedium::PlanedPlanks, true) => BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain, frame, target),
+            (BlockMedium::PlanedPlanks, true) => BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target),
             (BlockMedium::RawTimber, false) => {
                 let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.85, 0.70, 0.46), Vec3::new(0.32, 0.20, 0.11), false);
                 self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.32, 0.20, 0.11), &mut turf);
@@ -191,47 +212,17 @@ impl VoxelShape for MediumShape {
                 turf.seal_underside();
             }
             (BlockMedium::CantileverRig, _) => {
-                BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain, frame, target);
+                BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target);
             }
-            (BlockMedium::CarEngine | BlockMedium::AircraftEngine | BlockMedium::RocketEngine, _) => {
-                let ((u0, u1), (v0, v1), top_elev) = (cell.u_bounds(), cell.v_bounds(), floor_elevation + 0.5);
-                let (chassis, rib, top_glow, lens_glow) = match self.medium {
-                    BlockMedium::CarEngine => (
-                        Vec3::new(0.34, 0.36, 0.40),
-                        Vec3::new(0.72, 0.56, 0.26),
-                        Vec3::new(0.98, 0.68, 0.16),
-                        Vec3::new(0.99, 0.82, 0.28),
-                    ),
-                    BlockMedium::AircraftEngine => (
-                        Vec3::new(0.48, 0.56, 0.66),
-                        Vec3::new(0.74, 0.82, 0.90),
-                        Vec3::new(0.20, 0.86, 0.98),
-                        Vec3::new(0.56, 0.96, 1.00),
-                    ),
-                    _ => (
-                        Vec3::new(0.22, 0.20, 0.26),
-                        Vec3::new(0.84, 0.64, 0.22),
-                        Vec3::new(0.99, 0.32, 0.12),
-                        Vec3::new(0.98, 0.18, 0.46),
-                    ),
-                };
-                BlockMedium::emit_box(u0, u1, v0, v1, floor_elevation, top_elev, frame, chassis, rib, true, target);
-                BlockMedium::emit_box(u0 + 0.10, u1 - 0.10, v0 + 0.10, v1 - 0.10, top_elev, top_elev + 0.016, frame, top_glow, top_glow, false, target);
-                let (n, t) = (frame.normal(), frame.tangent());
-                let [p0, p1, p2, p3] = [
-                    frame.point_at(u0 + 0.11, v0 + 0.11, top_elev + 0.017),
-                    frame.point_at(u1 - 0.11, v0 + 0.11, top_elev + 0.017),
-                    frame.point_at(u1 - 0.11, v1 - 0.11, top_elev + 0.017),
-                    frame.point_at(u0 + 0.11, v1 - 0.11, top_elev + 0.017),
-                ];
-                target.push_quad(Quad::glowing(p0, p1, p2, p3, n, top_glow, 0.92));
-                let [c0, c1, c2, c3] = [
-                    frame.point_at(u1 + 0.005, v0 + 0.13, floor_elevation + 0.13),
-                    frame.point_at(u1 + 0.005, v1 - 0.13, floor_elevation + 0.13),
-                    frame.point_at(u1 + 0.005, v1 - 0.13, top_elev - 0.13),
-                    frame.point_at(u1 + 0.005, v0 + 0.13, top_elev - 0.13),
-                ];
-                target.push_quad(Quad::glowing(c0, c1, c2, c3, t, lens_glow, 0.95));
+            (
+                BlockMedium::CarEngine
+                | BlockMedium::AircraftEngine
+                | BlockMedium::RocketEngine
+                | BlockMedium::CabinSeat
+                | BlockMedium::CarWheel,
+                _,
+            ) => {
+                VehicleBlockMesh::new(self.medium, self.heading).emit(cell, floor_elevation, frame, target);
             }
             (BlockMedium::CrustRock, false) => {
                 let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.31, 0.27, 0.25), false);

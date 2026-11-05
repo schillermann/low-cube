@@ -18,9 +18,10 @@ impl<'a> StudioLayout<'a> {
         Self { studio }
     }
 
-    pub fn rotate_left_button() -> ScreenBounds { ScreenBounds::new(-0.36, 0.72, -0.14, 0.81) }
-    pub fn front_button() -> ScreenBounds { ScreenBounds::new(-0.11, 0.72, 0.11, 0.81) }
-    pub fn rotate_right_button() -> ScreenBounds { ScreenBounds::new(0.14, 0.72, 0.36, 0.81) }
+    pub fn rotate_left_button() -> ScreenBounds { ScreenBounds::new(-0.42, 0.72, -0.22, 0.81) }
+    pub fn front_button() -> ScreenBounds { ScreenBounds::new(-0.20, 0.72, -0.02, 0.81) }
+    pub fn rotate_right_button() -> ScreenBounds { ScreenBounds::new(0.00, 0.72, 0.20, 0.81) }
+    pub fn animation_button() -> ScreenBounds { ScreenBounds::new(0.22, 0.72, 0.44, 0.81) }
     pub fn male_button() -> ScreenBounds { ScreenBounds::new(-0.94, -0.74, -0.72, -0.66) }
     pub fn female_button() -> ScreenBounds { ScreenBounds::new(-0.70, -0.74, -0.48, -0.66) }
     pub fn reset_button() -> ScreenBounds { ScreenBounds::new(0.48, -0.78, 0.94, -0.68) }
@@ -64,6 +65,7 @@ impl<'a> StudioLayout<'a> {
         Self::rotate_left_button().emit_button("< ROTATE", pt, btn_col, false, target);
         Self::front_button().emit_button("FRONT", pt, btn_col, false, target);
         Self::rotate_right_button().emit_button("ROTATE >", pt, btn_col, false, target);
+        Self::animation_button().emit_button(self.studio.active_animation_title(), pt, btn_col, false, target);
 
         ScreenBounds::new(-0.97, -0.81, -0.45, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
         PixelStamp::caption(gold).emit_centered("CHARACTER BODY", -0.71, 0.75, target);

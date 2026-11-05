@@ -47,10 +47,10 @@ impl<'a> ColumnClearance<'a> {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
         let core_step = self.strata.vault().floor_steps_at(cu, cv);
         let core_top = (core_step as f32) * BLOCK_STEP;
-        let core_exposed = self.shafts.elevation_at(self.strata, cu, cv) <= core_step;
         self.strata.vault().core().engulfs(u, v, elev, LETHAL_CORE_MARGIN)
             || elev < core_top - SHAFT_FLOOR_TOLERANCE
-            || (core_exposed && elev <= core_top + LETHAL_CORE_MARGIN)
+            || (elev <= core_top + LETHAL_CORE_MARGIN
+                && self.shafts.elevation_at(self.strata, cu, cv) <= core_step)
     }
 
     pub fn weightless_at(&self, _u: f32, _v: f32, _elev: f32) -> bool {

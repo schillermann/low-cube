@@ -37,7 +37,7 @@ pub use null_face::NullFace;
 pub use planet::CubePlanet;
 pub use relief::{
     CrustVault, FacetedReliefFace, ReliefElevation, ReliefFacet, ReliefPalette, SurfaceSightRay,
-    TerracedRelief,
+    TerracedRelief, VehicleAssembly, VehicleAxes, VehiclePart,
 };
 pub use topology::{
     BevelTransition, ClimateZone, CoordinateFold, FacePerimeter, FoldedFace,
@@ -91,6 +91,15 @@ pub trait PlanetaryWorld: GravityField {
         false
     }
     fn adjust_rig(&mut self, _eye: Vec3, _direction: Vec3, _delta_steps: i32, _rotate_quarter: bool) -> bool {
+        false
+    }
+    fn lower_rig(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
+        false
+    }
+    fn board_vehicle(&mut self, _eye: Vec3, _direction: Vec3, _holding_block: bool) -> Option<VehicleAssembly> {
+        None
+    }
+    fn park_vehicle(&mut self, _assembly: VehicleAssembly) -> bool {
         false
     }
     fn step_surface(&mut self, _dt: f32) -> bool {
@@ -148,6 +157,15 @@ pub trait Face: Send + Sync {
         false
     }
     fn adjust_rig(&mut self, _eye: Vec3, _direction: Vec3, _delta_steps: i32, _rotate_quarter: bool) -> bool {
+        false
+    }
+    fn lower_rig(&mut self, _eye: Vec3, _direction: Vec3) -> bool {
+        false
+    }
+    fn board_vehicle(&mut self, _eye: Vec3, _direction: Vec3, _holding_block: bool) -> Option<VehicleAssembly> {
+        None
+    }
+    fn park_vehicle(&mut self, _assembly: VehicleAssembly) -> bool {
         false
     }
     fn step_surface(&mut self, _dt: f32) -> bool {

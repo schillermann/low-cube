@@ -12,6 +12,7 @@ use super::palette::ReliefPalette;
 use super::sight_ray::SurfaceSightRay;
 use super::strata::ReliefStrata;
 use super::terraced::TerracedRelief;
+use super::vehicle_assembly::VehicleAssembly;
 use self::cache::ReliefCellCache;
 
 struct ReliefDomain {
@@ -190,6 +191,37 @@ impl Face for FacetedReliefFace {
             }
         }
         false
+    }
+
+    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        let half = self.cache.half_blocks();
+        let half_size = self.domain.frame.step_elevation(half);
+        if let Some((cu, cv, _)) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)
+        {
+            if self.domain.relief.lower_rig_at(cu, cv) {
+                self.refresh_neighborhood(cu, cv, half);
+                return true;
+            }
+        }
+        false
+    }
+
+    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
+        let half = self.cache.half_blocks();
+        let half_size = self.domain.frame.step_elevation(half);
+        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)?;
+        let assembly = self.domain.relief.board_vehicle_at(&self.domain.frame, cu, cv, layer, direction, holding_block)?;
+        self.refresh_neighborhood(cu, cv, half);
+        Some(assembly)
+    }
+
+    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
+        let half = self.cache.half_blocks();
+        let (cu, cv) = self.domain.relief.park_vehicle_at(&self.domain.frame, assembly);
+        self.refresh_neighborhood(cu, cv, half);
+        true
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {

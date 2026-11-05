@@ -92,9 +92,10 @@ impl PalmEarthworks {
     }
 
     pub fn try_adjust_rig(
-        &self, trigger: InputTrigger, bindings: &ActionBindings, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
+        &self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> bool {
-        if self.satchel.open() || self.tome.open() {
+        let (r, l) = attire.held_pair();
+        if self.satchel.open() || self.tome.open() || r.placeable_block() || l.placeable_block() {
             return false;
         }
         if bindings.matches(ControlAction::MoldRight, trigger) {
@@ -194,6 +195,9 @@ impl PalmEarthworks {
         }
         let (right, left) = attire.held_pair();
         let (active, other) = if side > 0.0 { (right, left) } else { (left, right) };
+        if d.progress() == 0 && !d.grip().any_held() && active != HeldRelic::WoodenMallet && world.lower_rig(eye, view_dir) {
+            return (Self::new(state.satchel, 0, DigGrip::idle(), Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), true);
+        }
         let weightless = DebrisSplash::overhead_aim(eye, view_dir, world);
         if active.placeable_block() && !weightless && !d.grip().held_on(side) && !d.grip().pending_place_any() && d.progress() == 0 {
             let next_rhythm = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };

@@ -49,7 +49,7 @@ impl ArtisanTome {
     pub const fn closed() -> Self { Self::new(0, false) }
     pub const fn open(&self) -> bool { self.open }
 
-    pub const fn entries() -> [CraftingEntry; 8] {
+    pub const fn entries() -> [CraftingEntry; 10] {
         [
             CraftingEntry::new(HeldRelic::WoodmanAxe, 1, "TOOL", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
             CraftingEntry::new(HeldRelic::PlankBlock, 4, "BLOCK", [(HeldRelic::TimberBlock, 1), (HeldRelic::EmptyPalm, 0)]),
@@ -59,6 +59,8 @@ impl ArtisanTome {
             CraftingEntry::new(HeldRelic::KnightlySword, 1, "WEAPON", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 3)]),
             CraftingEntry::new(HeldRelic::TimberTorch, 1, "ITEM", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
             CraftingEntry::new(HeldRelic::QuarriedStone, 1, "BLOCK", [(HeldRelic::FlintStone, 2), (HeldRelic::EmptyPalm, 0)]),
+            CraftingEntry::new(HeldRelic::CabinSeat, 1, "CAR", [(HeldRelic::PlankBlock, 1), (HeldRelic::EmptyPalm, 0)]),
+            CraftingEntry::new(HeldRelic::CarWheel, 4, "CAR", [(HeldRelic::PlankBlock, 1), (HeldRelic::FlintStone, 1)]),
         ]
     }
 
@@ -119,7 +121,7 @@ impl ArtisanTome {
         for (i, entry) in entries.iter().enumerate() {
             let selected = i == (self.cursor % entries.len());
             let ready = entry.craftable(satchel, attire);
-            let row_y = 0.148 - (i as f32) * 0.048;
+            let row_y = 0.160 - (i as f32) * 0.036;
             let row_frame = tray.shifted(0.0, row_y, if selected { -0.012 } else { 0.0 });
             let row_bg = if selected { Vec3::new(0.16, 0.21, 0.30) } else { Vec3::new(0.10, 0.13, 0.19) };
             let row_rim = if selected {
@@ -129,9 +131,9 @@ impl ArtisanTome {
             } else {
                 Vec3::new(0.32, 0.24, 0.18)
             };
-            row_frame.emit_framed_plaque(0.262, 0.021, 0.0020, row_bg, row_rim, target);
+            row_frame.emit_framed_plaque(0.262, 0.016, 0.0020, row_bg, row_rim, target);
 
-            let icon_frame = row_frame.shifted(-0.225, 0.0, -0.010).scaled(0.42);
+            let icon_frame = row_frame.shifted(-0.225, 0.0, -0.010).scaled(0.36);
             entry.product.figure(BlockMold::cube()).emit_in_slot(selected, row_rim, &icon_frame, target);
 
             let title_col = if ready { Vec3::new(1.10, 1.55, 0.95) } else { Vec3::new(1.48, 1.36, 1.12) };

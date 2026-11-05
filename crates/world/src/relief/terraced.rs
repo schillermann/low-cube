@@ -7,6 +7,7 @@ use super::elevation::ReliefElevation;
 use super::natural_strata::NaturalStrata;
 use super::overhang_molds::OverhangMolds;
 use super::shaft_excavation::ShaftExcavation;
+use super::vehicle_assembly::VehicleAssembly;
 
 /// Decorator composing natural strata, excavated shafts, and overhanging molds atop planetary relief.
 pub struct TerracedRelief {
@@ -139,5 +140,19 @@ impl ReliefElevation for TerracedRelief {
 
     fn adjust_rig_at(&mut self, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool) -> bool {
         self.molds.adjust_rig(&self.strata, &self.shafts, u, v, delta_steps, rotate_quarter)
+    }
+
+    fn lower_rig_at(&mut self, u: i32, v: i32) -> bool {
+        self.molds.lower_rig(&self.strata, &self.shafts, u, v)
+    }
+
+    fn board_vehicle_at(
+        &mut self, frame: &SurfaceFrame, u: i32, v: i32, layer_elev: f32, view_dir: Vec3, holding_block: bool,
+    ) -> Option<VehicleAssembly> {
+        self.molds.board_vehicle(&self.strata, &self.shafts, frame, u, v, layer_elev, view_dir, holding_block)
+    }
+
+    fn park_vehicle_at(&mut self, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {
+        self.molds.park_vehicle(&self.strata, &self.shafts, frame, assembly)
     }
 }

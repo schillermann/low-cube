@@ -1,7 +1,7 @@
 mod mesh;
 
 use glam::Vec3;
-use crate::block::{GridCell, InvertedShape};
+use crate::block::{CornerHeading, GridCell, InvertedShape};
 use crate::frame::SurfaceFrame;
 use super::magma_core::MagmaCore;
 pub use mesh::VaultGeometry;
@@ -121,7 +121,7 @@ impl CrustVault {
         if elev < ceiling + 1.2 && elev > ceiling { ceiling } else { elev }
     }
 
-    pub(super) fn block_at(&self, cell: GridCell) -> (f32, InvertedShape) {
+    fn floor_and_drops(&self, cell: GridCell) -> (f32, [i32; 4]) {
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
         let q = [
             (self.shell_point(u0, v0).2 * 4.0).round() as i32,
@@ -130,7 +130,7 @@ impl CrustVault {
             (self.shell_point(u0, v1).2 * 4.0).round() as i32,
         ];
         let (q_max, q_min) = (q[0].max(q[1]).max(q[2]).max(q[3]), q[0].min(q[1]).min(q[2]).min(q[3]));
-        let (floor_elev, drops) = if q_max == q_min {
+        if q_max == q_min {
             if q_max.rem_euclid(2) == 0 {
                 ((q_max as f32) * 0.25, [2, 2, 2, 2])
             } else {
@@ -139,14 +139,48 @@ impl CrustVault {
         } else {
             let top_q = if q_max.rem_euclid(2) != 0 && q_max - q_min == 1 { q_max + 1 } else { q_max };
             ((top_q as f32) * 0.25 - 0.5, q.map(|qi| (top_q - qi).clamp(0, 2)))
-        };
+        }
+    }
+
+    pub(super) fn block_at(&self, cell: GridCell) -> (f32, InvertedShape) {
+        let (floor_elev, drops) = self.floor_and_drops(cell);
         (floor_elev, InvertedShape::from_corner_drops(drops[0], drops[1], drops[2], drops[3]))
     }
 
     pub(super) fn corners_at(&self, u: i32, v: i32) -> [f32; 4] {
-        let ((u0, u1), (v0, v1)) = (GridCell::new(u, v).u_bounds(), GridCell::new(u, v).v_bounds());
-        let (floor_elev, block) = self.block_at(GridCell::new(u, v));
-        let c = block.ceiling_corners(floor_elev);
+        let cell = GridCell::new(u, v);
+        let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
+        let (floor_elev, [s0, s1, s2, s3]) = self.floor_and_drops(cell);
+        let c = match (s0, s1, s2, s3) {
+            (0, 0, 0, 0) | (2, 2, 2, 2) => [floor_elev; 4],
+            (1, 1, 1, 1)
+            | (0, 0, 1, 1) | (1, 1, 0, 0) | (0, 1, 1, 0) | (1, 0, 0, 1)
+            | (1, 1, 2, 2) | (2, 2, 1, 1) | (1, 2, 2, 1) | (2, 1, 1, 2)
+            | (0, 0, 2, 2) | (2, 2, 0, 0) | (0, 2, 2, 0) | (2, 0, 0, 2)
+            | (0, 0, 1, 0) | (0, 0, 0, 1) | (0, 1, 0, 0) | (1, 0, 0, 0)
+            | (1, 1, 2, 1) | (1, 1, 1, 2) | (1, 2, 1, 1) | (2, 1, 1, 1)
+            | (0, 0, 2, 0) | (0, 0, 0, 2) | (0, 2, 0, 0) | (2, 0, 0, 0)
+            | (0, 1, 1, 1) | (1, 0, 1, 1) | (1, 1, 0, 1) | (1, 1, 1, 0)
+            | (1, 2, 2, 2) | (2, 1, 2, 2) | (2, 2, 1, 2) | (2, 2, 2, 1)
+            | (0, 2, 2, 2) | (2, 0, 2, 2) | (2, 2, 0, 2) | (2, 2, 2, 0) => [
+                floor_elev + 0.5 - (s0 as f32) * 0.25,
+                floor_elev + 0.5 - (s1 as f32) * 0.25,
+                floor_elev + 0.5 - (s2 as f32) * 0.25,
+                floor_elev + 0.5 - (s3 as f32) * 0.25,
+            ],
+            _ => {
+                let (ne, nw) = (s2 - s0, s3 - s1);
+                let heading = if ne.abs() >= nw.abs() {
+                    if ne >= 0 { CornerHeading::NorthEast } else { CornerHeading::SouthWest }
+                } else if nw >= 0 {
+                    CornerHeading::NorthWest
+                } else {
+                    CornerHeading::SouthEast
+                };
+                let (h0, h1, h2, h3) = heading.corner_heights();
+                [floor_elev + 0.5 - h0, floor_elev + 0.5 - h1, floor_elev + 0.5 - h2, floor_elev + 0.5 - h3]
+            }
+        };
         [
             if self.opens_at(u0, v0) { c[0] } else { self.shell_point(u0, v0).2 },
             if self.opens_at(u1, v0) { c[1] } else { self.shell_point(u1, v0).2 },

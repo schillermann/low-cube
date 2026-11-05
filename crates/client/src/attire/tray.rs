@@ -6,14 +6,14 @@ use super::relic::HeldRelic;
 /// Encapsulates stowed satchel items, WASD inspection cursor, and waist-grid rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SatchelTray {
-    stowed: [u32; 17],
+    stowed: [u32; 19],
     active_side: f32,
     cursor: usize,
     open: bool,
 }
 
 impl SatchelTray {
-    pub const fn new(stowed: [u32; 17], active_side: f32, cursor: usize, open: bool) -> Self {
+    pub const fn new(stowed: [u32; 19], active_side: f32, cursor: usize, open: bool) -> Self {
         Self {
             stowed,
             active_side,
@@ -67,14 +67,18 @@ impl SatchelTray {
             HeldRelic::CarEngine,
             HeldRelic::AircraftEngine,
             HeldRelic::RocketEngine,
+            HeldRelic::CabinSeat,
+            HeldRelic::CarWheel,
         ]
         .iter()
         .any(|&relic| self.count(relic) > 0)
     }
 
-    pub fn packed_slots(&self) -> ([HeldRelic; 9], usize) {
-        let (mut slots, mut len) = ([HeldRelic::EmptyPalm; 9], 0usize);
+    pub fn packed_slots(&self) -> ([HeldRelic; 12], usize) {
+        let (mut slots, mut len) = ([HeldRelic::EmptyPalm; 12], 0usize);
         let materials = [
+            HeldRelic::CabinSeat,
+            HeldRelic::CarWheel,
             HeldRelic::CarEngine,
             HeldRelic::AircraftEngine,
             HeldRelic::RocketEngine,
@@ -87,7 +91,7 @@ impl SatchelTray {
             HeldRelic::FlintStone,
         ];
         for mat in materials {
-            if self.count(mat) > 0 && len < 9 {
+            if self.count(mat) > 0 && len < 12 {
                 slots[len] = mat;
                 len += 1;
             }
@@ -102,7 +106,7 @@ impl SatchelTray {
         ];
         for relic in tools {
             for _ in 0..self.count(relic) {
-                if len < 9 {
+                if len < 12 {
                     slots[len] = relic;
                     len += 1;
                 }

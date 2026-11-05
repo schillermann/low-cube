@@ -80,12 +80,18 @@ impl BodyPose {
         Self { motion: PoseMotion { hover, ..self.motion }, ..self }
     }
 
+    pub fn with_seated(self, seated: f32) -> Self {
+        Self { motion: PoseMotion { hover: -seated.clamp(0.0, 1.0), ..self.motion }, ..self }
+    }
+
     pub fn with_physique(self, physique: YouthPhysique) -> Self {
         Self { motion: PoseMotion { physique, ..self.motion }, ..self }
     }
 
+    pub const fn hover_factor(&self) -> f32 { self.motion.hover.max(0.0) }
+    pub const fn seated_factor(&self) -> f32 { (-self.motion.hover).clamp(0.0, 1.0) }
     pub(super) const fn eye_height(&self) -> f32 { self.stance.eye_height }
-    pub(super) const fn motion_factors(&self) -> (StrideRhythm, f32, f32) { (self.motion.rhythm, self.motion.hover, self.motion.leap) }
+    pub(super) const fn motion_factors(&self) -> (StrideRhythm, f32, f32) { (self.motion.rhythm, self.hover_factor(), self.motion.leap) }
     pub(super) fn view_axes(&self) -> (Vec3, Vec3, Vec3) {
         (
             (self.stance.surface_rot * Vec3::Y).normalize(),
@@ -106,13 +112,17 @@ impl BodyPose {
     pub fn arm_girth(&self, measure: f32) -> f32 { self.motion.physique.arm_girth(measure) }
     pub fn leg_size(&self, measure: f32) -> f32 { self.motion.physique.leg_size(measure) }
     pub fn leg_girth(&self, measure: f32) -> f32 { self.motion.physique.leg_girth(measure) }
-    pub fn hip_elevation(&self) -> f32 { (0.80 - self.crouch_compression() * 0.78) + (self.leg_size(0.68) - 0.68) }
+    pub fn hip_elevation(&self) -> f32 {
+        let seated = self.seated_factor();
+        let drop = self.crouch_compression() * 0.78 * (1.0 - seated) + seated * 0.34;
+        (0.80 - drop) + (self.leg_size(0.68) - 0.68)
+    }
     pub fn torso_span(&self, offset_above_hip: f32) -> f32 { self.hip_elevation() + self.torso_size(offset_above_hip) }
     pub fn foot_origin(&self) -> Vec3 { self.stance.position - (self.stance.surface_rot * Vec3::Y) * 0.98 }
 
     pub fn eye_origin(&self) -> Vec3 {
         let (up, view_fwd, right) = self.view_axes();
-        let cranium = self.stance.position + up * self.stance.eye_height.clamp(0.36 * (1.0 - self.motion.hover), 0.80);
+        let cranium = self.stance.position + up * self.stance.eye_height.clamp(0.36 * (1.0 - self.hover_factor()), 0.80);
         SurfaceSightRay::new(cranium, view_fwd).brow_origin(up, up.cross(right))
     }
 
@@ -135,7 +145,7 @@ impl BodyPose {
         } else {
             (fallback - up * fallback.dot(up)).normalize()
         };
-        let (rhythm, hover) = (self.motion.rhythm, self.motion.hover);
+        let (rhythm, hover) = (self.motion.rhythm, self.hover_factor());
         let origin = self.foot_origin() - up * rhythm.stance_bob(hover);
         LimbFrame::new(origin, forward.cross(up).normalize(), up, forward)
             .yawed(rhythm.stance_twist(hover))
@@ -145,10 +155,10 @@ impl BodyPose {
     }
 
     pub fn torso_frame(&self) -> LimbFrame {
-        let (hip_y, crouch) = (self.hip_elevation(), self.crouch_compression());
+        let (hip_y, crouch, seated) = (self.hip_elevation(), self.crouch_compression(), self.seated_factor());
         self.stance_frame()
-            .shifted(0.0, hip_y, -0.030 - crouch * 0.22)
-            .pitched(crouch * 0.85)
+            .shifted(0.0, hip_y, -0.030 - crouch * 0.22 * (1.0 - seated) - seated * 0.08)
+            .pitched(crouch * 0.85 * (1.0 - seated) - seated * 0.12)
             .shifted(0.0, -hip_y, 0.030)
     }
 
@@ -159,28 +169,29 @@ impl BodyPose {
     pub fn crown_frame(&self) -> LimbFrame {
         let view_fwd = (self.stance.view_rot * Vec3::NEG_Z).normalize();
         let up = (self.stance.surface_rot * Vec3::Y).normalize();
-        let pitch = -view_fwd.dot(up).clamp(-0.8, 0.8).asin() * 0.65 - self.crouch_compression() * 0.55 - self.motion.hover * 1.12;
+        let seated = self.seated_factor();
+        let pitch = -view_fwd.dot(up).clamp(-0.8, 0.8).asin() * 0.65 - self.crouch_compression() * 0.55 * (1.0 - seated) + seated * 0.10 - self.hover_factor() * 1.12;
         self.neck_frame().pitched(pitch)
     }
 
     pub fn leg_joints(&self, side: f32) -> (Vec3, Vec3, Vec3, Vec3) {
-        let (rhythm, hover) = (self.motion.rhythm, self.motion.hover);
-        let crouch = self.crouch_compression();
+        let (rhythm, hover, seated) = (self.motion.rhythm, self.hover_factor(), self.seated_factor());
+        let crouch = self.crouch_compression() * (1.0 - seated);
         let ext = (self.stance.eye_height + self.motion.leap - 0.80).clamp(0.0, 0.40);
-        let ground = (1.0 - ext * 2.2).clamp(0.0, 1.0) * (1.0 - hover);
+        let ground = (1.0 - ext * 2.2).clamp(0.0, 1.0) * (1.0 - hover) * (1.0 - seated);
         let offset = if side > 0.0 { std::f32::consts::PI } else { 0.0 };
         let (phase, walk, run) = rhythm.limb_gait(offset, ground);
         let (s, pass) = (phase.sin(), (phase + 0.25).cos().max(0.0));
-        let hip = Vec3::new(side * self.scale(0.088), self.hip_elevation() - 0.02, -0.030 - crouch * 0.22);
+        let hip = Vec3::new(side * self.scale(0.088 + 0.008 * seated), self.hip_elevation() - 0.02, -0.030 - crouch * 0.22 - seated * 0.08);
         let stride_swing = if s >= 0.0 {
             s * (0.32 * walk + 0.20 * run) + pass * (0.05 * walk + 0.12 * run)
         } else {
             s * (0.26 * walk + 0.16 * run)
         };
-        let theta_hip = 0.04 + crouch * 2.35 - ext * 0.95 + stride_swing + s * 0.24 * hover;
-        let theta_knee = (0.08 + crouch * 4.25 - ext * 0.25 + (0.08 * walk + 0.16 * run) + pass * (0.44 * walk + 0.50 * run) + (0.26 + 0.20 * pass) * hover).max(0.0);
+        let theta_hip = 0.04 + crouch * 2.35 + seated * (1.38 + s * 0.06) - ext * 0.95 + stride_swing + s * 0.24 * hover;
+        let theta_knee = (0.08 + crouch * 4.25 + seated * (1.42 + s * 0.08) - ext * 0.25 + (0.08 * walk + 0.16 * run) + pass * (0.44 * walk + 0.50 * run) + (0.26 + 0.20 * pass) * hover).max(0.0);
         let (theta_shin, thigh_len, shin_len) = (theta_hip - theta_knee, self.leg_size(0.34), self.leg_size(0.34));
-        let knee_out = side * (self.scale(0.008) + pass * (0.016 * walk + 0.012 * run) + crouch * 0.042 + hover * 0.028);
+        let knee_out = side * (self.scale(0.008) + pass * (0.016 * walk + 0.012 * run) + crouch * 0.042 + seated * 0.018 + hover * 0.028);
         let knee = Vec3::new(hip.x + knee_out, hip.y - thigh_len * theta_hip.cos(), hip.z + thigh_len * theta_hip.sin());
         let ankle_in = -side * (self.scale(0.005) + pass * (0.012 * walk + 0.010 * run));
         let ankle = Vec3::new(knee.x + ankle_in, (knee.y - shin_len * theta_shin.cos()).max(0.10), knee.z + shin_len * theta_shin.sin());
@@ -191,7 +202,7 @@ impl BodyPose {
     }
 
     pub fn crouch_compression(&self) -> f32 {
-        (0.8 - (self.stance.eye_height + self.motion.leap)).clamp(0.0, 0.55) * (1.0 - self.motion.hover)
+        (0.8 - (self.stance.eye_height + self.motion.leap)).clamp(0.0, 0.55) * (1.0 - self.hover_factor())
     }
 
     pub const fn arm<'a>(&'a self, side: f32, martial: MartialStyle) -> ArmKinematics<'a> {

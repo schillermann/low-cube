@@ -76,7 +76,6 @@ impl AvatarPosture {
         Self::new(STANDING_EYE_OFFSET)
     }
 
-    #[cfg(test)]
     pub const fn crouching() -> Self {
         Self::new(CROUCHING_EYE_OFFSET)
     }

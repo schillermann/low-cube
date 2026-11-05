@@ -14,6 +14,24 @@ pub enum WedgeHeading {
 }
 
 impl WedgeHeading {
+    pub const fn rotated_ccw(self) -> Self {
+        match self {
+            Self::East => Self::North,
+            Self::North => Self::West,
+            Self::West => Self::South,
+            Self::South => Self::East,
+        }
+    }
+
+    pub fn forward_vector(self, frame: &SurfaceFrame) -> Vec3 {
+        match self {
+            Self::North => frame.bitangent(),
+            Self::South => -frame.bitangent(),
+            Self::East => frame.tangent(),
+            Self::West => -frame.tangent(),
+        }
+    }
+
     pub fn elevation_at(&self, u: f32, v: f32) -> f32 {
         match self {
             Self::North => v,

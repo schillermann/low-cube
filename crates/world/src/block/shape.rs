@@ -2,6 +2,7 @@ use glam::Vec3;
 use crate::{MeshTarget, TurfMeshTarget};
 use super::cell::GridCell;
 use super::timber_grain::BlockMedium;
+use super::wedge::WedgeHeading;
 use crate::frame::SurfaceFrame;
 
 /// Interface for predefined multi-form voxel geometries.
@@ -11,6 +12,10 @@ pub trait VoxelShape: Send + Sync {
     fn block_medium(&self) -> BlockMedium {
         BlockMedium::TurfEarth
     }
+    fn block_heading(&self) -> WedgeHeading {
+        WedgeHeading::South
+    }
+    fn rotate_quarter(&mut self) {}
     fn emit_shape(
         &self,
         cell: GridCell,

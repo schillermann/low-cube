@@ -1,16 +1,14 @@
 mod mesh;
+mod registry;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use crate::block::{ElevatedShape, GridCell};
-use crate::frame::SurfaceFrame;
-use crate::MeshTarget;
-use super::natural_strata::NaturalStrata;
-use super::shaft_excavation::ShaftExcavation;
 use self::mesh::RigGeometry;
+pub use self::registry::RigRegistry;
 
-const BLOCK_STEP: f32 = GridCell::SPAN;
+pub(super) const BLOCK_STEP: f32 = GridCell::SPAN;
 const MIN_HOIST_STEPS: i32 = 0;
-const MAX_HOIST_STEPS: i32 = 8;
+pub(super) const MAX_HOIST_STEPS: i32 = 8;
 const INITIAL_HOIST_STEPS: i32 = 3;
 const INITIAL_REACH_STEPS: i32 = 2;
 const LAYER_MATCH_TOLERANCE: f32 = 0.30;
@@ -30,9 +28,17 @@ impl CantileverRig {
         Self { ground_top, hoist_steps, reach_steps, turn }
     }
 
-    /// Secondary constructor for a newly unfolded crane on `ground_top`.
     pub const fn deployed(ground_top: f32, turn: u8) -> Self {
         Self::new(ground_top, INITIAL_HOIST_STEPS, INITIAL_REACH_STEPS, turn & 3)
+    }
+
+    pub const fn hoisted(&self) -> bool {
+        self.hoist_steps > 0
+    }
+
+    pub fn reset_arm(&mut self) {
+        self.hoist_steps = INITIAL_HOIST_STEPS;
+        self.reach_steps = INITIAL_REACH_STEPS;
     }
 
     pub const fn step_vectors(&self) -> (i32, i32) {
@@ -123,11 +129,12 @@ impl CantileverRig {
         while let Some((cu, cv, idx)) = queue.pop_front() {
             let z = blocks[&(cu, cv)][idx].floor();
             cluster.push((cu, cv, idx));
-            for (nu, nv, dz) in [(cu + 1, cv, 0.0), (cu - 1, cv, 0.0), (cu, cv + 1, 0.0), (cu, cv - 1, 0.0), (cu, cv, BLOCK_STEP), (cu, cv, -BLOCK_STEP)] {
+            for (du, dv) in [(1, 0), (-1, 0), (0, 1), (0, -1), (0, 0)] {
+                let (nu, nv) = (cu + du, cv + dv);
                 if (nu, nv) != (mast_u, mast_v) {
                     if let Some(nlist) = blocks.get(&(nu, nv)) {
                         for (nidx, nb) in nlist.iter().enumerate() {
-                            if (nb.floor() - (z + dz)).abs() <= 0.12 && visited.insert((nu, nv, nidx)) {
+                            if (nb.floor() - z).abs() <= BLOCK_STEP + 0.12 && visited.insert((nu, nv, nidx)) {
                                 queue.push_back((nu, nv, nidx));
                             }
                         }
@@ -143,6 +150,9 @@ impl CantileverRig {
         blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>, ground_fn: impl Fn(i32, i32) -> f32,
     ) -> bool {
         let cluster = self.connected_cluster(mast_u, mast_v, blocks);
+        if cluster.is_empty() {
+            return false;
+        }
         if delta_steps != 0 {
             let target_steps = (self.hoist_steps + delta_steps).clamp(MIN_HOIST_STEPS, MAX_HOIST_STEPS);
             let mut actual_delta = target_steps - self.hoist_steps;
@@ -167,7 +177,7 @@ impl CantileverRig {
             }
             return true;
         }
-        if rotate_quarter && !cluster.is_empty() {
+        if rotate_quarter {
             let (piv_u, piv_v) = self.gripped_cell(mast_u, mast_v);
             let (mut extracted, mut by_cell): (Vec<_>, HashMap<(i32, i32), Vec<usize>>) = (Vec::with_capacity(cluster.len()), HashMap::new());
             for &(cu, cv, idx) in &cluster {
@@ -184,7 +194,8 @@ impl CantileverRig {
                     }
                 }
             }
-            for (cu, cv, shape) in extracted {
+            for (cu, cv, mut shape) in extracted {
+                shape.rotate_quarter();
                 let (du, dv) = (cu - piv_u, cv - piv_v);
                 let list = blocks.entry((piv_u - dv, piv_v + du)).or_default();
                 list.push(shape);
@@ -193,99 +204,5 @@ impl CantileverRig {
             return true;
         }
         false
-    }
-}
-
-/// Collection of active polyhedral cantilever rigs across a planetary face.
-pub struct RigRegistry {
-    rigs: HashMap<(i32, i32), CantileverRig>,
-}
-
-impl RigRegistry {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(rigs: HashMap<(i32, i32), CantileverRig>) -> Self {
-        Self { rigs }
-    }
-
-    pub fn untouched() -> Self {
-        Self::new(HashMap::new())
-    }
-    pub fn empty(&self) -> bool {
-        self.rigs.is_empty()
-    }
-    pub fn present_at(&self, u: i32, v: i32) -> bool {
-        self.rigs.contains_key(&(u, v))
-    }
-    pub fn occupies_layer(&self, u: i32, v: i32, layer_elev: f32) -> bool {
-        self.rigs.get(&(u, v)).is_some_and(|r| r.occupies_mast_layer(layer_elev))
-    }
-
-    pub fn constrain_support(&self, u: i32, v: i32, support_h: f32, foot_elev: f32) -> f32 {
-        self.rigs.get(&(u, v)).map_or(support_h, |r| r.constrain_mast_support(support_h, foot_elev))
-    }
-
-    pub fn hit_top(&self, u: i32, v: i32, ray_elev: f32) -> Option<f32> {
-        self.rigs.get(&(u, v)).and_then(|r| r.occupies_mast_layer(ray_elev).then(|| r.mast_ceiling()))
-    }
-
-    pub fn emit_at(&self, cell: GridCell, frame: &SurfaceFrame, target: &mut dyn MeshTarget) -> bool {
-        let (u, v) = cell.feed_coordinates(|u, v| (u, v));
-        self.rigs.get(&(u, v)).map(|rig| rig.geometry().emit(cell, frame, target)).is_some()
-    }
-
-    pub fn deploy(&mut self, u: i32, v: i32, ground_top: f32) {
-        self.rigs.insert((u, v), CantileverRig::deployed(ground_top, 0));
-    }
-
-    pub fn mount_target(
-        &self, u: i32, v: i32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
-    ) -> Option<(i32, i32, f32)> {
-        self.rigs.iter().find_map(|(&(mu, mv), rig)| rig.mount_target(mu, mv, u, v, blocks))
-    }
-
-    pub fn retract_for_block(&mut self, placed_u: i32, placed_v: i32, placed_base: f32) {
-        let relocated = self.rigs.iter_mut().find_map(|(&(mu, mv), rig)| {
-            rig.retract_for_placed_block(mu, mv, placed_u, placed_v, placed_base).map(|new_pos| ((mu, mv), new_pos))
-        });
-        if let Some((old_pos, new_pos)) = relocated {
-            if let Some(rig) = self.rigs.remove(&old_pos) {
-                self.rigs.insert(new_pos, rig);
-            }
-        }
-    }
-
-    pub fn pack_up(&mut self, u: i32, v: i32, ground_top: f32, blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>) -> bool {
-        let Some(mut rig) = self.rigs.remove(&(u, v)) else { return false };
-        let cluster = rig.connected_cluster(u, v, blocks);
-        let _ = rig.adjust_assembly(u, v, -8, false, blocks, |_, _| ground_top);
-        for (cu, cv, _) in cluster {
-            if let Some(list) = blocks.get_mut(&(cu, cv)) {
-                list.retain(|b| !b.block_medium().vehicle_engine());
-                if list.is_empty() {
-                    blocks.remove(&(cu, cv));
-                }
-            }
-        }
-        true
-    }
-
-    pub fn adjust_at(
-        &mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool,
-        blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>,
-    ) -> bool {
-        let target_mast = if self.rigs.contains_key(&(u, v)) {
-            Some((u, v))
-        } else {
-            self.rigs.iter().find_map(|(&(mu, mv), rig)| {
-                rig.connected_cluster(mu, mv, blocks).iter().any(|&(cu, cv, _)| (cu, cv) == (u, v)).then_some((mu, mv))
-            })
-        };
-        let Some((mu, mv)) = target_mast else { return false };
-        let Some(mut rig) = self.rigs.remove(&(mu, mv)) else { return false };
-        let changed = rig.adjust_assembly(mu, mv, delta_steps, rotate_quarter, blocks, |cu, cv| {
-            (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP
-        });
-        self.rigs.insert((mu, mv), rig);
-        changed
     }
 }

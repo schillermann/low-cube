@@ -24,16 +24,18 @@ pub enum HeldRelic {
     CarEngine,
     AircraftEngine,
     RocketEngine,
+    CabinSeat,
+    CarWheel,
 }
 
 impl HeldRelic {
     #[cfg(test)]
     pub fn next(self) -> Self {
-        Self::from_code((self.code() + 1) % 17)
+        Self::from_code((self.code() + 1) % 19)
     }
 
     pub const fn from_code(code: u8) -> Self {
-        match code % 17 {
+        match code % 19 {
             0 => Self::EmptyPalm,
             1 => Self::QuarriedStone,
             2 => Self::TimberTorch,
@@ -50,7 +52,9 @@ impl HeldRelic {
             13 => Self::CantileverCrane,
             14 => Self::CarEngine,
             15 => Self::AircraftEngine,
-            _ => Self::RocketEngine,
+            16 => Self::RocketEngine,
+            17 => Self::CabinSeat,
+            _ => Self::CarWheel,
         }
     }
 
@@ -73,6 +77,8 @@ impl HeldRelic {
             Self::CarEngine => 14,
             Self::AircraftEngine => 15,
             Self::RocketEngine => 16,
+            Self::CabinSeat => 17,
+            Self::CarWheel => 18,
         }
     }
 
@@ -95,6 +101,8 @@ impl HeldRelic {
             Self::CarEngine => "CAR ENGINE",
             Self::AircraftEngine => "PLANE ENGINE",
             Self::RocketEngine => "ROCKET ENGINE",
+            Self::CabinSeat => "CAR SEAT",
+            Self::CarWheel => "CAR WHEEL",
         }
     }
 
@@ -126,6 +134,8 @@ impl HeldRelic {
                 | Self::CarEngine
                 | Self::AircraftEngine
                 | Self::RocketEngine
+                | Self::CabinSeat
+                | Self::CarWheel
         )
     }
 
@@ -139,6 +149,8 @@ impl HeldRelic {
             Self::CarEngine => BlockMedium::CarEngine,
             Self::AircraftEngine => BlockMedium::AircraftEngine,
             Self::RocketEngine => BlockMedium::RocketEngine,
+            Self::CabinSeat => BlockMedium::CabinSeat,
+            Self::CarWheel => BlockMedium::CarWheel,
             _ => BlockMedium::TurfEarth,
         }
     }
@@ -154,6 +166,8 @@ impl HeldRelic {
             BlockMedium::CarEngine => Self::CarEngine,
             BlockMedium::AircraftEngine => Self::AircraftEngine,
             BlockMedium::RocketEngine => Self::RocketEngine,
+            BlockMedium::CabinSeat => Self::CabinSeat,
+            BlockMedium::CarWheel => Self::CarWheel,
         }
     }
 
@@ -169,6 +183,8 @@ impl HeldRelic {
             | Self::CarEngine
             | Self::AircraftEngine
             | Self::RocketEngine
+            | Self::CabinSeat
+            | Self::CarWheel
             | Self::DeadwoodBough
             | Self::FlintStone => MartialStyle::PalmCradle,
             Self::IronSpade => MartialStyle::SpadeDig,

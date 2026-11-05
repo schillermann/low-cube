@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-05
+
+### Added
+- Added 4-way rotatable cabin seat (`BlockMedium::CabinSeat` / `HeldRelic::CabinSeat`) and car wheel (`BlockMedium::CarWheel` / `HeldRelic::CarWheel`) blocks (`VehicleBlockMesh` in `crates/world/src/block/vehicle_parts.rs`) with artisan tome recipes and startup satchel stock.
+- Added crane lowering and interactive car driving (`VehicleAssembly` in `crates/world/src/relief/vehicle_assembly.rs`, `DrivenCar` and `VehiclePilot` in `crates/client/src/drive.rs`) allowing the player to lower a hoisted car onto the ground by clicking the crane mast and board, accelerate (`W`), steer (`A`/`D`), and brake (`S`/`Space`) by clicking the cabin seat.
+- Added seated driving posture and steering kinematics (`BodyPose::with_seated` in `crates/client/src/attire/pose/mod.rs` and `ArmKinematics` in `crates/client/src/attire/pose/arms.rs`) and integrated `StudioAnimation::SeatedDrive` with an interactive animation toggle button into the Character Studio (`crates/client/src/menu/stage.rs`, `crates/client/src/menu/studio/mod.rs`, and `crates/client/src/menu/studio/layout.rs`).
+
+### Changed
+- Redesigned `BlockMedium::CarEngine` (`VehicleBlockMesh::emit_car_steering`) as a 4-way rotatable steering wheel and directional front console block that defines the assembled vehicle's forward driving axis (`WedgeHeading::forward_vector`), and removed the steering wheel from `CabinSeat`.
+- Evaluated `CrustVault::corners_at` directly from corner drops without boxing `InvertedShape` and deferred `NaturalStrata` grid memoization to mesh generation so `PlanetaryAvatar::step_motion` maintains zero runtime heap allocations.
+
 ## [0.45.0] - 2026-11-05
 
 ### Added

@@ -76,6 +76,10 @@ impl WardrobeStudio {
         self.archetype == candidate
     }
 
+    pub(super) fn active_animation_title(&self) -> &'static str {
+        self.stage.active_animation().title()
+    }
+
     pub fn stage_projection(&self, aspect: f32) -> Mat4 {
         self.stage.view_projection(aspect)
     }
@@ -138,6 +142,10 @@ impl WardrobeStudio {
         }
         if StudioLayout::rotate_right_button().contains(pt) {
             self.stage = self.stage.rotated(0.35);
+            return StudioDirective::StayInStudio;
+        }
+        if StudioLayout::animation_button().contains(pt) {
+            self.stage = self.stage.next_animation();
             return StudioDirective::StayInStudio;
         }
 

@@ -20,10 +20,11 @@ impl<'a> ArmKinematics<'a> {
     pub fn external(self, holding: bool) -> (Vec3, Vec3, LimbFrame, f32) {
         let (pose, side, martial) = (self.pose, self.side, self.martial);
         let (rhythm, hover, leap) = pose.motion_factors();
-        let (torso, crouch) = (pose.torso_frame(), pose.crouch_compression());
+        let seated = pose.seated_factor();
+        let (torso, crouch) = (pose.torso_frame(), pose.crouch_compression() * (1.0 - seated));
         let ext = (pose.eye_height() + leap - 0.80).clamp(0.0, 0.40);
         let shoulder = Vec3::new(side * pose.scale(if pose.feminine() { 0.194 } else { 0.222 }), pose.torso_span(0.64), -0.066);
-        let ground = (1.0 - ext * 2.0).clamp(0.0, 1.0) * (1.0 - hover);
+        let ground = (1.0 - ext * 2.0).clamp(0.0, 1.0) * (1.0 - hover) * (1.0 - seated);
         let offset = if side > 0.0 { 0.0 } else { std::f32::consts::PI };
         let (phase, walk, run) = rhythm.limb_gait(offset, ground);
         let (s, breath) = (phase.sin(), rhythm.breath_wave(walk));
@@ -33,21 +34,22 @@ impl<'a> ArmKinematics<'a> {
         let (abduct_add, swing_add, elbow_delta, elbow_bend_add, wrist_dx, wrist_dz) =
             style.external_drive(imp, crouch);
         let (upper_len, fore_len) = (pose.arm_size(0.26), pose.arm_size(0.24));
-        let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + (0.42 + 0.08 * s.abs()) * hover + 0.08 * hold_factor + (crouch + ext) * 0.10 + abduct_add;
+        let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + (0.42 + 0.08 * s.abs()) * hover + 0.08 * hold_factor + (crouch + ext) * 0.10 + seated * 0.08 + abduct_add;
         let r_sag = upper_len * theta_abduct.cos();
-        let upper_swing = (ext * 0.38 + crouch * 1.15 + (0.56 + 0.18 * s) * hover) * (1.0 - 0.55 * hold_factor) + swing_add;
+        let steer_wave = seated * (0.88 + side * s * 0.14);
+        let upper_swing = (ext * 0.38 + crouch * 1.15 + (0.56 + 0.18 * s) * hover) * (1.0 - 0.55 * hold_factor) + steer_wave + swing_add;
         let theta_upper = -0.04 * (1.0 - run) + 0.22 * hold_factor + upper_swing + s * (0.26 * walk * (1.0 - 0.55 * hold_factor) + 0.16 * run);
         let elbow = Vec3::new(
             shoulder.x + side * (upper_len * theta_abduct.sin() + elbow_delta.x),
             shoulder.y - r_sag * theta_upper.cos() + elbow_delta.y,
             shoulder.z + r_sag * theta_upper.sin() + elbow_delta.z,
         );
-        let theta_elbow = 0.20 + 0.14 * walk + 0.88 * run + 0.35 * hover + 0.92 * hold_factor + (crouch * 1.35 + ext * 0.22) * (1.0 - 0.5 * hold_factor) + elbow_bend_add + s.max(0.0) * 0.16 * walk + s * 0.12 * run + breath * 0.03;
+        let theta_elbow = 0.20 + 0.14 * walk + 0.88 * run + 0.35 * hover + 0.92 * hold_factor + seated * 0.56 + (crouch * 1.35 + ext * 0.22) * (1.0 - 0.5 * hold_factor) + elbow_bend_add + s.max(0.0) * 0.16 * walk + s * 0.12 * run + breath * 0.03;
         let theta_forearm = theta_upper + theta_elbow;
         let wrist = Vec3::new(
-            elbow.x + side * (wrist_dx - (0.010 + 0.014 * walk + 0.072 * run + 0.16 * crouch + 0.035 * hold_factor)),
+            elbow.x + side * (wrist_dx - (0.010 + 0.014 * walk + 0.072 * run + 0.16 * crouch + 0.095 * seated + 0.035 * hold_factor)),
             elbow.y - fore_len * theta_forearm.cos(),
-            elbow.z + fore_len * theta_forearm.sin() + wrist_dz,
+            elbow.z + fore_len * theta_forearm.sin() + wrist_dz + 0.05 * seated,
         );
         let (shoulder_w, elbow_w, wrist_w) = (torso.point(shoulder.x, shoulder.y, shoulder.z), torso.point(elbow.x, elbow.y, elbow.z), torso.point(wrist.x, wrist.y, wrist.z));
         let (forearm_len, forearm_dir) = ((wrist_w - elbow_w).length(), (wrist_w - elbow_w).normalize());
@@ -92,7 +94,7 @@ impl<'a> ArmKinematics<'a> {
         if matches!(martial, MartialStyle::PalmCradle) {
             return 0.34;
         }
-        if holding_relic {
+        if holding_relic || pose.seated_factor() > 0.5 {
             return 0.88;
         }
         let (rhythm, _, _) = pose.motion_factors();

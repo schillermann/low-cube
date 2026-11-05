@@ -16,6 +16,7 @@ mod stair;
 mod stair_corner;
 mod timber_grain;
 mod valley;
+mod vehicle_parts;
 mod wedge;
 
 #[cfg(test)]

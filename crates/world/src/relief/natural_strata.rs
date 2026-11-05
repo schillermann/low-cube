@@ -27,23 +27,28 @@ impl NaturalStrata {
         CrustVault::beneath(self.half_span - 2)
     }
 
+    fn populate_grid(&self) -> &[i16] {
+        let side = (self.half_span * 2 + 1) as usize;
+        self.grid.get_or_init(|| {
+            let mut cells = Vec::with_capacity(side * side);
+            for gu in -self.half_span..=self.half_span {
+                for gv in -self.half_span..=self.half_span {
+                    cells.push(self.origin.elevation_at(gu, gv) as i16);
+                }
+            }
+            cells
+        })
+    }
+
     /// Pristine discrete natural block elevation at (u, v) prior to any excavation.
     pub fn elevation_at(&self, u: i32, v: i32) -> i32 {
         if u.abs() <= self.half_span && v.abs() <= self.half_span {
-            let side = (self.half_span * 2 + 1) as usize;
-            let table = self.grid.get_or_init(|| {
-                let mut cells = Vec::with_capacity(side * side);
-                for gu in -self.half_span..=self.half_span {
-                    for gv in -self.half_span..=self.half_span {
-                        cells.push(self.origin.elevation_at(gu, gv) as i16);
-                    }
-                }
-                cells
-            });
-            table[((u + self.half_span) as usize) * side + ((v + self.half_span) as usize)] as i32
-        } else {
-            self.origin.elevation_at(u, v)
+            if let Some(table) = self.grid.get() {
+                let side = (self.half_span * 2 + 1) as usize;
+                return table[((u + self.half_span) as usize) * side + ((v + self.half_span) as usize)] as i32;
+            }
         }
+        self.origin.elevation_at(u, v)
     }
 
     /// Continuous natural surface elevation in meters at tangential coordinates (u, v).
@@ -53,6 +58,7 @@ impl NaturalStrata {
 
     /// Pristine voxel shape of the natural top layer at (u, v) so undercut slopes never expand into full cubes.
     pub fn crown_shape_at(&self, u: i32, v: i32) -> Box<dyn VoxelShape> {
+        let _ = self.populate_grid();
         NaturalCrown::at(u, v, |gu, gv| self.elevation_at(gu, gv)).into_shape()
     }
 }

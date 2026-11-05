@@ -43,8 +43,8 @@ impl ReliefCellCache {
         let total = side * side;
         let populated = self.cached_cells.get_mut().expect("Relief cell cache poisoned").len() == total;
         if populated {
-            for v in (cv - 3).max(-half)..=(cv + 3).min(half - 1) {
-                for u in (cu - 3).max(-half)..=(cu + 3).min(half - 1) {
+            for v in (cv - 4).max(-half)..=(cv + 4).min(half - 1) {
+                for u in (cu - 4).max(-half)..=(cu + 4).min(half - 1) {
                     let quads = self.build_cell(u, v, half, frame, relief, palette);
                     let slot = ((v + half) as usize) * side + ((u + half) as usize);
                     self.cached_cells.get_mut().expect("Relief cell cache poisoned")[slot] = quads;

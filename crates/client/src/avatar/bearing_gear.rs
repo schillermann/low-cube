@@ -78,6 +78,10 @@ impl AvatarGear {
         self.earthworks.satchel_open() && !self.earthworks.tome_open()
     }
 
+    pub fn holding_placeable_on(&self, side: f32) -> bool {
+        self.attire.hand_pair(side).0.placeable_block()
+    }
+
     pub fn standing_envelope(&self, facing: Vec3) -> BodyEnvelope {
         self.attire.body_envelope().with_crouch_and_facing(0.0, facing)
     }
@@ -109,7 +113,7 @@ impl AvatarGear {
     }
 
     pub fn try_adjust_rig(&self, trigger: InputTrigger, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
-        self.earthworks.try_adjust_rig(trigger, &self.bindings, eye, view_dir, world)
+        self.earthworks.try_adjust_rig(trigger, &self.bindings, self.attire, eye, view_dir, world)
     }
 
     pub fn act_with_hand(&mut self, side: f32, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> (StrideRhythm, bool) {

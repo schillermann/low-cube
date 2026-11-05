@@ -14,6 +14,7 @@ mod sight_ray;
 mod strata;
 mod terraced;
 mod turf_scars;
+mod vehicle_assembly;
 mod wall;
 
 #[cfg(test)]
@@ -36,6 +37,7 @@ pub use facet::ReliefFacet;
 pub use palette::ReliefPalette;
 pub use sight_ray::SurfaceSightRay;
 pub use terraced::TerracedRelief;
+pub use vehicle_assembly::{VehicleAssembly, VehicleAxes, VehiclePart};
 #[cfg(test)]
 pub use elevation::ZonedRelief;
 #[cfg(test)]

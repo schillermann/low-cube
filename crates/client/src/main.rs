@@ -14,6 +14,7 @@ mod command_flags;
 mod controls;
 mod cycle_duration;
 mod diurnal_pipeline;
+mod drive;
 mod earthworks;
 mod envelope;
 mod environment_aurora;

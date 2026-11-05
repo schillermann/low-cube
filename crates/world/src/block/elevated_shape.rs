@@ -49,6 +49,11 @@ impl ElevatedShape {
         self.shape.block_medium()
     }
 
+    /// Consumes this elevated wrapper and returns the inner sculpted voxel shape.
+    pub fn into_shape(self) -> Box<dyn VoxelShape> {
+        self.shape
+    }
+
     /// Indicates whether this elevated block settles downward under gravity when unsupported below.
     pub fn settles_under_gravity(&self) -> bool {
         self.shape.block_medium().settles_under_gravity()
@@ -57,6 +62,10 @@ impl ElevatedShape {
     /// Settles this block downward by a single 0.5m layer step.
     pub fn settle_step(&mut self) {
         self.elevation_offset -= BLOCK_HEIGHT;
+    }
+
+    pub fn rotate_quarter(&mut self) {
+        self.shape.rotate_quarter();
     }
 
     /// Shifts this block's vertical elevation by `delta` meters.

@@ -1,5 +1,8 @@
 use glam::Vec3;
-use crate::{BlockMedium, BlockMold, CleaveOutcome, Face, GravityField, MeshTarget, PlanetaryWorld, SurfaceFind};
+use crate::{
+    BlockMedium, BlockMold, CleaveOutcome, Face, GravityField, MeshTarget, PlanetaryWorld,
+    SurfaceFind, VehicleAssembly,
+};
 
 /// A cubic planetary world composed of polymorphic Face instances with Dependency Injection.
 pub struct CubePlanet {
@@ -193,6 +196,43 @@ impl PlanetaryWorld for CubePlanet {
                     self.modified_face = secondary;
                     return true;
                 }
+            }
+        }
+        false
+    }
+
+    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        for idx in [primary, secondary] {
+            if let Some(face) = self.faces.get_mut(idx) {
+                if face.lower_rig(eye, direction) {
+                    self.modified_face = idx;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        for idx in [primary, secondary] {
+            if let Some(face) = self.faces.get_mut(idx) {
+                if let Some(assembly) = face.board_vehicle(eye, direction, holding_block) {
+                    self.modified_face = idx;
+                    return Some(assembly);
+                }
+            }
+        }
+        None
+    }
+
+    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
+        let idx = self.matching_index(assembly.origin());
+        if let Some(face) = self.faces.get_mut(idx) {
+            if face.park_vehicle(assembly) {
+                self.modified_face = idx;
+                return true;
             }
         }
         false
