@@ -172,13 +172,14 @@ impl YouthAttire {
     }
 
     pub fn multiplayer_bytes(&self) -> [u8; 9] {
+        let (r_code, l_code) = (self.hands.relic.code(), self.hands.offhand.code());
         [
             self.garments.tunic.code(),
             self.garments.vambrace.code(),
             self.garments.girdle.code(),
             self.garments.footwear.code(),
-            self.identity.crown.code(),
-            self.hands.relic.code() + self.hands.offhand.code() * 16,
+            (self.identity.crown.code() & 0x0F) | ((r_code >> 4) << 4) | ((l_code >> 4) << 5),
+            (r_code & 0x0F) | ((l_code & 0x0F) << 4),
             self.identity.pigment.code(),
             self.identity.complexion.code(),
             self.identity.physique.code(),

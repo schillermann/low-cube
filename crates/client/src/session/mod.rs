@@ -57,8 +57,8 @@ impl GameSession {
             if pressed {
                 self.display.toggle_tron(self.stage.world());
             }
-        } else {
-            self.stage.dispatch_avatar_or_control(trigger, pressed);
+        } else if self.stage.dispatch_avatar_or_control(trigger, pressed) {
+            self.display.refresh_modified_face(self.stage.world_mut());
         }
     }
 }

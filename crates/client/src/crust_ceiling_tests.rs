@@ -22,172 +22,61 @@ impl MeshTarget for SpanCapture {
 
 #[test]
 fn test_jumping_beneath_the_round_crust_never_peeks_through_the_vault_ceiling() {
-    let world = BiomedCubeWorld::beveled(64, 1.0);
+    let mut world = BiomedCubeWorld::beveled(64, 1.0);
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    let mut pos = Vec3::new(0.25, 23.4, 0.25);
-    assert!(world.weightless_at(pos) && !world.lethal_at(pos), "Start floating inside the hollow world beneath the 4-layer crust");
+    assert!(world.excavate_surface(Vec3::new(0.25, 29.0, 0.25), Vec3::new(1.0, 0.2, 0.0).normalize()));
+    assert!(world.excavate_surface(Vec3::new(0.25, 29.5, 0.25), Vec3::new(1.0, 0.2, 0.0).normalize()));
+    let mut pos = Vec3::new(0.65, 29.5, 0.25);
+    assert!(!world.weightless_at(pos) && !world.lethal_at(pos), "Subterranean niche has standard planetary gravity");
     flight.jump();
-    for frame in 0..240 {
+    for frame in 0..120 {
         pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, &world);
-        assert!(pos.length() <= 24.0 - 0.25, "Frame {frame}: eye must stay beneath the radius-24 crust vault, got {pos:?}");
+        assert!(pos.y <= 30.0, "Frame {frame}: jumping inside subterranean niche must stay beneath the overhang ceiling, got {pos:?}");
     }
-    assert!(pos.y > 23.6, "Jump must carry the avatar up against the vault ceiling, got {pos:?}");
-
-    let (mut avatar, mut controls) = (PlanetaryAvatar::at(Vec3::new(2.25, 23.0, 2.25)), KeyMotion::idle());
-    controls.register_key(KeyCode::Space, true); controls.register_key(KeyCode::KeyW, true);
-    for frame in 0..180 {
-        avatar.step_motion(1.0 / 60.0, &controls, &world);
-        let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-        assert!(eye.length() <= 23.82, "Frame {frame}: camera eye must never poke through the beveled crust ceiling, got {eye:?} (r={})", eye.length());
-    }
-    let mut span = SpanCapture::empty();
-    avatar.emit_appearance(&mut span);
-    assert!(span.max_z - span.min_z > (span.max_y - span.min_y) * 1.4, "Weightless avatar must float horizontally (z_span={} vs y_span={})", span.max_z - span.min_z, span.max_y - span.min_y);
 }
 
 #[test]
 fn test_repeated_head_bumps_against_crust_never_catapult_avatar_to_surface() {
     let mut world = BiomedCubeWorld::beveled(64, 1.0);
-    for _ in 0..16 {
-        let floor_y = world.constrain_to_surface(Vec3::new(0.25, 33.0, 0.25), 0.0).y;
-        assert!(world.excavate_surface(Vec3::new(0.25, floor_y + 1.0, 0.25), Vec3::NEG_Y));
+    for _ in 0..8 {
+        let floor_y = world.constrain_to_surface(Vec3::new(1.25, 33.0, 1.25), 0.0).y;
+        assert!(world.excavate_surface(Vec3::new(1.25, floor_y + 1.0, 1.25), Vec3::NEG_Y));
     }
-    let (mut avatar, mut controls) = (PlanetaryAvatar::at(Vec3::new(1.25, 23.3, 1.25)), KeyMotion::idle());
-    for pressed in [true, false, true] { controls.register_key(KeyCode::KeyW, pressed); }
-    let (mut walk_floater, mut walk_ctrl) = (PlanetaryAvatar::at(Vec3::new(1.25, 23.3, 1.25)), KeyMotion::idle());
-    walk_ctrl.register_key(KeyCode::KeyW, true);
-    avatar.step_motion(1.0 / 60.0, &controls, &world); walk_floater.step_motion(1.0 / 60.0, &walk_ctrl, &world);
-    let sprint_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    let walk_eye = walk_floater.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!((sprint_eye - walk_eye).length() < 1e-5, "Fast floating (sprinting) beneath the crust must not be possible: {sprint_eye:?} vs {walk_eye:?}");
-    for frame in 0..360 {
+    assert!(world.excavate_surface(Vec3::new(1.25, 29.0, 1.25), Vec3::new(1.0, 0.1, 0.0).normalize()));
+    assert!(world.excavate_surface(Vec3::new(1.25, 29.5, 1.25), Vec3::new(1.0, 0.1, 0.0).normalize()));
+    let (mut avatar, mut controls) = (PlanetaryAvatar::at(Vec3::new(1.65, 29.5, 1.25)), KeyMotion::idle());
+    for frame in 0..240 {
         controls.register_key(KeyCode::Space, frame % 4 < 2);
         avatar.step_motion(1.0 / 60.0, &controls, &world);
         let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-        assert!(eye.length() <= 23.82 && world.weightless_at(eye), "Frame {frame}: repeated head bumps must never catapult avatar to outer surface, got {eye:?}");
+        assert!(eye.y < 30.0 && !world.weightless_at(eye), "Frame {frame}: repeated head bumps under overhang must never catapult avatar to outer surface, got {eye:?}");
     }
 }
 
 #[test]
 fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface_and_magma_core_kills() {
-    use crate::attire::{HeldRelic, YouthAttire};
     use crate::cardiac::{AcousticWave, CardiacPulse, MonitoredPulse};
     let mut world = BiomedCubeWorld::beveled(64, 1.0);
-    let mut avatar = PlanetaryAvatar::at(Vec3::new(1.25, 22.2, 1.25));
-    let start_fov_scale = avatar.view_projection_matrix(1.0).x_axis.x;
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::ExcavatedEarth));
-    avatar.rotate_view(0.0, -2000.0);
-    assert!(!avatar.use_right_hand(&mut world));
-    assert!(avatar.release_hand(&mut world), "Short-click (press + release) while floating must place a block under the crust");
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::ExcavatedEarth));
-    assert!(!avatar.use_right_hand(&mut world));
-    assert!(avatar.use_right_hand(&mut world), "Digging under the crust must remove the placed block");
-    assert!(!avatar.use_right_hand(&mut world));
-    assert!(avatar.use_right_hand(&mut world), "Digging under the crust must remove one ceiling block");
+    for _ in 0..40 {
+        let fy = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;
+        if !world.excavate_surface(Vec3::new(0.25, fy + 1.0, 0.25), Vec3::NEG_Y) {
+            break;
+        }
+    }
+    let core_floor_y = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;
+    assert!((core_floor_y - 24.0).abs() < 1e-3, "Digging through all topsoil and 4 crust layers must stop on the indestructible magma core block at y=24.0, got {core_floor_y}");
+    assert!(!world.excavate_surface(Vec3::new(0.25, core_floor_y + 1.0, 0.25), Vec3::NEG_Y), "Indestructible magma core block must never be excavated");
+    assert!(!world.weightless_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)), "Planet has no weightless hollow cavity");
+    assert!(world.lethal_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)), "Direct contact with the exposed magma core block must be lethal");
+
     let mut controls = KeyMotion::idle();
     controls.register_key(KeyCode::Space, true);
-    for _ in 0..90 {
-        avatar.step_motion(1.0 / 60.0, &controls, &world);
-    }
-    let first_vp = avatar.view_projection_matrix(1.0);
-    let first_eye = first_vp.inverse().project_point3(Vec3::ZERO);
-    assert!(first_eye.y > 24.0 && first_eye.y < 24.3 && world.weightless_at(first_eye), "Single upward dig must only open one block (0.5 m) instead of a full shaft to the surface, got {first_eye:?}");
-
-    let mut strained_scale = first_vp.x_axis.x;
-    for step in 0..3 {
-        assert!(!avatar.use_right_hand(&mut world));
-        assert!(avatar.use_right_hand(&mut world));
-        for _ in 0..30 {
-            avatar.step_motion(1.0 / 60.0, &controls, &world);
-        }
-        if step == 1 { strained_scale = avatar.view_projection_matrix(1.0).x_axis.x; }
-    }
-    let crust_vp = avatar.view_projection_matrix(1.0);
-    let crust_eye = crust_vp.inverse().project_point3(Vec3::ZERO);
-    assert!(strained_scale > first_vp.x_axis.x && first_vp.x_axis.x > start_fov_scale, "Staying near the core must progressively narrow the FOV ({} -> {} -> {})", start_fov_scale, first_vp.x_axis.x, strained_scale);
-    assert!(!world.weightless_at(crust_eye), "Weightlessness must end once the 4-layer crust is dug upward, got {crust_eye:?}");
-
-    assert!(!avatar.use_right_hand(&mut world));
-    assert!(avatar.use_right_hand(&mut world), "Digging one dirt block above the 4-layer crust");
-    for _ in 0..90 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
-    let dirt_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(dirt_eye.y > crust_eye.y + 0.3 && dirt_eye.y < 27.5 && !world.weightless_at(dirt_eye), "Touching the dirt block ceiling with head must never catapult avatar to surface, got {dirt_eye:?}");
-    controls.register_key(KeyCode::Space, false);
-    for _ in 0..90 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
-    let settled_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(settled_eye.y < crust_eye.y && world.weightless_at(settled_eye), "Releasing Space ~1 dirt block above crust must descend back into weightless hollow world, got {settled_eye:?}");
-    controls.register_key(KeyCode::ShiftLeft, true);
-    for _ in 0..60 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
-    let core_bound_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(core_bound_eye.y < 23.5 && world.weightless_at(core_bound_eye), "Pressing Shift after descending from dirt block above crust must reach hollow world toward core, got {core_bound_eye:?}");
-    controls.register_key(KeyCode::ShiftLeft, false);
-    controls.register_key(KeyCode::Space, true);
-    for _ in 0..120 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
-
-    for _ in 0..25 {
-        assert!(!avatar.use_right_hand(&mut world));
-        if !avatar.use_right_hand(&mut world) { break; }
-        for _ in 0..24 {
-            avatar.step_motion(1.0 / 60.0, &controls, &world);
-        }
-    }
-    for _ in 0..240 {
-        avatar.step_motion(1.0 / 60.0, &controls, &world);
-    }
-    let exit_vp = avatar.view_projection_matrix(1.0);
-    let exit_eye = exit_vp.inverse().project_point3(Vec3::ZERO);
-    assert!(exit_eye.y >= 32.5 && !world.weightless_at(exit_eye) && exit_vp.x_axis.x < strained_scale, "Escaping behind the crust must recover FOV and reach surface, got {exit_eye:?}");
-
-    while world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.25), 0.0).y > 20.0 {
-        let fy = world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.25), 0.0).y;
-        assert!(world.excavate_surface(Vec3::new(3.25, fy + 1.0, 0.25), Vec3::NEG_Y));
-    }
-    while world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.75), 0.0).y > 24.6 {
-        let fy = world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.75), 0.0).y;
-        assert!(world.excavate_surface(Vec3::new(3.25, fy + 1.0, 0.75), Vec3::NEG_Y));
-    }
-    let mut breach_miner = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(3.25, 33.0, 0.45), 1.0));
-    breach_miner.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
-    breach_miner.rotate_view(1047.0, 600.0);
-    let mut press_wall = KeyMotion::idle();
-    press_wall.register_key(KeyCode::KeyS, true);
-    press_wall.register_key(KeyCode::ShiftLeft, true);
-    assert!(!breach_miner.use_right_hand(&mut world) && breach_miner.use_right_hand(&mut world), "Must excavate last block before core");
-    for _ in 0..90 { breach_miner.step_motion(1.0 / 60.0, &press_wall, &world); }
-    let miner_eye = breach_miner.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(miner_eye.y > 22.5 && miner_eye.y < 23.8 && world.weightless_at(miner_eye) && !world.lethal_at(miner_eye), "Mining the last block before the core must leave the avatar floating safely beneath the crust instead of falling into the magma core, got {miner_eye:?}");
-
-    let mut lingering = PlanetaryAvatar::at(Vec3::new(0.25, 23.5, 0.25));
-    for _ in 0..118 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
-    let vp_before_turn = lingering.view_projection_matrix(1.0);
-    lingering.rotate_view(120.0, 0.0);
-    assert_ne!(lingering.view_projection_matrix(1.0), vp_before_turn, "Avatar just beneath the crust ceiling must still be alive before 2 minutes (120s) elapse");
-    for _ in 0..3 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
-    let vp_blackout = lingering.view_projection_matrix(1.0);
-    lingering.rotate_view(120.0, 0.0);
-    let mut linger_hud = SpanCapture::empty();
-    lingering.emit_reticle(&mut linger_hud);
-    assert!(lingering.view_projection_matrix(1.0) == vp_blackout && linger_hud.max_y - linger_hud.min_y > 1.8 && vp_blackout.y_axis.y > start_fov_scale * 1.4, "Lingering past 2 minutes (120s) near the crust ceiling must narrow FOV into blackout");
-    for _ in 0..3 { lingering.step_motion(1.0, &KeyMotion::idle(), &world); }
-    let linger_awoken = lingering.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(linger_awoken.y >= 32.5 && !world.weightless_at(linger_awoken), "After full blackout, lingering avatar must wake up at surface spawn, got {linger_awoken:?}");
-
-    let (mut diver, mut dive_ctrl) = (PlanetaryAvatar::at(Vec3::new(0.25, 22.8, 0.25)), KeyMotion::idle());
-    dive_ctrl.register_key(KeyCode::ShiftLeft, true);
-    for _ in 0..60 { diver.step_motion(1.0 / 60.0, &dive_ctrl, &world); }
-    let diver_eye = diver.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(diver_eye.y < 21.0 && world.weightless_at(diver_eye), "Holding Sneak (ShiftLeft) in weightless hollow world must descend toward the core, got {diver_eye:?}");
-    for _ in 0..6 { diver.step_motion(1.0, &KeyMotion::idle(), &world); }
-    let near_core_vp = diver.view_projection_matrix(1.0);
-    diver.rotate_view(120.0, 0.0);
-    assert_eq!(diver.view_projection_matrix(1.0), near_core_vp, "Avatar closer to the core must perish much faster than 120s");
-
-    let mut doomed = PlanetaryAvatar::at(Vec3::new(0.25, 16.8, 0.25));
+    let mut doomed = PlanetaryAvatar::at(Vec3::new(0.25, core_floor_y + 1.0, 0.25));
     let initial_fov_scale = doomed.view_projection_matrix(1.0).y_axis.y;
     for _ in 0..60 { doomed.step_motion(1.0 / 60.0, &controls, &world); }
     let dead_vp = doomed.view_projection_matrix(1.0);
     let dead_eye = dead_vp.inverse().project_point3(Vec3::ZERO);
-    assert!(dead_eye.y < 18.0 && world.lethal_at(Vec3::new(0.25, 16.8, 0.25)) && dead_vp.y_axis.y > initial_fov_scale * 1.25, "Avatar at magma core must enter shrinking tunnel-vision blackout in place, got {dead_eye:?}");
+    assert!(dead_eye.y < 26.5 && world.lethal_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)) && dead_vp.y_axis.y > initial_fov_scale * 1.25, "Avatar touching exposed magma core block must enter shrinking tunnel-vision blackout, got {dead_eye:?}");
     let mut hud = SpanCapture::empty();
     doomed.emit_reticle(&mut hud);
     assert!(hud.max_y - hud.min_y > 1.8, "Blackout posture must emit full-screen transparent-gradient vignette");
@@ -237,26 +126,39 @@ fn test_server_scale_rejects_factor_below_one() {
 
 #[test]
 fn test_head_contact_beneath_subterranean_dirt_block_never_catapults_to_surface_or_strips_grass() {
-    use crate::attire::{HeldRelic, YouthAttire};
     let mut world = BiomedCubeWorld::beveled(64, 1.0);
-    let mut avatar = PlanetaryAvatar::at(Vec3::new(1.25, 22.8, 1.25));
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
-    avatar.rotate_view(0.0, -2000.0);
+    for _ in 0..14 {
+        let fy = world.constrain_to_surface(Vec3::new(1.25, 35.0, 1.25), 0.0).y;
+        assert!(world.excavate_surface(Vec3::new(1.25, fy + 1.0, 1.25), Vec3::NEG_Y));
+    }
     let mut controls = KeyMotion::idle();
     controls.register_key(KeyCode::Space, true);
-    for layer in 0..14 {
-        assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world), "Must dig upward layer {layer}");
-        for _ in 0..90 {
-            avatar.step_motion(1.0 / 60.0, &controls, &world);
-            let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-            assert!(eye.y < 31.8, "Layer {layer}: touching dirt ceiling with head must never catapult avatar to surface, got {eye:?}");
-        }
-    }
     assert!(world.excavate_surface(Vec3::new(1.25, 27.0, 1.25), Vec3::new(1.0, 0.5, 0.0).normalize()));
     let mut niche_climber = PlanetaryAvatar::at(Vec3::new(1.65, 27.25, 1.25));
     for _ in 0..90 {
         niche_climber.step_motion(1.0 / 60.0, &controls, &world);
         let eye = niche_climber.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-        assert!(eye.y < 28.2, "Moving upward with Space under an overhanging dirt block must never catapult avatar to surface, got {eye:?}");
+        assert!(eye.y < 27.5, "Moving upward with Space under an overhanging dirt block at 27.5 must never enter the 2 dirt blocks above 27.5, got {eye:?}");
     }
+
+    let mut sink = SpanCapture::empty();
+    let mut before_crater = world::CountedMeshTarget::new(&mut sink);
+    world.emit_modified_face(&mut before_crater);
+    let before_count = before_crater.count();
+    assert!(world.loosen_surface(Vec3::new(1.25, 25.2, 1.25), Vec3::new(1.0, 0.8, 0.0).normalize(), 2).is_some());
+    let mut after_crater = world::CountedMeshTarget::new(&mut sink);
+    world.emit_modified_face(&mut after_crater);
+    let wall_crater_count = after_crater.count();
+    assert_ne!(wall_crater_count, before_count, "Diagonal upward digging from core shaft must update wall mesh with crater animation");
+    assert!(world.loosen_surface(Vec3::new(1.25, 27.2, 1.25), Vec3::new(1.0, 0.8, 0.0).normalize(), 2).is_some());
+    let mut after_overhang = world::CountedMeshTarget::new(&mut sink);
+    world.emit_modified_face(&mut after_overhang);
+    assert!(after_overhang.count() != before_count && after_overhang.count() != wall_crater_count, "Digging overhanging dirt block must update faces with 3D crater animation");
+
+    let frame = world::ClimateZone::Temperate.surface_frame(32.0);
+    let shape = world::MediumShape::new(Box::new(world::CuboidShape::new(0.5)), world::BlockMedium::CrustRock, true, false);
+    let mut rock_span = SpanCapture::empty();
+    use world::VoxelShape;
+    shape.emit_terraced_shape(world::GridCell::new(0, 0), -7.0, &frame, Vec3::ONE, Vec3::ONE, true, &mut rock_span);
+    assert!(rock_span.max_y < 25.6 && rock_span.min_y >= 24.9, "Subterranean CrustRock block at -7.0..6.5 (y=25.0..25.5) must emit all side flanks at its own layer, got y={}..{}", rock_span.min_y, rock_span.max_y);
 }

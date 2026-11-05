@@ -13,7 +13,7 @@ const SHAFT_MAX_SPAN: f32 = 1.20;
 const SHAFT_DEEP_WALL: f32 = 2.20;
 const RIM_PROBE_OFFSET: f32 = 0.50;
 const RIM_STEP_TOLERANCE: f32 = 0.45;
-const NICHE_FLOOR_CLEARANCE: f32 = 0.25;
+const STEP_SCAN_RISE: f32 = 0.55;
 const FLOOR_SNAP_MARGIN: f32 = -0.05;
 const UPWARD_SHAFT_CEILING_RISE: f32 = 0.20;
 
@@ -32,7 +32,7 @@ impl<'a> CrustEnvelope<'a> {
 
     pub fn confine(&self, point: Vec3, origin: Vec3, up: Vec3) -> Vec3 {
         let floor_pt = self.envelope.constrain_with_height(point, 1.0, self.world);
-        if self.world.weightless_at(point) || self.world.weightless_at(origin) || (floor_pt - point).dot(up) > NICHE_FLOOR_CLEARANCE {
+        if self.world.weightless_at(point) || self.world.weightless_at(origin) {
             return self.world.confine_beneath_crust(point);
         }
         let (half_w, half_d, height, facing) = self.envelope.dimensions();
@@ -104,7 +104,7 @@ impl<'a> CrustEnvelope<'a> {
             let pt = position + offset - up * GROUND_SETTLE_OFFSET;
             let low = crouched.constrain_with_height(pt, eye, self.world);
             let high = self.envelope.constrain_with_height(pt, eye, self.world);
-            if (low - base_floor).dot(up).abs() <= STEP_RISE_LIMIT && (high - low).dot(up) > STEP_RISE_LIMIT {
+            if (low - base_floor).dot(up).abs() <= STEP_SCAN_RISE && (high - low).dot(up) > STEP_RISE_LIMIT {
                 return true;
             }
         }

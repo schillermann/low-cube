@@ -33,6 +33,7 @@ pub trait Avatar {
     fn apply_attire(&mut self, attire: YouthAttire);
     fn apply_bindings(&mut self, _bindings: ActionBindings) {}
     fn dispatch_trigger(&mut self, _trigger: InputTrigger) -> bool { false }
+    fn adjust_aimed_rig(&mut self, _trigger: InputTrigger, _world: &mut dyn PlanetaryWorld) -> bool { false }
     #[cfg(test)]
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool { self.dispatch_trigger(InputTrigger::Key(code)) }
     #[cfg(test)]
@@ -79,6 +80,11 @@ impl PlanetaryAvatar {
             flight, AvatarPosture::standing(), 0.0, StrideRhythm::idle(), attire, SightMode::FirstPersonSight,
             PalmEarthworks::empty().reconcile_attire(attire), bindings,
         )
+    }
+
+    pub fn with_test_engines(mut self) -> Self {
+        self.gear.seed_test_engines();
+        self
     }
 
     #[cfg(test)]
@@ -166,6 +172,11 @@ impl Avatar for PlanetaryAvatar {
     fn apply_attire(&mut self, attire: YouthAttire) { self.gear.apply_attire(attire); }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.gear.apply_bindings(bindings); }
     fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool { self.gear.dispatch_trigger(trigger) }
+    fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
+        if self.body.perished() { return false; }
+        let (eye, dir) = self.hand_ray();
+        self.gear.try_adjust_rig(trigger, eye, dir, world)
+    }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
         let pos = self.body.position();

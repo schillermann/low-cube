@@ -146,10 +146,14 @@ impl SessionStage {
     pub(super) fn release_hand(&mut self) -> bool { self.avatar.release_hand(self.world.as_mut()) }
     pub(super) fn matches_tron(&self, trigger: InputTrigger) -> bool { self.controls.matches_action(ControlAction::TronMode, trigger) }
 
-    pub(super) fn dispatch_avatar_or_control(&mut self, trigger: InputTrigger, pressed: bool) {
+    pub(super) fn dispatch_avatar_or_control(&mut self, trigger: InputTrigger, pressed: bool) -> bool {
+        if pressed && self.avatar.adjust_aimed_rig(trigger, self.world.as_mut()) {
+            return true;
+        }
         if !pressed || !self.avatar.dispatch_trigger(trigger) {
             self.controls.register_trigger(trigger, pressed);
         }
+        false
     }
 
     pub(super) fn press_modal_mouse(&mut self, surface: &dyn PlatformSurface) -> ModalDirective {

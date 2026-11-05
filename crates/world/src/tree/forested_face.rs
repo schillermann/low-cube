@@ -180,6 +180,10 @@ impl Face for ForestedFace {
         changed
     }
 
+    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
+        self.origin.adjust_rig(eye, direction, delta_steps, rotate_quarter)
+    }
+
     fn step_surface(&mut self, dt: f32) -> bool {
         self.origin.step_surface(dt)
     }

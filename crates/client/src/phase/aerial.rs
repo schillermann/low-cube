@@ -42,9 +42,17 @@ impl AerialKinematics {
 
     pub fn rebound_point(&self, ctx: &FlightContext, threshold: StepThreshold) -> (Vec3, bool, f32) {
         let raw_rebound = ctx.resolve_aerial_stride(self.airborne_stride, self.surface_up, self.vertical_step, threshold);
-        let rebound = if self.next_speed > 0.0 { ctx.confine_crust(raw_rebound) } else { raw_rebound };
+        let confined = ctx.confine_crust(raw_rebound);
+        let floor_catch = (confined - raw_rebound).dot(self.surface_up) > 1e-4;
+        let rebound = if self.next_speed > 0.0 || floor_catch { confined } else { raw_rebound };
         let ceiling_bonk = (rebound - raw_rebound).dot(self.surface_up) < -1e-4;
-        let speed = if ceiling_bonk { self.next_speed.min(0.0) } else { self.next_speed };
+        let speed = if ceiling_bonk {
+            self.next_speed.min(0.0)
+        } else if floor_catch {
+            self.next_speed.max(0.0)
+        } else {
+            self.next_speed
+        };
         (rebound, ceiling_bonk, speed)
     }
 }
@@ -74,7 +82,10 @@ impl AerialTrajectory for ParabolicTrajectory {
             && SurfaceStep::new(orig_surf, supported, step.surface_up).walkable_with(threshold);
         let top_reached = penetration > 0.0 && penetration <= TOP_REACHED_PENETRATION;
         let descending = next_speed <= 0.0 && !ceiling_bonk;
-        let safe_rebound = if penetration > 0.0 && (descending || on_walkable_slope || top_reached) {
+        let safe_rebound = if penetration > 0.0
+            && (descending || on_walkable_slope || top_reached)
+            && clearance.floor_contact(threshold)
+        {
             supported
         } else {
             rebound

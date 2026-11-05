@@ -90,6 +90,9 @@ pub trait PlanetaryWorld: GravityField {
     fn place_molded_surface_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool {
         false
     }
+    fn adjust_rig(&mut self, _eye: Vec3, _direction: Vec3, _delta_steps: i32, _rotate_quarter: bool) -> bool {
+        false
+    }
     fn step_surface(&mut self, _dt: f32) -> bool {
         false
     }
@@ -142,6 +145,9 @@ pub trait Face: Send + Sync {
         SurfaceFind::EmptyHanded
     }
     fn place_molded_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool {
+        false
+    }
+    fn adjust_rig(&mut self, _eye: Vec3, _direction: Vec3, _delta_steps: i32, _rotate_quarter: bool) -> bool {
         false
     }
     fn step_surface(&mut self, _dt: f32) -> bool {

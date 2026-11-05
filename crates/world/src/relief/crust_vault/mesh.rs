@@ -31,12 +31,11 @@ impl MeshTarget for VaultCeilingTarget<'_> {
             let (c0, c1, c2, c3) = (clamp_seam(v0), clamp_seam(v1), clamp_seam(v2), clamp_seam(v3));
             let (center, glow) = ((c0 + c1 + c2 + c3) * 0.25, if normal.dot(up) < -0.05 { 0.7 } else { 0.55 });
             let col = self.geometry.rock_tone(center) * self.tint;
-            let quad_out = if (v2 - v3).length_squared() > 1e-6 && (c1 - c3).length_squared() < (c0 - c2).length_squared() {
-                Quad::glowing(c1, c2, c3, c0, normal, col, glow)
+            if (v2 - v3).length_squared() > 1e-6 && (c1 - c3).length_squared() < (c0 - c2).length_squared() {
+                self.target.push_quad(Quad::glowing(c1, c2, c3, c0, normal, col, glow));
             } else {
-                Quad::glowing(c0, c1, c2, c3, normal, col, glow)
-            };
-            self.target.push_quad(quad_out);
+                self.target.push_quad(Quad::glowing(c0, c1, c2, c3, normal, col, glow));
+            }
         });
     }
 }
@@ -114,7 +113,7 @@ impl<'a> VaultGeometry<'a> {
         Self::emit_crag_relief(q0, q1, q3, norm, shade, target);
     }
 
-    pub fn emit_crust_floor(&self, cell: GridCell, top_h: f32, breached: bool, target: &mut dyn MeshTarget) -> Vec3 {
+    pub fn emit_crust_floor(&self, cell: GridCell, top_h: f32, core_exposed: bool, target: &mut dyn MeshTarget) -> Vec3 {
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
         let (p0, p1, p2, p3) = (
             self.frame.point_at(u0, v0, top_h),
@@ -122,12 +121,17 @@ impl<'a> VaultGeometry<'a> {
             self.frame.point_at(u1, v1, top_h),
             self.frame.point_at(u0, v1, top_h),
         );
-        let col = Vec3::new(0.35, 0.31, 0.28);
-        if !breached {
+        if core_exposed {
+            let col = Vec3::new(0.99, 0.36, 0.06);
+            target.push_quad(Quad::glowing(p0, p1, p2, p3, self.frame.normal(), col, 0.95));
+            Self::emit_crag_relief(p0, p1, p3, self.frame.normal(), 1.35, target);
+            col
+        } else {
+            let col = Vec3::new(0.35, 0.31, 0.28);
             target.push_quad(Quad::glowing(p0, p1, p2, p3, self.frame.normal(), col, 0.26));
             Self::emit_crag_relief(p0, p1, p3, self.frame.normal(), 1.0, target);
+            col
         }
-        col
     }
 
     /// Emits the magma-lit inward-facing beveled block ceiling beneath this cell.

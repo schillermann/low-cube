@@ -1,0 +1,291 @@
+mod mesh;
+
+use std::collections::{HashMap, HashSet, VecDeque};
+use crate::block::{ElevatedShape, GridCell};
+use crate::frame::SurfaceFrame;
+use crate::MeshTarget;
+use super::natural_strata::NaturalStrata;
+use super::shaft_excavation::ShaftExcavation;
+use self::mesh::RigGeometry;
+
+const BLOCK_STEP: f32 = GridCell::SPAN;
+const MIN_HOIST_STEPS: i32 = 0;
+const MAX_HOIST_STEPS: i32 = 8;
+const INITIAL_HOIST_STEPS: i32 = 3;
+const INITIAL_REACH_STEPS: i32 = 2;
+const LAYER_MATCH_TOLERANCE: f32 = 0.30;
+
+/// Non-block polyhedral 3D cantilever crane (`Galgen-Kranarm`) with auto-retracting telescopic gripper.
+#[derive(Clone, Copy, Debug)]
+pub struct CantileverRig {
+    ground_top: f32,
+    hoist_steps: i32,
+    reach_steps: i32,
+    turn: u8,
+}
+
+impl CantileverRig {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(ground_top: f32, hoist_steps: i32, reach_steps: i32, turn: u8) -> Self {
+        Self { ground_top, hoist_steps, reach_steps, turn }
+    }
+
+    /// Secondary constructor for a newly unfolded crane on `ground_top`.
+    pub const fn deployed(ground_top: f32, turn: u8) -> Self {
+        Self::new(ground_top, INITIAL_HOIST_STEPS, INITIAL_REACH_STEPS, turn & 3)
+    }
+
+    pub const fn step_vectors(&self) -> (i32, i32) {
+        match self.turn & 3 {
+            0 => (1, 0),
+            1 => (0, 1),
+            2 => (-1, 0),
+            _ => (0, -1),
+        }
+    }
+
+    pub const fn hoist_elevation(&self) -> f32 {
+        self.ground_top + (self.hoist_steps as f32) * BLOCK_STEP
+    }
+
+    pub const fn mast_ceiling(&self) -> f32 {
+        self.hoist_elevation() + 0.65
+    }
+
+    pub const fn geometry(&self) -> RigGeometry {
+        RigGeometry::new(self.ground_top, self.hoist_elevation(), self.reach_steps, self.turn)
+    }
+
+    pub const fn gripped_cell(&self, mast_u: i32, mast_v: i32) -> (i32, i32) {
+        let (du, dv) = self.step_vectors();
+        (mast_u + du * self.reach_steps, mast_v + dv * self.reach_steps)
+    }
+
+    pub const fn claw_slot(&self, mast_u: i32, mast_v: i32) -> (i32, i32) {
+        let (du, dv) = self.step_vectors();
+        let step = self.reach_steps - 1;
+        (mast_u + du * step, mast_v + dv * step)
+    }
+
+    pub fn occupies_mast_layer(&self, layer_elev: f32) -> bool {
+        layer_elev >= self.ground_top - 0.05 && layer_elev <= self.mast_ceiling()
+    }
+
+    pub fn constrain_mast_support(&self, support_h: f32, foot_elev: f32) -> f32 {
+        if foot_elev + 0.08 <= self.ground_top {
+            support_h
+        } else {
+            support_h.max(self.hoist_elevation() + BLOCK_STEP)
+        }
+    }
+
+    pub fn mount_target(
+        &self, mast_u: i32, mast_v: i32, u: i32, v: i32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
+    ) -> Option<(i32, i32, f32)> {
+        let span = self.reach_steps.max(1);
+        if (u - mast_u).abs() > span || (v - mast_v).abs() > span {
+            return None;
+        }
+        let ((eu, ev), hoist_z) = (self.gripped_cell(mast_u, mast_v), self.hoist_elevation());
+        let occupied = blocks.get(&(eu, ev)).is_some_and(|l| l.iter().any(|b| (b.floor() - hoist_z).abs() <= LAYER_MATCH_TOLERANCE));
+        (!occupied).then_some((eu, ev, hoist_z))
+    }
+
+    pub fn retract_for_placed_block(
+        &mut self, mast_u: i32, mast_v: i32, placed_u: i32, placed_v: i32, placed_base: f32,
+    ) -> Option<(i32, i32)> {
+        if (placed_base - self.hoist_elevation()).abs() > LAYER_MATCH_TOLERANCE
+            || (placed_u, placed_v) != self.claw_slot(mast_u, mast_v)
+        {
+            return None;
+        }
+        if self.reach_steps > 1 {
+            self.reach_steps -= 1;
+            None
+        } else {
+            let (du, dv) = self.step_vectors();
+            Some((mast_u - du, mast_v - dv))
+        }
+    }
+
+    pub fn connected_cluster(
+        &self, mast_u: i32, mast_v: i32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
+    ) -> Vec<(i32, i32, usize)> {
+        let (start_u, start_v) = self.gripped_cell(mast_u, mast_v);
+        let hoist_z = self.hoist_elevation();
+        let Some(start_list) = blocks.get(&(start_u, start_v)) else { return Vec::new() };
+        let Some(start_idx) = start_list.iter().position(|b| (b.floor() - hoist_z).abs() <= LAYER_MATCH_TOLERANCE) else {
+            return Vec::new();
+        };
+        let (mut visited, mut queue, mut cluster) = (HashSet::new(), VecDeque::new(), Vec::new());
+        visited.insert((start_u, start_v, start_idx));
+        queue.push_back((start_u, start_v, start_idx));
+        while let Some((cu, cv, idx)) = queue.pop_front() {
+            let z = blocks[&(cu, cv)][idx].floor();
+            cluster.push((cu, cv, idx));
+            for (nu, nv, dz) in [(cu + 1, cv, 0.0), (cu - 1, cv, 0.0), (cu, cv + 1, 0.0), (cu, cv - 1, 0.0), (cu, cv, BLOCK_STEP), (cu, cv, -BLOCK_STEP)] {
+                if (nu, nv) != (mast_u, mast_v) {
+                    if let Some(nlist) = blocks.get(&(nu, nv)) {
+                        for (nidx, nb) in nlist.iter().enumerate() {
+                            if (nb.floor() - (z + dz)).abs() <= 0.12 && visited.insert((nu, nv, nidx)) {
+                                queue.push_back((nu, nv, nidx));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        cluster
+    }
+
+    pub fn adjust_assembly(
+        &mut self, mast_u: i32, mast_v: i32, delta_steps: i32, rotate_quarter: bool,
+        blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>, ground_fn: impl Fn(i32, i32) -> f32,
+    ) -> bool {
+        let cluster = self.connected_cluster(mast_u, mast_v, blocks);
+        if delta_steps != 0 {
+            let target_steps = (self.hoist_steps + delta_steps).clamp(MIN_HOIST_STEPS, MAX_HOIST_STEPS);
+            let mut actual_delta = target_steps - self.hoist_steps;
+            for &(cu, cv, idx) in &cluster {
+                let min_delta = ((ground_fn(cu, cv) - blocks[&(cu, cv)][idx].floor()) / BLOCK_STEP).ceil() as i32;
+                actual_delta = actual_delta.max(min_delta);
+            }
+            if actual_delta == 0 {
+                return false;
+            }
+            self.hoist_steps += actual_delta;
+            let dz = (actual_delta as f32) * BLOCK_STEP;
+            for &(cu, cv, idx) in &cluster {
+                if let Some(list) = blocks.get_mut(&(cu, cv)) {
+                    list[idx].shift_elevation(dz);
+                }
+            }
+            for &(cu, cv, _) in &cluster {
+                if let Some(list) = blocks.get_mut(&(cu, cv)) {
+                    list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
+                }
+            }
+            return true;
+        }
+        if rotate_quarter && !cluster.is_empty() {
+            let (piv_u, piv_v) = self.gripped_cell(mast_u, mast_v);
+            let (mut extracted, mut by_cell): (Vec<_>, HashMap<(i32, i32), Vec<usize>>) = (Vec::with_capacity(cluster.len()), HashMap::new());
+            for &(cu, cv, idx) in &cluster {
+                by_cell.entry((cu, cv)).or_default().push(idx);
+            }
+            for ((cu, cv), mut indices) in by_cell {
+                indices.sort_unstable_by(|a, b| b.cmp(a));
+                if let Some(list) = blocks.get_mut(&(cu, cv)) {
+                    for idx in indices {
+                        extracted.push((cu, cv, list.remove(idx)));
+                    }
+                    if list.is_empty() {
+                        blocks.remove(&(cu, cv));
+                    }
+                }
+            }
+            for (cu, cv, shape) in extracted {
+                let (du, dv) = (cu - piv_u, cv - piv_v);
+                let list = blocks.entry((piv_u - dv, piv_v + du)).or_default();
+                list.push(shape);
+                list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
+            }
+            return true;
+        }
+        false
+    }
+}
+
+/// Collection of active polyhedral cantilever rigs across a planetary face.
+pub struct RigRegistry {
+    rigs: HashMap<(i32, i32), CantileverRig>,
+}
+
+impl RigRegistry {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(rigs: HashMap<(i32, i32), CantileverRig>) -> Self {
+        Self { rigs }
+    }
+
+    pub fn untouched() -> Self {
+        Self::new(HashMap::new())
+    }
+    pub fn empty(&self) -> bool {
+        self.rigs.is_empty()
+    }
+    pub fn present_at(&self, u: i32, v: i32) -> bool {
+        self.rigs.contains_key(&(u, v))
+    }
+    pub fn occupies_layer(&self, u: i32, v: i32, layer_elev: f32) -> bool {
+        self.rigs.get(&(u, v)).is_some_and(|r| r.occupies_mast_layer(layer_elev))
+    }
+
+    pub fn constrain_support(&self, u: i32, v: i32, support_h: f32, foot_elev: f32) -> f32 {
+        self.rigs.get(&(u, v)).map_or(support_h, |r| r.constrain_mast_support(support_h, foot_elev))
+    }
+
+    pub fn hit_top(&self, u: i32, v: i32, ray_elev: f32) -> Option<f32> {
+        self.rigs.get(&(u, v)).and_then(|r| r.occupies_mast_layer(ray_elev).then(|| r.mast_ceiling()))
+    }
+
+    pub fn emit_at(&self, cell: GridCell, frame: &SurfaceFrame, target: &mut dyn MeshTarget) -> bool {
+        let (u, v) = cell.feed_coordinates(|u, v| (u, v));
+        self.rigs.get(&(u, v)).map(|rig| rig.geometry().emit(cell, frame, target)).is_some()
+    }
+
+    pub fn deploy(&mut self, u: i32, v: i32, ground_top: f32) {
+        self.rigs.insert((u, v), CantileverRig::deployed(ground_top, 0));
+    }
+
+    pub fn mount_target(
+        &self, u: i32, v: i32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
+    ) -> Option<(i32, i32, f32)> {
+        self.rigs.iter().find_map(|(&(mu, mv), rig)| rig.mount_target(mu, mv, u, v, blocks))
+    }
+
+    pub fn retract_for_block(&mut self, placed_u: i32, placed_v: i32, placed_base: f32) {
+        let relocated = self.rigs.iter_mut().find_map(|(&(mu, mv), rig)| {
+            rig.retract_for_placed_block(mu, mv, placed_u, placed_v, placed_base).map(|new_pos| ((mu, mv), new_pos))
+        });
+        if let Some((old_pos, new_pos)) = relocated {
+            if let Some(rig) = self.rigs.remove(&old_pos) {
+                self.rigs.insert(new_pos, rig);
+            }
+        }
+    }
+
+    pub fn pack_up(&mut self, u: i32, v: i32, ground_top: f32, blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>) -> bool {
+        let Some(mut rig) = self.rigs.remove(&(u, v)) else { return false };
+        let cluster = rig.connected_cluster(u, v, blocks);
+        let _ = rig.adjust_assembly(u, v, -8, false, blocks, |_, _| ground_top);
+        for (cu, cv, _) in cluster {
+            if let Some(list) = blocks.get_mut(&(cu, cv)) {
+                list.retain(|b| !b.block_medium().vehicle_engine());
+                if list.is_empty() {
+                    blocks.remove(&(cu, cv));
+                }
+            }
+        }
+        true
+    }
+
+    pub fn adjust_at(
+        &mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool,
+        blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>,
+    ) -> bool {
+        let target_mast = if self.rigs.contains_key(&(u, v)) {
+            Some((u, v))
+        } else {
+            self.rigs.iter().find_map(|(&(mu, mv), rig)| {
+                rig.connected_cluster(mu, mv, blocks).iter().any(|&(cu, cv, _)| (cu, cv) == (u, v)).then_some((mu, mv))
+            })
+        };
+        let Some((mu, mv)) = target_mast else { return false };
+        let Some(mut rig) = self.rigs.remove(&(mu, mv)) else { return false };
+        let changed = rig.adjust_assembly(mu, mv, delta_steps, rotate_quarter, blocks, |cu, cv| {
+            (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP
+        });
+        self.rigs.insert((mu, mv), rig);
+        changed
+    }
+}

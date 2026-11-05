@@ -3,7 +3,7 @@ use super::super::natural_strata::NaturalStrata;
 use super::super::overhang_molds::OverhangMolds;
 use super::super::shaft_excavation::ShaftExcavation;
 use super::{
-    BLOCK_STEP, CEILING_CLEARANCE_INSET, LETHAL_CORE_MARGIN, SHAFT_FLOOR_TOLERANCE,
+    BLOCK_STEP, CEILING_CLEARANCE_INSET, SHAFT_FLOOR_TOLERANCE,
     SURFACE_HIT_TOLERANCE, UPWARD_CEILING_CATCH_SPAN, UPWARD_CEILING_FLOOR_INSET,
     VAULT_CEILING_FLOOR_INSET, VerticalColumn,
 };
@@ -18,24 +18,11 @@ impl<'a> NaturalColumn<'a> {
     pub const fn new(strata: &'a NaturalStrata) -> Self {
         Self { strata }
     }
-
-    fn core_floating(&self, u: f32, v: f32, center_elev: f32, body_span: f32) -> bool {
-        let vault = self.strata.vault();
-        body_span > 0.0
-            && !vault.core().engulfs(u, v, center_elev, LETHAL_CORE_MARGIN)
-            && vault.encloses(u, v, center_elev, 0.0)
-            && center_elev < vault.ceiling_height_at(u, v) + BLOCK_STEP
-    }
 }
 
 impl VerticalColumn for NaturalColumn<'_> {
-    fn support_height(&self, u: f32, v: f32, foot_elev: f32, body_span: f32) -> f32 {
-        let center_elev = foot_elev + body_span.min(1.0);
-        if self.core_floating(u, v, center_elev, body_span) {
-            self.strata.vault().core().crest_at(u, v)
-        } else {
-            self.strata.surface_height_at(u, v)
-        }
+    fn support_height(&self, u: f32, v: f32, _foot_elev: f32, _body_span: f32) -> f32 {
+        self.strata.surface_height_at(u, v)
     }
 
     fn confine_elevation(&self, _cell: GridCell, u: f32, v: f32, elev: f32) -> f32 {
@@ -52,7 +39,7 @@ impl VerticalColumn for NaturalColumn<'_> {
         if ray_elev >= ceil_floor && ray_elev <= ground_surf + SURFACE_HIT_TOLERANCE {
             let top_layer_floor = (ground_h - BLOCK_STEP).min(ground_surf - SHAFT_FLOOR_TOLERANCE);
             let hit = if ray_elev < ceil_h + BLOCK_STEP || ray_elev < top_layer_floor {
-                ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp(ceil_h + BLOCK_STEP, ground_h)
+                ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp((ceil_h + BLOCK_STEP).min(ground_h), ground_h)
             } else {
                 ground_h
             };
@@ -81,26 +68,7 @@ impl<'a, C: VerticalColumn> ShaftColumn<'a, C> {
 impl<C: VerticalColumn> VerticalColumn for ShaftColumn<'_, C> {
     fn support_height(&self, u: f32, v: f32, foot_elev: f32, body_span: f32) -> f32 {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
-        let vault = self.strata.vault();
-        let center_elev = foot_elev + body_span.min(1.0);
-        let ceil_limit = if self.shafts.upward_at(cu, cv) > 0 {
-            let top = if self.shafts.breached_at(self.strata, cu, cv) {
-                self.strata.elevation_at(cu, cv)
-            } else {
-                self.shafts.crust_floor_at(self.strata, cu, cv)
-            };
-            (top as f32) * BLOCK_STEP
-        } else {
-            vault.ceiling_height_at(u, v) + BLOCK_STEP
-        };
-        if !self.shafts.in_unbreached_shaft(self.strata, cu, cv, center_elev)
-            && body_span > 0.0
-            && !vault.core().engulfs(u, v, center_elev, LETHAL_CORE_MARGIN)
-            && (vault.encloses(u, v, center_elev, 0.0) || self.shafts.in_upward_shaft(self.strata, cu, cv, center_elev))
-            && center_elev < ceil_limit
-        {
-            vault.core().crest_at(u, v)
-        } else if self.shafts.reworked_at(cu, cv) {
+        if self.shafts.reworked_at(cu, cv) {
             let steps = if body_span > 0.0 && !self.molds_present {
                 self.shafts.body_elevation_at(self.strata, cu, cv)
             } else {
@@ -155,7 +123,7 @@ impl<C: VerticalColumn> VerticalColumn for ShaftColumn<'_, C> {
                 || ray_elev < ceil_h + BLOCK_STEP
                 || ray_elev < top_layer_floor
             {
-                ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp(ceil_h + BLOCK_STEP, ground_h)
+                ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp((ceil_h + BLOCK_STEP).min(ground_h), ground_h)
             } else {
                 ground_h
             };

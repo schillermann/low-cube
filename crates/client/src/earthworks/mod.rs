@@ -47,6 +47,7 @@ impl PalmEarthworks {
     pub fn mold_prev_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::prev_form)) }
     pub fn turn_mold_clockwise(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::turn_clockwise)) }
     pub fn reconcile_attire(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.reconcile_attire(attire)) }
+    pub fn with_test_engines(self) -> Self { self.with_satchel(self.satchel.with_test_engines()) }
 
     pub fn handle_trigger(
         self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire,
@@ -88,6 +89,24 @@ impl PalmEarthworks {
             return (self.with_satchel(next_satchel), attire, ok);
         }
         (self, attire, false)
+    }
+
+    pub fn try_adjust_rig(
+        &self, trigger: InputTrigger, bindings: &ActionBindings, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
+    ) -> bool {
+        if self.satchel.open() || self.tome.open() {
+            return false;
+        }
+        if bindings.matches(ControlAction::MoldRight, trigger) {
+            return world.adjust_rig(eye, view_dir, 1, false);
+        }
+        if bindings.matches(ControlAction::MoldLeft, trigger) {
+            return world.adjust_rig(eye, view_dir, -1, false);
+        }
+        if bindings.matches(ControlAction::MoldForm, trigger) {
+            return world.adjust_rig(eye, view_dir, 0, true);
+        }
+        false
     }
 
     pub fn emit_attire(&self, attire: &YouthAttire, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
@@ -195,6 +214,9 @@ impl PalmEarthworks {
             }
             DigStroke::single_palm(side, deferred, weightless, w_place, rhythm)
         } else {
+            if active == HeldRelic::WoodenMallet && world.adjust_rig(eye, view_dir, 1, false) {
+                return (Self::new(state.satchel, 0, DigGrip::idle(), Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), true);
+            }
             let outcome = if active.axe_blade() { world.strike_timber(eye, view_dir) } else { world::CleaveOutcome::Missed };
             let (ns, na) = if outcome.felled() { state.satchel.collect_felled_timber(-side, attire) } else { (state.satchel, attire) };
             let grip = if active.axe_blade() { DigGrip::with_dig_on(side, false) } else { DigGrip::idle() };

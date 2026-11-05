@@ -179,6 +179,25 @@ impl PlanetaryWorld for CubePlanet {
         false
     }
 
+    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        if let Some(face) = self.faces.get_mut(primary) {
+            if face.adjust_rig(eye, direction, delta_steps, rotate_quarter) {
+                self.modified_face = primary;
+                return true;
+            }
+        }
+        if secondary != primary {
+            if let Some(face) = self.faces.get_mut(secondary) {
+                if face.adjust_rig(eye, direction, delta_steps, rotate_quarter) {
+                    self.modified_face = secondary;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     fn step_surface(&mut self, dt: f32) -> bool {
         let len = self.faces.len();
         let mut regrown = false;

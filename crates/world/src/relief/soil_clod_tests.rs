@@ -85,7 +85,7 @@ fn test_sight_ray_targets_all_four_side_wall_layers_below_head_height() {
 #[test]
 fn test_earth_crust_side_walls_never_emit_dirt_clods() {
     let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
-    while !relief.breached_at(0, 0) {
+    while relief.elevation_at(0, 0) > relief.crust_floor_at(0, 0) {
         let top_layer = (relief.elevation_at(0, 0) as f32) * 0.5 - 0.25;
         assert!(relief.excavate_layer(0, 0, top_layer).1);
     }
@@ -207,4 +207,52 @@ fn test_mining_blocks_never_expands_geometry_outward() {
     let has_recessed_east_wall = wall_dug.min.x < 0.45;
     assert!(has_recessed_east_wall, "Terrain cell side wall must also recess inward when mined");
 }
+
+#[test]
+fn test_polyhedral_cantilever_rig_deploys_retracts_telescopic_gripper_and_hoists_vehicle() {
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+
+    let rig_shape = Box::new(crate::block::MediumShape::new(
+        Box::new(crate::block::CuboidShape::new(0.5)),
+        crate::block::BlockMedium::CantileverRig,
+        true,
+        false,
+    ));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, rig_shape), "Cantilever rig must deploy on ground cell (0, 0)");
+    assert!(!relief.layer_occupied_at(2, 0, 1.75), "Deploying rig must NOT spawn an engine block automatically");
+
+    let engine_shape = Box::new(crate::block::MediumShape::new(
+        Box::new(crate::block::CuboidShape::new(0.5)),
+        crate::block::BlockMedium::CarEngine,
+        true,
+        false,
+    ));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, engine_shape), "Mounting CarEngine onto crane must succeed");
+    assert!(relief.layer_occupied_at(2, 0, 1.75), "Mounted CarEngine must be suspended at (2, 0) height 1.5m..2.0m");
+
+    let mut rig_ledger = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+    ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut rig_ledger);
+    assert!(rig_ledger.tones.len() >= 40, "Polyhedral cantilever rig must emit sculpted 3D mast, rack teeth, collar, and crossbar quads");
+
+    assert!(
+        relief.stack_molded_cell(1, 0, 1.5, Box::new(crate::block::CuboidShape::new(0.5))),
+        "Player must be able to build onto the gripped side face at (1, 0) height 1.5m"
+    );
+    assert!(relief.adjust_rig_at(0, 0, 1, false), "Hoisting rig by +1 step must raise the connected vehicle assembly");
+    assert!(
+        relief.layer_occupied_at(1, 0, 2.25) && relief.layer_occupied_at(2, 0, 2.25),
+        "Both the newly gripped block at (1, 0) and EngineCore at (2, 0) must rise to 2.0m..2.5m"
+    );
+    assert!(relief.adjust_rig_at(2, 0, 0, true), "Rotating rig assembly by 90 degrees must succeed");
+    assert_eq!(
+        relief.harvest_layer(0, 0, 0.25).1,
+        Some(crate::block::BlockMedium::CantileverRig),
+        "Harvesting the crane mast must fold it back into CantileverRig medium and dismantle the mounted engine"
+    );
+    assert!(!relief.layer_occupied_at(1, 1, 0.25), "Rotated engine at (1, 1) must be dismantled together with the crane");
+    assert!(relief.layer_occupied_at(1, 0, 0.25), "Attached non-engine vehicle blocks must settle onto ground layer 0.0m..0.5m");
+}
+
 

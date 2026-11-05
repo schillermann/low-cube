@@ -19,6 +19,8 @@ impl ReliefWall {
         &self, cell: GridCell, side: usize, edge: ((f32, f32), (f32, f32)), b_l: f32, b_r: f32, t_l: f32, t_r: f32,
         dug: bool, norm: Vec3, col: Vec3, floor_step: i32, vault: &CrustVault, relief: &dyn ReliefElevation, frame: &SurfaceFrame, target: &mut dyn MeshTarget,
     ) {
+        let floor_h = (floor_step as f32) * 0.5;
+        let (b_l, b_r) = (b_l.max(floor_h), b_r.max(floor_h));
         if t_l <= b_l && t_r <= b_r { return; }
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let ((a0, b0), (a1, b1), top_step) = (edge.0, edge.1, vault.crust_top_step_at(u, v));
@@ -58,7 +60,7 @@ impl ReliefWall {
         &self, u: i32, v: i32, u0: f32, u1: f32, v0: f32, v1: f32, h: i32, hn: i32, hs: i32, he: i32, hw: i32,
         corners: [f32; 4], vault: &CrustVault, relief: &dyn ReliefElevation, frame: &SurfaceFrame, cliff_col: Vec3, target: &mut dyn MeshTarget,
     ) {
-        let (dug_self, dirt_col, cell, floor_step) = (relief.reworked_at(u, v), Vec3::new(0.41, 0.27, 0.15), GridCell::new(u, v), vault.floor_steps_at(u, v));
+        let (dug_self, dirt_col, cell, floor_step) = (relief.reworked_at(u, v), Vec3::new(0.41, 0.27, 0.15), GridCell::new(u, v), relief.crust_floor_at(u, v));
         let (nhn, nhs, nhe, nhw) = (relief.natural_elevation_at(u, v + 1), relief.natural_elevation_at(u, v - 1), relief.natural_elevation_at(u + 1, v), relief.natural_elevation_at(u - 1, v));
         if h >= hn {
             let fn_flat = relief.reworked_at(u, v + 1);

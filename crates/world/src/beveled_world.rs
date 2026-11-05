@@ -99,6 +99,10 @@ impl PlanetaryWorld for BeveledWorld {
         self.world.place_molded_surface_block(eye, direction, avatar_pos, mold)
     }
 
+    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
+        self.world.adjust_rig(eye, direction, delta_steps, rotate_quarter)
+    }
+
     fn step_surface(&mut self, dt: f32) -> bool {
         self.world.step_surface(dt)
     }

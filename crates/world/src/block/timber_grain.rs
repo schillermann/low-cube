@@ -13,6 +13,11 @@ pub enum BlockMedium {
     QuarriedStone,
     RawTimber,
     PlanedPlanks,
+    Sand,
+    CantileverRig,
+    CarEngine,
+    AircraftEngine,
+    RocketEngine,
 }
 
 impl BlockMedium {
@@ -21,13 +26,27 @@ impl BlockMedium {
         !matches!(self, Self::TurfEarth)
     }
 
+    /// Indicates whether this block medium settles downward under planetary gravity when unsupported below.
+    pub const fn settles_under_gravity(self) -> bool {
+        matches!(self, Self::Sand)
+    }
+
+    /// Indicates whether this block medium is a vehicle engine block mountable on a cantilever rig.
+    pub const fn vehicle_engine(self) -> bool {
+        matches!(self, Self::CarEngine | Self::AircraftEngine | Self::RocketEngine)
+    }
+
     /// Primary and secondary debris particle colors emitted when striking this block medium.
     pub const fn debris_tones(self) -> (Vec3, Vec3) {
         match self {
             Self::TurfEarth => (Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.32, 0.22, 0.13)),
             Self::CrustRock => (Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.25, 0.21, 0.20)),
             Self::QuarriedStone => (Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.46, 0.48, 0.50)),
-            Self::RawTimber | Self::PlanedPlanks => (Vec3::new(0.82, 0.66, 0.42), Vec3::new(0.58, 0.42, 0.24)),
+            Self::RawTimber | Self::PlanedPlanks | Self::CantileverRig => (Vec3::new(0.82, 0.66, 0.42), Vec3::new(0.58, 0.42, 0.24)),
+            Self::Sand => (Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.74, 0.64, 0.40)),
+            Self::CarEngine => (Vec3::new(0.98, 0.68, 0.18), Vec3::new(0.34, 0.38, 0.44)),
+            Self::AircraftEngine => (Vec3::new(0.22, 0.88, 0.98), Vec3::new(0.54, 0.62, 0.72)),
+            Self::RocketEngine => (Vec3::new(0.99, 0.32, 0.14), Vec3::new(0.24, 0.22, 0.28)),
         }
     }
 
@@ -82,6 +101,7 @@ impl BlockMedium {
         let vault = crate::CrustVault::beneath(64);
         let geom = vault.geometry(frame);
         let ((u0, u1), (v0, v1), y0, y1) = (cell.u_bounds(), cell.v_bounds(), floor_elev, floor_elev + 0.5);
+        let layer = (floor_elev * 2.0).round() as i32;
         geom.emit_crust_floor(cell, y1, false, target);
         geom.emit_shaft_ceiling(cell, y0, 1.0, target);
         for (edge, norm) in [
@@ -90,7 +110,7 @@ impl BlockMedium {
             (((u1, v0), (u1, v1)), frame.tangent()),
             (((u0, v1), (u0, v0)), -frame.tangent()),
         ] {
-            geom.emit_crust_flank(edge, 0, -2, norm, target);
+            geom.emit_crust_flank(edge, layer, layer - 2, norm, target);
         }
     }
     fn emit_planed_planks_cube(cell: GridCell, floor_elev: f32, cross_grain: bool, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
@@ -164,6 +184,54 @@ impl VoxelShape for MediumShape {
                 let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.50, 0.51, 0.53), false);
                 self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.50, 0.51, 0.53), &mut turf);
                 turf.seal_underside();
+            }
+            (BlockMedium::Sand, _) => {
+                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.78, 0.68, 0.44), false);
+                self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.78, 0.68, 0.44), &mut turf);
+                turf.seal_underside();
+            }
+            (BlockMedium::CantileverRig, _) => {
+                BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain, frame, target);
+            }
+            (BlockMedium::CarEngine | BlockMedium::AircraftEngine | BlockMedium::RocketEngine, _) => {
+                let ((u0, u1), (v0, v1), top_elev) = (cell.u_bounds(), cell.v_bounds(), floor_elevation + 0.5);
+                let (chassis, rib, top_glow, lens_glow) = match self.medium {
+                    BlockMedium::CarEngine => (
+                        Vec3::new(0.34, 0.36, 0.40),
+                        Vec3::new(0.72, 0.56, 0.26),
+                        Vec3::new(0.98, 0.68, 0.16),
+                        Vec3::new(0.99, 0.82, 0.28),
+                    ),
+                    BlockMedium::AircraftEngine => (
+                        Vec3::new(0.48, 0.56, 0.66),
+                        Vec3::new(0.74, 0.82, 0.90),
+                        Vec3::new(0.20, 0.86, 0.98),
+                        Vec3::new(0.56, 0.96, 1.00),
+                    ),
+                    _ => (
+                        Vec3::new(0.22, 0.20, 0.26),
+                        Vec3::new(0.84, 0.64, 0.22),
+                        Vec3::new(0.99, 0.32, 0.12),
+                        Vec3::new(0.98, 0.18, 0.46),
+                    ),
+                };
+                BlockMedium::emit_box(u0, u1, v0, v1, floor_elevation, top_elev, frame, chassis, rib, true, target);
+                BlockMedium::emit_box(u0 + 0.10, u1 - 0.10, v0 + 0.10, v1 - 0.10, top_elev, top_elev + 0.016, frame, top_glow, top_glow, false, target);
+                let (n, t) = (frame.normal(), frame.tangent());
+                let [p0, p1, p2, p3] = [
+                    frame.point_at(u0 + 0.11, v0 + 0.11, top_elev + 0.017),
+                    frame.point_at(u1 - 0.11, v0 + 0.11, top_elev + 0.017),
+                    frame.point_at(u1 - 0.11, v1 - 0.11, top_elev + 0.017),
+                    frame.point_at(u0 + 0.11, v1 - 0.11, top_elev + 0.017),
+                ];
+                target.push_quad(Quad::glowing(p0, p1, p2, p3, n, top_glow, 0.92));
+                let [c0, c1, c2, c3] = [
+                    frame.point_at(u1 + 0.005, v0 + 0.13, floor_elevation + 0.13),
+                    frame.point_at(u1 + 0.005, v1 - 0.13, floor_elevation + 0.13),
+                    frame.point_at(u1 + 0.005, v1 - 0.13, top_elev - 0.13),
+                    frame.point_at(u1 + 0.005, v0 + 0.13, top_elev - 0.13),
+                ];
+                target.push_quad(Quad::glowing(c0, c1, c2, c3, t, lens_glow, 0.95));
             }
             (BlockMedium::CrustRock, false) => {
                 let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.31, 0.27, 0.25), false);

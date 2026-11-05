@@ -20,16 +20,20 @@ pub enum HeldRelic {
     TimberBlock,
     PlankBlock,
     CrustBlock,
+    CantileverCrane,
+    CarEngine,
+    AircraftEngine,
+    RocketEngine,
 }
 
 impl HeldRelic {
     #[cfg(test)]
     pub fn next(self) -> Self {
-        Self::from_code((self.code() + 1) % 13)
+        Self::from_code((self.code() + 1) % 17)
     }
 
     pub const fn from_code(code: u8) -> Self {
-        match code % 13 {
+        match code % 17 {
             0 => Self::EmptyPalm,
             1 => Self::QuarriedStone,
             2 => Self::TimberTorch,
@@ -42,7 +46,11 @@ impl HeldRelic {
             9 => Self::FlintStone,
             10 => Self::TimberBlock,
             11 => Self::PlankBlock,
-            _ => Self::CrustBlock,
+            12 => Self::CrustBlock,
+            13 => Self::CantileverCrane,
+            14 => Self::CarEngine,
+            15 => Self::AircraftEngine,
+            _ => Self::RocketEngine,
         }
     }
 
@@ -61,6 +69,10 @@ impl HeldRelic {
             Self::TimberBlock => 10,
             Self::PlankBlock => 11,
             Self::CrustBlock => 12,
+            Self::CantileverCrane => 13,
+            Self::CarEngine => 14,
+            Self::AircraftEngine => 15,
+            Self::RocketEngine => 16,
         }
     }
 
@@ -79,6 +91,10 @@ impl HeldRelic {
             Self::TimberBlock => "WOOD BLOCK",
             Self::PlankBlock => "WOOD PLANKS",
             Self::CrustBlock => "CRUST BLOCK",
+            Self::CantileverCrane => "CRANE LIFT",
+            Self::CarEngine => "CAR ENGINE",
+            Self::AircraftEngine => "PLANE ENGINE",
+            Self::RocketEngine => "ROCKET ENGINE",
         }
     }
 
@@ -101,7 +117,15 @@ impl HeldRelic {
     pub const fn placeable_block(self) -> bool {
         matches!(
             self,
-            Self::ExcavatedEarth | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock | Self::CrustBlock
+            Self::ExcavatedEarth
+                | Self::QuarriedStone
+                | Self::TimberBlock
+                | Self::PlankBlock
+                | Self::CrustBlock
+                | Self::CantileverCrane
+                | Self::CarEngine
+                | Self::AircraftEngine
+                | Self::RocketEngine
         )
     }
 
@@ -111,17 +135,25 @@ impl HeldRelic {
             Self::QuarriedStone => BlockMedium::QuarriedStone,
             Self::TimberBlock => BlockMedium::RawTimber,
             Self::PlankBlock => BlockMedium::PlanedPlanks,
+            Self::CantileverCrane => BlockMedium::CantileverRig,
+            Self::CarEngine => BlockMedium::CarEngine,
+            Self::AircraftEngine => BlockMedium::AircraftEngine,
+            Self::RocketEngine => BlockMedium::RocketEngine,
             _ => BlockMedium::TurfEarth,
         }
     }
 
     pub const fn from_medium(medium: BlockMedium) -> Self {
         match medium {
-            BlockMedium::TurfEarth => Self::ExcavatedEarth,
+            BlockMedium::TurfEarth | BlockMedium::Sand => Self::ExcavatedEarth,
             BlockMedium::CrustRock => Self::CrustBlock,
             BlockMedium::QuarriedStone => Self::QuarriedStone,
             BlockMedium::RawTimber => Self::TimberBlock,
             BlockMedium::PlanedPlanks => Self::PlankBlock,
+            BlockMedium::CantileverRig => Self::CantileverCrane,
+            BlockMedium::CarEngine => Self::CarEngine,
+            BlockMedium::AircraftEngine => Self::AircraftEngine,
+            BlockMedium::RocketEngine => Self::RocketEngine,
         }
     }
 
@@ -133,6 +165,10 @@ impl HeldRelic {
             | Self::QuarriedStone
             | Self::TimberBlock
             | Self::PlankBlock
+            | Self::CantileverCrane
+            | Self::CarEngine
+            | Self::AircraftEngine
+            | Self::RocketEngine
             | Self::DeadwoodBough
             | Self::FlintStone => MartialStyle::PalmCradle,
             Self::IronSpade => MartialStyle::SpadeDig,

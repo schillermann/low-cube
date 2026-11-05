@@ -80,6 +80,9 @@ pub trait ReliefElevation: Send + Sync {
 
     /// Stacks one molded voxel block layer at (u, v).
     fn stack_molded_cell(&mut self, _u: i32, _v: i32, _base: f32, _shape: Box<dyn VoxelShape>) -> bool { false }
+
+    /// Raises, lowers, or rotates a polyhedral cantilever rig at or holding (u, v).
+    fn adjust_rig_at(&mut self, _u: i32, _v: i32, _delta_steps: i32, _rotate_quarter: bool) -> bool { false }
 }
 
 /// Zoned planetary relief evaluating continuous spatial frequency into stepped voxel strata.

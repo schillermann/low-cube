@@ -48,7 +48,13 @@ impl SurfaceStride {
     ) -> Vec3 {
         let (first, second) = self.axial_decomposition();
         let orig_surf = envelope.constrain_with_height(origin, eye, world);
-        let resting_pos = if crate::threshold::SurfaceClearance::between(origin, origin, orig_surf, self.surface_up, world).passable_with(seam_allowed) { orig_surf } else { origin };
+        let resting_pos = if crate::threshold::SurfaceClearance::between(origin, origin, orig_surf, self.surface_up, world).passable_with(seam_allowed)
+            && crate::threshold::SurfaceStep::new(origin, orig_surf, self.surface_up).walkable_with(limit)
+        {
+            orig_surf
+        } else {
+            origin
+        };
         let resting = RestingStride::new(resting_pos);
         let trial_second = WalkTrial::new(origin, second, self.surface_up, eye, envelope, limit, seam_allowed, world);
         let lateral = DeflectedStride::new(&trial_second, &resting);

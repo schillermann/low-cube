@@ -6,14 +6,14 @@ use super::relic::HeldRelic;
 /// Encapsulates stowed satchel items, WASD inspection cursor, and waist-grid rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SatchelTray {
-    stowed: [u32; 13],
+    stowed: [u32; 17],
     active_side: f32,
     cursor: usize,
     open: bool,
 }
 
 impl SatchelTray {
-    pub const fn new(stowed: [u32; 13], active_side: f32, cursor: usize, open: bool) -> Self {
+    pub const fn new(stowed: [u32; 17], active_side: f32, cursor: usize, open: bool) -> Self {
         Self {
             stowed,
             active_side,
@@ -64,6 +64,9 @@ impl SatchelTray {
             HeldRelic::QuarriedStone,
             HeldRelic::TimberBlock,
             HeldRelic::PlankBlock,
+            HeldRelic::CarEngine,
+            HeldRelic::AircraftEngine,
+            HeldRelic::RocketEngine,
         ]
         .iter()
         .any(|&relic| self.count(relic) > 0)
@@ -72,6 +75,9 @@ impl SatchelTray {
     pub fn packed_slots(&self) -> ([HeldRelic; 9], usize) {
         let (mut slots, mut len) = ([HeldRelic::EmptyPalm; 9], 0usize);
         let materials = [
+            HeldRelic::CarEngine,
+            HeldRelic::AircraftEngine,
+            HeldRelic::RocketEngine,
             HeldRelic::ExcavatedEarth,
             HeldRelic::CrustBlock,
             HeldRelic::QuarriedStone,
@@ -87,6 +93,7 @@ impl SatchelTray {
             }
         }
         let tools = [
+            HeldRelic::CantileverCrane,
             HeldRelic::IronSpade,
             HeldRelic::WoodmanAxe,
             HeldRelic::KnightlySword,

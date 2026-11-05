@@ -65,11 +65,38 @@ impl RelicFigure {
             .emit(&cradle.pitched(-0.20).yawed(-0.52), true, target);
     }
 
+    fn emit_cantilever(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
+        let (stone, iron_dark, iron_steel, timber, brass, amber) = (
+            Vec3::new(0.54, 0.56, 0.60),
+            Vec3::new(0.26, 0.30, 0.36),
+            Vec3::new(0.44, 0.48, 0.54),
+            Vec3::new(0.76, 0.56, 0.32),
+            Vec3::new(0.88, 0.72, 0.28),
+            Vec3::new(0.98, 0.68, 0.18),
+        );
+        TaperedPrism::new(8, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.016, 0.0), 0.046, 0.046, 0.042, 0.042, stone).emit(cradle, true, target);
+        TaperedPrism::new(6, Vec3::new(-0.022, 0.014, 0.0), Vec3::new(-0.022, 0.032, 0.0), 0.020, 0.020, 0.018, 0.018, iron_dark).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(-0.022, 0.026, 0.0), Vec3::new(-0.022, 0.165, 0.0), 0.012, 0.011, timber).emit(cradle, true, target);
+        TaperedPrism::new(6, Vec3::new(-0.022, 0.105, 0.0), Vec3::new(-0.022, 0.136, 0.0), 0.016, 0.016, 0.016, 0.016, iron_dark).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(-0.022, 0.120, -0.020), Vec3::new(-0.022, 0.120, 0.020), 0.007, 0.007, brass).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(-0.022, 0.068, 0.0), Vec3::new(0.024, 0.122, 0.0), 0.008, 0.008, iron_steel).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(-0.026, 0.122, 0.0), Vec3::new(0.056, 0.122, 0.0), 0.010, 0.010, timber).emit(cradle, true, target);
+        TaperedPrism::new(6, Vec3::new(0.054, 0.102, 0.0), Vec3::new(0.054, 0.142, 0.0), 0.012, 0.022, 0.012, 0.022, iron_dark).emit(cradle, true, target);
+        TaperedPrism::new(6, Vec3::new(0.062, 0.108, 0.0), Vec3::new(0.062, 0.136, 0.0), 0.010, 0.016, 0.010, 0.016, amber).emit(cradle, true, target);
+    }
+
     pub fn emit_in_palm(self, side: f32, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let (gx, gz) = (-side * 0.025, 0.054);
         match self.relic {
             HeldRelic::EmptyPalm => {}
-            HeldRelic::QuarriedStone | HeldRelic::ExcavatedEarth | HeldRelic::TimberBlock | HeldRelic::PlankBlock | HeldRelic::CrustBlock => {
+            HeldRelic::QuarriedStone
+            | HeldRelic::ExcavatedEarth
+            | HeldRelic::TimberBlock
+            | HeldRelic::PlankBlock
+            | HeldRelic::CrustBlock
+            | HeldRelic::CarEngine
+            | HeldRelic::AircraftEngine
+            | HeldRelic::RocketEngine => {
                 frame.emit_cradled_block(
                     side,
                     Vec3::new(-side * 0.015, 0.001, 0.048),
@@ -137,6 +164,7 @@ impl RelicFigure {
                 TaperedPrism::new(4, Vec3::new(gx, 0.230, gz + 0.008), Vec3::new(gx, 0.345, gz + 0.016), 0.007, 0.052, 0.006, 0.046, spade_steel).emit(frame, true, target);
                 TaperedPrism::new(4, Vec3::new(gx, 0.345, gz + 0.016), Vec3::new(gx, 0.395, gz + 0.022), 0.006, 0.046, 0.002, 0.018, honed_edge).emit(frame, true, target);
             }
+            HeldRelic::CantileverCrane => Self::emit_cantilever(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), target),
         }
     }
 
@@ -149,11 +177,19 @@ impl RelicFigure {
         let showcase = slot_frame.shifted(0.0, 0.0, -0.048).pitched(-0.46).yawed(0.64);
         match self.relic {
             HeldRelic::EmptyPalm => {}
-            HeldRelic::ExcavatedEarth | HeldRelic::QuarriedStone | HeldRelic::TimberBlock | HeldRelic::PlankBlock | HeldRelic::CrustBlock => {
+            HeldRelic::ExcavatedEarth
+            | HeldRelic::QuarriedStone
+            | HeldRelic::TimberBlock
+            | HeldRelic::PlankBlock
+            | HeldRelic::CrustBlock
+            | HeldRelic::CarEngine
+            | HeldRelic::AircraftEngine
+            | HeldRelic::RocketEngine => {
                 showcase.emit_upright_block(Vec3::new(0.0, -0.025, 0.0), self.mold.in_medium(self.relic.block_medium()), 0.082, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.56, 0.41, 0.25), &mut lit);
             }
             HeldRelic::DeadwoodBough => Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit),
             HeldRelic::FlintStone => Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit),
+            HeldRelic::CantileverCrane => Self::emit_cantilever(&showcase.shifted(0.0, -0.032, 0.0).scaled(0.44), &mut lit),
             _ => {
                 let (scale, yaw, mid_y, mid_z) = match self.relic {
                     HeldRelic::KnightlySword => (0.090, 0.45, 0.285, 0.054),

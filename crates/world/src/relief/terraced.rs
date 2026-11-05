@@ -136,4 +136,8 @@ impl ReliefElevation for TerracedRelief {
         let sub = !self.breached_at(u, v) && base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
         self.molds.stack_molded(u, v, ground_top, sub, base, shape)
     }
+
+    fn adjust_rig_at(&mut self, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool) -> bool {
+        self.molds.adjust_rig(&self.strata, &self.shafts, u, v, delta_steps, rotate_quarter)
+    }
 }

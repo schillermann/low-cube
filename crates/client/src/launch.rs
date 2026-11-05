@@ -6,7 +6,7 @@ use engine::{
     VoxelShaderSource,
 };
 use world::{BiomedCubeWorld, PlanetaryWorld};
-use crate::attire::{AttireProfile, FileAttire};
+use crate::attire::{AttireProfile, FileAttire, HeldRelic};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::CalibratedCanopy;
 use crate::avatar::PlanetaryAvatar;
@@ -120,14 +120,19 @@ impl SessionAssembly for SessionLaunch {
         let half = (self.cosmos.world_blocks as f32) * 0.5;
         let spawn_position = planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0);
         let flight = self.cosmos.physics.surface_flight(1.0);
-        let attire = FileAttire::profile().load_or_squire();
+        let attire = FileAttire::profile()
+            .load_or_squire()
+            .with_hand_relic(1.0, HeldRelic::CantileverCrane);
         let bindings = FileBindings::profile().load_or_seeded();
-        let avatar = Box::new(PlanetaryAvatar::with_attire_and_bindings(
-            spawn_position,
-            flight,
-            attire,
-            bindings,
-        ));
+        let avatar = Box::new(
+            PlanetaryAvatar::with_attire_and_bindings(
+                spawn_position,
+                flight,
+                attire,
+                bindings,
+            )
+            .with_test_engines(),
+        );
         let controls = Box::new(KeyMotion::with_bindings(bindings));
         let modal = Box::new(EscapeMenu::closed());
 

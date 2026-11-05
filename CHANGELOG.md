@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-05
+
+### Added
+- Added polyhedral non-block cantilever crane (`CantileverRig`, `RigRegistry`, and `RigGeometry` in `crates/world/src/relief/cantilever_rig/`) with continuous 45-degree diagonal knee brace, auto-retracting telescopic gripper, vertical hoisting, 90-degree vehicle cluster rotation, and artisan tome recipe (`HeldRelic::CantileverCrane`).
+- Added three vehicle engine blocks (`CarEngine`, `AircraftEngine`, and `RocketEngine` in `BlockMedium` and `HeldRelic`) that snap into the deployed crane's lateral clamping jaw and dismantle together with the crane when packed up.
+- Added unified 3D block model features: gravity-settling `BlockMedium::Sand`, interior horizontal face culling (`FlankMeshTarget` in `crates/world/src/block/elevated_shape.rs`), and concept sheet `hebebuehne_varianten.png`.
+
+### Changed
+- Unified subterranean crust floor with the indestructible lethal Magma/Core block floor (`MagmaCore` / `VaultGeometry`), removing the hollow subterranean cavity and weightlessness while preserving multi-story surface building confinement (`MoldedColumn`).
+- Seeded player startup gear (`SessionLaunch::assemble` and `BeltSatchel::with_test_engines`) with the cantilever crane in the right hand and all three vehicle engines in the belt satchel for immediate testing.
+
 ## [0.44.5] - 2026-11-05
 
 ### Added

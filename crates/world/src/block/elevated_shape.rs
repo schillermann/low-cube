@@ -1,9 +1,23 @@
 use glam::Vec3;
-use crate::{CrateredMeshTarget, MeshTarget};
+use crate::{CrateredMeshTarget, MeshTarget, Quad};
 use crate::frame::SurfaceFrame;
 use super::cell::GridCell;
 use super::shape::VoxelShape;
 use super::timber_grain::BlockMedium;
+
+struct FlankMeshTarget<'a> {
+    inner: &'a mut dyn MeshTarget,
+    up: Vec3,
+}
+
+impl<'a> MeshTarget for FlankMeshTarget<'a> {
+    fn push_quad(&mut self, quad: Quad) {
+        let horizontal = quad.transfer(|_, _, _, _, norm, _| norm.dot(self.up).abs() > 0.9);
+        if !horizontal {
+            self.inner.push_quad(quad);
+        }
+    }
+}
 
 const BLOCK_HEIGHT: f32 = GridCell::SPAN;
 const SURFACE_CONTACT_TOLERANCE: f32 = 0.1;
@@ -33,6 +47,21 @@ impl ElevatedShape {
     /// Material medium of the underlying sculpted voxel shape.
     pub fn block_medium(&self) -> BlockMedium {
         self.shape.block_medium()
+    }
+
+    /// Indicates whether this elevated block settles downward under gravity when unsupported below.
+    pub fn settles_under_gravity(&self) -> bool {
+        self.shape.block_medium().settles_under_gravity()
+    }
+
+    /// Settles this block downward by a single 0.5m layer step.
+    pub fn settle_step(&mut self) {
+        self.elevation_offset -= BLOCK_HEIGHT;
+    }
+
+    /// Shifts this block's vertical elevation by `delta` meters.
+    pub fn shift_elevation(&mut self, delta: f32) {
+        self.elevation_offset += delta;
     }
 
     /// Indicates whether this elevated block sits away from the primary surface contact layer.
@@ -92,11 +121,17 @@ impl ElevatedShape {
         top_color: Vec3,
         wall_color: Vec3,
         bare_top: bool,
+        flank_only: bool,
         stage: u8,
         target: &mut dyn MeshTarget,
     ) {
         let mut cratered = CrateredMeshTarget::new(target, stage);
-        self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, bare_top, &mut cratered);
+        if flank_only && stage == 0 {
+            let mut flank = FlankMeshTarget { inner: &mut cratered, up: frame.normal() };
+            self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, bare_top, &mut flank);
+        } else {
+            self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, bare_top, &mut cratered);
+        }
     }
 }
 

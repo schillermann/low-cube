@@ -1,3 +1,4 @@
+mod cantilever_rig;
 mod column_clearance;
 mod corner;
 mod crust_vault;

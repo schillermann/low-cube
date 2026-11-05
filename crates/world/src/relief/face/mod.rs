@@ -178,6 +178,20 @@ impl Face for FacetedReliefFace {
         false
     }
 
+    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
+        let half = self.cache.half_blocks();
+        let half_size = self.domain.frame.step_elevation(half);
+        if let Some((cu, cv, _)) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)
+        {
+            if self.domain.relief.adjust_rig_at(cu, cv, delta_steps, rotate_quarter) {
+                self.refresh_neighborhood(cu, cv, half);
+                return true;
+            }
+        }
+        false
+    }
+
     fn step_surface(&mut self, dt: f32) -> bool {
         let (half, cells) = (self.cache.half_blocks(), self.domain.relief.step_grass(dt));
         for &(cu, cv) in &cells {

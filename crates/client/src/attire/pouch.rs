@@ -33,7 +33,7 @@ pub struct BeltSatchel {
 impl BeltSatchel {
     #[allow(clippy::too_many_arguments)]
     pub const fn new(
-        right_blocks: u32, left_blocks: u32, stowed: [u32; 13], right_mold: BlockMold, left_mold: BlockMold,
+        right_blocks: u32, left_blocks: u32, stowed: [u32; 17], right_mold: BlockMold, left_mold: BlockMold,
         active_side: f32, cursor: usize, open: bool,
     ) -> Self {
         Self {
@@ -42,7 +42,14 @@ impl BeltSatchel {
         }
     }
 
-    pub const fn empty() -> Self { Self::new(0, 0, [0; 13], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false) }
+    pub const fn empty() -> Self { Self::new(0, 0, [0; 17], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false) }
+
+    pub fn with_test_engines(mut self) -> Self {
+        self.tray.stow_relic(HeldRelic::RocketEngine, 1);
+        self.tray.stow_relic(HeldRelic::AircraftEngine, 1);
+        self.tray.stow_relic(HeldRelic::CarEngine, 1);
+        self
+    }
     pub const fn open(&self) -> bool { self.tray.open() }
     pub const fn with_open(mut self, open: bool) -> Self { self.tray = self.tray.with_open(open); self }
 
@@ -134,6 +141,13 @@ impl BeltSatchel {
     }
 
     pub fn collect_excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
+        if relic == HeldRelic::CantileverCrane {
+            for eng in [HeldRelic::RocketEngine, HeldRelic::AircraftEngine, HeldRelic::CarEngine] {
+                if self.resource_tally(eng, attire) == 0 {
+                    self.tray.stow_relic(eng, 1);
+                }
+            }
+        }
         let (hand, other) = attire.hand_pair(side);
         if hand.free_palm() || other.free_palm() {
             let (target, opp) = if hand.free_palm() { (side, other) } else { (-side, hand) };

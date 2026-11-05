@@ -96,12 +96,20 @@ impl AvatarGear {
         self.bindings = bindings;
     }
 
+    pub fn seed_test_engines(&mut self) {
+        self.earthworks = self.earthworks.with_test_engines();
+    }
+
     pub fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
         let (ew, attire, handled) = self.earthworks.handle_trigger(trigger, &self.bindings, self.attire);
         if handled {
             (self.earthworks, self.attire) = (ew, attire);
         }
         handled
+    }
+
+    pub fn try_adjust_rig(&self, trigger: InputTrigger, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
+        self.earthworks.try_adjust_rig(trigger, &self.bindings, eye, view_dir, world)
     }
 
     pub fn act_with_hand(&mut self, side: f32, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> (StrideRhythm, bool) {
