@@ -109,9 +109,9 @@ fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface
 
     assert!(!avatar.use_right_hand(&mut world));
     assert!(avatar.use_right_hand(&mut world), "Digging one dirt block above the 4-layer crust");
-    for _ in 0..30 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
+    for _ in 0..90 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
     let dirt_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(dirt_eye.y > crust_eye.y + 0.3 && !world.weightless_at(dirt_eye), "Avatar must ascend ~1 dirt block above crust, got {dirt_eye:?}");
+    assert!(dirt_eye.y > crust_eye.y + 0.3 && dirt_eye.y < 27.5 && !world.weightless_at(dirt_eye), "Touching the dirt block ceiling with head must never catapult avatar to surface, got {dirt_eye:?}");
     controls.register_key(KeyCode::Space, false);
     for _ in 0..90 { avatar.step_motion(1.0 / 60.0, &controls, &world); }
     let settled_eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
@@ -233,4 +233,30 @@ fn test_neck_remains_anchored_to_torso_when_head_tilts_back_and_server_scale_val
 #[should_panic(expected = "minimum allowed setting is 1")]
 fn test_server_scale_rejects_factor_below_one() {
     crate::server_scale::ScaledCube::parse("0", "--size");
+}
+
+#[test]
+fn test_head_contact_beneath_subterranean_dirt_block_never_catapults_to_surface_or_strips_grass() {
+    use crate::attire::{HeldRelic, YouthAttire};
+    let mut world = BiomedCubeWorld::beveled(64, 1.0);
+    let mut avatar = PlanetaryAvatar::at(Vec3::new(1.25, 22.8, 1.25));
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    avatar.rotate_view(0.0, -2000.0);
+    let mut controls = KeyMotion::idle();
+    controls.register_key(KeyCode::Space, true);
+    for layer in 0..14 {
+        assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world), "Must dig upward layer {layer}");
+        for _ in 0..90 {
+            avatar.step_motion(1.0 / 60.0, &controls, &world);
+            let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+            assert!(eye.y < 31.8, "Layer {layer}: touching dirt ceiling with head must never catapult avatar to surface, got {eye:?}");
+        }
+    }
+    assert!(world.excavate_surface(Vec3::new(1.25, 27.0, 1.25), Vec3::new(1.0, 0.5, 0.0).normalize()));
+    let mut niche_climber = PlanetaryAvatar::at(Vec3::new(1.65, 27.25, 1.25));
+    for _ in 0..90 {
+        niche_climber.step_motion(1.0 / 60.0, &controls, &world);
+        let eye = niche_climber.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+        assert!(eye.y < 28.2, "Moving upward with Space under an overhanging dirt block must never catapult avatar to surface, got {eye:?}");
+    }
 }

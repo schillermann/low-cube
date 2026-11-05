@@ -80,18 +80,20 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
   - `SurfaceFrame` (`crates/world/src/frame.rs`): Local 3D face coordinate frame (`point_at`, `planar_coords`, `cell_at`, `step_elevation`).
   - `GridCell` (`crates/world/src/block/cell.rs`): 0.5-unit terrain cell (`GridCell::SPAN`, `at_planar`, `center`, `corners`).
 - **Terrain Relief, Excavation & Soil Clods (`crates/world/src/relief/`)**:
-  - `TerracedRelief` (`terraced.rs`): Decorator over `FacetedReliefFace` coordinating block mutations, cavities, and strata.
-  - `StrataShell` (`strata.rs`): Subterranean crust layers, hollow-world vault ceiling, and glowing magma core.
-  - `BlockFacets` (`facets.rs`): Beveled surface block emission, wall sealing, and damage craters (`BlockFissure` in `block/fissure.rs`).
-  - `EarthClods` (`block/earth_clods.rs`): Turf clod and soil pebble structure on top, walls, and overhanging undersides (`emit_terraced`, `emit_crown`, `emit_sole`).
-  - `SurfaceSightRay` (`sight_ray.rs`): 3D voxel raycast for excavating and placing blocks (`brow_origin`, `target_excavation`, `target_placement`).
+  - `TerracedRelief` (`terraced.rs`) & `FacetedReliefFace` (`face/mod.rs` & `face/cache.rs`): Decorator over cached relief faces composing `NaturalStrata`, `ShaftExcavation`, and `OverhangMolds`.
+  - `ColumnClearance` (`column_clearance.rs`): Unified 3D vertical column support, crust/shaft confinement (`confine`), weightlessness, and ray-hit resolution.
+  - `ShaftExcavation` (`shaft_excavation.rs`) & `OverhangMolds` (`overhang_molds.rs`) & `TurfScars` (`turf_scars.rs`): Downward/upward shafts, overhanging voxel molds, bare-dirt regrowth, and dig-crack stages.
+  - `NaturalStrata` (`natural_strata.rs`), `CrustVault` (`crust_vault/mod.rs` & `crust_vault/mesh.rs`) & `MagmaCore` (`magma_core.rs`): Subterranean crust layers, hollow-world vault ceiling, and glowing magma core.
+  - `SurfaceSightRay` (`sight_ray/mod.rs` & `sight_ray/contact.rs`): 3D voxel raycast for excavating and placing blocks (`brow_origin`, `target_layer`, `placement_cell`).
 - **Trees & Biomes (`crates/world/src/tree/`)**:
   - `WoodlandGround` $\rightarrow$ `StandingTree` $\rightarrow$ `SolidArboreal` / `ClearedPlot` / `HewnTarget` composing `PrismTrunk`, `PolyhedralCrown`, `ConicalSkirt`, and `FloorLitter`.
 - **Avatar, Kinematics & Inventory (`crates/client/src/`)**:
-  - `PlanetaryAvatar` (`avatar.rs`): Composes `AvatarBody`, `AvatarSight`, `AvatarBearing`, and `AvatarGear`.
-  - `PalmEarthworks` (`earthworks.rs`) & `DigGrip`: Dual-hand excavation progress, foraging, block placement, and `BeltSatchel` (`attire/pouch.rs`).
-  - `YouthAttire` & `SatchelWardrobe` (`attire/mod.rs`): Wardrobe composition (`GarmentEnsemble`, `IdentityTraits`, `HeldHands`).
-  - `BodyPose` (`attire/pose.rs`) & `StrideRhythm` / `MartialStyle` (`attire/rhythm.rs`): 3D joint kinematics and polymorphic weapon/digging swings.
+  - `PlanetaryAvatar` (`avatar/mod.rs`): Composes `AvatarBody` & `AvatarSight` (`avatar/body_sight.rs`) and `AvatarBearing` & `AvatarGear` (`avatar/bearing_gear.rs`).
+  - `BodyEnvelope` (`envelope/mod.rs` & `envelope/crust.rs`): Horizontal stride/aerial collision and vertical crust/shaft confinement.
+  - `PalmEarthworks` (`earthworks/mod.rs` & `earthworks/debris.rs`) & `DigGrip` (`grip.rs`): Dual-hand excavation progress, debris splash, foraging, block placement, and `BeltSatchel` (`attire/pouch.rs`).
+  - `YouthAttire` & `SatchelWardrobe` (`attire/mod.rs`) & `HeldRelic` (`attire/relic/mod.rs`, `attire/relic/mesh.rs`): Wardrobe composition (`GarmentEnsemble`, `IdentityTraits`, `HeldHands`).
+  - `BodyPose` (`attire/pose/mod.rs` & `attire/pose/arms.rs`), `AvatarPosture` (`posture/mod.rs` & `posture/vital.rs`) & `StrideRhythm` / `MartialStyle` (`attire/rhythm/mod.rs` & `attire/rhythm/martial.rs`): 3D joint kinematics, cardiac core-hover strain, and polymorphic weapon/digging swings.
+  - `Session` (`session/mod.rs` & `session/display.rs`) & `WardrobeStudio` (`menu/studio/mod.rs` & `menu/studio/layout.rs`): Interactive window loop, GPU scene orchestration, and 3D wardrobe preview studio.
 
 ---
 

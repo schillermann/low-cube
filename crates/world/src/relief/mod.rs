@@ -1,3 +1,4 @@
+mod column_clearance;
 mod corner;
 mod crust_vault;
 mod elevation;
@@ -11,6 +12,7 @@ mod shaft_excavation;
 mod sight_ray;
 mod strata;
 mod terraced;
+mod turf_scars;
 mod wall;
 
 #[cfg(test)]
@@ -37,4 +39,3 @@ pub use terraced::TerracedRelief;
 pub use elevation::ZonedRelief;
 #[cfg(test)]
 pub use strata::ReliefStrata;
-

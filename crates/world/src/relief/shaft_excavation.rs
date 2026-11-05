@@ -6,13 +6,6 @@ use super::overhang_molds::OverhangMolds;
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
 const SHAFT_FLOOR_TOLERANCE: f32 = 0.1;
-const CEILING_CLEARANCE_INSET: f32 = 0.30;
-const NEIGHBOR_ESCAPE_MARGIN: f32 = 0.02;
-const SHAFT_WALL_MARGIN: f32 = 0.21;
-const UPWARD_CEILING_CATCH_SPAN: f32 = 2.0;
-const UPWARD_CEILING_FLOOR_INSET: f32 = 0.15;
-const VAULT_CEILING_FLOOR_INSET: f32 = 0.55;
-const SURFACE_HIT_TOLERANCE: f32 = 0.02;
 
 /// Excavated downward shaft deltas and upward crust-ceiling breach steps across a relief face.
 pub struct ShaftExcavation {
@@ -33,6 +26,10 @@ impl ShaftExcavation {
 
     pub fn pristine(&self) -> bool {
         self.deltas.is_empty()
+    }
+
+    pub fn ceilings_untouched(&self) -> bool {
+        self.ceilings.is_empty()
     }
 
     pub fn delta_at(&self, u: i32, v: i32) -> i32 {
@@ -123,93 +120,6 @@ impl ShaftExcavation {
         self.upward_at(u, v) > 0 && elev < (top as f32) * BLOCK_STEP
     }
 
-    fn cell_ceiling_at(&self, strata: &NaturalStrata, cu: i32, cv: i32) -> f32 {
-        if self.breached_at(strata, cu, cv) {
-            f32::INFINITY
-        } else if self.upward_at(cu, cv) > 0 {
-            (self.crust_floor_at(strata, cu, cv) as f32) * BLOCK_STEP - CEILING_CLEARANCE_INSET
-        } else {
-            let (cx, cy) = GridCell::new(cu, cv).center();
-            strata.vault().ceiling_height_at(cx, cy) - CEILING_CLEARANCE_INSET
-        }
-    }
-
-    fn solid_wall_at(&self, strata: &NaturalStrata, molds: &OverhangMolds, cu: i32, cv: i32, elev: f32) -> bool {
-        if self.breached_at(strata, cu, cv) {
-            return molds.layer_occupied_at(cu, cv, elev);
-        }
-        let ground = (self.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP;
-        let ceiling = self.cell_ceiling_at(strata, cu, cv);
-        molds.solid_wall_at(cu, cv, ground, ceiling, elev)
-    }
-
-    pub fn confine(&self, strata: &NaturalStrata, molds: &OverhangMolds, u: f32, v: f32, elev: f32) -> (f32, f32, f32) {
-        if self.pristine() && self.ceilings.is_empty() && molds.empty() {
-            return (u, v, strata.vault().confine(u, v, elev));
-        }
-        let (mut cu, mut cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
-        let (mut tu, mut tv) = (u, v);
-        let natural_top = (strata.elevation_at(cu, cv) as f32) * BLOCK_STEP;
-        if self.ceilings.is_empty() && molds.empty() && elev >= natural_top {
-            return (u, v, elev);
-        }
-        let sub_surface = elev < natural_top;
-        if sub_surface && self.solid_wall_at(strata, molds, cu, cv, elev) {
-            for (du, dv) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
-                let (nu, nv) = (cu + du, cv + dv);
-                if (self.upward_at(nu, nv) > 0 || self.breached_at(strata, nu, nv) || molds.present_at(nu, nv))
-                    && !self.solid_wall_at(strata, molds, nu, nv, elev)
-                {
-                    (tu, tv) = GridCell::new(nu, nv).clamp_interior(u, v, NEIGHBOR_ESCAPE_MARGIN);
-                    (cu, cv) = (nu, nv);
-                    break;
-                }
-            }
-        }
-        if sub_surface && (self.upward_at(cu, cv) > 0 || self.adjacent_upward_at(strata, cu, cv) > i32::MIN) && !self.solid_wall_at(strata, molds, cu, cv, elev) {
-            let walls = (
-                self.solid_wall_at(strata, molds, cu - 1, cv, elev),
-                self.solid_wall_at(strata, molds, cu + 1, cv, elev),
-                self.solid_wall_at(strata, molds, cu, cv - 1, elev),
-                self.solid_wall_at(strata, molds, cu, cv + 1, elev),
-            );
-            (tu, tv) = GridCell::new(cu, cv).clamp_walled(tu, tv, SHAFT_WALL_MARGIN, walls);
-        }
-        let ground = (self.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP;
-        let z = if let Some(confined) = molds.confine_niche_elevation(cu, cv, ground, elev).filter(|_| elev >= ground - SHAFT_FLOOR_TOLERANCE) {
-            confined
-        } else if self.breached_at(strata, cu, cv) || elev >= ground {
-            elev
-        } else if self.upward_at(cu, cv) > 0 {
-            let ceiling = (self.crust_floor_at(strata, cu, cv) as f32) * BLOCK_STEP - CEILING_CLEARANCE_INSET;
-            if elev < ceiling + UPWARD_CEILING_CATCH_SPAN && elev > ceiling { ceiling } else { elev }
-        } else {
-            strata.vault().confine(tu, tv, elev)
-        };
-        (tu, tv, z)
-    }
-
-    pub fn crust_hit_top_at(&self, strata: &NaturalStrata, cu: i32, cv: i32, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
-        let (ground_h, ceil_h) = ((self.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP, (self.crust_floor_at(strata, cu, cv) as f32) * BLOCK_STEP);
-        let ground_surf = if self.reworked_at(cu, cv) { ground_h } else { strata.surface_height_at(u, v) };
-        let ceil_floor = if self.upward_at(cu, cv) > 0 {
-            ceil_h - UPWARD_CEILING_FLOOR_INSET
-        } else {
-            (strata.vault().ceiling_height_at(u, v) - VAULT_CEILING_FLOOR_INSET).min(ground_h - VAULT_CEILING_FLOOR_INSET)
-        };
-        if !self.breached_at(strata, cu, cv) && ray_elev >= ceil_floor && ray_elev <= ground_surf + SURFACE_HIT_TOLERANCE {
-            let top_layer_floor = (ground_h - BLOCK_STEP).min(ground_surf - SHAFT_FLOOR_TOLERANCE);
-            let hit = if ray_elev < ceil_h + BLOCK_STEP || ray_elev < top_layer_floor {
-                ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp(ceil_h + BLOCK_STEP, ground_h)
-            } else {
-                ground_h
-            };
-            Some(hit)
-        } else {
-            None
-        }
-    }
-
     pub fn diggable_at(&self, strata: &NaturalStrata, u: i32, v: i32, layer_elev: f32) -> bool {
         let crust = self.crust_floor_at(strata, u, v);
         let up_dig = layer_elev < (crust.max(self.adjacent_upward_at(strata, u, v)) as f32 + 1.0) * BLOCK_STEP;
@@ -236,11 +146,13 @@ impl ShaftExcavation {
             return ((u, v), None);
         }
         let medium = self.excavated_medium_at(strata, u, v, layer_elev);
-        if step_at <= crust && step_at < elev - 1 {
+        let upward_dig = !self.reworked_at(u, v) && self.upward_at(u, v) > 0;
+        if (step_at <= crust || upward_dig) && (step_at < elev - 1 || crust < elev - 1) {
             if self.adjacent_upward_at(strata, u, v) <= crust && !strata.vault().cell_opens(u, v) && self.upward_at(u, v) <= 0 {
                 return ((u, v), None);
             }
-            self.record_ceiling(u, v, crust + 1 - strata.vault().floor_steps_at(u, v));
+            let target_step = if upward_dig && step_at < elev - 1 { step_at.max(crust) } else { crust };
+            self.record_ceiling(u, v, target_step + 1 - strata.vault().floor_steps_at(u, v));
             return (molds.clear_stage(u, v), Some(medium));
         }
         let next_elev = if step_at < elev - 1 { step_at.max(crust) } else { self.deepened_steps(strata, u, v) };
@@ -249,7 +161,7 @@ impl ShaftExcavation {
         }
         if step_at < elev - 1 {
             molds.retain_overhang(strata, u, v, next_elev, elev);
-        } else {
+        } else if !molds.present_at(u, v) {
             molds.expose_dirt(u, v);
         }
         self.record_delta(u, v, next_elev - nat);

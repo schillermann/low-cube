@@ -1,8 +1,8 @@
 use glam::Vec3;
 use crate::{MeshTarget, Quad};
-use crate::block::{GridCell, InvertedShape, VoxelShape};
+use crate::block::{GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
-use super::magma_core::MagmaCore;
+use super::CrustVault;
 
 struct VaultCeilingTarget<'a> {
     vault: &'a CrustVault,
@@ -14,15 +14,20 @@ struct VaultCeilingTarget<'a> {
 impl MeshTarget for VaultCeilingTarget<'_> {
     fn push_quad(&mut self, quad: Quad) {
         let up = self.frame.normal();
+        let rad_sq = self.vault.radius() * self.vault.radius();
         quad.transfer(|v0, v1, v2, v3, normal, _| {
-            if normal.dot(up) >= -0.05 { return; }
+            if normal.dot(up) >= -0.05 {
+                return;
+            }
             let clamp_seam = |p: Vec3| {
                 let (a, b) = self.frame.decompose(p);
                 let reach = a * a + b * b + a.abs().max(b.abs()).powi(2);
-                if reach > self.vault.radius * self.vault.radius {
+                if reach > rad_sq {
                     let (sa, sb, sh) = self.vault.shell_point(a, b);
                     self.frame.point_at(sa, sb, sh)
-                } else { p }
+                } else {
+                    p
+                }
             };
             let (c0, c1, c2, c3) = (clamp_seam(v0), clamp_seam(v1), clamp_seam(v2), clamp_seam(v3));
             let (center, glow) = ((c0 + c1 + c2 + c3) * 0.25, if normal.dot(up) < -0.05 { 0.7 } else { 0.55 });
@@ -37,90 +42,14 @@ impl MeshTarget for VaultCeilingTarget<'_> {
     }
 }
 
-/// Spherical inner shell of the 4-layer planetary crust enclosing the hollow world with beveled ceiling blocks.
-#[derive(Clone, Copy, Debug)]
-pub struct CrustVault {
-    radius: f32,
-    half_blocks: i32,
-}
-
 impl CrustVault {
-    pub fn new(radius: f32, half_blocks: i32) -> Self { Self { radius, half_blocks } }
-    pub fn beneath(half_blocks: i32) -> Self {
-        let r = if half_blocks <= 16 { 4.0 } else if half_blocks < 128 { (half_blocks as f32) * 0.375 } else { (half_blocks as f32) * 0.421875 };
-        Self::new(r, half_blocks)
-    }
-    pub fn circumference(&self) -> f32 { std::f32::consts::TAU * self.radius }
-    pub fn core(&self) -> MagmaCore {
-        let drop = if self.half_blocks >= 128 { (self.half_blocks as f32) * (14.0 / 128.0) } else { 8.0 };
-        MagmaCore::new((self.radius - drop).max((self.radius - 2.0) * 0.5).max(1.0), self.half_blocks, (self.half_blocks / 16).max(1))
-    }
-    fn half_size(&self) -> f32 { (self.half_blocks as f32) * 0.5 }
-    pub fn ceiling_inset(&self, margin: f32) -> f32 { self.half_size() - self.radius + margin }
-
-    /// Face-local point on the vault vertically beneath (u, v), clamped onto this face's pyramid sector seam.
-    fn shell_point(&self, u: f32, v: f32) -> (f32, f32, f32) {
-        let reach = u * u + v * v + u.abs().max(v.abs()).powi(2);
-        let scale = if reach > self.radius * self.radius { self.radius / reach.sqrt() } else { 1.0 };
-        let (su, sv) = (u * scale, v * scale);
-        (su, sv, (self.radius * self.radius - su * su - sv * sv).max(0.0).sqrt() - self.half_size())
-    }
-
-    fn opens_at(&self, u: f32, v: f32) -> bool {
-        u * u + v * v + u.abs().max(v.abs()).powi(2) < self.radius * self.radius
-    }
-
-    pub fn cell_opens(&self, u: i32, v: i32) -> bool {
-        let ((u0, u1), (v0, v1)) = (GridCell::new(u, v).u_bounds(), GridCell::new(u, v).v_bounds());
-        [(u0, v0), (u1, v0), (u1, v1), (u0, v1)].iter().any(|&(a, b)| self.opens_at(a, b))
-    }
-
-    pub fn ceiling_height_at(&self, u: f32, v: f32) -> f32 {
-        let h = self.shell_point(u, v).2;
-        if self.opens_at(u, v) { (h * 4.0).round() * 0.25 } else { h }
-    }
-
-    /// Deepest 4-layer crust step of cell (u, v) directly above the spherical hollow world ceiling.
-    pub fn floor_steps_at(&self, u: i32, v: i32) -> i32 {
-        if self.cell_opens(u, v) {
-            let c = self.corners_at(u, v);
-            let max_c = c[0].max(c[1]).max(c[2]).max(c[3]);
-            ((max_c * 2.0).ceil() as i32).min(-4)
-        } else {
-            let (uc, vc) = ((u as f32) * 0.5 + 0.25, (v as f32) * 0.5 + 0.25);
-            ((self.ceiling_height_at(uc, vc) * 2.0).round() as i32 - 1).min(-4)
-        }
-    }
-
-    pub fn crust_top_step_at(&self, u: i32, v: i32) -> i32 { self.floor_steps_at(u, v) + 4 }
-    pub fn crust_layer_at(&self, u: i32, v: i32, layer: i32) -> bool { layer < self.crust_top_step_at(u, v) }
-    pub fn crust_surface_at(&self, u: i32, v: i32, top_step: i32) -> bool { self.crust_layer_at(u, v, top_step - 1) }
-
-    /// Indicates whether a point at tangential (u, v) and face elevation lies inside the vault by at least `margin`.
-    pub fn encloses(&self, u: f32, v: f32, elev: f32, margin: f32) -> bool {
-        Vec3::new(u, v, self.half_size() + elev).length() < self.radius - margin
-    }
-
-    /// Pushes an eye elevation that rose into the vault ceiling back beneath it so the crust stays opaque.
-    pub fn confine(&self, u: f32, v: f32, elev: f32) -> f32 {
-        if elev >= -0.5 {
-            return elev;
-        }
-        let (su, sv, shell_h) = self.shell_point(u, v);
-        let inner_r = (self.radius - 0.30).max(1.0);
-        let inner_h = (inner_r * inner_r - su * su - sv * sv).max(0.0).sqrt() - self.half_size();
-        let (cu, cv) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32);
-        let c = self.corners_at(cu, cv);
-        let low_block = c[0].min(c[1]).min(c[2]).min(c[3]) - 0.25;
-        let ceiling = inner_h.min(low_block).min(self.ceiling_height_at(u, v) - 0.30).min(shell_h - 0.30);
-        if elev < ceiling + 1.2 && elev > ceiling { ceiling } else { elev }
-    }
-
-    fn rock_tone(&self, at: Vec3) -> Vec3 {
+    pub(super) fn rock_tone(&self, at: Vec3) -> Vec3 {
         let dir = at.normalize();
         let vein = ((dir.x * 11.0 + dir.z * 4.0).sin() * (dir.y * 9.0 - dir.x * 3.0).cos()) * 0.5 + 0.5;
         let grit = (((at.x * 3.1).sin() + (at.y * 2.7).cos() + (at.z * 3.7).sin()) / 6.0 + 0.5).clamp(0.0, 1.0);
-        Vec3::new(0.35, 0.31, 0.28).lerp(Vec3::new(0.54, 0.38, 0.24), vein * 0.65).lerp(Vec3::new(0.25, 0.21, 0.20), grit * 0.45)
+        Vec3::new(0.35, 0.31, 0.28)
+            .lerp(Vec3::new(0.54, 0.38, 0.24), vein * 0.65)
+            .lerp(Vec3::new(0.25, 0.21, 0.20), grit * 0.45)
     }
 
     fn emit_crag_relief(q0: Vec3, q1: Vec3, q3: Vec3, out_n: Vec3, tint: f32, target: &mut dyn MeshTarget) {
@@ -137,8 +66,10 @@ impl CrustVault {
         ] {
             let (col, side_col) = (raw_col * tint, raw_col * (tint * 0.86));
             let [r0, r1, r2, r3] = [
-                q0 + va * a0 + vb * b0, q0 + va * a1 + vb * b0,
-                q0 + va * a1 + vb * b1, q0 + va * a0 + vb * b1,
+                q0 + va * a0 + vb * b0,
+                q0 + va * a1 + vb * b0,
+                q0 + va * a1 + vb * b1,
+                q0 + va * a0 + vb * b1,
             ];
             let [t0, t1, t2, t3] = [r0 + out_n * d, r1 + out_n * d, r2 + out_n * d, r3 + out_n * d];
             target.push_quad(Quad::glowing(t0, t1, t2, t3, out_n, col, glow));
@@ -151,7 +82,12 @@ impl CrustVault {
 
     pub fn emit_shaft_ceiling(&self, cell: GridCell, ceil_h: f32, tint: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
-        let (c0, c1, c2, c3) = (frame.point_at(u0, v0, ceil_h), frame.point_at(u1, v0, ceil_h), frame.point_at(u1, v1, ceil_h), frame.point_at(u0, v1, ceil_h));
+        let (c0, c1, c2, c3) = (
+            frame.point_at(u0, v0, ceil_h),
+            frame.point_at(u1, v0, ceil_h),
+            frame.point_at(u1, v1, ceil_h),
+            frame.point_at(u0, v1, ceil_h),
+        );
         target.push_quad(Quad::glowing(c3, c2, c1, c0, -frame.normal(), Vec3::new(0.31, 0.27, 0.25) * tint, 0.35));
         Self::emit_crag_relief(c3, c2, c0, -frame.normal(), tint, target);
     }
@@ -178,36 +114,12 @@ impl CrustVault {
         col
     }
 
-    fn block_at(&self, cell: GridCell) -> (f32, InvertedShape) {
-        let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
-        let q = [
-            (self.shell_point(u0, v0).2 * 4.0).round() as i32, (self.shell_point(u1, v0).2 * 4.0).round() as i32,
-            (self.shell_point(u1, v1).2 * 4.0).round() as i32, (self.shell_point(u0, v1).2 * 4.0).round() as i32,
-        ];
-        let (q_max, q_min) = (q[0].max(q[1]).max(q[2]).max(q[3]), q[0].min(q[1]).min(q[2]).min(q[3]));
-        let (floor_elev, drops) = if q_max == q_min {
-            if q_max.rem_euclid(2) == 0 { ((q_max as f32) * 0.25, [2, 2, 2, 2]) } else { (((q_max - 1) as f32) * 0.25, [1, 1, 1, 1]) }
-        } else {
-            let top_q = if q_max.rem_euclid(2) != 0 && q_max - q_min == 1 { q_max + 1 } else { q_max };
-            ((top_q as f32) * 0.25 - 0.5, q.map(|qi| (top_q - qi).clamp(0, 2)))
-        };
-        (floor_elev, InvertedShape::from_corner_drops(drops[0], drops[1], drops[2], drops[3]))
-    }
-    fn corners_at(&self, u: i32, v: i32) -> [f32; 4] {
-        let ((u0, u1), (v0, v1)) = (GridCell::new(u, v).u_bounds(), GridCell::new(u, v).v_bounds());
-        let (floor_elev, block) = self.block_at(GridCell::new(u, v));
-        let c = block.ceiling_corners(floor_elev);
-        [
-            if self.opens_at(u0, v0) { c[0] } else { self.shell_point(u0, v0).2 },
-            if self.opens_at(u1, v0) { c[1] } else { self.shell_point(u1, v0).2 },
-            if self.opens_at(u1, v1) { c[2] } else { self.shell_point(u1, v1).2 },
-            if self.opens_at(u0, v1) { c[3] } else { self.shell_point(u0, v1).2 },
-        ]
-    }
     /// Emits the magma-lit inward-facing beveled block ceiling beneath this cell.
     pub fn emit_ceiling(&self, cell: GridCell, dig_stage: u8, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
-        if !self.cell_opens(u, v) { return; }
+        if !self.cell_opens(u, v) {
+            return;
+        }
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
         let (floor_elev, block) = self.block_at(cell);
         let c = self.corners_at(u, v);
@@ -234,8 +146,12 @@ impl CrustVault {
                     ceiling_out.push_quad(Quad::new(mid, frame.point_at(a1, b1, cb), frame.point_at(a1, b1, nb), mid, norm, Vec3::ONE));
                 } else {
                     ceiling_out.push_quad(Quad::new(
-                        frame.point_at(a0, b0, ca.min(na)), frame.point_at(a1, b1, cb.min(nb)),
-                        frame.point_at(a1, b1, nb.max(cb)), frame.point_at(a0, b0, na.max(ca)), norm, Vec3::ONE,
+                        frame.point_at(a0, b0, ca.min(na)),
+                        frame.point_at(a1, b1, cb.min(nb)),
+                        frame.point_at(a1, b1, nb.max(cb)),
+                        frame.point_at(a0, b0, na.max(ca)),
+                        norm,
+                        Vec3::ONE,
                     ));
                 }
             }

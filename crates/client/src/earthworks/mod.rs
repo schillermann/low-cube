@@ -1,52 +1,16 @@
+mod debris;
+
 use glam::Vec3;
 use world::{BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, SurfaceFind};
 use crate::attire::{
-    ArtisanTome, BeltSatchel, BodyPose, FacetedSolid, HeldRelic, LimbFrame, SatchelWardrobe,
-    SightMode, StrideRhythm, TaperedPrism, Wardrobe, YouthAttire,
+    ArtisanTome, BeltSatchel, BodyPose, HeldRelic, SatchelWardrobe,
+    SightMode, StrideRhythm, Wardrobe, YouthAttire,
 };
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 pub use crate::grip::{DigGrip, DigStroke};
+use self::debris::{DebrisSplash, DigOperation};
 
 const EXCAVATION_THRESHOLD: u32 = 8;
-const SUBTERRANEAN_ROOF_OFFSET: f32 = 0.5;
-const OVERHEAD_AIM_DOT: f32 = 0.7;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct DebrisSplash { site: Vec3, medium: BlockMedium, active: bool }
-
-impl DebrisSplash {
-    const fn new(site: Vec3, medium: BlockMedium, active: bool) -> Self { Self { site, medium, active } }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct DigOperation { dig_progress: u32, grip: DigGrip, splash: DebrisSplash }
-
-impl DigOperation {
-    const fn new(dig_progress: u32, grip: DigGrip, splash: DebrisSplash) -> Self {
-        Self { dig_progress, grip, splash }
-    }
-
-    fn bare_hand_digging(self, attire: &YouthAttire) -> (bool, bool) {
-        let (r, l) = attire.held_pair();
-        self.grip.bare_hand_digging(r.placeable_block(), l.placeable_block(), self.dig_progress)
-    }
-
-    const fn ready_to_place(self, overhead: bool) -> bool {
-        self.grip.pending_place_any() && (self.dig_progress == 0 || (overhead && self.dig_progress <= 4))
-    }
-
-    fn clear_cracks(self, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.dig_progress > 0 { world.loosen_surface(eye, view_dir, 0).is_some() } else { false }
-    }
-
-    fn resolve_site(self, eye: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> Vec3 {
-        if self.splash.active {
-            self.splash.site
-        } else {
-            PalmEarthworks::locate_dig_site(eye, view_dir, world)
-        }
-    }
-}
 
 /// Immutable dual-hand block inventory, satchel inspection state, crafting tome, per-hand block molds, and excavation progress.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -148,49 +112,7 @@ impl PalmEarthworks {
     }
 
     pub fn emit_debris(&self, view_dir: Vec3, surface_up: Vec3, rhythm: StrideRhythm, target: &mut dyn MeshTarget) {
-        let t = rhythm.strike_progress();
-        if !self.dig.splash.active || t <= 0.01 { return; }
-        let right = view_dir.cross(surface_up).normalize_or_zero();
-        let frame = LimbFrame::new(self.dig.splash.site, right, surface_up, surface_up.cross(right).normalize_or_zero());
-        let (col_a, col_b) = self.dig.splash.medium.debris_tones();
-        let spray = [
-            (-0.85, 0.42, 0.30, 0.24, 0.019, 0.00), (0.78, 0.55, 0.34, 0.28, 0.022, 0.04),
-            (-0.35, -0.88, 0.26, 0.20, 0.017, 0.08), (0.46, -0.82, 0.32, 0.25, 0.020, 0.02),
-            (-0.92, -0.22, 0.28, 0.22, 0.016, 0.06), (0.90, -0.18, 0.35, 0.26, 0.018, 0.10),
-        ];
-        for (i, &(dx, dz, reach, apex, rad, delay)) in spray.iter().enumerate() {
-            let tk = ((t - delay) / (1.0 - delay)).clamp(0.0, 1.0);
-            if tk > 0.0 && tk < 1.0 {
-                let (dist, lift) = (0.02 + reach * tk, 4.0 * apex * tk * (1.0 - tk));
-                let col = if i % 2 == 0 { col_a } else { col_b };
-                let p = Vec3::new(dx * dist, lift, dz * dist);
-                TaperedPrism::new(4, p, p + Vec3::Y * (rad * 1.5), rad, rad, rad * 0.75, rad * 0.75, col).emit(&frame, true, target);
-            }
-        }
-    }
-
-    fn subterranean_eye(eye: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> bool {
-        world.weightless_at(eye) || (world.constrain_to_surface(eye, 0.0) - eye).dot(up) > SUBTERRANEAN_ROOF_OFFSET
-    }
-
-    fn overhead_aim(eye: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> bool {
-        let up = world.surface_up_at(eye);
-        Self::subterranean_eye(eye, up, world) || view_dir.normalize_or_zero().dot(up) > OVERHEAD_AIM_DOT
-    }
-
-    fn locate_dig_site(eye: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> Vec3 {
-        let (dir, up) = (view_dir.normalize_or_zero(), world.surface_up_at(eye));
-        if Self::subterranean_eye(eye, up, world) {
-            return world.confine_beneath_crust(eye + dir * 1.1);
-        }
-        for step in 1..=85 {
-            let sample = eye + dir * ((step as f32) * 0.04);
-            let ground = world.constrain_to_surface(sample, 0.0);
-            if (ground - sample).dot(up) >= -0.02 {
-                return ground - up * (ground - sample).dot(up).max(0.0);
-            }
-        }
-        world.constrain_to_surface(eye + dir, 0.0)
+        self.dig.emit_debris(view_dir, surface_up, rhythm, target);
     }
 
     pub fn release_hand(
@@ -198,41 +120,42 @@ impl PalmEarthworks {
     ) -> (Self, YouthAttire, bool) {
         let state = self.reconcile_attire(attire);
         let d = state.dig;
-        if d.ready_to_place(Self::overhead_aim(eye, view_dir, world)) {
+        if d.ready_to_place(DebrisSplash::overhead_aim(eye, view_dir, world)) {
             d.clear_cracks(eye, view_dir, world);
-            let (next_satchel, next_attire, placed) = state.satchel.place_from_hand(d.grip.pending_place_side(), attire, eye, view_dir, avatar_pos, world);
+            let (next_satchel, next_attire, placed) = state.satchel.place_from_hand(d.grip().pending_place_side(), attire, eye, view_dir, avatar_pos, world);
             return (Self::new(next_satchel, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, placed);
         }
         let cleared = d.clear_cracks(eye, view_dir, world);
-        (Self::with_tome_and_medium(state.satchel, state.tome, 0, DigGrip::idle(), d.splash.site, d.splash.medium, false), attire, cleared)
+        (Self { satchel: state.satchel, tome: state.tome, dig: DigOperation::new(0, DigGrip::idle(), d.splash().halted()) }, attire, cleared)
     }
 
     pub fn continue_digging(
         self, attire: YouthAttire, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> (Self, YouthAttire, StrideRhythm, bool) {
         let d = self.dig;
-        if !d.grip.any_held() { return (self, attire, rhythm, false); }
-        let side = d.grip.active_side();
-        if d.grip.pending_place_on(side) && d.dig_progress == 0 {
+        if !d.grip().any_held() { return (self, attire, rhythm, false); }
+        let side = d.grip().active_side();
+        if d.grip().pending_place_on(side) && d.progress() == 0 {
             if rhythm.cleave_surge(side) > 0.0 && rhythm.cleave_arc(side) < 0.0 {
                 return (self, attire, rhythm, false);
             }
-            let state = Self::with_tome_and_medium(self.satchel, self.tome, d.dig_progress, d.grip.promoted_to_dig(side), d.splash.site, d.splash.medium, d.splash.active).reconcile_attire(attire);
+            let promoted = DigOperation::new(d.progress(), d.grip().promoted_to_dig(side), d.splash());
+            let state = Self { satchel: self.satchel, tome: self.tome, dig: promoted }.reconcile_attire(attire);
             if rhythm.cleave_surge(side) > 0.0 {
                 if let Some(med) = world.loosen_surface(eye, view_dir, 1) {
-                    return (Self::with_tome_and_medium(state.satchel, state.tome, 1, state.dig.grip, d.resolve_site(eye, view_dir, world), med, true), attire, rhythm, true);
+                    return (Self::with_tome_and_medium(state.satchel, state.tome, 1, state.dig.grip(), d.resolve_site(eye, view_dir, world), med, true), attire, rhythm, true);
                 }
-                return (Self::with_tome_and_medium(state.satchel, state.tome, 0, state.dig.grip, Vec3::ZERO, BlockMedium::TurfEarth, false), attire, rhythm, false);
+                return (Self::with_tome_and_medium(state.satchel, state.tome, 0, state.dig.grip(), Vec3::ZERO, BlockMedium::TurfEarth, false), attire, rhythm, false);
             }
             let (next, next_attire, next_rhythm, excavated) = state.act_with_hand(side, attire, rhythm, eye, view_dir, world);
-            return (next, next_attire, next_rhythm, excavated || next.dig.dig_progress > 0);
+            return (next, next_attire, next_rhythm, excavated || next.dig.progress() > 0);
         }
         if rhythm.cleave_surge(1.0) > 0.0 || rhythm.cleave_surge(-1.0) > 0.0 {
             return (self, attire, rhythm, false);
         }
-        let prev = d.dig_progress;
+        let prev = d.progress();
         let (next, next_attire, next_rhythm, excavated) = self.act_with_hand(side, attire, rhythm, eye, view_dir, world);
-        (next, next_attire, next_rhythm, excavated || next.dig.dig_progress != prev)
+        (next, next_attire, next_rhythm, excavated || next.dig.progress() != prev)
     }
 
     pub fn act_with_hand(
@@ -252,18 +175,18 @@ impl PalmEarthworks {
         }
         let (right, left) = attire.held_pair();
         let (active, other) = if side > 0.0 { (right, left) } else { (left, right) };
-        let weightless = Self::overhead_aim(eye, view_dir, world);
-        if active.placeable_block() && !weightless && !d.grip.held_on(side) && !d.grip.pending_place_any() && d.dig_progress == 0 {
+        let weightless = DebrisSplash::overhead_aim(eye, view_dir, world);
+        if active.placeable_block() && !weightless && !d.grip().held_on(side) && !d.grip().pending_place_any() && d.progress() == 0 {
             let next_rhythm = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
             return (Self::new(state.satchel, 0, DigGrip::with_pending_place(side), Vec3::ZERO, false), attire, next_rhythm, false);
         }
-        let deferred = u32::from(d.grip.pending_place_on(side));
-        let w_place = weightless && active.placeable_block() && d.dig_progress == 0;
+        let deferred = u32::from(d.grip().pending_place_on(side));
+        let w_place = weightless && active.placeable_block() && d.progress() == 0;
         let both_dig = (right.free_palm() || right.placeable_block()) && (left.free_palm() || left.placeable_block());
         let stroke = if active.spade_blade() {
             DigStroke::spade(side, other.free_palm() || other.placeable_block(), rhythm)
-        } else if both_dig && d.grip.combined_both_held(side) {
-            DigStroke::dual_palm(side, d.grip, active.free_palm() || !other.free_palm(), weightless, w_place, rhythm)
+        } else if both_dig && d.grip().combined_both_held(side) {
+            DigStroke::dual_palm(side, d.grip(), active.free_palm() || !other.free_palm(), weightless, w_place, rhythm)
         } else if active.free_palm() || active.placeable_block() {
             let outcome = if other.axe_blade() { world.strike_timber(eye, view_dir) } else { world::CleaveOutcome::Missed };
             if outcome.struck() {
@@ -277,7 +200,7 @@ impl PalmEarthworks {
             let grip = if active.axe_blade() { DigGrip::with_dig_on(side, false) } else { DigGrip::idle() };
             return (Self::new(ns, 0, grip, Vec3::ZERO, false), na, Self::trigger_hand_swing(attire, rhythm, side), outcome.struck());
         };
-        let (site, progress, next_grip, next_rhythm) = (d.resolve_site(eye, view_dir, world), stroke.advance_progress(d.dig_progress), stroke.next_grip(), stroke.next_rhythm());
+        let (site, progress, next_grip, next_rhythm) = (d.resolve_site(eye, view_dir, world), stroke.advance_progress(d.progress()), stroke.next_grip(), stroke.next_rhythm());
         if progress >= EXCAVATION_THRESHOLD {
             if let Some(med) = world.harvest_surface(eye, view_dir) {
                 let harvested = HeldRelic::from_medium(med);

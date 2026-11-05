@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.44.4] - 2026-11-05
+
+### Added
+- Added `ColumnClearance` (`crates/world/src/relief/column_clearance.rs`) and `TurfScars` (`crates/world/src/relief/turf_scars.rs`) to unify 3D vertical column support, subterranean ceiling confinement, weightlessness, ray-hit resolution, and surface turf regrowth.
+- Added automated Elegant Objects architecture guard (`test_workspace_architecture_guard_enforces_line_and_field_limits` in `crates/client/src/earthworks_tests.rs`) enforcing the 300-line file limit and 4-field struct limit across all workspace crates.
+
+### Changed
+- Modularized terrain relief, avatar kinematics, attire, and session subsystems into focused sub-modules (`relief/sight_ray/`, `relief/crust_vault/`, `relief/face/`, `avatar/`, `envelope/`, `earthworks/`, `attire/relic/`, `attire/rhythm/`, `attire/pose/`, `posture/`, `session/`, and `menu/studio/`).
+
+### Fixed
+- Fixed subterranean Dirt ceiling contact during `Space` ascent from the magma core (`ColumnClearance::confine`, `OverhangMolds::confine_niche_elevation`, `ShaftExcavation::excavate_layer`, `AirborneFlight::advance`, `FlightContext::constrain_surface`) so head contact against unbreached upward shaft ceilings or placed niche roofs clamps vertical motion beneath the block without ejecting the avatar to the surface or stripping surface grass.
+
 ## [0.44.3] - 2026-11-04
 
 ### Changed

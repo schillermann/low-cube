@@ -69,7 +69,16 @@ impl<'a> FlightContext<'a> {
 
     pub fn dt(&self) -> f32 { self.step.dt }
     pub fn commanded_velocity(&self) -> Vec3 { if self.step.dt > 1e-6 { self.step.stride / self.step.dt } else { Vec3::ZERO } }
-    pub fn constrain_surface(&self, point: Vec3) -> Vec3 { self.body.envelope.constrain_with_height(point, self.body.eye_height, self.terrain.world) }
+    pub fn constrain_surface(&self, point: Vec3) -> Vec3 {
+        let surf = self.body.envelope.constrain_with_height(point, self.body.eye_height, self.terrain.world);
+        if (surf - point).dot(self.step.surface_up) > 0.0 {
+            let confined = self.terrain.world.confine_beneath_crust(surf);
+            if (confined - surf).dot(self.step.surface_up) < -1e-4 {
+                return confined;
+            }
+        }
+        surf
+    }
     pub fn current_surface_up(&self) -> Vec3 { self.terrain.world.surface_up_at(self.step.position) }
     pub fn clearance(&self, point: Vec3, surface_point: Vec3) -> SurfaceClearance { SurfaceClearance::between(self.step.position, point, surface_point, self.step.surface_up, self.terrain.world) }
     pub fn permits_seam_fold(&self) -> bool { self.terrain.gait.permits_seam_fold() }

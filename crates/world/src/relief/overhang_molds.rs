@@ -5,9 +5,8 @@ use crate::block::{BlockMedium, CuboidShape, ElevatedShape, GridCell, MediumShap
 use crate::frame::SurfaceFrame;
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
+use super::turf_scars::TurfScars;
 
-const REGH_EFFORT_FLOOR: f32 = 320.0;
-const REGH_EFFORT_SPAN: f32 = 440.0;
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
 const NICHE_CONTACT_TOLERANCE: f32 = 0.05;
@@ -17,91 +16,59 @@ const NICHE_ROOF_THICKNESS: f32 = 0.85;
 const NICHE_HEAD_CLEARANCE: f32 = 0.15;
 const SUB_METER_NICHE_SPAN: f32 = 0.75;
 const MAX_STACK_ELEVATION: f32 = 16.0;
-const CELL_HASH_U: i32 = 73_856_093;
-const CELL_HASH_V: i32 = 19_349_663;
 
-/// Active excavation crack focus on a specific grid cell, elevation layer, and stage (0..=3).
-#[derive(Clone, Copy, Debug)]
-pub struct DigStageFocus {
-    cell: (i32, i32),
-    layer_elev: f32,
-    stage: u8,
-}
-
-impl DigStageFocus {
-    pub const fn new(cell: (i32, i32), layer_elev: f32, stage: u8) -> Self { Self { cell, layer_elev, stage } }
-    pub const fn idle() -> Self { Self::new((0, 0), 0.0, 0) }
-    pub const fn layer_elev(self) -> f32 { self.layer_elev }
-
-    pub fn layer_stage(self, u: i32, v: i32, layer_elev: f32, layer_occupied: bool) -> u8 {
-        let (q, f) = (((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32, ((self.layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32);
-        if self.cell == (u, v) && !layer_occupied && q == f { self.stage } else { 0 }
-    }
-
-    pub fn block_stage(self, u: i32, v: i32, block: &ElevatedShape) -> u8 {
-        if self.cell == (u, v) && block.occupies_layer(self.layer_elev) { self.stage } else { 0 }
-    }
-
-    pub fn clear_at(&mut self, u: i32, v: i32) -> (i32, i32) {
-        let prev = self.cell;
-        *self = Self::new((u, v), 0.0, 0);
-        prev
-    }
-
-    pub fn clear_if_at(&mut self, u: i32, v: i32) {
-        if self.cell == (u, v) { *self = Self::new((u, v), 0.0, 0); }
-    }
-
-    pub fn reset(&mut self) -> ((i32, i32), bool) {
-        let (prev, active) = (self.cell, self.stage > 0);
-        *self = Self::idle();
-        (prev, active)
-    }
-
-    pub fn record(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
-        if stage == 0 { return self.reset(); }
-        let prev = self.cell;
-        *self = Self::new((u, v), layer_elev, stage.min(3));
-        (prev, true)
-    }
-}
-
-/// Overhanging and stacked voxel blocks, bare-soil regrowth progress, and active digging stage.
+/// Overhanging and stacked voxel blocks composed with surface turf scars.
 pub struct OverhangMolds {
     blocks: HashMap<(i32, i32), Vec<ElevatedShape>>,
-    bare_dirt: HashMap<(i32, i32), f32>,
-    dig_stage: DigStageFocus,
+    scars: TurfScars,
 }
 
 impl OverhangMolds {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(
-        blocks: HashMap<(i32, i32), Vec<ElevatedShape>>,
-        bare_dirt: HashMap<(i32, i32), f32>,
-        dig_stage: DigStageFocus,
-    ) -> Self {
-        Self { blocks, bare_dirt, dig_stage }
+    pub fn new(blocks: HashMap<(i32, i32), Vec<ElevatedShape>>, scars: TurfScars) -> Self {
+        Self { blocks, scars }
     }
 
     /// Secondary constructor for pristine terrain without placed blocks or bare soil.
     pub fn untouched() -> Self {
-        Self::new(HashMap::new(), HashMap::new(), DigStageFocus::idle())
+        Self::new(HashMap::new(), TurfScars::untouched())
     }
 
-    pub fn empty(&self) -> bool { self.blocks.is_empty() }
-    pub fn present_at(&self, u: i32, v: i32) -> bool { self.blocks.contains_key(&(u, v)) }
-    pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool { self.bare_dirt.contains_key(&(u, v)) }
-    pub fn expose_dirt(&mut self, u: i32, v: i32) { self.bare_dirt.insert((u, v), 0.0); }
+    pub fn empty(&self) -> bool {
+        self.blocks.is_empty()
+    }
+
+    pub fn present_at(&self, u: i32, v: i32) -> bool {
+        self.blocks.contains_key(&(u, v))
+    }
+
+    pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool {
+        self.scars.bare_at(u, v)
+    }
+
+    pub fn expose_dirt(&mut self, u: i32, v: i32) {
+        self.scars.expose_dirt(u, v);
+    }
 
     pub fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32) -> u8 {
-        self.dig_stage.layer_stage(u, v, layer_elev, self.layer_occupied_at(u, v, self.dig_stage.layer_elev()))
+        let occupied = self.scars.probes_occupied(|focus_elev| self.layer_occupied_at(u, v, focus_elev));
+        self.scars.layer_stage(u, v, layer_elev, occupied)
     }
 
-    pub fn clear_stage(&mut self, u: i32, v: i32) -> (i32, i32) { self.dig_stage.clear_at(u, v) }
-    pub fn clear_if_at(&mut self, u: i32, v: i32) { self.dig_stage.clear_if_at(u, v); }
-    pub fn reset_stage(&mut self) -> ((i32, i32), bool) { self.dig_stage.reset() }
+    pub fn clear_stage(&mut self, u: i32, v: i32) -> (i32, i32) {
+        self.scars.clear_stage(u, v)
+    }
+
+    pub fn clear_if_at(&mut self, u: i32, v: i32) {
+        self.scars.clear_if_at(u, v);
+    }
+
+    pub fn reset_stage(&mut self) -> ((i32, i32), bool) {
+        self.scars.reset_stage()
+    }
+
     pub fn record_stage(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
-        self.dig_stage.record(u, v, layer_elev, stage)
+        self.scars.record_stage(u, v, layer_elev, stage)
     }
 
     pub fn top_steps_at(&self, u: i32, v: i32, base_steps: i32) -> i32 {
@@ -135,7 +102,7 @@ impl OverhangMolds {
 
     pub fn confine_niche_elevation(&self, u: i32, v: i32, ground_h: f32, elev: f32) -> Option<f32> {
         self.niche_ceiling_at(u, v, ground_h)
-            .filter(|&niche_ceil| elev <= niche_ceil + NICHE_MIN_GAP)
+            .filter(|&niche_ceil| elev <= niche_ceil + SUB_METER_NICHE_SPAN)
             .map(|niche_ceil| {
                 let min_z = ground_h + NICHE_HEAD_CLEARANCE;
                 elev.clamp(min_z, (niche_ceil - NICHE_HEAD_CLEARANCE).max(min_z))
@@ -197,20 +164,22 @@ impl OverhangMolds {
         let Some(list) = self.blocks.get(&(u, v)) else { return false };
         let (top_col, wall_col) = colors;
         for block in list {
-            let stage = self.dig_stage.block_stage(u, v, block);
+            let stage = self.scars.block_stage(u, v, block);
             let bare_top = block.floating_above(surf_base) || self.bare_dirt_at(u, v);
             block.emit_terraced(cell, frame, top_col, wall_col, bare_top, stage, target);
         }
         !list.is_empty()
     }
 
-    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<((i32, i32), BlockMedium)> {
+    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32, ground_top: f32) -> Option<((i32, i32), BlockMedium)> {
         let list = self.blocks.get_mut(&(u, v))?;
         let pos = list.iter().rposition(|b| b.occupies_layer(layer_elev))?;
         let removed = list.remove(pos);
         if list.is_empty() {
             self.blocks.remove(&(u, v));
-            self.bare_dirt.insert((u, v), 0.0);
+            if removed.floor() >= ground_top - NICHE_CONTACT_TOLERANCE {
+                self.scars.expose_dirt(u, v);
+            }
         }
         Some((self.clear_stage(u, v), removed.block_medium()))
     }
@@ -242,39 +211,22 @@ impl OverhangMolds {
         let list = self.blocks.entry((u, v)).or_default();
         list.push(ElevatedShape::new(shape, next_base));
         list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
-        self.bare_dirt.insert((u, v), 0.0);
+        if !sub {
+            self.scars.expose_dirt(u, v);
+        }
         self.clear_if_at(u, v);
         true
     }
 
     pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> Vec<(i32, i32)> {
-        if self.bare_dirt.is_empty() {
-            return Vec::new();
-        }
-        let active: Vec<((i32, i32), u32)> = self.bare_dirt.keys().copied().filter_map(|(u, v)| {
-            let h = self.top_steps_at(u, v, shafts.elevation_at(strata, u, v));
-            let mut count = 0;
-            for du in -1..=1 {
-                for dv in -1..=1 {
-                    let (nu, nv) = (u + du, v + dv);
-                    if (du != 0 || dv != 0) && !self.bare_dirt_at(nu, nv) && (h - self.top_steps_at(nu, nv, shafts.elevation_at(strata, nu, nv))).abs() <= 1 {
-                        count += 1;
-                    }
-                }
-            }
-            (count > 0).then_some(((u, v), count))
-        }).collect();
-        let mut regrown_cells = Vec::new();
-        for ((u, v), neighbors) in active {
-            if let Some(effort) = self.bare_dirt.get_mut(&(u, v)) {
-                *effort += dt * (neighbors as f32);
-                let threshold = REGH_EFFORT_FLOOR + (((u.wrapping_mul(CELL_HASH_U) ^ v.wrapping_mul(CELL_HASH_V)).unsigned_abs() % 100) as f32 * 0.01) * REGH_EFFORT_SPAN;
-                if *effort >= threshold {
-                    self.bare_dirt.remove(&(u, v));
-                    regrown_cells.push((u, v));
-                }
-            }
-        }
-        regrown_cells
+        let blocks = &self.blocks;
+        self.scars.regrow_step(dt, |u, v| {
+            let base_steps = shafts.elevation_at(strata, u, v);
+            let ground_top = (base_steps as f32) * BLOCK_STEP;
+            blocks.get(&(u, v)).map_or(base_steps, |list| {
+                let max_h = list.iter().map(ElevatedShape::ceiling).fold(ground_top, f32::max);
+                (max_h / BLOCK_STEP).round() as i32
+            })
+        })
     }
 }

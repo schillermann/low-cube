@@ -145,7 +145,8 @@ impl AirborneFlight {
         }
         let raw_rebound = ctx.resolve_aerial_stride(airborne_stride, surface_up, vertical_step, self.threshold);
         let rebound = if next_speed > 0.0 { ctx.confine_crust(raw_rebound) } else { raw_rebound };
-        let next_speed = if (rebound - raw_rebound).dot(surface_up) < -1e-4 { next_speed.min(0.0) } else { next_speed };
+        let ceiling_bonk = (rebound - raw_rebound).dot(surface_up) < -1e-4;
+        let next_speed = if ceiling_bonk { next_speed.min(0.0) } else { next_speed };
         let supported = ctx.constrain_surface(rebound);
         let clearance = ctx.clearance(rebound, supported);
         let orig_pt = ctx.candidate_point(Vec3::ZERO);
@@ -172,13 +173,14 @@ impl AirborneFlight {
         let on_walkable_slope = (orig_pt - orig_surf).dot(surface_up) >= -0.01
             && crate::threshold::SurfaceStep::new(orig_surf, supported, surface_up).walkable_with(self.threshold);
         let top_reached = penetration > 0.0 && penetration <= 0.04;
-        let safe_rebound = if penetration > 0.0 && (next_speed <= 0.0 || on_walkable_slope || top_reached) {
+        let descending = next_speed <= 0.0 && !ceiling_bonk;
+        let safe_rebound = if penetration > 0.0 && (descending || on_walkable_slope || top_reached) {
             supported
         } else {
             rebound
         };
 
-        if (next_speed <= 0.0 || (penetration > 0.0 && (on_walkable_slope || top_reached))) && clearance.floor_contact(self.threshold) {
+        if (descending || (penetration > 0.0 && (on_walkable_slope || top_reached))) && clearance.floor_contact(self.threshold) {
             let surf_momentum = ctx.evaluate_touchdown(-next_speed.min(0.0), supported);
             FlightProgress::new(
                 FlightPhase::Grounded(GroundedFlight::with_momentum(surf_momentum, self.threshold)),

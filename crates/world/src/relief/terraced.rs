@@ -2,6 +2,7 @@ use glam::Vec3;
 use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
+use super::column_clearance::ColumnClearance;
 use super::elevation::ReliefElevation;
 use super::natural_strata::NaturalStrata;
 use super::overhang_molds::OverhangMolds;
@@ -28,6 +29,10 @@ impl TerracedRelief {
             OverhangMolds::untouched(),
         )
     }
+
+    const fn clearance(&self) -> ColumnClearance<'_> {
+        ColumnClearance::new(&self.strata, &self.shafts, &self.molds)
+    }
 }
 
 impl ReliefElevation for TerracedRelief {
@@ -44,36 +49,7 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn support_height_at(&self, u: f32, v: f32, foot_elev: f32, body_span: f32) -> f32 {
-        let (cell_u, cell_v) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
-        let vault = self.strata.vault();
-        let crest = vault.core().crest_at(u, v);
-        let center_elev = foot_elev + body_span.min(1.0);
-        let ceil_limit = if self.shafts.upward_at(cell_u, cell_v) > 0 {
-            let top = if self.breached_at(cell_u, cell_v) { self.natural_elevation_at(cell_u, cell_v) } else { self.crust_floor_at(cell_u, cell_v) };
-            (top as f32) * 0.5
-        } else {
-            vault.ceiling_height_at(u, v) + 0.5
-        };
-        let base_h = if !self.shafts.in_unbreached_shaft(&self.strata, cell_u, cell_v, center_elev)
-            && body_span > 0.0
-            && !self.lethal_at(u, v, center_elev)
-            && (vault.encloses(u, v, center_elev, 0.0) || self.shafts.in_upward_shaft(&self.strata, cell_u, cell_v, center_elev))
-            && center_elev < ceil_limit
-        {
-            crest
-        } else if self.shafts.pristine() && self.molds.empty() {
-            return self.strata.surface_height_at(u, v);
-        } else if self.reworked_at(cell_u, cell_v) {
-            let steps = if body_span > 0.0 && !self.molds.present_at(cell_u, cell_v) {
-                self.shafts.body_elevation_at(&self.strata, cell_u, cell_v)
-            } else {
-                self.elevation_at(cell_u, cell_v)
-            };
-            (steps as f32) * 0.5
-        } else {
-            self.strata.surface_height_at(u, v)
-        };
-        self.molds.constrain_support(cell_u, cell_v, u, v, base_h, foot_elev, body_span)
+        self.clearance().support_height_at(u, v, foot_elev, body_span)
     }
 
     fn layer_occupied_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
@@ -81,10 +57,7 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
-        let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
-        self.molds
-            .hit_top_at(cu, cv, u, v, ray_elev)
-            .or_else(|| self.shafts.crust_hit_top_at(&self.strata, cu, cv, u, v, ray_elev))
+        self.clearance().hit_top_at(u, v, ray_elev)
     }
 
     fn reworked_at(&self, u: i32, v: i32) -> bool {
@@ -108,20 +81,15 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn weightless_at(&self, u: f32, v: f32, elev: f32) -> bool {
-        let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
-        let crust_top_h = (self.strata.vault().crust_top_step_at(cu, cv) as f32) * 0.5;
-        let in_crust_upward = self.shafts.in_upward_shaft(&self.strata, cu, cv, elev) && elev < crust_top_h - 0.35;
-        !self.shafts.in_unbreached_shaft(&self.strata, cu, cv, elev)
-            && (in_crust_upward || self.strata.vault().encloses(u, v, elev, 0.10))
-            && !self.lethal_at(u, v, elev)
+        self.clearance().weightless_at(u, v, elev)
     }
 
     fn lethal_at(&self, u: f32, v: f32, elev: f32) -> bool {
-        self.strata.vault().core().engulfs(u, v, elev, 1.05)
+        self.clearance().lethal_at(u, v, elev)
     }
 
     fn confine(&self, u: f32, v: f32, elev: f32) -> (f32, f32, f32) {
-        self.shafts.confine(&self.strata, &self.molds, u, v, elev)
+        self.clearance().confine(u, v, elev)
     }
 
     fn bare_dirt_at(&self, u: i32, v: i32) -> bool {
@@ -156,7 +124,8 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn harvest_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
-        if let Some((prev_cell, medium)) = self.molds.remove_layer(u, v, layer_elev) {
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        if let Some((prev_cell, medium)) = self.molds.remove_layer(u, v, layer_elev, ground_top) {
             return (prev_cell, Some(medium));
         }
         self.shafts.excavate_layer(&self.strata, &mut self.molds, u, v, layer_elev)

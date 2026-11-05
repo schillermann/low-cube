@@ -1,3 +1,5 @@
+mod cache;
+
 use std::sync::RwLock;
 use glam::Vec3;
 use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape};
@@ -10,24 +12,11 @@ use super::palette::ReliefPalette;
 use super::sight_ray::SurfaceSightRay;
 use super::strata::ReliefStrata;
 use super::terraced::TerracedRelief;
-
-struct CellQuadTarget<'a>(&'a mut Vec<Quad>);
-
-impl MeshTarget for CellQuadTarget<'_> {
-    fn push_quad(&mut self, quad: Quad) {
-        self.0.push(quad);
-    }
-}
+use self::cache::ReliefCellCache;
 
 struct ReliefDomain {
     frame: SurfaceFrame,
     relief: Box<dyn ReliefElevation>,
-}
-
-struct ReliefCellCache {
-    strata: ReliefStrata,
-    divisions: u32,
-    cached_cells: RwLock<Vec<Vec<Quad>>>,
 }
 
 /// Planetary relief face generating undulating climbable terrain and subterranean cavities ("Tell, Don't Ask").
@@ -50,7 +39,7 @@ impl FacetedReliefFace {
         Self {
             domain: ReliefDomain { frame, relief },
             palette,
-            cache: ReliefCellCache { strata, divisions, cached_cells },
+            cache: ReliefCellCache::new(strata, divisions, cached_cells),
         }
     }
 
@@ -101,33 +90,8 @@ impl FacetedReliefFace {
         self
     }
 
-    fn build_cell(&self, u: i32, v: i32, half: i32) -> Vec<Quad> {
-        let mut cell_quads = Vec::with_capacity(8);
-        let mut target = CellQuadTarget(&mut cell_quads);
-        self.cache.strata.emit_cell(
-            GridCell::new(u, v),
-            &self.domain.frame,
-            self.domain.relief.as_ref(),
-            &self.palette,
-            half,
-            &mut target,
-        );
-        cell_quads
-    }
-
     fn refresh_neighborhood(&mut self, cu: i32, cv: i32, half: i32) {
-        let side = self.cache.divisions as usize;
-        let total = side * side;
-        let populated = self.cache.cached_cells.get_mut().expect("Relief cell cache poisoned").len() == total;
-        if populated {
-            for v in (cv - 1).max(-half)..=(cv + 1).min(half - 1) {
-                for u in (cu - 1).max(-half)..=(cu + 1).min(half - 1) {
-                    let quads = self.build_cell(u, v, half);
-                    let slot = ((v + half) as usize) * side + ((u + half) as usize);
-                    self.cache.cached_cells.get_mut().expect("Relief cell cache poisoned")[slot] = quads;
-                }
-            }
-        }
+        self.cache.refresh_neighborhood(cu, cv, half, &self.domain.frame, self.domain.relief.as_ref(), &self.palette);
     }
 }
 
@@ -148,38 +112,11 @@ impl Face for FacetedReliefFace {
     }
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
-        let half = (self.cache.divisions as i32) / 2;
-        let side = self.cache.divisions as usize;
-        let total = side * side;
-        if let Ok(cells) = self.cache.cached_cells.read() {
-            if cells.len() == total {
-                for cell_quads in cells.iter() {
-                    for &quad in cell_quads {
-                        target.push_quad(quad);
-                    }
-                }
-                return;
-            }
-        }
-        let mut cells = self.cache.cached_cells.write().expect("Relief cell cache poisoned");
-        if cells.len() != total {
-            cells.clear();
-            cells.reserve(total);
-            for v in -half..half {
-                for u in -half..half {
-                    cells.push(self.build_cell(u, v, half));
-                }
-            }
-        }
-        for cell_quads in cells.iter() {
-            for &quad in cell_quads {
-                target.push_quad(quad);
-            }
-        }
+        self.cache.emit_surface(&self.domain.frame, self.domain.relief.as_ref(), &self.palette, target);
     }
 
     fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
-        let half = (self.cache.divisions as i32) / 2;
+        let half = self.cache.half_blocks();
         let half_size = self.domain.frame.step_elevation(half);
         if let Some((cu, cv, layer)) = SurfaceSightRay::new(eye, direction)
             .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)
@@ -197,7 +134,7 @@ impl Face for FacetedReliefFace {
     }
 
     fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
-        let half = (self.cache.divisions as i32) / 2;
+        let half = self.cache.half_blocks();
         if stage == 0 {
             let ((prev_u, prev_v), changed) = self.domain.relief.clear_dig_stage();
             if changed {
@@ -222,7 +159,7 @@ impl Face for FacetedReliefFace {
     }
 
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        let half = (self.cache.divisions as i32) / 2;
+        let half = self.cache.half_blocks();
         let half_size = self.domain.frame.step_elevation(half);
         if let Some((cu, cv, base)) = SurfaceSightRay::new(eye, direction)
             .placement_cell(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos)
@@ -242,7 +179,7 @@ impl Face for FacetedReliefFace {
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
-        let (half, cells) = ((self.cache.divisions as i32) / 2, self.domain.relief.step_grass(dt));
+        let (half, cells) = (self.cache.half_blocks(), self.domain.relief.step_grass(dt));
         for &(cu, cv) in &cells {
             self.refresh_neighborhood(cu, cv, half);
         }
