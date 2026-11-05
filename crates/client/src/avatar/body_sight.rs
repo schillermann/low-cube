@@ -64,7 +64,7 @@ impl AvatarBody {
     pub fn prepare_stride(&mut self, order: &LocomotionOrder, standing_env: BodyEnvelope, terrain_up: Vec3, dt: f32, world: &dyn PlanetaryWorld) -> BodyEnvelope {
         order.dispatch_jump(&mut *self.flight);
         let next_posture = order.advance_posture(self.posture, dt);
-        self.posture = if standing_env.overhead_obstructed(self.position, terrain_up, EYE_SUPPORT_HEIGHT, world) {
+        self.posture = if standing_env.crust(world).overhead_obstructed(self.position, terrain_up, EYE_SUPPORT_HEIGHT) {
             self.posture.crouch_down(dt)
         } else {
             next_posture

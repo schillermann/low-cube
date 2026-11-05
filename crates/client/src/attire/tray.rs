@@ -168,7 +168,7 @@ impl SatchelTray {
             self.cursor.min(len.saturating_sub(1)),
         );
         if len == 0 {
-            HeldRelic::EmptyPalm.emit_in_satchel_slot(mold, false, Vec3::new(0.42, 0.27, 0.16), &tray, target);
+            HeldRelic::EmptyPalm.figure(mold).emit_in_slot(false, Vec3::new(0.42, 0.27, 0.16), &tray, target);
         }
         for (i, &item) in slots[..len].iter().enumerate() {
             let (col, row) = (i % 3, i / 3);
@@ -182,10 +182,11 @@ impl SatchelTray {
             } else {
                 Vec3::new(0.42, 0.27, 0.16)
             };
-            item.emit_in_satchel_slot(mold, selected, rim_col, &tray.shifted(sx, sy, sz), target);
+            item.figure(mold).emit_in_slot(selected, rim_col, &tray.shifted(sx, sy, sz), target);
         }
         let legend = if len > 0 { slots[sel] } else { HeldRelic::EmptyPalm };
-        legend.emit_satchel_legend(
+        super::relic::RelicFigure::emit_legend(
+            legend,
             &tray.shifted(0.0, -((rows as f32 - 1.0) * 0.5) * 0.115 - 0.090, 0.0),
             target,
         );

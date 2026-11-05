@@ -1,6 +1,7 @@
 use glam::Vec3;
 use crate::threshold::StepThreshold;
 
+mod aerial;
 mod canopy;
 mod context;
 mod gravity;
@@ -10,6 +11,7 @@ mod slope;
 #[cfg(test)]
 mod tests;
 
+use aerial::{AerialKinematics, AerialTrajectory, CliffReboundTrajectory, ParabolicTrajectory, WeightlessTrajectory};
 pub use canopy::CanopyBraking;
 pub use context::FlightContext;
 pub use gravity::AsymmetricGravity;
@@ -76,7 +78,6 @@ impl GroundedFlight {
         let horizontal = ctx.candidate_point(stride);
         let surface_pos = ctx.constrain_surface(horizontal);
         let clearance = ctx.clearance(horizontal, surface_pos);
-
         let next_momentum = ctx.damp_surf_momentum(self.momentum);
 
         if !ctx.origin_supported() {
@@ -116,82 +117,20 @@ impl AirborneFlight {
         }
     }
 
+    pub(super) const fn inspect_state(&self) -> (f32, Vec3, StepThreshold) {
+        (self.vertical_speed, self.momentum, self.threshold)
+    }
+
     pub fn launch(&self, _strength: f32, _momentum: Vec3) -> FlightPhase {
         FlightPhase::Airborne(*self)
     }
 
     pub fn advance(&self, ctx: &FlightContext) -> FlightProgress {
-        let (surface_up, vertical_speed, effective_stride) = ctx.reorient_edge_flight(self.vertical_speed);
-        let gravity_delta = ctx.gravitational_acceleration(vertical_speed);
-        let unbraked_speed = vertical_speed - gravity_delta;
-        let next_speed = ctx.brake_canopy(unbraked_speed);
-
-        let airborne_stride = if self.momentum.length_squared() > 1e-4 {
-            effective_stride + self.momentum * ctx.dt()
-        } else {
-            effective_stride
-        };
-
-        let vertical_step = surface_up * (next_speed * ctx.dt());
-        if ctx.weightless_ascent(next_speed) {
-            let raw = ctx.candidate_point(airborne_stride) + vertical_step;
-            let confined = ctx.confine_crust(raw);
-            let bonked_speed = if (confined - raw).dot(surface_up) < -1e-4 { next_speed.min(0.0) } else { next_speed };
-            let next_momentum = ctx.damp_aerial_momentum(self.momentum);
-            return FlightProgress::new(
-                FlightPhase::Airborne(AirborneFlight::with_momentum(bonked_speed, next_momentum, self.threshold)),
-                confined,
-            );
-        }
-        let raw_rebound = ctx.resolve_aerial_stride(airborne_stride, surface_up, vertical_step, self.threshold);
-        let rebound = if next_speed > 0.0 { ctx.confine_crust(raw_rebound) } else { raw_rebound };
-        let ceiling_bonk = (rebound - raw_rebound).dot(surface_up) < -1e-4;
-        let next_speed = if ceiling_bonk { next_speed.min(0.0) } else { next_speed };
-        let supported = ctx.constrain_surface(rebound);
-        let clearance = ctx.clearance(rebound, supported);
-        let orig_pt = ctx.candidate_point(Vec3::ZERO);
-        let orig_surf = ctx.constrain_surface(orig_pt);
-
-        if clearance.cliff_impact(self.threshold)
-            && (supported - orig_surf).dot(surface_up) > 0.35
-            && (supported - orig_pt).dot(surface_up) > 0.35
-        {
-            let unlifted = rebound - surface_up * vertical_step.dot(surface_up).max(0.0);
-            let bonked = if ctx.clearance(unlifted, ctx.constrain_surface(unlifted)).cliff_impact(self.threshold) {
-                ctx.candidate_point(Vec3::ZERO) + surface_up * vertical_step.dot(surface_up).min(0.0)
-            } else {
-                unlifted
-            };
-            let next_momentum = ctx.damp_aerial_momentum(self.momentum);
-            return FlightProgress::new(
-                FlightPhase::Airborne(AirborneFlight::with_momentum(next_speed.min(0.0), next_momentum, self.threshold)),
-                bonked,
-            );
-        }
-
-        let penetration = (supported - rebound).dot(surface_up);
-        let on_walkable_slope = (orig_pt - orig_surf).dot(surface_up) >= -0.01
-            && crate::threshold::SurfaceStep::new(orig_surf, supported, surface_up).walkable_with(self.threshold);
-        let top_reached = penetration > 0.0 && penetration <= 0.04;
-        let descending = next_speed <= 0.0 && !ceiling_bonk;
-        let safe_rebound = if penetration > 0.0 && (descending || on_walkable_slope || top_reached) {
-            supported
-        } else {
-            rebound
-        };
-
-        if (descending || (penetration > 0.0 && (on_walkable_slope || top_reached))) && clearance.floor_contact(self.threshold) {
-            let surf_momentum = ctx.evaluate_touchdown(-next_speed.min(0.0), supported);
-            FlightProgress::new(
-                FlightPhase::Grounded(GroundedFlight::with_momentum(surf_momentum, self.threshold)),
-                supported,
-            )
-        } else {
-            let next_momentum = ctx.damp_aerial_momentum(self.momentum);
-            FlightProgress::new(
-                FlightPhase::Airborne(AirborneFlight::with_momentum(next_speed, next_momentum, self.threshold)),
-                safe_rebound,
-            )
-        }
+        let kinematics = AerialKinematics::from_flight(self, ctx);
+        let trajectory = WeightlessTrajectory::new(
+            CliffReboundTrajectory::new(ParabolicTrajectory::new(*self), *self),
+            *self,
+        );
+        trajectory.resolve(ctx, kinematics)
     }
 }

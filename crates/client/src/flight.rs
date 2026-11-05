@@ -158,7 +158,8 @@ impl GravitationalFlight for SurfaceFlight {
         surface_up: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> Vec3 {
-        let in_shaft = self.aero.envelope.in_deep_shaft(position, surface_up, self.state.eye_height, world);
+        let crust = self.aero.envelope.crust(world);
+        let in_shaft = crust.in_deep_shaft(position, surface_up, self.state.eye_height);
         let thrust = self.state.vertical_thrust;
         self.state.vertical_thrust = 0;
         if thrust > 0 {
@@ -206,7 +207,7 @@ impl GravitationalFlight for SurfaceFlight {
         } else {
             advanced
         };
-        if let Some(rim) = self.aero.envelope.catch_shaft_rim(position, next_pos, surface_up, self.state.eye_height, world) {
+        if let Some(rim) = crust.catch_shaft_rim(position, next_pos, surface_up, self.state.eye_height) {
             self.state.phase = FlightPhase::Grounded(GroundedFlight::human());
             return rim;
         }

@@ -219,7 +219,7 @@ impl BeltSatchel {
     }
 
     pub fn emit_in_palm(&self, side: f32, hand_relic: HeldRelic, frame: &LimbFrame, target: &mut dyn MeshTarget) {
-        hand_relic.emit_molded_in_palm(side, self.palms.mold_on(side), frame, target);
+        hand_relic.figure(self.palms.mold_on(side)).emit_in_palm(side, frame, target);
     }
 
     pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {

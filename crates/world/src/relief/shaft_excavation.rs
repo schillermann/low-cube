@@ -116,8 +116,11 @@ impl ShaftExcavation {
     }
 
     pub fn in_upward_shaft(&self, strata: &NaturalStrata, u: i32, v: i32, elev: f32) -> bool {
+        if self.upward_at(u, v) <= 0 {
+            return false;
+        }
         let top = if self.breached_at(strata, u, v) { strata.elevation_at(u, v) } else { self.crust_floor_at(strata, u, v) };
-        self.upward_at(u, v) > 0 && elev < (top as f32) * BLOCK_STEP
+        elev < (top as f32) * BLOCK_STEP
     }
 
     pub fn diggable_at(&self, strata: &NaturalStrata, u: i32, v: i32, layer_elev: f32) -> bool {

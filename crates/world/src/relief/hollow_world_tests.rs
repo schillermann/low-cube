@@ -59,7 +59,7 @@ fn test_crust_vault_ceiling_is_a_closed_magma_lit_beveled_block_dome() {
         for u in -128..128 {
             for v in -128..128 {
                 let before = patches.quads.len();
-                vault.emit_ceiling(GridCell::new(0.max(u) - 0.max(u) + u, v), 0, &frame, &mut patches);
+                vault.geometry(&frame).emit_ceiling(GridCell::new(0.max(u) - 0.max(u) + u, v), 0, &mut patches);
                 let (uc, vc) = ((u as f32) * 0.5 + 0.25, (v as f32) * 0.5 + 0.25);
                 if vault.encloses(uc, vc, -10.5, 0.5) {
                     let cell_area: f32 = patches.quads[before..].iter().map(quad_area).sum();
@@ -123,7 +123,7 @@ fn test_crust_vault_breaches_after_four_layers_never_lifts_ceiling_and_confines_
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     for stage in 0..=3 {
         let mut cell_quads = ShellPatches { quads: Vec::new() };
-        vault.emit_ceiling(GridCell::new(0, 0), stage, &frame, &mut cell_quads);
+        vault.geometry(&frame).emit_ceiling(GridCell::new(0, 0), stage, &mut cell_quads);
         for quad in &cell_quads.quads {
             quad.transfer(|v0, v1, v2, v3, _, _| {
                 for v in [v0, v1, v2, v3] { assert!((v.y - 24.0).abs() < 1e-4, "Ceiling must never lift when digging from above (stage={stage}), got y={}", v.y); }

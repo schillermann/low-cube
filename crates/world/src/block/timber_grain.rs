@@ -80,16 +80,17 @@ impl BlockMedium {
     /// Emits a full-cube planetary crust rock block with dark craggy relief and glowing mineral seams.
     fn emit_crust_rock_cube(cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let vault = crate::CrustVault::beneath(64);
+        let geom = vault.geometry(frame);
         let ((u0, u1), (v0, v1), y0, y1) = (cell.u_bounds(), cell.v_bounds(), floor_elev, floor_elev + 0.5);
-        vault.emit_crust_floor(cell, y1, false, frame, target);
-        vault.emit_shaft_ceiling(cell, y0, 1.0, frame, target);
+        geom.emit_crust_floor(cell, y1, false, target);
+        geom.emit_shaft_ceiling(cell, y0, 1.0, target);
         for (edge, norm) in [
             (((u0, v1), (u1, v1)), frame.bitangent()),
             (((u1, v0), (u0, v0)), -frame.bitangent()),
             (((u1, v0), (u1, v1)), frame.tangent()),
             (((u0, v1), (u0, v0)), -frame.tangent()),
         ] {
-            vault.emit_crust_flank(edge, 0, -2, norm, frame, target);
+            geom.emit_crust_flank(edge, 0, -2, norm, target);
         }
     }
     fn emit_planed_planks_cube(cell: GridCell, floor_elev: f32, cross_grain: bool, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {

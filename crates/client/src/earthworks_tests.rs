@@ -14,6 +14,16 @@ impl MeshTarget for SurfaceLedger {
     fn push_quad(&mut self, quad: Quad) { self.quads.push(quad); }
 }
 
+fn assert_local_impls(path: &Path, content: &str, trimmed: &str) {
+    if (trimmed.starts_with("impl ") || trimmed.starts_with("impl<")) && !trimmed.contains(" for ") && trimmed.ends_with('{') {
+        let after_impl = trimmed.trim_start_matches("impl");
+        let after_gen = after_impl.strip_prefix('<').and_then(|s| s.split_once('>')).map_or(after_impl, |(_, r)| r);
+        let name = after_gen.trim().trim_end_matches('{').trim().split('<').next().unwrap_or("").trim();
+        let declared = name.is_empty() || content.contains(&format!("struct {name}")) || content.contains(&format!("enum {name}"));
+        assert!(declared, "{} splits inherent impl for `{name}` across files", path.display());
+    }
+}
+
 fn check_rs_files_in_dir(dir: &Path) {
     for entry in std::fs::read_dir(dir).expect("read_dir failed").flatten() {
         let path = entry.path();
@@ -24,27 +34,24 @@ fn check_rs_files_in_dir(dir: &Path) {
             let line_count = content.lines().count();
             assert!(line_count <= 300, "{} exceeds 300 lines ({} lines)", path.display(), line_count);
             assert!(!content.contains(concat!("#[allow(", "dead_code)]")), "{} contains dead_code suppression", path.display());
-            let mut in_struct = false;
-            let mut struct_header = String::new();
-            let mut field_count = 0usize;
+            let (mut in_struct, mut struct_header, mut field_count) = (false, String::new(), 0usize);
             for line in content.lines() {
                 let clean = line.split("//").next().unwrap_or("");
+                assert_local_impls(&path, &content, clean.trim());
                 if !in_struct && clean.contains("struct ") && clean.contains('{') {
                     let after_brace = clean.split('{').nth(1).unwrap_or("");
-                    if let Some(inside) = after_brace.split('}').next() {
-                        if clean.contains('}') {
-                            let c = inside.replace("::", "").matches(':').count();
-                            assert!(c <= 4, "{} inline struct exceeds 4 fields ({}): {}", path.display(), c, clean.trim());
-                            continue;
-                        }
+                    if clean.contains('}') {
+                        let inside = after_brace.split('}').next().unwrap_or("");
+                        let c = inside.replace("::", "").matches(':').count();
+                        assert!(c <= 4, "{} inline struct exceeds 4 fields ({}): {}", path.display(), c, clean.trim());
+                        continue;
                     }
                     in_struct = true;
                     struct_header = clean.trim().to_string();
                     field_count = after_brace.replace("::", "").matches(':').count();
                 } else if in_struct {
                     if clean.contains('}') {
-                        let before_brace = clean.split('}').next().unwrap_or("");
-                        field_count += before_brace.replace("::", "").matches(':').count();
+                        field_count += clean.split('}').next().unwrap_or("").replace("::", "").matches(':').count();
                         assert!(field_count <= 4, "{} exceeds 4 fields ({}): {}", path.display(), field_count, struct_header);
                         in_struct = false;
                     } else {

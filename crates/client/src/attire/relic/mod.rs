@@ -1,7 +1,8 @@
 mod mesh;
 
-use world::BlockMedium;
+use world::{BlockMedium, BlockMold};
 pub use super::rhythm::MartialStyle;
+pub use mesh::RelicFigure;
 
 /// Object held in the avatar's right or left hand visible in first-person and multiplayer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -138,5 +139,9 @@ impl HeldRelic {
             Self::WoodenMallet | Self::WoodmanAxe => MartialStyle::LumberjackCleave,
             Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,
         }
+    }
+
+    pub const fn figure(self, mold: BlockMold) -> RelicFigure {
+        RelicFigure::new(self, mold)
     }
 }

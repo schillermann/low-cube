@@ -4,7 +4,8 @@ use glam::{Quat, Vec3};
 use world::SurfaceSightRay;
 use super::limb::LimbFrame;
 use super::proportion::YouthPhysique;
-use super::rhythm::StrideRhythm;
+use super::rhythm::{MartialStyle, StrideRhythm};
+pub use arms::ArmKinematics;
 
 #[derive(Clone, Copy, Debug)]
 struct PoseStance {
@@ -191,5 +192,9 @@ impl BodyPose {
 
     pub fn crouch_compression(&self) -> f32 {
         (0.8 - (self.stance.eye_height + self.motion.leap)).clamp(0.0, 0.55) * (1.0 - self.motion.hover)
+    }
+
+    pub const fn arm<'a>(&'a self, side: f32, martial: MartialStyle) -> ArmKinematics<'a> {
+        ArmKinematics::new(self, side, martial)
     }
 }

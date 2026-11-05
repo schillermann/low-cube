@@ -28,7 +28,7 @@ impl ReliefWall {
         for layer in low_step..high_step {
             let l_stage = relief.layer_dig_stage_at(u, v, (layer as f32) * 0.5 + 0.25);
             let mut cratered = CrateredMeshTarget::new(target, l_stage);
-            vault.emit_crust_flank(edge, layer, floor_step, norm, frame, &mut cratered);
+            vault.geometry(frame).emit_crust_flank(edge, layer, floor_step, norm, &mut cratered);
         }
         let (ub_l, ub_r) = (b_l.max(crust_top).min(t_l), b_r.max(crust_top).min(t_r));
         if t_l > ub_l + 1e-4 || t_r > ub_r + 1e-4 {

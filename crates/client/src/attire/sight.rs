@@ -41,12 +41,12 @@ impl SightMode {
                         .pitched(if cradle { -0.16 } else { 0.0 });
                     (shoulder_w, elbow_w, frame, (wrist_w - elbow_w).length())
                 } else if holding || pose.striking_on(side) {
-                    pose.first_person_arm(side, martial)
+                    pose.arm(side, martial).first_person()
                 } else {
-                    pose.external_arm(side, false, MartialStyle::Unarmed)
+                    pose.arm(side, MartialStyle::Unarmed).external(false)
                 }
             }
-            Self::LookingGlassSight => pose.external_arm(side, holding, martial),
+            Self::LookingGlassSight => pose.arm(side, martial).external(holding),
         }
     }
 

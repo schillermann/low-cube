@@ -3,6 +3,7 @@ mod crust;
 use glam::Vec3;
 use world::PlanetaryWorld;
 use crate::threshold::{StepThreshold, SurfaceClearance, SurfaceStep};
+pub use crust::CrustEnvelope;
 
 pub(super) const MIN_CROUCH_HEIGHT: f32 = 0.95;
 pub(super) const FOOTPRINT_PROBE_RATIO: f32 = 0.70;
@@ -64,6 +65,14 @@ impl BodyEnvelope {
             (self.height - crouch_drop.max(0.0)).max(MIN_CROUCH_HEIGHT),
             facing,
         )
+    }
+
+    pub fn crust<'a>(&'a self, world: &'a dyn PlanetaryWorld) -> CrustEnvelope<'a> {
+        CrustEnvelope::new(self, world)
+    }
+
+    pub(super) const fn dimensions(&self) -> (f32, f32, f32, Vec3) {
+        (self.half_width, self.half_depth, self.height, self.facing)
     }
 
     fn cardinal_up(up: Vec3) -> Vec3 {
@@ -211,6 +220,7 @@ impl PhysicalEnvelope for BodyEnvelope {
         let ref_vec = if up.y.abs() < 0.9 { Vec3::Y } else { Vec3::X };
         let axis_a = up.cross(ref_vec).normalize();
         let axis_b = up.cross(axis_a).normalize();
-        self.axis_wedged(base, axis_a, up, world) || self.axis_wedged(base, axis_b, up, world)
+        let crust = self.crust(world);
+        crust.axis_wedged(base, axis_a, up) || crust.axis_wedged(base, axis_b, up)
     }
 }

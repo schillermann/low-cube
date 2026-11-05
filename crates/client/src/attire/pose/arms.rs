@@ -3,22 +3,36 @@ use super::super::limb::LimbFrame;
 use super::super::rhythm::MartialStyle;
 use super::BodyPose;
 
-impl BodyPose {
-    pub fn external_arm(&self, side: f32, holding: bool, martial: MartialStyle) -> (Vec3, Vec3, LimbFrame, f32) {
-        let (rhythm, hover, leap) = self.motion_factors();
-        let (torso, crouch) = (self.torso_frame(), self.crouch_compression());
-        let ext = (self.eye_height() + leap - 0.80).clamp(0.0, 0.40);
-        let shoulder = Vec3::new(side * self.scale(if self.feminine() { 0.194 } else { 0.222 }), self.torso_span(0.64), -0.066);
+/// Decorator over `BodyPose` evaluating unilateral arm, wrist, and finger kinematics for a martial style.
+#[derive(Clone, Copy)]
+pub struct ArmKinematics<'a> {
+    pose: &'a BodyPose,
+    side: f32,
+    martial: MartialStyle,
+}
+
+impl<'a> ArmKinematics<'a> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(pose: &'a BodyPose, side: f32, martial: MartialStyle) -> Self {
+        Self { pose, side, martial }
+    }
+
+    pub fn external(self, holding: bool) -> (Vec3, Vec3, LimbFrame, f32) {
+        let (pose, side, martial) = (self.pose, self.side, self.martial);
+        let (rhythm, hover, leap) = pose.motion_factors();
+        let (torso, crouch) = (pose.torso_frame(), pose.crouch_compression());
+        let ext = (pose.eye_height() + leap - 0.80).clamp(0.0, 0.40);
+        let shoulder = Vec3::new(side * pose.scale(if pose.feminine() { 0.194 } else { 0.222 }), pose.torso_span(0.64), -0.066);
         let ground = (1.0 - ext * 2.0).clamp(0.0, 1.0) * (1.0 - hover);
         let offset = if side > 0.0 { 0.0 } else { std::f32::consts::PI };
         let (phase, walk, run) = rhythm.limb_gait(offset, ground);
         let (s, breath) = (phase.sin(), rhythm.breath_wave(walk));
-        let hold_factor = if holding || self.striking_on(side) { (1.0 - run).max(0.35) } else { 0.0 };
-        let style = martial.active_for(self.striking_on(side));
+        let hold_factor = if holding || pose.striking_on(side) { (1.0 - run).max(0.35) } else { 0.0 };
+        let style = martial.active_for(pose.striking_on(side));
         let imp = style.cleave_impulse(rhythm, side);
         let (abduct_add, swing_add, elbow_delta, elbow_bend_add, wrist_dx, wrist_dz) =
             style.external_drive(imp, crouch);
-        let (upper_len, fore_len) = (self.arm_size(0.26), self.arm_size(0.24));
+        let (upper_len, fore_len) = (pose.arm_size(0.26), pose.arm_size(0.24));
         let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + (0.42 + 0.08 * s.abs()) * hover + 0.08 * hold_factor + (crouch + ext) * 0.10 + abduct_add;
         let r_sag = upper_len * theta_abduct.cos();
         let upper_swing = (ext * 0.38 + crouch * 1.15 + (0.56 + 0.18 * s) * hover) * (1.0 - 0.55 * hold_factor) + swing_add;
@@ -41,26 +55,27 @@ impl BodyPose {
         (shoulder_w, elbow_w, hand_frame, forearm_len)
     }
 
-    pub fn first_person_arm(&self, side: f32, martial: MartialStyle) -> (Vec3, Vec3, LimbFrame, f32) {
-        let (rhythm, _, leap) = self.motion_factors();
-        let (up, view_fwd, right) = self.view_axes();
-        let style = martial.active_for(self.striking_on(side));
+    pub fn first_person(self) -> (Vec3, Vec3, LimbFrame, f32) {
+        let (pose, side, martial) = (self.pose, self.side, self.martial);
+        let (rhythm, _, leap) = pose.motion_factors();
+        let (up, view_fwd, right) = pose.view_axes();
+        let style = martial.active_for(pose.striking_on(side));
         let imp = style.cleave_impulse(rhythm, side);
         let strike = imp.strike();
         let look_pitch = view_fwd.dot(up).clamp(-0.99, 0.99).asin();
         let pitch_follow = (if look_pitch >= 0.0 { 0.85 } else { 0.62 }) * (1.0 - strike) + strike;
-        let eye_frame = LimbFrame::new(self.eye_origin(), right, up, up.cross(right).normalize()).pitched(-look_pitch * pitch_follow);
+        let eye_frame = LimbFrame::new(pose.eye_origin(), right, up, up.cross(right).normalize()).pitched(-look_pitch * pitch_follow);
         let (down, calm) = ((-view_fwd.dot(up)).clamp(0.0, 1.0) * (1.0 - strike), 1.0 - strike);
         let offset = if side > 0.0 { 0.0 } else { std::f32::consts::PI };
         let (phase, walk, run) = rhythm.limb_gait(offset, calm);
         let (primary, lagged) = (phase.sin(), (phase - 0.48).sin());
         let (sw_x, sw_y, sw_z, sw_yaw, elbow_add, aim_dip) = style.first_person_swing(imp);
-        let spread_x = side * (self.scale(0.195) + down * 0.05 + sw_x - (0.006 * walk + 0.010 * run + primary * (0.010 * walk + 0.014 * run)));
+        let spread_x = side * (pose.scale(0.195) + down * 0.05 + sw_x - (0.006 * walk + 0.010 * run + primary * (0.010 * walk + 0.014 * run)));
         let arc_y = 0.020 * run + sw_y + leap * 0.025 * calm + primary * (0.018 * walk + 0.024 * run) + rhythm.breath_wave(walk) * 0.004 * calm;
         let arc_z = -0.035 * run + sw_z + (primary * 0.022 + lagged * 0.008) * (0.55 * walk + 0.45 * run);
         let raw_frame = eye_frame.shifted(spread_x, -0.220 + arc_y, 0.30 + arc_z).yawed(side * (0.13 + 0.04 * walk + 0.10 * run + sw_yaw));
-        let cam_y = (self.eye_origin() - self.foot_origin()).dot(up);
-        let shoulder_w = self.torso_frame().point(side * self.scale(0.222), cam_y - 0.34 + (self.torso_size(0.64) - 0.64), -0.066);
+        let cam_y = (pose.eye_origin() - pose.foot_origin()).dot(up);
+        let shoulder_w = pose.torso_frame().point(side * pose.scale(0.222), cam_y - 0.34 + (pose.torso_size(0.64) - 0.64), -0.066);
         let elbow_local = Vec3::new(
             side * (0.028 + 0.038 * run + elbow_add.x),
             -0.155 - 0.010 * run - elbow_add.y,
@@ -72,15 +87,16 @@ impl BodyPose {
         (shoulder_w, elbow_w, hand_frame, forearm_len)
     }
 
-    pub fn finger_curl(&self, side: f32, holding_relic: bool, martial: MartialStyle) -> f32 {
+    pub fn finger_curl(self, holding_relic: bool) -> f32 {
+        let (pose, side, martial) = (self.pose, self.side, self.martial);
         if matches!(martial, MartialStyle::PalmCradle) {
             return 0.34;
         }
         if holding_relic {
             return 0.88;
         }
-        let (rhythm, _, _) = self.motion_factors();
-        let (arc, surge) = if self.striking_on(side) { (rhythm.cleave_arc(side), rhythm.cleave_surge(side)) } else { (0.0, 0.0) };
+        let (rhythm, _, _) = pose.motion_factors();
+        let (arc, surge) = if pose.striking_on(side) { (rhythm.cleave_arc(side), rhythm.cleave_surge(side)) } else { (0.0, 0.0) };
         let offset = if side > 0.0 { 0.0 } else { std::f32::consts::PI };
         let (phase, walk, run) = rhythm.limb_gait(offset, 1.0);
         (0.18 + 0.32 * (1.0 - arc * arc) * surge + 0.76 * arc.max(0.0) + 0.07 * walk + 0.70 * run + phase.sin().max(0.0) * 0.06 * run).clamp(0.18, 0.96)

@@ -20,7 +20,19 @@ impl<'a> MeshTarget for LitSlotTarget<'a> {
     }
 }
 
-impl HeldRelic {
+/// Decorator over `HeldRelic` and `BlockMold` emitting 3D palm-held and satchel-slot geometry.
+#[derive(Clone, Copy)]
+pub struct RelicFigure {
+    relic: HeldRelic,
+    mold: BlockMold,
+}
+
+impl RelicFigure {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(relic: HeldRelic, mold: BlockMold) -> Self {
+        Self { relic, mold }
+    }
+
     fn emit_deadwood(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
         let (bark, dark, twig, heart, leaf) = (
             Vec3::new(0.46, 0.29, 0.16),
@@ -53,32 +65,32 @@ impl HeldRelic {
             .emit(&cradle.pitched(-0.20).yawed(-0.52), true, target);
     }
 
-    pub fn emit_molded_in_palm(self, side: f32, mold: BlockMold, frame: &LimbFrame, target: &mut dyn MeshTarget) {
+    pub fn emit_in_palm(self, side: f32, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let (gx, gz) = (-side * 0.025, 0.054);
-        match self {
-            Self::EmptyPalm => {}
-            Self::QuarriedStone | Self::ExcavatedEarth | Self::TimberBlock | Self::PlankBlock | Self::CrustBlock => {
+        match self.relic {
+            HeldRelic::EmptyPalm => {}
+            HeldRelic::QuarriedStone | HeldRelic::ExcavatedEarth | HeldRelic::TimberBlock | HeldRelic::PlankBlock | HeldRelic::CrustBlock => {
                 frame.emit_cradled_block(
                     side,
                     Vec3::new(-side * 0.015, 0.001, 0.048),
-                    mold.in_medium(self.block_medium()),
+                    self.mold.in_medium(self.relic.block_medium()),
                     0.096,
                     Vec3::new(0.44, 0.31, 0.19),
                     Vec3::new(0.52, 0.38, 0.24),
                     target,
                 );
             }
-            Self::DeadwoodBough => Self::emit_deadwood(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
-            Self::FlintStone => Self::emit_flint(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
-            Self::TimberTorch => {
+            HeldRelic::DeadwoodBough => Self::emit_deadwood(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
+            HeldRelic::FlintStone => Self::emit_flint(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
+            HeldRelic::TimberTorch => {
                 TaperedPrism::hexagonal(Vec3::new(gx, -0.10, gz), Vec3::new(gx, 0.18, gz + 0.01), 0.013, 0.017, Vec3::new(0.45, 0.28, 0.14)).emit(frame, false, target);
                 TaperedPrism::hexagonal(Vec3::new(gx, 0.18, gz + 0.01), Vec3::new(gx, 0.25, gz + 0.015), 0.022, 0.008, Vec3::new(0.96, 0.52, 0.12)).emit(frame, true, target);
             }
-            Self::WoodenMallet => {
+            HeldRelic::WoodenMallet => {
                 TaperedPrism::hexagonal(Vec3::new(gx, -0.10, gz), Vec3::new(gx, 0.18, gz), 0.013, 0.014, Vec3::new(0.48, 0.31, 0.16)).emit(frame, true, target);
                 TaperedPrism::new(6, Vec3::new(gx, 0.14, gz - 0.04), Vec3::new(gx, 0.20, gz + 0.05), 0.032, 0.052, 0.032, 0.052, Vec3::new(0.36, 0.24, 0.13)).emit(frame, true, target);
             }
-            Self::WoodmanAxe => {
+            HeldRelic::WoodmanAxe => {
                 let (ash_wood, worn_ash, forged_iron, blade_steel, bright_edge) = (
                     Vec3::new(0.64, 0.45, 0.25),
                     Vec3::new(0.52, 0.35, 0.19),
@@ -97,7 +109,7 @@ impl HeldRelic {
                 TaperedPrism::new(4, Vec3::new(gx, 0.172, gz + 0.094), Vec3::new(gx, 0.218, gz + 0.096), 0.004, 0.014, 0.004, 0.014, bright_edge).emit(frame, true, target);
                 TaperedPrism::new(4, Vec3::new(gx, 0.218, gz + 0.096), Vec3::new(gx, 0.258, gz + 0.086), 0.004, 0.014, 0.003, 0.010, bright_edge).emit(frame, true, target);
             }
-            Self::KnightlySword => {
+            HeldRelic::KnightlySword => {
                 let (grip_leather, guard_iron, fuller_steel, honed_edge) = (
                     Vec3::new(0.26, 0.15, 0.09),
                     Vec3::new(0.32, 0.35, 0.40),
@@ -111,7 +123,7 @@ impl HeldRelic {
                 TaperedPrism::new(4, Vec3::new(gx, 0.068, gz), Vec3::new(gx, 0.390, gz), 0.006, 0.011, 0.005, 0.008, fuller_steel).emit(frame, true, target);
                 TaperedPrism::new(4, Vec3::new(gx, 0.420, gz), Vec3::new(gx, 0.680, gz), 0.004, 0.020, 0.001, 0.002, honed_edge).emit(frame, true, target);
             }
-            Self::IronSpade => {
+            HeldRelic::IronSpade => {
                 let (ash_wood, worn_ash, socket_iron, spade_steel, honed_edge) = (
                     Vec3::new(0.54, 0.37, 0.20),
                     Vec3::new(0.42, 0.28, 0.15),
@@ -128,37 +140,37 @@ impl HeldRelic {
         }
     }
 
-    pub fn emit_in_satchel_slot(self, mold: BlockMold, selected: bool, rim: Vec3, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
+    pub fn emit_in_slot(self, selected: bool, rim: Vec3, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let bg = if selected { Vec3::new(0.28, 0.33, 0.44) } else { Vec3::new(0.16, 0.19, 0.27) };
         slot_frame.emit_framed_plaque(0.044, 0.044, 0.0032, bg, rim * 1.25, target);
         let light_dir = (slot_frame.point(0.4, 0.6, -0.7) - slot_frame.point(0.0, 0.0, 0.0)).normalize_or_zero();
         let zenith = (slot_frame.point(0.0, 1.0, -1.0) - slot_frame.point(0.0, 0.0, 0.0)).normalize_or_zero();
         let mut lit = LitSlotTarget { light_dir, zenith, inner: target };
         let showcase = slot_frame.shifted(0.0, 0.0, -0.048).pitched(-0.46).yawed(0.64);
-        match self {
-            Self::EmptyPalm => {}
-            Self::ExcavatedEarth | Self::QuarriedStone | Self::TimberBlock | Self::PlankBlock | Self::CrustBlock => {
-                showcase.emit_upright_block(Vec3::new(0.0, -0.025, 0.0), mold.in_medium(self.block_medium()), 0.082, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.56, 0.41, 0.25), &mut lit);
+        match self.relic {
+            HeldRelic::EmptyPalm => {}
+            HeldRelic::ExcavatedEarth | HeldRelic::QuarriedStone | HeldRelic::TimberBlock | HeldRelic::PlankBlock | HeldRelic::CrustBlock => {
+                showcase.emit_upright_block(Vec3::new(0.0, -0.025, 0.0), self.mold.in_medium(self.relic.block_medium()), 0.082, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.56, 0.41, 0.25), &mut lit);
             }
-            Self::DeadwoodBough => Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit),
-            Self::FlintStone => Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit),
+            HeldRelic::DeadwoodBough => Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit),
+            HeldRelic::FlintStone => Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit),
             _ => {
-                let (scale, yaw, mid_y, mid_z) = match self {
-                    Self::KnightlySword => (0.090, 0.45, 0.285, 0.054),
-                    Self::IronSpade => (0.125, 0.45, 0.115, 0.062),
-                    Self::WoodmanAxe => (0.165, 1.32, 0.052, 0.092),
-                    Self::TimberTorch => (0.185, 0.45, 0.075, 0.058),
+                let (scale, yaw, mid_y, mid_z) = match self.relic {
+                    HeldRelic::KnightlySword => (0.090, 0.45, 0.285, 0.054),
+                    HeldRelic::IronSpade => (0.125, 0.45, 0.115, 0.062),
+                    HeldRelic::WoodmanAxe => (0.165, 1.32, 0.052, 0.092),
+                    HeldRelic::TimberTorch => (0.185, 0.45, 0.075, 0.058),
                     _ => (0.205, 0.85, 0.050, 0.054),
                 };
                 let tool_frame = slot_frame.shifted(0.0, 0.0, -0.035).pitched(-0.22).yawed(yaw).scaled(scale).shifted(0.025, -mid_y, -mid_z);
-                self.emit_molded_in_palm(1.0, mold, &tool_frame, &mut lit);
+                self.emit_in_palm(1.0, &tool_frame, &mut lit);
             }
         }
     }
 
-    pub fn emit_satchel_legend(self, legend_frame: &LimbFrame, target: &mut dyn MeshTarget) {
+    pub fn emit_legend(relic: HeldRelic, legend_frame: &LimbFrame, target: &mut dyn MeshTarget) {
         legend_frame.emit_framed_plaque(0.168, 0.032, 0.0024, Vec3::new(0.08, 0.10, 0.15), Vec3::new(0.42, 0.27, 0.16), target);
-        PixelStamp::new(0.0024, 0.0024, Vec3::new(1.55, 1.30, 0.48)).emit_on_frame(self.title(), 0.0, 0.017, 0.016, legend_frame, target);
+        PixelStamp::new(0.0024, 0.0024, Vec3::new(1.55, 1.30, 0.48)).emit_on_frame(relic.title(), 0.0, 0.017, 0.016, legend_frame, target);
         let hint = PixelStamp::new(0.0022, 0.0022, Vec3::new(1.42, 1.46, 1.54));
         hint.emit_on_frame("WASD: NAVIGATION  ESC: CLOSE", 0.0, 0.0, 0.016, legend_frame, target);
         hint.emit_on_frame("Q: LEFT HAND  E: RIGHT HAND", 0.0, -0.017, 0.016, legend_frame, target);

@@ -85,14 +85,15 @@ impl<'a> FlightContext<'a> {
 
     pub fn weightless_ascent(&self, _vertical_speed: f32) -> bool {
         self.terrain.world.weightless_at(self.step.position)
-            || self.body.envelope.in_upward_shaft(self.step.position, self.step.surface_up, self.body.eye_height, self.terrain.world)
+            || self.body.envelope.crust(self.terrain.world).in_upward_shaft(self.step.position, self.step.surface_up, self.body.eye_height)
     }
 
     pub fn confine_crust(&self, point: Vec3) -> Vec3 {
-        if self.body.envelope.in_upward_shaft(point, self.step.surface_up, self.body.eye_height, self.terrain.world) {
+        let crust = self.body.envelope.crust(self.terrain.world);
+        if crust.in_upward_shaft(point, self.step.surface_up, self.body.eye_height) {
             self.terrain.world.confine_beneath_crust(point)
         } else {
-            self.body.envelope.confine_beneath_crust(point, self.step.position, self.step.surface_up, self.terrain.world)
+            crust.confine(point, self.step.position, self.step.surface_up)
         }
     }
 

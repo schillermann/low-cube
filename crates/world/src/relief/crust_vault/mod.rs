@@ -2,7 +2,9 @@ mod mesh;
 
 use glam::Vec3;
 use crate::block::{GridCell, InvertedShape};
+use crate::frame::SurfaceFrame;
 use super::magma_core::MagmaCore;
+pub use mesh::VaultGeometry;
 
 /// Spherical inner shell of the 4-layer planetary crust enclosing the hollow world with beveled ceiling blocks.
 #[derive(Clone, Copy, Debug)]
@@ -30,6 +32,10 @@ impl CrustVault {
 
     pub fn circumference(&self) -> f32 {
         std::f32::consts::TAU * self.radius
+    }
+
+    pub const fn geometry<'a>(&'a self, frame: &'a SurfaceFrame) -> VaultGeometry<'a> {
+        VaultGeometry::new(self, frame)
     }
 
     pub(super) const fn radius(&self) -> f32 {

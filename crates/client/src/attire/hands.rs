@@ -151,7 +151,7 @@ impl VambraceStyle {
             TaperedPrism::new(8, Vec3::new(0.0, -0.004, 0.0), Vec3::new(cup, 0.032, 0.0), pose.arm_girth(0.014), pose.arm_girth(0.026 * hg), pose.arm_girth(0.012), pose.arm_girth(0.034 * hg), palm_col).emit(&palm_frame, false, target);
             TaperedPrism::new(8, Vec3::new(cup, 0.032, 0.0), Vec3::new(cup, 0.068, 0.0), pose.arm_girth(0.012), pose.arm_girth(0.034 * hg), pose.arm_girth(0.010), pose.arm_girth(0.035 * hg), palm_col).emit(&palm_frame, true, target);
 
-            let curl = pose.finger_curl(side, holding, martial);
+            let curl = pose.arm(side, martial).finger_curl(holding);
             let open = (1.0 - curl).clamp(0.0, 1.0);
             let thumb_knuckle = Vec3::new(-side * 0.002, pose.arm_girth((if cradle { 0.031 } else { 0.027 }) * hg), 0.024);
             let thumb_mid = thumb_knuckle + Vec3::new(-side * (0.006 * open + 0.024 * curl), 0.018 * open - 0.002 * curl, 0.016);

@@ -109,8 +109,10 @@ impl OverhangMolds {
             })
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn constrain_support(&self, cell_u: i32, cell_v: i32, u: f32, v: f32, mut h: f32, foot_elev: f32, body_span: f32) -> f32 {
+    pub fn constrain_support(&self, cell: GridCell, planar: (f32, f32), mut h: f32, span: (f32, f32)) -> f32 {
+        let (cell_u, cell_v) = cell.feed_coordinates(|cu, cv| (cu, cv));
+        let (u, v) = planar;
+        let (foot_elev, body_span) = span;
         if body_span > 1e-4 {
             if let Some(niche_ceil) = self.niche_ceiling_at(cell_u, cell_v, h) {
                 if niche_ceil - h < SUB_METER_NICHE_SPAN && foot_elev <= niche_ceil + NICHE_WALL_MARGIN {
@@ -119,7 +121,7 @@ impl OverhangMolds {
             }
         }
         if let Some(list) = self.blocks.get(&(cell_u, cell_v)) {
-            let (fu, fv) = GridCell::new(cell_u, cell_v).local_fraction(u, v);
+            let (fu, fv) = cell.local_fraction(u, v);
             for block in list {
                 h = block.constrain_support(fu, fv, h, foot_elev, body_span);
             }

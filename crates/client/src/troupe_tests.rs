@@ -89,11 +89,11 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
     assert!(crouch_pose.crown_frame().point(0.0, 0.0, 0.0).z < stand_pose.crown_frame().point(0.0, 0.0, 0.0).z - 0.15);
     assert!((leap_pose.crown_frame().point(0.0, 0.0, 0.0).y - stand_pose.crown_frame().point(0.0, 0.0, 0.0).y).abs() < 1e-5);
     let ((_, stand_elbow, stand_wrist, _), (_, crouch_elbow, crouch_wrist, _)) =
-        (stand_pose.external_arm(1.0, false, MartialStyle::Unarmed), crouch_pose.external_arm(1.0, false, MartialStyle::Unarmed));
+        (stand_pose.arm(1.0, MartialStyle::Unarmed).external(false), crouch_pose.arm(1.0, MartialStyle::Unarmed).external(false));
     assert!(crouch_elbow.z < stand_elbow.z - 0.08 && crouch_wrist.point(0.0, 0.0, 0.0).z < crouch_elbow.z - 0.12 && crouch_wrist.point(0.0, 0.0, 0.0).z < stand_wrist.point(0.0, 0.0, 0.0).z - 0.20);
     for step_idx in 0..16 {
         let run_pose = BodyPose::new(pos, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::new((step_idx as f32) * std::f32::consts::TAU / 16.0, 1.0), YouthPhysique::SlenderSquire);
-        let (shoulder_w, elbow_w, _, _) = run_pose.external_arm(1.0, false, MartialStyle::Unarmed);
+        let (shoulder_w, elbow_w, _, _) = run_pose.arm(1.0, MartialStyle::Unarmed).external(false);
         assert!(shoulder_w.y - elbow_w.y >= 0.20 && elbow_w.x > stand_elbow.x + 0.04);
     }
 
@@ -131,15 +131,15 @@ fn test_dual_hand_weapons_and_strike_trajectories() {
 
     let rest_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
     let swing_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::with_cleave(0.0, 0.0, 0.62), YouthPhysique::SlenderSquire);
-    let ((_, rest_elbow, rest_wrist, _), (_, axe_elbow, axe_wrist, _)) = (rest_pose.external_arm(1.0, true, MartialStyle::LumberjackCleave), swing_pose.external_arm(1.0, true, MartialStyle::LumberjackCleave));
-    let ((_, _, fp_axe_wrist, _), (_, sword_elbow, sword_wrist, _)) = (swing_pose.first_person_arm(1.0, MartialStyle::LumberjackCleave), swing_pose.external_arm(1.0, true, MartialStyle::SwordplaySlash));
+    let ((_, rest_elbow, rest_wrist, _), (_, axe_elbow, axe_wrist, _)) = (rest_pose.arm(1.0, MartialStyle::LumberjackCleave).external(true), swing_pose.arm(1.0, MartialStyle::LumberjackCleave).external(true));
+    let ((_, _, fp_axe_wrist, _), (_, sword_elbow, sword_wrist, _)) = (swing_pose.arm(1.0, MartialStyle::LumberjackCleave).first_person(), swing_pose.arm(1.0, MartialStyle::SwordplaySlash).external(true));
     assert!(rest_elbow.z - axe_elbow.z > 0.12 && rest_elbow.z - sword_elbow.z > 0.12);
-    let (ext_head, fp_head, fp_left_head) = (axe_wrist.point(-0.025, 0.24, 0.054), fp_axe_wrist.point(-0.025, 0.24, 0.054), swing_pose.first_person_arm(-1.0, MartialStyle::LumberjackCleave).2.point(0.025, 0.24, 0.054));
+    let (ext_head, fp_head, fp_left_head) = (axe_wrist.point(-0.025, 0.24, 0.054), fp_axe_wrist.point(-0.025, 0.24, 0.054), swing_pose.arm(-1.0, MartialStyle::LumberjackCleave).first_person().2.point(0.025, 0.24, 0.054));
     let (ext_wrist, fp_wrist, sword_tip) = (axe_wrist.point(0.0, 0.0, 0.0), fp_axe_wrist.point(0.0, 0.0, 0.0), sword_wrist.point(-0.025, 0.68, 0.054));
     assert!(axe_wrist.point(0.0, 0.0, 0.064).y - ext_wrist.y < rest_wrist.point(0.0, 0.0, 0.064).y - rest_wrist.point(0.0, 0.0, 0.0).y);
     assert!(axe_wrist.point(0.0, 0.036, 0.0).x - ext_wrist.x > rest_wrist.point(0.0, 0.036, 0.0).x - rest_wrist.point(0.0, 0.0, 0.0).x + 0.01);
     let full_pose = BodyPose::new(spawn, Quat::IDENTITY, Quat::IDENTITY, 0.8, StrideRhythm::with_cleave(0.0, 0.0, 0.68), YouthPhysique::SlenderSquire);
-    let (eye, (_, _, fp_full_axe, _), (_, _, fp_full_sword, _)) = (full_pose.eye_origin(), full_pose.first_person_arm(1.0, MartialStyle::LumberjackCleave), full_pose.first_person_arm(1.0, MartialStyle::SwordplaySlash));
+    let (eye, (_, _, fp_full_axe, _), (_, _, fp_full_sword, _)) = (full_pose.eye_origin(), full_pose.arm(1.0, MartialStyle::LumberjackCleave).first_person(), full_pose.arm(1.0, MartialStyle::SwordplaySlash).first_person());
     let (axe_blade_hit, sword_tip_hit) = (fp_full_axe.point(-0.025, 0.218, 0.140) - eye, fp_full_sword.point(-0.025, 0.680, 0.054) - eye);
     assert!(axe_blade_hit.x.abs() < 0.005 && axe_blade_hit.y.abs() < 0.005 && sword_tip_hit.x.abs() < 0.005 && sword_tip_hit.y.abs() < 0.005);
     assert!(ext_head.x > ext_wrist.x + 0.04 && fp_head.x > fp_wrist.x + 0.04 && ext_head.z < ext_wrist.z - 0.14 && sword_tip.z < sword_wrist.point(0.0, 0.0, 0.0).z - 0.50);

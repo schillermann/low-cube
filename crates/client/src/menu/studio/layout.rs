@@ -6,26 +6,37 @@ use super::super::glyph::PixelStamp;
 use super::super::widget::ScreenBounds;
 use super::WardrobeStudio;
 
-impl WardrobeStudio {
-    pub(super) fn rotate_left_button() -> ScreenBounds { ScreenBounds::new(-0.36, 0.72, -0.14, 0.81) }
-    pub(super) fn front_button() -> ScreenBounds { ScreenBounds::new(-0.11, 0.72, 0.11, 0.81) }
-    pub(super) fn rotate_right_button() -> ScreenBounds { ScreenBounds::new(0.14, 0.72, 0.36, 0.81) }
-    pub(super) fn male_button() -> ScreenBounds { ScreenBounds::new(-0.94, -0.74, -0.72, -0.66) }
-    pub(super) fn female_button() -> ScreenBounds { ScreenBounds::new(-0.70, -0.74, -0.48, -0.66) }
-    pub(super) fn reset_button() -> ScreenBounds { ScreenBounds::new(0.48, -0.78, 0.94, -0.68) }
-    pub(super) fn back_button() -> ScreenBounds { ScreenBounds::new(-0.18, -0.95, 0.18, -0.84) }
-    pub(super) fn turntable_viewport() -> ScreenBounds { ScreenBounds::new(-0.43, -0.80, 0.43, 0.70) }
+/// Decorator over `WardrobeStudio` providing UI button layout bounds and 2D overlay emission.
+#[derive(Clone, Copy)]
+pub struct StudioLayout<'a> {
+    studio: &'a WardrobeStudio,
+}
+
+impl<'a> StudioLayout<'a> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(studio: &'a WardrobeStudio) -> Self {
+        Self { studio }
+    }
+
+    pub fn rotate_left_button() -> ScreenBounds { ScreenBounds::new(-0.36, 0.72, -0.14, 0.81) }
+    pub fn front_button() -> ScreenBounds { ScreenBounds::new(-0.11, 0.72, 0.11, 0.81) }
+    pub fn rotate_right_button() -> ScreenBounds { ScreenBounds::new(0.14, 0.72, 0.36, 0.81) }
+    pub fn male_button() -> ScreenBounds { ScreenBounds::new(-0.94, -0.74, -0.72, -0.66) }
+    pub fn female_button() -> ScreenBounds { ScreenBounds::new(-0.70, -0.74, -0.48, -0.66) }
+    pub fn reset_button() -> ScreenBounds { ScreenBounds::new(0.48, -0.78, 0.94, -0.68) }
+    pub fn back_button() -> ScreenBounds { ScreenBounds::new(-0.18, -0.95, 0.18, -0.84) }
+    pub fn turntable_viewport() -> ScreenBounds { ScreenBounds::new(-0.43, -0.80, 0.43, 0.70) }
 
     fn grid_slot(idx: usize, top_y: f32, row_step: f32, height: f32) -> ScreenBounds {
         let (x0, y1) = (-0.94 + ((idx % 2) as f32) * 0.24, top_y - ((idx / 2) as f32) * row_step);
         ScreenBounds::new(x0, y1 - height, x0 + 0.22, y1)
     }
 
-    pub(super) fn archetype_slot(idx: usize) -> ScreenBounds { Self::grid_slot(idx, 0.68, 0.10, 0.08) }
-    pub(super) fn swatch_slot(idx: usize) -> ScreenBounds { Self::grid_slot(idx, 0.26, 0.095, 0.075) }
-    pub(super) fn clothing_slot(idx: usize) -> ScreenBounds { Self::grid_slot(idx, -0.24, 0.10, 0.08) }
+    pub fn archetype_slot(idx: usize) -> ScreenBounds { Self::grid_slot(idx, 0.68, 0.10, 0.08) }
+    pub fn swatch_slot(idx: usize) -> ScreenBounds { Self::grid_slot(idx, 0.26, 0.095, 0.075) }
+    pub fn clothing_slot(idx: usize) -> ScreenBounds { Self::grid_slot(idx, -0.24, 0.10, 0.08) }
 
-    pub(super) fn region_rows(idx: usize) -> (f32, ScreenBounds, ScreenBounds, ScreenBounds, ScreenBounds, ScreenBounds, ScreenBounds) {
+    pub fn region_rows(idx: usize) -> (f32, ScreenBounds, ScreenBounds, ScreenBounds, ScreenBounds, ScreenBounds, ScreenBounds) {
         let top = 0.68 - (idx as f32) * 0.33;
         let (r1, r2) = ((top - 0.13, top - 0.05), (top - 0.24, top - 0.16));
         (
@@ -39,9 +50,9 @@ impl WardrobeStudio {
         )
     }
 
-    pub fn emit_overlay(&self, target: &mut dyn MeshTarget) {
-        let pt = self.pointer_point();
-        let attire = self.current_attire();
+    pub fn emit_overlay(self, target: &mut dyn MeshTarget) {
+        let pt = self.studio.pointer_point();
+        let attire = self.studio.current_attire();
         let (panel_bg, panel_rim, btn_col, gold) = (
             Vec3::new(0.08, 0.10, 0.14),
             Vec3::new(0.28, 0.34, 0.44),
@@ -61,7 +72,7 @@ impl WardrobeStudio {
                 arch.gender_title(attire.feminine()),
                 pt,
                 btn_col,
-                self.selected_archetype(*arch),
+                self.studio.selected_archetype(*arch),
                 target,
             );
         }

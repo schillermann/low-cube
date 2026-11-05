@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.44.5] - 2026-11-05
+
+### Added
+- Added `VerticalColumn` decorator chain (`NaturalColumn`, `ShaftColumn`, `MoldedColumn` in `crates/world/src/relief/column_clearance/decorators.rs`) and `AerialTrajectory` decorator chain (`ParabolicTrajectory`, `CliffReboundTrajectory`, `WeightlessTrajectory` in `crates/client/src/phase/aerial.rs`).
+- Added dedicated decorator objects `VaultGeometry` (`crates/world/src/relief/crust_vault/mesh.rs`), `CrustEnvelope` (`crates/client/src/envelope/crust.rs`), `ArmKinematics` (`crates/client/src/attire/pose/arms.rs`), `RelicFigure` (`crates/client/src/attire/relic/mesh.rs`), and `StudioLayout` (`crates/client/src/menu/studio/layout.rs`).
+
+### Changed
+- Replaced split inherent `impl` blocks across files with dedicated decorator objects and extended `test_workspace_architecture_guard_enforces_line_and_field_limits` (`crates/client/src/earthworks_tests.rs`) to forbid cross-file inherent `impl` blocks.
+- Short-circuited `ShaftExcavation::in_upward_shaft` and `ColumnClearance::weightless_at` before vault floor evaluation to preserve zero heap allocations during `PlanetaryAvatar::step_motion`.
+
 ## [0.44.4] - 2026-11-05
 
 ### Added

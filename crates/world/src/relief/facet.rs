@@ -59,7 +59,7 @@ impl ReliefFacet {
         } else if relief.reworked_at(u, v) {
             let top_c = if vault.crust_surface_at(u, v, h) {
                 let mut cratered = CrateredMeshTarget::new(target, stage);
-                vault.emit_crust_floor(cell, top_h, relief.breached_at(u, v), frame, &mut cratered)
+                vault.geometry(frame).emit_crust_floor(cell, top_h, relief.breached_at(u, v), &mut cratered)
             } else {
                 let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
                 let sub_dirt = relief.bare_dirt_at(u, v) || molded;

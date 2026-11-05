@@ -131,7 +131,7 @@ impl ArtisanTome {
             row_frame.emit_framed_plaque(0.262, 0.021, 0.0020, row_bg, row_rim, target);
 
             let icon_frame = row_frame.shifted(-0.225, 0.0, -0.010).scaled(0.42);
-            entry.product.emit_in_satchel_slot(BlockMold::cube(), selected, row_rim, &icon_frame, target);
+            entry.product.figure(BlockMold::cube()).emit_in_slot(selected, row_rim, &icon_frame, target);
 
             let title_col = if ready { Vec3::new(1.10, 1.55, 0.95) } else { Vec3::new(1.48, 1.36, 1.12) };
             let status = if ready { "READY" } else { "NEED RESOURCES" };
