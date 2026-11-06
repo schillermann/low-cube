@@ -94,7 +94,7 @@ impl RelicFigure {
             | HeldRelic::TimberBlock
             | HeldRelic::PlankBlock
             | HeldRelic::CrustBlock
-            | HeldRelic::CarEngine
+            | HeldRelic::SteeringWheel
             | HeldRelic::AircraftEngine
             | HeldRelic::RocketEngine
             | HeldRelic::CabinSeat
@@ -184,7 +184,7 @@ impl RelicFigure {
             | HeldRelic::TimberBlock
             | HeldRelic::PlankBlock
             | HeldRelic::CrustBlock
-            | HeldRelic::CarEngine
+            | HeldRelic::SteeringWheel
             | HeldRelic::AircraftEngine
             | HeldRelic::RocketEngine
             | HeldRelic::CabinSeat

@@ -2,7 +2,6 @@ use std::f32::consts::PI;
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
-use super::cabin_seat::CabinSeatMesh;
 use super::cell::GridCell;
 use super::mold::MoldArchetype;
 use super::timber_grain::BlockMedium;
@@ -46,7 +45,7 @@ impl WheelProfile {
     }
 }
 
-/// Sculpted 3D geometry emitter for vehicle engines, cabin seats, and rolling wheels.
+/// Sculpted 3D geometry emitter for steering wheels, propulsion engines, and rolling wheels.
 pub struct VehicleBlockMesh {
     medium: BlockMedium,
     heading: WedgeHeading,
@@ -75,50 +74,88 @@ impl VehicleBlockMesh {
 
     pub fn emit(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         match self.medium {
-            BlockMedium::CarEngine => self.emit_car_steering(cell, floor_elevation, frame, target),
-            BlockMedium::CabinSeat => CabinSeatMesh::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
+            BlockMedium::SteeringWheel => self.emit_steering_wheel(cell, floor_elevation, frame, target),
             BlockMedium::CarWheel => self.emit_wheel(cell, floor_elevation, frame, target),
             _ => self.emit_engine(cell, floor_elevation, frame, target),
         }
     }
 
-    fn emit_car_steering(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
-        let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
-        let steer_shift = (self.motion.1 * 0.035).clamp(-0.04, 0.04);
-        let (chassis, hood, column, wheel_rim, brass, beacon) = (
-            Vec3::new(0.26, 0.29, 0.34),
-            Vec3::new(0.36, 0.40, 0.46),
-            Vec3::new(0.22, 0.25, 0.30),
+    fn emit_steering_wheel(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
+        let (uc, vc) = cell.center();
+        let (t, b, up) = (frame.tangent(), frame.bitangent(), frame.normal());
+        let (fwd, right) = match self.heading {
+            WedgeHeading::East => (t, b),
+            WedgeHeading::West => (-t, -b),
+            WedgeHeading::North => (b, -t),
+            WedgeHeading::South => (-b, t),
+        };
+        let origin = frame.point_at(uc, vc, floor_elev);
+        let (iron_base, column_steel, spoke_chrome, grip_leather, grip_seam, brass, marker_red) = (
+            Vec3::new(0.20, 0.22, 0.27),
+            Vec3::new(0.32, 0.36, 0.42),
+            Vec3::new(0.66, 0.70, 0.76),
             Vec3::new(0.14, 0.16, 0.20),
-            Vec3::new(0.92, 0.74, 0.26),
-            Vec3::new(0.99, 0.78, 0.20),
+            Vec3::new(0.22, 0.24, 0.30),
+            Vec3::new(0.94, 0.76, 0.24),
+            Vec3::new(0.86, 0.22, 0.16),
         );
-        BlockMedium::emit_box(u0 + 0.02, u1 - 0.02, v0 + 0.02, v1 - 0.02, floor_elev, floor_elev + 0.10, frame, chassis, hood, true, target);
-        match self.heading {
-            WedgeHeading::East => {
-                BlockMedium::emit_box(u0 + 0.22, u1 - 0.02, v0 + 0.04, v1 - 0.04, floor_elev + 0.10, floor_elev + 0.30, frame, chassis, hood, false, target);
-                BlockMedium::emit_box(u1 - 0.04, u1 + 0.01, v0 + 0.10, v1 - 0.10, floor_elev + 0.13, floor_elev + 0.26, frame, beacon, beacon, false, target);
-                BlockMedium::emit_box(u0 + 0.11, u0 + 0.24, v0 + 0.19, v1 - 0.19, floor_elev + 0.16, floor_elev + 0.38, frame, column, column, false, target);
-                BlockMedium::emit_box(u0 + 0.05, u0 + 0.12, v0 + 0.10 - steer_shift, v1 - 0.10 - steer_shift, floor_elev + 0.28, floor_elev + 0.48, frame, wheel_rim, brass, true, target);
+        let emit_prism = |a0: Vec3, a1: Vec3, a2: Vec3, a3: Vec3, b0: Vec3, b1: Vec3, b2: Vec3, b3: Vec3, w_col: Vec3, t_col: Vec3, out: &mut dyn MeshTarget| {
+            let n_top = (b1 - b0).cross(b3 - b0).normalize_or_zero();
+            out.push_quad(Quad::new(b0, b1, b2, b3, n_top, t_col));
+            out.push_quad(Quad::new(a0, a3, a2, a1, -n_top, w_col));
+            for [p0, p1, p2, p3] in [[a0, a1, b1, b0], [a1, a2, b2, b1], [a2, a3, b3, b2], [a3, a0, b0, b3]] {
+                out.push_quad(Quad::new(p0, p1, p2, p3, (p1 - p0).cross(p3 - p0).normalize_or_zero(), w_col));
             }
-            WedgeHeading::West => {
-                BlockMedium::emit_box(u0 + 0.02, u1 - 0.22, v0 + 0.04, v1 - 0.04, floor_elev + 0.10, floor_elev + 0.30, frame, chassis, hood, false, target);
-                BlockMedium::emit_box(u0 - 0.01, u0 + 0.04, v0 + 0.10, v1 - 0.10, floor_elev + 0.13, floor_elev + 0.26, frame, beacon, beacon, false, target);
-                BlockMedium::emit_box(u1 - 0.24, u1 - 0.11, v0 + 0.19, v1 - 0.19, floor_elev + 0.16, floor_elev + 0.38, frame, column, column, false, target);
-                BlockMedium::emit_box(u1 - 0.12, u1 - 0.05, v0 + 0.10 + steer_shift, v1 - 0.10 + steer_shift, floor_elev + 0.28, floor_elev + 0.48, frame, wheel_rim, brass, true, target);
-            }
-            WedgeHeading::North => {
-                BlockMedium::emit_box(u0 + 0.04, u1 - 0.04, v0 + 0.22, v1 - 0.02, floor_elev + 0.10, floor_elev + 0.30, frame, chassis, hood, false, target);
-                BlockMedium::emit_box(u0 + 0.10, u1 - 0.10, v1 - 0.04, v1 + 0.01, floor_elev + 0.13, floor_elev + 0.26, frame, beacon, beacon, false, target);
-                BlockMedium::emit_box(u0 + 0.19, u1 - 0.19, v0 + 0.11, v0 + 0.24, floor_elev + 0.16, floor_elev + 0.38, frame, column, column, false, target);
-                BlockMedium::emit_box(u0 + 0.10 + steer_shift, u1 - 0.10 + steer_shift, v0 + 0.05, v0 + 0.12, floor_elev + 0.28, floor_elev + 0.48, frame, wheel_rim, brass, true, target);
-            }
-            WedgeHeading::South => {
-                BlockMedium::emit_box(u0 + 0.04, u1 - 0.04, v0 + 0.02, v1 - 0.22, floor_elev + 0.10, floor_elev + 0.30, frame, chassis, hood, false, target);
-                BlockMedium::emit_box(u0 + 0.10, u1 - 0.10, v0 - 0.01, v0 + 0.04, floor_elev + 0.13, floor_elev + 0.26, frame, beacon, beacon, false, target);
-                BlockMedium::emit_box(u0 + 0.19, u1 - 0.19, v1 - 0.24, v1 - 0.11, floor_elev + 0.16, floor_elev + 0.38, frame, column, column, false, target);
-                BlockMedium::emit_box(u0 + 0.10 - steer_shift, u1 - 0.10 - steer_shift, v1 - 0.12, v1 - 0.05, floor_elev + 0.28, floor_elev + 0.48, frame, wheel_rim, brass, true, target);
-            }
+        };
+        let base_pt = |x: f32, y: f32, z: f32| origin + right * x + up * y + fwd * z;
+        emit_prism(
+            base_pt(-0.14, 0.0, -0.08), base_pt(0.14, 0.0, -0.08), base_pt(0.14, 0.0, 0.16), base_pt(-0.14, 0.0, 0.16),
+            base_pt(-0.11, 0.06, -0.05), base_pt(0.11, 0.06, -0.05), base_pt(0.11, 0.06, 0.13), base_pt(-0.11, 0.06, 0.13),
+            iron_base, column_steel, target,
+        );
+        target.push_quad(Quad::glowing(
+            base_pt(-0.045, 0.062, 0.07), base_pt(0.045, 0.062, 0.07), base_pt(0.0, 0.062, 0.155), base_pt(0.0, 0.062, 0.155),
+            up, brass, 0.85,
+        ));
+        emit_prism(
+            base_pt(-0.045, 0.05, 0.02), base_pt(0.045, 0.05, 0.02), base_pt(0.045, 0.05, 0.10), base_pt(-0.045, 0.05, 0.10),
+            base_pt(-0.032, 0.30, -0.09), base_pt(0.032, 0.30, -0.09), base_pt(0.032, 0.33, -0.03), base_pt(-0.032, 0.33, -0.03),
+            iron_base, column_steel, target,
+        );
+
+        let hub = base_pt(0.0, 0.33, -0.08);
+        let col_axis = (-fwd * 0.84 + up * 0.54).normalize_or_zero();
+        let w_up = col_axis.cross(right).normalize_or_zero();
+        let steer_phi = -self.motion.1 * 0.85;
+        let wheel_pt = |angle: f32, r: f32, z: f32| {
+            let (s, c) = (angle + steer_phi).sin_cos();
+            hub + (right * s + w_up * c) * r + col_axis * z
+        };
+        let (segs, r_in, r_out, r_hub, hz) = (8usize, 0.125f32, 0.165f32, 0.042f32, 0.018f32);
+        let step = (2.0 * PI) / (segs as f32);
+        for i in 0..segs {
+            let (a0, a1) = ((i as f32) * step, ((i + 1) as f32) * step);
+            let rim_col = if i == 0 { marker_red } else if i % 2 == 0 { grip_leather } else { grip_seam };
+            emit_prism(
+                wheel_pt(a0, r_in, -hz), wheel_pt(a1, r_in, -hz), wheel_pt(a1, r_out, -hz), wheel_pt(a0, r_out, -hz),
+                wheel_pt(a0, r_in, hz), wheel_pt(a1, r_in, hz), wheel_pt(a1, r_out, hz), wheel_pt(a0, r_out, hz),
+                rim_col, rim_col, target,
+            );
+            let [h0, h1, h2] = [hub + col_axis * (hz + 0.008), wheel_pt(a0, r_hub, hz + 0.008), wheel_pt(a1, r_hub, hz + 0.008)];
+            target.push_quad(Quad::glowing(h0, h2, h1, h1, col_axis, brass, 0.72));
+        }
+        for spoke_ang in [0.52 * PI, PI, 1.48 * PI] {
+            emit_prism(
+                wheel_pt(spoke_ang - 0.12, r_hub * 0.8, -0.010),
+                wheel_pt(spoke_ang + 0.12, r_hub * 0.8, -0.010),
+                wheel_pt(spoke_ang + 0.06, r_in + 0.006, -0.010),
+                wheel_pt(spoke_ang - 0.06, r_in + 0.006, -0.010),
+                wheel_pt(spoke_ang - 0.12, r_hub * 0.8, 0.010),
+                wheel_pt(spoke_ang + 0.12, r_hub * 0.8, 0.010),
+                wheel_pt(spoke_ang + 0.06, r_in + 0.006, 0.010),
+                wheel_pt(spoke_ang - 0.06, r_in + 0.006, 0.010),
+                column_steel, spoke_chrome, target,
+            );
         }
     }
 
@@ -247,3 +284,4 @@ impl VehicleBlockMesh {
         }
     }
 }
+

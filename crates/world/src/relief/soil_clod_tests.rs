@@ -225,12 +225,12 @@ fn test_polyhedral_cantilever_rig_deploys_retracts_telescopic_gripper_and_hoists
 
     let engine_shape = Box::new(crate::block::MediumShape::new(
         Box::new(crate::block::CuboidShape::new(0.5)),
-        crate::block::BlockMedium::CarEngine,
+        crate::block::BlockMedium::SteeringWheel,
         true,
         false,
     ));
-    assert!(relief.stack_molded_cell(0, 0, 0.0, engine_shape), "Mounting CarEngine onto crane must succeed");
-    assert!(relief.layer_occupied_at(2, 0, 1.75), "Mounted CarEngine must be suspended at (2, 0) height 1.5m..2.0m");
+    assert!(relief.stack_molded_cell(0, 0, 0.0, engine_shape), "Mounting SteeringWheel onto crane must succeed");
+    assert!(relief.layer_occupied_at(2, 0, 1.75), "Mounted SteeringWheel must be suspended at (2, 0) height 1.5m..2.0m");
 
     let mut rig_ledger = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
     ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut rig_ledger);

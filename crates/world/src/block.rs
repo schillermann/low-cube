@@ -23,7 +23,7 @@ mod wedge;
 #[cfg(test)]
 mod tests;
 
-pub use cabin_seat::{CabinSeatMesh, SeatProfile};
+pub use cabin_seat::CabinSeatMesh;
 pub use cell::GridCell;
 pub use corner::CornerHeading;
 pub use cuboid::CuboidShape;

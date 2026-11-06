@@ -21,7 +21,7 @@ pub enum HeldRelic {
     PlankBlock,
     CrustBlock,
     CantileverCrane,
-    CarEngine,
+    SteeringWheel,
     AircraftEngine,
     RocketEngine,
     CabinSeat,
@@ -50,7 +50,7 @@ impl HeldRelic {
             11 => Self::PlankBlock,
             12 => Self::CrustBlock,
             13 => Self::CantileverCrane,
-            14 => Self::CarEngine,
+            14 => Self::SteeringWheel,
             15 => Self::AircraftEngine,
             16 => Self::RocketEngine,
             17 => Self::CabinSeat,
@@ -74,7 +74,7 @@ impl HeldRelic {
             Self::PlankBlock => 11,
             Self::CrustBlock => 12,
             Self::CantileverCrane => 13,
-            Self::CarEngine => 14,
+            Self::SteeringWheel => 14,
             Self::AircraftEngine => 15,
             Self::RocketEngine => 16,
             Self::CabinSeat => 17,
@@ -98,10 +98,10 @@ impl HeldRelic {
             Self::PlankBlock => "WOOD PLANKS",
             Self::CrustBlock => "CRUST BLOCK",
             Self::CantileverCrane => "CRANE LIFT",
-            Self::CarEngine => "CAR ENGINE",
+            Self::SteeringWheel => "STEERING WHEEL",
             Self::AircraftEngine => "PLANE ENGINE",
             Self::RocketEngine => "ROCKET ENGINE",
-            Self::CabinSeat => "CAR SEAT",
+            Self::CabinSeat => "SEAT BLOCK",
             Self::CarWheel => "CAR WHEEL",
         }
     }
@@ -131,7 +131,7 @@ impl HeldRelic {
                 | Self::PlankBlock
                 | Self::CrustBlock
                 | Self::CantileverCrane
-                | Self::CarEngine
+                | Self::SteeringWheel
                 | Self::AircraftEngine
                 | Self::RocketEngine
                 | Self::CabinSeat
@@ -146,7 +146,7 @@ impl HeldRelic {
             Self::TimberBlock => BlockMedium::RawTimber,
             Self::PlankBlock => BlockMedium::PlanedPlanks,
             Self::CantileverCrane => BlockMedium::CantileverRig,
-            Self::CarEngine => BlockMedium::CarEngine,
+            Self::SteeringWheel => BlockMedium::SteeringWheel,
             Self::AircraftEngine => BlockMedium::AircraftEngine,
             Self::RocketEngine => BlockMedium::RocketEngine,
             Self::CabinSeat => BlockMedium::CabinSeat,
@@ -163,7 +163,7 @@ impl HeldRelic {
             BlockMedium::RawTimber => Self::TimberBlock,
             BlockMedium::PlanedPlanks => Self::PlankBlock,
             BlockMedium::CantileverRig => Self::CantileverCrane,
-            BlockMedium::CarEngine => Self::CarEngine,
+            BlockMedium::SteeringWheel => Self::SteeringWheel,
             BlockMedium::AircraftEngine => Self::AircraftEngine,
             BlockMedium::RocketEngine => Self::RocketEngine,
             BlockMedium::CabinSeat => Self::CabinSeat,
@@ -180,7 +180,7 @@ impl HeldRelic {
             | Self::TimberBlock
             | Self::PlankBlock
             | Self::CantileverCrane
-            | Self::CarEngine
+            | Self::SteeringWheel
             | Self::AircraftEngine
             | Self::RocketEngine
             | Self::CabinSeat

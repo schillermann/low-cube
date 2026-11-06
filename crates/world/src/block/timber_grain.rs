@@ -1,6 +1,7 @@
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad, TurfMeshTarget};
+use super::cabin_seat::CabinSeatMesh;
 use super::cell::GridCell;
 use super::earth_clods::EarthClods;
 use super::mold::MoldArchetype;
@@ -18,7 +19,7 @@ pub enum BlockMedium {
     PlanedPlanks,
     Sand,
     CantileverRig,
-    CarEngine,
+    SteeringWheel,
     AircraftEngine,
     RocketEngine,
     CabinSeat,
@@ -36,9 +37,9 @@ impl BlockMedium {
         matches!(self, Self::Sand)
     }
 
-    /// Indicates whether this block medium is a vehicle engine block mountable on a cantilever rig.
+    /// Indicates whether this block medium is a vehicle engine or steering control mountable on a cantilever rig.
     pub const fn vehicle_engine(self) -> bool {
-        matches!(self, Self::CarEngine | Self::AircraftEngine | Self::RocketEngine)
+        matches!(self, Self::SteeringWheel | Self::AircraftEngine | Self::RocketEngine)
     }
 
     /// Indicates whether this block medium is a vehicle component that can initiate or attach to a crane assembly.
@@ -54,10 +55,10 @@ impl BlockMedium {
             Self::QuarriedStone => (Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.46, 0.48, 0.50)),
             Self::RawTimber | Self::PlanedPlanks | Self::CantileverRig => (Vec3::new(0.82, 0.66, 0.42), Vec3::new(0.58, 0.42, 0.24)),
             Self::Sand => (Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.74, 0.64, 0.40)),
-            Self::CarEngine => (Vec3::new(0.98, 0.68, 0.18), Vec3::new(0.34, 0.38, 0.44)),
+            Self::SteeringWheel => (Vec3::new(0.94, 0.76, 0.24), Vec3::new(0.20, 0.22, 0.27)),
             Self::AircraftEngine => (Vec3::new(0.22, 0.88, 0.98), Vec3::new(0.54, 0.62, 0.72)),
             Self::RocketEngine => (Vec3::new(0.99, 0.32, 0.14), Vec3::new(0.24, 0.22, 0.28)),
-            Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.24, 0.27, 0.32)),
+            Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.36, 0.20, 0.13)),
             Self::CarWheel => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
         }
     }
@@ -214,12 +215,13 @@ impl VoxelShape for MediumShape {
         wall_color: Vec3,
         target: &mut dyn MeshTarget,
     ) {
-        if matches!(
+        if self.medium == BlockMedium::CabinSeat {
+            CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target);
+        } else if matches!(
             self.medium,
-            BlockMedium::CarEngine
+            BlockMedium::SteeringWheel
                 | BlockMedium::AircraftEngine
                 | BlockMedium::RocketEngine
-                | BlockMedium::CabinSeat
                 | BlockMedium::CarWheel
         ) {
             VehicleBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle))
@@ -259,11 +261,13 @@ impl VoxelShape for MediumShape {
             (BlockMedium::CantileverRig, _) => {
                 BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target);
             }
+            (BlockMedium::CabinSeat, _) => {
+                CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target);
+            }
             (
-                BlockMedium::CarEngine
+                BlockMedium::SteeringWheel
                 | BlockMedium::AircraftEngine
                 | BlockMedium::RocketEngine
-                | BlockMedium::CabinSeat
                 | BlockMedium::CarWheel,
                 _,
             ) => {

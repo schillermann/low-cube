@@ -25,7 +25,7 @@ pub use biome::BiomedCubeWorld;
 pub use block::{
     BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
     ElevatedShape, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape,
-    MoldArchetype, PyramidPeak, RampWedge, RidgeCorner, SeatProfile, StairCorner, StairFlight,
+    MoldArchetype, PyramidPeak, RampWedge, RidgeCorner, StairCorner, StairFlight,
     ValleyCorner, VoxelShape, WedgeHeading, WheelProfile,
 };
 pub use frame::SurfaceFrame;

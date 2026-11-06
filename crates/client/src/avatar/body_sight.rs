@@ -94,7 +94,11 @@ impl AvatarBody {
         if allow_perch {
             if let Some(perch) = world.board_vehicle(eye, view_dir, false) {
                 let heading = perch.heading();
-                self.sit_in_seat(perch);
+                if perch.drivable() {
+                    self.board_vehicle(perch, world);
+                } else {
+                    self.sit_in_seat(perch);
+                }
                 sight_line.anchor_vehicle_heading(heading);
                 return Some(true);
             }

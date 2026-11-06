@@ -47,7 +47,7 @@ impl BeltSatchel {
     pub fn with_test_engines(mut self) -> Self {
         self.tray.stow_relic(HeldRelic::RocketEngine, 1);
         self.tray.stow_relic(HeldRelic::AircraftEngine, 1);
-        self.tray.stow_relic(HeldRelic::CarEngine, 1);
+        self.tray.stow_relic(HeldRelic::SteeringWheel, 1);
         self.tray.stow_relic(HeldRelic::CarWheel, 8);
         self.tray.stow_relic(HeldRelic::CabinSeat, 2);
         self
@@ -70,8 +70,14 @@ impl BeltSatchel {
         } else {
             (self.tray.active_side() > 0.0, self.tray.active_side() < 0.0)
         };
-        if mr { self.palms.right_mold = op(self.palms.right_mold); }
-        if ml { self.palms.left_mold = op(self.palms.left_mold); }
+        if mr {
+            let m = if r.placeable_block() { self.palms.right_mold.in_medium(r.block_medium()) } else { self.palms.right_mold };
+            self.palms.right_mold = op(m);
+        }
+        if ml {
+            let m = if l.placeable_block() { self.palms.left_mold.in_medium(l.block_medium()) } else { self.palms.left_mold };
+            self.palms.left_mold = op(m);
+        }
         self
     }
 
@@ -147,7 +153,7 @@ impl BeltSatchel {
             for (part, qty) in [
                 (HeldRelic::RocketEngine, 1),
                 (HeldRelic::AircraftEngine, 1),
-                (HeldRelic::CarEngine, 1),
+                (HeldRelic::SteeringWheel, 1),
                 (HeldRelic::CarWheel, 8),
                 (HeldRelic::CabinSeat, 2),
             ] {

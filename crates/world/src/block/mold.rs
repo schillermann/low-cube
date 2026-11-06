@@ -74,6 +74,14 @@ impl MoldArchetype {
     pub const fn next(self) -> Self { Self::from_code(self.code() + 1) }
     pub const fn prev(self) -> Self { Self::from_code(self.code() + 15) }
     pub const fn full_height_flat(self) -> bool { matches!(self, Self::FullCube) }
+    pub const fn flat_square_top(self) -> bool { matches!(self, Self::FullCube | Self::HalfSlab) }
+
+    pub const fn next_flat_square_top(self) -> Self {
+        match self {
+            Self::FullCube => Self::HalfSlab,
+            _ => Self::FullCube,
+        }
+    }
 }
 
 /// Immutable palm-molded block specification pairing form archetype, 4-way directional turn, and material medium.
@@ -98,15 +106,44 @@ impl BlockMold {
     /// Secondary constructor initializing a forward-facing full cube mold.
     pub const fn cube() -> Self { Self::new(MoldArchetype::FullCube, CardinalTurn::Forward) }
 
-    pub const fn in_medium(self, medium: BlockMedium) -> Self { Self::with_medium(self.archetype, self.turn, medium) }
-    pub const fn next_form(self) -> Self { Self::with_medium(self.archetype.next(), self.turn, self.medium) }
-    pub const fn prev_form(self) -> Self { Self::with_medium(self.archetype.prev(), self.turn, self.medium) }
+    pub const fn in_medium(self, medium: BlockMedium) -> Self {
+        let archetype = if matches!(medium, BlockMedium::CabinSeat) && !self.archetype.flat_square_top() {
+            MoldArchetype::FullCube
+        } else {
+            self.archetype
+        };
+        Self::with_medium(archetype, self.turn, medium)
+    }
+
+    pub const fn next_form(self) -> Self {
+        let next = if matches!(self.medium, BlockMedium::CabinSeat) {
+            self.archetype.next_flat_square_top()
+        } else {
+            self.archetype.next()
+        };
+        Self::with_medium(next, self.turn, self.medium)
+    }
+
+    pub const fn prev_form(self) -> Self {
+        let prev = if matches!(self.medium, BlockMedium::CabinSeat) {
+            self.archetype.next_flat_square_top()
+        } else {
+            self.archetype.prev()
+        };
+        Self::with_medium(prev, self.turn, self.medium)
+    }
+
     pub const fn turn_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_clockwise(), self.medium) }
     pub const fn turn_counter_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_counter_clockwise(), self.medium) }
     pub const fn full_height_flat(self) -> bool { self.archetype.full_height_flat() }
 
     /// Resolves the concrete VoxelShape oriented along the placement direction and current turn.
     pub fn shape_for(self, direction: Vec3, frame: &SurfaceFrame) -> Box<dyn VoxelShape> {
+        let effective_archetype = if matches!(self.medium, BlockMedium::CabinSeat) && !self.archetype.flat_square_top() {
+            MoldArchetype::FullCube
+        } else {
+            self.archetype
+        };
         let oriented = self.turn.orient_vector(direction, frame.normal());
         let (du, dv) = frame.decompose(oriented);
         let wedge = if dv.abs() >= du.abs() {
@@ -118,7 +155,7 @@ impl BlockMold {
             WedgeHeading::South => CornerHeading::SouthWest,
             WedgeHeading::West => CornerHeading::NorthWest,
         };
-        let raw: Box<dyn VoxelShape> = match self.archetype {
+        let raw: Box<dyn VoxelShape> = match effective_archetype {
             MoldArchetype::FullCube => Box::new(CuboidShape::full_cube()),
             MoldArchetype::HalfSlab => Box::new(CuboidShape::half_slab()),
             MoldArchetype::RampWedge => Box::new(RampWedge::new(wedge)),
@@ -136,7 +173,7 @@ impl BlockMold {
             MoldArchetype::ConvexStairCorner => Box::new(StairCorner::convex(corner)),
             MoldArchetype::ConcaveStairCorner => Box::new(StairCorner::concave(corner)),
         };
-        Box::new(MediumShape::with_archetype(raw, self.medium, self.archetype, wedge))
+        Box::new(MediumShape::with_archetype(raw, self.medium, effective_archetype, wedge))
     }
 
     /// Emits a miniature 3D preview of this molded block oriented inside a hand basis.

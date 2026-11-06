@@ -80,6 +80,7 @@ impl VehicleAssembly {
     pub const fn origin(&self) -> Vec3 { self.origin }
     pub const fn heading(&self) -> Vec3 { self.heading }
     pub const fn normal(&self) -> Vec3 { self.axes.normal }
+    pub fn drivable(&self) -> bool { !self.parts.is_empty() }
 
     pub fn seat_floor_offset(&self) -> f32 {
         let seat_off = self.parts.iter().find(|p| p.offset == (0, 0) && p.shape.block_medium() == BlockMedium::CabinSeat).map_or(0.0, |p| p.floor_offset);
@@ -155,7 +156,7 @@ impl VehicleAssembly {
         u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, frame: &SurfaceFrame,
         blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
     ) -> Option<(i32, i32, usize)> {
-        if let Some(idx) = blocks.get(&(u, v)).and_then(|l| l.iter().rposition(|b| b.occupies_layer(layer_elev) && b.block_medium() == BlockMedium::CarEngine)) {
+        if let Some(idx) = blocks.get(&(u, v)).and_then(|l| l.iter().rposition(|b| b.occupies_layer(layer_elev) && b.block_medium() == BlockMedium::SteeringWheel)) {
             return Some((u, v, idx));
         }
         for step in 1..=28 {
@@ -164,7 +165,7 @@ impl VehicleAssembly {
             let (cu, cv) = GridCell::at_planar(su, sv).feed_coordinates(|gu, gv| (gu, gv));
             let ray_elev = frame.elevation_of(sample);
             if let Some(idx) = blocks.get(&(cu, cv)).and_then(|l| {
-                l.iter().rposition(|b| b.block_medium() == BlockMedium::CarEngine && ray_elev >= b.floor() - 0.15 && ray_elev <= b.ceiling() + 1.15)
+                l.iter().rposition(|b| b.block_medium() == BlockMedium::SteeringWheel && ray_elev >= b.floor() - 0.15 && ray_elev <= b.ceiling() + 1.15)
             }) {
                 return Some((cu, cv, idx));
             }
@@ -178,40 +179,46 @@ impl VehicleAssembly {
         strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame,
         u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, engage_engine: bool,
     ) -> Option<Self> {
-        if !engage_engine {
+        let ((eng_u, eng_v, _), mut cluster, seat_u, seat_v, ground_top, min_floor) = if !engage_engine {
             let seat_idx = blocks.get(&(u, v))?.iter().rposition(|b| {
                 b.occupies_layer(layer_elev) && b.block_medium() == BlockMedium::CabinSeat
             })?;
             let seat_floor = blocks[&(u, v)][seat_idx].floor();
             let cluster = Self::connected_cluster(u, v, seat_idx, blocks);
-            let heading = cluster
+            let eng = cluster.iter().copied().find(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].block_medium() == BlockMedium::SteeringWheel);
+            let ground_top = (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP;
+            let min_floor = cluster.iter().map(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].floor()).fold(f32::MAX, f32::min);
+            let Some(eng_cell) = eng.filter(|_| min_floor <= ground_top + 0.35) else {
+                let heading = eng
+                    .map(|(eu, ev, idx)| {
+                        if (eu, ev) != (u, v) {
+                            (frame.tangent() * ((eu - u) as f32) + frame.bitangent() * ((ev - v) as f32)).normalize_or_zero()
+                        } else {
+                            blocks[&(eu, ev)][idx].block_heading().forward_vector(frame)
+                        }
+                    })
+                    .unwrap_or_else(|| blocks[&(u, v)][seat_idx].block_heading().forward_vector(frame));
+                let (cx, cy) = GridCell::new(u, v).center();
+                let origin = frame.point_at(cx, cy, seat_floor);
+                return Some(Self::new(origin, VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal()), heading, Vec::new()));
+            };
+            (eng_cell, cluster, u, v, ground_top, min_floor)
+        } else {
+            let (eng_u, eng_v, eng_idx) = Self::locate_engine(u, v, layer_elev, ray, frame, blocks)?;
+            let cluster = Self::connected_cluster(eng_u, eng_v, eng_idx, blocks);
+            let (eu, ev) = frame.decompose(ray.sample_point(0.0));
+            let &(seat_u, seat_v, _) = cluster
                 .iter()
-                .find(|&&(cu, cv, idx)| blocks[&(cu, cv)][idx].block_medium() == BlockMedium::CarEngine)
-                .map(|&(eu, ev, idx)| {
-                    if (eu, ev) != (u, v) {
-                        (frame.tangent() * ((eu - u) as f32) + frame.bitangent() * ((ev - v) as f32)).normalize_or_zero()
-                    } else {
-                        blocks[&(eu, ev)][idx].block_heading().forward_vector(frame)
-                    }
-                })
-                .unwrap_or_else(|| blocks[&(u, v)][seat_idx].block_heading().forward_vector(frame));
-            let (cx, cy) = GridCell::new(u, v).center();
-            let origin = frame.point_at(cx, cy, seat_floor);
-            return Some(Self::new(origin, VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal()), heading, Vec::new()));
-        }
-        let (eng_u, eng_v, eng_idx) = Self::locate_engine(u, v, layer_elev, ray, frame, blocks)?;
-        let mut cluster = Self::connected_cluster(eng_u, eng_v, eng_idx, blocks);
-        let (eu, ev) = frame.decompose(ray.sample_point(0.0));
-        let &(seat_u, seat_v, _) = cluster
-            .iter()
-            .filter(|&&(cu, cv, idx)| blocks[&(cu, cv)][idx].block_medium() == BlockMedium::CabinSeat)
-            .min_by(|&&(au, av, _), &&(bu, bv, _)| {
-                let (ax, ay) = GridCell::new(au, av).center();
-                let (bx, by) = GridCell::new(bu, bv).center();
-                ((ax - eu).hypot(ay - ev)).total_cmp(&((bx - eu).hypot(by - ev)))
-            })?;
-        let ground_top = (shafts.elevation_at(strata, seat_u, seat_v) as f32) * BLOCK_STEP;
-        let min_floor = cluster.iter().map(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].floor()).fold(f32::MAX, f32::min);
+                .filter(|&&(cu, cv, idx)| blocks[&(cu, cv)][idx].block_medium() == BlockMedium::CabinSeat)
+                .min_by(|&&(au, av, _), &&(bu, bv, _)| {
+                    let (ax, ay) = GridCell::new(au, av).center();
+                    let (bx, by) = GridCell::new(bu, bv).center();
+                    ((ax - eu).hypot(ay - ev)).total_cmp(&((bx - eu).hypot(by - ev)))
+                })?;
+            let ground_top = (shafts.elevation_at(strata, seat_u, seat_v) as f32) * BLOCK_STEP;
+            let min_floor = cluster.iter().map(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].floor()).fold(f32::MAX, f32::min);
+            ((eng_u, eng_v, eng_idx), cluster, seat_u, seat_v, ground_top, min_floor)
+        };
         if min_floor > ground_top + 0.35 {
             let _ = rigs.lower_at(strata, shafts, eng_u, eng_v, blocks);
             let next_seat_idx = blocks.get(&(seat_u, seat_v))?.iter().rposition(|b| b.block_medium() == BlockMedium::CabinSeat)?;
@@ -246,7 +253,7 @@ impl VehicleAssembly {
         let origin = frame.point_at(cx, cy, ground_top);
         let heading = parts
             .iter()
-            .find(|p| p.shape.block_medium() == BlockMedium::CarEngine)
+            .find(|p| p.shape.block_medium() == BlockMedium::SteeringWheel)
             .map(|p| p.shape.block_heading().forward_vector(frame))
             .unwrap_or_else(|| ray.align_heading(frame));
         Some(Self::new(origin, VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal()), heading, parts))

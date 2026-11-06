@@ -216,7 +216,7 @@ mod tests {
         let mut world = BiomedCubeWorld::beveled(32, 1.0);
         let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
         let rig_mold = BlockMold::cube().in_medium(BlockMedium::CantileverRig);
-        let eng_mold = BlockMold::cube().turn_clockwise().in_medium(BlockMedium::CarEngine);
+        let eng_mold = BlockMold::cube().turn_clockwise().in_medium(BlockMedium::SteeringWheel);
         let seat_mold = BlockMold::cube().in_medium(BlockMedium::CabinSeat);
         let bench_mold = seat_mold.next_form();
         let stool_mold = bench_mold.next_form();
@@ -225,7 +225,7 @@ mod tests {
         for (i, sm) in [seat_mold, bench_mold, stool_mold, throne_mold].into_iter().enumerate() {
             sm.shape_for(Vec3::NEG_Z, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut seat_meshes[i]);
         }
-        assert!(seat_meshes[0].0 != seat_meshes[1].0 && seat_meshes[1].0 != seat_meshes[2].0 && seat_meshes[2].0 != seat_meshes[3].0);
+        assert!(seat_meshes[0].0 != seat_meshes[1].0 && seat_meshes[2].0 == seat_meshes[0].0 && seat_meshes[3].0 == seat_meshes[1].0);
         let wheel_mold = m0.next_form().next_form();
         let av_pos = Vec3::new(0.25, g0, 1.75);
         assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), Vec3::new(0.0, -0.8, -0.6).normalize(), av_pos, bench_mold));

@@ -229,7 +229,7 @@ fn test_crane_lowers_built_car_and_clicking_seat_drives_steers_and_brakes() {
     let mut world = BiomedCubeWorld::beveled(32, 1.0);
     let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
     let rig_mold = BlockMold::cube().in_medium(BlockMedium::CantileverRig);
-    let eng_mold = BlockMold::cube().turn_clockwise().in_medium(BlockMedium::CarEngine);
+    let eng_mold = BlockMold::cube().turn_clockwise().in_medium(BlockMedium::SteeringWheel);
     let seat_mold = BlockMold::cube().in_medium(BlockMedium::CabinSeat);
     let wheel_mold = BlockMold::cube().in_medium(BlockMedium::CarWheel);
     let av_pos = Vec3::new(0.25, g0, 1.75);

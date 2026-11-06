@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-06
+
+### Changed
+- Renamed `CarEngine` to `SteeringWheel` across `BlockMedium`, `HeldRelic`, `BeltSatchel`, `SatchelTray`, and `VehicleAssembly`, and replaced the engine console mesh with an angled 3D steering column, beveled directional pedestal, 8-segment steering wheel rim with 12-o'clock red marker, 3 chrome spokes, and glowing brass horn hub (`VehicleBlockMesh::emit_steering_wheel` in `crates/world/src/block/vehicle_parts.rs`).
+- Redesigned `CabinSeat` (`CabinSeatMesh` in `crates/world/src/block/cabin_seat.rs`) as a richly upholstered flat-square-top seat block restricted to `MoldArchetype::FullCube` (`0.5m`) and `MoldArchetype::HalfSlab` (`0.25m`) via `MoldArchetype::flat_square_top` and `BlockMold` (`crates/world/src/block/mold.rs`), featuring a dark walnut plinth, gold-brass welt trim, padded side bolsters, four 2-tier beveled leather cushion pillows, five glowing brass tufting buttons, and a front thigh-bolster roll with directional brass crest so players can custom-build their own seat and cockpit around the block while keeping it immediately recognizable in the world cube.
+
+### Added
+- Added in-game 3D geometry variant sheet `seat_and_steering_variants.png` showcasing `SteeringWheel` (neutral and turned), upholstered `CabinSeat` (`FullCube` and `HalfSlab`), player-designed cockpit assembly, and world-cube terrain recognition.
+
 ## [0.48.0] - 2026-11-06
 
 ### Added

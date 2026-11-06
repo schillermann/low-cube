@@ -64,7 +64,7 @@ impl SatchelTray {
             HeldRelic::QuarriedStone,
             HeldRelic::TimberBlock,
             HeldRelic::PlankBlock,
-            HeldRelic::CarEngine,
+            HeldRelic::SteeringWheel,
             HeldRelic::AircraftEngine,
             HeldRelic::RocketEngine,
             HeldRelic::CabinSeat,
@@ -79,7 +79,7 @@ impl SatchelTray {
         let materials = [
             HeldRelic::CabinSeat,
             HeldRelic::CarWheel,
-            HeldRelic::CarEngine,
+            HeldRelic::SteeringWheel,
             HeldRelic::AircraftEngine,
             HeldRelic::RocketEngine,
             HeldRelic::ExcavatedEarth,
