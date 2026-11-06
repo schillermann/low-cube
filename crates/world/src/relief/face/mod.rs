@@ -207,13 +207,23 @@ impl Face for FacetedReliefFace {
         false
     }
 
-    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
+    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, engage_engine: bool) -> Option<VehicleAssembly> {
         let half = self.cache.half_blocks();
         let half_size = self.domain.frame.step_elevation(half);
-        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
-            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)?;
-        let assembly = self.domain.relief.board_vehicle_at(&self.domain.frame, cu, cv, layer, direction, holding_block)?;
-        self.refresh_neighborhood(cu, cv, half);
+        let ray = SurfaceSightRay::new(eye, direction);
+        let ray_hit = ray.target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size);
+        let (cu, cv, layer) = if engage_engine {
+            ray_hit.unwrap_or_else(|| {
+                let (eu, ev) = self.domain.frame.decompose(eye);
+                GridCell::at_planar(eu, ev).feed_coordinates(|gu, gv| (gu, gv, -1000.0))
+            })
+        } else {
+            ray_hit?
+        };
+        let assembly = self.domain.relief.board_vehicle_at(&self.domain.frame, cu, cv, layer, ray, engage_engine)?;
+        if engage_engine {
+            self.refresh_neighborhood(cu, cv, half);
+        }
         Some(assembly)
     }
 

@@ -240,6 +240,24 @@ fn test_polyhedral_cantilever_rig_deploys_retracts_telescopic_gripper_and_hoists
         relief.stack_molded_cell(1, 0, 1.5, Box::new(crate::block::CuboidShape::new(0.5))),
         "Player must be able to build onto the gripped side face at (1, 0) height 1.5m"
     );
+    let wheel_shape = crate::block::BlockMold::cube()
+        .in_medium(crate::block::BlockMedium::CarWheel)
+        .shape_for(frame.tangent(), &frame);
+    assert!(relief.stack_molded_cell(2, 1, 1.5, wheel_shape), "Mounting CarWheel next to engine must succeed");
+    let mut wheel_s0 = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+    ReliefStrata::new().emit_cell(GridCell::new(2, 1), &frame, &relief, &palette, 64, &mut wheel_s0);
+    for stage in 1..=3 {
+        assert_eq!(relief.mark_dig_layer(2, 1, 1.75, stage).1, Some(crate::block::BlockMedium::CarWheel));
+        let mut wheel_dug = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+        ReliefStrata::new().emit_cell(GridCell::new(2, 1), &frame, &relief, &palette, 64, &mut wheel_dug);
+        assert_eq!(
+            wheel_dug.tones.len(),
+            wheel_s0.tones.len(),
+            "Stage {stage} digging on a CarWheel must keep 100% of wheel quads visible instead of vanishing"
+        );
+    }
+    assert_eq!(relief.harvest_layer(2, 1, 1.75).1, Some(crate::block::BlockMedium::CarWheel));
+    assert!(!relief.layer_occupied_at(2, 1, 1.75), "Harvested CarWheel must be removed from cell (2, 1)");
     assert!(relief.adjust_rig_at(0, 0, 1, false), "Hoisting rig by +1 step must raise the connected vehicle assembly");
     assert!(
         relief.layer_occupied_at(1, 0, 2.25) && relief.layer_occupied_at(2, 0, 2.25),

@@ -118,18 +118,11 @@ impl PlanetaryAvatar {
         if self.body.perished() || world.lethal_at(self.body.position()) || self.gear.blocks_hand_action() {
             return false;
         }
-        if self.body.driving() {
-            let dismounted = self.body.dismount_vehicle(world);
-            self.sight_line.constrain_shoulders(false, 0.0);
-            return dismounted;
-        }
         let (eye, view_dir) = self.hand_ray();
-        if let Some(assembly) = world.board_vehicle(eye, view_dir, self.gear.holding_placeable_on(side)) {
-            let heading = assembly.heading();
-            self.body.board_vehicle(assembly, world);
-            self.sight_line.anchor_vehicle_heading(heading);
+        let allow_perch = !self.gear.holding_placeable_on(side);
+        if let Some(outcome) = self.body.interact_vehicle(eye, view_dir, allow_perch, &mut self.sight_line, world) {
             self.bearing.calm();
-            return true;
+            return outcome;
         }
         let (next_rhythm, changed) = self.gear.act_with_hand(side, self.bearing.rhythm(), eye, view_dir, world);
         self.bearing.apply_rhythm(next_rhythm);

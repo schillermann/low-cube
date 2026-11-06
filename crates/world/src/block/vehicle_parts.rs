@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
+use super::cabin_seat::CabinSeatMesh;
 use super::cell::GridCell;
 use super::mold::MoldArchetype;
 use super::timber_grain::BlockMedium;
@@ -75,7 +76,7 @@ impl VehicleBlockMesh {
     pub fn emit(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         match self.medium {
             BlockMedium::CarEngine => self.emit_car_steering(cell, floor_elevation, frame, target),
-            BlockMedium::CabinSeat => self.emit_seat(cell, floor_elevation, frame, target),
+            BlockMedium::CabinSeat => CabinSeatMesh::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
             BlockMedium::CarWheel => self.emit_wheel(cell, floor_elevation, frame, target),
             _ => self.emit_engine(cell, floor_elevation, frame, target),
         }
@@ -178,40 +179,6 @@ impl VehicleBlockMesh {
             ),
         };
         target.push_quad(Quad::glowing(c0, c1, c2, c3, ln, lens_glow, 0.95));
-    }
-
-    fn emit_seat(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
-        let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
-        let (iron, leather, cushion, trim) = (
-            Vec3::new(0.24, 0.27, 0.32),
-            Vec3::new(0.62, 0.20, 0.14),
-            Vec3::new(0.76, 0.27, 0.18),
-            Vec3::new(0.46, 0.15, 0.11),
-        );
-        BlockMedium::emit_box(u0 + 0.02, u1 - 0.02, v0 + 0.02, v1 - 0.02, floor_elev, floor_elev + 0.08, frame, iron, iron, true, target);
-        BlockMedium::emit_box(u0 + 0.04, u1 - 0.04, v0 + 0.04, v1 - 0.04, floor_elev + 0.08, floor_elev + 0.20, frame, leather, cushion, false, target);
-        match self.heading {
-            WedgeHeading::East => {
-                BlockMedium::emit_box(u0 + 0.04, u1 - 0.04, v0 + 0.02, v0 + 0.11, floor_elev + 0.18, floor_elev + 0.32, frame, trim, leather, false, target);
-                BlockMedium::emit_box(u0 + 0.04, u1 - 0.04, v1 - 0.11, v1 - 0.02, floor_elev + 0.18, floor_elev + 0.32, frame, trim, leather, false, target);
-                BlockMedium::emit_box(u0 + 0.03, u0 + 0.14, v0 + 0.06, v1 - 0.06, floor_elev + 0.20, floor_elev + 0.48, frame, leather, cushion, false, target);
-            }
-            WedgeHeading::West => {
-                BlockMedium::emit_box(u0 + 0.04, u1 - 0.04, v0 + 0.02, v0 + 0.11, floor_elev + 0.18, floor_elev + 0.32, frame, trim, leather, false, target);
-                BlockMedium::emit_box(u0 + 0.04, u1 - 0.04, v1 - 0.11, v1 - 0.02, floor_elev + 0.18, floor_elev + 0.32, frame, trim, leather, false, target);
-                BlockMedium::emit_box(u1 - 0.14, u1 - 0.03, v0 + 0.06, v1 - 0.06, floor_elev + 0.20, floor_elev + 0.48, frame, leather, cushion, false, target);
-            }
-            WedgeHeading::North => {
-                BlockMedium::emit_box(u0 + 0.02, u0 + 0.11, v0 + 0.04, v1 - 0.04, floor_elev + 0.18, floor_elev + 0.32, frame, trim, leather, false, target);
-                BlockMedium::emit_box(u1 - 0.11, u1 - 0.02, v0 + 0.04, v1 - 0.04, floor_elev + 0.18, floor_elev + 0.32, frame, trim, leather, false, target);
-                BlockMedium::emit_box(u0 + 0.06, u1 - 0.06, v0 + 0.03, v0 + 0.14, floor_elev + 0.20, floor_elev + 0.48, frame, leather, cushion, false, target);
-            }
-            WedgeHeading::South => {
-                BlockMedium::emit_box(u0 + 0.02, u0 + 0.11, v0 + 0.04, v1 - 0.04, floor_elev + 0.18, floor_elev + 0.32, frame, trim, leather, false, target);
-                BlockMedium::emit_box(u1 - 0.11, u1 - 0.02, v0 + 0.04, v1 - 0.04, floor_elev + 0.18, floor_elev + 0.32, frame, trim, leather, false, target);
-                BlockMedium::emit_box(u0 + 0.06, u1 - 0.06, v1 - 0.14, v1 - 0.03, floor_elev + 0.20, floor_elev + 0.48, frame, leather, cushion, false, target);
-            }
-        }
     }
 
     fn emit_wheel(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {

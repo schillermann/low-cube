@@ -117,6 +117,20 @@ impl SurfaceSightRay {
         self.eye + horizontal_fwd.normalize_or_zero() * self.brow_offset(d_up)
     }
 
+    /// Evaluates a 3D point at `distance` meters along the normalized sight ray.
+    pub fn sample_point(&self, distance: f32) -> Vec3 {
+        self.eye + self.direction.normalize_or_zero() * distance
+    }
+
+    /// Selects the cardinal surface axis vector best aligned with the sight ray direction.
+    pub fn align_heading(&self, frame: &SurfaceFrame) -> Vec3 {
+        let candidates = [frame.bitangent(), frame.tangent(), -frame.bitangent(), -frame.tangent()];
+        candidates
+            .into_iter()
+            .max_by(|a, b| a.dot(self.direction).total_cmp(&b.dot(self.direction)))
+            .unwrap_or_else(|| frame.bitangent())
+    }
+
     fn brow_offset(&self, d_up: f32) -> f32 {
         Self::BROW_FORWARD + (-d_up).clamp(0.0, 1.0) * Self::BROW_PITCH_REACH
     }

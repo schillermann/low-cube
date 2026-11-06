@@ -4,6 +4,7 @@ use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use crate::noise::SpatialFrequency;
 use super::corner::NaturalCrown;
+use super::sight_ray::SurfaceSightRay;
 use super::vehicle_assembly::VehicleAssembly;
 
 /// Behavioral interface for planetary relief elevation evaluation ("Tell, Don't Ask").
@@ -91,9 +92,9 @@ pub trait ReliefElevation: Send + Sync {
     /// Lowers a polyhedral cantilever rig assembly onto the ground when its mast at (u, v) is clicked.
     fn lower_rig_at(&mut self, _u: i32, _v: i32) -> bool { false }
 
-    /// Extracts a drivable vehicle assembly when clicking a cabin seat at (u, v, layer_elev).
+    /// Boards a cabin seat or engages a car engine at (u, v, layer_elev).
     fn board_vehicle_at(
-        &mut self, _frame: &SurfaceFrame, _u: i32, _v: i32, _layer_elev: f32, _view_dir: Vec3, _holding_block: bool,
+        &mut self, _frame: &SurfaceFrame, _u: i32, _v: i32, _layer_elev: f32, _ray: SurfaceSightRay, _engage_engine: bool,
     ) -> Option<VehicleAssembly> {
         None
     }

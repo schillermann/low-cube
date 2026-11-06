@@ -19,6 +19,32 @@ impl<'a> MeshTarget for FlankMeshTarget<'a> {
     }
 }
 
+struct LoosenedPartTarget<'a> {
+    inner: &'a mut dyn MeshTarget,
+    pivot: Vec3,
+    stage: u8,
+}
+
+impl<'a> MeshTarget for LoosenedPartTarget<'a> {
+    fn push_quad(&mut self, quad: Quad) {
+        let s = self.stage.min(3) as f32;
+        let (scale, shade, glow) = (1.0 - s * 0.14, 1.0 - s * 0.16, quad.radiate(|g| g));
+        let p = self.pivot;
+        let contracted = quad.transfer(|v0, v1, v2, v3, norm, col| {
+            Quad::glowing(
+                p + (v0 - p) * scale,
+                p + (v1 - p) * scale,
+                p + (v2 - p) * scale,
+                p + (v3 - p) * scale,
+                norm,
+                (col * shade).clamp(Vec3::ZERO, Vec3::ONE),
+                glow,
+            )
+        });
+        self.inner.push_quad(contracted);
+    }
+}
+
 const BLOCK_HEIGHT: f32 = GridCell::SPAN;
 const SURFACE_CONTACT_TOLERANCE: f32 = 0.1;
 const EYE_SPAN_SENTINEL: f32 = 1.0;
@@ -139,6 +165,16 @@ impl ElevatedShape {
         stage: u8,
         target: &mut dyn MeshTarget,
     ) {
+        if stage > 0 && self.shape.block_medium().rig_mountable() {
+            let (uc, vc) = cell.center();
+            let mut loosened = LoosenedPartTarget {
+                inner: target,
+                pivot: frame.point_at(uc, vc, self.elevation_offset + BLOCK_HEIGHT * 0.5),
+                stage,
+            };
+            self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, bare_top, &mut loosened);
+            return;
+        }
         let mut cratered = CrateredMeshTarget::new(target, stage);
         if flank_only && stage == 0 {
             let mut flank = FlankMeshTarget { inner: &mut cratered, up: frame.normal() };

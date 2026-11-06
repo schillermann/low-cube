@@ -40,10 +40,6 @@ impl AvatarBody {
         self.posture
     }
 
-    pub const fn driving(&self) -> bool {
-        self.pilot.driving()
-    }
-
     pub fn shape_pose(&self, pose: BodyPose) -> BodyPose {
         if let Some((car_rot, steer_turn)) = self.pilot.pose_state() {
             pose.with_surface_rotation(car_rot).with_seated_steer(steer_turn)
@@ -71,12 +67,55 @@ impl AvatarBody {
         self.flight.ground();
     }
 
+    pub fn interact_vehicle(
+        &mut self,
+        eye: Vec3,
+        view_dir: Vec3,
+        allow_perch: bool,
+        sight_line: &mut AvatarSight,
+        world: &mut dyn PlanetaryWorld,
+    ) -> Option<bool> {
+        if self.pilot.driving() {
+            let dismounted = self.dismount_vehicle(world);
+            sight_line.constrain_shoulders(false, 0.0);
+            return Some(dismounted);
+        }
+        if self.pilot.seated() {
+            if let Some(assembly) = world.board_vehicle(eye, view_dir, true) {
+                let heading = assembly.heading();
+                self.board_vehicle(assembly, world);
+                sight_line.anchor_vehicle_heading(heading);
+                return Some(true);
+            }
+            let dismounted = self.dismount_vehicle(world);
+            sight_line.constrain_shoulders(false, 0.0);
+            return Some(dismounted);
+        }
+        if allow_perch {
+            if let Some(perch) = world.board_vehicle(eye, view_dir, false) {
+                let heading = perch.heading();
+                self.sit_in_seat(perch);
+                sight_line.anchor_vehicle_heading(heading);
+                return Some(true);
+            }
+        }
+        None
+    }
+
+    pub fn sit_in_seat(&mut self, assembly: VehicleAssembly) {
+        let car = DrivenCar::boarded(assembly);
+        self.position = car.perch_position();
+        self.posture = AvatarPosture::crouching();
+        self.flight.ground();
+        self.pilot = VehiclePilot::Perch(car);
+    }
+
     pub fn board_vehicle(&mut self, assembly: VehicleAssembly, world: &dyn PlanetaryWorld) {
         let car = DrivenCar::boarded(assembly);
         self.position = car.seat_position(world);
         self.posture = AvatarPosture::crouching();
         self.flight.ground();
-        self.pilot = VehiclePilot::Seated(car);
+        self.pilot = VehiclePilot::Driving(car);
     }
 
     pub fn dismount_vehicle(&mut self, world: &mut dyn PlanetaryWorld) -> bool {

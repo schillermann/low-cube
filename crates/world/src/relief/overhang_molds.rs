@@ -6,6 +6,7 @@ use crate::frame::SurfaceFrame;
 use super::cantilever_rig::RigRegistry;
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
+use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
 
@@ -257,9 +258,9 @@ impl OverhangMolds {
     #[allow(clippy::too_many_arguments)]
     pub fn board_vehicle(
         &mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame,
-        u: i32, v: i32, layer_elev: f32, view_dir: Vec3, holding_block: bool,
+        u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, engage_engine: bool,
     ) -> Option<VehicleAssembly> {
-        VehicleAssembly::board_from_blocks(&mut self.blocks, &mut self.rigs, strata, shafts, frame, u, v, layer_elev, view_dir, holding_block)
+        VehicleAssembly::board_from_blocks(&mut self.blocks, &mut self.rigs, strata, shafts, frame, u, v, layer_elev, ray, engage_engine)
     }
 
     pub fn park_vehicle(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {

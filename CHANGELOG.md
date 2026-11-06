@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-11-06
+
+### Added
+- Added four selectable 3D seat profiles (`SeatProfile::Bucket`, `ParkBench`, `WorkshopStool`, and `RegalThrone` via `CabinSeatMesh` in `crates/world/src/block/cabin_seat.rs`) usable both on vehicles and anywhere on the planetary world cube.
+- Added two-stage vehicle boarding (`VehiclePilot::Perch` and `VehiclePilot::Driving` in `crates/client/src/drive.rs` and `VehicleAssembly::board_from_blocks` in `crates/world/src/relief/vehicle_assembly.rs`) where clicking a `CabinSeat` seats the player while leaving a hoisted car on the crane, and clicking the `CarEngine` steering wheel while seated lowers the crane and enters driving mode.
+- Added multi-angle driver proportion turnaround sheet `fahrer_im_auto.png`.
+
+### Fixed
+- Fixed mined `CarWheel`, `CabinSeat`, and `CarEngine` blocks vanishing at dig stage 1 and reappearing on mouse release by routing `rig_mountable()` shapes through `LoosenedPartTarget` (`crates/world/src/block/elevated_shape.rs`) so all sculpted facets contract and darken progressively during stages `1..=3` instead of being discarded by `CrateredMeshTarget`'s `min_span < 0.22` soil-clod filter.
+- Fixed `PalmEarthworks::act_with_hand` (`crates/client/src/earthworks/mod.rs`) re-arming `w_place` (`pending_place`) while a mouse button remains held during or immediately after harvesting a block, preventing `release_hand` from re-placing a harvested wheel on mouse release.
+
 ## [0.47.0] - 2026-11-06
 
 ### Added

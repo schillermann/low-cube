@@ -93,14 +93,12 @@ impl Session for GameSession {
                     self.display.capture_cursor();
                     match button {
                         MouseButton::Left => {
-                            if self.stage.use_left() {
-                                self.display.refresh_modified_face(self.stage.world_mut());
-                            }
+                            let _ = self.stage.use_left();
+                            self.display.refresh_modified_face(self.stage.world_mut());
                         }
                         MouseButton::Right => {
-                            if self.stage.use_right() {
-                                self.display.refresh_modified_face(self.stage.world_mut());
-                            }
+                            let _ = self.stage.use_right();
+                            self.display.refresh_modified_face(self.stage.world_mut());
                         }
                         _ => {}
                     }

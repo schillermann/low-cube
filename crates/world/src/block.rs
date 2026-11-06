@@ -1,3 +1,4 @@
+mod cabin_seat;
 mod cell;
 mod corner;
 mod cuboid;
@@ -22,6 +23,7 @@ mod wedge;
 #[cfg(test)]
 mod tests;
 
+pub use cabin_seat::{CabinSeatMesh, SeatProfile};
 pub use cell::GridCell;
 pub use corner::CornerHeading;
 pub use cuboid::CuboidShape;
@@ -40,4 +42,5 @@ pub use stair::StairFlight;
 pub use stair_corner::StairCorner;
 pub use timber_grain::{BlockMedium, MediumShape};
 pub use valley::ValleyCorner;
+pub use vehicle_parts::WheelProfile;
 pub use wedge::{RampWedge, WedgeHeading};

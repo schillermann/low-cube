@@ -23,10 +23,10 @@ mod mesh_target_tests;
 pub use beveled_world::BeveledWorld;
 pub use biome::BiomedCubeWorld;
 pub use block::{
-    BlockMedium, BlockMold, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
+    BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
     ElevatedShape, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape,
-    MoldArchetype, PyramidPeak, RampWedge, RidgeCorner, StairCorner, StairFlight, ValleyCorner,
-    VoxelShape, WedgeHeading,
+    MoldArchetype, PyramidPeak, RampWedge, RidgeCorner, SeatProfile, StairCorner, StairFlight,
+    ValleyCorner, VoxelShape, WedgeHeading, WheelProfile,
 };
 pub use frame::SurfaceFrame;
 pub use mesh_target::{

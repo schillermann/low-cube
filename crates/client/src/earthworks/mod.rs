@@ -204,7 +204,7 @@ impl PalmEarthworks {
             return (Self::new(state.satchel, 0, DigGrip::with_pending_place(side), Vec3::ZERO, false), attire, next_rhythm, false);
         }
         let deferred = u32::from(d.grip().pending_place_on(side));
-        let w_place = weightless && active.placeable_block() && d.progress() == 0;
+        let w_place = weightless && active.placeable_block() && !d.grip().held_on(side) && d.progress() == 0;
         let both_dig = (right.free_palm() || right.placeable_block()) && (left.free_palm() || left.placeable_block());
         let stroke = if active.spade_blade() {
             DigStroke::spade(side, other.free_palm() || other.placeable_block(), rhythm)
