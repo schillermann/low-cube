@@ -61,7 +61,7 @@ impl RigRegistry {
     ) -> Option<f32> {
         self.rigs.iter().find_map(|(&(mu, mv), rig)| {
             (rig.hoisted()
-                && (u, v) != (mu, mv)
+                && ((u, v) != (mu, mv) || rig.claw_slot(mu, mv) == (mu, mv))
                 && rig.connected_cluster(mu, mv, blocks).iter().any(|&(cu, cv, _)| (cu - u).abs() + (cv - v).abs() <= 1))
             .then(|| rig.hoist_elevation())
         })

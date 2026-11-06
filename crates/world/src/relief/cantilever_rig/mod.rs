@@ -89,7 +89,7 @@ impl CantileverRig {
         &self, mast_u: i32, mast_v: i32, u: i32, v: i32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
     ) -> Option<(i32, i32, f32)> {
         let span = self.reach_steps.max(1);
-        if (u - mast_u).abs() > span || (v - mast_v).abs() > span {
+        if !self.hoisted() || (u - mast_u).abs() > span || (v - mast_v).abs() > span {
             return None;
         }
         let ((eu, ev), hoist_z) = (self.gripped_cell(mast_u, mast_v), self.hoist_elevation());

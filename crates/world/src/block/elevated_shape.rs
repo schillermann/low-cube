@@ -49,6 +49,11 @@ impl ElevatedShape {
         self.shape.block_medium()
     }
 
+    /// Cardinal orientation of the underlying sculpted voxel shape.
+    pub fn block_heading(&self) -> super::wedge::WedgeHeading {
+        self.shape.block_heading()
+    }
+
     /// Consumes this elevated wrapper and returns the inner sculpted voxel shape.
     pub fn into_shape(self) -> Box<dyn VoxelShape> {
         self.shape

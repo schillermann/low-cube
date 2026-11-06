@@ -7,13 +7,15 @@ members = [
 resolver = "2"
 
 [profile.dev]
-debug = "line-tables-only"
+debug = false
+incremental = true
 
-[profile.dev.package.world]
+[profile.dev.package."*"]
 opt-level = 1
 
 [profile.test]
-debug = "line-tables-only"
+debug = false
+incremental = true
 
-[profile.test.package.world]
+[profile.test.package."*"]
 opt-level = 1

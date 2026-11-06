@@ -136,7 +136,7 @@ impl BlockMold {
             MoldArchetype::ConvexStairCorner => Box::new(StairCorner::convex(corner)),
             MoldArchetype::ConcaveStairCorner => Box::new(StairCorner::concave(corner)),
         };
-        Box::new(MediumShape::with_heading(raw, self.medium, self.full_height_flat(), wedge))
+        Box::new(MediumShape::with_archetype(raw, self.medium, self.archetype, wedge))
     }
 
     /// Emits a miniature 3D preview of this molded block oriented inside a hand basis.

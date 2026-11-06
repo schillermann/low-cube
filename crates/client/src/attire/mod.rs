@@ -233,9 +233,10 @@ impl SatchelWardrobe {
 impl Wardrobe for SatchelWardrobe {
     fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
         let (r, l) = self.attire.held_pair();
+        let seated = pose.seated_factor() > 0.5;
         let active = self.attire.with_relics(
-            if self.dig_right { HeldRelic::EmptyPalm } else { r },
-            if self.dig_left { HeldRelic::EmptyPalm } else { l },
+            if self.dig_right || seated { HeldRelic::EmptyPalm } else { r },
+            if self.dig_left || seated { HeldRelic::EmptyPalm } else { l },
         );
         active.emit_satchel(pose, sight, self.satchel, target);
     }

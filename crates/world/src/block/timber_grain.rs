@@ -3,8 +3,9 @@ use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad, TurfMeshTarget};
 use super::cell::GridCell;
 use super::earth_clods::EarthClods;
+use super::mold::MoldArchetype;
 use super::shape::VoxelShape;
-use super::vehicle_parts::VehicleBlockMesh;
+use super::vehicle_parts::{VehicleBlockMesh, WheelProfile};
 use super::wedge::WedgeHeading;
 
 /// Material medium governing the sculpted 3D surface of a molded block in hand and world.
@@ -154,14 +155,24 @@ impl BlockMedium {
 pub struct MediumShape {
     inner: Box<dyn VoxelShape>,
     medium: BlockMedium,
-    full_cube: bool,
+    archetype: MoldArchetype,
     heading: WedgeHeading,
 }
 
 impl MediumShape {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_archetype(
+        inner: Box<dyn VoxelShape>,
+        medium: BlockMedium,
+        archetype: MoldArchetype,
+        heading: WedgeHeading,
+    ) -> Self {
+        Self { inner, medium, archetype, heading }
+    }
+
     pub fn with_heading(inner: Box<dyn VoxelShape>, medium: BlockMedium, full_cube: bool, heading: WedgeHeading) -> Self {
-        Self { inner, medium, full_cube, heading }
+        let archetype = if full_cube { MoldArchetype::FullCube } else { MoldArchetype::HalfSlab };
+        Self::with_archetype(inner, medium, archetype, heading)
     }
 
     pub fn new(inner: Box<dyn VoxelShape>, medium: BlockMedium, full_cube: bool, cross_grain: bool) -> Self {
@@ -174,10 +185,17 @@ impl MediumShape {
 }
 
 impl VoxelShape for MediumShape {
-    fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 { self.inner.elevation_at(local_u, local_v) }
+    fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
+        if self.medium.rig_mountable() || self.medium == BlockMedium::CantileverRig {
+            GridCell::SPAN
+        } else {
+            self.inner.elevation_at(local_u, local_v)
+        }
+    }
     fn shape_color(&self) -> Vec3 { self.inner.shape_color() }
     fn block_medium(&self) -> BlockMedium { self.medium }
     fn block_heading(&self) -> WedgeHeading { self.heading }
+    fn wheel_radius(&self) -> f32 { WheelProfile::from_archetype(self.archetype).radius() }
     fn rotate_quarter(&mut self) { self.heading = self.heading.rotated_ccw(); }
 
     fn emit_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, color: Vec3, target: &mut dyn MeshTarget) {
@@ -185,8 +203,35 @@ impl VoxelShape for MediumShape {
     }
 
     #[allow(clippy::too_many_arguments)]
+    fn emit_driven_part(
+        &self,
+        cell: GridCell,
+        floor_elevation: f32,
+        spin_angle: f32,
+        steer_angle: f32,
+        frame: &SurfaceFrame,
+        top_color: Vec3,
+        wall_color: Vec3,
+        target: &mut dyn MeshTarget,
+    ) {
+        if matches!(
+            self.medium,
+            BlockMedium::CarEngine
+                | BlockMedium::AircraftEngine
+                | BlockMedium::RocketEngine
+                | BlockMedium::CabinSeat
+                | BlockMedium::CarWheel
+        ) {
+            VehicleBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle))
+                .emit(cell, floor_elevation, frame, target);
+        } else {
+            self.emit_terraced_shape(cell, floor_elevation, frame, top_color, wall_color, true, target);
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, bare_top: bool, target: &mut dyn MeshTarget) {
-        match (self.medium, self.full_cube) {
+        match (self.medium, self.archetype.full_height_flat()) {
             (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_terraced(top_color, bare_top, frame, target),
             (BlockMedium::CrustRock, true) => BlockMedium::emit_crust_rock_cube(cell, floor_elevation, frame, target),
             (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
@@ -222,7 +267,7 @@ impl VoxelShape for MediumShape {
                 | BlockMedium::CarWheel,
                 _,
             ) => {
-                VehicleBlockMesh::new(self.medium, self.heading).emit(cell, floor_elevation, frame, target);
+                VehicleBlockMesh::with_archetype(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
             }
             (BlockMedium::CrustRock, false) => {
                 let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.31, 0.27, 0.25), false);

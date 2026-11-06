@@ -44,6 +44,14 @@ impl AvatarBody {
         self.pilot.driving()
     }
 
+    pub fn shape_pose(&self, pose: BodyPose) -> BodyPose {
+        if let Some((car_rot, steer_turn)) = self.pilot.pose_state() {
+            pose.with_surface_rotation(car_rot).with_seated_steer(steer_turn)
+        } else {
+            pose
+        }
+    }
+
     pub fn perished(&self) -> bool {
         self.posture.perished()
     }
@@ -203,6 +211,19 @@ impl AvatarSight {
 
     pub fn constrain_shoulders(&mut self, wedged: bool, yaw_play: f32) {
         self.look.constrain_shoulders(wedged, yaw_play);
+    }
+
+    pub fn anchor_vehicle_heading(&mut self, heading: Vec3) {
+        let up = self.surface_up();
+        let flat = (heading - up * heading.dot(up)).normalize_or_zero();
+        let base_fwd = (self.surface_rot * Vec3::NEG_Z).normalize_or_zero();
+        let base_right = (self.surface_rot * Vec3::X).normalize_or_zero();
+        let car_yaw = (-flat.dot(base_right)).atan2(flat.dot(base_fwd));
+        self.look.anchor_heading(car_yaw, 1.42);
+    }
+
+    pub fn steer_vehicle(&mut self, steer_px: f32) {
+        self.look.shift_anchor(steer_px);
     }
 
     pub fn body_pose(&self, position: Vec3, posture: AvatarPosture, rhythm: StrideRhythm) -> BodyPose {

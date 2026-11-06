@@ -8,6 +8,20 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-06
+
+### Added
+- Added selectable wheel profiles (`WheelProfile::Compact`, `Touring`, `Offroad`, and `Monster` in `crates/world/src/block/vehicle_parts.rs`) via form switching (`MoldArchetype`), visibly rotating 8-sided polygonal wheels (`emit_driven_part`), and wheel-diameter chassis lift (`VehicleAssembly::wheel_ground_lift`).
+- Added human-like seated head look bounds (`anchor_vehicle_heading` and `steer_yaw` in `crates/client/src/orientation.rs` and `crates/client/src/avatar/body_sight.rs`) where mouse look rotates only the driver's head while the torso and legs remain anchored to the car seat.
+- Added steering-wheel hand kinematics (`BodyPose::with_seated_steer` and `ArmKinematics` in `crates/client/src/attire/pose/`) and reverse driving after full braking when holding `S` (`DriveKinematics` in `crates/client/src/drive.rs`).
+- Added cabin seat backrest lateral placement resolution (`seat_backrest_cell` in `crates/world/src/relief/overhang_molds.rs` and `ContactFace::classify` in `crates/world/src/relief/sight_ray/contact.rs`) so blocks aimed at a seat backrest attach laterally behind the seat instead of stacking on top of the seat.
+
+### Fixed
+- Fixed mining of placed `CarWheel` blocks across all wheel profiles by decoupling vehicle voxel raycast bounds (`MediumShape::elevation_at` at `GridCell::SPAN`) from visual wheel radii and allowing `SurfaceSightRay::trace_contact` to hit occupied vehicle blocks in front of the avatar's standing cell.
+
+### Changed
+- Optimized workspace incremental build profiles in `Cargo.toml` (`debug = false`, `incremental = true`, dependency-scoped `opt-level = 1`) and expanded the `AGENTS.md` Domain & Decorator Map for direct vehicle and crane navigation.
+
 ## [0.46.0] - 2026-11-05
 
 ### Added

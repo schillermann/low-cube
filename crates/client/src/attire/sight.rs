@@ -40,7 +40,7 @@ impl SightMode {
                     let frame = LimbFrame::new(wrist_w, hand_dir.cross(hand_up).normalize(), hand_up, hand_dir)
                         .pitched(if cradle { -0.16 } else { 0.0 });
                     (shoulder_w, elbow_w, frame, (wrist_w - elbow_w).length())
-                } else if holding || pose.striking_on(side) {
+                } else if (holding || pose.striking_on(side)) && pose.seated_factor() < 0.5 {
                     pose.arm(side, martial).first_person()
                 } else {
                     pose.arm(side, MartialStyle::Unarmed).external(false)

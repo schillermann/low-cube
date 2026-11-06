@@ -222,9 +222,12 @@ impl PalmEarthworks {
                 return (Self::new(state.satchel, 0, DigGrip::idle(), Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), true);
             }
             let outcome = if active.axe_blade() { world.strike_timber(eye, view_dir) } else { world::CleaveOutcome::Missed };
-            let (ns, na) = if outcome.felled() { state.satchel.collect_felled_timber(-side, attire) } else { (state.satchel, attire) };
-            let grip = if active.axe_blade() { DigGrip::with_dig_on(side, false) } else { DigGrip::idle() };
-            return (Self::new(ns, 0, grip, Vec3::ZERO, false), na, Self::trigger_hand_swing(attire, rhythm, side), outcome.struck());
+            if outcome.struck() {
+                let (ns, na) = if outcome.felled() { state.satchel.collect_felled_timber(-side, attire) } else { (state.satchel, attire) };
+                let grip = if active.axe_blade() { DigGrip::with_dig_on(side, false) } else { DigGrip::idle() };
+                return (Self::new(ns, 0, grip, Vec3::ZERO, false), na, Self::trigger_hand_swing(attire, rhythm, side), true);
+            }
+            DigStroke::single_palm(side, deferred, weightless, w_place, rhythm)
         };
         let (site, progress, next_grip, next_rhythm) = (d.resolve_site(eye, view_dir, world), stroke.advance_progress(d.progress()), stroke.next_grip(), stroke.next_rhythm());
         if progress >= EXCAVATION_THRESHOLD {

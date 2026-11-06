@@ -101,8 +101,7 @@ impl PlanetaryAvatar {
     }
 
     fn current_pose(&self) -> BodyPose {
-        let pose = self.sight_line.body_pose(self.body.position(), self.body.posture(), self.bearing.rhythm());
-        if self.body.driving() { pose.with_seated(1.0) } else { pose }
+        self.body.shape_pose(self.sight_line.body_pose(self.body.position(), self.body.posture(), self.bearing.rhythm()))
     }
 
     fn hand_ray(&self) -> (Vec3, Vec3) {
@@ -120,11 +119,15 @@ impl PlanetaryAvatar {
             return false;
         }
         if self.body.driving() {
-            return self.body.dismount_vehicle(world);
+            let dismounted = self.body.dismount_vehicle(world);
+            self.sight_line.constrain_shoulders(false, 0.0);
+            return dismounted;
         }
         let (eye, view_dir) = self.hand_ray();
         if let Some(assembly) = world.board_vehicle(eye, view_dir, self.gear.holding_placeable_on(side)) {
+            let heading = assembly.heading();
             self.body.board_vehicle(assembly, world);
+            self.sight_line.anchor_vehicle_heading(heading);
             self.bearing.calm();
             return true;
         }
@@ -201,11 +204,11 @@ impl Avatar for PlanetaryAvatar {
         self.sight_line.reorient_surface(terrain_up, dt);
         if let Some(steer_px) = self.body.step_driving(dt, controls, world) {
             if steer_px.abs() > 1e-5 {
-                self.sight_line.rotate(steer_px, 0.0);
+                self.sight_line.steer_vehicle(steer_px);
             }
             let next_up = world.surface_up_at(self.body.position());
             self.sight_line.reorient_surface(next_up, dt);
-            self.bearing.advance_stride(pos, self.body.position(), next_up, dt);
+            self.bearing.calm();
             self.bearing.decay_tilt(dt);
             return;
         }

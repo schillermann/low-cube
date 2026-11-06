@@ -60,6 +60,12 @@ impl InvertedShape {
         Self { inner }
     }
 
+    #[cfg(test)]
+    pub fn ceiling_corners(&self, floor_elevation: f32) -> [f32; 4] {
+        [(0.0, 0.0), (0.5, 0.0), (0.5, 0.5), (0.0, 0.5)]
+            .map(|(u, v)| floor_elevation + 0.5 - self.inner.elevation_at(u, v))
+    }
+
     /// Secondary constructor selecting the beveled ceiling block matching four 0.25m corner drops (SW, SE, NE, NW).
     pub fn from_corner_drops(s0: i32, s1: i32, s2: i32, s3: i32) -> Self {
         let inner: Box<dyn VoxelShape> = match (s0, s1, s2, s3) {

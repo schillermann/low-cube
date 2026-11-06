@@ -48,14 +48,26 @@ impl ContactFace {
         {
             return Self::Underside(block_top - Self::UNDERSIDE_DROP);
         }
+        let layer_mid = block_top - Self::CELL_SPAN * 0.5;
+        let backrest = relief.seat_backrest_cell(cu, cv, layer_mid);
         if (prev_cu, prev_cv) != (cu, cv) && prev_cu >= min_c && prev_cu <= max_c && prev_cv >= min_c && prev_cv <= max_c {
             let ground_prev = (relief.elevation_at(prev_cu, prev_cv) as f32) * Self::CELL_SPAN;
-            if block_top >= ground_prev + Self::LATERAL_MIN_WALL
+            let min_wall = if relief.layer_occupied_at(cu, cv, layer_mid) {
+                Self::CELL_SPAN - Self::CRUST_SEAM_TOLERANCE
+            } else {
+                Self::LATERAL_MIN_WALL
+            };
+            let prev_free = backrest.is_none() || !relief.layer_occupied_at(prev_cu, prev_cv, layer_mid);
+            if prev_free
+                && block_top >= ground_prev + min_wall
                 && prior_elev >= block_top - Self::LATERAL_BAND_DEPTH
                 && prior_elev <= block_top
             {
                 return Self::Lateral((prev_cu, prev_cv), block_top - Self::CELL_SPAN);
             }
+        }
+        if let Some((bu, bv)) = backrest.filter(|&(bu, bv)| bu >= min_c && bu <= max_c && bv >= min_c && bv <= max_c) {
+            return Self::Lateral((bu, bv), block_top - Self::CELL_SPAN);
         }
         Self::Top(block_top)
     }

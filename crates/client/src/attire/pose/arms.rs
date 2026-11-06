@@ -20,23 +20,23 @@ impl<'a> ArmKinematics<'a> {
     pub fn external(self, holding: bool) -> (Vec3, Vec3, LimbFrame, f32) {
         let (pose, side, martial) = (self.pose, self.side, self.martial);
         let (rhythm, hover, leap) = pose.motion_factors();
-        let seated = pose.seated_factor();
+        let (seated, steer) = (pose.seated_factor(), pose.steering_turn());
         let (torso, crouch) = (pose.torso_frame(), pose.crouch_compression() * (1.0 - seated));
-        let ext = (pose.eye_height() + leap - 0.80).clamp(0.0, 0.40);
+        let ext = (pose.eye_height() + leap - 0.80).clamp(0.0, 0.40) * (1.0 - seated);
         let shoulder = Vec3::new(side * pose.scale(if pose.feminine() { 0.194 } else { 0.222 }), pose.torso_span(0.64), -0.066);
         let ground = (1.0 - ext * 2.0).clamp(0.0, 1.0) * (1.0 - hover) * (1.0 - seated);
         let offset = if side > 0.0 { 0.0 } else { std::f32::consts::PI };
         let (phase, walk, run) = rhythm.limb_gait(offset, ground);
-        let (s, breath) = (phase.sin(), rhythm.breath_wave(walk));
-        let hold_factor = if holding || pose.striking_on(side) { (1.0 - run).max(0.35) } else { 0.0 };
-        let style = martial.active_for(pose.striking_on(side));
+        let (s, breath) = (phase.sin() * (1.0 - seated), rhythm.breath_wave(walk) * (1.0 - seated));
+        let hold_factor = if (holding || pose.striking_on(side)) && seated < 0.5 { (1.0 - run).max(0.35) } else { 0.0 };
+        let style = martial.active_for(pose.striking_on(side) && seated < 0.5);
         let imp = style.cleave_impulse(rhythm, side);
         let (abduct_add, swing_add, elbow_delta, elbow_bend_add, wrist_dx, wrist_dz) =
             style.external_drive(imp, crouch);
         let (upper_len, fore_len) = (pose.arm_size(0.26), pose.arm_size(0.24));
         let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + (0.42 + 0.08 * s.abs()) * hover + 0.08 * hold_factor + (crouch + ext) * 0.10 + seated * 0.08 + abduct_add;
         let r_sag = upper_len * theta_abduct.cos();
-        let steer_wave = seated * (0.88 + side * s * 0.14);
+        let steer_wave = seated * (0.94 - side * steer * 0.26);
         let upper_swing = (ext * 0.38 + crouch * 1.15 + (0.56 + 0.18 * s) * hover) * (1.0 - 0.55 * hold_factor) + steer_wave + swing_add;
         let theta_upper = -0.04 * (1.0 - run) + 0.22 * hold_factor + upper_swing + s * (0.26 * walk * (1.0 - 0.55 * hold_factor) + 0.16 * run);
         let elbow = Vec3::new(
@@ -44,12 +44,14 @@ impl<'a> ArmKinematics<'a> {
             shoulder.y - r_sag * theta_upper.cos() + elbow_delta.y,
             shoulder.z + r_sag * theta_upper.sin() + elbow_delta.z,
         );
-        let theta_elbow = 0.20 + 0.14 * walk + 0.88 * run + 0.35 * hover + 0.92 * hold_factor + seated * 0.56 + (crouch * 1.35 + ext * 0.22) * (1.0 - 0.5 * hold_factor) + elbow_bend_add + s.max(0.0) * 0.16 * walk + s * 0.12 * run + breath * 0.03;
+        let theta_elbow = 0.20 + 0.14 * walk + 0.88 * run + 0.35 * hover + 0.92 * hold_factor + seated * 0.58 + (crouch * 1.35 + ext * 0.22) * (1.0 - 0.5 * hold_factor) + elbow_bend_add + s.max(0.0) * 0.16 * walk + s * 0.12 * run + breath * 0.03;
         let theta_forearm = theta_upper + theta_elbow;
+        let wheel_dx = seated * (steer * 0.048 - side * steer.abs() * 0.022);
+        let wheel_dy = seated * (-side * steer * 0.065);
         let wrist = Vec3::new(
-            elbow.x + side * (wrist_dx - (0.010 + 0.014 * walk + 0.072 * run + 0.16 * crouch + 0.095 * seated + 0.035 * hold_factor)),
-            elbow.y - fore_len * theta_forearm.cos(),
-            elbow.z + fore_len * theta_forearm.sin() + wrist_dz + 0.05 * seated,
+            elbow.x + side * (wrist_dx - (0.010 + 0.014 * walk + 0.072 * run + 0.16 * crouch + 0.105 * seated + 0.035 * hold_factor)) + wheel_dx,
+            elbow.y - fore_len * theta_forearm.cos() + wheel_dy,
+            elbow.z + fore_len * theta_forearm.sin() + wrist_dz + 0.065 * seated,
         );
         let (shoulder_w, elbow_w, wrist_w) = (torso.point(shoulder.x, shoulder.y, shoulder.z), torso.point(elbow.x, elbow.y, elbow.z), torso.point(wrist.x, wrist.y, wrist.z));
         let (forearm_len, forearm_dir) = ((wrist_w - elbow_w).length(), (wrist_w - elbow_w).normalize());

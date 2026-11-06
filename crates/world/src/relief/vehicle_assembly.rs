@@ -81,10 +81,29 @@ impl VehicleAssembly {
     pub const fn normal(&self) -> Vec3 { self.axes.normal }
 
     pub fn seat_floor_offset(&self) -> f32 {
-        self.parts
+        let seat_off = self
+            .parts
             .iter()
             .find(|p| p.offset == (0, 0) && p.shape.block_medium() == BlockMedium::CabinSeat)
-            .map_or(0.0, |p| p.floor_offset)
+            .map_or(0.0, |p| p.floor_offset);
+        seat_off + self.wheel_ground_lift()
+    }
+
+    pub fn wheel_radius(&self) -> f32 {
+        self.parts
+            .iter()
+            .filter(|p| p.shape.block_medium() == BlockMedium::CarWheel)
+            .map(|p| p.shape.wheel_radius())
+            .fold(0.0f32, f32::max)
+            .max(0.16)
+    }
+
+    fn wheel_ground_lift(&self) -> f32 {
+        self.parts
+            .iter()
+            .filter(|p| p.shape.block_medium() == BlockMedium::CarWheel)
+            .map(|p| (p.shape.wheel_radius() - 0.25).max(0.0))
+            .fold(0.0f32, f32::max)
     }
 
     pub fn steer(&mut self, delta_yaw: f32) {
@@ -103,13 +122,23 @@ impl VehicleAssembly {
     }
 
     pub fn emit(&self, target: &mut dyn MeshTarget) {
+        self.emit_driven(0.0, 0.0, target);
+    }
+
+    pub fn emit_driven(&self, wheel_spin: f32, steer_turn: f32, target: &mut dyn MeshTarget) {
         let car_frame = SurfaceFrame::new(self.axes.tangent, self.axes.bitangent, self.axes.normal, 0.0);
         let shift = self.origin - car_frame.point_at(0.25, 0.25, 0.0);
         let mut shifted = ShiftedMeshTarget { shift, inner: target };
         let (top_col, wall_col) = (Vec3::new(0.45, 0.30, 0.17), Vec3::new(0.41, 0.27, 0.15));
+        let lift = self.wheel_ground_lift();
         for part in &self.parts {
             let cell = GridCell::new(part.offset.0, part.offset.1);
-            part.shape.emit_terraced_shape(cell, part.floor_offset, &car_frame, top_col, wall_col, true, &mut shifted);
+            let floor = if part.shape.block_medium() == BlockMedium::CarWheel {
+                part.floor_offset
+            } else {
+                part.floor_offset + lift
+            };
+            part.shape.emit_driven_part(cell, floor, wheel_spin, steer_turn, &car_frame, top_col, wall_col, &mut shifted);
         }
     }
 

@@ -121,6 +121,19 @@ impl OverhangMolds {
             || self.blocks.get(&(u, v)).is_some_and(|list| list.iter().any(|b| b.occupies_layer(layer_elev)))
     }
 
+    pub fn seat_backrest_cell(&self, u: i32, v: i32, layer_elev: f32) -> Option<(i32, i32)> {
+        let block = self.blocks.get(&(u, v))?.iter().rfind(|b| b.occupies_layer(layer_elev))?;
+        if block.block_medium() != BlockMedium::CabinSeat {
+            return None;
+        }
+        Some(match block.block_heading() {
+            crate::block::WedgeHeading::East => (u - 1, v),
+            crate::block::WedgeHeading::West => (u + 1, v),
+            crate::block::WedgeHeading::North => (u, v - 1),
+            crate::block::WedgeHeading::South => (u, v + 1),
+        })
+    }
+
     pub fn layer_medium_at(&self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
         if self.rigs.occupies_layer(u, v, layer_elev) {
             return BlockMedium::CantileverRig;

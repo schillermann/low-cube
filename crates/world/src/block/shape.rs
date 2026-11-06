@@ -15,6 +15,9 @@ pub trait VoxelShape: Send + Sync {
     fn block_heading(&self) -> WedgeHeading {
         WedgeHeading::South
     }
+    fn wheel_radius(&self) -> f32 {
+        0.25
+    }
     fn rotate_quarter(&mut self) {}
     fn emit_shape(
         &self,
@@ -24,6 +27,20 @@ pub trait VoxelShape: Send + Sync {
         color: Vec3,
         target: &mut dyn MeshTarget,
     );
+    #[allow(clippy::too_many_arguments)]
+    fn emit_driven_part(
+        &self,
+        cell: GridCell,
+        base_elevation: f32,
+        _spin_angle: f32,
+        _steer_angle: f32,
+        frame: &SurfaceFrame,
+        top_color: Vec3,
+        wall_color: Vec3,
+        target: &mut dyn MeshTarget,
+    ) {
+        self.emit_terraced_shape(cell, base_elevation, frame, top_color, wall_color, true, target);
+    }
     #[allow(clippy::too_many_arguments)]
     fn emit_terraced_shape(
         &self,

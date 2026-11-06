@@ -84,11 +84,13 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
   - `ColumnClearance` (`column_clearance/mod.rs` & `column_clearance/decorators.rs`): Unified 3D vertical column support, crust/shaft confinement (`confine`), weightlessness, and ray-hit resolution via the `MoldedColumn(ShaftColumn(NaturalColumn))` decorator chain.
   - `ShaftExcavation` (`shaft_excavation.rs`) & `OverhangMolds` (`overhang_molds.rs`) & `TurfScars` (`turf_scars.rs`): Downward/upward shafts, overhanging voxel molds, bare-dirt regrowth, and dig-crack stages.
   - `NaturalStrata` (`natural_strata.rs`), `CrustVault` / `VaultGeometry` (`crust_vault/mod.rs` & `crust_vault/mesh.rs`) & `MagmaCore` (`magma_core.rs`): Subterranean crust layers, hollow-world vault ceiling decorator, and glowing magma core.
-  - `SurfaceSightRay` (`sight_ray/mod.rs` & `sight_ray/contact.rs`): 3D voxel raycast for excavating and placing blocks (`brow_origin`, `target_layer`, `placement_cell`).
+  - `SurfaceSightRay` (`sight_ray/mod.rs` & `sight_ray/contact.rs`): 3D voxel raycast for excavating and placing blocks (`brow_origin`, `target_layer`, `placement_cell`, `seat_backrest_cell`).
+  - `CantileverRig` / `RigRegistry` (`cantilever_rig/mod.rs`, `cantilever_rig/registry.rs`, `cantilever_rig/mesh.rs`) & `VehicleAssembly` (`vehicle_assembly.rs`) & `VehicleBlockMesh` / `WheelProfile` (`crates/world/src/block/vehicle_parts.rs`): Telescopic crane hoisting, multi-block vehicle cluster extraction/parking, and rotating wheel profiles.
 - **Trees & Biomes (`crates/world/src/tree/`)**:
   - `WoodlandGround` $\rightarrow$ `StandingTree` $\rightarrow$ `SolidArboreal` / `ClearedPlot` / `HewnTarget` composing `PrismTrunk`, `PolyhedralCrown`, `ConicalSkirt`, and `FloorLitter`.
 - **Avatar, Kinematics & Inventory (`crates/client/src/`)**:
   - `PlanetaryAvatar` (`avatar/mod.rs`): Composes `AvatarBody` & `AvatarSight` (`avatar/body_sight.rs`) and `AvatarBearing` & `AvatarGear` (`avatar/bearing_gear.rs`).
+  - `DrivenCar` & `DriveKinematics` & `VehiclePilot` (`drive.rs`): Seated vehicle throttle/brake/reverse physics, steering yaw, and wheel spin.
   - `BodyEnvelope` & `CrustEnvelope` (`envelope/mod.rs` & `envelope/crust.rs`): Horizontal stride/aerial collision and vertical crust/shaft confinement decorator.
   - `AirborneFlight` (`phase/mod.rs` & `phase/aerial.rs`): Airborne trajectory decorator chain (`WeightlessTrajectory(CliffReboundTrajectory(ParabolicTrajectory))`).
   - `PalmEarthworks` (`earthworks/mod.rs` & `earthworks/debris.rs`) & `DigGrip` (`grip.rs`): Dual-hand excavation progress, debris splash, foraging, block placement, and `BeltSatchel` (`attire/pouch.rs`).
@@ -101,4 +103,5 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
 ## Fast Iteration & Verification Rules
 
 - **Direct Navigation (No Git Archeology)**: Jump directly to the target files via the Domain & Decorator Map above. Read only the 1–3 directly involved files and apply edits immediately without running `git log`, `git show`, or broad exploratory searches.
-- **Targeted Test Execution**: Never run an unfiltered workspace-wide `cargo test` for localized changes. Run only the affected test module (e.g., `cargo test -p client --bin client attire::tests` or `cargo test -p world --lib relief::tests`) together with `wc -l` on modified files.
+- **Decoupled Voxel Bounds vs. Sculpted Mesh**: Keep `MediumShape::elevation_at` at full `GridCell::SPAN` (`0.5m`) for all vehicle and crane mediums so raycast targeting (`intercepts`), excavation (`remove_layer`), and lateral attachment (`ContactFace::classify`) remain invariant across visual mesh variations (`WheelProfile`, `CabinSeat` backrest).
+- **Targeted Test Execution**: Never run an unfiltered workspace-wide `cargo test` for localized changes. Run only the affected test module (e.g., `cargo test -p client --bin client drive::tests` or `cargo test -p world --lib relief::soil_clod_tests`) together with `wc -l` on modified files.

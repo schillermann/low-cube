@@ -15,6 +15,13 @@ impl ShoulderArc {
         }
     }
 
+    pub fn shift_anchor(self, delta: f32) -> Self {
+        match self {
+            Self::Unobstructed(yaw) => Self::Unobstructed(yaw + delta),
+            Self::Wedged(anchor, play) => Self::Wedged(anchor + delta, play),
+        }
+    }
+
     pub fn transition(self, wedged: bool, current_yaw: f32, play: f32) -> Self {
         match (self, wedged) {
             (Self::Unobstructed(free_yaw), true) => Self::Wedged(free_yaw, play),
@@ -28,6 +35,8 @@ impl ShoulderArc {
 pub trait ViewOrientation {
     fn rotate(&mut self, dx: f32, dy: f32);
     fn constrain_shoulders(&mut self, _wedged: bool, _play: f32) {}
+    fn anchor_heading(&mut self, _yaw: f32, _play: f32) {}
+    fn shift_anchor(&mut self, _dx: f32) {}
     fn combine_with_surface(&self, surface_rot: Quat) -> Quat;
 }
 
@@ -57,12 +66,27 @@ impl MouseLook {
 impl ViewOrientation for MouseLook {
     fn rotate(&mut self, dx: f32, dy: f32) {
         self.yaw = self.arc.clamp_yaw(self.yaw - dx);
-        self.pitch = (self.pitch - dy).clamp(-1.4, 1.4);
+        let pitch_limit = match self.arc {
+            ShoulderArc::Unobstructed(_) => 1.4,
+            ShoulderArc::Wedged(_, _) => 0.96,
+        };
+        self.pitch = (self.pitch - dy).clamp(-pitch_limit, pitch_limit);
     }
 
     fn constrain_shoulders(&mut self, wedged: bool, play: f32) {
         self.arc = self.arc.transition(wedged, self.yaw, play);
         self.yaw = self.arc.clamp_yaw(self.yaw);
+    }
+
+    fn anchor_heading(&mut self, yaw: f32, play: f32) {
+        self.yaw = yaw;
+        self.pitch = 0.0;
+        self.arc = ShoulderArc::Wedged(yaw, play);
+    }
+
+    fn shift_anchor(&mut self, dx: f32) {
+        self.arc = self.arc.shift_anchor(-dx);
+        self.yaw = self.arc.clamp_yaw(self.yaw - dx);
     }
 
     fn combine_with_surface(&self, surface_rot: Quat) -> Quat {
@@ -96,6 +120,14 @@ impl ViewOrientation for SensitivityLook {
 
     fn constrain_shoulders(&mut self, wedged: bool, play: f32) {
         self.look.constrain_shoulders(wedged, play);
+    }
+
+    fn anchor_heading(&mut self, yaw: f32, play: f32) {
+        self.look.anchor_heading(yaw, play);
+    }
+
+    fn shift_anchor(&mut self, dx: f32) {
+        self.look.shift_anchor(dx * self.sensitivity);
     }
 
     fn combine_with_surface(&self, surface_rot: Quat) -> Quat {

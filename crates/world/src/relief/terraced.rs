@@ -57,6 +57,10 @@ impl ReliefElevation for TerracedRelief {
         self.molds.layer_occupied_at(u, v, layer_elev)
     }
 
+    fn seat_backrest_cell(&self, u: i32, v: i32, layer_elev: f32) -> Option<(i32, i32)> {
+        self.molds.seat_backrest_cell(u, v, layer_elev)
+    }
+
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         self.clearance().hit_top_at(u, v, ray_elev)
     }

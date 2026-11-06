@@ -23,6 +23,9 @@ pub trait ReliefElevation: Send + Sync {
     /// Indicates whether a placed block occupies the vertical layer at (u, v).
     fn layer_occupied_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> bool { false }
 
+    /// Adjacent cell directly behind the backrest of a cabin seat at (u, v, layer_elev), if present.
+    fn seat_backrest_cell(&self, _u: i32, _v: i32, _layer_elev: f32) -> Option<(i32, i32)> { None }
+
     /// Checks whether a 3D sight ray point (u, v, ray_elev) hits solid terrain or a placed block, returning its top elevation.
     fn hit_top_at(&self, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         let surf = self.surface_height_at(u, v);

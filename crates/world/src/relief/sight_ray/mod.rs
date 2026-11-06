@@ -162,11 +162,17 @@ impl SurfaceSightRay {
                 if let Some(hit_top) = probe.step_hit_top(
                     relief, (prev_cu, prev_cv), (cu, cv), (prev_u, prev_v), (u, v), (prev_elev, ray_elev, wall_top, d_up),
                 ) {
-                    if start_occupied && (cu, cv) == (ecu, ecv) && (hit_top - start_layer_top).abs() < 0.05 {
+                    if start_occupied && (cu, cv) == (ecu, ecv) && (ecu, ecv) == (scu, scv) && (hit_top - start_layer_top).abs() < 0.05 {
                         (prev_cu, prev_cv, prev_u, prev_v, prev_elev) = (cu, cv, u, v, ray_elev);
                         continue;
                     }
-                    if !weightless && slanted && d_up < 0.0 && (cu, cv) == (scu, scv) && hit_top <= max_stand_top {
+                    if !weightless
+                        && slanted
+                        && d_up < 0.0
+                        && (cu, cv) == (scu, scv)
+                        && hit_top <= max_stand_top
+                        && !relief.layer_occupied_at(cu, cv, hit_top - Self::LAYER_HALF)
+                    {
                         if close_wall { continue; }
                         return None;
                     }
