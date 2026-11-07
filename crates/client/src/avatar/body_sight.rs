@@ -41,11 +41,7 @@ impl AvatarBody {
     }
 
     pub fn shape_pose(&self, pose: BodyPose) -> BodyPose {
-        if let Some((car_rot, steer_turn)) = self.pilot.pose_state() {
-            pose.with_surface_rotation(car_rot).with_seated_steer(steer_turn)
-        } else {
-            pose
-        }
+        self.pilot.shape_pose(pose)
     }
 
     pub fn perished(&self) -> bool {
@@ -72,6 +68,7 @@ impl AvatarBody {
         eye: Vec3,
         view_dir: Vec3,
         allow_perch: bool,
+        allow_dismount: bool,
         sight_line: &mut AvatarSight,
         world: &mut dyn PlanetaryWorld,
     ) -> Option<bool> {
@@ -86,6 +83,9 @@ impl AvatarBody {
                 self.board_vehicle(assembly, world);
                 sight_line.anchor_vehicle_heading(heading);
                 return Some(true);
+            }
+            if !allow_dismount {
+                return None;
             }
             let dismounted = self.dismount_vehicle(world);
             sight_line.constrain_shoulders(false, 0.0);
@@ -123,9 +123,9 @@ impl AvatarBody {
     }
 
     pub fn dismount_vehicle(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.pilot.dismount(world) {
+        if let Some(exit_pos) = self.pilot.dismount(world) {
             self.posture = AvatarPosture::standing();
-            self.position = world.constrain_to_surface(self.position, EYE_SUPPORT_HEIGHT);
+            self.position = exit_pos;
             self.flight.ground();
             true
         } else {

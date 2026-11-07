@@ -3,6 +3,7 @@ use world::{BlockMold, MeshTarget, PlanetaryWorld};
 use super::limb::LimbFrame;
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
+use super::sight::SightMode;
 use super::tray::SatchelTray;
 use super::YouthAttire;
 
@@ -33,7 +34,7 @@ pub struct BeltSatchel {
 impl BeltSatchel {
     #[allow(clippy::too_many_arguments)]
     pub const fn new(
-        right_blocks: u32, left_blocks: u32, stowed: [u32; 19], right_mold: BlockMold, left_mold: BlockMold,
+        right_blocks: u32, left_blocks: u32, stowed: [u32; 20], right_mold: BlockMold, left_mold: BlockMold,
         active_side: f32, cursor: usize, open: bool,
     ) -> Self {
         Self {
@@ -42,9 +43,17 @@ impl BeltSatchel {
         }
     }
 
-    pub const fn empty() -> Self { Self::new(0, 0, [0; 19], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false) }
+    pub const fn empty() -> Self { Self::new(0, 0, [0; 20], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false) }
+
+    pub fn with_stowed_relic(mut self, relic: HeldRelic, count: u32) -> Self {
+        if count > 0 {
+            self.tray.stow_relic(relic, count);
+        }
+        self
+    }
 
     pub fn with_test_engines(mut self) -> Self {
+        self.tray.stow_relic(HeldRelic::FieldCamera, 1);
         self.tray.stow_relic(HeldRelic::RocketEngine, 1);
         self.tray.stow_relic(HeldRelic::AircraftEngine, 1);
         self.tray.stow_relic(HeldRelic::SteeringWheel, 1);
@@ -54,6 +63,9 @@ impl BeltSatchel {
     }
     pub const fn open(&self) -> bool { self.tray.open() }
     pub const fn with_open(mut self, open: bool) -> Self { self.tray = self.tray.with_open(open); self }
+    pub const fn camera_sight_on(&self, side: f32) -> SightMode {
+        SightMode::from_camera_turn(self.palms.mold_on(side).quarter_turns())
+    }
 
     pub fn resource_tally(&self, relic: HeldRelic, attire: YouthAttire) -> u32 {
         let (r, l) = attire.held_pair();
@@ -63,8 +75,8 @@ impl BeltSatchel {
     pub fn map_mold(mut self, attire: YouthAttire, op: fn(BlockMold) -> BlockMold) -> Self {
         let (r, l) = attire.held_pair();
         let any_stowed = self.tray.any_stowed_blocks();
-        let (mr, ml) = if r.placeable_block() || l.placeable_block() {
-            (r.placeable_block(), l.placeable_block())
+        let (mr, ml) = if r.rotatable_in_palm() || l.rotatable_in_palm() {
+            (r.rotatable_in_palm(), l.rotatable_in_palm())
         } else if self.palms.right_blocks == 0 && self.palms.left_blocks == 0 && !any_stowed {
             (true, true)
         } else {
@@ -110,7 +122,11 @@ impl BeltSatchel {
             let chosen = slots[state.tray.cursor().min(len - 1)];
             let _ = state.tray.take_stowed(chosen);
             if hand.gripped() { state.tray.stow_relic(hand, state.palms.blocks_on(side)); }
-            if chosen.placeable_block() && other.placeable_block() { state.palms.sync_mold_from_opposite(side); }
+            if chosen.placeable_block() && other.placeable_block() {
+                state.palms.sync_mold_from_opposite(side);
+            } else if !chosen.placeable_block() {
+                state.palms.reset_mold(side);
+            }
             state.palms.assign_blocks(side, u32::from(chosen.placeable_block()));
             state.tray.focus_side(side);
             state.tray.close();
@@ -151,6 +167,7 @@ impl BeltSatchel {
     pub fn collect_excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
         if relic == HeldRelic::CantileverCrane {
             for (part, qty) in [
+                (HeldRelic::FieldCamera, 1),
                 (HeldRelic::RocketEngine, 1),
                 (HeldRelic::AircraftEngine, 1),
                 (HeldRelic::SteeringWheel, 1),

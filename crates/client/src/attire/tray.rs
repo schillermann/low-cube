@@ -6,14 +6,14 @@ use super::relic::HeldRelic;
 /// Encapsulates stowed satchel items, WASD inspection cursor, and waist-grid rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SatchelTray {
-    stowed: [u32; 19],
+    stowed: [u32; 20],
     active_side: f32,
     cursor: usize,
     open: bool,
 }
 
 impl SatchelTray {
-    pub const fn new(stowed: [u32; 19], active_side: f32, cursor: usize, open: bool) -> Self {
+    pub const fn new(stowed: [u32; 20], active_side: f32, cursor: usize, open: bool) -> Self {
         Self {
             stowed,
             active_side,
@@ -97,6 +97,7 @@ impl SatchelTray {
             }
         }
         let tools = [
+            HeldRelic::FieldCamera,
             HeldRelic::CantileverCrane,
             HeldRelic::IronSpade,
             HeldRelic::WoodmanAxe,

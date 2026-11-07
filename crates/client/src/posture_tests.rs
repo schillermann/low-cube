@@ -257,6 +257,7 @@ fn test_crane_lowers_built_car_and_clicking_seat_drives_steers_and_brakes() {
         (seated_eye.x - 1.25).abs() < 0.25 && (seated_eye.z - 0.75).abs() < 0.25 && seated_eye.y < stand_eye.y,
         "Player must be seated at the car seat position (got {seated_eye:?} vs stand {stand_eye:?})"
     );
+    assert!(driver_at_car.use_right_hand(&mut world), "Clicking the steering wheel while seated must engage driving mode");
 
     let mut gas = KeyMotion::idle();
     gas.register_key(KeyCode::KeyW, true);

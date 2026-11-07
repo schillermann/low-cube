@@ -26,16 +26,17 @@ pub enum HeldRelic {
     RocketEngine,
     CabinSeat,
     CarWheel,
+    FieldCamera,
 }
 
 impl HeldRelic {
     #[cfg(test)]
     pub fn next(self) -> Self {
-        Self::from_code((self.code() + 1) % 19)
+        Self::from_code((self.code() + 1) % 20)
     }
 
     pub const fn from_code(code: u8) -> Self {
-        match code % 19 {
+        match code % 20 {
             0 => Self::EmptyPalm,
             1 => Self::QuarriedStone,
             2 => Self::TimberTorch,
@@ -54,7 +55,8 @@ impl HeldRelic {
             15 => Self::AircraftEngine,
             16 => Self::RocketEngine,
             17 => Self::CabinSeat,
-            _ => Self::CarWheel,
+            18 => Self::CarWheel,
+            _ => Self::FieldCamera,
         }
     }
 
@@ -79,6 +81,7 @@ impl HeldRelic {
             Self::RocketEngine => 16,
             Self::CabinSeat => 17,
             Self::CarWheel => 18,
+            Self::FieldCamera => 19,
         }
     }
 
@@ -103,6 +106,38 @@ impl HeldRelic {
             Self::RocketEngine => "ROCKET ENGINE",
             Self::CabinSeat => "SEAT BLOCK",
             Self::CarWheel => "CAR WHEEL",
+            Self::FieldCamera => "FIELD CAMERA",
+        }
+    }
+
+    pub fn parse_token(&self, token: &str) -> Option<Self> {
+        let key: String = token
+            .trim()
+            .chars()
+            .filter(|c| !matches!(c, '_' | '-' | ' '))
+            .map(|c| c.to_ascii_lowercase())
+            .collect();
+        match key.as_str() {
+            "camera" | "fieldcamera" => Some(Self::FieldCamera),
+            "stoneblock" | "quarriedstone" | "stone" => Some(Self::QuarriedStone),
+            "timbertorch" | "torch" => Some(Self::TimberTorch),
+            "woodenmallet" | "mallet" => Some(Self::WoodenMallet),
+            "woodmanaxe" | "axe" => Some(Self::WoodmanAxe),
+            "knightlysword" | "knightsword" | "sword" => Some(Self::KnightlySword),
+            "ironspade" | "spade" => Some(Self::IronSpade),
+            "earthblock" | "excavatedearth" | "earth" | "dirt" => Some(Self::ExcavatedEarth),
+            "deadwood" | "deadwoodbough" => Some(Self::DeadwoodBough),
+            "flintstone" | "flint" => Some(Self::FlintStone),
+            "woodblock" | "timberblock" | "timber" => Some(Self::TimberBlock),
+            "woodplanks" | "plankblock" | "planks" => Some(Self::PlankBlock),
+            "crustblock" | "crust" => Some(Self::CrustBlock),
+            "cranelift" | "cantilevercrane" | "crane" => Some(Self::CantileverCrane),
+            "steeringwheel" | "steering" => Some(Self::SteeringWheel),
+            "planeengine" | "aircraftengine" => Some(Self::AircraftEngine),
+            "rocketengine" | "rocket" => Some(Self::RocketEngine),
+            "seatblock" | "cabinsat" | "cabinseat" | "seat" => Some(Self::CabinSeat),
+            "carwheel" | "wheel" => Some(Self::CarWheel),
+            _ => None,
         }
     }
 
@@ -112,6 +147,14 @@ impl HeldRelic {
 
     pub const fn free_palm(self) -> bool {
         matches!(self, Self::EmptyPalm)
+    }
+
+    pub const fn field_camera(self) -> bool {
+        matches!(self, Self::FieldCamera)
+    }
+
+    pub const fn rotatable_in_palm(self) -> bool {
+        self.placeable_block() || self.field_camera()
     }
 
     pub const fn spade_blade(self) -> bool {
@@ -186,7 +229,8 @@ impl HeldRelic {
             | Self::CabinSeat
             | Self::CarWheel
             | Self::DeadwoodBough
-            | Self::FlintStone => MartialStyle::PalmCradle,
+            | Self::FlintStone
+            | Self::FieldCamera => MartialStyle::PalmCradle,
             Self::IronSpade => MartialStyle::SpadeDig,
             Self::WoodenMallet | Self::WoodmanAxe => MartialStyle::LumberjackCleave,
             Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,

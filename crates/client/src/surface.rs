@@ -3,16 +3,19 @@ use glow::HasContext;
 use glutin::context::PossiblyCurrentContext;
 use glutin::prelude::*;
 use glutin::surface::{Surface, WindowSurface};
+use glam::Vec3;
 use winit::window::Window;
 
 use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
 
+use crate::attire::SightMode;
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::AuroraCanopy;
 use crate::avatar::Avatar;
 use crate::celestial::CelestialCadence;
 use crate::diurnal_pipeline::DiurnalPipeline;
 use crate::menu::{ScreenPoint, SessionModal};
+use crate::photo_plate::PhotoPlate;
 
 /// Interface for platform window and display surface operations.
 pub trait PlatformSurface {
@@ -44,6 +47,17 @@ pub trait PlatformSurface {
         overlay_shader: &dyn ShaderProgram,
         modal: &dyn SessionModal,
     );
+    fn capture_sight_frame(
+        &self,
+        _pipeline: &dyn GraphicPipeline,
+        _shader: &dyn ShaderProgram,
+        _mesh: &dyn Mesh,
+        _avatar: &dyn Avatar,
+        _sight: SightMode,
+        _angle_label: &str,
+    ) -> Vec<Vec3> {
+        Vec::new()
+    }
 }
 
 /// Encapsulated platform window, OpenGL context, and surface implementation.
@@ -155,5 +169,36 @@ impl PlatformSurface for GlPlatformSurface {
         modal.draw_layer(&self.gl, overlay_shader, avatar, aspect);
         self.gl_surface.swap_buffers(&self.gl_context).expect("Buffer swap failed");
         self.window.request_redraw();
+    }
+
+    fn capture_sight_frame(
+        &self,
+        pipeline: &dyn GraphicPipeline,
+        shader: &dyn ShaderProgram,
+        mesh: &dyn Mesh,
+        avatar: &dyn Avatar,
+        sight: SightMode,
+        angle_label: &str,
+    ) -> Vec<Vec3> {
+        let size = self.window.inner_size();
+        let (width, height) = (size.width.max(1), size.height.max(1));
+        let aspect = (width as f32) / (height as f32);
+        let view_proj = avatar.view_projection_for_sight(aspect, sight);
+        pipeline.render(&self.gl, shader, mesh, &view_proj, avatar.surface_rotation());
+        let mut raw_rgba = vec![0u8; (width as usize) * (height as usize) * 4];
+        unsafe {
+            self.gl.read_pixels(
+                0,
+                0,
+                width as i32,
+                height as i32,
+                glow::RGBA,
+                glow::UNSIGNED_BYTE,
+                glow::PixelPackData::Slice(Some(&mut raw_rgba)),
+            );
+        }
+        let plate = PhotoPlate::new(width, height, raw_rgba);
+        let _ = plate.develop_to_disk(angle_label);
+        plate.sample_mosaic()
     }
 }

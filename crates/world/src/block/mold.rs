@@ -137,6 +137,16 @@ impl BlockMold {
     pub const fn turn_counter_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_counter_clockwise(), self.medium) }
     pub const fn full_height_flat(self) -> bool { self.archetype.full_height_flat() }
 
+    pub const fn quarter_turns(self) -> u8 {
+        let turn_step = match self.turn {
+            CardinalTurn::Forward => 0,
+            CardinalTurn::Right => 1,
+            CardinalTurn::Backward => 2,
+            CardinalTurn::Left => 3,
+        };
+        self.archetype.code().wrapping_add(turn_step) % 4
+    }
+
     /// Resolves the concrete VoxelShape oriented along the placement direction and current turn.
     pub fn shape_for(self, direction: Vec3, frame: &SurfaceFrame) -> Box<dyn VoxelShape> {
         let effective_archetype = if matches!(self.medium, BlockMedium::CabinSeat) && !self.archetype.flat_square_top() {

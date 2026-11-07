@@ -42,12 +42,15 @@ impl PalmEarthworks {
     pub const fn empty() -> Self { Self::new(BeltSatchel::empty(), 0, DigGrip::idle(), Vec3::ZERO, false) }
     pub const fn satchel_open(&self) -> bool { self.satchel.open() || self.tome.open() }
     pub const fn tome_open(&self) -> bool { self.tome.open() }
+    pub const fn camera_sight_on(&self, side: f32) -> SightMode { self.satchel.camera_sight_on(side) }
     fn with_satchel(self, satchel: BeltSatchel) -> Self { Self { satchel, ..self } }
     pub fn mold_next_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }
     pub fn mold_prev_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::prev_form)) }
     pub fn turn_mold_clockwise(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::turn_clockwise)) }
     pub fn reconcile_attire(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.reconcile_attire(attire)) }
-    pub fn with_test_engines(self) -> Self { self.with_satchel(self.satchel.with_test_engines()) }
+    pub fn with_provisioned_satchel(self, provider: &dyn crate::server_satchel::StartingSatchel) -> Self {
+        self.with_satchel(provider.provision(self.satchel))
+    }
 
     pub fn handle_trigger(
         self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire,
@@ -82,7 +85,7 @@ impl PalmEarthworks {
             let (next_satchel, next_attire, ok) = self.satchel.transfer_hand(side, attire);
             return (Self::new(next_satchel, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, ok);
         }
-        let dx = if bindings.matches(ControlAction::MoveLeft, trigger) { -1 } else if bindings.matches(ControlAction::MoveRight, trigger) { 1 } else { 0 };
+        let dx = if bindings.matches(ControlAction::MoveLeft, trigger) || bindings.matches(ControlAction::MoldLeft, trigger) { -1 } else if bindings.matches(ControlAction::MoveRight, trigger) || bindings.matches(ControlAction::MoldRight, trigger) { 1 } else { 0 };
         let dy = if bindings.matches(ControlAction::MoveForward, trigger) { -1 } else if bindings.matches(ControlAction::MoveBackward, trigger) { 1 } else { 0 };
         if dx != 0 || dy != 0 {
             let (next_satchel, ok) = self.satchel.navigate(dx, dy);
@@ -95,7 +98,7 @@ impl PalmEarthworks {
         &self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> bool {
         let (r, l) = attire.held_pair();
-        if self.satchel.open() || self.tome.open() || r.placeable_block() || l.placeable_block() {
+        if self.satchel.open() || self.tome.open() || r.rotatable_in_palm() || l.rotatable_in_palm() {
             return false;
         }
         if bindings.matches(ControlAction::MoldRight, trigger) {
@@ -181,6 +184,10 @@ impl PalmEarthworks {
     pub fn act_with_hand(
         self, side: f32, attire: YouthAttire, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> (Self, YouthAttire, StrideRhythm, bool) {
+        if self.satchel.open() {
+            let (next_satchel, next_attire, _) = self.satchel.transfer_hand(side, attire);
+            return (Self::new(next_satchel, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, rhythm, false);
+        }
         if self.tome.open() {
             let (next_tome, next_satchel, next_attire, ok) = self.tome.craft_selected(side, self.satchel, attire);
             let next_rhythm = if ok { Self::trigger_hand_swing(next_attire, rhythm, side) } else { rhythm };
@@ -195,6 +202,9 @@ impl PalmEarthworks {
         }
         let (right, left) = attire.held_pair();
         let (active, other) = if side > 0.0 { (right, left) } else { (left, right) };
+        if active.field_camera() {
+            return (Self::new(state.satchel, 0, DigGrip::idle(), Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), false);
+        }
         if d.progress() == 0 && !d.grip().any_held() && active != HeldRelic::WoodenMallet && world.lower_rig(eye, view_dir) {
             return (Self::new(state.satchel, 0, DigGrip::idle(), Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), true);
         }

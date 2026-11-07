@@ -23,10 +23,7 @@ impl PedalInput {
 }
 
 impl LocomotionTarget for PedalInput {
-    fn travel(&mut self, direction: Vec3) {
-        self.throttle = direction.y;
-        self.steer = direction.x;
-    }
+    fn travel(&mut self, direction: Vec3) { self.throttle = direction.y; self.steer = direction.x; }
     fn jump(&mut self) { self.handbrake = true; }
     fn sneak(&mut self) { self.handbrake = true; }
     fn sprint(&mut self) {}
@@ -60,13 +57,11 @@ impl DriveKinematics {
             if self.speed > 0.0 {
                 self.speed = (self.speed - BRAKE_DECEL * dt).max(0.0);
                 self.reverse_dwell = 0.0;
-            } else if self.speed == 0.0 {
-                self.reverse_dwell += dt;
-                if self.reverse_dwell >= REVERSE_ENGAGE_DWELL {
+            } else {
+                self.reverse_dwell += if self.speed == 0.0 { dt } else { 0.0 };
+                if self.speed < 0.0 || self.reverse_dwell >= REVERSE_ENGAGE_DWELL {
                     self.speed = (self.speed - REVERSE_ACCEL * dt).max(-MAX_REVERSE_SPEED);
                 }
-            } else {
-                self.speed = (self.speed - REVERSE_ACCEL * dt).max(-MAX_REVERSE_SPEED);
             }
         } else {
             self.reverse_dwell = 0.0;
@@ -104,31 +99,41 @@ impl DrivenCar {
     }
 
     pub fn perch_position(&self) -> Vec3 {
-        let up = self.assembly.normal().normalize_or_zero();
-        self.assembly.origin() + up * (SEAT_EYE_SUPPORT + 0.12)
+        self.assembly.origin() + self.assembly.normal().normalize_or_zero() * (SEAT_EYE_SUPPORT + 0.12)
     }
 
     pub fn seat_position(&self, world: &dyn PlanetaryWorld) -> Vec3 {
         let origin = self.assembly.origin();
         let up = world.surface_up_at(origin);
-        let ground = world.constrain_to_surface(origin + up * 4.0, SEAT_EYE_SUPPORT);
-        ground + up * (0.12 + self.assembly.seat_floor_offset())
+        world.constrain_to_surface(origin + up * 4.0, SEAT_EYE_SUPPORT) + up * (0.12 + self.assembly.seat_floor_offset())
+    }
+
+    pub fn dismount_position(&self, world: &dyn PlanetaryWorld) -> Vec3 {
+        let origin = self.assembly.origin();
+        let up = world.surface_up_at(origin);
+        let fwd = (self.assembly.heading() - up * self.assembly.heading().dot(up)).normalize_or_zero();
+        let right = fwd.cross(up).normalize_or_zero();
+        let seat_elev = world.constrain_to_surface(origin + up * 2.0, 1.0).dot(up);
+        for cand in [origin + fwd * 0.55, origin - fwd * 0.55, origin + right * 0.55, origin - right * 0.55] {
+            let grounded = world.constrain_to_surface(cand + up * 2.0, 1.0);
+            if grounded.dot(up) < seat_elev - 0.15 {
+                return grounded;
+            }
+        }
+        world.constrain_to_surface(origin + fwd * 0.55 + up * 2.0, 1.0)
     }
 
     pub fn step(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) -> (Vec3, f32) {
         let mut pedals = PedalInput::idle();
         controls.drive_locomotion(Vec3::Y, Vec3::X, &mut pedals);
-        let wheel_r = self.assembly.wheel_radius();
-        let sign = self.kinematics.advance(&pedals, wheel_r, dt);
+        let sign = self.kinematics.advance(&pedals, self.assembly.wheel_radius(), dt);
         let mut steer_px = 0.0;
         if sign.abs() > 0.1 {
             let rev_flip = if self.kinematics.speed < -0.05 { -1.0 } else { 1.0 };
-            let yaw_delta = -sign * rev_flip * STEER_RATE * dt;
-            self.assembly.steer(yaw_delta);
+            self.assembly.steer(-sign * rev_flip * STEER_RATE * dt);
             steer_px = (sign * rev_flip * STEER_RATE * dt) / 0.003;
         }
-        let cur_origin = self.assembly.origin();
-        let next_raw = cur_origin + self.assembly.heading() * (self.kinematics.speed * dt);
+        let next_raw = self.assembly.origin() + self.assembly.heading() * (self.kinematics.speed * dt);
         let up = world.surface_up_at(next_raw);
         let next_ground = world.constrain_to_surface(next_raw + up * 4.0, 0.0);
         self.assembly.relocate(next_ground, up);
@@ -151,20 +156,22 @@ impl VehiclePilot {
     pub const fn seated(&self) -> bool { matches!(self, Self::Perch(_)) }
     pub const fn driving(&self) -> bool { matches!(self, Self::Driving(_)) }
 
-    pub fn pose_state(&self) -> Option<(Quat, f32)> {
+    pub fn shape_pose(&self, pose: crate::attire::BodyPose) -> crate::attire::BodyPose {
         match self {
-            Self::Pedestrian => None,
-            Self::Perch(car) | Self::Driving(car) => Some((car.body_rotation(), car.steer_turn())),
+            Self::Pedestrian => pose,
+            Self::Perch(car) => pose.with_surface_rotation(car.body_rotation()).with_seated(1.0),
+            Self::Driving(car) => pose.with_surface_rotation(car.body_rotation()).with_seated_steer(car.steer_turn()),
         }
     }
 
-    pub fn dismount(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+    pub fn dismount(&mut self, world: &mut dyn PlanetaryWorld) -> Option<Vec3> {
         match std::mem::replace(self, Self::Pedestrian) {
-            Self::Pedestrian => false,
-            Self::Perch(_) => true,
+            Self::Pedestrian => None,
+            Self::Perch(car) => Some(car.dismount_position(world)),
             Self::Driving(car) => {
+                let exit = car.dismount_position(world);
                 let _ = world.park_vehicle(car.into_assembly());
-                true
+                Some(exit)
             }
         }
     }
@@ -196,48 +203,44 @@ mod tests {
 
     struct VertCollector(Vec<Vec3>);
     impl MeshTarget for VertCollector {
-        fn push_quad(&mut self, quad: Quad) {
-            quad.transfer(|v0, v1, v2, v3, _, _| self.0.extend_from_slice(&[v0, v1, v2, v3]));
-        }
+        fn push_quad(&mut self, quad: Quad) { quad.transfer(|v0, v1, v2, v3, _, _| self.0.extend_from_slice(&[v0, v1, v2, v3])); }
     }
 
     #[test]
     fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
         let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
         let m0 = BlockMold::cube().in_medium(BlockMedium::CarWheel);
-        let radii = [
-            m0.shape_for(Vec3::NEG_Z, &frame).wheel_radius(),
-            m0.next_form().shape_for(Vec3::NEG_Z, &frame).wheel_radius(),
-            m0.next_form().next_form().shape_for(Vec3::NEG_Z, &frame).wheel_radius(),
-            m0.next_form().next_form().next_form().shape_for(Vec3::NEG_Z, &frame).wheel_radius(),
-        ];
+        let (m1, m2, m3) = (m0.next_form(), m0.next_form().next_form(), m0.next_form().next_form().next_form());
+        let radii = [m0.shape_for(Vec3::NEG_Z, &frame).wheel_radius(), m1.shape_for(Vec3::NEG_Z, &frame).wheel_radius(), m2.shape_for(Vec3::NEG_Z, &frame).wheel_radius(), m3.shape_for(Vec3::NEG_Z, &frame).wheel_radius()];
         assert!(radii[0] != radii[1] && radii[1] != radii[2] && radii[2] != radii[3] && radii[0] != radii[2]);
 
         let mut world = BiomedCubeWorld::beveled(32, 1.0);
         let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
-        let rig_mold = BlockMold::cube().in_medium(BlockMedium::CantileverRig);
-        let eng_mold = BlockMold::cube().turn_clockwise().in_medium(BlockMedium::SteeringWheel);
+        let (rig_mold, eng_mold) = (BlockMold::cube().in_medium(BlockMedium::CantileverRig), BlockMold::cube().turn_clockwise().in_medium(BlockMedium::SteeringWheel));
         let seat_mold = BlockMold::cube().in_medium(BlockMedium::CabinSeat);
-        let bench_mold = seat_mold.next_form();
-        let stool_mold = bench_mold.next_form();
-        let throne_mold = stool_mold.next_form();
+        let (bench_mold, stool_mold, throne_mold) = (seat_mold.next_form(), seat_mold.next_form().next_form(), seat_mold.next_form().next_form().next_form());
         let mut seat_meshes = [VertCollector(Vec::new()), VertCollector(Vec::new()), VertCollector(Vec::new()), VertCollector(Vec::new())];
         for (i, sm) in [seat_mold, bench_mold, stool_mold, throne_mold].into_iter().enumerate() {
             sm.shape_for(Vec3::NEG_Z, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut seat_meshes[i]);
         }
         assert!(seat_meshes[0].0 != seat_meshes[1].0 && seat_meshes[2].0 == seat_meshes[0].0 && seat_meshes[3].0 == seat_meshes[1].0);
-        let wheel_mold = m0.next_form().next_form();
-        let av_pos = Vec3::new(0.25, g0, 1.75);
+        let (wheel_mold, av_pos) = (m2, Vec3::new(0.25, g0, 1.75));
         assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), Vec3::new(0.0, -0.8, -0.6).normalize(), av_pos, bench_mold));
+        let cam_pos = |a: &PlanetaryAvatar| a.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
         let mut world_sitter = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(2.25, 22.0, 1.25), 1.0));
+        world_sitter.apply_attire(crate::attire::YouthAttire::squire().with_relics(crate::attire::HeldRelic::FieldCamera, crate::attire::HeldRelic::EmptyPalm));
         world_sitter.rotate_degrees(0.0, 58.0);
         assert!(world_sitter.use_right_hand(&mut world));
-        assert!(world_sitter.use_right_hand(&mut world));
+        let sit_eye = cam_pos(&world_sitter);
+        assert!(!world_sitter.use_right_hand(&mut world) && world_sitter.take_photo_shutter() != crate::attire::PhotoShutter::Idle && (cam_pos(&world_sitter) - sit_eye).length() < 1e-4);
+        assert!(world_sitter.use_left_hand(&mut world));
+        let stand_front = cam_pos(&world_sitter);
+        assert!((stand_front.x - 2.25).hypot(stand_front.z - 0.75) > 0.35 && stand_front.y < g0 + 2.0);
 
         assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.5, 1.25), Vec3::new(0.0, -0.8, -0.6).normalize(), av_pos, rig_mold));
         assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.5, 1.25), Vec3::new(0.0, -0.8, -0.6).normalize(), av_pos, eng_mold));
         assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 1.75, 1.25), Vec3::NEG_Z, av_pos, seat_mold));
-        assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.75, 0.75), Vec3::X, av_pos, m0.next_form()));
+        assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.75, 0.75), Vec3::X, av_pos, m1));
         let mut miner = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.75, 22.0, 1.25), 1.0));
         miner.apply_attire(crate::attire::YouthAttire::squire().with_relics(crate::attire::HeldRelic::CarWheel, crate::attire::HeldRelic::EmptyPalm));
         assert!(!miner.use_right_hand(&mut world));
@@ -248,7 +251,6 @@ mod tests {
         assert!((world.constrain_to_surface(Vec3::new(1.25, 22.0, 1.25), 0.0).y - (g0 + 2.0)).abs() < 1e-4);
         assert!((world.constrain_to_surface(Vec3::new(1.25, 22.0, 0.75), 0.0).y - (g0 + 2.0)).abs() < 1e-4);
 
-        let cam_pos = |a: &PlanetaryAvatar| a.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
         let mut driver = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0));
         driver.rotate_degrees(-90.0, 12.0);
         assert!(driver.use_right_hand(&mut world));

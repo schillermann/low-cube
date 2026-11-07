@@ -18,6 +18,7 @@ use crate::physics::PlanetaryPhysics;
 use crate::server_aurora::ServerAurora;
 use crate::server_celestial::ServerCelestial;
 use crate::server_physics::ServerPhysics;
+use crate::server_satchel::ServerSatchel;
 use crate::session::{GameSession, Session};
 
 /// Interface for assembling an active display session.
@@ -131,7 +132,7 @@ impl SessionAssembly for SessionLaunch {
                 attire,
                 bindings,
             )
-            .with_test_engines(),
+            .with_starting_satchel(&ServerSatchel::assembled()),
         );
         let controls = Box::new(KeyMotion::with_bindings(bindings));
         let modal = Box::new(EscapeMenu::closed());

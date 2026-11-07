@@ -179,31 +179,27 @@ impl VehicleAssembly {
         strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame,
         u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, engage_engine: bool,
     ) -> Option<Self> {
-        let ((eng_u, eng_v, _), mut cluster, seat_u, seat_v, ground_top, min_floor) = if !engage_engine {
+        if !engage_engine {
             let seat_idx = blocks.get(&(u, v))?.iter().rposition(|b| {
                 b.occupies_layer(layer_elev) && b.block_medium() == BlockMedium::CabinSeat
             })?;
             let seat_floor = blocks[&(u, v)][seat_idx].floor();
             let cluster = Self::connected_cluster(u, v, seat_idx, blocks);
             let eng = cluster.iter().copied().find(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].block_medium() == BlockMedium::SteeringWheel);
-            let ground_top = (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP;
-            let min_floor = cluster.iter().map(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].floor()).fold(f32::MAX, f32::min);
-            let Some(eng_cell) = eng.filter(|_| min_floor <= ground_top + 0.35) else {
-                let heading = eng
-                    .map(|(eu, ev, idx)| {
-                        if (eu, ev) != (u, v) {
-                            (frame.tangent() * ((eu - u) as f32) + frame.bitangent() * ((ev - v) as f32)).normalize_or_zero()
-                        } else {
-                            blocks[&(eu, ev)][idx].block_heading().forward_vector(frame)
-                        }
-                    })
-                    .unwrap_or_else(|| blocks[&(u, v)][seat_idx].block_heading().forward_vector(frame));
-                let (cx, cy) = GridCell::new(u, v).center();
-                let origin = frame.point_at(cx, cy, seat_floor);
-                return Some(Self::new(origin, VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal()), heading, Vec::new()));
-            };
-            (eng_cell, cluster, u, v, ground_top, min_floor)
-        } else {
+            let heading = eng
+                .map(|(eu, ev, idx)| {
+                    if (eu, ev) != (u, v) {
+                        (frame.tangent() * ((eu - u) as f32) + frame.bitangent() * ((ev - v) as f32)).normalize_or_zero()
+                    } else {
+                        blocks[&(eu, ev)][idx].block_heading().forward_vector(frame)
+                    }
+                })
+                .unwrap_or_else(|| blocks[&(u, v)][seat_idx].block_heading().forward_vector(frame));
+            let (cx, cy) = GridCell::new(u, v).center();
+            let origin = frame.point_at(cx, cy, seat_floor);
+            return Some(Self::new(origin, VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal()), heading, Vec::new()));
+        }
+        let ((eng_u, eng_v, _), mut cluster, seat_u, seat_v, ground_top, min_floor) = {
             let (eng_u, eng_v, eng_idx) = Self::locate_engine(u, v, layer_elev, ray, frame, blocks)?;
             let cluster = Self::connected_cluster(eng_u, eng_v, eng_idx, blocks);
             let (eu, ev) = frame.decompose(ray.sample_point(0.0));

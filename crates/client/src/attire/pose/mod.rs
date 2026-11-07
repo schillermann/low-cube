@@ -81,7 +81,7 @@ impl BodyPose {
     }
 
     pub fn with_seated(self, seated: f32) -> Self {
-        Self { motion: PoseMotion { hover: -2.0 * seated.clamp(0.0, 1.0), ..self.motion }, ..self }
+        Self { motion: PoseMotion { hover: -0.5 * seated.clamp(0.0, 1.0), ..self.motion }, ..self }
     }
 
     pub fn with_seated_steer(self, steer: f32) -> Self {
@@ -98,7 +98,10 @@ impl BodyPose {
 
     pub const fn hover_factor(&self) -> f32 { self.motion.hover.max(0.0) }
     pub const fn seated_factor(&self) -> f32 {
-        if self.motion.hover <= -0.95 { 1.0 } else { (-self.motion.hover).clamp(0.0, 1.0) }
+        if self.motion.hover <= -0.95 { 1.0 } else { (-self.motion.hover * 2.0).clamp(0.0, 1.0) }
+    }
+    pub const fn driving_factor(&self) -> f32 {
+        if self.motion.hover <= -0.95 { 1.0 } else { 0.0 }
     }
     pub const fn steering_turn(&self) -> f32 {
         if self.motion.hover <= -0.95 { (-self.motion.hover - 2.0).clamp(-1.0, 1.0) } else { 0.0 }
@@ -227,6 +230,13 @@ impl BodyPose {
 
     pub fn crouch_compression(&self) -> f32 {
         (0.8 - (self.stance.eye_height + self.motion.leap)).clamp(0.0, 0.55) * (1.0 - self.hover_factor())
+    }
+
+    pub fn held_camera_elevation(&self) -> (f32, f32) {
+        let (up, view_fwd, _) = self.view_axes();
+        let hand_pitch = view_fwd.dot(up).clamp(-0.90, 0.90);
+        let crouch_shift = (self.stance.eye_height + self.motion.leap) - 0.80;
+        (hand_pitch, crouch_shift)
     }
 
     pub const fn arm<'a>(&'a self, side: f32, martial: MartialStyle) -> ArmKinematics<'a> {

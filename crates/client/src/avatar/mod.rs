@@ -5,7 +5,7 @@ use glam::{Mat4, Quat, Vec3};
 #[cfg(test)]
 use winit::keyboard::KeyCode;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, SightMode, StrideRhythm, YouthAttire};
+use crate::attire::{BodyPose, PhotoShutter, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use crate::earthworks::PalmEarthworks;
 use crate::envelope::PhysicalEnvelope;
@@ -43,8 +43,14 @@ pub trait Avatar {
     }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
+    fn view_projection_for_sight(&self, aspect: f32, _sight: SightMode) -> Mat4 { self.view_projection_matrix(aspect) }
     fn surface_rotation(&self) -> Quat;
     fn emit_appearance(&self, target: &mut dyn MeshTarget);
+    fn emit_appearance_for_sight(&self, _sight: SightMode, target: &mut dyn MeshTarget) { self.emit_appearance(target); }
+    fn take_photo_shutter(&mut self) -> PhotoShutter { PhotoShutter::Idle }
+    fn apply_polaroid_mosaic(&mut self, _mosaic: Vec<Vec3>) {}
+    #[cfg(test)]
+    fn polaroid_tilt(&self) -> f32 { 0.0 }
     fn emit_reticle(&self, target: &mut dyn MeshTarget) { ScreenPoint::center().emit_crosshair(target); }
 }
 
@@ -82,9 +88,14 @@ impl PlanetaryAvatar {
         )
     }
 
-    pub fn with_test_engines(mut self) -> Self {
-        self.gear.seed_test_engines();
+    pub fn with_starting_satchel(mut self, provider: &dyn crate::server_satchel::StartingSatchel) -> Self {
+        self.gear.provision_satchel(provider);
         self
+    }
+
+    #[cfg(test)]
+    pub fn with_test_engines(self) -> Self {
+        self.with_starting_satchel(&crate::server_satchel::TestKitSatchel::new())
     }
 
     #[cfg(test)]
@@ -107,22 +118,26 @@ impl PlanetaryAvatar {
     fn hand_ray(&self) -> (Vec3, Vec3) {
         let (pose_eye, up, dir) = (self.current_pose().eye_origin(), self.sight_line.surface_up(), self.sight_line.view_direction());
         let pos = self.body.position();
-        if dir.dot(up) > 0.975 {
-            (pos + up * (pose_eye - pos).dot(up), up)
-        } else {
-            (pose_eye, dir)
-        }
+        if dir.dot(up) > 0.975 { (pos + up * (pose_eye - pos).dot(up), up) } else { (pose_eye, dir) }
     }
 
     fn act_with_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.body.perished() || world.lethal_at(self.body.position()) || self.gear.blocks_hand_action() {
+        if self.body.perished() || world.lethal_at(self.body.position()) {
             return false;
         }
         let (eye, view_dir) = self.hand_ray();
-        let allow_perch = !self.gear.holding_placeable_on(side);
-        if let Some(outcome) = self.body.interact_vehicle(eye, view_dir, allow_perch, &mut self.sight_line, world) {
-            self.bearing.calm();
-            return outcome;
+        if !self.gear.satchel_open() {
+            let allow_perch = !self.gear.holding_placeable_on(side);
+            let allow_dismount = self.gear.camera_sight_on(side).is_none();
+            if let Some(outcome) = self.body.interact_vehicle(eye, view_dir, allow_perch, allow_dismount, &mut self.sight_line, world) {
+                self.bearing.calm();
+                return outcome;
+            }
+            if let Some(shot_sight) = self.gear.camera_sight_on(side) {
+                use crate::cardiac::{AcousticWave, ShutterClick};
+                self.bearing.trigger_shutter(shot_sight);
+                ShutterClick::mechanical().thump();
+            }
         }
         let (next_rhythm, changed) = self.gear.act_with_hand(side, self.bearing.rhythm(), eye, view_dir, world);
         self.bearing.apply_rhythm(next_rhythm);
@@ -184,6 +199,7 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
+        self.bearing.step_polaroid(dt);
         let pos = self.body.position();
         if self.gear.satchel_open() || self.body.perished() || world.lethal_at(pos) {
             if self.body.perished() || world.lethal_at(pos) {
@@ -224,11 +240,7 @@ impl Avatar for PlanetaryAvatar {
         let weightless = world.weightless_at(raw_next) || world.weightless_at(pos);
         let in_shaft = weightless || active_crust.in_deep_shaft(raw_next, terrain_up, EYE_SUPPORT_HEIGHT);
         let pre_eye = if weightless { Vec3::ZERO } else { self.body.eye_offset(terrain_up) };
-        let next_pos = if in_shaft {
-            world.confine_beneath_crust(raw_next + pre_eye) - pre_eye
-        } else {
-            active_crust.confine(raw_next, pos, terrain_up)
-        };
+        let next_pos = if in_shaft { world.confine_beneath_crust(raw_next + pre_eye) - pre_eye } else { active_crust.confine(raw_next, pos, terrain_up) };
         let core_closeness = if weightless {
             let core_pt = world.constrain_to_surface(next_pos, EYE_SUPPORT_HEIGHT);
             let span = (core_pt.length() * 0.36).clamp(6.4, 13.0);
@@ -244,11 +256,7 @@ impl Avatar for PlanetaryAvatar {
         }
         self.bearing.advance_stride(pos, next_pos, terrain_up, dt);
         let post_eye = self.body.eye_offset(terrain_up);
-        let final_pos = if in_shaft {
-            world.confine_beneath_crust(next_pos + post_eye) - post_eye
-        } else {
-            active_crust.confine(next_pos, pos, terrain_up)
-        };
+        let final_pos = if in_shaft { world.confine_beneath_crust(next_pos + post_eye) - post_eye } else { active_crust.confine(next_pos, pos, terrain_up) };
         self.body.relocate(final_pos);
         self.sight_line.constrain_shoulders(
             active_env.wedged_in_shaft(final_pos, terrain_up, EYE_SUPPORT_HEIGHT, world),
@@ -257,31 +265,36 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
-        self.sight_line.project_view(
-            aspect,
-            self.bearing.tilt_radians(),
-            self.bearing.sight(),
-            self.body.posture(),
-            self.body.position(),
-            &self.current_pose(),
-        )
+        self.view_projection_for_sight(aspect, self.bearing.sight())
+    }
+
+    fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 {
+        self.sight_line.project_view(aspect, self.bearing.tilt_radians(), sight, self.body.posture(), self.body.position(), &self.current_pose())
     }
 
     fn surface_rotation(&self) -> Quat { self.sight_line.surface_rotation() }
 
     fn emit_appearance(&self, target: &mut dyn MeshTarget) {
         self.body.emit_vehicle(target);
-        self.gear.emit_appearance(
-            &self.current_pose(),
-            self.bearing.sight(),
-            self.sight_line.view_direction(),
-            self.sight_line.surface_up(),
-            self.bearing.rhythm(),
-            target,
-        );
+        self.gear.emit_appearance(&self.current_pose(), self.bearing.sight(), self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
     }
 
+    fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
+        self.body.emit_vehicle(target);
+        if !matches!(sight, SightMode::FirstPersonSight) {
+            self.gear.emit_appearance(&self.current_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
+        }
+    }
+
+    fn take_photo_shutter(&mut self) -> PhotoShutter { self.bearing.take_shutter() }
+    fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.bearing.apply_polaroid_mosaic(mosaic); }
+    #[cfg(test)]
+    fn polaroid_tilt(&self) -> f32 { self.bearing.polaroid_tilt() }
+
     fn emit_reticle(&self, target: &mut dyn MeshTarget) {
-        if !self.gear.satchel_open() { self.body.posture().emit_reticle(target); }
+        if !self.gear.satchel_open() {
+            self.body.posture().emit_reticle(target);
+            self.bearing.emit_polaroid(target);
+        }
     }
 }

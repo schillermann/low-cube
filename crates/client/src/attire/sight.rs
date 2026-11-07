@@ -8,14 +8,40 @@ use super::palette::{ComplexionSwatch, PigmentSwatch};
 use super::pose::BodyPose;
 use super::relic::MartialStyle;
 
-/// Polymorphic camera sight mode switching between pure First-Person and Looking-Glass mirror/peer display.
+/// Polymorphic camera sight mode switching between First-Person and external Front and Side views.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SightMode {
     FirstPersonSight,
     LookingGlassSight,
+    ProfileSight,
+    LeftProfileSight,
+}
+
+/// Polymorphic shutter state for diegetic field camera exposures.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PhotoShutter {
+    Idle,
+    Triggered(SightMode),
 }
 
 impl SightMode {
+    pub const fn from_camera_turn(quarter_turns: u8) -> Self {
+        match quarter_turns % 4 {
+            0 => Self::FirstPersonSight,
+            1 => Self::ProfileSight,
+            2 => Self::LookingGlassSight,
+            _ => Self::LeftProfileSight,
+        }
+    }
+
+    pub const fn photo_label(self) -> &'static str {
+        match self {
+            Self::FirstPersonSight => "landscape",
+            Self::LookingGlassSight => "front",
+            Self::ProfileSight | Self::LeftProfileSight => "side",
+        }
+    }
+
     /// Resolves shoulder, elbow, wrist-aligned LimbFrame, and forearm length polymorphically; frames open satchel without overlap.
     pub fn arm_joints(
         self,
@@ -40,13 +66,15 @@ impl SightMode {
                     let frame = LimbFrame::new(wrist_w, hand_dir.cross(hand_up).normalize(), hand_up, hand_dir)
                         .pitched(if cradle { -0.16 } else { 0.0 });
                     (shoulder_w, elbow_w, frame, (wrist_w - elbow_w).length())
-                } else if (holding || pose.striking_on(side)) && pose.seated_factor() < 0.5 {
+                } else if (holding || pose.striking_on(side)) && pose.driving_factor() < 0.5 {
                     pose.arm(side, martial).first_person()
                 } else {
                     pose.arm(side, MartialStyle::Unarmed).external(false)
                 }
             }
-            Self::LookingGlassSight => pose.arm(side, martial).external(holding),
+            Self::LookingGlassSight | Self::ProfileSight | Self::LeftProfileSight => {
+                pose.arm(side, martial).external(holding)
+            }
         }
     }
 
@@ -60,7 +88,9 @@ impl SightMode {
     ) {
         match self {
             Self::FirstPersonSight => {}
-            Self::LookingGlassSight => crown.emit(pose, complexion, pigment, target),
+            Self::LookingGlassSight | Self::ProfileSight | Self::LeftProfileSight => {
+                crown.emit(pose, complexion, pigment, target);
+            }
         }
     }
 
@@ -73,12 +103,20 @@ impl SightMode {
     ) -> Mat4 {
         match self {
             Self::FirstPersonSight => posture.view_matrix(frame, position),
-            Self::LookingGlassSight => {
+            Self::LookingGlassSight | Self::ProfileSight | Self::LeftProfileSight => {
                 let torso = pose.stance_frame();
-                let mirror_eye = torso.point(0.0, 1.20, 1.65);
-                let target = torso.point(0.0, 0.96, 0.0);
-                let up = torso.point(0.0, 1.0, 0.0) - torso.point(0.0, 0.0, 0.0);
-                Mat4::look_at_rh(mirror_eye, target, up.normalize())
+                let up = (torso.point(0.0, 1.0, 0.0) - torso.point(0.0, 0.0, 0.0)).normalize();
+                let (hand_pitch, crouch_shift) = pose.held_camera_elevation();
+                let eye_y = (1.35 + hand_pitch * 0.90 + crouch_shift * 0.80).clamp(0.35, 2.30);
+                let target_y = (1.26 + hand_pitch * 0.30 + crouch_shift * 0.75).clamp(0.80, 1.65);
+                let dist = 1.85;
+                let eye = match self {
+                    Self::LookingGlassSight => torso.point(0.0, eye_y, dist),
+                    Self::ProfileSight => torso.point(dist, eye_y, 0.38),
+                    _ => torso.point(-dist, eye_y, 0.38),
+                };
+                let target = torso.point(0.0, target_y, 0.0);
+                Mat4::look_at_rh(eye, target, up)
             }
         }
     }

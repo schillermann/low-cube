@@ -144,7 +144,7 @@ impl Session for GameSession {
             }
             WindowEvent::RedrawRequested => {
                 self.stage.step_frame(1.0 / 60.0, &mut self.display);
-                self.display.render_stage(&self.stage);
+                self.display.render_stage(&mut self.stage);
             }
             _ => {}
         }

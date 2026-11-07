@@ -193,27 +193,104 @@ fn test_spade_and_dirt_block_replaces_held_block_when_excavating_different_mediu
     let satchel = super::BeltSatchel::empty().reconcile_attire(spade_and_dirt);
     let crust_harvested = HeldRelic::from_medium(world::BlockMedium::CrustRock);
     assert_eq!(crust_harvested, HeldRelic::CrustBlock, "Excavating planetary crust rock must yield CrustBlock");
-    let (satchel_after_crust, attire_after_crust) =
-        satchel.collect_excavated_block(-1.0, crust_harvested, spade_and_dirt);
-    assert_eq!(
-        attire_after_crust.held_pair(),
-        (HeldRelic::IronSpade, HeldRelic::CrustBlock),
-        "Excavating a crust block with spade must replace the held dirt block in the other hand"
-    );
-    assert_eq!(
-        satchel_after_crust.resource_tally(HeldRelic::ExcavatedEarth, attire_after_crust),
-        1,
-        "Replaced dirt block must be stowed into the satchel"
-    );
-    assert_eq!(
-        satchel_after_crust.resource_tally(HeldRelic::CrustBlock, attire_after_crust),
-        1,
-        "Newly excavated crust block must be held in hand"
-    );
-
-    let (satchel_same, attire_same) =
-        satchel_after_crust.collect_excavated_block(-1.0, HeldRelic::CrustBlock, attire_after_crust);
+    let (satchel_after_crust, attire_after_crust) = satchel.collect_excavated_block(-1.0, crust_harvested, spade_and_dirt);
+    assert_eq!(attire_after_crust.held_pair(), (HeldRelic::IronSpade, HeldRelic::CrustBlock));
+    assert_eq!(satchel_after_crust.resource_tally(HeldRelic::ExcavatedEarth, attire_after_crust), 1);
+    assert_eq!(satchel_after_crust.resource_tally(HeldRelic::CrustBlock, attire_after_crust), 1);
+    let (satchel_same, attire_same) = satchel_after_crust.collect_excavated_block(-1.0, HeldRelic::CrustBlock, attire_after_crust);
     assert_eq!(attire_same.held_pair(), (HeldRelic::IronSpade, HeldRelic::CrustBlock));
     assert_eq!(satchel_same.resource_tally(HeldRelic::CrustBlock, attire_same), 2);
 }
+
+#[test]
+fn test_field_camera_rotation_shutter_sound_and_server_satchel_provisioning() {
+    use crate::attire::PhotoShutter;
+    use crate::cardiac::{AcousticWave, ShutterClick};
+    use crate::controls::InputTrigger;
+    use crate::photo_plate::PhotoPlate;
+    use crate::server_satchel::{ArgumentSatchel, FileSatchel, ParsedSatchel, ServerSatchel, StartingSatchel, TestKitSatchel};
+
+    let test_satchel = TestKitSatchel::new().provision(super::BeltSatchel::empty());
+    let squire = YouthAttire::squire();
+    assert_eq!(test_satchel.resource_tally(HeldRelic::FieldCamera, squire), 1);
+
+    let custom = ParsedSatchel::parse("field_camera:2, woodman_axe, car_wheel:4", "test").provision(super::BeltSatchel::empty());
+    assert_eq!(custom.resource_tally(HeldRelic::FieldCamera, squire), 2);
+    assert_eq!(custom.resource_tally(HeldRelic::WoodmanAxe, squire), 1);
+    assert_eq!(custom.resource_tally(HeldRelic::CarWheel, squire), 4);
+    assert_eq!(custom.resource_tally(HeldRelic::RocketEngine, squire), 0);
+
+    let args = vec!["client".to_string(), "--inventory".to_string(), "camera,iron_spade:2".to_string()];
+    let cli_satchel = ArgumentSatchel::from_arguments(&args, Box::new(FileSatchel::server(Box::new(TestKitSatchel::new()))))
+        .provision(super::BeltSatchel::empty());
+    assert_eq!(cli_satchel.resource_tally(HeldRelic::FieldCamera, squire), 1);
+    assert_eq!(cli_satchel.resource_tally(HeldRelic::IronSpade, squire), 2);
+
+    let shutter_sound = ShutterClick::mechanical();
+    let open_peak = (1..15).map(|ms| shutter_sound.amplitude_at((ms as f32) * 0.001).abs()).fold(0.0f32, f32::max);
+    let close_peak = (64..85).map(|ms| shutter_sound.amplitude_at((ms as f32) * 0.001).abs()).fold(0.0f32, f32::max);
+    assert!(open_peak > 0.25 && close_peak > 0.20 && shutter_sound.riff_wave().starts_with(b"RIFF"));
+
+    let mut world = world::BiomedCubeWorld::beveled(16, 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
+    let mut avatar = PlanetaryAvatar::at(spawn).with_starting_satchel(&ServerSatchel::assembled());
+    avatar.apply_attire(squire.with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
+
+    // 0. Camera pointing forward -> photo of landscape in front of player + tilted Polaroid overlay
+    let mut base_reticle = QuadLedger::empty();
+    avatar.emit_reticle(&mut base_reticle);
+    let mut mesh_fwd = QuadLedger::empty();
+    avatar.emit_appearance(&mut mesh_fwd);
+    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Idle);
+    assert!(!avatar.use_right_hand(&mut world));
+    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::FirstPersonSight));
+    assert_eq!(SightMode::FirstPersonSight.photo_label(), "landscape");
+    let tilt_shot_0 = avatar.polaroid_tilt();
+    assert!(tilt_shot_0.abs() > 0.05, "Polaroid must be tilted at a diagonal angle");
+    let mut polaroid_reticle = QuadLedger::empty();
+    avatar.emit_reticle(&mut polaroid_reticle);
+    assert!(polaroid_reticle.quads.len() > base_reticle.quads.len() + 300, "Polaroid overlay must appear centered on screen");
+    let mut landscape_avatar = QuadLedger::empty();
+    avatar.emit_appearance_for_sight(SightMode::FirstPersonSight, &mut landscape_avatar);
+    assert!(!landscape_avatar.populated(), "Landscape photo must not be obstructed by the player's own body");
+
+    // 1. Rotate camera diagonally toward player -> side photo of player + new Polaroid tilt angle
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
+    let mut mesh_diag = QuadLedger::empty();
+    avatar.emit_appearance(&mut mesh_diag);
+    let v0_list = |l: &QuadLedger| -> Vec<Vec3> { l.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect() };
+    assert_ne!(v0_list(&mesh_fwd), v0_list(&mesh_diag), "Rotating camera must visibly turn the camera in the hand");
+    assert!(!avatar.use_right_hand(&mut world));
+    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::ProfileSight));
+    let tilt_shot_1 = avatar.polaroid_tilt();
+    assert_ne!(tilt_shot_0, tilt_shot_1, "Consecutive Polaroids must appear at different tilt rotations");
+    let mut side_avatar = QuadLedger::empty();
+    avatar.emit_appearance_for_sight(SightMode::ProfileSight, &mut side_avatar);
+    assert!(side_avatar.visible_in_frustum(avatar.view_projection_for_sight(16.0 / 9.0, SightMode::ProfileSight)) > 20);
+
+    // 2. Rotate camera directly toward player -> front photo + camera angle changes with held camera height
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
+    assert!(!avatar.use_right_hand(&mut world));
+    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::LookingGlassSight));
+    let vp_front_level = avatar.view_projection_for_sight(16.0 / 9.0, SightMode::LookingGlassSight);
+    avatar.rotate_degrees(0.0, -35.0);
+    let vp_front_high = avatar.view_projection_for_sight(16.0 / 9.0, SightMode::LookingGlassSight);
+    avatar.rotate_degrees(0.0, 70.0);
+    let vp_front_low = avatar.view_projection_for_sight(16.0 / 9.0, SightMode::LookingGlassSight);
+    let cam_y_high = vp_front_high.inverse().project_point3(Vec3::ZERO).y;
+    let cam_y_level = vp_front_level.inverse().project_point3(Vec3::ZERO).y;
+    let cam_y_low = vp_front_low.inverse().project_point3(Vec3::ZERO).y;
+    assert!(cam_y_high > cam_y_level + 0.25 && cam_y_level > cam_y_low + 0.25, "Camera angle and elevation must track held camera height");
+    let mut high_selfie = QuadLedger::empty();
+    avatar.emit_appearance_for_sight(SightMode::LookingGlassSight, &mut high_selfie);
+    let max_ndc_y = high_selfie.quads.iter().map(|q| vp_front_high.project_point3(q.transfer(|v0, _, _, _, _, _| v0)).y).fold(-1.0f32, f32::max);
+    assert!(max_ndc_y < 0.92, "High selfie camera angle must keep the player's head inside the top of the frame (got max_ndc_y={max_ndc_y})");
+
+    let temp_dir = std::env::temp_dir().join("lowcube_test_screenshots");
+    let path = PhotoPlate::new(4, 3, vec![180u8; 4 * 3 * 4]).develop_into(temp_dir.to_str().unwrap(), "front");
+    let bytes = std::fs::read(&path).expect("PNG screenshot must exist on disk");
+    assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n") && bytes.ends_with(b"IEND\xaeB`\x82"));
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
 

@@ -85,6 +85,22 @@ impl RelicFigure {
         TaperedPrism::new(6, Vec3::new(0.062, 0.108, 0.0), Vec3::new(0.062, 0.136, 0.0), 0.010, 0.016, 0.010, 0.016, amber).emit(cradle, true, target);
     }
 
+    fn emit_camera(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
+        let (leather, mahogany, brass, glass, flash) = (
+            Vec3::new(0.18, 0.19, 0.24),
+            Vec3::new(0.46, 0.25, 0.14),
+            Vec3::new(0.88, 0.72, 0.28),
+            Vec3::new(0.32, 0.68, 0.88),
+            Vec3::new(0.95, 0.92, 0.82),
+        );
+        TaperedPrism::new(4, Vec3::new(0.0, 0.004, 0.0), Vec3::new(0.0, 0.068, 0.0), 0.054, 0.036, 0.054, 0.036, leather).emit(cradle, true, target);
+        TaperedPrism::new(4, Vec3::new(0.0, 0.008, 0.0), Vec3::new(0.0, 0.064, 0.0), 0.058, 0.028, 0.058, 0.028, mahogany).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(0.0, 0.036, 0.022), Vec3::new(0.0, 0.036, 0.056), 0.024, 0.020, brass).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(0.0, 0.036, 0.052), Vec3::new(0.0, 0.036, 0.060), 0.015, 0.015, glass).emit(cradle, true, target);
+        TaperedPrism::new(6, Vec3::new(-0.024, 0.066, 0.0), Vec3::new(-0.024, 0.082, 0.0), 0.010, 0.010, 0.008, 0.008, brass).emit(cradle, true, target);
+        TaperedPrism::new(4, Vec3::new(0.016, 0.066, 0.004), Vec3::new(0.016, 0.086, 0.004), 0.014, 0.012, 0.018, 0.014, flash).emit(cradle, true, target);
+    }
+
     pub fn emit_in_palm(self, side: f32, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let (gx, gz) = (-side * 0.025, 0.054);
         match self.relic {
@@ -167,6 +183,18 @@ impl RelicFigure {
                 TaperedPrism::new(4, Vec3::new(gx, 0.345, gz + 0.016), Vec3::new(gx, 0.395, gz + 0.022), 0.006, 0.046, 0.002, 0.018, honed_edge).emit(frame, true, target);
             }
             HeldRelic::CantileverCrane => Self::emit_cantilever(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), target),
+            HeldRelic::FieldCamera => {
+                let turn_yaw = match self.mold.quarter_turns() {
+                    0 => 0.0,
+                    1 => -side * 2.356,
+                    2 => std::f32::consts::PI,
+                    _ => side * 2.356,
+                };
+                let cradle = frame
+                    .palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048))
+                    .yawed(turn_yaw);
+                Self::emit_camera(&cradle, target);
+            }
         }
     }
 
@@ -194,6 +222,7 @@ impl RelicFigure {
             HeldRelic::DeadwoodBough => Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit),
             HeldRelic::FlintStone => Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit),
             HeldRelic::CantileverCrane => Self::emit_cantilever(&showcase.shifted(0.0, -0.032, 0.0).scaled(0.44), &mut lit),
+            HeldRelic::FieldCamera => Self::emit_camera(&showcase.shifted(0.0, -0.022, 0.0).scaled(0.58), &mut lit),
             _ => {
                 let (scale, yaw, mid_y, mid_z) = match self.relic {
                     HeldRelic::KnightlySword => (0.090, 0.45, 0.285, 0.054),

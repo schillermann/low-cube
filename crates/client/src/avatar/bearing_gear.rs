@@ -1,21 +1,28 @@
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, SightMode, StrideRhythm, YouthAttire};
+use crate::attire::{BodyPose, PhotoShutter, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger};
 use crate::earthworks::PalmEarthworks;
 use crate::envelope::BodyEnvelope;
+use crate::photo_plate::CameraExposure;
+use crate::server_satchel::StartingSatchel;
 
-/// Encapsulated kinematic bearing: horizon tilt, stride rhythm, and sight mode.
+/// Encapsulated kinematic bearing: horizon tilt, stride rhythm, sight mode, and camera exposure state.
 pub struct AvatarBearing {
     tilt_radians: f32,
     rhythm: StrideRhythm,
     sight: SightMode,
+    exposure: CameraExposure,
 }
 
 impl AvatarBearing {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_exposure(tilt_radians: f32, rhythm: StrideRhythm, sight: SightMode, exposure: CameraExposure) -> Self {
+        Self { tilt_radians, rhythm, sight, exposure }
+    }
+
     pub const fn new(tilt_radians: f32, rhythm: StrideRhythm, sight: SightMode) -> Self {
-        Self { tilt_radians, rhythm, sight }
+        Self::with_exposure(tilt_radians, rhythm, sight, CameraExposure::idle())
     }
 
     pub const fn rhythm(&self) -> StrideRhythm {
@@ -30,6 +37,31 @@ impl AvatarBearing {
         self.tilt_radians
     }
 
+    pub fn trigger_shutter(&mut self, sight: SightMode) {
+        self.exposure.trigger(sight);
+    }
+
+    pub fn take_shutter(&mut self) -> PhotoShutter {
+        self.exposure.take_shutter()
+    }
+
+    pub fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) {
+        self.exposure.apply_mosaic(mosaic);
+    }
+
+    pub fn step_polaroid(&mut self, dt: f32) {
+        self.exposure.step(dt);
+    }
+
+    #[cfg(test)]
+    pub const fn polaroid_tilt(&self) -> f32 {
+        self.exposure.polaroid_tilt()
+    }
+
+    pub fn emit_polaroid(&self, target: &mut dyn MeshTarget) {
+        self.exposure.emit_polaroid(target);
+    }
+
     pub fn calm(&mut self) {
         self.rhythm = StrideRhythm::idle();
     }
@@ -37,6 +69,8 @@ impl AvatarBearing {
     pub fn reset(&mut self) {
         self.tilt_radians = 0.0;
         self.rhythm = StrideRhythm::idle();
+        self.sight = SightMode::FirstPersonSight;
+        self.exposure = CameraExposure::idle();
     }
 
     pub fn apply_rhythm(&mut self, rhythm: StrideRhythm) {
@@ -74,12 +108,16 @@ impl AvatarGear {
         self.earthworks.satchel_open()
     }
 
-    pub fn blocks_hand_action(&self) -> bool {
-        self.earthworks.satchel_open() && !self.earthworks.tome_open()
-    }
-
     pub fn holding_placeable_on(&self, side: f32) -> bool {
         self.attire.hand_pair(side).0.placeable_block()
+    }
+
+    pub fn camera_sight_on(&self, side: f32) -> Option<SightMode> {
+        if self.attire.hand_pair(side).0.field_camera() && !self.earthworks.tome_open() {
+            Some(self.earthworks.camera_sight_on(side))
+        } else {
+            None
+        }
     }
 
     pub fn standing_envelope(&self, facing: Vec3) -> BodyEnvelope {
@@ -100,8 +138,8 @@ impl AvatarGear {
         self.bindings = bindings;
     }
 
-    pub fn seed_test_engines(&mut self) {
-        self.earthworks = self.earthworks.with_test_engines();
+    pub fn provision_satchel(&mut self, provider: &dyn StartingSatchel) {
+        self.earthworks = self.earthworks.with_provisioned_satchel(provider);
     }
 
     pub fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {

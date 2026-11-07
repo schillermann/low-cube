@@ -83,9 +83,7 @@ fn test_digging_speed_one_hand_vs_two_hands_vs_spade_and_abort_on_release() {
     let mut avatar_spade = PlanetaryAvatar::at(spawn);
     avatar_one.rotate_degrees(0.0, 65.3);
     avatar_one.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
-    for _ in 0..7 {
-        assert!(!avatar_one.use_left_hand(&mut world_one_hand));
-    }
+    for _ in 0..7 { assert!(!avatar_one.use_left_hand(&mut world_one_hand)); }
     assert!(avatar_one.use_left_hand(&mut world_one_hand));
 
     avatar_two.rotate_degrees(0.0, 65.3);
@@ -94,9 +92,7 @@ fn test_digging_speed_one_hand_vs_two_hands_vs_spade_and_abort_on_release() {
         let _ = avatar_two.release_hand(&mut world_two_hands);
     }
     assert!(!avatar_two.use_left_hand(&mut world_two_hands) && !avatar_two.use_right_hand(&mut world_two_hands));
-    for _ in 0..2 {
-        assert!(!avatar_two.use_right_hand(&mut world_two_hands));
-    }
+    for _ in 0..2 { assert!(!avatar_two.use_right_hand(&mut world_two_hands)); }
     assert!(avatar_two.use_right_hand(&mut world_two_hands));
 
     avatar_spade.rotate_degrees(0.0, 70.5);
@@ -184,7 +180,7 @@ fn test_mouse_wheel_molds_rotates_and_places_sloped_and_slab_blocks() {
 
 #[test]
 fn test_satchel_stows_and_retrieves_blocks_and_tools_invisibly_when_closed() {
-    let world = BiomedCubeWorld::beveled(16, 1.0);
+    let mut world = BiomedCubeWorld::beveled(16, 1.0);
     let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.0, 16.5, 0.0), 1.0));
     avatar.rotate_degrees(0.0, 70.5);
     let (mut empty_hands_mesh, mut empty_satchel_mesh, mut closed_mesh, mut open_mesh) = (
@@ -202,7 +198,11 @@ fn test_satchel_stows_and_retrieves_blocks_and_tools_invisibly_when_closed() {
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
     avatar.emit_appearance(&mut open_mesh);
     assert!(empty_satchel_mesh.count() > empty_hands_mesh.count() + 100 && open_mesh.count() > empty_satchel_mesh.count());
-    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyD) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ));
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyD) && !avatar.use_left_hand(&mut world));
+    assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab) && !avatar.use_right_hand(&mut world));
+    let mut equipped_both = SurfaceLedger::empty();
+    avatar.emit_appearance(&mut equipped_both);
+    assert!(equipped_both.count() > empty_hands_mesh.count());
 }
 
 #[test]

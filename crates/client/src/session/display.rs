@@ -1,5 +1,6 @@
 use engine::{CompositeMesh, CpuMeshBatch, CpuTronBatch, GraphicPipeline, PlanetaryMesh, ShaderProgram};
 use world::PlanetaryWorld;
+use crate::attire::{PhotoShutter, SightMode};
 use crate::avatar::Avatar;
 use crate::controls::{ControlAction, InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
@@ -84,8 +85,23 @@ impl SessionDisplay {
         self.refresh_world_mesh(world);
     }
 
-    pub(super) fn render_stage(&self, stage: &SessionStage) {
+    pub(super) fn render_stage(&self, stage: &mut SessionStage) {
+        let shutter = stage.take_photo_shutter();
         if self.tron_active {
+            if let PhotoShutter::Triggered(sight) = shutter {
+                let mut shot_tron = CpuTronBatch::empty();
+                stage.emit_avatar_for_sight(sight, &mut shot_tron);
+                let composed = CompositeMesh::new(&self.tron.mesh, &shot_tron);
+                let mosaic = self.surface.capture_sight_frame(
+                    self.tron.pipeline.as_ref(),
+                    self.tron.shader.as_ref(),
+                    &composed,
+                    stage.avatar(),
+                    sight,
+                    sight.photo_label(),
+                );
+                stage.apply_polaroid_mosaic(mosaic);
+            }
             let mut avatar_tron = CpuTronBatch::empty();
             stage.emit_avatar(&mut avatar_tron);
             let composed = CompositeMesh::new(&self.tron.mesh, &avatar_tron);
@@ -98,6 +114,20 @@ impl SessionDisplay {
                 stage.modal(),
             );
         } else {
+            if let PhotoShutter::Triggered(sight) = shutter {
+                let mut shot_batch = CpuMeshBatch::empty();
+                stage.emit_avatar_for_sight(sight, &mut shot_batch);
+                let composed = CompositeMesh::new(&self.primary.mesh, &shot_batch);
+                let mosaic = self.surface.capture_sight_frame(
+                    self.primary.pipeline.as_ref(),
+                    self.primary.shader.as_ref(),
+                    &composed,
+                    stage.avatar(),
+                    sight,
+                    sight.photo_label(),
+                );
+                stage.apply_polaroid_mosaic(mosaic);
+            }
             let mut avatar_batch = CpuMeshBatch::empty();
             stage.emit_avatar(&mut avatar_batch);
             let composed = CompositeMesh::new(&self.primary.mesh, &avatar_batch);
@@ -138,6 +168,11 @@ impl SessionStage {
     pub(super) fn modal(&self) -> &dyn SessionModal { self.modal.as_ref() }
     pub(super) fn modal_open(&self) -> bool { self.modal.open() }
     pub(super) fn emit_avatar(&self, target: &mut dyn world::MeshTarget) { self.avatar.emit_appearance(target); }
+    pub(super) fn emit_avatar_for_sight(&self, sight: SightMode, target: &mut dyn world::MeshTarget) {
+        self.avatar.emit_appearance_for_sight(sight, target);
+    }
+    pub(super) fn take_photo_shutter(&mut self) -> PhotoShutter { self.avatar.take_photo_shutter() }
+    pub(super) fn apply_polaroid_mosaic(&mut self, mosaic: Vec<glam::Vec3>) { self.avatar.apply_polaroid_mosaic(mosaic); }
     pub(super) fn move_cursor(&mut self, point: crate::menu::ScreenPoint) { self.modal.move_cursor(point); }
     pub(super) fn release_modal_mouse(&mut self) { self.modal.release_mouse(); }
     pub(super) fn rotate_avatar(&mut self, dx: f32, dy: f32) { self.avatar.rotate_view(dx, dy); }

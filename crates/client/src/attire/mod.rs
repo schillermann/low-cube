@@ -33,7 +33,7 @@ pub use pouch::BeltSatchel;
 pub use proportion::{BodyRegion, PartProportion, YouthPhysique};
 pub use relic::{HeldRelic, MartialStyle};
 pub use rhythm::StrideRhythm;
-pub use sight::SightMode;
+pub use sight::{PhotoShutter, SightMode};
 pub use tome::ArtisanTome;
 
 /// Interface for avatar wardrobe appearance emission.
@@ -233,10 +233,10 @@ impl SatchelWardrobe {
 impl Wardrobe for SatchelWardrobe {
     fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
         let (r, l) = self.attire.held_pair();
-        let seated = pose.seated_factor() > 0.5;
+        let driving = pose.driving_factor() > 0.5;
         let active = self.attire.with_relics(
-            if self.dig_right || seated { HeldRelic::EmptyPalm } else { r },
-            if self.dig_left || seated { HeldRelic::EmptyPalm } else { l },
+            if self.dig_right || driving { HeldRelic::EmptyPalm } else { r },
+            if self.dig_left || driving { HeldRelic::EmptyPalm } else { l },
         );
         active.emit_satchel(pose, sight, self.satchel, target);
     }

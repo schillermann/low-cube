@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-07
+
+### Added
+- Added rotatable hand-held field camera item (`HeldRelic::FieldCamera` and `RelicFigure::emit_camera` in `crates/client/src/attire/relic/`) that captures PNG screenshots to `screenshots/` (`PhotoPlate` in `crates/client/src/photo_plate.rs`) of the landscape in front (`_landscape.png`), the player from the side (`_side.png`), or the player from the front (`_front.png`) depending on camera rotation (`SightMode::from_camera_turn` in `crates/client/src/attire/sight.rs`), including when seated on a `CabinSeat`.
+- Added 2D-rotated instant Polaroid print overlay (`PolaroidPrint`, `CameraExposure`, and `SquareScreenTarget` in `crates/client/src/photo_plate.rs`), dynamic camera viewpoint elevation tracking the held camera height (`BodyPose::held_camera_elevation` and `SightMode::view_matrix`), and broadband mechanical shutter acoustics (`ShutterClick` in `crates/client/src/cardiac.rs`).
+- Added server-configurable starting inventory provisioning (`StartingSatchel` decorator chain in `crates/client/src/server_satchel.rs` and `server.toml`) supporting `--inventory`, `LOW_CUBE_START_ITEMS`, and `server.toml`.
+- Added left/right mouse button item selection and mouse-wheel navigation inside the open item satchel (`PalmEarthworks::act_with_hand` and `PalmEarthworks::handle_trigger` in `crates/client/src/earthworks/mod.rs`).
+
+### Changed
+- Decoupled seated posture (`BodyPose::seated_factor` in `VehiclePilot::Perch`) from steering-wheel hand grip (`BodyPose::driving_factor` in `VehiclePilot::Driving`) so sitting on a `CabinSeat` keeps the player's hands free until clicking the `SteeringWheel`, and updated `DrivenCar::dismount_position` (`crates/client/src/drive.rs`) so dismounting places the player in front of the seat rather than on top of it.
+
 ## [0.49.0] - 2026-11-06
 
 ### Changed
