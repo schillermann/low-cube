@@ -116,6 +116,10 @@ impl Face for FacetedReliefFace {
         self.cache.emit_surface(&self.domain.frame, self.domain.relief.as_ref(), &self.palette, target);
     }
 
+    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
+        self.cache.emit_meadow_around(center, view_dir, &self.domain.frame, target);
+    }
+
     fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
         let half = self.cache.half_blocks();
         let half_size = self.domain.frame.step_elevation(half);

@@ -99,6 +99,10 @@ impl Face for ForestedFace {
         self.origin.emit_terrain(target);
     }
 
+    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
+        self.origin.emit_meadow_around(center, view_dir, target);
+    }
+
     fn emit_flora(&self, target: &mut dyn MeshTarget) {
         if let Ok(flora) = self.cache.slots.read() {
             if flora.len() == self.trees.len() {

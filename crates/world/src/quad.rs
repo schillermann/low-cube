@@ -56,6 +56,9 @@ impl Quad {
             target.push_quad(*self);
             return;
         }
+        if self.shading.glow > 1.5 {
+            return;
+        }
         let c = self.corners;
         let span_a = (c.v1 - c.v0).length().max((c.v2 - c.v3).length());
         let span_b = (c.v3 - c.v0).length().max((c.v2 - c.v1).length());

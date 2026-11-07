@@ -30,7 +30,7 @@ pub use block::{
 };
 pub use frame::SurfaceFrame;
 pub use mesh_target::{
-    CountedMeshTarget, CrateredMeshTarget, TurfMeshTarget,
+    CountedMeshTarget, CrateredMeshTarget, MeadowCrown, TurfMeshTarget,
 };
 pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
@@ -125,6 +125,8 @@ pub trait PlanetaryWorld: GravityField {
         self.emit_surface(target);
         0
     }
+    fn emit_meadow_around(&self, _center: Vec3, _view_dir: Vec3, _target: &mut dyn MeshTarget) {}
+    fn visible_slice_mask(&self, _position: Vec3) -> u32 { u32::MAX }
 }
 
 /// Interface representing an individual face of a planetary body.
@@ -138,6 +140,7 @@ pub trait Face: Send + Sync {
         self.emit_surface(target);
     }
     fn emit_flora(&self, _target: &mut dyn MeshTarget) {}
+    fn emit_meadow_around(&self, _center: Vec3, _view_dir: Vec3, _target: &mut dyn MeshTarget) {}
     fn canopy_drag(&self, _point: Vec3) -> f32 {
         0.0
     }

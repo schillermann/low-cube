@@ -117,6 +117,9 @@ impl Mesh for CpuLineBatch {
 
 impl MeshTarget for CpuLineBatch {
     fn push_quad(&mut self, quad: Quad) {
+        if quad.radiate(|g| g > 1.5) {
+            return;
+        }
         let base_idx = self.vertices.len() as u32;
         quad.transfer(|v0, v1, v2, v3, normal, color| {
             let norm_arr = normal.to_array();
@@ -179,6 +182,9 @@ impl Mesh for CpuTronBatch {
 
 impl MeshTarget for CpuTronBatch {
     fn push_quad(&mut self, quad: Quad) {
+        if quad.radiate(|g| g > 1.5) {
+            return;
+        }
         self.line_batch.push_quad(quad);
         let dark_quad = quad.transfer(|v0, v1, v2, v3, normal, _| {
             Quad::new(v0, v1, v2, v3, normal, Vec3::new(0.01, 0.01, 0.02))

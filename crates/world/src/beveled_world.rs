@@ -146,4 +146,12 @@ impl PlanetaryWorld for BeveledWorld {
     fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize {
         self.world.emit_modified_face(target)
     }
+
+    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
+        self.world.emit_meadow_around(center, view_dir, target);
+    }
+
+    fn visible_slice_mask(&self, position: Vec3) -> u32 {
+        self.world.visible_slice_mask(position)
+    }
 }

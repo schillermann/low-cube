@@ -226,4 +226,27 @@ impl PlanetaryWorld for CubePlanet {
         self.emit_face(self.modified_face, target);
         self.modified_face
     }
+
+    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
+        self.active_face(center).emit_meadow_around(center, view_dir, target);
+    }
+
+    fn visible_slice_mask(&self, position: Vec3) -> u32 {
+        if self.weightless_at(position) {
+            return u32::MAX;
+        }
+        let len = self.faces.len();
+        let up = self.surface_up_at(position);
+        let mut mask = 1u32 << (len * 2).min(31);
+        for (idx, face) in self.faces.iter().enumerate() {
+            let f_up = face.surface_up();
+            if f_up.dot(up) > -0.5 {
+                mask |= 1u32 << idx.min(31);
+                if f_up.dot(up) > 0.2 || position.dot(f_up) >= -4.0 {
+                    mask |= 1u32 << (len + idx).min(31);
+                }
+            }
+        }
+        mask
+    }
 }

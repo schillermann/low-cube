@@ -50,7 +50,6 @@ impl ReliefStrata {
             }
         }
         vault.core().emit_patch(cell, frame, target);
-
         self.facet.emit_with_vault(
             cell, frame, relief, half_blocks,
             &vault, palette, target,

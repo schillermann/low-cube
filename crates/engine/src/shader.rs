@@ -46,7 +46,8 @@ void main() {
     vec3 ambient = vec3(0.35);
     vec3 light = ambient + vec3(0.65) * diff;
     vec3 radiant = min(v_color * 1.15, vec3(1.0));
-    frag_color = vec4(mix(v_color * light, radiant, v_glow), 1.0);
+    float glow = v_glow > 1.5 ? 0.0 : clamp(v_glow, 0.0, 1.0);
+    frag_color = vec4(mix(v_color * light, radiant, glow), 1.0);
 }
 "#;
 

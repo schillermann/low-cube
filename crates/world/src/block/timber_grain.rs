@@ -94,7 +94,8 @@ impl BlockMedium {
             frame.point_at(u0, v0, h1), frame.point_at(u1, v0, h1),
             frame.point_at(u1, v1, h1), frame.point_at(u0, v1, h1),
         ];
-        target.push_quad(Quad::new(p0, p1, p2, p3, n, top_col));
+        let top_glow = if crate::MeadowCrown::verdant(top_col) { 0.02 } else { 0.0 };
+        target.push_quad(Quad::glowing(p0, p1, p2, p3, n, top_col, top_glow));
         if bottom_cap {
             target.push_quad(Quad::new(b0, b3, b2, b1, -n, wall_col));
         }
@@ -238,7 +239,8 @@ impl VoxelShape for MediumShape {
     fn rotate_quarter(&mut self) { self.heading = self.heading.rotated_ccw(); }
 
     fn emit_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, color: Vec3, target: &mut dyn MeshTarget) {
-        self.emit_terraced_shape(cell, floor_elevation, frame, color, color, true, target);
+        let top_col = if self.medium == BlockMedium::TurfEarth { Vec3::new(0.28, 0.65, 0.25) } else { color };
+        self.emit_terraced_shape(cell, floor_elevation, frame, top_col, color, false, target);
     }
 
     #[allow(clippy::too_many_arguments)]

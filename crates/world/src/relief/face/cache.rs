@@ -83,4 +83,48 @@ impl ReliefCellCache {
             }
         }
     }
+
+    pub(super) fn emit_meadow_around(
+        &self,
+        center: glam::Vec3,
+        _view_dir: glam::Vec3,
+        frame: &SurfaceFrame,
+        target: &mut dyn MeshTarget,
+    ) {
+        let half = self.half_blocks();
+        let side = self.divisions as usize;
+        let Ok(cells) = self.cached_cells.read() else { return };
+        if cells.len() != side * side {
+            return;
+        }
+        let (u_pos, v_pos) = frame.decompose(center);
+        let (cu, cv) = GridCell::at_planar(u_pos, v_pos).feed_coordinates(|gu, gv| (gu, gv));
+        let up = frame.normal();
+        for dv in -10..=10 {
+            for du in -10..=10 {
+                let dist_sq = du * du + dv * dv;
+                if dist_sq > 100 {
+                    continue;
+                }
+                let (gu, gv) = (cu + du, cv + dv);
+                if gu < -half || gu >= half || gv < -half || gv >= half {
+                    continue;
+                }
+                let dist = (dist_sq as f32).sqrt();
+                let fade = ((10.5 - dist) / 3.0).clamp(0.15, 1.0);
+                let tier = if dist_sq <= 25 { 27 } else if dist_sq <= 64 { 9 } else { 3 };
+                let slot = ((gv + half) as usize) * side + ((gu + half) as usize);
+                let crown = crate::MeadowCrown::for_cell(GridCell::new(gu, gv), up);
+                for &quad in &cells[slot] {
+                    if quad.radiate(|g| g.abs() < 1e-4) {
+                        quad.transfer(|v0, v1, v2, v3, normal, col| {
+                            if normal.dot(up) > 0.25 && crate::MeadowCrown::verdant(col) {
+                                crown.emit_tiered([v0, v1, v2, v3], fade, tier, col, target);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
 }

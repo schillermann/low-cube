@@ -60,6 +60,21 @@ impl SessionDisplay {
         }
     }
 
+    pub(super) fn refresh_meadow_slice(&mut self, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
+        let (ax, ay, az) = avatar.meadow_anchor();
+        let pos = glam::Vec3::new((ax as f32) * 0.5, (ay as f32) * 0.5, (az as f32) * 0.5);
+        let mask = world.visible_slice_mask(pos);
+        self.primary.mesh.select_visible(mask);
+        self.tron.mesh.select_visible(mask);
+        if !self.tron_active {
+            let meadow_idx = world.face_count() * 2;
+            let mut meadow_buf = CpuMeshBatch::empty();
+            avatar.emit_surroundings(world, &mut meadow_buf);
+            let next = self.surface.replace_mesh(self.primary.mesh.slice_at(meadow_idx), &meadow_buf);
+            self.primary.mesh.store_slice(meadow_idx, next);
+        }
+    }
+
     pub(super) fn refresh_modified_face(&mut self, world: &mut dyn PlanetaryWorld) {
         if self.tron_active {
             let mut tron_buf = CpuTronBatch::empty();
@@ -74,15 +89,21 @@ impl SessionDisplay {
         }
     }
 
-    pub(super) fn refresh_world_mesh(&mut self, world: &dyn PlanetaryWorld) {
+    pub(super) fn refresh_modified_and_meadow(&mut self, stage: &mut SessionStage) {
+        self.refresh_modified_face(stage.world_mut());
+        self.refresh_meadow_slice(stage.world(), stage.avatar());
+    }
+
+    pub(super) fn refresh_world_mesh(&mut self, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
         for idx in 0..(world.face_count() * 2) {
             self.refresh_face_slice(world, idx);
         }
+        self.refresh_meadow_slice(world, avatar);
     }
 
-    pub(super) fn toggle_tron(&mut self, world: &dyn PlanetaryWorld) {
+    pub(super) fn toggle_tron(&mut self, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
         self.tron_active = !self.tron_active;
-        self.refresh_world_mesh(world);
+        self.refresh_world_mesh(world, avatar);
     }
 
     pub(super) fn render_stage(&self, stage: &mut SessionStage) {
@@ -219,12 +240,19 @@ impl SessionStage {
         if self.modal.open() {
             self.modal.step(dt);
         } else {
+            let prev_anchor = self.avatar.meadow_anchor();
             self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
+            let mut changed = false;
             if self.avatar.step_digging(self.world.as_mut()) {
                 display.refresh_modified_face(self.world.as_mut());
+                changed = true;
             }
             if self.world.step_surface(dt) {
                 display.refresh_modified_face(self.world.as_mut());
+                changed = true;
+            }
+            if changed || self.avatar.meadow_anchor() != prev_anchor {
+                display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());
             }
         }
     }

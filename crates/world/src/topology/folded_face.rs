@@ -73,6 +73,10 @@ impl Face for FoldedFace {
         self.origin.emit_flora(target);
     }
 
+    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
+        self.origin.emit_meadow_around(center, view_dir, target);
+    }
+
     fn canopy_drag(&self, point: Vec3) -> f32 {
         self.origin.canopy_drag(point)
     }

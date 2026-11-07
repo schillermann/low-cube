@@ -253,9 +253,10 @@ impl BlockMold {
                 let s = self.coat.scale;
                 let map_pt = |p: Vec3| b.origin + b.right * ((p.x - 0.25) * s) + b.up * (p.y * s) + b.back * ((p.z - 0.25) * s);
                 let map_n = |n: Vec3| (b.right * n.x + b.up * n.y + b.back * n.z).normalize_or_zero();
+                let glow = quad.radiate(|g| g);
                 let mapped = quad.transfer(|v0, v1, v2, v3, n, col| {
                     let c = if self.coat.self_pigmented { col } else if n.y > 0.25 { self.coat.top_col } else { self.coat.side_col };
-                    Quad::new(map_pt(v0), map_pt(v1), map_pt(v2), map_pt(v3), map_n(n), c)
+                    Quad::glowing(map_pt(v0), map_pt(v1), map_pt(v2), map_pt(v3), map_n(n), c, glow)
                 });
                 self.out.push_quad(mapped);
             }

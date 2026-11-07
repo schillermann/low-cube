@@ -8,6 +8,13 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-07
+
+### Added
+- Added 3-variant 3D low-poly grass blade geometry (`MeadowCrown` in `crates/world/src/mesh_target.rs`) combining tall 2-segment arching blades (`emit_arched_blade`), medium 3-blade fan tufts (`emit_fan_tuft`), and short wide ground sprouts (`emit_broad_sprout`) atop verdant earth blocks (`EarthClods::emit_terraced`, `BlockMold::emit_placed`, `TurfMeshTarget`, and `RelicFigure::emit_in_palm`).
+- Added $O(1)$ camera-centered, 3-tier LOD local meadow streaming (`ReliefCellCache::emit_meadow_around` in `crates/world/src/relief/face/cache.rs`) and cell-anchored GPU VBO caching (`SessionDisplay::refresh_meadow_slice` in `crates/client/src/session/display.rs` and `PlanetaryAvatar::meadow_anchor` in `crates/client/src/avatar/mod.rs`) so dense 3D grass renders in constant time independent of world-cube scale (`--size`).
+- Added planetary horizon and opposite-hemisphere flora slice culling (`PlanetaryMesh::select_visible` in `crates/engine/src/composite_mesh.rs` and `CubePlanet::visible_slice_mask` in `crates/world/src/planet.rs`) to skip occluded cube faces and distant flora slices during surface traversal.
+
 ## [0.52.0] - 2026-11-07
 
 ### Added

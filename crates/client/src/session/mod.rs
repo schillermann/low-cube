@@ -55,10 +55,10 @@ impl GameSession {
     fn dispatch_gameplay_trigger(&mut self, trigger: InputTrigger, pressed: bool) {
         if self.stage.matches_tron(trigger) {
             if pressed {
-                self.display.toggle_tron(self.stage.world());
+                self.display.toggle_tron(self.stage.world(), self.stage.avatar());
             }
         } else if self.stage.dispatch_avatar_or_control(trigger, pressed) {
-            self.display.refresh_modified_face(self.stage.world_mut());
+            self.display.refresh_modified_and_meadow(&mut self.stage);
         }
     }
 }
@@ -94,16 +94,16 @@ impl Session for GameSession {
                     match button {
                         MouseButton::Left => {
                             let _ = self.stage.use_left();
-                            self.display.refresh_modified_face(self.stage.world_mut());
+                            self.display.refresh_modified_and_meadow(&mut self.stage);
                         }
                         MouseButton::Right => {
                             let _ = self.stage.use_right();
-                            self.display.refresh_modified_face(self.stage.world_mut());
+                            self.display.refresh_modified_and_meadow(&mut self.stage);
                         }
                         _ => {}
                     }
                 } else if matches!(button, MouseButton::Left | MouseButton::Right) && self.stage.release_hand() {
-                    self.display.refresh_modified_face(self.stage.world_mut());
+                    self.display.refresh_modified_and_meadow(&mut self.stage);
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {

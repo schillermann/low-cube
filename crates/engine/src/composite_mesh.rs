@@ -21,15 +21,25 @@ impl<'a> Mesh for CompositeMesh<'a> {
     }
 }
 
-/// Multi-face planetary GPU mesh enabling isolated single-face buffer updates without re-uploading untouched faces.
+/// Multi-face planetary GPU mesh enabling isolated single-face buffer updates and horizon slice culling.
 pub struct PlanetaryMesh {
     faces: Vec<Box<dyn Mesh>>,
+    visible_mask: u32,
 }
 
 impl PlanetaryMesh {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_mask(faces: Vec<Box<dyn Mesh>>, visible_mask: u32) -> Self {
+        Self { faces, visible_mask }
+    }
+
+    /// Secondary constructor enabling all slices by default.
     pub fn new(faces: Vec<Box<dyn Mesh>>) -> Self {
-        Self { faces }
+        Self::with_mask(faces, u32::MAX)
+    }
+
+    pub fn select_visible(&mut self, visible_mask: u32) {
+        self.visible_mask = visible_mask;
     }
 
     pub fn slice_at(&self, index: usize) -> &dyn Mesh {
@@ -45,8 +55,10 @@ impl PlanetaryMesh {
 
 impl Mesh for PlanetaryMesh {
     fn draw(&self, gl: &glow::Context) {
-        for face in &self.faces {
-            face.draw(gl);
+        for (idx, face) in self.faces.iter().enumerate() {
+            if (self.visible_mask >> idx.min(31)) & 1 != 0 {
+                face.draw(gl);
+            }
         }
     }
 

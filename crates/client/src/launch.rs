@@ -89,35 +89,6 @@ impl SessionAssembly for SessionLaunch {
             Box::new(BiomedCubeWorld::beveled(self.cosmos.world_blocks, 1.0))
         };
 
-        let slice_count = planet.face_count() * 2;
-        let mut primary_faces = Vec::with_capacity(slice_count);
-        let mut tron_faces = Vec::with_capacity(slice_count);
-        for idx in 0..slice_count {
-            let mut cpu_buf = CpuMeshBatch::empty();
-            if !self.tron_active {
-                planet.emit_face(idx, &mut cpu_buf);
-            }
-            primary_faces.push(surface.upload_mesh(&cpu_buf));
-
-            let mut tron_buf = CpuTronBatch::empty();
-            if self.tron_active {
-                planet.emit_face(idx, &mut tron_buf);
-            }
-            tron_faces.push(surface.upload_tron_mesh(&tron_buf));
-        }
-        let primary_mesh = PlanetaryMesh::new(primary_faces);
-        let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
-        let canopy = Box::new(CalibratedCanopy::planetary(self.cosmos.world_blocks));
-        let primary_pipeline = surface.assemble_diurnal_pipeline(
-            self.cosmos.celestial.clone_cadence(),
-            self.cosmos.aurora.clone_cadence(),
-            canopy,
-        );
-
-        let tron_mesh = PlanetaryMesh::new(tron_faces);
-        let tron_shader = surface.compile_shader(&TronShaderSource::embedded());
-        let tron_pipeline = Box::new(TronPipeline::void());
-
         let half = (self.cosmos.world_blocks as f32) * 0.5;
         let spawn_position = planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0);
         let flight = self.cosmos.physics.surface_flight(1.0);
@@ -134,6 +105,44 @@ impl SessionAssembly for SessionLaunch {
             )
             .with_starting_satchel(&ServerSatchel::assembled()),
         );
+
+        let slice_count = planet.face_count() * 2;
+        let mut primary_faces = Vec::with_capacity(slice_count + 1);
+        let mut tron_faces = Vec::with_capacity(slice_count + 1);
+        for idx in 0..slice_count {
+            let mut cpu_buf = CpuMeshBatch::empty();
+            if !self.tron_active {
+                planet.emit_face(idx, &mut cpu_buf);
+            }
+            primary_faces.push(surface.upload_mesh(&cpu_buf));
+
+            let mut tron_buf = CpuTronBatch::empty();
+            if self.tron_active {
+                planet.emit_face(idx, &mut tron_buf);
+            }
+            tron_faces.push(surface.upload_tron_mesh(&tron_buf));
+        }
+        let mut meadow_buf = CpuMeshBatch::empty();
+        if !self.tron_active {
+            use crate::avatar::Avatar;
+            avatar.emit_surroundings(planet.as_ref(), &mut meadow_buf);
+        }
+        primary_faces.push(surface.upload_mesh(&meadow_buf));
+        tron_faces.push(surface.upload_tron_mesh(&CpuTronBatch::empty()));
+
+        let initial_mask = planet.visible_slice_mask(spawn_position);
+        let primary_mesh = PlanetaryMesh::with_mask(primary_faces, initial_mask);
+        let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
+        let canopy = Box::new(CalibratedCanopy::planetary(self.cosmos.world_blocks));
+        let primary_pipeline = surface.assemble_diurnal_pipeline(
+            self.cosmos.celestial.clone_cadence(),
+            self.cosmos.aurora.clone_cadence(),
+            canopy,
+        );
+
+        let tron_mesh = PlanetaryMesh::with_mask(tron_faces, initial_mask);
+        let tron_shader = surface.compile_shader(&TronShaderSource::embedded());
+        let tron_pipeline = Box::new(TronPipeline::void());
         let controls = Box::new(KeyMotion::with_bindings(bindings));
         let modal = Box::new(EscapeMenu::closed());
 

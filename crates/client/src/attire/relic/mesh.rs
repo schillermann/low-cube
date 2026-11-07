@@ -12,6 +12,9 @@ struct LitSlotTarget<'a> {
 
 impl<'a> MeshTarget for LitSlotTarget<'a> {
     fn push_quad(&mut self, quad: Quad) {
+        if quad.radiate(|g| g > 1.5) {
+            return;
+        }
         let lit = quad.transfer(|v0, v1, v2, v3, n, col| {
             let shade = 1.30 + 0.45 * n.dot(self.light_dir).max(0.0);
             Quad::new(v0, v1, v2, v3, self.zenith, col * shade + Vec3::splat(0.07))
@@ -121,7 +124,7 @@ impl RelicFigure {
                     self.mold.in_medium(self.relic.block_medium()),
                     0.096,
                     Vec3::new(0.44, 0.31, 0.19),
-                    Vec3::new(0.52, 0.38, 0.24),
+                    Vec3::new(0.28, 0.65, 0.25),
                     target,
                 );
             }
@@ -211,7 +214,7 @@ impl RelicFigure {
             | HeldRelic::RocketEngine
             | HeldRelic::CabinSeat
             | HeldRelic::CarWheel => {
-                showcase.emit_upright_block(Vec3::new(0.0, -0.025, 0.0), self.mold.in_medium(self.relic.block_medium()), 0.082, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.56, 0.41, 0.25), &mut lit);
+                showcase.emit_upright_block(Vec3::new(0.0, -0.025, 0.0), self.mold.in_medium(self.relic.block_medium()), 0.082, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.28, 0.65, 0.25), &mut lit);
             }
             HeldRelic::DeadwoodBough => Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit),
             HeldRelic::FlintStone => Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit),

@@ -47,6 +47,8 @@ pub trait Avatar {
     fn surface_rotation(&self) -> Quat;
     fn emit_appearance(&self, target: &mut dyn MeshTarget);
     fn emit_appearance_for_sight(&self, _sight: SightMode, target: &mut dyn MeshTarget) { self.emit_appearance(target); }
+    fn emit_surroundings(&self, _world: &dyn PlanetaryWorld, _target: &mut dyn MeshTarget) {}
+    fn meadow_anchor(&self) -> (i32, i32, i32) { (0, 0, 0) }
     fn take_photo_shutter(&mut self) -> PhotoShutter { PhotoShutter::Idle }
     fn apply_polaroid_mosaic(&mut self, _mosaic: Vec<Vec3>) {}
     #[cfg(test)]
@@ -266,24 +268,27 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn surface_rotation(&self) -> Quat { self.sight_line.surface_rotation() }
-
     fn emit_appearance(&self, target: &mut dyn MeshTarget) {
         self.body.emit_vehicle(target);
         self.gear.emit_appearance(&self.current_pose(), self.bearing.sight(), self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
     }
-
     fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
         self.body.emit_vehicle(target);
         if !matches!(sight, SightMode::FirstPersonSight) {
             self.gear.emit_appearance(&self.current_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
         }
     }
-
+    fn emit_surroundings(&self, world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
+        world.emit_meadow_around(self.body.position(), self.sight_line.view_direction(), target);
+    }
+    fn meadow_anchor(&self) -> (i32, i32, i32) {
+        let p = self.body.position();
+        ((p.x * 2.0).floor() as i32, (p.y * 2.0).floor() as i32, (p.z * 2.0).floor() as i32)
+    }
     fn take_photo_shutter(&mut self) -> PhotoShutter { self.bearing.take_shutter() }
     fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.bearing.apply_polaroid_mosaic(mosaic); }
     #[cfg(test)]
     fn polaroid_tilt(&self) -> f32 { self.bearing.polaroid_tilt() }
-
     fn emit_reticle(&self, target: &mut dyn MeshTarget) {
         if !self.gear.satchel_open() {
             self.body.posture().emit_reticle(target);
