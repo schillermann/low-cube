@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-07
+
+### Added
+- Added 6-way camera rotation (`SightMode::AngledSight` and `SightMode::LeftAngledSight` alongside `ProfileSight` and `LeftProfileSight` in `crates/client/src/attire/sight.rs`, `BlockMold::next_camera_turn` in `crates/world/src/block/mold.rs`, and `RelicFigure::emit_in_palm` in `crates/client/src/attire/relic/mesh.rs`) so the player can take angled (`_angled.png`) as well as side (`_side.png`), front (`_front.png`), and landscape (`_landscape.png`) photos.
+- Added block-mountable field camera (`BlockMedium::FieldCamera` in `crates/world/src/block/timber_grain.rs`, `CabinSeatMesh::emit_camera` in `crates/world/src/block/cabin_seat.rs`, and `HeldRelic::FieldCamera` in `crates/client/src/attire/relic/mod.rs`) allowing the player to place the camera onto a block and rotate its direction.
+- Added mouse-wheel-click shutter trigger (`InputTrigger::WheelClick`) with an animated 6-second center-screen countdown (`6` down to `1`) where each digit shrinks from large to small before firing the shutter (`CameraExposure` in `crates/client/src/photo_plate.rs` and `AvatarGear::dispatch_trigger` in `crates/client/src/avatar/bearing_gear.rs`).
+
+### Changed
+- Shortened the `CabinSeat` block front by half (`FRONT_RECESS = 0.25` in `CabinSeatMesh::seat_bounds`, `crates/world/src/block/cabin_seat.rs`) so the seat occupies a half block and the seated player's legs hang freely in front of the cushion without clipping into the seat.
+- Consolidated camera trigger and inventory delegation inside `AvatarGear::dispatch_trigger` (`crates/client/src/avatar/bearing_gear.rs`) and expanded the `AGENTS.md` Domain & Decorator Map for faster navigation.
+
 ## [0.50.0] - 2026-11-07
 
 ### Added

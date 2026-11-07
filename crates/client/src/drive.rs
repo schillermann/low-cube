@@ -223,7 +223,7 @@ mod tests {
         for (i, sm) in [seat_mold, bench_mold, stool_mold, throne_mold].into_iter().enumerate() {
             sm.shape_for(Vec3::NEG_Z, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut seat_meshes[i]);
         }
-        assert!(seat_meshes[0].0 != seat_meshes[1].0 && seat_meshes[2].0 == seat_meshes[0].0 && seat_meshes[3].0 == seat_meshes[1].0);
+        assert!(seat_meshes[0].0 != seat_meshes[1].0 && seat_meshes[2].0 == seat_meshes[0].0 && seat_meshes[3].0 == seat_meshes[1].0 && seat_meshes[0].0.iter().all(|v| v.z > 0.15));
         let (wheel_mold, av_pos) = (m2, Vec3::new(0.25, g0, 1.75));
         assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), Vec3::new(0.0, -0.8, -0.6).normalize(), av_pos, bench_mold));
         let cam_pos = |a: &PlanetaryAvatar| a.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
@@ -232,7 +232,7 @@ mod tests {
         world_sitter.rotate_degrees(0.0, 58.0);
         assert!(world_sitter.use_right_hand(&mut world));
         let sit_eye = cam_pos(&world_sitter);
-        assert!(!world_sitter.use_right_hand(&mut world) && world_sitter.take_photo_shutter() != crate::attire::PhotoShutter::Idle && (cam_pos(&world_sitter) - sit_eye).length() < 1e-4);
+        assert!(world_sitter.dispatch_trigger(crate::controls::InputTrigger::WheelClick) && (cam_pos(&world_sitter) - sit_eye).length() < 1e-4);
         assert!(world_sitter.use_left_hand(&mut world));
         let stand_front = cam_pos(&world_sitter);
         assert!((stand_front.x - 2.25).hypot(stand_front.z - 0.75) > 0.35 && stand_front.y < g0 + 2.0);

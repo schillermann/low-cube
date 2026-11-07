@@ -82,6 +82,14 @@ impl MoldArchetype {
             _ => Self::FullCube,
         }
     }
+
+    pub const fn next_camera_turn(self) -> Self {
+        Self::from_code((self.code() + 1) % 6)
+    }
+
+    pub const fn prev_camera_turn(self) -> Self {
+        Self::from_code((self.code() + 5) % 6)
+    }
 }
 
 /// Immutable palm-molded block specification pairing form archetype, 4-way directional turn, and material medium.
@@ -109,6 +117,8 @@ impl BlockMold {
     pub const fn in_medium(self, medium: BlockMedium) -> Self {
         let archetype = if matches!(medium, BlockMedium::CabinSeat) && !self.archetype.flat_square_top() {
             MoldArchetype::FullCube
+        } else if matches!(medium, BlockMedium::FieldCamera) {
+            MoldArchetype::from_code(self.archetype.code() % 6)
         } else {
             self.archetype
         };
@@ -118,6 +128,8 @@ impl BlockMold {
     pub const fn next_form(self) -> Self {
         let next = if matches!(self.medium, BlockMedium::CabinSeat) {
             self.archetype.next_flat_square_top()
+        } else if matches!(self.medium, BlockMedium::FieldCamera) {
+            self.archetype.next_camera_turn()
         } else {
             self.archetype.next()
         };
@@ -127,6 +139,8 @@ impl BlockMold {
     pub const fn prev_form(self) -> Self {
         let prev = if matches!(self.medium, BlockMedium::CabinSeat) {
             self.archetype.next_flat_square_top()
+        } else if matches!(self.medium, BlockMedium::FieldCamera) {
+            self.archetype.prev_camera_turn()
         } else {
             self.archetype.prev()
         };
@@ -136,6 +150,8 @@ impl BlockMold {
     pub const fn turn_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_clockwise(), self.medium) }
     pub const fn turn_counter_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_counter_clockwise(), self.medium) }
     pub const fn full_height_flat(self) -> bool { self.archetype.full_height_flat() }
+    pub const fn placed_camera(self) -> bool { matches!(self.medium, BlockMedium::FieldCamera) }
+    pub const fn camera_turn(self) -> u8 { self.archetype.code() % 6 }
 
     pub const fn quarter_turns(self) -> u8 {
         let turn_step = match self.turn {

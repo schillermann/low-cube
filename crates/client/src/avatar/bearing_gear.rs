@@ -37,8 +37,12 @@ impl AvatarBearing {
         self.tilt_radians
     }
 
-    pub fn trigger_shutter(&mut self, sight: SightMode) {
-        self.exposure.trigger(sight);
+    pub fn start_countdown(&mut self, sight: SightMode) {
+        self.exposure.start_countdown(sight);
+    }
+
+    pub fn sync_countdown(&mut self, sight: SightMode) {
+        self.exposure.sync_countdown(sight);
     }
 
     pub fn take_shutter(&mut self) -> PhotoShutter {
@@ -50,7 +54,10 @@ impl AvatarBearing {
     }
 
     pub fn step_polaroid(&mut self, dt: f32) {
-        self.exposure.step(dt);
+        if self.exposure.step(dt) {
+            use crate::cardiac::{AcousticWave, ShutterClick};
+            ShutterClick::mechanical().thump();
+        }
     }
 
     #[cfg(test)]
@@ -109,14 +116,15 @@ impl AvatarGear {
     }
 
     pub fn holding_placeable_on(&self, side: f32) -> bool {
-        self.attire.hand_pair(side).0.placeable_block()
+        let hand = self.attire.hand_pair(side).0;
+        hand.placeable_block() && !hand.field_camera()
     }
 
-    pub fn camera_sight_on(&self, side: f32) -> Option<SightMode> {
-        if self.attire.hand_pair(side).0.field_camera() && !self.earthworks.tome_open() {
-            Some(self.earthworks.camera_sight_on(side))
-        } else {
+    pub fn active_camera_sight(&self) -> Option<SightMode> {
+        if self.earthworks.tome_open() {
             None
+        } else {
+            self.earthworks.active_camera_sight(self.attire)
         }
     }
 
@@ -142,10 +150,19 @@ impl AvatarGear {
         self.earthworks = self.earthworks.with_provisioned_satchel(provider);
     }
 
-    pub fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
+    pub fn dispatch_trigger(&mut self, trigger: InputTrigger, bearing: &mut AvatarBearing, perished: bool) -> bool {
+        if trigger == InputTrigger::WheelClick && !self.satchel_open() && !perished {
+            if let Some(sight) = self.active_camera_sight() {
+                bearing.start_countdown(sight);
+                return true;
+            }
+        }
         let (ew, attire, handled) = self.earthworks.handle_trigger(trigger, &self.bindings, self.attire);
         if handled {
             (self.earthworks, self.attire) = (ew, attire);
+            if let Some(sight) = self.active_camera_sight() {
+                bearing.sync_countdown(sight);
+            }
         }
         handled
     }

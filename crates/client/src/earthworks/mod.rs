@@ -42,7 +42,7 @@ impl PalmEarthworks {
     pub const fn empty() -> Self { Self::new(BeltSatchel::empty(), 0, DigGrip::idle(), Vec3::ZERO, false) }
     pub const fn satchel_open(&self) -> bool { self.satchel.open() || self.tome.open() }
     pub const fn tome_open(&self) -> bool { self.tome.open() }
-    pub const fn camera_sight_on(&self, side: f32) -> SightMode { self.satchel.camera_sight_on(side) }
+    pub const fn active_camera_sight(&self, attire: YouthAttire) -> Option<SightMode> { self.satchel.active_camera_sight(attire) }
     fn with_satchel(self, satchel: BeltSatchel) -> Self { Self { satchel, ..self } }
     pub fn mold_next_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }
     pub fn mold_prev_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::prev_form)) }
@@ -98,7 +98,7 @@ impl PalmEarthworks {
         &self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> bool {
         let (r, l) = attire.held_pair();
-        if self.satchel.open() || self.tome.open() || r.rotatable_in_palm() || l.rotatable_in_palm() {
+        if self.satchel.open() || self.tome.open() || r.rotatable_in_palm() || l.rotatable_in_palm() || self.active_camera_sight(attire).is_some() {
             return false;
         }
         if bindings.matches(ControlAction::MoldRight, trigger) {
@@ -202,9 +202,6 @@ impl PalmEarthworks {
         }
         let (right, left) = attire.held_pair();
         let (active, other) = if side > 0.0 { (right, left) } else { (left, right) };
-        if active.field_camera() {
-            return (Self::new(state.satchel, 0, DigGrip::idle(), Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), false);
-        }
         if d.progress() == 0 && !d.grip().any_held() && active != HeldRelic::WoodenMallet && world.lower_rig(eye, view_dir) {
             return (Self::new(state.satchel, 0, DigGrip::idle(), Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), true);
         }

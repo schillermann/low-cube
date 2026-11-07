@@ -184,10 +184,12 @@ impl RelicFigure {
             }
             HeldRelic::CantileverCrane => Self::emit_cantilever(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), target),
             HeldRelic::FieldCamera => {
-                let turn_yaw = match self.mold.quarter_turns() {
+                let turn_yaw = match self.mold.camera_turn() {
                     0 => 0.0,
                     1 => -side * 2.356,
-                    2 => std::f32::consts::PI,
+                    2 => -side * std::f32::consts::FRAC_PI_2,
+                    3 => std::f32::consts::PI,
+                    4 => side * std::f32::consts::FRAC_PI_2,
                     _ => side * 2.356,
                 };
                 let cradle = frame

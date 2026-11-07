@@ -8,13 +8,15 @@ use super::palette::{ComplexionSwatch, PigmentSwatch};
 use super::pose::BodyPose;
 use super::relic::MartialStyle;
 
-/// Polymorphic camera sight mode switching between First-Person and external Front and Side views.
+/// Polymorphic camera sight mode switching between First-Person and external Front, Angled, and Side views.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SightMode {
     FirstPersonSight,
-    LookingGlassSight,
+    AngledSight,
     ProfileSight,
+    LookingGlassSight,
     LeftProfileSight,
+    LeftAngledSight,
 }
 
 /// Polymorphic shutter state for diegetic field camera exposures.
@@ -25,12 +27,24 @@ pub enum PhotoShutter {
 }
 
 impl SightMode {
-    pub const fn from_camera_turn(quarter_turns: u8) -> Self {
-        match quarter_turns % 4 {
+    pub const fn from_camera_turn(camera_turn: u8) -> Self {
+        match camera_turn % 6 {
             0 => Self::FirstPersonSight,
-            1 => Self::ProfileSight,
-            2 => Self::LookingGlassSight,
-            _ => Self::LeftProfileSight,
+            1 => Self::AngledSight,
+            2 => Self::ProfileSight,
+            3 => Self::LookingGlassSight,
+            4 => Self::LeftProfileSight,
+            _ => Self::LeftAngledSight,
+        }
+    }
+
+    pub const fn from_placed_camera_turn(camera_turn: u8) -> Self {
+        match camera_turn % 6 {
+            0 | 3 => Self::LookingGlassSight,
+            1 => Self::AngledSight,
+            2 => Self::ProfileSight,
+            4 => Self::LeftProfileSight,
+            _ => Self::LeftAngledSight,
         }
     }
 
@@ -38,6 +52,7 @@ impl SightMode {
         match self {
             Self::FirstPersonSight => "landscape",
             Self::LookingGlassSight => "front",
+            Self::AngledSight | Self::LeftAngledSight => "angled",
             Self::ProfileSight | Self::LeftProfileSight => "side",
         }
     }
@@ -72,7 +87,7 @@ impl SightMode {
                     pose.arm(side, MartialStyle::Unarmed).external(false)
                 }
             }
-            Self::LookingGlassSight | Self::ProfileSight | Self::LeftProfileSight => {
+            Self::LookingGlassSight | Self::AngledSight | Self::ProfileSight | Self::LeftProfileSight | Self::LeftAngledSight => {
                 pose.arm(side, martial).external(holding)
             }
         }
@@ -88,7 +103,7 @@ impl SightMode {
     ) {
         match self {
             Self::FirstPersonSight => {}
-            Self::LookingGlassSight | Self::ProfileSight | Self::LeftProfileSight => {
+            Self::LookingGlassSight | Self::AngledSight | Self::ProfileSight | Self::LeftProfileSight | Self::LeftAngledSight => {
                 crown.emit(pose, complexion, pigment, target);
             }
         }
@@ -103,17 +118,20 @@ impl SightMode {
     ) -> Mat4 {
         match self {
             Self::FirstPersonSight => posture.view_matrix(frame, position),
-            Self::LookingGlassSight | Self::ProfileSight | Self::LeftProfileSight => {
+            Self::LookingGlassSight | Self::AngledSight | Self::ProfileSight | Self::LeftProfileSight | Self::LeftAngledSight => {
                 let torso = pose.stance_frame();
                 let up = (torso.point(0.0, 1.0, 0.0) - torso.point(0.0, 0.0, 0.0)).normalize();
                 let (hand_pitch, crouch_shift) = pose.held_camera_elevation();
                 let eye_y = (1.35 + hand_pitch * 0.90 + crouch_shift * 0.80).clamp(0.35, 2.30);
                 let target_y = (1.26 + hand_pitch * 0.30 + crouch_shift * 0.75).clamp(0.80, 1.65);
                 let dist = 1.85;
+                let diag = dist * 0.72;
                 let eye = match self {
                     Self::LookingGlassSight => torso.point(0.0, eye_y, dist),
-                    Self::ProfileSight => torso.point(dist, eye_y, 0.38),
-                    _ => torso.point(-dist, eye_y, 0.38),
+                    Self::AngledSight => torso.point(diag, eye_y, diag),
+                    Self::ProfileSight => torso.point(dist, eye_y, 0.0),
+                    Self::LeftProfileSight => torso.point(-dist, eye_y, 0.0),
+                    _ => torso.point(-diag, eye_y, diag),
                 };
                 let target = torso.point(0.0, target_y, 0.0);
                 Mat4::look_at_rh(eye, target, up)

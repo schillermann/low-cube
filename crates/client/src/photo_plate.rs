@@ -175,15 +175,11 @@ impl PolaroidPrint {
         }
         Self::new(sight, POLAROID_DURATION_SEC, tilt_step, preview)
     }
-
     pub const fn visible(&self) -> bool { self.remaining_sec > 0.0 }
-
     pub const fn tilt_radians(&self) -> f32 {
         match self.tilt_step % 6 { 0 => 0.11, 1 => -0.09, 2 => 0.16, 3 => -0.14, 4 => 0.07, _ => -0.12 }
     }
-
     pub fn step(&mut self, dt: f32) { self.remaining_sec = (self.remaining_sec - dt).max(0.0); }
-
     pub fn apply_mosaic(&mut self, mosaic: Vec<Vec3>) {
         if mosaic.len() == MOSAIC_COLS * MOSAIC_ROWS {
             self.mosaic = mosaic;
@@ -225,22 +221,33 @@ impl PolaroidPrint {
     }
 }
 
-/// Encapsulated camera shutter state and instant Polaroid print overlay.
+/// Encapsulated camera shutter state, 6-second self-timer countdown, and instant Polaroid print overlay.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CameraExposure {
     shutter: PhotoShutter,
     polaroid: PolaroidPrint,
     shot_counter: u8,
+    countdown: (SightMode, f32),
 }
 
 impl CameraExposure {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(shutter: PhotoShutter, polaroid: PolaroidPrint, shot_counter: u8) -> Self {
-        Self { shutter, polaroid, shot_counter }
+    pub const fn new(shutter: PhotoShutter, polaroid: PolaroidPrint, shot_counter: u8, countdown: (SightMode, f32)) -> Self {
+        Self { shutter, polaroid, shot_counter, countdown }
     }
 
     pub const fn idle() -> Self {
-        Self::new(PhotoShutter::Idle, PolaroidPrint::hidden(), 0)
+        Self::new(PhotoShutter::Idle, PolaroidPrint::hidden(), 0, (SightMode::FirstPersonSight, 0.0))
+    }
+
+    pub fn start_countdown(&mut self, sight: SightMode) {
+        self.countdown = (sight, 6.0);
+    }
+
+    pub fn sync_countdown(&mut self, sight: SightMode) {
+        if self.countdown.1 > 0.0 {
+            self.countdown.0 = sight;
+        }
     }
 
     pub fn trigger(&mut self, sight: SightMode) {
@@ -260,8 +267,16 @@ impl CameraExposure {
         self.polaroid.apply_mosaic(mosaic);
     }
 
-    pub fn step(&mut self, dt: f32) {
+    pub fn step(&mut self, dt: f32) -> bool {
         self.polaroid.step(dt);
+        if self.countdown.1 > 0.0 {
+            self.countdown.1 = (self.countdown.1 - dt).max(0.0);
+            if self.countdown.1 == 0.0 {
+                self.trigger(self.countdown.0);
+                return true;
+            }
+        }
+        false
     }
 
     #[cfg(test)]
@@ -271,5 +286,15 @@ impl CameraExposure {
 
     pub fn emit_polaroid(&self, target: &mut dyn MeshTarget) {
         self.polaroid.emit_centered(target);
+        if self.countdown.1 > 0.0 {
+            let digit = (self.countdown.1.ceil() as u8).clamp(1, 6);
+            let phase = (self.countdown.1 - f32::from(digit - 1)).clamp(0.0, 1.0);
+            let cell_h = 0.016 + 0.044 * phase;
+            let cell_w = cell_h * (9.0 / 16.0);
+            let label = [b'0' + digit];
+            let text = std::str::from_utf8(&label).unwrap_or("6");
+            PixelStamp::new(cell_w, cell_h, Vec3::new(0.06, 0.08, 0.14)).emit_centered(text, 0.008, -0.010, target);
+            PixelStamp::new(cell_w, cell_h, Vec3::new(0.99, 0.88, 0.36)).emit_centered(text, 0.0, 0.0, target);
+        }
     }
 }

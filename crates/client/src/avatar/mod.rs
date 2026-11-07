@@ -128,15 +128,9 @@ impl PlanetaryAvatar {
         let (eye, view_dir) = self.hand_ray();
         if !self.gear.satchel_open() {
             let allow_perch = !self.gear.holding_placeable_on(side);
-            let allow_dismount = self.gear.camera_sight_on(side).is_none();
-            if let Some(outcome) = self.body.interact_vehicle(eye, view_dir, allow_perch, allow_dismount, &mut self.sight_line, world) {
+            if let Some(outcome) = self.body.interact_vehicle(eye, view_dir, allow_perch, true, &mut self.sight_line, world) {
                 self.bearing.calm();
                 return outcome;
-            }
-            if let Some(shot_sight) = self.gear.camera_sight_on(side) {
-                use crate::cardiac::{AcousticWave, ShutterClick};
-                self.bearing.trigger_shutter(shot_sight);
-                ShutterClick::mechanical().thump();
             }
         }
         let (next_rhythm, changed) = self.gear.act_with_hand(side, self.bearing.rhythm(), eye, view_dir, world);
@@ -191,7 +185,9 @@ impl Avatar for PlanetaryAvatar {
 
     fn apply_attire(&mut self, attire: YouthAttire) { self.gear.apply_attire(attire); }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.gear.apply_bindings(bindings); }
-    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool { self.gear.dispatch_trigger(trigger) }
+    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
+        self.gear.dispatch_trigger(trigger, &mut self.bearing, self.body.perished())
+    }
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
         if self.body.perished() { return false; }
         let (eye, dir) = self.hand_ray();

@@ -179,6 +179,7 @@ impl HeldRelic {
                 | Self::RocketEngine
                 | Self::CabinSeat
                 | Self::CarWheel
+                | Self::FieldCamera
         )
     }
 
@@ -194,6 +195,7 @@ impl HeldRelic {
             Self::RocketEngine => BlockMedium::RocketEngine,
             Self::CabinSeat => BlockMedium::CabinSeat,
             Self::CarWheel => BlockMedium::CarWheel,
+            Self::FieldCamera => BlockMedium::FieldCamera,
             _ => BlockMedium::TurfEarth,
         }
     }
@@ -211,6 +213,7 @@ impl HeldRelic {
             BlockMedium::RocketEngine => Self::RocketEngine,
             BlockMedium::CabinSeat => Self::CabinSeat,
             BlockMedium::CarWheel => Self::CarWheel,
+            BlockMedium::FieldCamera => Self::FieldCamera,
         }
     }
 

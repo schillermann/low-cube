@@ -16,6 +16,9 @@ impl PalmStack {
     fn assign_blocks(&mut self, side: f32, blocks: u32) {
         if side > 0.0 { self.right_blocks = blocks; } else { self.left_blocks = blocks; }
     }
+    fn assign_mold(&mut self, side: f32, mold: BlockMold) {
+        if side > 0.0 { self.right_mold = mold; } else { self.left_mold = mold; }
+    }
     fn reset_mold(&mut self, side: f32) {
         if side > 0.0 { self.right_mold = BlockMold::cube(); } else { self.left_mold = BlockMold::cube(); }
     }
@@ -64,7 +67,22 @@ impl BeltSatchel {
     pub const fn open(&self) -> bool { self.tray.open() }
     pub const fn with_open(mut self, open: bool) -> Self { self.tray = self.tray.with_open(open); self }
     pub const fn camera_sight_on(&self, side: f32) -> SightMode {
-        SightMode::from_camera_turn(self.palms.mold_on(side).quarter_turns())
+        SightMode::from_camera_turn(self.palms.mold_on(side).camera_turn())
+    }
+
+    pub const fn active_camera_sight(&self, attire: YouthAttire) -> Option<SightMode> {
+        let (r, l) = attire.held_pair();
+        if r.field_camera() {
+            Some(self.camera_sight_on(1.0))
+        } else if l.field_camera() {
+            Some(self.camera_sight_on(-1.0))
+        } else if self.palms.right_mold.placed_camera() {
+            Some(SightMode::from_placed_camera_turn(self.palms.right_mold.camera_turn()))
+        } else if self.palms.left_mold.placed_camera() {
+            Some(SightMode::from_placed_camera_turn(self.palms.left_mold.camera_turn()))
+        } else {
+            None
+        }
     }
 
     pub fn resource_tally(&self, relic: HeldRelic, attire: YouthAttire) -> u32 {
@@ -77,6 +95,8 @@ impl BeltSatchel {
         let any_stowed = self.tray.any_stowed_blocks();
         let (mr, ml) = if r.rotatable_in_palm() || l.rotatable_in_palm() {
             (r.rotatable_in_palm(), l.rotatable_in_palm())
+        } else if self.palms.right_mold.placed_camera() || self.palms.left_mold.placed_camera() {
+            (self.palms.right_mold.placed_camera(), self.palms.left_mold.placed_camera())
         } else if self.palms.right_blocks == 0 && self.palms.left_blocks == 0 && !any_stowed {
             (true, true)
         } else {
@@ -95,10 +115,12 @@ impl BeltSatchel {
 
     pub fn reconcile_attire(mut self, attire: YouthAttire) -> Self {
         let (r, l) = attire.held_pair();
-        if r.placeable_block() && l.placeable_block() && self.palms.right_blocks == 0 && self.palms.left_blocks > 0 {
-            self.palms.right_mold = self.palms.left_mold;
-        } else if r.placeable_block() && l.placeable_block() && self.palms.left_blocks == 0 && self.palms.right_blocks > 0 {
-            self.palms.left_mold = self.palms.right_mold;
+        if r.placeable_block() && l.placeable_block() && !r.field_camera() && !l.field_camera() {
+            if self.palms.right_blocks == 0 && self.palms.left_blocks > 0 {
+                self.palms.right_mold = self.palms.left_mold;
+            } else if self.palms.left_blocks == 0 && self.palms.right_blocks > 0 {
+                self.palms.left_mold = self.palms.right_mold;
+            }
         }
         self.palms.right_blocks = if r.placeable_block() { self.palms.right_blocks.max(1) } else { 0 };
         self.palms.left_blocks = if l.placeable_block() { self.palms.left_blocks.max(1) } else { 0 };
@@ -122,9 +144,9 @@ impl BeltSatchel {
             let chosen = slots[state.tray.cursor().min(len - 1)];
             let _ = state.tray.take_stowed(chosen);
             if hand.gripped() { state.tray.stow_relic(hand, state.palms.blocks_on(side)); }
-            if chosen.placeable_block() && other.placeable_block() {
+            if chosen.placeable_block() && other.placeable_block() && !chosen.field_camera() && !other.field_camera() {
                 state.palms.sync_mold_from_opposite(side);
-            } else if !chosen.placeable_block() {
+            } else if !chosen.placeable_block() || chosen.field_camera() {
                 state.palms.reset_mold(side);
             }
             state.palms.assign_blocks(side, u32::from(chosen.placeable_block()));
@@ -136,6 +158,7 @@ impl BeltSatchel {
             state.tray.close();
             state.tray.stow_relic(hand, state.palms.blocks_on(side));
             state.palms.assign_blocks(side, 0);
+            if hand.field_camera() { state.palms.reset_mold(side); }
             state.tray.focus_side(side);
             (state, attire.with_hand_relic(side, HeldRelic::EmptyPalm), true)
         } else if state.tray.open() {
@@ -153,10 +176,11 @@ impl BeltSatchel {
         mut self, side: f32, attire: YouthAttire, eye: Vec3, view_dir: Vec3, avatar_pos: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> (Self, YouthAttire, bool) {
         let (hand, _) = attire.hand_pair(side);
-        let mold = self.palms.mold_on(side);
-        if !world.place_molded_surface_block(eye, view_dir, avatar_pos, mold.in_medium(hand.block_medium())) {
+        let placed_mold = self.palms.mold_on(side).in_medium(hand.block_medium());
+        if !world.place_molded_surface_block(eye, view_dir, avatar_pos, placed_mold) {
             return (self, attire, false);
         }
+        self.palms.assign_mold(side, placed_mold);
         self.tray.focus_side(side);
         let has_refill = self.tray.take_stowed(hand);
         let next_hand = if has_refill { hand } else { HeldRelic::EmptyPalm };

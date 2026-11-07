@@ -49,21 +49,15 @@ impl KeyboardControls for WalkEastControls {
 
 #[test]
 fn test_body_envelope_prevents_camera_from_clipping_into_block_wall() {
-    // Solid 0.5x0.5x0.5 stone cube occupies x in [0.5, 1.0], z in [0.0, 0.5]
     let world = world_with_cube_at(1, 0);
     let start = world.constrain_to_surface(Vec3::new(0.0, 5.0, 0.25), 1.0);
     let mut avatar = PlanetaryAvatar::at(start);
     let controls = WalkEastControls;
-
-    // Walk continuously towards the block wall at x = 0.5 for 60 frames
     for _ in 0..60 {
         avatar.step_motion(1.0 / 60.0, &controls, &world);
     }
-
     let view_proj = avatar.view_projection_matrix(16.0 / 9.0);
     let cam_pos = view_proj.inverse().project_point3(Vec3::ZERO);
-
-    // Camera must stop outside the block wall (x = 0.5) with safe clearance > 0.15m
     let wall_clearance = 0.5 - cam_pos.x;
     assert!(wall_clearance >= 0.15, "Avatar camera must maintain safe body clearance, got {}", wall_clearance);
 }
@@ -75,13 +69,10 @@ fn test_first_person_omits_head_while_multiplayer_and_mirror_include_crown() {
         StrideRhythm::new(0.0, 1.0), YouthPhysique::SlenderSquire,
     );
     let attire = YouthAttire::squire();
-
     let mut fp_ledger = QuadLedger::empty();
     attire.emit(&pose, SightMode::FirstPersonSight, &mut fp_ledger);
-
     let mut mp_ledger = QuadLedger::empty();
     attire.emit_peer(&pose, &mut mp_ledger);
-
     assert!(fp_ledger.populated(), "First-person view must emit torso, legs, boots, and hands");
     assert!(mp_ledger.exceeds(&fp_ledger), "Multiplayer and Looking-Glass view must emit additional crown quads");
 }
@@ -90,48 +81,38 @@ fn test_first_person_omits_head_while_multiplayer_and_mirror_include_crown() {
 fn test_hands_raised_only_when_holding_item_and_body_visible_when_looking_down() {
     let start = Vec3::new(0.0, 9.0, 0.0);
     let mut avatar = PlanetaryAvatar::at(start);
-
     let mut empty_ledger = QuadLedger::empty();
     avatar.emit_appearance(&mut empty_ledger);
     let vp_level = avatar.view_projection_matrix(16.0 / 9.0);
     let visible_empty_level = empty_ledger.visible_in_frustum(vp_level);
     assert_eq!(visible_empty_level, 0, "Empty hands must hang at the sides and not obstruct level forward view");
 
-    // Equip a held item: right hand must now be held up in level view
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::EmptyPalm));
     let mut held_ledger = QuadLedger::empty();
     avatar.emit_appearance(&mut held_ledger);
     let visible_held_level = held_ledger.visible_in_frustum(vp_level);
     assert!(visible_held_level > 0, "Holding an item must raise the hand into first-person level view");
 
-    // Look down towards feet (positive dy rotates pitch downwards)
     avatar.rotate_view(0.0, 350.0);
     let vp_down = avatar.view_projection_matrix(16.0 / 9.0);
     let mut down_ledger = QuadLedger::empty();
     avatar.emit_appearance(&mut down_ledger);
     let visible_down = down_ledger.visible_in_frustum(vp_down);
-    assert!(
-        visible_down > visible_held_level,
-        "Looking down must bring torso, belt, legs, and boots into the camera view frustum"
-    );
+    assert!(visible_down > visible_held_level, "Looking down must bring torso, belt, legs, and boots into the camera view frustum");
 }
 
 #[test]
 fn test_wardrobe_customization_keys_and_file_persistence() {
     let temp_path = std::env::temp_dir().join("test_medieval_character_profile.toml");
     let store = FileAttire::new(temp_path.to_str().unwrap().to_string());
-
     let squire = YouthAttire::squire();
     let initial_bytes = store.encode_multiplayer(&squire);
-
     let customized = squire
         .with_next_tunic().with_next_vambrace().with_next_girdle().with_next_footwear()
         .with_next_crown().with_next_relic().with_next_pigment().with_next_complexion();
-
     store.save(&customized);
     let loaded = store.load_or_squire();
     std::fs::remove_file(&temp_path).expect("Failed to clean up temporary profile");
-
     assert_eq!(customized, loaded);
     assert_ne!(initial_bytes, store.encode_multiplayer(&loaded));
 }
@@ -232,17 +213,25 @@ fn test_field_camera_rotation_shutter_sound_and_server_satchel_provisioning() {
     assert!(open_peak > 0.25 && close_peak > 0.20 && shutter_sound.riff_wave().starts_with(b"RIFF"));
 
     let mut world = world::BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn).with_starting_satchel(&ServerSatchel::assembled());
     avatar.apply_attire(squire.with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
 
-    // 0. Camera pointing forward -> photo of landscape in front of player + tilted Polaroid overlay
+    // 0. Camera pointing forward -> WheelClick starts 6s countdown (numbers shrink large->small) + Polaroid overlay
     let mut base_reticle = QuadLedger::empty();
     avatar.emit_reticle(&mut base_reticle);
     let mut mesh_fwd = QuadLedger::empty();
     avatar.emit_appearance(&mut mesh_fwd);
     assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Idle);
-    assert!(!avatar.use_right_hand(&mut world));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
+    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Idle);
+    let (mut cd_large, mut cd_small) = (QuadLedger::empty(), QuadLedger::empty());
+    avatar.emit_reticle(&mut cd_large);
+    avatar.step_motion(0.8, &crate::controls::KeyMotion::idle(), &world);
+    avatar.emit_reticle(&mut cd_small);
+    let span_y = |l: &QuadLedger| l.quads.iter().skip(base_reticle.quads.len()).map(|q| q.transfer(|v0, _, v2, _, _, _| v0.y.abs().max(v2.y.abs()))).fold(0.0f32, f32::max);
+    assert!(cd_large.quads.len() > base_reticle.quads.len() && span_y(&cd_large) > span_y(&cd_small) + 0.04);
+    avatar.step_motion(5.3, &crate::controls::KeyMotion::idle(), &world);
     assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::FirstPersonSight));
     assert_eq!(SightMode::FirstPersonSight.photo_label(), "landscape");
     let tilt_shot_0 = avatar.polaroid_tilt();
@@ -254,13 +243,18 @@ fn test_field_camera_rotation_shutter_sound_and_server_satchel_provisioning() {
     avatar.emit_appearance_for_sight(SightMode::FirstPersonSight, &mut landscape_avatar);
     assert!(!landscape_avatar.populated(), "Landscape photo must not be obstructed by the player's own body");
 
-    // 1. Rotate camera diagonally toward player -> side photo of player + new Polaroid tilt angle
+    // 1. Rotate camera diagonally (schräg) and sideways (seitlich) -> angled and side photos
     assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
     let mut mesh_diag = QuadLedger::empty();
     avatar.emit_appearance(&mut mesh_diag);
     let v0_list = |l: &QuadLedger| -> Vec<Vec3> { l.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect() };
     assert_ne!(v0_list(&mesh_fwd), v0_list(&mesh_diag), "Rotating camera must visibly turn the camera in the hand");
-    assert!(!avatar.use_right_hand(&mut world));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
+    avatar.step_motion(6.1, &crate::controls::KeyMotion::idle(), &world);
+    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::AngledSight));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
+    avatar.step_motion(6.1, &crate::controls::KeyMotion::idle(), &world);
     assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::ProfileSight));
     let tilt_shot_1 = avatar.polaroid_tilt();
     assert_ne!(tilt_shot_0, tilt_shot_1, "Consecutive Polaroids must appear at different tilt rotations");
@@ -268,9 +262,10 @@ fn test_field_camera_rotation_shutter_sound_and_server_satchel_provisioning() {
     avatar.emit_appearance_for_sight(SightMode::ProfileSight, &mut side_avatar);
     assert!(side_avatar.visible_in_frustum(avatar.view_projection_for_sight(16.0 / 9.0, SightMode::ProfileSight)) > 20);
 
-    // 2. Rotate camera directly toward player -> front photo + camera angle changes with held camera height
+    // 2. Rotate camera directly toward player -> front photo + place camera on block & trigger countdown
     assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
-    assert!(!avatar.use_right_hand(&mut world));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
+    avatar.step_motion(6.1, &crate::controls::KeyMotion::idle(), &world);
     assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::LookingGlassSight));
     let vp_front_level = avatar.view_projection_for_sight(16.0 / 9.0, SightMode::LookingGlassSight);
     avatar.rotate_degrees(0.0, -35.0);
@@ -284,7 +279,12 @@ fn test_field_camera_rotation_shutter_sound_and_server_satchel_provisioning() {
     let mut high_selfie = QuadLedger::empty();
     avatar.emit_appearance_for_sight(SightMode::LookingGlassSight, &mut high_selfie);
     let max_ndc_y = high_selfie.quads.iter().map(|q| vp_front_high.project_point3(q.transfer(|v0, _, _, _, _, _| v0)).y).fold(-1.0f32, f32::max);
-    assert!(max_ndc_y < 0.92, "High selfie camera angle must keep the player's head inside the top of the frame (got max_ndc_y={max_ndc_y})");
+    assert!( max_ndc_y < 0.92, "High selfie camera angle must keep the player's head inside the top of the frame (got max_ndc_y={max_ndc_y})");
+    avatar.rotate_degrees(0.0, 23.0);
+    assert!(!avatar.use_right_hand(&mut world) && avatar.release_hand(&mut world));
+    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
+    avatar.step_motion(6.1, &crate::controls::KeyMotion::idle(), &world);
+    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::LookingGlassSight));
 
     let temp_dir = std::env::temp_dir().join("lowcube_test_screenshots");
     let path = PhotoPlate::new(4, 3, vec![180u8; 4 * 3 * 4]).develop_into(temp_dir.to_str().unwrap(), "front");

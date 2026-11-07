@@ -24,6 +24,7 @@ pub enum BlockMedium {
     RocketEngine,
     CabinSeat,
     CarWheel,
+    FieldCamera,
 }
 
 impl BlockMedium {
@@ -55,7 +56,7 @@ impl BlockMedium {
             Self::QuarriedStone => (Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.46, 0.48, 0.50)),
             Self::RawTimber | Self::PlanedPlanks | Self::CantileverRig => (Vec3::new(0.82, 0.66, 0.42), Vec3::new(0.58, 0.42, 0.24)),
             Self::Sand => (Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.74, 0.64, 0.40)),
-            Self::SteeringWheel => (Vec3::new(0.94, 0.76, 0.24), Vec3::new(0.20, 0.22, 0.27)),
+            Self::SteeringWheel | Self::FieldCamera => (Vec3::new(0.94, 0.76, 0.24), Vec3::new(0.20, 0.22, 0.27)),
             Self::AircraftEngine => (Vec3::new(0.22, 0.88, 0.98), Vec3::new(0.54, 0.62, 0.72)),
             Self::RocketEngine => (Vec3::new(0.99, 0.32, 0.14), Vec3::new(0.24, 0.22, 0.28)),
             Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.36, 0.20, 0.13)),
@@ -187,7 +188,7 @@ impl MediumShape {
 
 impl VoxelShape for MediumShape {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        if self.medium.rig_mountable() || self.medium == BlockMedium::CantileverRig {
+        if self.medium.rig_mountable() || matches!(self.medium, BlockMedium::CantileverRig | BlockMedium::FieldCamera) {
             GridCell::SPAN
         } else {
             self.inner.elevation_at(local_u, local_v)
@@ -217,6 +218,8 @@ impl VoxelShape for MediumShape {
     ) {
         if self.medium == BlockMedium::CabinSeat {
             CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target);
+        } else if self.medium == BlockMedium::FieldCamera {
+            CabinSeatMesh::new(self.heading).emit_camera(self.archetype, cell, floor_elevation, frame, target);
         } else if matches!(
             self.medium,
             BlockMedium::SteeringWheel
@@ -263,6 +266,9 @@ impl VoxelShape for MediumShape {
             }
             (BlockMedium::CabinSeat, _) => {
                 CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target);
+            }
+            (BlockMedium::FieldCamera, _) => {
+                CabinSeatMesh::new(self.heading).emit_camera(self.archetype, cell, floor_elevation, frame, target);
             }
             (
                 BlockMedium::SteeringWheel

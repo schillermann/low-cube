@@ -76,9 +76,10 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
 
 ## Domain & Decorator Map (Fast Navigation)
 
-- **Coordinates & Grid Cells (`crates/world`)**:
+- **Coordinates, Block Molds & Grid Cells (`crates/world`)**:
   - `SurfaceFrame` (`crates/world/src/frame.rs`): Local 3D face coordinate frame (`point_at`, `planar_coords`, `cell_at`, `step_elevation`).
   - `GridCell` (`crates/world/src/block/cell.rs`): 0.5-unit terrain cell (`GridCell::SPAN`, `at_planar`, `center`, `corners`).
+  - `BlockMold` (`crates/world/src/block/mold.rs`), `BlockMedium` / `MediumShape` (`crates/world/src/block/timber_grain.rs`) & `CabinSeatMesh` (`crates/world/src/block/cabin_seat.rs`): Placed voxel forms, mediums (`CabinSeat`, `FieldCamera`, vehicle/crane parts), and sculpted seat/camera meshes.
 - **Terrain Relief, Excavation & Soil Clods (`crates/world/src/relief/`)**:
   - `TerracedRelief` (`terraced.rs`) & `FacetedReliefFace` (`face/mod.rs` & `face/cache.rs`): Decorator over cached relief faces composing `NaturalStrata`, `ShaftExcavation`, and `OverhangMolds`.
   - `ColumnClearance` (`column_clearance/mod.rs` & `column_clearance/decorators.rs`): Unified 3D vertical column support, crust/shaft confinement (`confine`), weightlessness, and ray-hit resolution via the `MoldedColumn(ShaftColumn(NaturalColumn))` decorator chain.
@@ -88,14 +89,16 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
   - `CantileverRig` / `RigRegistry` (`cantilever_rig/mod.rs`, `cantilever_rig/registry.rs`, `cantilever_rig/mesh.rs`) & `VehicleAssembly` (`vehicle_assembly.rs`) & `VehicleBlockMesh` / `WheelProfile` (`crates/world/src/block/vehicle_parts.rs`): Telescopic crane hoisting, multi-block vehicle cluster extraction/parking, and rotating wheel profiles.
 - **Trees & Biomes (`crates/world/src/tree/`)**:
   - `WoodlandGround` $\rightarrow$ `StandingTree` $\rightarrow$ `SolidArboreal` / `ClearedPlot` / `HewnTarget` composing `PrismTrunk`, `PolyhedralCrown`, `ConicalSkirt`, and `FloorLitter`.
-- **Avatar, Kinematics & Inventory (`crates/client/src/`)**:
+- **Avatar, Kinematics, Photography & Inventory (`crates/client/src/`)**:
   - `PlanetaryAvatar` (`avatar/mod.rs`): Composes `AvatarBody` & `AvatarSight` (`avatar/body_sight.rs`) and `AvatarBearing` & `AvatarGear` (`avatar/bearing_gear.rs`).
+  - `CameraExposure`, `PolaroidPrint` & `PhotoPlate` (`photo_plate.rs`) & `SightMode` (`attire/sight.rs`): Field-camera self-timer countdown, shutter trigger, PNG development, Polaroid HUD overlay, and 6-way camera sight angles (`FirstPersonSight`, `AngledSight`, `ProfileSight`, `LookingGlassSight`, `LeftProfileSight`, `LeftAngledSight`).
   - `DrivenCar` & `DriveKinematics` & `VehiclePilot` (`drive.rs`): Seated vehicle throttle/brake/reverse physics, steering yaw, and wheel spin.
   - `BodyEnvelope` & `CrustEnvelope` (`envelope/mod.rs` & `envelope/crust.rs`): Horizontal stride/aerial collision and vertical crust/shaft confinement decorator.
   - `AirborneFlight` (`phase/mod.rs` & `phase/aerial.rs`): Airborne trajectory decorator chain (`WeightlessTrajectory(CliffReboundTrajectory(ParabolicTrajectory))`).
   - `PalmEarthworks` (`earthworks/mod.rs` & `earthworks/debris.rs`) & `DigGrip` (`grip.rs`): Dual-hand excavation progress, debris splash, foraging, block placement, and `BeltSatchel` (`attire/pouch.rs`).
   - `YouthAttire` & `SatchelWardrobe` (`attire/mod.rs`) & `HeldRelic` / `RelicFigure` (`attire/relic/mod.rs`, `attire/relic/mesh.rs`): Wardrobe composition (`GarmentEnsemble`, `IdentityTraits`, `HeldHands`).
   - `BodyPose` & `ArmKinematics` (`attire/pose/mod.rs` & `attire/pose/arms.rs`), `AvatarPosture` (`posture/mod.rs` & `posture/vital.rs`) & `StrideRhythm` / `MartialStyle` (`attire/rhythm/mod.rs` & `attire/rhythm/martial.rs`): 3D joint kinematics, cardiac core-hover strain, and polymorphic weapon/digging swings.
+  - `ActionBindings` & `InputTrigger` (`controls/mod.rs` & `controls/bindings.rs`): Keyboard, mouse button, and wheel input bindings.
   - `Session` (`session/mod.rs` & `session/display.rs`) & `WardrobeStudio` / `StudioLayout` (`menu/studio/mod.rs` & `menu/studio/layout.rs`): Interactive window loop, GPU scene orchestration, and 3D wardrobe preview studio.
 
 ---
@@ -103,5 +106,6 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
 ## Fast Iteration & Verification Rules
 
 - **Direct Navigation (No Git Archeology)**: Jump directly to the target files via the Domain & Decorator Map above. Read only the 1–3 directly involved files and apply edits immediately without running `git log`, `git show`, or broad exploratory searches.
+- **Zero Pass-Through Delegation Chains**: When an action couples inventory (`BeltSatchel` / `PalmEarthworks`) with posture or camera state (`AvatarBearing`), encapsulate the collaboration directly in `AvatarGear::dispatch_trigger` (`avatar/bearing_gear.rs`) instead of forwarding helper methods through `PlanetaryAvatar` (`avatar/mod.rs`).
 - **Decoupled Voxel Bounds vs. Sculpted Mesh**: Keep `MediumShape::elevation_at` at full `GridCell::SPAN` (`0.5m`) for all vehicle and crane mediums so raycast targeting (`intercepts`), excavation (`remove_layer`), and lateral attachment (`ContactFace::classify`) remain invariant across visual mesh variations (`WheelProfile`, `CabinSeat` backrest).
 - **Targeted Test Execution**: Never run an unfiltered workspace-wide `cargo test` for localized changes. Run only the affected test module (e.g., `cargo test -p client --bin client drive::tests` or `cargo test -p world --lib relief::soil_clod_tests`) together with `wc -l` on modified files.
