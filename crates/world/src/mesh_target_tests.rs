@@ -60,19 +60,21 @@ fn test_low_poly_grass_emits_3d_pyramid_blades_on_verdant_turf() {
 fn test_local_camera_meadow_is_constant_o1_across_world_cube_scales() {
     use crate::{BiomedCubeWorld, PlanetaryWorld};
 
-    let small_world = BiomedCubeWorld::beveled(16, 1.0);
-    let large_world = BiomedCubeWorld::beveled(64, 1.0);
+    let small_world = BiomedCubeWorld::beveled(96, 1.0);
+    let large_world = BiomedCubeWorld::beveled(160, 1.0);
     let (mut s_surf, mut l_surf) = (QuadLedger::empty(), QuadLedger::empty());
     small_world.emit_face(0, &mut s_surf);
     large_world.emit_face(0, &mut l_surf);
 
     let (mut small_meadow, mut large_meadow) = (QuadLedger::empty(), QuadLedger::empty());
-    small_world.emit_meadow_around(Vec3::new(0.0, 9.0, 0.0), Vec3::NEG_Z, &mut small_meadow);
-    large_world.emit_meadow_around(Vec3::new(0.0, 33.0, 0.0), Vec3::NEG_Z, &mut large_meadow);
+    small_world.emit_meadow_around(Vec3::new(0.0, 49.0, 0.0), Vec3::NEG_Z, &mut small_meadow);
+    large_world.emit_meadow_around(Vec3::new(0.0, 81.0, 0.0), Vec3::NEG_Z, &mut large_meadow);
 
-    assert!(small_meadow.quads.len() > 1400 && small_meadow.quads.len() < 3500);
+    assert!(small_meadow.quads.len() > 15000 && small_meadow.quads.len() < 75000, "got {}", small_meadow.quads.len());
     assert!(
-        (small_meadow.quads.len() as i32 - large_meadow.quads.len() as i32).abs() < 150,
-        "Camera-centered local meadow must remain O(1) bounded (~2200 quads) even when world-cube area scales up 16x"
+        (small_meadow.quads.len() as i32 - large_meadow.quads.len() as i32).abs() < 12000,
+        "Camera-centered local meadow must remain O(1) bounded (got {} vs {}) even when world-cube area scales up",
+        small_meadow.quads.len(),
+        large_meadow.quads.len()
     );
 }

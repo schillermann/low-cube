@@ -107,7 +107,13 @@ impl GraphicPipeline for DiurnalPipeline {
         shader.bind(gl, view_proj, light_direction);
         mesh.draw(gl);
 
-        let inv_view_proj = view_proj.inverse();
+        let inv_view_proj = Mat4::from_cols(
+            view_proj.x_axis.with_z(0.0),
+            view_proj.y_axis.with_z(0.0),
+            view_proj.z_axis.with_z(0.0),
+            view_proj.w_axis.with_z(1.0),
+        )
+        .inverse();
         self.sky.draw_firmament(
             gl,
             &inv_view_proj,

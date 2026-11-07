@@ -283,7 +283,7 @@ impl Avatar for PlanetaryAvatar {
     }
     fn meadow_anchor(&self) -> (i32, i32, i32) {
         let p = self.body.position();
-        ((p.x * 2.0).floor() as i32, (p.y * 2.0).floor() as i32, (p.z * 2.0).floor() as i32)
+        (((p.x * 0.25).floor() as i32) * 8, ((p.y * 0.25).floor() as i32) * 8, ((p.z * 0.25).floor() as i32) * 8)
     }
     fn take_photo_shutter(&mut self) -> PhotoShutter { self.bearing.take_shutter() }
     fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.bearing.apply_polaroid_mosaic(mosaic); }

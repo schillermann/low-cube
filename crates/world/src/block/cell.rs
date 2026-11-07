@@ -12,7 +12,7 @@ impl GridCell {
     pub const SPAN: f32 = 0.5;
 
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(grid_u: i32, grid_v: i32) -> Self {
+    pub const fn new(grid_u: i32, grid_v: i32) -> Self {
         Self { grid_u, grid_v }
     }
 

@@ -46,18 +46,20 @@ void main() {
         return;
     }
     if (v_glow > 1.5) {
+        float cam_dist = 1.0 / max(gl_FragCoord.w, 0.0001);
+        float dist_fade = clamp((42.0 - cam_dist) * 0.15, 0.0, 1.0);
         float seed = v_glow - 2.0;
-        float x = v_uv.x * 7.0 + seed;
+        float x = v_uv.x * 9.0 + seed;
         float cell = floor(x);
         float lu = x - cell;
-        float h_hash = fract(sin(cell * 12.9898 + seed * 78.233) * 43758.5453);
-        float max_h = 0.60 + 0.38 * h_hash;
+        float h_hash = fract((cell * 0.618034 + seed * 0.381966) * 17.31);
+        float max_h = (0.60 + 0.38 * h_hash) * dist_fade;
         if (v_uv.y > max_h) {
             discard;
         }
         float t = clamp(v_uv.y / max_h, 0.0, 1.0);
-        float center = 0.5 + t * t * 0.22 * sin(cell * 3.7 + seed);
-        float half_w = max(0.42 * (1.0 - pow(t, 1.35)), 0.04);
+        float center = 0.5 + t * t * 0.44 * (h_hash - 0.5);
+        float half_w = max(0.42 * (1.0 - t * (0.65 + 0.35 * t)), 0.04);
         if (abs(lu - center) > half_w) {
             discard;
         }

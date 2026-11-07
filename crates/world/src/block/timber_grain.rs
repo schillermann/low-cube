@@ -94,7 +94,7 @@ impl BlockMedium {
             frame.point_at(u0, v0, h1), frame.point_at(u1, v0, h1),
             frame.point_at(u1, v1, h1), frame.point_at(u0, v1, h1),
         ];
-        let top_glow = if crate::MeadowCrown::verdant(top_col) { 0.02 } else { 0.0 };
+        let top_glow = if crate::MeadowCrown::new(frame.normal(), 0).verdant(top_col) { 0.02 } else { 0.0 };
         target.push_quad(Quad::glowing(p0, p1, p2, p3, n, top_col, top_glow));
         if bottom_cap {
             target.push_quad(Quad::new(b0, b3, b2, b1, -n, wall_col));

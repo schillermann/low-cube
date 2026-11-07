@@ -2,9 +2,37 @@ use engine::{CompositeMesh, CpuMeshBatch, CpuTronBatch, GraphicPipeline, Planeta
 use world::PlanetaryWorld;
 use crate::attire::{PhotoShutter, SightMode};
 use crate::avatar::Avatar;
+use crate::clock::{MonotonicTime, SystemClock};
 use crate::controls::{ControlAction, InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
 use crate::surface::PlatformSurface;
+
+/// Encapsulated monotonic frame delta tracker decoupling redraw steps from static clock calls.
+pub(super) struct FramePace {
+    clock: Box<dyn MonotonicTime>,
+    last_tick: std::time::Instant,
+}
+
+impl FramePace {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub(super) fn new(clock: Box<dyn MonotonicTime>, last_tick: std::time::Instant) -> Self {
+        Self { clock, last_tick }
+    }
+
+    /// Secondary constructor anchored at the current monotonic instant.
+    pub(super) fn realtime() -> Self {
+        let clock = Box::new(SystemClock::new());
+        let now = clock.current_instant();
+        Self::new(clock, now)
+    }
+
+    pub(super) fn advance(&mut self) -> f32 {
+        let now = self.clock.current_instant();
+        let dt = now.duration_since(self.last_tick).as_secs_f32().clamp(1.0 / 240.0, 0.10);
+        self.last_tick = now;
+        dt
+    }
+}
 
 /// Encapsulated graphics pipeline, shader program, and GPU mesh slices for a render mode.
 pub(super) struct RenderPass {
@@ -241,15 +269,18 @@ impl SessionStage {
             self.modal.step(dt);
         } else {
             let prev_anchor = self.avatar.meadow_anchor();
-            self.avatar.step_motion(dt, self.controls.as_ref(), self.world.as_ref());
+            let total_dt = dt.clamp(1.0 / 240.0, 0.10);
+            let steps = (total_dt * 45.0).ceil().max(1.0) as u32;
+            let step = total_dt / (steps as f32);
             let mut changed = false;
-            if self.avatar.step_digging(self.world.as_mut()) {
-                display.refresh_modified_face(self.world.as_mut());
-                changed = true;
+            for _ in 0..steps {
+                self.avatar.step_motion(step, self.controls.as_ref(), self.world.as_ref());
+                if self.avatar.step_digging(self.world.as_mut()) || self.world.step_surface(step) {
+                    changed = true;
+                }
             }
-            if self.world.step_surface(dt) {
+            if changed {
                 display.refresh_modified_face(self.world.as_mut());
-                changed = true;
             }
             if changed || self.avatar.meadow_anchor() != prev_anchor {
                 display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());

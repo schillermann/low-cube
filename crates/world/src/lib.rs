@@ -30,7 +30,7 @@ pub use block::{
 };
 pub use frame::SurfaceFrame;
 pub use mesh_target::{
-    CountedMeshTarget, CrateredMeshTarget, MeadowCrown, TurfMeshTarget,
+    CountedMeshTarget, CrateredMeshTarget, MeadowCrown, NaturalMeadowTarget, TurfMeshTarget,
 };
 pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;

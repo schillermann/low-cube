@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-11-07
+
+### Added
+- Added `NaturalMeadowTarget` decorator (`crates/world/src/mesh_target.rs`) implementing `MeshTarget` and world-anchored natural meadow patch emission (`MeadowCrown::emit_natural_patch`) with precomputed 8-orientation 3-wing star fans (`WING_DIRS`), organic clearings, and tall-grass islands across an expanded 88-cell (`44m` radius / `88m` diameter) horizon meadow (`ReliefCellCache::emit_meadow_around` in `crates/world/src/relief/face/cache.rs`).
+- Added `FramePace` and `MonotonicTime` / `SystemClock` (`crates/client/src/session/mod.rs` and `crates/client/src/session/display.rs`) for real-time frame delta stepping (`SessionStage::step_frame`) decoupled from VBO slice refreshes.
+
+### Changed
+- Refactored `MeadowCrown` (`crates/world/src/mesh_target.rs`) to Pure OOP / Elegant Objects with a code-free primary constructor (`with_cell`) and zero static methods, coarsened `PlanetaryAvatar::meadow_anchor` (`crates/client/src/avatar/mod.rs`) to a `4.0m` grid, and optimized grass fragment cutout shading (`VoxelShaderSource` in `crates/engine/src/shader.rs`) with trig-free algebraic operations and a `42.0m` distance fade.
+
+### Fixed
+- Fixed sun jitter when walking and jumping towards the sun by normalizing the depth row of the view-projection matrix before inversion (`DiurnalPipeline::render` in `crates/client/src/diurnal_pipeline.rs`), computing translation-free ray directions in `FIRMAMENT_VERTEX_SRC` (`crates/client/src/firmament_glsl.rs`), and using `Mat4::look_to_rh` in `CameraHorizon::view_matrix_at` (`crates/client/src/horizon.rs`).
+
 ## [0.54.0] - 2026-11-07
 
 ### Changed

@@ -10,7 +10,7 @@ use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
 use crate::surface::PlatformSurface;
-use self::display::{RenderPass, SessionDisplay, SessionStage};
+use self::display::{FramePace, RenderPass, SessionDisplay, SessionStage};
 
 /// Interface representing an active, interactive display session.
 pub trait Session {
@@ -22,10 +22,16 @@ pub trait Session {
 pub struct GameSession {
     display: SessionDisplay,
     stage: SessionStage,
+    pace: FramePace,
 }
 
 impl GameSession {
     /// Primary constructor doing zero computation or I/O.
+    fn with_pace(display: SessionDisplay, stage: SessionStage, pace: FramePace) -> Self {
+        Self { display, stage, pace }
+    }
+
+    /// Secondary constructor assembling display and stage passes with real-time frame pacing.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         surface: Box<dyn PlatformSurface>,
@@ -41,15 +47,16 @@ impl GameSession {
         controls: Box<dyn KeyboardControls>,
         modal: Box<dyn SessionModal>,
     ) -> Self {
-        Self {
-            display: SessionDisplay::new(
+        Self::with_pace(
+            SessionDisplay::new(
                 surface,
                 RenderPass::new(primary_pipeline, primary_shader, primary_mesh),
                 RenderPass::new(tron_pipeline, tron_shader, tron_mesh),
                 tron_active,
             ),
-            stage: SessionStage::new(world, avatar, controls, modal),
-        }
+            SessionStage::new(world, avatar, controls, modal),
+            FramePace::realtime(),
+        )
     }
 
     fn dispatch_gameplay_trigger(&mut self, trigger: InputTrigger, pressed: bool) {
@@ -143,7 +150,8 @@ impl Session for GameSession {
                 self.dispatch_gameplay_trigger(InputTrigger::Key(code), pressed);
             }
             WindowEvent::RedrawRequested => {
-                self.stage.step_frame(1.0 / 60.0, &mut self.display);
+                let dt = self.pace.advance();
+                self.stage.step_frame(dt, &mut self.display);
                 self.display.render_stage(&mut self.stage);
             }
             _ => {}

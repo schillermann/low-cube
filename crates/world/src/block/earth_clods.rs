@@ -41,10 +41,11 @@ impl EarthClods {
             true,
             target,
         );
+        let crown = crate::MeadowCrown::for_cell(self.cell, frame.normal());
         if bare_top {
             self.emit_crown(frame, target);
-        } else if crate::MeadowCrown::verdant(top_col) {
-            crate::MeadowCrown::for_cell(self.cell, frame.normal()).emit_hybrid(
+        } else if crown.verdant(top_col) {
+            crown.emit_hybrid(
                 self.cell.corner_points(frame, self.floor_elev + 0.5),
                 frame.normal(),
                 top_col,

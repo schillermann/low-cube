@@ -7,12 +7,8 @@ out vec3 v_ray_dir;
 out vec3 v_cam_pos;
 
 void main() {
-    vec4 near_pt = u_inv_view_proj * vec4(in_position, -1.0, 1.0);
-    vec4 far_pt = u_inv_view_proj * vec4(in_position, 1.0, 1.0);
-    vec3 p_near = near_pt.xyz / near_pt.w;
-    vec3 p_far = far_pt.xyz / far_pt.w;
-    v_ray_dir = p_far - p_near;
-    v_cam_pos = p_near;
+    v_ray_dir = (u_inv_view_proj * vec4(in_position, 0.0, 1.0)).xyz;
+    v_cam_pos = (u_inv_view_proj * vec4(0.0, 0.0, 1.0, 0.0)).xyz;
     gl_Position = vec4(in_position, 1.0, 1.0);
 }
 "#;

@@ -33,8 +33,7 @@ impl ViewFrame for CameraHorizon {
         let right = (self.view_rot * Vec3::X).normalize();
         let flat_fwd = up.cross(right).normalize();
         let eye = SurfaceSightRay::new(position + up * eye_height, forward).brow_origin(up, flat_fwd);
-        let target = eye + forward;
-        Mat4::look_at_rh(eye, target, up)
+        Mat4::look_to_rh(eye, forward, up)
     }
 }
 
