@@ -14,12 +14,15 @@ out vec3 v_normal;
 out vec3 v_color;
 out float v_glow;
 out vec2 v_screen;
+out vec2 v_uv;
 
 void main() {
     v_normal = in_normal;
     v_color = in_color;
     v_glow = in_glow;
     v_screen = in_position.xy;
+    int corner = gl_VertexID & 3;
+    v_uv = vec2(float(corner == 1 || corner == 2), float(corner >= 2));
     gl_Position = u_view_proj * vec4(in_position, 1.0);
 }
 "#;
@@ -29,6 +32,7 @@ in vec3 v_normal;
 in vec3 v_color;
 in float v_glow;
 in vec2 v_screen;
+in vec2 v_uv;
 
 uniform vec3 u_light_dir;
 
@@ -41,13 +45,34 @@ void main() {
         frag_color = vec4(v_color, alpha);
         return;
     }
+    if (v_glow > 1.5) {
+        float seed = v_glow - 2.0;
+        float x = v_uv.x * 7.0 + seed;
+        float cell = floor(x);
+        float lu = x - cell;
+        float h_hash = fract(sin(cell * 12.9898 + seed * 78.233) * 43758.5453);
+        float max_h = 0.60 + 0.38 * h_hash;
+        if (v_uv.y > max_h) {
+            discard;
+        }
+        float t = clamp(v_uv.y / max_h, 0.0, 1.0);
+        float center = 0.5 + t * t * 0.22 * sin(cell * 3.7 + seed);
+        float half_w = max(0.42 * (1.0 - pow(t, 1.35)), 0.04);
+        if (abs(lu - center) > half_w) {
+            discard;
+        }
+        float ridge = 1.0 - abs(lu - center) / half_w * 0.25;
+        vec3 blade_col = v_color * vec3(0.75 + 0.42 * t, 0.84 + 0.34 * t, 0.70 + 0.18 * t) * ridge;
+        float diff = abs(dot(normalize(v_normal), normalize(u_light_dir))) * 0.45 + 0.55;
+        frag_color = vec4(min(blade_col * diff, vec3(1.0)), 1.0);
+        return;
+    }
     vec3 norm = normalize(v_normal);
     float diff = max(dot(norm, normalize(u_light_dir)), 0.0);
     vec3 ambient = vec3(0.35);
     vec3 light = ambient + vec3(0.65) * diff;
     vec3 radiant = min(v_color * 1.15, vec3(1.0));
-    float glow = v_glow > 1.5 ? 0.0 : clamp(v_glow, 0.0, 1.0);
-    frag_color = vec4(mix(v_color * light, radiant, glow), 1.0);
+    frag_color = vec4(mix(v_color * light, radiant, clamp(v_glow, 0.0, 1.0)), 1.0);
 }
 "#;
 

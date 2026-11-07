@@ -142,82 +142,42 @@ impl MeadowCrown {
             + v3 * ((1.0 - cu) * cv)
     }
 
-    /// Variant 1 (Tall): 2-segment curving grass blade with a steeper lower stem and an overarching tip segment.
+    /// Emits a 3-wing cross-billboard star fan whose wings splay outward at a 30° angle from vertical.
     #[allow(clippy::too_many_arguments)]
-    fn emit_arched_blade(
-        &self, corners: [Vec3; 4], fu: f32, fv: f32, yaw: f32, height: f32, color: Vec3, target: &mut dyn MeshTarget,
+    fn emit_splayed_cross_fan(
+        &self,
+        corners: [Vec3; 4],
+        fu: f32,
+        fv: f32,
+        yaw: f32,
+        r_uv: f32,
+        height: f32,
+        seed_base: f32,
+        color: Vec3,
+        target: &mut dyn MeshTarget,
     ) {
-        let (sy, cy) = yaw.sin_cos();
-        let (wx, wy, lx, ly) = (cy * 0.046, sy * 0.046, -sy, cy);
-        let b0 = Self::bilerp(corners, fu - wx, fv - wy);
-        let b1 = Self::bilerp(corners, fu + wx, fv + wy);
-        let m_center = Self::bilerp(corners, fu + lx * 0.065, fv + ly * 0.065) + self.up * (height * 0.56);
-        let m_off = (b1 - b0) * 0.42;
-        let (m0, m1) = (m_center - m_off, m_center + m_off);
-        let t_center = Self::bilerp(corners, fu + lx * 0.195, fv + ly * 0.195) + self.up * height;
-        let t_off = (b1 - b0) * 0.18;
-        let (t0, t1) = (t_center - t_off, t_center + t_off);
-
-        let n_low = ((b1 - b0).cross(m0 - b0).normalize_or_zero() + self.up * 0.65).normalize_or_zero();
-        let n_high = ((m1 - m0).cross(t0 - m0).normalize_or_zero() + self.up * 0.85).normalize_or_zero();
-        let c_low = (color * Vec3::new(0.86, 0.95, 0.82)).clamp(Vec3::ZERO, Vec3::ONE);
-        let c_high = (color * Vec3::new(1.16, 1.18, 0.84)).clamp(Vec3::ZERO, Vec3::ONE);
-        target.push_quad(Quad::glowing(b0, b1, m1, m0, n_low, c_low, 2.0));
-        target.push_quad(Quad::glowing(m0, m1, t1, t0, n_high, c_high, 2.0));
-    }
-
-    /// Variant 2 (Medium): 3-blade fanned grass tuft radiating outward from a shared root cluster.
-    #[allow(clippy::too_many_arguments)]
-    fn emit_fan_tuft(
-        &self, corners: [Vec3; 4], fu: f32, fv: f32, yaw: f32, height: f32, color: Vec3, target: &mut dyn MeshTarget,
-    ) {
-        for (idx, (da, h_mul, lean, tone)) in [
-            (0.0f32, 1.00f32, 0.165f32, Vec3::new(1.08, 1.12, 0.88)),
-            (2.05, 0.84, 0.150, Vec3::new(0.94, 1.02, 0.86)),
-            (4.15, 0.74, 0.135, Vec3::new(1.02, 1.06, 0.90)),
-        ]
-        .into_iter()
-        .enumerate()
-        {
+        let up_h = self.up * (height * 0.866_025_4);
+        let splay_uv = height;
+        let r_top = r_uv * 1.18;
+        for (wing, da) in [0.0f32, 2.094_395, 4.188_79].into_iter().enumerate() {
             let (sy, cy) = (yaw + da).sin_cos();
-            let root_u = fu + cy * 0.022 * (idx as f32 - 1.0);
-            let root_v = fv + sy * 0.022 * (idx as f32 - 1.0);
-            let b0 = Self::bilerp(corners, root_u - cy * 0.044, root_v - sy * 0.044);
-            let b1 = Self::bilerp(corners, root_u + cy * 0.044, root_v + sy * 0.044);
-            let tip_c = Self::bilerp(corners, root_u - sy * lean, root_v + cy * lean) + self.up * (height * h_mul);
-            let t_off = (b1 - b0) * 0.24;
-            let norm = ((b1 - b0).cross(tip_c - b0).normalize_or_zero() + self.up * 0.75).normalize_or_zero();
-            let col = (color * tone).clamp(Vec3::ZERO, Vec3::ONE);
-            target.push_quad(Quad::glowing(b0, b1, tip_c + t_off, tip_c - t_off, norm, col, 2.0));
+            let b0 = Self::bilerp(corners, fu - cy * r_uv, fv - sy * r_uv);
+            let b1 = Self::bilerp(corners, fu + cy * r_uv, fv + sy * r_uv);
+            let (tu, tv) = (fu - sy * splay_uv, fv + cy * splay_uv);
+            let t0 = Self::bilerp(corners, tu - cy * r_top, tv - sy * r_top) + up_h;
+            let t1 = Self::bilerp(corners, tu + cy * r_top, tv + sy * r_top) + up_h;
+            let norm = ((b1 - b0).cross(t0 - b0).normalize_or_zero() + self.up * 0.65).normalize_or_zero();
+            let glow_seed = 2.0 + seed_base + (wing as f32) * 1.37;
+            target.push_quad(Quad::glowing(b0, b1, t1, t0, norm, color, glow_seed));
         }
     }
 
-    /// Variant 3 (Short & Wide): Broad V-folded ground sprout with two wide, low-leaning leaves.
-    #[allow(clippy::too_many_arguments)]
-    fn emit_broad_sprout(
-        &self, corners: [Vec3; 4], fu: f32, fv: f32, yaw: f32, height: f32, color: Vec3, target: &mut dyn MeshTarget,
-    ) {
-        for (da, h_mul, tone) in [
-            (0.0f32, 1.0f32, Vec3::new(0.90, 0.98, 0.82)),
-            (2.85, 0.82, Vec3::new(0.82, 0.92, 0.78)),
-        ] {
-            let (sy, cy) = (yaw + da).sin_cos();
-            let b0 = Self::bilerp(corners, fu - cy * 0.060, fv - sy * 0.060);
-            let b1 = Self::bilerp(corners, fu + cy * 0.060, fv + sy * 0.060);
-            let tip_c = Self::bilerp(corners, fu - sy * 0.185, fv + cy * 0.185) + self.up * (height * h_mul);
-            let t_off = (b1 - b0) * 0.34;
-            let norm = ((b1 - b0).cross(tip_c - b0).normalize_or_zero() + self.up * 0.80).normalize_or_zero();
-            let col = (color * tone).clamp(Vec3::ZERO, Vec3::ONE);
-            target.push_quad(Quad::glowing(b0, b1, tip_c + t_off, tip_c - t_off, norm, col, 2.0));
-        }
-    }
-
-    /// Emits a dense meadow of 27 clusters (54 individual grass blades in 3 distinct shapes and sizes) inside `corners`.
+    /// Emits a dense meadow of 6 30°-splayed cross-billboard fans (18 quads = 126 cutout grass blades) inside `corners`.
     pub fn emit_hybrid(&self, corners: [Vec3; 4], _normal: Vec3, color: Vec3, target: &mut dyn MeshTarget) {
-        self.emit_tiered(corners, 1.0, 27, color, target);
+        self.emit_tiered(corners, 1.0, 6, color, target);
     }
 
-    /// Emits a distance-scaled meadow tier (`cluster_count` in `3`, `9`, or `27`) inside `corners` in O(1) local camera space.
+    /// Emits a distance-scaled 30°-splayed cross-billboard meadow tier (`cluster_count` in `1`, `3`, or `6`) inside `corners`.
     pub fn emit_tiered(&self, corners: [Vec3; 4], height_scale: f32, cluster_count: usize, color: Vec3, target: &mut dyn MeshTarget) {
         let [v0, v1, v2, v3] = corners;
         let (span_u, span_v) = ((v1 - v0).length(), (v3 - v0).length());
@@ -226,27 +186,29 @@ impl MeadowCrown {
         }
         let scale = (span_u.min(span_v) / 0.5).clamp(0.15, 1.0) * height_scale;
         let s = self.seed.abs();
-        let count = cluster_count.min(27);
-        let stride = (27 / count.max(1)).max(1);
+        let anchors: [(f32, f32); 6] = [
+            (0.25, 0.25), (0.75, 0.26), (0.50, 0.50),
+            (0.26, 0.75), (0.74, 0.74), (0.50, 0.22),
+        ];
+        let count = cluster_count.min(6);
+        let stride = (6 / count.max(1)).max(1);
         for step in 0..count {
-            let idx = (step * stride) % 27;
-            let (row, col_idx) = (idx / 5, idx % 5);
-            let (bu, bv) = if idx < 25 {
-                (0.12 + (col_idx as f32) * 0.19, 0.12 + (row as f32) * 0.19)
-            } else {
-                (0.31 + ((idx - 25) as f32) * 0.38, 0.50)
-            };
+            let idx = (step * stride) % 6;
+            let (bu, bv) = anchors[idx];
             let h = s.wrapping_add((idx as i32) * 1_664_525);
-            let ju = ((h % 19) - 9) as f32 * 0.0048;
-            let jv = (((h / 19) % 19) - 9) as f32 * 0.0048;
-            let (fu, fv) = ((bu + ju).clamp(0.08, 0.92), (bv + jv).clamp(0.08, 0.92));
+            let ju = ((h % 19) - 9) as f32 * 0.005;
+            let jv = (((h / 19) % 19) - 9) as f32 * 0.005;
+            let (fu, fv) = ((bu + ju).clamp(0.16, 0.84), (bv + jv).clamp(0.16, 0.84));
             let yaw = ((h % 360) as f32).to_radians();
-            let size_jitter = 0.86 + ((h.abs() % 29) as f32) * 0.01;
-            match (step + (s as usize)) % 3 {
-                0 => self.emit_arched_blade(corners, fu, fv, yaw, 0.112 * size_jitter * scale, color, target),
-                1 => self.emit_fan_tuft(corners, fu, fv, yaw, 0.078 * size_jitter * scale, color, target),
-                _ => self.emit_broad_sprout(corners, fu, fv, yaw, 0.048 * size_jitter * scale, color, target),
-            }
+            let size_jitter = 0.88 + ((h.abs() % 25) as f32) * 0.01;
+            let seed_base = ((h.abs() % 89) as f32) * 0.11;
+            let (r_uv, h_raw, tone) = match (step + (s as usize)) % 3 {
+                0 => (0.215, 0.132, Vec3::new(1.06, 1.10, 0.88)),
+                1 => (0.190, 0.096, Vec3::new(0.96, 1.02, 0.86)),
+                _ => (0.240, 0.064, Vec3::new(0.86, 0.94, 0.80)),
+            };
+            let col = (color * tone).clamp(Vec3::ZERO, Vec3::ONE);
+            self.emit_splayed_cross_fan(corners, fu, fv, yaw, r_uv, h_raw * size_jitter * scale, seed_base, col, target);
         }
     }
 }

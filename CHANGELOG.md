@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-07
+
+### Changed
+- Replaced single-blade grass quads with $30^\circ$-splayed 3-wing Cross-Billboard fans (`MeadowCrown::emit_splayed_cross_fan` in `crates/world/src/mesh_target.rs`) and `gl_VertexID`-derived procedural 7-blade silhouette cutout shading (`VoxelShaderSource` in `crates/engine/src/shader.rs`), cutting grass quad count by $3.5\times$ (`18` quads per block / `~2,100` quads in the local $O(1)$ meadow ring) while increasing visible grass density to `126` curved blades per block across 3 fan size variants.
+
 ## [0.53.0] - 2026-11-07
 
 ### Added

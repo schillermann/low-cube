@@ -112,7 +112,7 @@ impl ReliefCellCache {
                 }
                 let dist = (dist_sq as f32).sqrt();
                 let fade = ((10.5 - dist) / 3.0).clamp(0.15, 1.0);
-                let tier = if dist_sq <= 25 { 27 } else if dist_sq <= 64 { 9 } else { 3 };
+                let tier = if dist_sq <= 25 { 6 } else if dist_sq <= 64 { 3 } else { 1 };
                 let slot = ((gv + half) as usize) * side + ((gu + half) as usize);
                 let crown = crate::MeadowCrown::for_cell(GridCell::new(gu, gv), up);
                 for &quad in &cells[slot] {
