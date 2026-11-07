@@ -258,12 +258,12 @@ fn test_polyhedral_cantilever_rig_deploys_retracts_telescopic_gripper_and_hoists
     }
     assert_eq!(relief.harvest_layer(2, 1, 1.75).1, Some(crate::block::BlockMedium::CarWheel));
     assert!(!relief.layer_occupied_at(2, 1, 1.75), "Harvested CarWheel must be removed from cell (2, 1)");
-    assert!(relief.adjust_rig_at(0, 0, 1, false), "Hoisting rig by +1 step must raise the connected vehicle assembly");
+    assert!(relief.adjust_rig_at(0, 0, 1, false).0, "Hoisting rig by +1 step must raise the connected vehicle assembly");
     assert!(
         relief.layer_occupied_at(1, 0, 2.25) && relief.layer_occupied_at(2, 0, 2.25),
         "Both the newly gripped block at (1, 0) and EngineCore at (2, 0) must rise to 2.0m..2.5m"
     );
-    assert!(relief.adjust_rig_at(2, 0, 0, true), "Rotating rig assembly by 90 degrees must succeed");
+    assert!(relief.adjust_rig_at(2, 0, 0, true).0, "Rotating rig assembly by 90 degrees must succeed");
     assert_eq!(
         relief.harvest_layer(0, 0, 0.25).1,
         Some(crate::block::BlockMedium::CantileverRig),
@@ -271,6 +271,23 @@ fn test_polyhedral_cantilever_rig_deploys_retracts_telescopic_gripper_and_hoists
     );
     assert!(!relief.layer_occupied_at(1, 1, 0.25), "Rotated engine at (1, 1) must be dismantled together with the crane");
     assert!(relief.layer_occupied_at(1, 0, 0.25), "Attached non-engine vehicle blocks must settle onto ground layer 0.0m..0.5m");
+
+    let mut cam_relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+    for h in [0.0, 0.5, 1.0] {
+        assert!(cam_relief.stack_molded_cell(0, 0, h, Box::new(crate::block::CuboidShape::new(0.5))));
+    }
+    let mut three_dirt = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+    ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &cam_relief, &palette, 64, &mut three_dirt);
+    let cam_shape = crate::block::BlockMold::cube()
+        .in_medium(crate::block::BlockMedium::FieldCamera)
+        .shape_for(frame.tangent(), &frame);
+    assert!(cam_relief.stack_molded_cell(0, 0, 1.5, cam_shape));
+    let mut with_cam = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+    ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &cam_relief, &palette, 64, &mut with_cam);
+    assert!(
+        with_cam.tones.len() >= three_dirt.tones.len() + 30,
+        "Placing FieldCamera on 3 stacked dirt blocks must preserve the 3rd dirt block's top quads and add tripod leg quads"
+    );
 }
 
 

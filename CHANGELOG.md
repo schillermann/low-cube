@@ -8,6 +8,21 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-11-07
+
+### Added
+- Added 3-legged tripod field camera object (`FieldCameraTripod` in `crates/world/src/block/field_camera.rs`) with three splayed wooden legs at $120^\circ$ angles, brass feet, central tripod hub, and 8-way lens rotation (`ForwardAngledSight`, `ProfileSight`, `AngledSight`, `LookingGlassSight`, `LeftAngledSight`, `LeftProfileSight`, `LeftForwardAngledSight` in `crates/client/src/attire/sight.rs` and `MoldArchetype::palm_camera_yaw` / `placed_camera_yaw` in `crates/world/src/block/mold.rs`).
+- Added world-space tripod lens projection (`TripodMount::lens_ray` in `crates/client/src/attire/sight.rs` and `AvatarSight::project_lens_view` in `crates/client/src/avatar/body_sight.rs`) so self-timer exposures from a placed camera capture the scene from the placed tripod's actual 3D world position and lens direction while keeping the live player view in first-person (`PlanetaryAvatar::view_projection_matrix`).
+- Added single-click portable item pickup (`BlockMedium::instant_pickup` in `crates/world/src/block/timber_grain.rs`, `TerracedRelief::mark_dig_layer`, and `PalmEarthworks::act_with_hand`) so clicking a placed camera picks it up immediately into the player's hand without crack stages or digging animations.
+
+### Changed
+- Extracted `CameraExposure` and `PolaroidPrint` into `crates/client/src/photo_plate/exposure.rs`, `PalmStack` into `crates/client/src/attire/pouch/palms.rs`, `NicheColumn` into `crates/world/src/block/elevated_shape.rs`, and `CubePlanet::try_aimed_faces` into `crates/world/src/planet.rs` to keep domain modules well below the 300-line ceiling.
+- Restricted `CameraMount` self-timer countdowns (`6` down to `1` in white digits) exclusively to placed cameras (`CameraMount::Placed`) while handheld cameras (`CameraMount::Handheld`) snap immediately on `InputTrigger::WheelClick`.
+
+### Fixed
+- Fixed stacked dirt blocks beneath a placed `FieldCamera` losing their horizontal top quads by gating `flank_only` in `OverhangMolds::emit_molded_top` (`crates/world/src/relief/overhang_molds.rs`) on `ElevatedShape::full_cube_envelope`.
+- Fixed middle-clicking (`InputTrigger::WheelClick`) on a placed camera rotating the camera via `ControlAction::MoldForm` instead of starting the 6-second self-timer countdown (`PalmEarthworks::try_adjust_rig` and `PalmEarthworks::handle_trigger` in `crates/client/src/earthworks/mod.rs`).
+
 ## [0.51.0] - 2026-11-07
 
 ### Added

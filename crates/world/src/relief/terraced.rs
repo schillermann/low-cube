@@ -125,6 +125,9 @@ impl ReliefElevation for TerracedRelief {
             return ((u, v), None);
         }
         let medium = self.molds.layer_medium_at(&self.strata, &self.shafts, u, v, layer_elev);
+        if medium.instant_pickup() {
+            return ((u, v), (stage > 0).then_some(medium));
+        }
         let (prev, changed) = self.molds.record_stage(u, v, layer_elev, stage);
         (prev, changed.then_some(medium))
     }
@@ -143,8 +146,12 @@ impl ReliefElevation for TerracedRelief {
         self.molds.stack_molded(u, v, ground_top, sub, base, shape)
     }
 
-    fn adjust_rig_at(&mut self, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool) -> bool {
+    fn adjust_rig_at(&mut self, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool) -> (bool, (i32, i32)) {
         self.molds.adjust_rig(&self.strata, &self.shafts, u, v, delta_steps, rotate_quarter)
+    }
+
+    fn placed_camera_tripod(&self, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
+        self.molds.placed_camera_tripod(frame)
     }
 
     fn lower_rig_at(&mut self, u: i32, v: i32) -> bool {

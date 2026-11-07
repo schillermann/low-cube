@@ -32,6 +32,10 @@ impl VoxelShape for CuboidShape {
         self.height
     }
 
+    fn full_cube_envelope(&self) -> bool {
+        self.height >= 0.45
+    }
+
     fn shape_color(&self) -> Vec3 {
         if self.height >= 0.45 {
             Vec3::new(0.0, 0.9, 1.0)

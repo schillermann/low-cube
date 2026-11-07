@@ -182,15 +182,18 @@ impl Face for FacetedReliefFace {
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         let half = self.cache.half_blocks();
         let half_size = self.domain.frame.step_elevation(half);
-        if let Some((cu, cv, _)) = SurfaceSightRay::new(eye, direction)
+        let (cu, cv) = SurfaceSightRay::new(eye, direction)
             .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)
-        {
-            if self.domain.relief.adjust_rig_at(cu, cv, delta_steps, rotate_quarter) {
-                self.refresh_neighborhood(cu, cv, half);
-                return true;
-            }
+            .map_or((0, 0), |(cu, cv, _)| (cu, cv));
+        let (changed, (ru, rv)) = self.domain.relief.adjust_rig_at(cu, cv, delta_steps, rotate_quarter);
+        if changed {
+            self.refresh_neighborhood(ru, rv, half);
         }
-        false
+        changed
+    }
+
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
+        self.domain.relief.placed_camera_tripod(&self.domain.frame)
     }
 
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {

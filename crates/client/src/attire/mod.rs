@@ -33,7 +33,7 @@ pub use pouch::BeltSatchel;
 pub use proportion::{BodyRegion, PartProportion, YouthPhysique};
 pub use relic::{HeldRelic, MartialStyle};
 pub use rhythm::StrideRhythm;
-pub use sight::{PhotoShutter, SightMode};
+pub use sight::{CameraMount, PhotoShutter, SightMode};
 pub use tome::ArtisanTome;
 
 /// Interface for avatar wardrobe appearance emission.

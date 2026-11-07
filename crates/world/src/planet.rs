@@ -53,6 +53,29 @@ impl CubePlanet {
         }
         self.fallback.as_ref()
     }
+
+    fn try_aimed_faces<T>(
+        &mut self,
+        eye: Vec3,
+        direction: Vec3,
+        flora_offset: bool,
+        mut op: impl FnMut(&mut dyn Face) -> Option<T>,
+    ) -> Option<T> {
+        let len = self.faces.len();
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        for idx in [primary, secondary] {
+            if let Some(face) = self.faces.get_mut(idx) {
+                if let Some(out) = op(face.as_mut()) {
+                    self.modified_face = if flora_offset { len + idx } else { idx };
+                    return Some(out);
+                }
+            }
+            if secondary == primary {
+                break;
+            }
+        }
+        None
+    }
 }
 
 impl GravityField for CubePlanet {
@@ -81,22 +104,7 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        if let Some(face) = self.faces.get_mut(primary) {
-            if let Some(medium) = face.harvest(eye, direction) {
-                self.modified_face = primary;
-                return Some(medium);
-            }
-        }
-        if secondary != primary {
-            if let Some(face) = self.faces.get_mut(secondary) {
-                if let Some(medium) = face.harvest(eye, direction) {
-                    self.modified_face = secondary;
-                    return Some(medium);
-                }
-            }
-        }
-        None
+        self.try_aimed_faces(eye, direction, false, |f| f.harvest(eye, direction))
     }
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
@@ -120,111 +128,41 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        let len = self.faces.len();
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        if let Some(face) = self.faces.get_mut(primary) {
-            let outcome = face.strike_timber(eye, direction);
-            if outcome.struck() {
-                self.modified_face = len + primary;
-                return outcome;
-            }
-        }
-        if secondary != primary {
-            if let Some(face) = self.faces.get_mut(secondary) {
-                let outcome = face.strike_timber(eye, direction);
-                if outcome.struck() {
-                    self.modified_face = len + secondary;
-                    return outcome;
-                }
-            }
-        }
-        CleaveOutcome::Missed
+        self.try_aimed_faces(eye, direction, true, |f| {
+            let outcome = f.strike_timber(eye, direction);
+            outcome.struck().then_some(outcome)
+        })
+        .unwrap_or(CleaveOutcome::Missed)
     }
 
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        let len = self.faces.len();
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        if let Some(face) = self.faces.get_mut(primary) {
-            let find = face.forage_timber(eye, direction);
-            if find.gathered() {
-                self.modified_face = len + primary;
-                return find;
-            }
-        }
-        if secondary != primary {
-            if let Some(face) = self.faces.get_mut(secondary) {
-                let find = face.forage_timber(eye, direction);
-                if find.gathered() {
-                    self.modified_face = len + secondary;
-                    return find;
-                }
-            }
-        }
-        SurfaceFind::EmptyHanded
+        self.try_aimed_faces(eye, direction, true, |f| {
+            let find = f.forage_timber(eye, direction);
+            find.gathered().then_some(find)
+        })
+        .unwrap_or(SurfaceFind::EmptyHanded)
     }
 
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        if let Some(face) = self.faces.get_mut(primary) {
-            if face.place_molded_block(eye, direction, avatar_pos, mold) {
-                self.modified_face = primary;
-                return true;
-            }
-        }
-        if secondary != primary {
-            if let Some(face) = self.faces.get_mut(secondary) {
-                if face.place_molded_block(eye, direction, avatar_pos, mold) {
-                    self.modified_face = secondary;
-                    return true;
-                }
-            }
-        }
-        false
+        self.try_aimed_faces(eye, direction, false, |f| {
+            f.place_molded_block(eye, direction, avatar_pos, mold).then_some(())
+        })
+        .is_some()
     }
 
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        if let Some(face) = self.faces.get_mut(primary) {
-            if face.adjust_rig(eye, direction, delta_steps, rotate_quarter) {
-                self.modified_face = primary;
-                return true;
-            }
-        }
-        if secondary != primary {
-            if let Some(face) = self.faces.get_mut(secondary) {
-                if face.adjust_rig(eye, direction, delta_steps, rotate_quarter) {
-                    self.modified_face = secondary;
-                    return true;
-                }
-            }
-        }
-        false
+        self.try_aimed_faces(eye, direction, false, |f| {
+            f.adjust_rig(eye, direction, delta_steps, rotate_quarter).then_some(())
+        })
+        .is_some()
     }
 
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        for idx in [primary, secondary] {
-            if let Some(face) = self.faces.get_mut(idx) {
-                if face.lower_rig(eye, direction) {
-                    self.modified_face = idx;
-                    return true;
-                }
-            }
-        }
-        false
+        self.try_aimed_faces(eye, direction, false, |f| f.lower_rig(eye, direction).then_some(())).is_some()
     }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        for idx in [primary, secondary] {
-            if let Some(face) = self.faces.get_mut(idx) {
-                if let Some(assembly) = face.board_vehicle(eye, direction, holding_block) {
-                    self.modified_face = idx;
-                    return Some(assembly);
-                }
-            }
-        }
-        None
+        self.try_aimed_faces(eye, direction, false, |f| f.board_vehicle(eye, direction, holding_block))
     }
 
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
@@ -236,6 +174,10 @@ impl PlanetaryWorld for CubePlanet {
             }
         }
         false
+    }
+
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
+        self.faces.iter().find_map(|f| f.placed_camera_tripod())
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {

@@ -4,6 +4,7 @@ use crate::{MeshTarget, Quad, TurfMeshTarget};
 use super::cabin_seat::CabinSeatMesh;
 use super::cell::GridCell;
 use super::earth_clods::EarthClods;
+use super::field_camera::FieldCameraTripod;
 use super::mold::MoldArchetype;
 use super::shape::VoxelShape;
 use super::vehicle_parts::{VehicleBlockMesh, WheelProfile};
@@ -46,6 +47,21 @@ impl BlockMedium {
     /// Indicates whether this block medium is a vehicle component that can initiate or attach to a crane assembly.
     pub const fn rig_mountable(self) -> bool {
         self.vehicle_engine() || matches!(self, Self::CabinSeat | Self::CarWheel)
+    }
+
+    /// Indicates whether this medium is a portable item picked up in a single click without excavation stages.
+    pub const fn instant_pickup(self) -> bool {
+        matches!(self, Self::FieldCamera)
+    }
+
+    const fn sculpted_tones(self) -> (Vec3, Vec3) {
+        match self {
+            Self::RawTimber => (Vec3::new(0.85, 0.70, 0.46), Vec3::new(0.32, 0.20, 0.11)),
+            Self::PlanedPlanks => (Vec3::new(0.84, 0.67, 0.41), Vec3::new(0.74, 0.56, 0.33)),
+            Self::QuarriedStone => (Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.50, 0.51, 0.53)),
+            Self::Sand => (Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.78, 0.68, 0.44)),
+            _ => (Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.31, 0.27, 0.25)),
+        }
     }
 
     /// Primary and secondary debris particle colors emitted when striking this block medium.
@@ -184,6 +200,12 @@ impl MediumShape {
     const fn cross_grain(&self) -> bool {
         matches!(self.heading, WedgeHeading::East | WedgeHeading::West)
     }
+
+    fn emit_sculpted_turf(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, cap: Vec3, wall: Vec3, target: &mut dyn MeshTarget) {
+        let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), cap, wall, false);
+        self.inner.emit_shape(cell, floor_elevation, frame, wall, &mut turf);
+        turf.seal_underside();
+    }
 }
 
 impl VoxelShape for MediumShape {
@@ -198,6 +220,21 @@ impl VoxelShape for MediumShape {
     fn block_medium(&self) -> BlockMedium { self.medium }
     fn block_heading(&self) -> WedgeHeading { self.heading }
     fn wheel_radius(&self) -> f32 { WheelProfile::from_archetype(self.archetype).radius() }
+    fn full_cube_envelope(&self) -> bool {
+        self.archetype.full_height_flat() && !self.medium.rig_mountable() && !matches!(self.medium, BlockMedium::FieldCamera)
+    }
+    fn step_camera_turn(&mut self, delta: i32) -> bool {
+        if self.medium == BlockMedium::FieldCamera {
+            self.archetype = MoldArchetype::from_code((self.archetype.code() as i32 + delta).rem_euclid(8) as u8);
+            true
+        } else {
+            false
+        }
+    }
+    fn camera_tripod_hub(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
+        (self.medium == BlockMedium::FieldCamera)
+            .then(|| FieldCameraTripod::new(self.heading, self.archetype).tripod_hub(cell, floor_elevation, frame))
+    }
     fn rotate_quarter(&mut self) { self.heading = self.heading.rotated_ccw(); }
 
     fn emit_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, color: Vec3, target: &mut dyn MeshTarget) {
@@ -205,30 +242,13 @@ impl VoxelShape for MediumShape {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn emit_driven_part(
-        &self,
-        cell: GridCell,
-        floor_elevation: f32,
-        spin_angle: f32,
-        steer_angle: f32,
-        frame: &SurfaceFrame,
-        top_color: Vec3,
-        wall_color: Vec3,
-        target: &mut dyn MeshTarget,
-    ) {
+    fn emit_driven_part(&self, cell: GridCell, floor_elevation: f32, spin_angle: f32, steer_angle: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, target: &mut dyn MeshTarget) {
         if self.medium == BlockMedium::CabinSeat {
             CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target);
         } else if self.medium == BlockMedium::FieldCamera {
-            CabinSeatMesh::new(self.heading).emit_camera(self.archetype, cell, floor_elevation, frame, target);
-        } else if matches!(
-            self.medium,
-            BlockMedium::SteeringWheel
-                | BlockMedium::AircraftEngine
-                | BlockMedium::RocketEngine
-                | BlockMedium::CarWheel
-        ) {
-            VehicleBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle))
-                .emit(cell, floor_elevation, frame, target);
+            FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
+        } else if matches!(self.medium, BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel) {
+            VehicleBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle)).emit(cell, floor_elevation, frame, target);
         } else {
             self.emit_terraced_shape(cell, floor_elevation, frame, top_color, wall_color, true, target);
         }
@@ -240,55 +260,21 @@ impl VoxelShape for MediumShape {
             (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_terraced(top_color, bare_top, frame, target),
             (BlockMedium::CrustRock, true) => BlockMedium::emit_crust_rock_cube(cell, floor_elevation, frame, target),
             (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
-            (BlockMedium::PlanedPlanks, true) => BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target),
-            (BlockMedium::RawTimber, false) => {
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.85, 0.70, 0.46), Vec3::new(0.32, 0.20, 0.11), false);
-                self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.32, 0.20, 0.11), &mut turf);
-                turf.seal_underside();
-            }
-            (BlockMedium::PlanedPlanks, false) => {
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.84, 0.67, 0.41), Vec3::new(0.74, 0.56, 0.33), false);
-                self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.74, 0.56, 0.33), &mut turf);
-                turf.seal_underside();
-            }
-            (BlockMedium::QuarriedStone, _) => {
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.50, 0.51, 0.53), false);
-                self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.50, 0.51, 0.53), &mut turf);
-                turf.seal_underside();
-            }
-            (BlockMedium::Sand, _) => {
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.78, 0.68, 0.44), false);
-                self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.78, 0.68, 0.44), &mut turf);
-                turf.seal_underside();
-            }
-            (BlockMedium::CantileverRig, _) => {
+            (BlockMedium::PlanedPlanks, true) | (BlockMedium::CantileverRig, _) => {
                 BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target);
             }
-            (BlockMedium::CabinSeat, _) => {
-                CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target);
-            }
-            (BlockMedium::FieldCamera, _) => {
-                CabinSeatMesh::new(self.heading).emit_camera(self.archetype, cell, floor_elevation, frame, target);
-            }
-            (
-                BlockMedium::SteeringWheel
-                | BlockMedium::AircraftEngine
-                | BlockMedium::RocketEngine
-                | BlockMedium::CarWheel,
-                _,
-            ) => {
+            (BlockMedium::CabinSeat, _) => CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target),
+            (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
+            (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel, _) => {
                 VehicleBlockMesh::with_archetype(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
-            }
-            (BlockMedium::CrustRock, false) => {
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.31, 0.27, 0.25), false);
-                self.inner.emit_shape(cell, floor_elevation, frame, Vec3::new(0.31, 0.27, 0.25), &mut turf);
-                turf.seal_underside();
             }
             (BlockMedium::TurfEarth, false) => {
                 let cap = if bare_top { wall_color } else { top_color };
-                let mut turf = TurfMeshTarget::new(target, frame.normal(), cell.corner_points(frame, floor_elevation), cap, wall_color, false);
-                self.inner.emit_shape(cell, floor_elevation, frame, wall_color, &mut turf);
-                turf.seal_underside();
+                self.emit_sculpted_turf(cell, floor_elevation, frame, cap, wall_color, target);
+            }
+            _ => {
+                let (cap, wall) = self.medium.sculpted_tones();
+                self.emit_sculpted_turf(cell, floor_elevation, frame, cap, wall, target);
             }
         }
     }

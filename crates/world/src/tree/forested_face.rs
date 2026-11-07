@@ -196,6 +196,10 @@ impl Face for ForestedFace {
         self.origin.park_vehicle(assembly)
     }
 
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
+        self.origin.placed_camera_tripod()
+    }
+
     fn step_surface(&mut self, dt: f32) -> bool {
         self.origin.step_surface(dt)
     }

@@ -3,7 +3,7 @@ mod debris;
 use glam::Vec3;
 use world::{BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, SurfaceFind};
 use crate::attire::{
-    ArtisanTome, BeltSatchel, BodyPose, HeldRelic, SatchelWardrobe,
+    ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, SatchelWardrobe,
     SightMode, StrideRhythm, Wardrobe, YouthAttire,
 };
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
@@ -41,8 +41,12 @@ impl PalmEarthworks {
 
     pub const fn empty() -> Self { Self::new(BeltSatchel::empty(), 0, DigGrip::idle(), Vec3::ZERO, false) }
     pub const fn satchel_open(&self) -> bool { self.satchel.open() || self.tome.open() }
-    pub const fn tome_open(&self) -> bool { self.tome.open() }
-    pub const fn active_camera_sight(&self, attire: YouthAttire) -> Option<SightMode> { self.satchel.active_camera_sight(attire) }
+    pub const fn camera_mount(&self, attire: YouthAttire) -> CameraMount {
+        if self.tome.open() { CameraMount::Unmounted } else { self.satchel.camera_mount(attire) }
+    }
+    pub fn placed_camera_lens(&self, attire: YouthAttire) -> Option<(Vec3, Vec3, Vec3)> {
+        self.satchel.placed_camera_lens(attire)
+    }
     fn with_satchel(self, satchel: BeltSatchel) -> Self { Self { satchel, ..self } }
     pub fn mold_next_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }
     pub fn mold_prev_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::prev_form)) }
@@ -65,7 +69,10 @@ impl PalmEarthworks {
             let (next_tome, next_satchel, next_attire, ok) = self.tome.dispatch_trigger(trigger, bindings, self.satchel, attire);
             return (Self::with_tome(next_satchel, next_tome, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, ok);
         }
-        if !self.satchel.open() && bindings.matches(ControlAction::MoldForm, trigger) {
+        if !self.satchel.open()
+            && matches!(self.camera_mount(attire), CameraMount::Unmounted)
+            && bindings.matches(ControlAction::MoldForm, trigger)
+        {
             return (self.turn_mold_clockwise(attire), attire, true);
         }
         if !self.satchel.open() && bindings.matches(ControlAction::MoldRight, trigger) {
@@ -98,7 +105,12 @@ impl PalmEarthworks {
         &self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> bool {
         let (r, l) = attire.held_pair();
-        if self.satchel.open() || self.tome.open() || r.rotatable_in_palm() || l.rotatable_in_palm() || self.active_camera_sight(attire).is_some() {
+        if self.satchel.open()
+            || self.tome.open()
+            || r.rotatable_in_palm()
+            || l.rotatable_in_palm()
+            || matches!(self.camera_mount(attire), CameraMount::Handheld(_))
+        {
             return false;
         }
         if bindings.matches(ControlAction::MoldRight, trigger) {
@@ -107,7 +119,7 @@ impl PalmEarthworks {
         if bindings.matches(ControlAction::MoldLeft, trigger) {
             return world.adjust_rig(eye, view_dir, -1, false);
         }
-        if bindings.matches(ControlAction::MoldForm, trigger) {
+        if bindings.matches(ControlAction::MoldForm, trigger) && matches!(self.camera_mount(attire), CameraMount::Unmounted) {
             return world.adjust_rig(eye, view_dir, 0, true);
         }
         false
@@ -202,6 +214,14 @@ impl PalmEarthworks {
         }
         let (right, left) = attire.held_pair();
         let (active, other) = if side > 0.0 { (right, left) } else { (left, right) };
+        if d.progress() == 0 && !d.grip().any_held() {
+            if let Some(med) = world.loosen_surface(eye, view_dir, 1).filter(|m| m.instant_pickup()) {
+                if world.harvest_surface(eye, view_dir) == Some(med) {
+                    let (ns, na) = state.satchel.collect_excavated_block(side, HeldRelic::from_medium(med), attire);
+                    return (Self::new(ns, 0, DigGrip::idle(), Vec3::ZERO, false), na, rhythm, true);
+                }
+            }
+        }
         if d.progress() == 0 && !d.grip().any_held() && active != HeldRelic::WoodenMallet && world.lower_rig(eye, view_dir) {
             return (Self::new(state.satchel, 0, DigGrip::idle(), Vec3::ZERO, false), attire, Self::trigger_hand_swing(attire, rhythm, side), true);
         }

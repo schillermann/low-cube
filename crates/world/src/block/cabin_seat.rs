@@ -2,12 +2,11 @@ use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
 use super::cell::GridCell;
-use super::mold::MoldArchetype;
 use super::shape::VoxelShape;
 use super::timber_grain::BlockMedium;
 use super::wedge::WedgeHeading;
 
-/// Oriented 3D geometry emitter for half-block upholstered seats and surface-mounted field cameras.
+/// Oriented 3D geometry emitter for half-block upholstered cabin seats.
 pub struct CabinSeatMesh {
     heading: WedgeHeading,
 }
@@ -27,57 +26,6 @@ impl CabinSeatMesh {
             WedgeHeading::North => (u0, u1, v0, v1 - FRONT_RECESS),
             WedgeHeading::South => (u0, u1, v0 + FRONT_RECESS, v1),
         }
-    }
-
-    pub fn emit_camera(
-        &self,
-        archetype: MoldArchetype,
-        cell: GridCell,
-        floor_elev: f32,
-        frame: &SurfaceFrame,
-        target: &mut dyn MeshTarget,
-    ) {
-        let (uc, vc) = cell.center();
-        let (t, b, up) = (frame.tangent(), frame.bitangent(), frame.normal());
-        let base_fwd = -self.heading.forward_vector(frame);
-        let base_right = base_fwd.cross(up).normalize_or_zero();
-        let yaw = match archetype.code() % 6 {
-            0 => 0.0,
-            1 => 0.785,
-            2 => std::f32::consts::FRAC_PI_2,
-            3 => std::f32::consts::PI,
-            4 => -std::f32::consts::FRAC_PI_2,
-            _ => -0.785,
-        };
-        let (s, c) = yaw.sin_cos();
-        let fwd = (base_fwd * c + base_right * s).normalize_or_zero();
-        let right = fwd.cross(up).normalize_or_zero();
-        let origin = frame.point_at(uc, vc, floor_elev);
-        let (leather, mahogany, brass, glass, flash) = (
-            Vec3::new(0.18, 0.19, 0.24),
-            Vec3::new(0.46, 0.25, 0.14),
-            Vec3::new(0.88, 0.72, 0.28),
-            Vec3::new(0.32, 0.68, 0.88),
-            Vec3::new(0.95, 0.92, 0.82),
-        );
-        let emit_box_local = |x0: f32, x1: f32, y0: f32, y1: f32, z0: f32, z1: f32, w_col: Vec3, t_col: Vec3, out: &mut dyn MeshTarget| {
-            let pt = |x: f32, y: f32, z: f32| origin + right * x + up * y + fwd * z;
-            let [a0, a1, a2, a3] = [pt(x0, y0, z0), pt(x1, y0, z0), pt(x1, y0, z1), pt(x0, y0, z1)];
-            let [b0, b1, b2, b3] = [pt(x0, y1, z0), pt(x1, y1, z0), pt(x1, y1, z1), pt(x0, y1, z1)];
-            out.push_quad(Quad::new(b0, b1, b2, b3, up, t_col));
-            out.push_quad(Quad::new(a0, a3, a2, a1, -up, w_col));
-            for ([p0, p1, p2, p3], n) in [([a0, a1, b1, b0], -fwd), ([a1, a2, b2, b1], right), ([a2, a3, b3, b2], fwd), ([a3, a0, b0, b3], -right)] {
-                out.push_quad(Quad::new(p0, p1, p2, p3, n, w_col));
-            }
-        };
-        emit_box_local(-0.07, 0.07, 0.0, 0.03, -0.07, 0.07, mahogany, brass, target);
-        emit_box_local(-0.025, 0.025, 0.03, 0.12, -0.025, 0.025, brass, brass, target);
-        emit_box_local(-0.11, 0.11, 0.12, 0.26, -0.075, 0.075, leather, mahogany, target);
-        emit_box_local(-0.048, 0.048, 0.155, 0.235, 0.075, 0.135, brass, brass, target);
-        emit_box_local(-0.034, 0.034, 0.168, 0.222, 0.135, 0.152, glass, glass, target);
-        emit_box_local(-0.068, -0.028, 0.26, 0.295, -0.02, 0.02, brass, brass, target);
-        emit_box_local(0.024, 0.076, 0.26, 0.31, -0.015, 0.025, brass, flash, target);
-        let _ = (t, b);
     }
 
     pub fn emit(

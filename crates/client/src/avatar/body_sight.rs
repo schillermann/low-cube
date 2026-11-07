@@ -56,7 +56,11 @@ impl AvatarBody {
         self.position = next_pos;
     }
 
-    pub fn respawn(&mut self, spawn: Vec3) {
+    pub fn respawn(&mut self, world: &dyn PlanetaryWorld) {
+        let spawn = [(0.25, 0.25), (2.25, 0.25), (-2.25, 0.25), (0.25, 2.25), (0.25, -2.25)]
+            .into_iter()
+            .map(|(x, z)| world.constrain_to_surface(Vec3::new(x, 1024.0, z), 1.0))
+            .fold(world.constrain_to_surface(Vec3::new(0.25, 1024.0, 0.25), 1.0), |acc, c| if c.y > acc.y + 1.5 { c } else { acc });
         self.position = spawn;
         self.posture = AvatarPosture::standing();
         self.pilot = VehiclePilot::Pedestrian;
@@ -278,5 +282,9 @@ impl AvatarSight {
         let horizon = CameraHorizon::aligned(self.camera_rot, &self.look);
         let frame = HorizonTilt::new(&horizon, tilt_radians);
         self.lens.projection_matrix(aspect) * sight.view_matrix(&frame, posture, position, pose)
+    }
+
+    pub fn project_lens_view(&self, aspect: f32, eye: Vec3, forward: Vec3, up: Vec3) -> Mat4 {
+        self.lens.projection_matrix(aspect) * Mat4::look_to_rh(eye, forward, up)
     }
 }

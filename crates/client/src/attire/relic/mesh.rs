@@ -95,8 +95,8 @@ impl RelicFigure {
         );
         TaperedPrism::new(4, Vec3::new(0.0, 0.004, 0.0), Vec3::new(0.0, 0.068, 0.0), 0.054, 0.036, 0.054, 0.036, leather).emit(cradle, true, target);
         TaperedPrism::new(4, Vec3::new(0.0, 0.008, 0.0), Vec3::new(0.0, 0.064, 0.0), 0.058, 0.028, 0.058, 0.028, mahogany).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(0.0, 0.036, 0.022), Vec3::new(0.0, 0.036, 0.056), 0.024, 0.020, brass).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(0.0, 0.036, 0.052), Vec3::new(0.0, 0.036, 0.060), 0.015, 0.015, glass).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(0.0, 0.038, 0.020), Vec3::new(0.0, 0.038, 0.068), 0.026, 0.022, brass).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(0.0, 0.038, 0.064), Vec3::new(0.0, 0.038, 0.074), 0.017, 0.017, glass).emit(cradle, true, target);
         TaperedPrism::new(6, Vec3::new(-0.024, 0.066, 0.0), Vec3::new(-0.024, 0.082, 0.0), 0.010, 0.010, 0.008, 0.008, brass).emit(cradle, true, target);
         TaperedPrism::new(4, Vec3::new(0.016, 0.066, 0.004), Vec3::new(0.016, 0.086, 0.004), 0.014, 0.012, 0.018, 0.014, flash).emit(cradle, true, target);
     }
@@ -184,17 +184,9 @@ impl RelicFigure {
             }
             HeldRelic::CantileverCrane => Self::emit_cantilever(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), target),
             HeldRelic::FieldCamera => {
-                let turn_yaw = match self.mold.camera_turn() {
-                    0 => 0.0,
-                    1 => -side * 2.356,
-                    2 => -side * std::f32::consts::FRAC_PI_2,
-                    3 => std::f32::consts::PI,
-                    4 => side * std::f32::consts::FRAC_PI_2,
-                    _ => side * 2.356,
-                };
                 let cradle = frame
                     .palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048))
-                    .yawed(turn_yaw);
+                    .yawed(self.mold.palm_camera_yaw(side));
                 Self::emit_camera(&cradle, target);
             }
         }

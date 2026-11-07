@@ -18,6 +18,15 @@ pub trait VoxelShape: Send + Sync {
     fn wheel_radius(&self) -> f32 {
         0.25
     }
+    fn full_cube_envelope(&self) -> bool {
+        false
+    }
+    fn step_camera_turn(&mut self, _delta: i32) -> bool {
+        false
+    }
+    fn camera_tripod_hub(&self, _cell: GridCell, _floor_elevation: f32, _frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
+        None
+    }
     fn rotate_quarter(&mut self) {}
     fn emit_shape(
         &self,

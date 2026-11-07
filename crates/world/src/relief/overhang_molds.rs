@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, CuboidShape, ElevatedShape, GridCell, MediumShape, VoxelShape};
+use crate::block::{BlockMedium, CuboidShape, ElevatedShape, GridCell, MediumShape, NicheColumn, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::cantilever_rig::RigRegistry;
 use super::natural_strata::NaturalStrata;
@@ -13,10 +13,7 @@ use super::vehicle_assembly::VehicleAssembly;
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
 const NICHE_CONTACT_TOLERANCE: f32 = 0.05;
-const NICHE_MIN_GAP: f32 = 0.45;
 const NICHE_WALL_MARGIN: f32 = 0.10;
-const NICHE_HEAD_CLEARANCE: f32 = 0.15;
-const SUB_METER_NICHE_SPAN: f32 = 0.75;
 const MAX_STACK_ELEVATION: f32 = 16.0;
 
 /// Overhanging and stacked voxel blocks composed with polyhedral cantilever rigs and surface turf scars.
@@ -27,12 +24,10 @@ pub struct OverhangMolds {
 }
 
 impl OverhangMolds {
-    /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(blocks: HashMap<(i32, i32), Vec<ElevatedShape>>, rigs: RigRegistry, scars: TurfScars) -> Self {
         Self { blocks, rigs, scars }
     }
 
-    /// Secondary constructor for pristine terrain without placed blocks or bare soil.
     pub fn untouched() -> Self {
         Self::new(HashMap::new(), RigRegistry::untouched(), TurfScars::untouched())
     }
@@ -43,8 +38,7 @@ impl OverhangMolds {
     pub fn expose_dirt(&mut self, u: i32, v: i32) { self.scars.expose_dirt(u, v); }
 
     pub fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32) -> u8 {
-        let occupied = self.scars.probes_occupied(|focus_elev| self.layer_occupied_at(u, v, focus_elev));
-        self.scars.layer_stage(u, v, layer_elev, occupied)
+        self.scars.layer_stage(u, v, layer_elev, self.scars.probes_occupied(|e| self.layer_occupied_at(u, v, e)))
     }
 
     pub fn clear_stage(&mut self, u: i32, v: i32) -> (i32, i32) { self.scars.clear_stage(u, v) }
@@ -56,38 +50,7 @@ impl OverhangMolds {
 
     pub fn top_steps_at(&self, u: i32, v: i32, base_steps: i32) -> i32 {
         let ground_top = (base_steps as f32) * BLOCK_STEP;
-        self.blocks.get(&(u, v)).map_or(base_steps, |list| {
-            let max_h = list.iter().map(ElevatedShape::ceiling).fold(ground_top, f32::max);
-            (max_h / BLOCK_STEP).round() as i32
-        })
-    }
-
-    fn cavity_at(&self, u: i32, v: i32, ground_h: f32, elev: f32) -> Option<(f32, f32)> {
-        let list = self.blocks.get(&(u, v))?;
-        let (mut idx, mut floor) = (0, ground_h);
-        while idx < list.len() {
-            let base = list[idx].floor();
-            if base <= floor + NICHE_CONTACT_TOLERANCE {
-                floor = floor.max(list[idx].ceiling());
-                idx += 1;
-            } else if base >= floor + NICHE_MIN_GAP {
-                let (cav_ceil, mut roof_top) = (base, list[idx].ceiling());
-                idx += 1;
-                while idx < list.len() && list[idx].floor() <= roof_top + NICHE_CONTACT_TOLERANCE {
-                    roof_top = roof_top.max(list[idx].ceiling());
-                    idx += 1;
-                }
-                let limit = (cav_ceil + SUB_METER_NICHE_SPAN).max(roof_top - NICHE_WALL_MARGIN);
-                if elev >= floor - NICHE_WALL_MARGIN && elev <= limit {
-                    return Some((floor, cav_ceil));
-                }
-                floor = roof_top;
-            } else {
-                floor = floor.max(list[idx].ceiling());
-                idx += 1;
-            }
-        }
-        None
+        self.blocks.get(&(u, v)).map_or(base_steps, |l| (l.iter().map(ElevatedShape::ceiling).fold(ground_top, f32::max) / BLOCK_STEP).round() as i32)
     }
 
     pub fn solid_wall_at(&self, u: i32, v: i32, ground_h: f32, ceiling_h: f32, elev: f32) -> bool {
@@ -96,17 +59,12 @@ impl OverhangMolds {
     }
 
     pub fn confine_niche_elevation(&self, u: i32, v: i32, ground_h: f32, elev: f32) -> Option<f32> {
-        self.cavity_at(u, v, ground_h, elev)
-            .map(|(cav_floor, cav_ceil)| {
-                let min_z = cav_floor + NICHE_HEAD_CLEARANCE;
-                elev.clamp(min_z, (cav_ceil - NICHE_HEAD_CLEARANCE).max(min_z))
-            })
+        NicheColumn::new(self.blocks.get(&(u, v))?, ground_h).confine(elev)
     }
 
     pub fn constrain_support(&self, cell: GridCell, planar: (f32, f32), mut h: f32, span: (f32, f32)) -> f32 {
         let (cell_u, cell_v) = cell.feed_coordinates(|cu, cv| (cu, cv));
-        let (u, v) = planar;
-        let (foot_elev, body_span) = span;
+        let ((u, v), (foot_elev, body_span)) = (planar, span);
         h = self.rigs.constrain_support(cell_u, cell_v, h, foot_elev);
         if let Some(list) = self.blocks.get(&(cell_u, cell_v)) {
             let (fu, fv) = cell.local_fraction(u, v);
@@ -151,12 +109,7 @@ impl OverhangMolds {
         }
         let list = self.blocks.get(&(cu, cv))?;
         let (fu, fv) = GridCell::new(cu, cv).local_fraction(u, v);
-        for block in list.iter().rev() {
-            if block.intercepts(fu, fv, ray_elev) {
-                return Some(block.ceiling());
-            }
-        }
-        None
+        list.iter().rev().find(|b| b.intercepts(fu, fv, ray_elev)).map(ElevatedShape::ceiling)
     }
 
     pub fn emit_molded_top(&self, cell: GridCell, surf_base: f32, frame: &SurfaceFrame, colors: (Vec3, Vec3), target: &mut dyn MeshTarget) -> bool {
@@ -170,6 +123,9 @@ impl OverhangMolds {
             let flank_only = list.len() > 2
                 && idx > 0
                 && idx + 1 < list.len()
+                && block.full_cube_envelope()
+                && list[idx - 1].full_cube_envelope()
+                && list[idx + 1].full_cube_envelope()
                 && (block.floor() - list[idx - 1].ceiling()).abs() < NICHE_CONTACT_TOLERANCE
                 && (list[idx + 1].floor() - block.ceiling()).abs() < NICHE_CONTACT_TOLERANCE;
             block.emit_terraced(cell, frame, top_col, wall_col, bare_top, flank_only, stage, target);
@@ -215,7 +171,8 @@ impl OverhangMolds {
             self.clear_if_at(u, v);
             return true;
         }
-        if shape.block_medium().rig_mountable() {
+        let mountable = shape.block_medium().rig_mountable();
+        if mountable {
             if let Some((eu, ev, hoist_z)) = self.rigs.mount_target(u, v, &self.blocks) {
                 let list = self.blocks.entry((eu, ev)).or_default();
                 list.push(ElevatedShape::new(shape, hoist_z));
@@ -225,10 +182,8 @@ impl OverhangMolds {
             }
         }
         let mut next_base = if sub { base } else { base.max(ground_top) };
-        if shape.block_medium().rig_mountable() && (next_base - ground_top).abs() <= 0.05 {
-            if let Some(hoist_z) = self.rigs.attach_elevation(u, v, &self.blocks) {
-                next_base = hoist_z;
-            }
+        if mountable && (next_base - ground_top).abs() <= 0.05 {
+            next_base = self.rigs.attach_elevation(u, v, &self.blocks).unwrap_or(next_base);
         }
         while self.blocks.get(&(u, v)).is_some_and(|l| l.iter().any(|b| b.occupies_layer(next_base + HALF_BLOCK_STEP))) {
             next_base += if sub { -BLOCK_STEP } else { BLOCK_STEP };
@@ -247,8 +202,26 @@ impl OverhangMolds {
         true
     }
 
-    pub fn adjust_rig(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool) -> bool {
-        self.rigs.adjust_at(strata, shafts, u, v, delta_steps, rotate_quarter, &mut self.blocks)
+    pub fn adjust_rig(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool) -> (bool, (i32, i32)) {
+        if self.rigs.adjust_at(strata, shafts, u, v, delta_steps, rotate_quarter, &mut self.blocks) {
+            return (true, (u, v));
+        }
+        if rotate_quarter || delta_steps == 0 {
+            return (false, (u, v));
+        }
+        if self.blocks.get_mut(&(u, v)).is_some_and(|l| l.iter_mut().rev().any(|b| b.step_camera_turn(delta_steps))) {
+            return (true, (u, v));
+        }
+        self.blocks
+            .iter_mut()
+            .find_map(|(&cell, list)| list.iter_mut().rev().any(|b| b.step_camera_turn(delta_steps)).then_some((true, cell)))
+            .unwrap_or((false, (u, v)))
+    }
+
+    pub fn placed_camera_tripod(&self, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
+        self.blocks
+            .iter()
+            .find_map(|(&(u, v), list)| list.iter().rev().find_map(|b| b.camera_tripod_hub(GridCell::new(u, v), frame)))
     }
 
     pub fn lower_rig(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32) -> bool {
@@ -256,10 +229,7 @@ impl OverhangMolds {
     }
 
     #[allow(clippy::too_many_arguments)]
-    pub fn board_vehicle(
-        &mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame,
-        u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, engage_engine: bool,
-    ) -> Option<VehicleAssembly> {
+    pub fn board_vehicle(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame, u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, engage_engine: bool) -> Option<VehicleAssembly> {
         VehicleAssembly::board_from_blocks(&mut self.blocks, &mut self.rigs, strata, shafts, frame, u, v, layer_elev, ray, engage_engine)
     }
 
@@ -286,12 +256,8 @@ impl OverhangMolds {
         }
         let blocks = &self.blocks;
         let mut regrown = self.scars.regrow_step(dt, |u, v| {
-            let base_steps = shafts.elevation_at(strata, u, v);
-            let ground_top = (base_steps as f32) * BLOCK_STEP;
-            blocks.get(&(u, v)).map_or(base_steps, |list| {
-                let max_h = list.iter().map(ElevatedShape::ceiling).fold(ground_top, f32::max);
-                (max_h / BLOCK_STEP).round() as i32
-            })
+            let base = shafts.elevation_at(strata, u, v);
+            blocks.get(&(u, v)).map_or(base, |l| (l.iter().map(ElevatedShape::ceiling).fold((base as f32) * BLOCK_STEP, f32::max) / BLOCK_STEP).round() as i32)
         });
         regrown.extend(settled_cells);
         regrown

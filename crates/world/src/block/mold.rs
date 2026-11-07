@@ -84,11 +84,24 @@ impl MoldArchetype {
     }
 
     pub const fn next_camera_turn(self) -> Self {
-        Self::from_code((self.code() + 1) % 6)
+        Self::from_code((self.code() + 1) % 8)
     }
 
     pub const fn prev_camera_turn(self) -> Self {
-        Self::from_code((self.code() + 5) % 6)
+        Self::from_code((self.code() + 7) % 8)
+    }
+
+    pub const fn placed_camera_yaw(self) -> f32 {
+        match self.code() % 8 {
+            0 => 0.0,
+            1 => -std::f32::consts::FRAC_PI_4,
+            2 => -std::f32::consts::FRAC_PI_2,
+            3 => -3.0 * std::f32::consts::FRAC_PI_4,
+            4 => std::f32::consts::PI,
+            5 => 3.0 * std::f32::consts::FRAC_PI_4,
+            6 => std::f32::consts::FRAC_PI_2,
+            _ => std::f32::consts::FRAC_PI_4,
+        }
     }
 }
 
@@ -118,7 +131,7 @@ impl BlockMold {
         let archetype = if matches!(medium, BlockMedium::CabinSeat) && !self.archetype.flat_square_top() {
             MoldArchetype::FullCube
         } else if matches!(medium, BlockMedium::FieldCamera) {
-            MoldArchetype::from_code(self.archetype.code() % 6)
+            MoldArchetype::from_code(self.archetype.code() % 8)
         } else {
             self.archetype
         };
@@ -151,7 +164,16 @@ impl BlockMold {
     pub const fn turn_counter_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_counter_clockwise(), self.medium) }
     pub const fn full_height_flat(self) -> bool { self.archetype.full_height_flat() }
     pub const fn placed_camera(self) -> bool { matches!(self.medium, BlockMedium::FieldCamera) }
-    pub const fn camera_turn(self) -> u8 { self.archetype.code() % 6 }
+    pub const fn camera_turn(self) -> u8 { self.archetype.code() % 8 }
+    pub fn palm_camera_yaw(self, side: f32) -> f32 {
+        side * match self.camera_turn() {
+            0 => 0.15,
+            1 | 7 => 0.80,
+            2 | 6 => 1.45,
+            3 | 5 => 2.10,
+            _ => 2.75,
+        }
+    }
 
     pub const fn quarter_turns(self) -> u8 {
         let turn_step = match self.turn {

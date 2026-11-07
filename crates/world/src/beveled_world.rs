@@ -115,6 +115,10 @@ impl PlanetaryWorld for BeveledWorld {
         self.world.park_vehicle(assembly)
     }
 
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
+        self.world.placed_camera_tripod()
+    }
+
     fn step_surface(&mut self, dt: f32) -> bool {
         self.world.step_surface(dt)
     }

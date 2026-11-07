@@ -24,7 +24,7 @@ pub use beveled_world::BeveledWorld;
 pub use biome::BiomedCubeWorld;
 pub use block::{
     BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
-    ElevatedShape, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape,
+    ElevatedShape, FieldCameraTripod, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape,
     MoldArchetype, PyramidPeak, RampWedge, RidgeCorner, StairCorner, StairFlight,
     ValleyCorner, VoxelShape, WedgeHeading, WheelProfile,
 };
@@ -102,6 +102,9 @@ pub trait PlanetaryWorld: GravityField {
     fn park_vehicle(&mut self, _assembly: VehicleAssembly) -> bool {
         false
     }
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
+        None
+    }
     fn step_surface(&mut self, _dt: f32) -> bool {
         false
     }
@@ -167,6 +170,9 @@ pub trait Face: Send + Sync {
     }
     fn park_vehicle(&mut self, _assembly: VehicleAssembly) -> bool {
         false
+    }
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
+        None
     }
     fn step_surface(&mut self, _dt: f32) -> bool {
         false

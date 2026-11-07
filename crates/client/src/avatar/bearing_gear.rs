@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, PhotoShutter, SightMode, StrideRhythm, YouthAttire};
+use crate::attire::{BodyPose, CameraMount, PhotoShutter, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger};
 use crate::earthworks::PalmEarthworks;
 use crate::envelope::BodyEnvelope;
@@ -37,12 +37,12 @@ impl AvatarBearing {
         self.tilt_radians
     }
 
-    pub fn start_countdown(&mut self, sight: SightMode) {
-        self.exposure.start_countdown(sight);
+    pub fn press_shutter(&mut self, mount: CameraMount) -> bool {
+        self.exposure.press_shutter(mount)
     }
 
-    pub fn sync_countdown(&mut self, sight: SightMode) {
-        self.exposure.sync_countdown(sight);
+    pub fn reconcile_mount(&mut self, mount: CameraMount) {
+        self.exposure.reconcile_mount(mount);
     }
 
     pub fn take_shutter(&mut self) -> PhotoShutter {
@@ -116,16 +116,11 @@ impl AvatarGear {
     }
 
     pub fn holding_placeable_on(&self, side: f32) -> bool {
-        let hand = self.attire.hand_pair(side).0;
-        hand.placeable_block() && !hand.field_camera()
+        self.attire.hand_pair(side).0.placeable_block()
     }
 
-    pub fn active_camera_sight(&self) -> Option<SightMode> {
-        if self.earthworks.tome_open() {
-            None
-        } else {
-            self.earthworks.active_camera_sight(self.attire)
-        }
+    pub fn placed_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
+        self.earthworks.placed_camera_lens(self.attire)
     }
 
     pub fn standing_envelope(&self, facing: Vec3) -> BodyEnvelope {
@@ -151,36 +146,46 @@ impl AvatarGear {
     }
 
     pub fn dispatch_trigger(&mut self, trigger: InputTrigger, bearing: &mut AvatarBearing, perished: bool) -> bool {
-        if trigger == InputTrigger::WheelClick && !self.satchel_open() && !perished {
-            if let Some(sight) = self.active_camera_sight() {
-                bearing.start_countdown(sight);
-                return true;
-            }
+        if trigger == InputTrigger::WheelClick
+            && !self.satchel_open()
+            && !perished
+            && bearing.press_shutter(self.earthworks.camera_mount(self.attire))
+        {
+            return true;
         }
         let (ew, attire, handled) = self.earthworks.handle_trigger(trigger, &self.bindings, self.attire);
         if handled {
             (self.earthworks, self.attire) = (ew, attire);
-            if let Some(sight) = self.active_camera_sight() {
-                bearing.sync_countdown(sight);
-            }
+            bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
         }
         handled
     }
 
-    pub fn try_adjust_rig(&self, trigger: InputTrigger, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
-        self.earthworks.try_adjust_rig(trigger, &self.bindings, self.attire, eye, view_dir, world)
+    pub fn try_adjust_rig(&mut self, trigger: InputTrigger, bearing: &mut AvatarBearing, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
+        let adjusted = self.earthworks.try_adjust_rig(trigger, &self.bindings, self.attire, eye, view_dir, world);
+        if adjusted && matches!(self.earthworks.camera_mount(self.attire), CameraMount::Placed(_)) {
+            let (ew, attire, _) = self.earthworks.handle_trigger(trigger, &self.bindings, self.attire);
+            (self.earthworks, self.attire) = (ew, attire);
+            bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
+        }
+        adjusted
     }
 
-    pub fn act_with_hand(&mut self, side: f32, rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> (StrideRhythm, bool) {
+    pub fn act_with_hand(
+        &mut self, side: f32, bearing: &mut AvatarBearing, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
+    ) -> bool {
         let (next_ew, next_attire, next_rhythm, changed) =
-            self.earthworks.act_with_hand(side, self.attire, rhythm, eye, view_dir, world);
+            self.earthworks.act_with_hand(side, self.attire, bearing.rhythm(), eye, view_dir, world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
-        (next_rhythm, changed)
+        bearing.apply_rhythm(next_rhythm);
+        bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
+        changed
     }
 
-    pub fn release_hand(&mut self, eye: Vec3, dir: Vec3, position: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
+    pub fn release_hand(&mut self, bearing: &mut AvatarBearing, eye: Vec3, dir: Vec3, position: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
         let (next_ew, next_attire, changed) = self.earthworks.release_hand(self.attire, eye, dir, position, world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
+        bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
         changed
     }
 

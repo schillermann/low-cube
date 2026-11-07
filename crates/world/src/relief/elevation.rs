@@ -87,7 +87,10 @@ pub trait ReliefElevation: Send + Sync {
     fn stack_molded_cell(&mut self, _u: i32, _v: i32, _base: f32, _shape: Box<dyn VoxelShape>) -> bool { false }
 
     /// Raises, lowers, or rotates a polyhedral cantilever rig at or holding (u, v).
-    fn adjust_rig_at(&mut self, _u: i32, _v: i32, _delta_steps: i32, _rotate_quarter: bool) -> bool { false }
+    fn adjust_rig_at(&mut self, _u: i32, _v: i32, _delta_steps: i32, _rotate_quarter: bool) -> (bool, (i32, i32)) { (false, (0, 0)) }
+
+    /// Tripod hub position, base forward axis, and up axis of a placed field camera, if present.
+    fn placed_camera_tripod(&self, _frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> { None }
 
     /// Lowers a polyhedral cantilever rig assembly onto the ground when its mast at (u, v) is clicked.
     fn lower_rig_at(&mut self, _u: i32, _v: i32) -> bool { false }

@@ -133,19 +133,13 @@ impl PlanetaryAvatar {
                 return outcome;
             }
         }
-        let (next_rhythm, changed) = self.gear.act_with_hand(side, self.bearing.rhythm(), eye, view_dir, world);
-        self.bearing.apply_rhythm(next_rhythm);
-        changed
+        self.gear.act_with_hand(side, &mut self.bearing, eye, view_dir, world)
     }
 
     fn step_perish(&mut self, dt: f32, world: &dyn PlanetaryWorld) {
         let (respawn_now, beat) = self.body.advance_perish(dt);
         if respawn_now {
-            let spawn = [(0.25, 0.25), (2.25, 0.25), (-2.25, 0.25), (0.25, 2.25), (0.25, -2.25)]
-                .into_iter()
-                .map(|(x, z)| world.constrain_to_surface(Vec3::new(x, 1024.0, z), 1.0))
-                .fold(world.constrain_to_surface(Vec3::new(0.25, 1024.0, 0.25), 1.0), |acc, c| if c.y > acc.y + 1.5 { c } else { acc });
-            self.body.respawn(spawn);
+            self.body.respawn(world);
             self.sight_line.reset_horizon();
             self.bearing.reset();
             return;
@@ -172,7 +166,7 @@ impl Avatar for PlanetaryAvatar {
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
         if self.body.perished() || self.gear.satchel_open() { return false; }
         let (eye, dir) = self.hand_ray();
-        self.gear.release_hand(eye, dir, self.body.position(), world)
+        self.gear.release_hand(&mut self.bearing, eye, dir, self.body.position(), world)
     }
 
     fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
@@ -191,7 +185,7 @@ impl Avatar for PlanetaryAvatar {
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
         if self.body.perished() { return false; }
         let (eye, dir) = self.hand_ray();
-        self.gear.try_adjust_rig(trigger, eye, dir, world)
+        self.gear.try_adjust_rig(trigger, &mut self.bearing, eye, dir, world)
     }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
@@ -261,10 +255,13 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
-        self.view_projection_for_sight(aspect, self.bearing.sight())
+        self.sight_line.project_view(aspect, self.bearing.tilt_radians(), self.bearing.sight(), self.body.posture(), self.body.position(), &self.current_pose())
     }
 
     fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 {
+        if let Some((eye, fwd, up)) = self.gear.placed_camera_lens() {
+            return self.sight_line.project_lens_view(aspect, eye, fwd, up);
+        }
         self.sight_line.project_view(aspect, self.bearing.tilt_radians(), sight, self.body.posture(), self.body.position(), &self.current_pose())
     }
 

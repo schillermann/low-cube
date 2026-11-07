@@ -54,6 +54,51 @@ const FOOT_SUPPORT_TOLERANCE: f32 = 0.08;
 const LAYER_FLOOR_MARGIN: f32 = 0.05;
 const LAYER_CEILING_MARGIN: f32 = 0.48;
 const RAY_INTERCEPT_MARGIN: f32 = 0.02;
+const NICHE_CONTACT_TOLERANCE: f32 = 0.05;
+const NICHE_MIN_GAP: f32 = 0.45;
+const NICHE_WALL_MARGIN: f32 = 0.10;
+const NICHE_HEAD_CLEARANCE: f32 = 0.15;
+const SUB_METER_NICHE_SPAN: f32 = 0.75;
+
+/// Vertical column slice of elevated blocks evaluating sub-meter niche cavities.
+pub struct NicheColumn<'a> {
+    blocks: &'a [ElevatedShape],
+    ground_h: f32,
+}
+
+impl<'a> NicheColumn<'a> {
+    pub const fn new(blocks: &'a [ElevatedShape], ground_h: f32) -> Self {
+        Self { blocks, ground_h }
+    }
+
+    pub fn confine(&self, elev: f32) -> Option<f32> {
+        let (mut idx, mut floor) = (0, self.ground_h);
+        while idx < self.blocks.len() {
+            let base = self.blocks[idx].floor();
+            if base <= floor + NICHE_CONTACT_TOLERANCE {
+                floor = floor.max(self.blocks[idx].ceiling());
+                idx += 1;
+            } else if base >= floor + NICHE_MIN_GAP {
+                let (cav_ceil, mut roof_top) = (base, self.blocks[idx].ceiling());
+                idx += 1;
+                while idx < self.blocks.len() && self.blocks[idx].floor() <= roof_top + NICHE_CONTACT_TOLERANCE {
+                    roof_top = roof_top.max(self.blocks[idx].ceiling());
+                    idx += 1;
+                }
+                let limit = (cav_ceil + SUB_METER_NICHE_SPAN).max(roof_top - NICHE_WALL_MARGIN);
+                if elev >= floor - NICHE_WALL_MARGIN && elev <= limit {
+                    let min_z = floor + NICHE_HEAD_CLEARANCE;
+                    return Some(elev.clamp(min_z, (cav_ceil - NICHE_HEAD_CLEARANCE).max(min_z)));
+                }
+                floor = roof_top;
+            } else {
+                floor = floor.max(self.blocks[idx].ceiling());
+                idx += 1;
+            }
+        }
+        None
+    }
+}
 
 /// Decorator elevating a voxel shape's base height by an encapsulated offset.
 pub struct ElevatedShape {
@@ -73,6 +118,19 @@ impl ElevatedShape {
     /// Material medium of the underlying sculpted voxel shape.
     pub fn block_medium(&self) -> BlockMedium {
         self.shape.block_medium()
+    }
+
+    /// Indicates whether this elevated shape fills an entire 0.5m cube cell envelope.
+    pub fn full_cube_envelope(&self) -> bool {
+        self.shape.full_cube_envelope()
+    }
+
+    pub fn step_camera_turn(&mut self, delta: i32) -> bool {
+        self.shape.step_camera_turn(delta)
+    }
+
+    pub fn camera_tripod_hub(&self, cell: GridCell, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
+        self.shape.camera_tripod_hub(cell, self.elevation_offset, frame)
     }
 
     /// Cardinal orientation of the underlying sculpted voxel shape.

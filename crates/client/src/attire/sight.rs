@@ -1,5 +1,5 @@
-use glam::{Mat4, Vec3};
-use world::MeshTarget;
+use glam::{Mat4, Quat, Vec3};
+use world::{MeshTarget, MoldArchetype};
 use crate::horizon::ViewFrame;
 use crate::posture::AvatarPosture;
 use super::crown::CrownStyle;
@@ -12,11 +12,13 @@ use super::relic::MartialStyle;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SightMode {
     FirstPersonSight,
-    AngledSight,
+    ForwardAngledSight,
     ProfileSight,
+    AngledSight,
     LookingGlassSight,
-    LeftProfileSight,
     LeftAngledSight,
+    LeftProfileSight,
+    LeftForwardAngledSight,
 }
 
 /// Polymorphic shutter state for diegetic field camera exposures.
@@ -26,25 +28,89 @@ pub enum PhotoShutter {
     Triggered(SightMode),
 }
 
+/// Polymorphic field-camera mount state: unmounted (Null Object), handheld (instant shutter), or placed on a block (6s self-timer).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CameraMount {
+    Unmounted,
+    Handheld(SightMode),
+    Placed(SightMode),
+}
+
+/// World-space tripod lens anchor for a field camera placed on a block.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TripodMount {
+    Unmounted,
+    Mounted {
+        hub: Vec3,
+        base_fwd: Vec3,
+        up: Vec3,
+        turn: u8,
+    },
+}
+
+impl TripodMount {
+    pub const fn placed_sight(self) -> Option<SightMode> {
+        match self {
+            Self::Unmounted => None,
+            Self::Mounted { turn, .. } => Some(SightMode::from_placed_camera_turn(turn)),
+        }
+    }
+
+    pub fn map_mold(self, op: fn(world::BlockMold) -> world::BlockMold) -> Self {
+        match self {
+            Self::Unmounted => Self::Unmounted,
+            Self::Mounted { hub, base_fwd, up, turn } => {
+                let mold = world::BlockMold::with_medium(
+                    MoldArchetype::from_code(turn),
+                    world::CardinalTurn::Forward,
+                    world::BlockMedium::FieldCamera,
+                );
+                Self::Mounted {
+                    hub,
+                    base_fwd,
+                    up,
+                    turn: op(mold).camera_turn(),
+                }
+            }
+        }
+    }
+
+    pub fn lens_ray(self) -> Option<(Vec3, Vec3, Vec3)> {
+        match self {
+            Self::Unmounted => None,
+            Self::Mounted { hub, base_fwd, up, turn } => {
+                let yaw = MoldArchetype::from_code(turn).placed_camera_yaw();
+                let lens_dir = (Quat::from_axis_angle(up, yaw) * base_fwd).normalize_or_zero();
+                let lens_eye = hub + lens_dir * 0.16 + up * 0.015;
+                Some((lens_eye, lens_dir, up))
+            }
+        }
+    }
+}
+
 impl SightMode {
     pub const fn from_camera_turn(camera_turn: u8) -> Self {
-        match camera_turn % 6 {
+        match camera_turn % 8 {
             0 => Self::FirstPersonSight,
-            1 => Self::AngledSight,
+            1 => Self::ForwardAngledSight,
             2 => Self::ProfileSight,
-            3 => Self::LookingGlassSight,
-            4 => Self::LeftProfileSight,
-            _ => Self::LeftAngledSight,
+            3 => Self::AngledSight,
+            4 => Self::LookingGlassSight,
+            5 => Self::LeftAngledSight,
+            6 => Self::LeftProfileSight,
+            _ => Self::LeftForwardAngledSight,
         }
     }
 
     pub const fn from_placed_camera_turn(camera_turn: u8) -> Self {
-        match camera_turn % 6 {
-            0 | 3 => Self::LookingGlassSight,
-            1 => Self::AngledSight,
+        match camera_turn % 8 {
+            0 | 4 => Self::LookingGlassSight,
+            1 => Self::ForwardAngledSight,
             2 => Self::ProfileSight,
-            4 => Self::LeftProfileSight,
-            _ => Self::LeftAngledSight,
+            3 => Self::AngledSight,
+            5 => Self::LeftAngledSight,
+            6 => Self::LeftProfileSight,
+            _ => Self::LeftForwardAngledSight,
         }
     }
 
@@ -52,7 +118,10 @@ impl SightMode {
         match self {
             Self::FirstPersonSight => "landscape",
             Self::LookingGlassSight => "front",
-            Self::AngledSight | Self::LeftAngledSight => "angled",
+            Self::ForwardAngledSight
+            | Self::LeftForwardAngledSight
+            | Self::AngledSight
+            | Self::LeftAngledSight => "angled",
             Self::ProfileSight | Self::LeftProfileSight => "side",
         }
     }
@@ -87,9 +156,7 @@ impl SightMode {
                     pose.arm(side, MartialStyle::Unarmed).external(false)
                 }
             }
-            Self::LookingGlassSight | Self::AngledSight | Self::ProfileSight | Self::LeftProfileSight | Self::LeftAngledSight => {
-                pose.arm(side, martial).external(holding)
-            }
+            _ => pose.arm(side, martial).external(holding),
         }
     }
 
@@ -101,11 +168,8 @@ impl SightMode {
         pigment: PigmentSwatch,
         target: &mut dyn MeshTarget,
     ) {
-        match self {
-            Self::FirstPersonSight => {}
-            Self::LookingGlassSight | Self::AngledSight | Self::ProfileSight | Self::LeftProfileSight | Self::LeftAngledSight => {
-                crown.emit(pose, complexion, pigment, target);
-            }
+        if !matches!(self, Self::FirstPersonSight) {
+            crown.emit(pose, complexion, pigment, target);
         }
     }
 
@@ -118,7 +182,7 @@ impl SightMode {
     ) -> Mat4 {
         match self {
             Self::FirstPersonSight => posture.view_matrix(frame, position),
-            Self::LookingGlassSight | Self::AngledSight | Self::ProfileSight | Self::LeftProfileSight | Self::LeftAngledSight => {
+            _ => {
                 let torso = pose.stance_frame();
                 let up = (torso.point(0.0, 1.0, 0.0) - torso.point(0.0, 0.0, 0.0)).normalize();
                 let (hand_pitch, crouch_shift) = pose.held_camera_elevation();
@@ -128,10 +192,12 @@ impl SightMode {
                 let diag = dist * 0.72;
                 let eye = match self {
                     Self::LookingGlassSight => torso.point(0.0, eye_y, dist),
-                    Self::AngledSight => torso.point(diag, eye_y, diag),
+                    Self::ForwardAngledSight => torso.point(diag, eye_y, -diag),
                     Self::ProfileSight => torso.point(dist, eye_y, 0.0),
+                    Self::AngledSight => torso.point(diag, eye_y, diag),
+                    Self::LeftAngledSight => torso.point(-diag, eye_y, diag),
                     Self::LeftProfileSight => torso.point(-dist, eye_y, 0.0),
-                    _ => torso.point(-diag, eye_y, diag),
+                    _ => torso.point(-diag, eye_y, -diag),
                 };
                 let target = torso.point(0.0, target_y, 0.0);
                 Mat4::look_at_rh(eye, target, up)

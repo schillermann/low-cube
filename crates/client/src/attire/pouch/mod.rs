@@ -1,37 +1,21 @@
+mod palms;
+
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, PlanetaryWorld};
 use super::limb::LimbFrame;
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
-use super::sight::SightMode;
+use super::sight::{CameraMount, TripodMount};
 use super::tray::SatchelTray;
 use super::YouthAttire;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-struct PalmStack { right_blocks: u32, left_blocks: u32, right_mold: BlockMold, left_mold: BlockMold }
-
-impl PalmStack {
-    const fn blocks_on(&self, side: f32) -> u32 { if side > 0.0 { self.right_blocks } else { self.left_blocks } }
-    const fn mold_on(&self, side: f32) -> BlockMold { if side > 0.0 { self.right_mold } else { self.left_mold } }
-    fn assign_blocks(&mut self, side: f32, blocks: u32) {
-        if side > 0.0 { self.right_blocks = blocks; } else { self.left_blocks = blocks; }
-    }
-    fn assign_mold(&mut self, side: f32, mold: BlockMold) {
-        if side > 0.0 { self.right_mold = mold; } else { self.left_mold = mold; }
-    }
-    fn reset_mold(&mut self, side: f32) {
-        if side > 0.0 { self.right_mold = BlockMold::cube(); } else { self.left_mold = BlockMold::cube(); }
-    }
-    fn sync_mold_from_opposite(&mut self, side: f32) {
-        if side > 0.0 { self.right_mold = self.left_mold; } else { self.left_mold = self.right_mold; }
-    }
-}
+use self::palms::PalmStack;
 
 /// Shared satchel inventory with invisible stowed storage, WASD inspection grid, and dual-hand block molds.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BeltSatchel {
     palms: PalmStack,
     tray: SatchelTray,
+    tripod: TripodMount,
 }
 
 impl BeltSatchel {
@@ -41,12 +25,15 @@ impl BeltSatchel {
         active_side: f32, cursor: usize, open: bool,
     ) -> Self {
         Self {
-            palms: PalmStack { right_blocks, left_blocks, right_mold, left_mold },
+            palms: PalmStack::new(right_blocks, left_blocks, right_mold, left_mold),
             tray: SatchelTray::new(stowed, active_side, cursor, open),
+            tripod: TripodMount::Unmounted,
         }
     }
 
-    pub const fn empty() -> Self { Self::new(0, 0, [0; 20], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false) }
+    pub const fn empty() -> Self {
+        Self::new(0, 0, [0; 20], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false)
+    }
 
     pub fn with_stowed_relic(mut self, relic: HeldRelic, count: u32) -> Self {
         if count > 0 {
@@ -55,33 +42,25 @@ impl BeltSatchel {
         self
     }
 
-    pub fn with_test_engines(mut self) -> Self {
-        self.tray.stow_relic(HeldRelic::FieldCamera, 1);
-        self.tray.stow_relic(HeldRelic::RocketEngine, 1);
-        self.tray.stow_relic(HeldRelic::AircraftEngine, 1);
-        self.tray.stow_relic(HeldRelic::SteeringWheel, 1);
-        self.tray.stow_relic(HeldRelic::CarWheel, 8);
-        self.tray.stow_relic(HeldRelic::CabinSeat, 2);
-        self
-    }
     pub const fn open(&self) -> bool { self.tray.open() }
     pub const fn with_open(mut self, open: bool) -> Self { self.tray = self.tray.with_open(open); self }
-    pub const fn camera_sight_on(&self, side: f32) -> SightMode {
-        SightMode::from_camera_turn(self.palms.mold_on(side).camera_turn())
+    pub const fn camera_mount(&self, attire: YouthAttire) -> CameraMount {
+        let mount = self.palms.camera_mount(attire);
+        if matches!(mount, CameraMount::Handheld(_)) {
+            mount
+        } else if let Some(sight) = self.tripod.placed_sight() {
+            CameraMount::Placed(sight)
+        } else {
+            mount
+        }
     }
 
-    pub const fn active_camera_sight(&self, attire: YouthAttire) -> Option<SightMode> {
+    pub fn placed_camera_lens(&self, attire: YouthAttire) -> Option<(Vec3, Vec3, Vec3)> {
         let (r, l) = attire.held_pair();
-        if r.field_camera() {
-            Some(self.camera_sight_on(1.0))
-        } else if l.field_camera() {
-            Some(self.camera_sight_on(-1.0))
-        } else if self.palms.right_mold.placed_camera() {
-            Some(SightMode::from_placed_camera_turn(self.palms.right_mold.camera_turn()))
-        } else if self.palms.left_mold.placed_camera() {
-            Some(SightMode::from_placed_camera_turn(self.palms.left_mold.camera_turn()))
-        } else {
+        if r.field_camera() || l.field_camera() {
             None
+        } else {
+            self.tripod.lens_ray()
         }
     }
 
@@ -92,38 +71,25 @@ impl BeltSatchel {
 
     pub fn map_mold(mut self, attire: YouthAttire, op: fn(BlockMold) -> BlockMold) -> Self {
         let (r, l) = attire.held_pair();
-        let any_stowed = self.tray.any_stowed_blocks();
-        let (mr, ml) = if r.rotatable_in_palm() || l.rotatable_in_palm() {
+        let (pr, pl) = self.palms.placed_camera_sides();
+        let (mr, ml) = if r.field_camera() || l.field_camera() {
+            (r.field_camera(), l.field_camera())
+        } else if r.rotatable_in_palm() || l.rotatable_in_palm() {
             (r.rotatable_in_palm(), l.rotatable_in_palm())
-        } else if self.palms.right_mold.placed_camera() || self.palms.left_mold.placed_camera() {
-            (self.palms.right_mold.placed_camera(), self.palms.left_mold.placed_camera())
-        } else if self.palms.right_blocks == 0 && self.palms.left_blocks == 0 && !any_stowed {
+        } else if pr || pl || self.tripod.placed_sight().is_some() {
+            self.tripod = self.tripod.map_mold(op);
+            (pr, pl)
+        } else if self.palms.empty_hands() && !self.tray.any_stowed_blocks() {
             (true, true)
         } else {
             (self.tray.active_side() > 0.0, self.tray.active_side() < 0.0)
         };
-        if mr {
-            let m = if r.placeable_block() { self.palms.right_mold.in_medium(r.block_medium()) } else { self.palms.right_mold };
-            self.palms.right_mold = op(m);
-        }
-        if ml {
-            let m = if l.placeable_block() { self.palms.left_mold.in_medium(l.block_medium()) } else { self.palms.left_mold };
-            self.palms.left_mold = op(m);
-        }
+        self.palms.map_sides(attire, mr, ml, op);
         self
     }
 
     pub fn reconcile_attire(mut self, attire: YouthAttire) -> Self {
-        let (r, l) = attire.held_pair();
-        if r.placeable_block() && l.placeable_block() && !r.field_camera() && !l.field_camera() {
-            if self.palms.right_blocks == 0 && self.palms.left_blocks > 0 {
-                self.palms.right_mold = self.palms.left_mold;
-            } else if self.palms.left_blocks == 0 && self.palms.right_blocks > 0 {
-                self.palms.left_mold = self.palms.right_mold;
-            }
-        }
-        self.palms.right_blocks = if r.placeable_block() { self.palms.right_blocks.max(1) } else { 0 };
-        self.palms.left_blocks = if l.placeable_block() { self.palms.left_blocks.max(1) } else { 0 };
+        self.palms.reconcile_attire(attire);
         self
     }
 
@@ -146,7 +112,7 @@ impl BeltSatchel {
             if hand.gripped() { state.tray.stow_relic(hand, state.palms.blocks_on(side)); }
             if chosen.placeable_block() && other.placeable_block() && !chosen.field_camera() && !other.field_camera() {
                 state.palms.sync_mold_from_opposite(side);
-            } else if !chosen.placeable_block() || chosen.field_camera() {
+            } else if !chosen.placeable_block() || chosen.field_camera() || state.palms.mold_on(side).placed_camera() {
                 state.palms.reset_mold(side);
             }
             state.palms.assign_blocks(side, u32::from(chosen.placeable_block()));
@@ -180,15 +146,30 @@ impl BeltSatchel {
         if !world.place_molded_surface_block(eye, view_dir, avatar_pos, placed_mold) {
             return (self, attire, false);
         }
+        if hand.field_camera() {
+            self.tripod = world.placed_camera_tripod().map_or(
+                TripodMount::Unmounted,
+                |(hub, base_fwd, up)| TripodMount::Mounted {
+                    hub,
+                    base_fwd,
+                    up,
+                    turn: placed_mold.camera_turn(),
+                },
+            );
+        }
         self.palms.assign_mold(side, placed_mold);
         self.tray.focus_side(side);
-        let has_refill = self.tray.take_stowed(hand);
+        let has_refill = !hand.field_camera() && self.tray.take_stowed(hand);
         let next_hand = if has_refill { hand } else { HeldRelic::EmptyPalm };
         self.palms.assign_blocks(side, u32::from(has_refill));
         (self, attire.with_hand_relic(side, next_hand), true)
     }
 
     pub fn collect_excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
+        if relic == HeldRelic::FieldCamera {
+            self.tripod = TripodMount::Unmounted;
+            self.palms.clear_placed_cameras();
+        }
         if relic == HeldRelic::CantileverCrane {
             for (part, qty) in [
                 (HeldRelic::FieldCamera, 1),
@@ -241,11 +222,11 @@ impl BeltSatchel {
     pub fn collect_felled_timber(mut self, side: f32, attire: YouthAttire) -> (Self, YouthAttire) {
         let (r, l) = attire.held_pair();
         let next_attire = if r.free_palm() {
-            self.palms.right_blocks = 1;
+            self.palms.assign_blocks(1.0, 1);
             self.tray.stow_relic(HeldRelic::TimberBlock, 2);
             attire.with_relics(HeldRelic::TimberBlock, l)
         } else if l.free_palm() {
-            self.palms.left_blocks = 1;
+            self.palms.assign_blocks(-1.0, 1);
             self.tray.stow_relic(HeldRelic::TimberBlock, 2);
             attire.with_relics(r, HeldRelic::TimberBlock)
         } else {
@@ -264,10 +245,10 @@ impl BeltSatchel {
                 let (r, l) = attire.held_pair();
                 if !self.tray.take_stowed(ing) {
                     if r == ing {
-                        self.palms.right_blocks = 0;
+                        self.palms.assign_blocks(1.0, 0);
                         attire = attire.with_relics(HeldRelic::EmptyPalm, l);
                     } else if l == ing {
-                        self.palms.left_blocks = 0;
+                        self.palms.assign_blocks(-1.0, 0);
                         attire = attire.with_relics(r, HeldRelic::EmptyPalm);
                     }
                 }

@@ -1,3 +1,5 @@
+mod camera;
+
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{
@@ -10,24 +12,43 @@ use super::{
     YouthPhysique,
 };
 
-struct QuadLedger { quads: Vec<Quad> }
+pub(super) struct QuadLedger {
+    pub(super) quads: Vec<Quad>,
+}
 
 impl QuadLedger {
-    fn empty() -> Self { Self { quads: Vec::new() } }
-    fn populated(&self) -> bool { !self.quads.is_empty() }
-    fn exceeds(&self, other: &Self) -> bool { self.quads.len() > other.quads.len() }
-    fn visible_in_frustum(&self, vp: glam::Mat4) -> usize {
-        self.quads.iter().filter(|q| {
-            q.transfer(|v0, _, _, _, _, _| {
-                let clip = vp * v0.extend(1.0);
-                clip.w > 0.03 && (clip.x / clip.w).abs() < 1.0 && (clip.y / clip.w).abs() < 1.0 && (clip.z / clip.w).abs() <= 1.0
+    pub(super) fn empty() -> Self {
+        Self { quads: Vec::new() }
+    }
+
+    pub(super) fn populated(&self) -> bool {
+        !self.quads.is_empty()
+    }
+
+    pub(super) fn exceeds(&self, other: &Self) -> bool {
+        self.quads.len() > other.quads.len()
+    }
+
+    pub(super) fn visible_in_frustum(&self, vp: glam::Mat4) -> usize {
+        self.quads
+            .iter()
+            .filter(|q| {
+                q.transfer(|v0, _, _, _, _, _| {
+                    let clip = vp * v0.extend(1.0);
+                    clip.w > 0.03
+                        && (clip.x / clip.w).abs() < 1.0
+                        && (clip.y / clip.w).abs() < 1.0
+                        && (clip.z / clip.w).abs() <= 1.0
+                })
             })
-        }).count()
+            .count()
     }
 }
 
 impl MeshTarget for QuadLedger {
-    fn push_quad(&mut self, quad: Quad) { self.quads.push(quad); }
+    fn push_quad(&mut self, quad: Quad) {
+        self.quads.push(quad);
+    }
 }
 
 fn world_with_cube_at(u: i32, v: i32) -> CubePlanet {
@@ -182,115 +203,3 @@ fn test_spade_and_dirt_block_replaces_held_block_when_excavating_different_mediu
     assert_eq!(attire_same.held_pair(), (HeldRelic::IronSpade, HeldRelic::CrustBlock));
     assert_eq!(satchel_same.resource_tally(HeldRelic::CrustBlock, attire_same), 2);
 }
-
-#[test]
-fn test_field_camera_rotation_shutter_sound_and_server_satchel_provisioning() {
-    use crate::attire::PhotoShutter;
-    use crate::cardiac::{AcousticWave, ShutterClick};
-    use crate::controls::InputTrigger;
-    use crate::photo_plate::PhotoPlate;
-    use crate::server_satchel::{ArgumentSatchel, FileSatchel, ParsedSatchel, ServerSatchel, StartingSatchel, TestKitSatchel};
-
-    let test_satchel = TestKitSatchel::new().provision(super::BeltSatchel::empty());
-    let squire = YouthAttire::squire();
-    assert_eq!(test_satchel.resource_tally(HeldRelic::FieldCamera, squire), 1);
-
-    let custom = ParsedSatchel::parse("field_camera:2, woodman_axe, car_wheel:4", "test").provision(super::BeltSatchel::empty());
-    assert_eq!(custom.resource_tally(HeldRelic::FieldCamera, squire), 2);
-    assert_eq!(custom.resource_tally(HeldRelic::WoodmanAxe, squire), 1);
-    assert_eq!(custom.resource_tally(HeldRelic::CarWheel, squire), 4);
-    assert_eq!(custom.resource_tally(HeldRelic::RocketEngine, squire), 0);
-
-    let args = vec!["client".to_string(), "--inventory".to_string(), "camera,iron_spade:2".to_string()];
-    let cli_satchel = ArgumentSatchel::from_arguments(&args, Box::new(FileSatchel::server(Box::new(TestKitSatchel::new()))))
-        .provision(super::BeltSatchel::empty());
-    assert_eq!(cli_satchel.resource_tally(HeldRelic::FieldCamera, squire), 1);
-    assert_eq!(cli_satchel.resource_tally(HeldRelic::IronSpade, squire), 2);
-
-    let shutter_sound = ShutterClick::mechanical();
-    let open_peak = (1..15).map(|ms| shutter_sound.amplitude_at((ms as f32) * 0.001).abs()).fold(0.0f32, f32::max);
-    let close_peak = (64..85).map(|ms| shutter_sound.amplitude_at((ms as f32) * 0.001).abs()).fold(0.0f32, f32::max);
-    assert!(open_peak > 0.25 && close_peak > 0.20 && shutter_sound.riff_wave().starts_with(b"RIFF"));
-
-    let mut world = world::BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 1.0);
-    let mut avatar = PlanetaryAvatar::at(spawn).with_starting_satchel(&ServerSatchel::assembled());
-    avatar.apply_attire(squire.with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
-
-    // 0. Camera pointing forward -> WheelClick starts 6s countdown (numbers shrink large->small) + Polaroid overlay
-    let mut base_reticle = QuadLedger::empty();
-    avatar.emit_reticle(&mut base_reticle);
-    let mut mesh_fwd = QuadLedger::empty();
-    avatar.emit_appearance(&mut mesh_fwd);
-    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Idle);
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
-    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Idle);
-    let (mut cd_large, mut cd_small) = (QuadLedger::empty(), QuadLedger::empty());
-    avatar.emit_reticle(&mut cd_large);
-    avatar.step_motion(0.8, &crate::controls::KeyMotion::idle(), &world);
-    avatar.emit_reticle(&mut cd_small);
-    let span_y = |l: &QuadLedger| l.quads.iter().skip(base_reticle.quads.len()).map(|q| q.transfer(|v0, _, v2, _, _, _| v0.y.abs().max(v2.y.abs()))).fold(0.0f32, f32::max);
-    assert!(cd_large.quads.len() > base_reticle.quads.len() && span_y(&cd_large) > span_y(&cd_small) + 0.04);
-    avatar.step_motion(5.3, &crate::controls::KeyMotion::idle(), &world);
-    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::FirstPersonSight));
-    assert_eq!(SightMode::FirstPersonSight.photo_label(), "landscape");
-    let tilt_shot_0 = avatar.polaroid_tilt();
-    assert!(tilt_shot_0.abs() > 0.05, "Polaroid must be tilted at a diagonal angle");
-    let mut polaroid_reticle = QuadLedger::empty();
-    avatar.emit_reticle(&mut polaroid_reticle);
-    assert!(polaroid_reticle.quads.len() > base_reticle.quads.len() + 300, "Polaroid overlay must appear centered on screen");
-    let mut landscape_avatar = QuadLedger::empty();
-    avatar.emit_appearance_for_sight(SightMode::FirstPersonSight, &mut landscape_avatar);
-    assert!(!landscape_avatar.populated(), "Landscape photo must not be obstructed by the player's own body");
-
-    // 1. Rotate camera diagonally (schräg) and sideways (seitlich) -> angled and side photos
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
-    let mut mesh_diag = QuadLedger::empty();
-    avatar.emit_appearance(&mut mesh_diag);
-    let v0_list = |l: &QuadLedger| -> Vec<Vec3> { l.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect() };
-    assert_ne!(v0_list(&mesh_fwd), v0_list(&mesh_diag), "Rotating camera must visibly turn the camera in the hand");
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
-    avatar.step_motion(6.1, &crate::controls::KeyMotion::idle(), &world);
-    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::AngledSight));
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
-    avatar.step_motion(6.1, &crate::controls::KeyMotion::idle(), &world);
-    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::ProfileSight));
-    let tilt_shot_1 = avatar.polaroid_tilt();
-    assert_ne!(tilt_shot_0, tilt_shot_1, "Consecutive Polaroids must appear at different tilt rotations");
-    let mut side_avatar = QuadLedger::empty();
-    avatar.emit_appearance_for_sight(SightMode::ProfileSight, &mut side_avatar);
-    assert!(side_avatar.visible_in_frustum(avatar.view_projection_for_sight(16.0 / 9.0, SightMode::ProfileSight)) > 20);
-
-    // 2. Rotate camera directly toward player -> front photo + place camera on block & trigger countdown
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
-    avatar.step_motion(6.1, &crate::controls::KeyMotion::idle(), &world);
-    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::LookingGlassSight));
-    let vp_front_level = avatar.view_projection_for_sight(16.0 / 9.0, SightMode::LookingGlassSight);
-    avatar.rotate_degrees(0.0, -35.0);
-    let vp_front_high = avatar.view_projection_for_sight(16.0 / 9.0, SightMode::LookingGlassSight);
-    avatar.rotate_degrees(0.0, 70.0);
-    let vp_front_low = avatar.view_projection_for_sight(16.0 / 9.0, SightMode::LookingGlassSight);
-    let cam_y_high = vp_front_high.inverse().project_point3(Vec3::ZERO).y;
-    let cam_y_level = vp_front_level.inverse().project_point3(Vec3::ZERO).y;
-    let cam_y_low = vp_front_low.inverse().project_point3(Vec3::ZERO).y;
-    assert!(cam_y_high > cam_y_level + 0.25 && cam_y_level > cam_y_low + 0.25, "Camera angle and elevation must track held camera height");
-    let mut high_selfie = QuadLedger::empty();
-    avatar.emit_appearance_for_sight(SightMode::LookingGlassSight, &mut high_selfie);
-    let max_ndc_y = high_selfie.quads.iter().map(|q| vp_front_high.project_point3(q.transfer(|v0, _, _, _, _, _| v0)).y).fold(-1.0f32, f32::max);
-    assert!( max_ndc_y < 0.92, "High selfie camera angle must keep the player's head inside the top of the frame (got max_ndc_y={max_ndc_y})");
-    avatar.rotate_degrees(0.0, 23.0);
-    assert!(!avatar.use_right_hand(&mut world) && avatar.release_hand(&mut world));
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
-    avatar.step_motion(6.1, &crate::controls::KeyMotion::idle(), &world);
-    assert_eq!(avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::LookingGlassSight));
-
-    let temp_dir = std::env::temp_dir().join("lowcube_test_screenshots");
-    let path = PhotoPlate::new(4, 3, vec![180u8; 4 * 3 * 4]).develop_into(temp_dir.to_str().unwrap(), "front");
-    let bytes = std::fs::read(&path).expect("PNG screenshot must exist on disk");
-    assert!(bytes.starts_with(b"\x89PNG\r\n\x1a\n") && bytes.ends_with(b"IEND\xaeB`\x82"));
-    let _ = std::fs::remove_dir_all(&temp_dir);
-}
-
-
