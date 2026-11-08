@@ -24,9 +24,9 @@ pub use beveled_world::BeveledWorld;
 pub use biome::BiomedCubeWorld;
 pub use block::{
     BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
-    ElevatedShape, FieldCameraTripod, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape,
-    MoldArchetype, PyramidPeak, RampWedge, RidgeCorner, StairCorner, StairFlight,
-    ValleyCorner, VoxelShape, WedgeHeading, WheelProfile,
+    ElevatedShape, FieldCameraTripod, FootwellPlinth, GentleRidge, GentleValley, GentleWedge, GridCell,
+    MediumShape, MoldArchetype, PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, StairCorner,
+    StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
 };
 pub use frame::SurfaceFrame;
 pub use mesh_target::{

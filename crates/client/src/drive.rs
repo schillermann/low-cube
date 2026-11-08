@@ -223,7 +223,11 @@ mod tests {
         for (i, sm) in [seat_mold, bench_mold, stool_mold, throne_mold].into_iter().enumerate() {
             sm.shape_for(Vec3::NEG_Z, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut seat_meshes[i]);
         }
-        assert!(seat_meshes[0].0 != seat_meshes[1].0 && seat_meshes[2].0 == seat_meshes[0].0 && seat_meshes[3].0 == seat_meshes[1].0 && seat_meshes[0].0.iter().all(|v| v.z > 0.15));
+        assert!(seat_meshes[0].0 != seat_meshes[1].0 && seat_meshes[2].0 == seat_meshes[0].0 && seat_meshes[3].0 == seat_meshes[1].0 && seat_meshes[0].0.iter().any(|v| v.z <= 0.05) && seat_meshes[0].0.iter().filter(|v| v.y > 0.15).all(|v| v.z > 0.15));
+        let pedal_mold = BlockMold::cube().in_medium(BlockMedium::PedalCluster);
+        let mut pedal_verts = VertCollector(Vec::new());
+        pedal_mold.shape_for(Vec3::NEG_Z, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut pedal_verts);
+        assert!(!pedal_verts.0.is_empty());
         let (wheel_mold, av_pos) = (m2, Vec3::new(0.25, g0, 1.75));
         assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), Vec3::new(0.0, -0.8, -0.6).normalize(), av_pos, bench_mold));
         let cam_pos = |a: &PlanetaryAvatar| a.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
@@ -282,18 +286,15 @@ mod tests {
         let braked_x = cam_pos(&driver).x;
         for _ in 0..35 { driver.step_motion(1.0 / 60.0, &hold_s, &world); }
         assert!(cam_pos(&driver).x < braked_x - 0.35);
-        let posture = AvatarPosture::crouching();
-        let pose_c = posture.body_pose(Vec3::ZERO, Quat::IDENTITY, Quat::IDENTITY, StrideRhythm::idle()).with_surface_rotation(Quat::IDENTITY).with_seated_steer(0.0);
-        let pose_l = posture.body_pose(Vec3::ZERO, Quat::IDENTITY, Quat::from_rotation_y(0.9), StrideRhythm::idle()).with_surface_rotation(Quat::IDENTITY).with_seated_steer(0.0);
+
+        let pose_c = AvatarPosture::crouching().body_pose(Vec3::ZERO, Quat::IDENTITY, Quat::IDENTITY, StrideRhythm::idle()).with_surface_rotation(Quat::IDENTITY).with_seated_steer(0.0);
+        let pose_l = AvatarPosture::crouching().body_pose(Vec3::ZERO, Quat::IDENTITY, Quat::from_rotation_y(0.9), StrideRhythm::idle()).with_surface_rotation(Quat::IDENTITY).with_seated_steer(0.0);
         assert_eq!(pose_c.torso_frame().point(0.2, 0.5, 0.3), pose_l.torso_frame().point(0.2, 0.5, 0.3));
         assert_eq!(pose_c.leg_joints(1.0), pose_l.leg_joints(1.0));
         assert_ne!(pose_c.crown_frame().point(0.0, 0.1, 0.1), pose_l.crown_frame().point(0.0, 0.1, 0.1));
-
         let (pose_left, pose_right) = (pose_c.with_seated_steer(-1.0), pose_c.with_seated_steer(1.0));
-        let r_left = pose_left.arm(1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0);
-        let r_right = pose_right.arm(1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0);
-        let l_left = pose_left.arm(-1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0);
-        let l_right = pose_right.arm(-1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0);
+        let (r_left, r_right) = (pose_left.arm(1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0), pose_right.arm(1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0));
+        let (l_left, l_right) = (pose_left.arm(-1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0), pose_right.arm(-1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0));
         assert!(r_left.y > r_right.y + 0.08 && l_right.y > l_left.y + 0.08);
     }
 }

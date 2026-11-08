@@ -6,6 +6,7 @@ use super::cell::GridCell;
 use super::earth_clods::EarthClods;
 use super::field_camera::FieldCameraTripod;
 use super::mold::MoldArchetype;
+use super::pedal_cluster::{FootwellPlinth, PedalClusterMesh};
 use super::shape::VoxelShape;
 use super::vehicle_parts::{VehicleBlockMesh, WheelProfile};
 use super::wedge::WedgeHeading;
@@ -26,6 +27,7 @@ pub enum BlockMedium {
     CabinSeat,
     CarWheel,
     FieldCamera,
+    PedalCluster,
 }
 
 impl BlockMedium {
@@ -46,7 +48,7 @@ impl BlockMedium {
 
     /// Indicates whether this block medium is a vehicle component that can initiate or attach to a crane assembly.
     pub const fn rig_mountable(self) -> bool {
-        self.vehicle_engine() || matches!(self, Self::CabinSeat | Self::CarWheel)
+        self.vehicle_engine() || matches!(self, Self::CabinSeat | Self::CarWheel | Self::PedalCluster)
     }
 
     /// Indicates whether this medium is a portable item picked up in a single click without excavation stages.
@@ -77,6 +79,7 @@ impl BlockMedium {
             Self::RocketEngine => (Vec3::new(0.99, 0.32, 0.14), Vec3::new(0.24, 0.22, 0.28)),
             Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.36, 0.20, 0.13)),
             Self::CarWheel => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
+            Self::PedalCluster => (Vec3::new(0.88, 0.22, 0.18), Vec3::new(0.24, 0.84, 0.36)),
         }
     }
 
@@ -247,6 +250,8 @@ impl VoxelShape for MediumShape {
     fn emit_driven_part(&self, cell: GridCell, floor_elevation: f32, spin_angle: f32, steer_angle: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, target: &mut dyn MeshTarget) {
         if self.medium == BlockMedium::CabinSeat {
             CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target);
+        } else if self.medium == BlockMedium::PedalCluster {
+            PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target);
         } else if self.medium == BlockMedium::FieldCamera {
             FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
         } else if matches!(self.medium, BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel) {
@@ -266,6 +271,7 @@ impl VoxelShape for MediumShape {
                 BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target);
             }
             (BlockMedium::CabinSeat, _) => CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target),
+            (BlockMedium::PedalCluster, _) => PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
             (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel, _) => {
                 VehicleBlockMesh::with_archetype(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);

@@ -116,7 +116,7 @@ impl AvatarGear {
     }
 
     pub fn holding_placeable_on(&self, side: f32) -> bool {
-        self.attire.hand_pair(side).0.placeable_block()
+        self.attire.hand_pair(side).0.blocks_perch()
     }
 
     pub fn placed_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {

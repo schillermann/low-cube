@@ -90,7 +90,8 @@ impl VehicleBlockMesh {
             WedgeHeading::South => (-b, t),
         };
         let origin = frame.point_at(uc, vc, floor_elev);
-        let (iron_base, column_steel, spoke_chrome, grip_leather, grip_seam, brass, marker_red) = (
+        let (walnut, iron_base, column_steel, spoke_chrome, grip_leather, grip_seam, brass, marker_red) = (
+            Vec3::new(0.34, 0.19, 0.11),
             Vec3::new(0.20, 0.22, 0.27),
             Vec3::new(0.32, 0.36, 0.42),
             Vec3::new(0.66, 0.70, 0.76),
@@ -108,17 +109,30 @@ impl VehicleBlockMesh {
             }
         };
         let base_pt = |x: f32, y: f32, z: f32| origin + right * x + up * y + fwd * z;
+        // Full-width sculpted dashboard cowl, walnut fascia, and glowing instrument dials
         emit_prism(
-            base_pt(-0.14, 0.0, -0.08), base_pt(0.14, 0.0, -0.08), base_pt(0.14, 0.0, 0.16), base_pt(-0.14, 0.0, 0.16),
-            base_pt(-0.11, 0.06, -0.05), base_pt(0.11, 0.06, -0.05), base_pt(0.11, 0.06, 0.13), base_pt(-0.11, 0.06, 0.13),
-            iron_base, column_steel, target,
+            base_pt(-0.24, 0.0, -0.06), base_pt(0.24, 0.0, -0.06), base_pt(0.24, 0.0, 0.24), base_pt(-0.24, 0.0, 0.24),
+            base_pt(-0.23, 0.25, -0.02), base_pt(0.23, 0.25, -0.02), base_pt(0.24, 0.29, 0.22), base_pt(-0.24, 0.29, 0.22),
+            walnut, grip_leather, target,
         );
+        emit_prism(
+            base_pt(-0.245, 0.24, -0.04), base_pt(0.245, 0.24, -0.04), base_pt(0.245, 0.25, 0.06), base_pt(-0.245, 0.25, 0.06),
+            base_pt(-0.245, 0.27, -0.04), base_pt(0.245, 0.27, -0.04), base_pt(0.245, 0.28, 0.06), base_pt(-0.245, 0.28, 0.06),
+            brass, grip_leather, target,
+        );
+        for (gx, dial_col) in [(-0.14f32, Vec3::new(0.26, 0.90, 0.82)), (0.0f32, brass), (0.14f32, marker_red)] {
+            target.push_quad(Quad::glowing(
+                base_pt(gx - 0.036, 0.13, -0.052), base_pt(gx + 0.036, 0.13, -0.052),
+                base_pt(gx + 0.036, 0.21, -0.032), base_pt(gx - 0.036, 0.21, -0.032),
+                -fwd, dial_col, 0.88,
+            ));
+        }
         target.push_quad(Quad::glowing(
-            base_pt(-0.045, 0.062, 0.07), base_pt(0.045, 0.062, 0.07), base_pt(0.0, 0.062, 0.155), base_pt(0.0, 0.062, 0.155),
+            base_pt(-0.045, 0.285, 0.07), base_pt(0.045, 0.285, 0.07), base_pt(0.0, 0.292, 0.18), base_pt(0.0, 0.292, 0.18),
             up, brass, 0.85,
         ));
         emit_prism(
-            base_pt(-0.045, 0.05, 0.02), base_pt(0.045, 0.05, 0.02), base_pt(0.045, 0.05, 0.10), base_pt(-0.045, 0.05, 0.10),
+            base_pt(-0.045, 0.16, -0.02), base_pt(0.045, 0.16, -0.02), base_pt(0.045, 0.18, 0.06), base_pt(-0.045, 0.18, 0.06),
             base_pt(-0.032, 0.30, -0.09), base_pt(0.032, 0.30, -0.09), base_pt(0.032, 0.33, -0.03), base_pt(-0.032, 0.33, -0.03),
             iron_base, column_steel, target,
         );
@@ -224,52 +238,35 @@ impl VehicleBlockMesh {
         let (rim_r, hub_r) = (r * 0.56, r * 0.28);
         let (uc, vc) = cell.center();
         let hc = floor_elev + r;
-        let (rubber, tread, rim, hub) = (
-            Vec3::new(0.15, 0.17, 0.20),
-            Vec3::new(0.10, 0.11, 0.13),
-            Vec3::new(0.68, 0.72, 0.78),
-            Vec3::new(0.90, 0.70, 0.22),
-        );
+        let (rubber, tread, rim, hub) = (Vec3::new(0.15, 0.17, 0.20), Vec3::new(0.10, 0.11, 0.13), Vec3::new(0.68, 0.72, 0.78), Vec3::new(0.90, 0.70, 0.22));
         let cross = self.cross_grain();
         let pt = |roll: f32, axle: f32, h: f32| -> Vec3 {
-            if cross {
-                frame.point_at(uc + roll, vc + axle, hc + h)
-            } else {
-                frame.point_at(uc + axle, vc + roll, hc + h)
-            }
+            if cross { frame.point_at(uc + roll, vc + axle, hc + h) } else { frame.point_at(uc + axle, vc + roll, hc + h) }
         };
         let axle_norm = if cross { frame.bitangent() } else { frame.tangent() };
-        let segs = 8usize;
-        let step = (2.0 * PI) / (segs as f32);
+        let (segs, step) = (8usize, (2.0 * PI) / 8.0);
+        // Connecting steel axle rod & brass mounting collars spanning across the cell to anchor the wheel
+        if cross {
+            BlockMedium::emit_box(uc - 0.030, uc + 0.030, vc - 0.25, vc + 0.25, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
+            for end_v in [vc - 0.25, vc + 0.21] {
+                BlockMedium::emit_box(uc - 0.052, uc + 0.052, end_v, end_v + 0.04, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
+            }
+        } else {
+            BlockMedium::emit_box(uc - 0.25, uc + 0.25, vc - 0.030, vc + 0.030, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
+            for end_u in [uc - 0.25, uc + 0.21] {
+                BlockMedium::emit_box(end_u, end_u + 0.04, vc - 0.052, vc + 0.052, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
+            }
+        }
         for i in 0..segs {
-            let a0 = (i as f32) * step + spin;
-            let a1 = ((i + 1) as f32) * step + spin;
-            let (s0, c0) = a0.sin_cos();
-            let (s1, c1) = a1.sin_cos();
-            let lug = if i % 2 == 0 { r * 1.07 } else { r };
-            let col = if i % 2 == 0 { tread } else { rubber };
-            let [t0, t1, t2, t3] = [
-                pt(s0 * lug, -hw, c0 * lug),
-                pt(s1 * lug, -hw, c1 * lug),
-                pt(s1 * lug, hw, c1 * lug),
-                pt(s0 * lug, hw, c0 * lug),
-            ];
-            let n_out = (t1 - t0).cross(t3 - t0).normalize_or_zero();
-            target.push_quad(Quad::new(t0, t1, t2, t3, n_out, col));
+            let (a0, a1) = ((i as f32) * step + spin, ((i + 1) as f32) * step + spin);
+            let ((s0, c0), (s1, c1)) = (a0.sin_cos(), a1.sin_cos());
+            let (lug, col) = if i % 2 == 0 { (r * 1.07, tread) } else { (r, rubber) };
+            let [t0, t1, t2, t3] = [pt(s0 * lug, -hw, c0 * lug), pt(s1 * lug, -hw, c1 * lug), pt(s1 * lug, hw, c1 * lug), pt(s0 * lug, hw, c0 * lug)];
+            target.push_quad(Quad::new(t0, t1, t2, t3, (t1 - t0).cross(t3 - t0).normalize_or_zero(), col));
             for (side_a, norm_s) in [(-hw, -axle_norm), (hw, axle_norm)] {
-                let [w0, w1, w2, w3] = [
-                    pt(s0 * rim_r, side_a, c0 * rim_r),
-                    pt(s1 * rim_r, side_a, c1 * rim_r),
-                    pt(s1 * lug, side_a, c1 * lug),
-                    pt(s0 * lug, side_a, c0 * lug),
-                ];
+                let [w0, w1, w2, w3] = [pt(s0 * rim_r, side_a, c0 * rim_r), pt(s1 * rim_r, side_a, c1 * rim_r), pt(s1 * lug, side_a, c1 * lug), pt(s0 * lug, side_a, c0 * lug)];
                 let spoke_col = if i % 2 == 0 { hub } else { rim };
-                let [m0, m1, m2, m3] = [
-                    pt(s0 * hub_r, side_a, c0 * hub_r),
-                    pt(s1 * hub_r, side_a, c1 * hub_r),
-                    pt(s1 * rim_r, side_a, c1 * rim_r),
-                    pt(s0 * rim_r, side_a, c0 * rim_r),
-                ];
+                let [m0, m1, m2, m3] = [pt(s0 * hub_r, side_a, c0 * hub_r), pt(s1 * hub_r, side_a, c1 * hub_r), pt(s1 * rim_r, side_a, c1 * rim_r), pt(s0 * rim_r, side_a, c0 * rim_r)];
                 let [h0, h1, h2] = [pt(0.0, side_a, 0.0), pt(s0 * hub_r, side_a, c0 * hub_r), pt(s1 * hub_r, side_a, c1 * hub_r)];
                 if side_a > 0.0 {
                     target.push_quad(Quad::new(w0, w1, w2, w3, norm_s, rubber));

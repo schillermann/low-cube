@@ -27,16 +27,17 @@ pub enum HeldRelic {
     CabinSeat,
     CarWheel,
     FieldCamera,
+    PedalCluster,
 }
 
 impl HeldRelic {
     #[cfg(test)]
     pub fn next(self) -> Self {
-        Self::from_code((self.code() + 1) % 20)
+        Self::from_code((self.code() + 1) % 21)
     }
 
     pub const fn from_code(code: u8) -> Self {
-        match code % 20 {
+        match code % 21 {
             0 => Self::EmptyPalm,
             1 => Self::QuarriedStone,
             2 => Self::TimberTorch,
@@ -56,7 +57,8 @@ impl HeldRelic {
             16 => Self::RocketEngine,
             17 => Self::CabinSeat,
             18 => Self::CarWheel,
-            _ => Self::FieldCamera,
+            19 => Self::FieldCamera,
+            _ => Self::PedalCluster,
         }
     }
 
@@ -82,6 +84,7 @@ impl HeldRelic {
             Self::CabinSeat => 17,
             Self::CarWheel => 18,
             Self::FieldCamera => 19,
+            Self::PedalCluster => 20,
         }
     }
 
@@ -107,6 +110,7 @@ impl HeldRelic {
             Self::CabinSeat => "SEAT BLOCK",
             Self::CarWheel => "CAR WHEEL",
             Self::FieldCamera => "FIELD CAMERA",
+            Self::PedalCluster => "PEDAL BLOCK",
         }
     }
 
@@ -137,6 +141,7 @@ impl HeldRelic {
             "rocketengine" | "rocket" => Some(Self::RocketEngine),
             "seatblock" | "cabinsat" | "cabinseat" | "seat" => Some(Self::CabinSeat),
             "carwheel" | "wheel" => Some(Self::CarWheel),
+            "pedalblock" | "pedalcluster" | "pedals" | "pedal" => Some(Self::PedalCluster),
             _ => None,
         }
     }
@@ -155,6 +160,10 @@ impl HeldRelic {
 
     pub const fn rotatable_in_palm(self) -> bool {
         self.placeable_block() || self.field_camera()
+    }
+
+    pub const fn blocks_perch(self) -> bool {
+        self.placeable_block() && !self.field_camera()
     }
 
     pub const fn spade_blade(self) -> bool {
@@ -180,6 +189,7 @@ impl HeldRelic {
                 | Self::CabinSeat
                 | Self::CarWheel
                 | Self::FieldCamera
+                | Self::PedalCluster
         )
     }
 
@@ -196,6 +206,7 @@ impl HeldRelic {
             Self::CabinSeat => BlockMedium::CabinSeat,
             Self::CarWheel => BlockMedium::CarWheel,
             Self::FieldCamera => BlockMedium::FieldCamera,
+            Self::PedalCluster => BlockMedium::PedalCluster,
             _ => BlockMedium::TurfEarth,
         }
     }
@@ -214,6 +225,7 @@ impl HeldRelic {
             BlockMedium::CabinSeat => Self::CabinSeat,
             BlockMedium::CarWheel => Self::CarWheel,
             BlockMedium::FieldCamera => Self::FieldCamera,
+            BlockMedium::PedalCluster => Self::PedalCluster,
         }
     }
 
@@ -233,7 +245,8 @@ impl HeldRelic {
             | Self::CarWheel
             | Self::DeadwoodBough
             | Self::FlintStone
-            | Self::FieldCamera => MartialStyle::PalmCradle,
+            | Self::FieldCamera
+            | Self::PedalCluster => MartialStyle::PalmCradle,
             Self::IronSpade => MartialStyle::SpadeDig,
             Self::WoodenMallet | Self::WoodmanAxe => MartialStyle::LumberjackCleave,
             Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,

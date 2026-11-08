@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-11-08
+
+### Added
+- Added `FootwellPlinth` interface, `WalnutFloorPan`, and `PedalClusterMesh` decorator (`crates/world/src/block/pedal_cluster.rs`) alongside `BlockMedium::PedalCluster` (`crates/world/src/block/timber_grain.rs`) and `HeldRelic::PedalCluster` (`crates/client/src/attire/relic/mod.rs`, `SatchelTray`, `BeltSatchel`, `TestKitSatchel`, and `ArtisanTome`), providing a placeable and craftable gas-and-brake pedal block with an angled firewall toe-board, center transmission tunnel rib, red brake pedal, and green organ-style throttle pedal.
+- Added full-width connecting steel axle rods with brass mounting collars to `VehicleBlockMesh::emit_wheel` (`crates/world/src/block/vehicle_parts.rs`) so lateral wheels visibly anchor to the vehicle body instead of floating beside it.
+- Added sculpted walnut and leather dashboard cowl with brass trim and three glowing instrument dials to `VehicleBlockMesh::emit_steering_wheel` (`crates/world/src/block/vehicle_parts.rs`).
+
+### Changed
+- Extended `CabinSeatMesh::emit` (`crates/world/src/block/cabin_seat.rs`) to emit `WalnutFloorPan` across the full `0.5m × 0.5m` `GridCell` beneath the recessed half-block seat cushion, bridging the lower chassis gap between the front steering column block and the cabin seat while keeping legroom open above the floor pan.
+- Added `HeldRelic::blocks_perch` (`crates/client/src/attire/relic/mod.rs`) and updated `AvatarGear::holding_placeable_on` (`crates/client/src/avatar/bearing_gear.rs`) so holding `FieldCamera` still permits sitting on a `CabinSeat` when aiming at the seat cushion.
+
 ## [0.55.0] - 2026-11-07
 
 ### Added

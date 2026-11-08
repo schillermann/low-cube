@@ -26,6 +26,7 @@ impl StartingSatchel for TestKitSatchel {
             .with_stowed_relic(HeldRelic::SteeringWheel, 1)
             .with_stowed_relic(HeldRelic::CarWheel, 8)
             .with_stowed_relic(HeldRelic::CabinSeat, 2)
+            .with_stowed_relic(HeldRelic::PedalCluster, 2)
     }
 }
 

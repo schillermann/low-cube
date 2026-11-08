@@ -2,11 +2,12 @@ use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
 use super::cell::GridCell;
+use super::pedal_cluster::{FootwellPlinth, WalnutFloorPan};
 use super::shape::VoxelShape;
 use super::timber_grain::BlockMedium;
 use super::wedge::WedgeHeading;
 
-/// Oriented 3D geometry emitter for half-block upholstered cabin seats.
+/// Decorator over `FootwellPlinth` mounting a half-block upholstered leather cabin seat.
 pub struct CabinSeatMesh {
     heading: WedgeHeading,
 }
@@ -39,9 +40,9 @@ impl CabinSeatMesh {
         let (u0, u1, v0, v1) = self.seat_bounds(cell);
         let span_h = shape.elevation_at(0.5, 0.5).max(0.25);
         let top_h = floor_elev + span_h;
-        let plinth_h = floor_elev + (span_h * 0.16).clamp(0.04, 0.065);
-        let (walnut, stitch, leather_base, leather_mid, leather_crown, brass, glow_col) = (
-            Vec3::new(0.32, 0.18, 0.11),
+        let plinth_span = (span_h * 0.16).clamp(0.04, 0.065);
+        let plinth_h = floor_elev + plinth_span;
+        let (stitch, leather_base, leather_mid, leather_crown, brass, glow_col) = (
             Vec3::new(0.38, 0.10, 0.08),
             Vec3::new(0.64, 0.16, 0.13),
             Vec3::new(0.76, 0.22, 0.17),
@@ -50,9 +51,8 @@ impl CabinSeatMesh {
             Vec3::new(0.99, 0.82, 0.28),
         );
 
-        // 1. Dark walnut base plinth + brass trim welt + deep stitch-channel core
-        BlockMedium::emit_box(u0, u1, v0, v1, floor_elev, plinth_h, frame, walnut, walnut, true, target);
-        BlockMedium::emit_box(u0 - 0.004, u1 + 0.004, v0 - 0.004, v1 + 0.004, plinth_h - 0.006, plinth_h + 0.006, frame, brass, brass, false, target);
+        // 1. Decorated full-cell walnut floor pan + rear stitch-channel core
+        WalnutFloorPan::new(self.heading, plinth_span).emit(cell, floor_elev, frame, target);
         BlockMedium::emit_box(u0 + 0.008, u1 - 0.008, v0 + 0.008, v1 - 0.008, plinth_h, top_h - 0.006, frame, stitch, stitch, false, target);
 
         // 2. Plump upholstered leather body & side cushion bolsters
