@@ -73,8 +73,35 @@ impl CantileverRig {
         (mast_u + du * step, mast_v + dv * step)
     }
 
+    pub const fn occupies_boom_cell(&self, mast_u: i32, mast_v: i32, u: i32, v: i32) -> bool {
+        let (du, dv) = self.step_vectors();
+        let mut step = 0;
+        while step <= self.reach_steps {
+            if u == mast_u + du * step && v == mast_v + dv * step {
+                return true;
+            }
+            step += 1;
+        }
+        false
+    }
+
     pub fn occupies_mast_layer(&self, layer_elev: f32) -> bool {
         layer_elev >= self.ground_top - 0.05 && layer_elev <= self.mast_ceiling()
+    }
+
+    pub fn occupies_empty_boom_layer(
+        &self, mast_u: i32, mast_v: i32, u: i32, v: i32, layer_elev: f32,
+        blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
+    ) -> bool {
+        if (u, v) == (mast_u, mast_v) {
+            return self.occupies_mast_layer(layer_elev);
+        }
+        let ((eu, ev), hoist_z) = (self.gripped_cell(mast_u, mast_v), self.hoist_elevation());
+        let occupied = blocks.get(&(eu, ev)).is_some_and(|l| l.iter().any(|b| (b.floor() - hoist_z).abs() <= LAYER_MATCH_TOLERANCE));
+        self.hoisted()
+            && !occupied
+            && self.occupies_boom_cell(mast_u, mast_v, u, v)
+            && (layer_elev - (hoist_z + 0.25)).abs() <= 0.30
     }
 
     pub fn constrain_mast_support(&self, support_h: f32, foot_elev: f32) -> f32 {
@@ -88,13 +115,30 @@ impl CantileverRig {
     pub fn mount_target(
         &self, mast_u: i32, mast_v: i32, u: i32, v: i32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
     ) -> Option<(i32, i32, f32)> {
-        let span = self.reach_steps.max(1);
+        let span = self.reach_steps.max(1) + 1;
         if !self.hoisted() || (u - mast_u).abs() > span || (v - mast_v).abs() > span {
             return None;
         }
         let ((eu, ev), hoist_z) = (self.gripped_cell(mast_u, mast_v), self.hoist_elevation());
         let occupied = blocks.get(&(eu, ev)).is_some_and(|l| l.iter().any(|b| (b.floor() - hoist_z).abs() <= LAYER_MATCH_TOLERANCE));
         (!occupied).then_some((eu, ev, hoist_z))
+    }
+
+    pub fn attach_elevation(
+        &self, mast_u: i32, mast_v: i32, u: i32, v: i32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
+    ) -> Option<f32> {
+        if !self.hoisted() || ((u, v) == (mast_u, mast_v) && self.claw_slot(mast_u, mast_v) != (mast_u, mast_v)) {
+            return None;
+        }
+        let cluster = self.connected_cluster(mast_u, mast_v, blocks);
+        let min_z = cluster.iter().map(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].floor()).fold(f32::MAX, f32::min);
+        (min_z > self.ground_top + 0.05).then(|| {
+            cluster
+                .iter()
+                .filter(|&&(cu, cv, _)| (cu - u).abs() + (cv - v).abs() <= 1)
+                .map(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].floor())
+                .reduce(f32::min)
+        })?
     }
 
     pub fn retract_for_placed_block(

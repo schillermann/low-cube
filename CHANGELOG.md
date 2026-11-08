@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.56.1] - 2026-11-08
+
+### Changed
+- Changed `VehicleBlockMesh::emit_wheel` (`crates/world/src/block/vehicle_parts.rs`) to emit a single-sided connecting steel axle rod and brass mounting collar oriented toward the adjacent vehicle chassis block instead of protruding from both sides of the wheel.
+- Refactored `VehiclePart` and `VehicleAxes` (`crates/world/src/relief/vehicle_assembly.rs`) and `DriveKinematics` (`crates/client/src/drive.rs`) to encapsulate part parking, driven part emission, cardinal grid rotation, yaw stepping, and displacement via message passing ("Tell, Don't Ask").
+- Added `pedal_cluster:2` to default starting satchel items in `server.toml`.
+
+### Fixed
+- Fixed mid-air `SteeringWheel` mounting onto `CantileverRig` by intercepting sight rays against empty crane boom cells (`CantileverRig::occupies_empty_boom_layer` and `RigRegistry::hit_top` in `crates/world/src/relief/cantilever_rig/mod.rs` and `registry.rs`).
+- Fixed wheelless vehicle assemblies altering their block layout on dismount by requiring at least one `CarWheel` before `VehicleAssembly::board_from_blocks` (`crates/world/src/relief/vehicle_assembly.rs`) extracts and lowers blocks when `engage_engine` is triggered, gating chassis yaw rotation on non-zero speed (`DriveKinematics::yaw_step` in `crates/client/src/drive.rs`), rotating parked block shapes by `quarter_turns` (`VehiclePart::park_into`), aligning adjacent crane block placement to the lowest neighbor floor (`CantileverRig::attach_elevation`), and refreshing cell caches around the boarded vehicle seat (`FacetedReliefFace::board_vehicle` in `crates/world/src/relief/face/mod.rs`).
+
 ## [0.56.0] - 2026-11-08
 
 ### Added

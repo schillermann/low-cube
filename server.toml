@@ -28,8 +28,8 @@ mode = "nightly"
 # Starting items stowed in the player's satchel upon entering the world.
 # Format: comma-separated item names with optional ":count" (or "none" for an empty satchel).
 # Supported items:
-#   field_camera, rocket_engine, aircraft_engine, steering_wheel, car_wheel, cabin_seat,
+#   field_camera, rocket_engine, aircraft_engine, steering_wheel, car_wheel, cabin_seat, pedal_cluster,
 #   cantilever_crane, iron_spade, woodman_axe, knightly_sword, wooden_mallet, timber_torch,
 #   quarried_stone, excavated_earth, timber_block, plank_block, crust_block, deadwood_bough, flint_stone
-items = "field_camera, rocket_engine, aircraft_engine, steering_wheel, car_wheel:8, cabin_seat:2"
+items = "field_camera, rocket_engine, aircraft_engine, steering_wheel, car_wheel:8, cabin_seat:2, pedal_cluster:2"
 

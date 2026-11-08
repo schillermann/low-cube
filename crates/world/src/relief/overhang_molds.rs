@@ -104,7 +104,7 @@ impl OverhangMolds {
     }
 
     pub fn hit_top_at(&self, cu: i32, cv: i32, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
-        if let Some(rig_top) = self.rigs.hit_top(cu, cv, ray_elev) {
+        if let Some(rig_top) = self.rigs.hit_top(cu, cv, ray_elev, &self.blocks) {
             return Some(rig_top);
         }
         let list = self.blocks.get(&(cu, cv))?;

@@ -245,16 +245,23 @@ impl VehicleBlockMesh {
         };
         let axle_norm = if cross { frame.bitangent() } else { frame.tangent() };
         let (segs, step) = (8usize, (2.0 * PI) / 8.0);
-        // Connecting steel axle rod & brass mounting collars spanning across the cell to anchor the wheel
-        if cross {
-            BlockMedium::emit_box(uc - 0.030, uc + 0.030, vc - 0.25, vc + 0.25, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
-            for end_v in [vc - 0.25, vc + 0.21] {
-                BlockMedium::emit_box(uc - 0.052, uc + 0.052, end_v, end_v + 0.04, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
+        // Single-sided connecting steel axle rod & brass mounting collar anchoring the wheel to the adjacent block
+        match self.heading {
+            WedgeHeading::East => {
+                BlockMedium::emit_box(uc - 0.030, uc + 0.030, vc, vc + 0.25, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
+                BlockMedium::emit_box(uc - 0.052, uc + 0.052, vc + 0.21, vc + 0.25, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
             }
-        } else {
-            BlockMedium::emit_box(uc - 0.25, uc + 0.25, vc - 0.030, vc + 0.030, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
-            for end_u in [uc - 0.25, uc + 0.21] {
-                BlockMedium::emit_box(end_u, end_u + 0.04, vc - 0.052, vc + 0.052, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
+            WedgeHeading::West => {
+                BlockMedium::emit_box(uc - 0.030, uc + 0.030, vc - 0.25, vc, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
+                BlockMedium::emit_box(uc - 0.052, uc + 0.052, vc - 0.25, vc - 0.21, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
+            }
+            WedgeHeading::North => {
+                BlockMedium::emit_box(uc - 0.25, uc, vc - 0.030, vc + 0.030, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
+                BlockMedium::emit_box(uc - 0.25, uc - 0.21, vc - 0.052, vc + 0.052, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
+            }
+            WedgeHeading::South => {
+                BlockMedium::emit_box(uc, uc + 0.25, vc - 0.030, vc + 0.030, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
+                BlockMedium::emit_box(uc + 0.21, uc + 0.25, vc - 0.052, vc + 0.052, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
             }
         }
         for i in 0..segs {

@@ -214,28 +214,21 @@ fn test_polyhedral_cantilever_rig_deploys_retracts_telescopic_gripper_and_hoists
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
     let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
 
-    let rig_shape = Box::new(crate::block::MediumShape::new(
-        Box::new(crate::block::CuboidShape::new(0.5)),
-        crate::block::BlockMedium::CantileverRig,
-        true,
-        false,
-    ));
+    let rig_shape = Box::new(crate::block::MediumShape::new(Box::new(crate::block::CuboidShape::new(0.5)), crate::block::BlockMedium::CantileverRig, true, false));
     assert!(relief.stack_molded_cell(0, 0, 0.0, rig_shape), "Cantilever rig must deploy on ground cell (0, 0)");
     assert!(!relief.layer_occupied_at(2, 0, 1.75), "Deploying rig must NOT spawn an engine block automatically");
-
-    let engine_shape = Box::new(crate::block::MediumShape::new(
-        Box::new(crate::block::CuboidShape::new(0.5)),
-        crate::block::BlockMedium::SteeringWheel,
-        true,
-        false,
-    ));
+    let engine_shape = Box::new(crate::block::MediumShape::new(Box::new(crate::block::CuboidShape::new(0.5)), crate::block::BlockMedium::SteeringWheel, true, false));
+    let (claw_eye, claw_dir) = (frame.point_at(1.25, -1.25, 1.75), frame.bitangent());
+    assert_eq!(
+        super::SurfaceSightRay::new(claw_eye, claw_dir).target_layer(&frame, &relief, 64, 32.0),
+        Some((2, 0, 1.75)),
+        "Aiming directly at the suspended crane claw in mid-air must intercept the crane boom at (2, 0, 1.75)"
+    );
     assert!(relief.stack_molded_cell(0, 0, 0.0, engine_shape), "Mounting SteeringWheel onto crane must succeed");
     assert!(relief.layer_occupied_at(2, 0, 1.75), "Mounted SteeringWheel must be suspended at (2, 0) height 1.5m..2.0m");
-
     let mut rig_ledger = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
     ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut rig_ledger);
     assert!(rig_ledger.tones.len() >= 40, "Polyhedral cantilever rig must emit sculpted 3D mast, rack teeth, collar, and crossbar quads");
-
     assert!(
         relief.stack_molded_cell(1, 0, 1.5, Box::new(crate::block::CuboidShape::new(0.5))),
         "Player must be able to build onto the gripped side face at (1, 0) height 1.5m"
@@ -288,6 +281,12 @@ fn test_polyhedral_cantilever_rig_deploys_retracts_telescopic_gripper_and_hoists
         with_cam.tones.len() >= three_dirt.tones.len() + 30,
         "Placing FieldCamera on 3 stacked dirt blocks must preserve the 3rd dirt block's top quads and add tripod leg quads"
     );
+    let mut car_rel = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+    assert!(car_rel.stack_molded_cell(2, 0, 1.0, Box::new(crate::block::CuboidShape::new(0.5))));
+    assert!(car_rel.stack_molded_cell(2, 0, 1.5, crate::block::BlockMold::cube().in_medium(crate::block::BlockMedium::SteeringWheel).shape_for(frame.bitangent(), &frame)));
+    assert!(car_rel.stack_molded_cell(2, -1, 1.0, crate::block::BlockMold::cube().in_medium(crate::block::BlockMedium::CabinSeat).shape_for(frame.bitangent(), &frame)));
+    let s_ray = super::SurfaceSightRay::new(frame.point_at(1.25, -0.25, 2.12), frame.bitangent());
+    assert!(car_rel.board_vehicle_at(&frame, 2, 0, 1.75, s_ray, true).is_none());
 }
 
 

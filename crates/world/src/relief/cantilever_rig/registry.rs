@@ -37,8 +37,17 @@ impl RigRegistry {
         self.rigs.get(&(u, v)).map_or(support_h, |r| r.constrain_mast_support(support_h, foot_elev))
     }
 
-    pub fn hit_top(&self, u: i32, v: i32, ray_elev: f32) -> Option<f32> {
-        self.rigs.get(&(u, v)).and_then(|r| r.occupies_mast_layer(ray_elev).then(|| r.mast_ceiling()))
+    pub fn hit_top(
+        &self, u: i32, v: i32, ray_elev: f32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
+    ) -> Option<f32> {
+        if let Some(rig) = self.rigs.get(&(u, v)) {
+            if rig.occupies_mast_layer(ray_elev) {
+                return Some(rig.mast_ceiling());
+            }
+        }
+        self.rigs.iter().find_map(|(&(mu, mv), rig)| {
+            rig.occupies_empty_boom_layer(mu, mv, u, v, ray_elev, blocks).then(|| rig.hoist_elevation() + BLOCK_STEP)
+        })
     }
 
     pub fn emit_at(&self, cell: GridCell, frame: &SurfaceFrame, target: &mut dyn MeshTarget) -> bool {
@@ -59,12 +68,7 @@ impl RigRegistry {
     pub fn attach_elevation(
         &self, u: i32, v: i32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
     ) -> Option<f32> {
-        self.rigs.iter().find_map(|(&(mu, mv), rig)| {
-            (rig.hoisted()
-                && ((u, v) != (mu, mv) || rig.claw_slot(mu, mv) == (mu, mv))
-                && rig.connected_cluster(mu, mv, blocks).iter().any(|&(cu, cv, _)| (cu - u).abs() + (cv - v).abs() <= 1))
-            .then(|| rig.hoist_elevation())
-        })
+        self.rigs.iter().find_map(|(&(mu, mv), rig)| rig.attach_elevation(mu, mv, u, v, blocks))
     }
 
     pub fn release_cluster(&mut self, cluster: &[(i32, i32, usize)]) {
