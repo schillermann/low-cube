@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-11-10
+
+### Added
+- Added stack count badges to each stowed slot in `SatchelTray::emit_on_waist` (`crates/client/src/attire/tray.rs`) and stack count headers (`X<count>`) in `RelicFigure::emit_legend` (`crates/client/src/attire/relic/mesh.rs`).
+
+### Fixed
+- Fixed `BeltSatchel::collect_excavated_block` (`crates/client/src/attire/pouch/mod.rs`) and `DigGrip::bare_hand_digging` (`crates/client/src/grip.rs`) so excavating a block with a hand that already holds a placeable block keeps the excavated block in the active hand (stowing extra copies in the satchel) instead of placing it into the opposite empty hand.
+
 ## [0.57.1] - 2026-11-10
 
 ### Changed

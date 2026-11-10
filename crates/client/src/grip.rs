@@ -9,7 +9,6 @@ const ANY_PLACE: u8 = RIGHT_PLACE | LEFT_PLACE;
 const RIGHT_DIG: u8 = 16;
 const LEFT_DIG: u8 = 32;
 const BOTH_DIG: u8 = RIGHT_DIG | LEFT_DIG;
-const RIGHT_ACTIVE_DIG: u8 = RIGHT_DIG | ANY_PLACE;
 
 /// Encapsulates dual-hand button press, deferred block placement, and active digging states without exposing bitmasks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,7 +92,7 @@ impl DigGrip {
         let both = self.both_held();
         let dig_r = r_block
             && (self.mask & RIGHT_HELD) != 0
-            && (progress > 0 || (self.mask & RIGHT_ACTIVE_DIG) != 0 || (both && l_block));
+            && (progress > 0 || (self.mask & ANY_PLACE) != 0 || (both && l_block));
         let dig_l = l_block
             && (self.mask & LEFT_HELD) != 0
             && (progress > 0 || (self.mask & ANY_PLACE) != 0 || (both && r_block));

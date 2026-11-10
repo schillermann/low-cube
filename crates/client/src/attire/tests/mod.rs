@@ -202,4 +202,18 @@ fn test_spade_and_dirt_block_replaces_held_block_when_excavating_different_mediu
     let (satchel_same, attire_same) = satchel_after_crust.collect_excavated_block(-1.0, HeldRelic::CrustBlock, attire_after_crust);
     assert_eq!(attire_same.held_pair(), (HeldRelic::IronSpade, HeldRelic::CrustBlock));
     assert_eq!(satchel_same.resource_tally(HeldRelic::CrustBlock, attire_same), 2);
+
+    let wheel_in_right = YouthAttire::squire().with_relics(HeldRelic::CarWheel, HeldRelic::EmptyPalm);
+    let wheel_satchel = super::BeltSatchel::empty().reconcile_attire(wheel_in_right);
+    let (satchel_after_wheel, attire_after_wheel) = wheel_satchel.collect_excavated_block(1.0, HeldRelic::CarWheel, wheel_in_right);
+    assert_eq!(attire_after_wheel.held_pair(), (HeldRelic::CarWheel, HeldRelic::EmptyPalm));
+    assert_eq!(satchel_after_wheel.resource_tally(HeldRelic::CarWheel, attire_after_wheel), 2);
+    let pose = BodyPose::new(
+        Vec3::new(0.0, 9.0, 0.0), Quat::IDENTITY, Quat::IDENTITY, 0.8,
+        StrideRhythm::new(0.0, 1.0), YouthPhysique::SlenderSquire,
+    );
+    let (mut tray_one, mut tray_eight) = (QuadLedger::empty(), QuadLedger::empty());
+    satchel_after_wheel.with_open(true).emit_on_waist(&pose, &mut tray_one);
+    satchel_after_wheel.with_stowed_relic(HeldRelic::CarWheel, 7).with_open(true).emit_on_waist(&pose, &mut tray_eight);
+    assert_ne!(tray_one.quads.len(), tray_eight.quads.len());
 }

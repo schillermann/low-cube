@@ -191,7 +191,7 @@ impl BeltSatchel {
             }
         }
         let (hand, other) = attire.hand_pair(side);
-        if hand.free_palm() || other.free_palm() {
+        if hand.free_palm() || (!hand.placeable_block() && other.free_palm()) {
             let (target, opp) = if hand.free_palm() { (side, other) } else { (-side, hand) };
             if opp == relic { self.palms.sync_mold_from_opposite(target); } else { self.palms.reset_mold(target); }
             self.palms.assign_blocks(target, 1);

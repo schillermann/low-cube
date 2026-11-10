@@ -238,9 +238,10 @@ impl RelicFigure {
         }
     }
 
-    pub fn emit_legend(relic: HeldRelic, legend_frame: &LimbFrame, target: &mut dyn MeshTarget) {
+    pub fn emit_legend(relic: HeldRelic, count: u32, legend_frame: &LimbFrame, target: &mut dyn MeshTarget) {
         legend_frame.emit_framed_plaque(0.168, 0.032, 0.0024, Vec3::new(0.08, 0.10, 0.15), Vec3::new(0.42, 0.27, 0.16), target);
-        PixelStamp::new(0.0024, 0.0024, Vec3::new(1.55, 1.30, 0.48)).emit_on_frame(relic.title(), 0.0, 0.017, 0.016, legend_frame, target);
+        let heading = if count > 0 { format!("{} X{}", relic.title(), count) } else { relic.title().to_string() };
+        PixelStamp::new(0.0024, 0.0024, Vec3::new(1.55, 1.30, 0.48)).emit_on_frame(&heading, 0.0, 0.017, 0.016, legend_frame, target);
         let hint = PixelStamp::new(0.0022, 0.0022, Vec3::new(1.42, 1.46, 1.54));
         hint.emit_on_frame("WASD: NAVIGATION  ESC: CLOSE", 0.0, 0.0, 0.016, legend_frame, target);
         hint.emit_on_frame("Q: LEFT HAND  E: RIGHT HAND", 0.0, -0.017, 0.016, legend_frame, target);

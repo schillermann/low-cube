@@ -227,11 +227,17 @@ impl SatchelTray {
             } else {
                 Vec3::new(0.42, 0.27, 0.16)
             };
-            item.figure(mold).emit_in_slot(selected, rim_col, &tray.shifted(sx, sy, sz), target);
+            let slot_frame = tray.shifted(sx, sy, sz);
+            item.figure(mold).emit_in_slot(selected, rim_col, &slot_frame, target);
+            let badge = slot_frame.shifted(0.021, -0.023, -0.085);
+            badge.emit_framed_plaque(0.011, 0.007, 0.0012, Vec3::new(0.07, 0.09, 0.14), rim_col, target);
+            crate::menu::PixelStamp::new(0.0018, 0.0018, Vec3::new(1.65, 1.42, 0.48))
+                .emit_on_frame(&format!("{}", self.count(item)), 0.0, 0.0, 0.016, &badge, target);
         }
-        let legend = if len > 0 { slots[sel] } else { HeldRelic::EmptyPalm };
+        let (legend, count) = if len > 0 { (slots[sel], self.count(slots[sel])) } else { (HeldRelic::EmptyPalm, 0) };
         super::relic::RelicFigure::emit_legend(
             legend,
+            count,
             &tray.shifted(0.0, -((rows as f32 - 1.0) * 0.5) * 0.115 - 0.090, 0.0),
             target,
         );
