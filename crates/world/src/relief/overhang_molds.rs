@@ -219,7 +219,7 @@ impl OverhangMolds {
         if !sub {
             self.scars.expose_dirt(u, v);
         }
-        self.clear_if_at(u, v);
+        self.scars.reset_stage();
         true
     }
 

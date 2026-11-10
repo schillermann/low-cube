@@ -210,11 +210,12 @@ impl PalmEarthworks {
         let (right, left) = attire.held_pair();
         let (active, other) = if side > 0.0 { (right, left) } else { (left, right) };
         if d.progress() == 0 && !d.grip().any_held() {
-            if let Some(med) = world.loosen_surface(eye, view_dir, 1).filter(|m| m.instant_pickup()) {
-                if world.harvest_surface(eye, view_dir) == Some(med) {
+            if let Some(med) = world.loosen_surface(eye, view_dir, 1) {
+                if med.instant_pickup() && world.harvest_surface(eye, view_dir) == Some(med) {
                     let (ns, na) = state.satchel.collect_excavated_block(side, HeldRelic::from_medium(med), attire);
                     return (Self::new(ns, 0, DigGrip::idle(), Vec3::ZERO, false), na, rhythm, true);
                 }
+                world.loosen_surface(eye, view_dir, 0);
             }
         }
         if d.progress() == 0 && !d.grip().any_held() && active != HeldRelic::WoodenMallet && world.lower_rig(eye, view_dir) {

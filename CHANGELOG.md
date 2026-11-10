@@ -8,6 +8,19 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.57.1] - 2026-11-10
+
+### Changed
+- Updated `SatchelTray::emit_on_waist` (`crates/client/src/attire/tray.rs`) to display a concise English crane notice (`STEERING WHEEL` / `ON CRANE FIRST`) accompanied by the 3D `HeldRelic::SteeringWheel` block icon.
+- Added `cross_axle:4` (`HeldRelic::CrossAxle`) to the default starting inventory in `server.toml`.
+- Updated `VehicleAssembly::board_from_blocks` and `VehicleAssembly::nearest_seat` (`crates/world/src/relief/vehicle_assembly/mod.rs`) so clicking any block of a connected vehicle assembly from outside seats the player on its nearest `CabinSeat`, and split `vehicle_assembly` into `mod.rs` and `part.rs`.
+
+### Fixed
+- Fixed `LoosenedPartTarget` shrinking `PedalCluster` to 86% scale after block placement by resetting probe dig stages in `PalmEarthworks::act_with_hand` (`crates/client/src/earthworks/mod.rs`) and `OverhangMolds::stack_molded` (`crates/world/src/relief/overhang_molds.rs`).
+- Fixed clicking a `CantileverRig` while seated in a ground vehicle (`VehiclePilot::Perch`) re-grabbing the steering wheel instead of hoisting the vehicle onto the crane by prioritizing `RigRegistry::find_aimed_rig` and `RigRegistry::reconnect_seated_car` (`crates/world/src/relief/cantilever_rig/registry.rs` and `crates/world/src/relief/vehicle_assembly/mod.rs`).
+- Fixed inverted steering wheel rotation direction in `VehicleBlockMesh::emit_steering_wheel` (`crates/world/src/block/vehicle_parts.rs`).
+- Fixed equipping and using handheld items (such as `FieldCamera`) while seated in `VehiclePilot::Perch` by returning `None` from `AvatarBody::interact_vehicle` (`crates/client/src/avatar/body_sight.rs`) when no steering wheel or crane is hit and clearing held movement triggers in `SessionStage::dispatch_avatar_or_control` (`crates/client/src/session/display.rs`).
+
 ## [0.57.0] - 2026-11-10
 
 ### Added

@@ -141,7 +141,7 @@ impl VehicleBlockMesh {
         let hub = base_pt(0.0, 0.33, -0.08);
         let col_axis = (-fwd * 0.84 + up * 0.54).normalize_or_zero();
         let w_up = col_axis.cross(right).normalize_or_zero();
-        let steer_phi = -self.motion.1 * 0.85;
+        let steer_phi = self.motion.1 * 0.85;
         let wheel_pt = |angle: f32, r: f32, z: f32| {
             let (s, c) = (angle + steer_phi).sin_cos();
             hub + (right * s + w_up * c) * r + col_axis * z

@@ -188,11 +188,15 @@ impl SatchelTray {
     pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
         if self.steering_notice() {
             let notice = pose.view_frame().shifted(0.0, 0.12, 0.40);
-            notice.emit_framed_plaque(0.185, 0.024, 0.0024, Vec3::new(0.18, 0.06, 0.05), Vec3::new(0.88, 0.32, 0.18), target);
-            crate::menu::PixelStamp::new(0.0024, 0.0024, Vec3::new(1.65, 1.35, 0.42))
-                .emit_on_frame("LENKRAD FEHLT AM KRAN", 0.0, 0.006, 0.016, &notice, target);
-            crate::menu::PixelStamp::new(0.0020, 0.0020, Vec3::new(1.45, 1.48, 1.54))
-                .emit_on_frame("ERST LENKRAD AN KRAN SETZEN", 0.0, -0.008, 0.016, &notice, target);
+            notice.emit_framed_plaque(0.125, 0.030, 0.0024, Vec3::new(0.18, 0.06, 0.05), Vec3::new(0.88, 0.32, 0.18), target);
+            let icon = notice.shifted(-0.088, 0.0, -0.008).scaled(0.52);
+            HeldRelic::SteeringWheel
+                .figure(BlockMold::cube())
+                .emit_in_slot(true, Vec3::new(0.95, 0.78, 0.24), &icon, target);
+            crate::menu::PixelStamp::new(0.0023, 0.0023, Vec3::new(1.65, 1.35, 0.42))
+                .emit_on_frame(HeldRelic::SteeringWheel.title(), 0.030, 0.007, 0.016, &notice, target);
+            crate::menu::PixelStamp::new(0.0021, 0.0021, Vec3::new(1.45, 1.48, 1.54))
+                .emit_on_frame("ON CRANE FIRST", 0.030, -0.008, 0.016, &notice, target);
             return;
         }
         if !self.open() {

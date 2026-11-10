@@ -150,7 +150,11 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     );
     let mut driver = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0));
     driver.rotate_degrees(-90.0, 12.0);
-    assert!(driver.use_right_hand(&mut world) && driver.use_right_hand(&mut world));
+    assert!(driver.use_right_hand(&mut world));
+    driver.apply_attire(YouthAttire::squire().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
+    assert!(driver.dispatch_trigger(InputTrigger::WheelClick));
+    driver.apply_attire(YouthAttire::squire());
+    assert!(driver.use_right_hand(&mut world));
     let (mut gas, mut hold_s) = (KeyMotion::idle(), KeyMotion::idle());
     gas.register_key(KeyCode::KeyW, true);
     hold_s.register_key(KeyCode::KeyS, true);

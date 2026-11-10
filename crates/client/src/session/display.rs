@@ -236,6 +236,8 @@ impl SessionStage {
         }
         if !pressed || !self.avatar.dispatch_trigger(trigger) {
             self.controls.register_trigger(trigger, pressed);
+        } else {
+            self.controls.register_trigger(trigger, false);
         }
         false
     }

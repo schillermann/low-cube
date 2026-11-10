@@ -93,7 +93,7 @@ impl AvatarBody {
                 sight_line.anchor_vehicle_heading(heading);
                 return Some(true);
             }
-            return Some(false);
+            return None;
         }
         if allow_perch {
             if let Some(perch) = world.board_vehicle(eye, view_dir, false) {

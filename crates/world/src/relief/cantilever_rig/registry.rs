@@ -116,11 +116,14 @@ impl RigRegistry {
                 let idx = list.iter().rposition(|b| b.block_medium() == BlockMedium::CabinSeat)?;
                 let (cx, cy) = GridCell::new(cu, cv).center();
                 let dist = (cx - eu).hypot(cy - ev);
-                (dist <= 2.5).then_some((cu, cv, idx, dist))
+                (dist <= 5.0).then_some((cu, cv, idx, dist))
             })
             .min_by(|a, b| a.3.total_cmp(&b.3))
             .map(|(cu, cv, idx, _)| (cu, cv, idx))?;
         let cluster = VehicleAssembly::connected_cluster(seat_u, seat_v, seat_idx, blocks);
+        if self.cluster_hoisted(&cluster, blocks) {
+            return None;
+        }
         let &(eng_u, eng_v, eng_idx) = cluster.iter().find(|&&(cu, cv, idx)| blocks[&(cu, cv)][idx].block_medium() == BlockMedium::SteeringWheel)?;
         let (seat_floor, eng_floor, heading) = (
             blocks[&(seat_u, seat_v)][seat_idx].floor(),
