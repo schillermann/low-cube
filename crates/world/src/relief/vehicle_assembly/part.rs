@@ -39,6 +39,11 @@ impl VehiclePart {
         (self.offset == (0, 0) && self.shape.block_medium() == BlockMedium::CabinSeat).then_some(self.floor_offset)
     }
 
+    pub(super) fn wheel_floor_drop(&self) -> Option<f32> {
+        (self.shape.block_medium() == BlockMedium::CarWheel)
+            .then(|| (self.shape.wheel_radius() * 1.07 - 0.11).max(0.05) - self.floor_offset)
+    }
+
     pub(super) fn wheel_radius(&self) -> Option<f32> {
         (self.shape.block_medium() == BlockMedium::CarWheel).then(|| self.shape.wheel_radius())
     }
@@ -53,7 +58,7 @@ impl VehiclePart {
     }
 
     pub(super) fn park_into(
-        mut self, seat: (i32, i32), turn: (i32, i32, u8),
+        mut self, seat: (i32, i32), turn: (i32, i32, u8), lift: f32,
         blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>, strata: &NaturalStrata, shafts: &ShaftExcavation,
     ) {
         let ((rxx, rxy, quarter_turns), (ox, oy)) = (turn, self.offset);
@@ -64,7 +69,7 @@ impl VehiclePart {
         let (bu, bv) = (seat.0 + ox * rxx + oy * ryx, seat.1 + ox * rxy + oy * ryy);
         let ground_top = (shafts.elevation_at(strata, bu, bv) as f32) * BLOCK_STEP;
         let list = blocks.entry((bu, bv)).or_default();
-        list.push(ElevatedShape::new(self.shape, ground_top + self.floor_offset));
+        list.push(ElevatedShape::new(self.shape, ground_top + lift + self.floor_offset));
         list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
     }
 }

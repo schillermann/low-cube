@@ -122,6 +122,8 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
 
     for (eye, dir, mold) in [
         (Vec3::new(0.25, g0 + 1.5, 1.25), crane_dir, eng_mold),
+        (Vec3::new(1.25, g0 + 1.0, 0.25), Vec3::Y, BlockMold::cube().in_medium(BlockMedium::PedalCluster)),
+        (Vec3::new(1.25, g0 + 1.25, 0.75), Vec3::NEG_Z, m1),
         (Vec3::new(1.25, g0 + 1.75, 1.25), Vec3::NEG_Z, seat_mold),
         (Vec3::new(0.25, g0 + 1.75, 0.75), Vec3::X, m1),
     ] {
@@ -185,8 +187,16 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     driver.rotate_degrees(-480.0, 0.0);
     assert!(view_fwd(&driver).dot(initial_dir) > 0.10);
     let parked_eye = cam_pos(&driver);
-    assert!(parked_eye.y < g0 + 2.0);
+    assert!(parked_eye.y < g0 + 2.5 && parked_eye.y > g0 + 1.25);
+    let mut driven_verts = VertCollector(Vec::new());
+    for v in &verts_t1.0 {
+        if v.y < g0 + 0.5 {
+            driven_verts.0.push(*v);
+        }
+    }
+    assert!(driven_verts.0.iter().map(|v| v.y).fold(f32::MAX, f32::min) >= g0 - 1e-4);
     let eng_top = world.constrain_to_surface(Vec3::new(parked_eye.x, 22.0, 0.75), 0.0).y;
+    assert!(eng_top > g0 + 0.65);
     assert!(
         world.harvest_surface(Vec3::new(parked_eye.x, eng_top + 0.5, 0.75), Vec3::NEG_Y).is_none()
             && !world.place_molded_surface_block(Vec3::new(parked_eye.x, eng_top + 0.5, 0.75), Vec3::NEG_Y, av_pos, BlockMold::cube())

@@ -97,7 +97,7 @@ impl CantileverRig {
             return self.occupies_mast_layer(layer_elev);
         }
         let ((eu, ev), hoist_z) = (self.gripped_cell(mast_u, mast_v), self.hoist_elevation());
-        let occupied = blocks.get(&(eu, ev)).is_some_and(|l| l.iter().any(|b| (b.floor() - hoist_z).abs() <= LAYER_MATCH_TOLERANCE));
+        let occupied = blocks.get(&(eu, ev)).is_some_and(|l| l.iter().any(|b| (b.floor() - hoist_z).abs() <= BLOCK_STEP + 0.12));
         self.hoisted()
             && !occupied
             && self.occupies_boom_cell(mast_u, mast_v, u, v)
@@ -120,7 +120,7 @@ impl CantileverRig {
             return None;
         }
         let ((eu, ev), hoist_z) = (self.gripped_cell(mast_u, mast_v), self.hoist_elevation());
-        let occupied = blocks.get(&(eu, ev)).is_some_and(|l| l.iter().any(|b| (b.floor() - hoist_z).abs() <= LAYER_MATCH_TOLERANCE));
+        let occupied = blocks.get(&(eu, ev)).is_some_and(|l| l.iter().any(|b| (b.floor() - hoist_z).abs() <= BLOCK_STEP + 0.12));
         (!occupied).then_some((eu, ev, hoist_z))
     }
 
@@ -144,7 +144,7 @@ impl CantileverRig {
     pub fn retract_for_placed_block(
         &mut self, mast_u: i32, mast_v: i32, placed_u: i32, placed_v: i32, placed_base: f32,
     ) -> Option<(i32, i32)> {
-        if (placed_base - self.hoist_elevation()).abs() > LAYER_MATCH_TOLERANCE
+        if (placed_base - self.hoist_elevation()).abs() > BLOCK_STEP + LAYER_MATCH_TOLERANCE
             || (placed_u, placed_v) != self.claw_slot(mast_u, mast_v)
         {
             return None;
@@ -164,7 +164,7 @@ impl CantileverRig {
         let (start_u, start_v) = self.gripped_cell(mast_u, mast_v);
         let hoist_z = self.hoist_elevation();
         let Some(start_list) = blocks.get(&(start_u, start_v)) else { return Vec::new() };
-        let Some(start_idx) = start_list.iter().position(|b| (b.floor() - hoist_z).abs() <= LAYER_MATCH_TOLERANCE) else {
+        let Some(start_idx) = start_list.iter().rposition(|b| (b.floor() - hoist_z).abs() <= LAYER_MATCH_TOLERANCE) else {
             return Vec::new();
         };
         let (mut visited, mut queue, mut cluster) = (HashSet::new(), VecDeque::new(), Vec::new());
@@ -175,12 +175,10 @@ impl CantileverRig {
             cluster.push((cu, cv, idx));
             for (du, dv) in [(1, 0), (-1, 0), (0, 1), (0, -1), (0, 0)] {
                 let (nu, nv) = (cu + du, cv + dv);
-                if (nu, nv) != (mast_u, mast_v) {
-                    if let Some(nlist) = blocks.get(&(nu, nv)) {
-                        for (nidx, nb) in nlist.iter().enumerate() {
-                            if (nb.floor() - z).abs() <= BLOCK_STEP + 0.12 && visited.insert((nu, nv, nidx)) {
-                                queue.push_back((nu, nv, nidx));
-                            }
+                if let Some(nlist) = blocks.get(&(nu, nv)) {
+                    for (nidx, nb) in nlist.iter().enumerate() {
+                        if (nb.floor() - z).abs() <= BLOCK_STEP + 0.12 && visited.insert((nu, nv, nidx)) {
+                            queue.push_back((nu, nv, nidx));
                         }
                     }
                 }
@@ -199,16 +197,20 @@ impl CantileverRig {
         }
         if delta_steps != 0 {
             let target_steps = (self.hoist_steps + delta_steps).clamp(MIN_HOIST_STEPS, MAX_HOIST_STEPS);
-            let mut actual_delta = target_steps - self.hoist_steps;
-            for &(cu, cv, idx) in &cluster {
-                let min_delta = ((ground_fn(cu, cv) - blocks[&(cu, cv)][idx].floor()) / BLOCK_STEP).ceil() as i32;
-                actual_delta = actual_delta.max(min_delta);
-            }
-            if actual_delta == 0 {
+            let actual_delta = target_steps - self.hoist_steps;
+            let dz_raw = (actual_delta as f32) * BLOCK_STEP;
+            let lift = cluster
+                .iter()
+                .map(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].wheel_ground_lift())
+                .fold(0.0f32, f32::max);
+            let dz = cluster
+                .iter()
+                .map(|&(cu, cv, idx)| ground_fn(cu, cv) + lift - blocks[&(cu, cv)][idx].floor())
+                .fold(dz_raw, f32::max);
+            if dz.abs() < 1e-4 {
                 return false;
             }
-            self.hoist_steps += actual_delta;
-            let dz = (actual_delta as f32) * BLOCK_STEP;
+            self.hoist_steps = (self.hoist_steps + ((dz / BLOCK_STEP).round() as i32)).clamp(MIN_HOIST_STEPS, MAX_HOIST_STEPS);
             for &(cu, cv, idx) in &cluster {
                 if let Some(list) = blocks.get_mut(&(cu, cv)) {
                     list[idx].shift_elevation(dz);

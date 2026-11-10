@@ -44,7 +44,8 @@ impl RigRegistry {
         &self, u: i32, v: i32, ray_elev: f32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
     ) -> Option<f32> {
         if let Some(rig) = self.rigs.get(&(u, v)) {
-            if rig.occupies_mast_layer(ray_elev) {
+            let blocked_by_part = blocks.get(&(u, v)).is_some_and(|l| l.iter().any(|b| b.occupies_layer(ray_elev)));
+            if !blocked_by_part && rig.occupies_mast_layer(ray_elev) {
                 return Some(rig.mast_ceiling());
             }
         }

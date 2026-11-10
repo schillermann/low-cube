@@ -144,7 +144,7 @@ impl BeltSatchel {
         let (hand, _) = attire.hand_pair(side);
         let placed_mold = self.palms.mold_on(side).in_medium(hand.block_medium());
         if !world.place_molded_surface_block(eye, view_dir, avatar_pos, placed_mold) {
-            if hand != HeldRelic::SteeringWheel && hand != HeldRelic::CantileverCrane {
+            if hand.block_medium().rig_mountable() && hand != HeldRelic::SteeringWheel {
                 self.tray.flag_steering_notice();
             }
             return (self, attire, false);

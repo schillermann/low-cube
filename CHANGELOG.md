@@ -8,6 +8,12 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.59.2] - 2026-11-10
+
+### Fixed
+- Fixed `VehicleAssembly::wheel_ground_lift`, `VehicleAssembly::park_into_blocks`, `VehiclePart::park_into`, `VehiclePart::wheel_floor_drop` (`crates/world/src/relief/vehicle_assembly/mod.rs` and `part.rs`), `CantileverRig::adjust_assembly` (`crates/world/src/relief/cantilever_rig/mod.rs`), and `ElevatedShape::wheel_ground_lift` (`crates/world/src/block/elevated_shape.rs`) so the entire vehicle assembly is elevated above ground by the full lugged wheel clearance while driving, parked, or lowered on a crane instead of sinking the lowered wheel hubs into the terrain.
+- Fixed `ContactFace::classify` (`crates/world/src/relief/sight_ray/contact.rs`), `CantileverRig::retract_for_placed_block`, `CantileverRig::connected_cluster` (`crates/world/src/relief/cantilever_rig/mod.rs`), and `RigRegistry::hit_top` (`crates/world/src/relief/cantilever_rig/registry.rs`) so lateral block placement against an underslung pedal cluster beneath a hoisted steering wheel attaches wheels at the pedal layer and retracts the crane arm cleanly instead of triggering the crane steering-wheel notice.
+
 ## [0.59.1] - 2026-11-10
 
 ### Fixed

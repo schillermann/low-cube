@@ -94,13 +94,13 @@ impl OverhangMolds {
     }
 
     pub fn layer_medium_at(&self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
+        if let Some(med) = self.blocks.get(&(u, v)).and_then(|list| list.iter().rfind(|b| b.occupies_layer(layer_elev))).map(ElevatedShape::block_medium) {
+            return med;
+        }
         if self.rigs.occupies_layer(u, v, layer_elev) {
             return BlockMedium::CantileverRig;
         }
-        self.blocks
-            .get(&(u, v))
-            .and_then(|list| list.iter().rfind(|b| b.occupies_layer(layer_elev)))
-            .map_or_else(|| shafts.excavated_medium_at(strata, u, v, layer_elev), ElevatedShape::block_medium)
+        shafts.excavated_medium_at(strata, u, v, layer_elev)
     }
 
     pub fn hit_top_at(&self, cu: i32, cv: i32, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
@@ -134,7 +134,8 @@ impl OverhangMolds {
     }
 
     pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32, ground_top: f32) -> Option<((i32, i32), BlockMedium)> {
-        if self.rigs.pack_up(u, v, ground_top, &mut self.blocks) {
+        let block_hit = self.blocks.get(&(u, v)).is_some_and(|l| l.iter().any(|b| b.occupies_layer(layer_elev)));
+        if !block_hit && self.rigs.pack_up(u, v, ground_top, &mut self.blocks) {
             return Some((self.clear_stage(u, v), BlockMedium::CantileverRig));
         }
         if self.car_locked_at(u, v, layer_elev) {

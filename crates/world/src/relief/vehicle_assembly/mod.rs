@@ -37,7 +37,7 @@ impl VehicleAssembly {
     }
 
     pub fn perch_shell(&self) -> Self {
-        let seat_off = self.parts.iter().find_map(VehiclePart::origin_seat_floor).unwrap_or(0.0);
+        let seat_off = self.seat_floor_offset();
         Self::new(self.origin + self.axes.normal() * seat_off, self.axes, self.heading, Vec::new())
     }
 
@@ -46,7 +46,7 @@ impl VehicleAssembly {
     }
 
     fn wheel_ground_lift(&self) -> f32 {
-        self.parts.iter().filter_map(VehiclePart::wheel_radius).map(|r| (r - 0.11).max(0.05)).fold(0.0f32, f32::max)
+        self.parts.iter().filter_map(VehiclePart::wheel_floor_drop).fold(0.0f32, f32::max)
     }
 
     pub fn steer(&mut self, delta_yaw: f32) {
@@ -192,7 +192,7 @@ impl VehicleAssembly {
                 }
             }
         }
-        let base_floor = extracted.iter().map(|(_, _, b)| b.floor()).fold(ground_top, f32::min);
+        let base_floor = extracted.iter().map(|(_, _, b)| b.floor()).fold(f32::MAX, f32::min);
         let parts: Vec<VehiclePart> = extracted
             .into_iter()
             .map(|(cu, cv, b)| VehiclePart::new((cu - seat_u, cv - seat_v), (b.floor() - base_floor).max(0.0), b.into_shape()))
@@ -205,9 +205,10 @@ impl VehicleAssembly {
     pub(super) fn park_into_blocks(
         self, blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame,
     ) -> (i32, i32) {
+        let lift = self.wheel_ground_lift();
         let (seat, turn) = (frame.cell_at(self.origin).feed_coordinates(|cu, cv| (cu, cv)), self.axes.cardinal_turn(frame));
         for part in self.parts {
-            part.park_into(seat, turn, blocks, strata, shafts);
+            part.park_into(seat, turn, lift, blocks, strata, shafts);
         }
         seat
     }

@@ -41,6 +41,8 @@ impl ContactFace {
         }
         let ground_top = (relief.elevation_at(cu, cv) as f32) * Self::CELL_SPAN;
         let block_top = ((hit_top * 2.0).round() * Self::CELL_SPAN).max(ground_top);
+        let layer_mid = block_top - Self::CELL_SPAN * 0.5;
+        let backrest = relief.seat_backrest_cell(cu, cv, layer_mid);
         if block_top >= ground_top + Self::UNDERSIDE_MIN_CLEARANCE
             && !relief.layer_occupied_at(cu, cv, block_top - Self::UNDERSIDE_LAYER_OFFSET)
             && d_up > 0.0
@@ -48,8 +50,6 @@ impl ContactFace {
         {
             return Self::Underside(block_top - Self::UNDERSIDE_DROP);
         }
-        let layer_mid = block_top - Self::CELL_SPAN * 0.5;
-        let backrest = relief.seat_backrest_cell(cu, cv, layer_mid);
         if (prev_cu, prev_cv) != (cu, cv) && prev_cu >= min_c && prev_cu <= max_c && prev_cv >= min_c && prev_cv <= max_c {
             let ground_prev = (relief.elevation_at(prev_cu, prev_cv) as f32) * Self::CELL_SPAN;
             let min_wall = if relief.layer_occupied_at(cu, cv, layer_mid) {
@@ -64,6 +64,14 @@ impl ContactFace {
                 && prior_elev <= block_top
             {
                 return Self::Lateral((prev_cu, prev_cv), block_top - Self::CELL_SPAN);
+            }
+            if prev_free
+                && relief.layer_occupied_at(cu, cv, block_top - Self::UNDERSIDE_LAYER_OFFSET)
+                && block_top - Self::CELL_SPAN >= ground_prev + min_wall
+                && prior_elev >= block_top - Self::CELL_SPAN - Self::LATERAL_BAND_DEPTH
+                && prior_elev <= block_top - Self::CELL_SPAN + Self::CRUST_SEAM_TOLERANCE
+            {
+                return Self::Lateral((prev_cu, prev_cv), block_top - 2.0 * Self::CELL_SPAN);
             }
         }
         if let Some((bu, bv)) = backrest.filter(|&(bu, bv)| bu >= min_c && bu <= max_c && bv >= min_c && bv <= max_c) {
@@ -117,7 +125,9 @@ impl SightContact {
                     } else {
                         cv = (cv + if dv >= 0.0 { 1 } else { -1 }).clamp(min_c, max_c);
                     }
-                    (cu, cv, (relief.elevation_at(cu, cv) as f32) * Self::CELL_SPAN)
+                    let ground_top = (relief.elevation_at(cu, cv) as f32) * Self::CELL_SPAN;
+                    let base = if block_top > ground_top + Self::CELL_SPAN { block_top - Self::CELL_SPAN } else { ground_top };
+                    (cu, cv, base)
                 } else {
                     (cu, cv, block_top)
                 }

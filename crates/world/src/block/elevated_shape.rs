@@ -120,6 +120,15 @@ impl ElevatedShape {
         self.shape.block_medium()
     }
 
+    /// Vertical ground lift required when this shape is a car wheel with lug tread extending below its cell floor.
+    pub fn wheel_ground_lift(&self) -> f32 {
+        if self.shape.block_medium() == BlockMedium::CarWheel {
+            (self.shape.wheel_radius() * 1.07 - 0.11).max(0.05)
+        } else {
+            0.0
+        }
+    }
+
     /// Indicates whether this elevated shape fills an entire 0.5m cube cell envelope.
     pub fn full_cube_envelope(&self) -> bool {
         self.shape.full_cube_envelope()
