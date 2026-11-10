@@ -41,19 +41,42 @@ fn test_low_poly_grass_emits_3d_pyramid_blades_on_verdant_turf() {
 
     let frame = ClimateZone::Temperate.surface_frame(16.0);
     let grass_col = Vec3::new(0.28, 0.65, 0.25);
+    let cell = GridCell::new(0, 0);
     let mut block_ledger = QuadLedger::empty();
-    EarthClods::new(GridCell::new(0, 0), 0.0).emit_terraced(grass_col, false, &frame, &mut block_ledger);
+    EarthClods::new(cell, 0.0).emit_terraced(grass_col, false, &frame, &mut block_ledger);
 
-    let grass_quads = block_ledger.quads.iter().filter(|q| q.radiate(|g| g > 1.5)).count();
-    assert_eq!(grass_quads, 18, "Verdant dirt block must emit 6 30°-splayed 3-wing cross-billboard fans (18 quads = 126 cutout blades)");
+    let contour_top_quads = block_ledger.quads.iter().filter(|q| {
+        q.radiate(|g| g.abs() < 1e-4) && q.transfer(|v0, v1, v2, v3, n, col| {
+            n.y > 0.9 && (v0.y + v1.y + v2.y + v3.y) * 0.25 > 16.501 && col.y > col.x * 1.15
+        })
+    }).count();
+    assert!(contour_top_quads >= 4, "Verdant dirt block must emit multi-depth 3D contour terrace top quads above 16.5m, got {contour_top_quads}");
+    let blade_tuft_quads = block_ledger.quads.iter().filter(|q| {
+        q.radiate(|g| g >= 2.0)
+    }).count();
+    assert_eq!(blade_tuft_quads, 18, "Verdant dirt block must emit the original 6 3-wing grass tufts (18 quads)");
+    let turf_rim_quads = block_ledger.quads.iter().filter(|q| {
+        q.transfer(|v0, v1, v2, v3, n, col| {
+            n.y.abs() < 0.1 && (v0.y + v1.y + v2.y + v3.y) * 0.25 > 16.34 && col.y > col.x * 1.15
+        })
+    }).count();
+    assert!(turf_rim_quads >= 32, "Verdant dirt block must emit overhanging green turf rim and sod fringes on all 4 flanks, got {turf_rim_quads}");
+
+    let mut fan_ledger = QuadLedger::empty();
+    let mut meadow = crate::NaturalMeadowTarget::for_cell(&mut fan_ledger, cell, frame.normal());
+    let corners = cell.corner_points(&frame, 0.5);
+    meadow.push_quad(Quad::glowing(corners[0], corners[1], corners[2], corners[3], frame.normal(), grass_col, 0.02));
+    assert!(fan_ledger.quads.len() >= 9, "NaturalMeadowTarget must emit 3D contour terraces and original grass tufts on a verdant cell, got {}", fan_ledger.quads.len());
 
     let mut dug_ledger = QuadLedger::empty();
     let mut cratered = CrateredMeshTarget::new(&mut dug_ledger, 2);
-    for quad in &block_ledger.quads {
-        cratered.push_quad(*quad);
+    cratered.push_quad(Quad::new(corners[0], corners[1], corners[2], corners[3], frame.normal(), grass_col));
+    let mut dug_turf = QuadLedger::empty();
+    let mut dug_meadow = crate::NaturalMeadowTarget::for_cell(&mut dug_turf, cell, frame.normal());
+    for quad in &dug_ledger.quads {
+        dug_meadow.push_quad(*quad);
     }
-    let dug_grass = dug_ledger.quads.iter().filter(|q| q.radiate(|g| g > 1.5)).count();
-    assert_eq!(dug_grass, 0, "Digging stages 1..=3 must suppress 3D grass blade pyramids on cratered blocks");
+    assert_eq!(dug_turf.quads.len(), 0, "Digging stages 1..=3 must suppress 3D sod clods on cratered sub-quads");
 }
 
 #[test]

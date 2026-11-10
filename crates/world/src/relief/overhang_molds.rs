@@ -112,14 +112,17 @@ impl OverhangMolds {
         list.iter().rev().find(|b| b.intercepts(fu, fv, ray_elev)).map(ElevatedShape::ceiling)
     }
 
-    pub fn emit_molded_top(&self, cell: GridCell, surf_base: f32, frame: &SurfaceFrame, colors: (Vec3, Vec3), target: &mut dyn MeshTarget) -> bool {
+    pub fn emit_molded_top(&self, cell: GridCell, frame: &SurfaceFrame, colors: (Vec3, Vec3), target: &mut dyn MeshTarget) -> bool {
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let rig_emitted = self.rigs.emit_at(cell, frame, target);
         let Some(list) = self.blocks.get(&(u, v)) else { return rig_emitted };
         let (top_col, wall_col) = colors;
         for (idx, block) in list.iter().enumerate() {
             let stage = self.scars.block_stage(u, v, block);
-            let bare_top = block.floating_above(surf_base) || self.bare_dirt_at(u, v);
+            let covered_above = idx + 1 < list.len()
+                && list[idx + 1].block_medium() == BlockMedium::TurfEarth
+                && (list[idx + 1].floor() - block.ceiling()).abs() < NICHE_CONTACT_TOLERANCE;
+            let bare_top = covered_above || self.bare_dirt_at(u, v);
             let flank_only = list.len() > 2
                 && idx > 0
                 && idx + 1 < list.len()

@@ -46,7 +46,6 @@ impl<'a> MeshTarget for LoosenedPartTarget<'a> {
 }
 
 const BLOCK_HEIGHT: f32 = GridCell::SPAN;
-const SURFACE_CONTACT_TOLERANCE: f32 = 0.1;
 const EYE_SPAN_SENTINEL: f32 = 1.0;
 const UPRIGHT_STATURE_CLEARANCE: f32 = 1.80;
 const HEADROOM_TOLERANCE: f32 = 0.03;
@@ -169,11 +168,6 @@ impl ElevatedShape {
     /// Shifts this block's vertical elevation by `delta` meters.
     pub fn shift_elevation(&mut self, delta: f32) {
         self.elevation_offset += delta;
-    }
-
-    /// Indicates whether this elevated block sits away from the primary surface contact layer.
-    pub fn floating_above(&self, ground_top: f32) -> bool {
-        (self.elevation_offset - ground_top).abs() >= SURFACE_CONTACT_TOLERANCE
     }
 
     /// Lower block boundary elevation above face datum.

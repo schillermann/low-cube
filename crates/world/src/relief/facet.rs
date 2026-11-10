@@ -65,8 +65,11 @@ impl ReliefFacet {
                 let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
                 let sub_dirt = relief.bare_dirt_at(u, v) || molded;
                 let col = if sub_dirt { Vec3::new(0.45, 0.30, 0.17) } else { surf_col };
-                if !relief.breached_at(u, v) { top_out.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), col)); }
-                if sub_dirt && !relief.breached_at(u, v) { EarthClods::new(cell, top_h - 0.5).emit_crown(frame, top_out); }
+                let glow = if !sub_dirt && col.y > col.x * 1.15 && col.y > col.z * 1.15 { 0.02 } else { 0.0 };
+                if !relief.breached_at(u, v) { top_out.push_quad(Quad::glowing(p0, p1, p2, p3, frame.normal(), col, glow)); }
+                if !relief.breached_at(u, v) && sub_dirt {
+                    EarthClods::new(cell, top_h - 0.5).emit_crown(frame, top_out);
+                }
                 col
             };
             ([top_h, top_h, top_h, top_h], top_c)
@@ -78,7 +81,8 @@ impl ReliefFacet {
 
         let crust_top = relief.reworked_at(u, v) && vault.crust_surface_at(u, v, h);
         if stage > 0 && !crust_top { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, palette, frame, target); }
-        self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, vault, relief, frame, cliff_col, target);
+        let turf_rim = (!relief.bare_dirt_at(u, v) && !molded && !crust_top).then_some(surf_col);
+        self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, vault, relief, frame, cliff_col, turf_rim, target);
     }
 
     #[allow(clippy::too_many_arguments)]

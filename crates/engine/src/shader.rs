@@ -13,14 +13,14 @@ uniform mat4 u_view_proj;
 out vec3 v_normal;
 out vec3 v_color;
 out float v_glow;
-out vec2 v_screen;
+out vec3 v_world;
 out vec2 v_uv;
 
 void main() {
     v_normal = in_normal;
     v_color = in_color;
     v_glow = in_glow;
-    v_screen = in_position.xy;
+    v_world = in_position;
     int corner = gl_VertexID & 3;
     v_uv = vec2(float(corner == 1 || corner == 2), float(corner >= 2));
     gl_Position = u_view_proj * vec4(in_position, 1.0);
@@ -31,16 +31,31 @@ const FRAGMENT_SHADER_SRC: &str = r#"#version 330 core
 in vec3 v_normal;
 in vec3 v_color;
 in float v_glow;
-in vec2 v_screen;
+in vec3 v_world;
 in vec2 v_uv;
 
 uniform vec3 u_light_dir;
 
 out vec4 frag_color;
 
+int contour_tier(vec2 p) {
+    float w1 = sin(p.x * 3.8 + p.y * 2.7) + cos(p.x * 2.1 - p.y * 4.3);
+    float w2 = sin(p.x * 6.2 - p.y * 5.1) * 0.6 + cos(p.x * 4.7 + p.y * 6.4) * 0.5;
+    float val = w1 * 0.55 + w2 * 0.45;
+    return (val < -0.65) ? 0 : (val < -0.10) ? 1 : (val < 0.42) ? 2 : (val < 0.92) ? 3 : 4;
+}
+
+vec3 tier_scale(int t) {
+    return (t == 0) ? vec3(0.78, 0.82, 0.76)
+         : (t == 1) ? vec3(0.90, 0.92, 0.88)
+         : (t == 2) ? vec3(1.02, 1.00, 0.98)
+         : (t == 3) ? vec3(1.22, 1.12, 1.10)
+         : vec3(1.44, 1.24, 1.25);
+}
+
 void main() {
     if (v_glow < 0.0) {
-        float ramp = clamp((length(v_screen) - v_normal.x) / max(v_normal.y, 0.0001), 0.0, 1.0);
+        float ramp = clamp((length(v_world.xy) - v_normal.x) / max(v_normal.y, 0.0001), 0.0, 1.0);
         float alpha = clamp(-v_glow * mix(v_normal.z, 1.0, ramp), 0.0, 1.0);
         frag_color = vec4(v_color, alpha);
         return;
@@ -70,11 +85,23 @@ void main() {
         return;
     }
     vec3 norm = normalize(v_normal);
+    vec3 base_col = v_color;
+    if (v_glow > 0.005 && v_glow < 0.05) {
+        vec3 an = abs(norm);
+        vec2 wp = (an.y >= max(an.x, an.z)) ? v_world.xz : ((an.x >= an.z) ? v_world.yz : v_world.xy);
+        vec2 grid_p = floor(wp * 8.0) * 0.125 + vec2(0.0625);
+        int t = contour_tier(grid_p);
+        int tx = contour_tier(grid_p + vec2(0.125, 0.0));
+        int ty = contour_tier(grid_p + vec2(0.0, 0.125));
+        vec2 cell_uv = fract(wp * 8.0);
+        float riser = ((t != tx && cell_uv.x > 0.86) || (t != ty && cell_uv.y > 0.86)) ? 0.88 : 1.0;
+        base_col = clamp(v_color * tier_scale(t) * riser, vec3(0.0), vec3(1.0));
+    }
     float diff = max(dot(norm, normalize(u_light_dir)), 0.0);
-    vec3 ambient = vec3(0.35);
-    vec3 light = ambient + vec3(0.65) * diff;
-    vec3 radiant = min(v_color * 1.15, vec3(1.0));
-    frag_color = vec4(mix(v_color * light, radiant, clamp(v_glow, 0.0, 1.0)), 1.0);
+    vec3 light = vec3(0.35) + vec3(0.65) * diff;
+    vec3 radiant = min(base_col * 1.15, vec3(1.0));
+    float glow_mix = (v_glow < 0.05) ? 0.0 : clamp(v_glow, 0.0, 1.0);
+    frag_color = vec4(mix(base_col * light, radiant, glow_mix), 1.0);
 }
 "#;
 

@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-11-10
+
+### Added
+- Added 5-tier 3D contour grass terraces (`MeadowCrown::emit_contour_terraces`, `MeadowCrown::depth_tier_at`, `MeadowCrown::tier_style` in `crates/world/src/mesh_target/crown.rs`), overhanging 3D green turf rims and stepped sod fringes (`EarthClods::emit_turf_flank`, `EarthClods::emit_wall_turf`, `TURF_FRINGE_PATTERN` in `crates/world/src/block/earth_clods.rs`), and distance-graded local meadow emission (`NaturalMeadowTarget::with_lod`, `ReliefCellCache::emit_meadow_around` in `crates/world/src/mesh_target/mod.rs` and `crates/world/src/relief/face/cache.rs`) paired with 30°-splayed 3D grass tufts (`emit_splayed_cross_fan`, `emit_hybrid`, `emit_natural_patch`) across both placed verdant earth blocks and the World-Cube surface.
+- Added world-space 5-tier contour terrace shading (`contour_tier`, `tier_scale`) in `FRAGMENT_SHADER_SRC` (`crates/engine/src/shader.rs`) and `glow = 0.02` verdant surface tagging in `ReliefCorner`, `ReliefFacet`, `BlockMedium::emit_box`, and `TurfMeshTarget` so multi-depth grass contour lines continue seamlessly to the planetary horizon at zero extra polygon cost.
+
+### Changed
+- Split `crates/world/src/mesh_target.rs` into `crates/world/src/mesh_target/mod.rs` and `crates/world/src/mesh_target/crown.rs` and unified soil/turf clod geometry in `EarthClods` (`crates/world/src/block/earth_clods.rs`) and `ReliefWall` (`crates/world/src/relief/wall.rs`).
+
 ## [0.59.3] - 2026-11-10
 
 ### Changed

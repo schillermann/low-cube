@@ -102,7 +102,8 @@ impl ReliefCellCache {
         let up = frame.normal();
         for dv in -88..=88 {
             for du in -88..=88 {
-                if du * du + dv * dv > 7744 {
+                let dist_sq = du * du + dv * dv;
+                if dist_sq > 7744 {
                     continue;
                 }
                 let (gu, gv) = (cu + du, cv + dv);
@@ -110,7 +111,11 @@ impl ReliefCellCache {
                     continue;
                 }
                 let slot = ((gv + half) as usize) * side + ((gu + half) as usize);
-                let mut meadow = crate::NaturalMeadowTarget::for_cell(target, GridCell::new(gu, gv), up);
+                if cells[slot].len() > 10 {
+                    continue;
+                }
+                let lod = if dist_sq <= 196 { 2 } else if dist_sq <= 576 { 1 } else { 0 };
+                let mut meadow = crate::NaturalMeadowTarget::with_lod(target, GridCell::new(gu, gv), up, lod);
                 for &quad in &cells[slot] {
                     meadow.push_quad(quad);
                 }

@@ -123,7 +123,8 @@ impl NaturalCrown {
             Self::Flat => {
                 let (p0, p1) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h));
                 let (p2, p3) = (frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
-                target.push_quad(Quad::new(p0, p1, p2, p3, frame.normal(), surf_col));
+                let glow = if surf_col.y > surf_col.x * 1.15 && surf_col.y > surf_col.z * 1.15 { 0.02 } else { 0.0 };
+                target.push_quad(Quad::glowing(p0, p1, p2, p3, frame.normal(), surf_col, glow));
                 ([top_h, top_h, top_h, top_h], surf_col)
             }
         }
@@ -153,7 +154,8 @@ impl ReliefCorner {
         };
         let (p0, p1) = (frame.point_at(u0, v0, top_h + d0), frame.point_at(u1, v0, top_h + d1));
         let (p2, p3) = (frame.point_at(u1, v1, top_h + d2), frame.point_at(u0, v1, top_h + d3));
-        target.push_quad(Quad::new(p0, p1, p2, p3, norm, surf_col));
+        let glow = if surf_col.y > surf_col.x * 1.15 && surf_col.y > surf_col.z * 1.15 { 0.02 } else { 0.0 };
+        target.push_quad(Quad::glowing(p0, p1, p2, p3, norm, surf_col, glow));
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -240,6 +242,7 @@ impl ReliefCorner {
     }
 
     fn push_tri(&self, a: Vec3, b: Vec3, c: Vec3, norm: Vec3, col: Vec3, target: &mut dyn MeshTarget) {
-        target.push_quad(Quad::new(a, b, c, c, norm, col));
+        let glow = if col.y > col.x * 1.15 && col.y > col.z * 1.15 { 0.02 } else { 0.0 };
+        target.push_quad(Quad::glowing(a, b, c, c, norm, col, glow));
     }
 }
