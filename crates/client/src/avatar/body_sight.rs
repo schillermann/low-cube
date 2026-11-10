@@ -78,7 +78,7 @@ impl AvatarBody {
         if self.pilot.driving() {
             if let Some(perch_pos) = self.pilot.release_wheel(world) {
                 self.position = perch_pos;
-                sight_line.constrain_shoulders(false, 0.0);
+                sight_line.constrain_shoulders(true, 1.42);
                 return Some(true);
             }
         }
@@ -143,6 +143,7 @@ impl AvatarBody {
             sight_line.constrain_shoulders(false, 0.0);
         } else {
             self.posture = self.posture.crouch_down(dt);
+            sight_line.constrain_shoulders(true, 1.42);
             if steer_px.abs() > 1e-5 {
                 sight_line.steer_vehicle(steer_px);
             }

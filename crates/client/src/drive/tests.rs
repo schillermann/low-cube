@@ -174,12 +174,16 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
         driver.step_motion(1.0 / 60.0, &hold_s, &world);
     }
     let braked_x = cam_pos(&driver).x;
-    for _ in 0..35 {
+    for _ in 0..55 {
         driver.step_motion(1.0 / 60.0, &hold_s, &world);
     }
     assert!(cam_pos(&driver).x < braked_x - 0.35);
 
     assert!(driver.use_left_hand(&mut world));
+    driver.rotate_degrees(240.0, 0.0);
+    assert!(view_fwd(&driver).dot(initial_dir) > 0.10);
+    driver.rotate_degrees(-480.0, 0.0);
+    assert!(view_fwd(&driver).dot(initial_dir) > 0.10);
     let parked_eye = cam_pos(&driver);
     assert!(parked_eye.y < g0 + 2.0);
     let eng_top = world.constrain_to_surface(Vec3::new(parked_eye.x, 22.0, 0.75), 0.0).y;

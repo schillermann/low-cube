@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.59.1] - 2026-11-10
+
+### Fixed
+- Fixed `AvatarBody::interact_vehicle` and `AvatarBody::step_driving` (`crates/client/src/avatar/body_sight.rs`) so head yaw rotation remains constrained to `±1.42 rad` (`constrain_shoulders(true, 1.42)`) whenever the avatar is seated with an immobilized torso (`VehiclePilot::Perch` as well as `VehiclePilot::Driving`), instead of unlocking 360-degree head rotation upon releasing the steering wheel.
+
 ## [0.59.0] - 2026-11-10
 
 ### Added
