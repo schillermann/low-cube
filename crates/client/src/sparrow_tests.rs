@@ -26,7 +26,7 @@ fn test_sparrow_flock_flies_pecks_ground_and_sits_on_trees_with_zero_allocations
     let listener = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let mut flock = SparrowFlock::seeded();
 
-    flock.step(1.0 / 60.0, listener, &world);
+    flock.step_spatial(1.0 / 60.0, listener, Vec3::NEG_Z, &world);
 
     let flying_count = flock.birds().iter().filter(|b| b.airborne()).count();
     let pecking_count = flock.birds().iter().filter(|b| b.ground_pecking()).count();
@@ -58,7 +58,7 @@ fn test_sparrow_flock_flies_pecks_ground_and_sits_on_trees_with_zero_allocations
 
     let allocs = count_allocations(|| {
         for _ in 0..120 {
-            let _ = flock.step(1.0 / 60.0, listener, &world);
+            let _ = flock.step_spatial(1.0 / 60.0, listener, Vec3::NEG_Z, &world);
         }
     });
     assert_eq!(allocs, 0, "SparrowFlock step must allocate zero heap memory");
@@ -154,7 +154,7 @@ fn test_sparrow_transitions_between_flight_ground_pecking_and_tree_perching() {
 
 #[test]
 fn test_sparrow_chirp_synthesizes_melodic_three_syllable_birdsong_waveform() {
-    let chirp = SparrowChirp::woodland();
+    let chirp = SparrowChirp::new(24000, 1.0, 0.0, 1.0);
     assert_eq!(chirp.sample_rate(), 24000);
 
     let syl1 = chirp.amplitude_at(0.05).abs();
@@ -176,10 +176,43 @@ fn test_sparrow_chirp_synthesizes_melodic_three_syllable_birdsong_waveform() {
     let mut flock = SparrowFlock::seeded();
     let mut chirped = false;
     for _ in 0..240 {
-        if flock.step(1.0 / 30.0, listener, &world) {
+        if flock.step_spatial(1.0 / 30.0, listener, Vec3::NEG_Z, &world) {
             chirped = true;
             break;
         }
     }
     assert!(chirped, "SparrowFlock must emit periodic birdsong chirps near the listener");
+
+    // Distance attenuation & directional stereo panning verification
+    let near_right = SparrowChirp::spatial(
+        listener + Vec3::new(2.5, 0.5, -1.0),
+        listener,
+        Vec3::NEG_Z,
+        Vec3::Y,
+        101,
+    );
+    let far_left = SparrowChirp::spatial(
+        listener + Vec3::new(-18.0, 2.0, -4.0),
+        listener,
+        Vec3::NEG_Z,
+        Vec3::Y,
+        202,
+    );
+    let (nr_l, nr_r) = near_right.channel_gains();
+    let (fl_l, fl_r) = far_left.channel_gains();
+    assert!(
+        nr_r > nr_l * 1.5,
+        "Sparrow to the right of the listener gaze must pan strongly to the right stereo channel ({nr_l} vs {nr_r})"
+    );
+    assert!(
+        fl_l > fl_r * 1.5,
+        "Sparrow to the left of the listener gaze must pan strongly to the left stereo channel ({fl_l} vs {fl_r})"
+    );
+    assert!(
+        near_right.amplitude_at(0.19).abs() > far_left.amplitude_at(0.19).abs() * 3.5,
+        "Distant sparrows must sound significantly quieter than nearby sparrows"
+    );
+    let stereo_wav = near_right.stereo_riff_wave();
+    assert_eq!(&stereo_wav[0..4], b"RIFF");
+    assert_eq!(u16::from_le_bytes([stereo_wav[22], stereo_wav[23]]), 2, "Spatial chirp WAV must be 2-channel stereo");
 }

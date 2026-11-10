@@ -253,7 +253,7 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn step_fauna(&self, dt: f32, flock: &mut crate::sparrow::SparrowFlock, world: &dyn PlanetaryWorld) {
-        let _ = flock.step(dt, self.body.position(), world);
+        let _ = flock.step_spatial(dt, self.body.position(), self.sight_line.view_direction(), world);
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {

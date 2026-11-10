@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.59.3] - 2026-11-10
+
+### Changed
+- Updated `SparrowChirp::spatial`, `SparrowChirp::channel_gains`, and `SparrowChirp::stereo_riff_wave` (`crates/client/src/cardiac/birdsong.rs`) along with `SparrowFlock::step_spatial` (`crates/client/src/sparrow/mod.rs`) and `PlanetaryAvatar::step_fauna` (`crates/client/src/avatar/mod.rs`) so woodland sparrow chirps attenuate with 3D listener distance, pan across left/right stereo channels with interaural delay according to the listener's gaze direction, vary in pitch per bird, and use a longer variable cooldown (`4.2s–8.3s`).
+
 ## [0.59.2] - 2026-11-10
 
 ### Fixed
