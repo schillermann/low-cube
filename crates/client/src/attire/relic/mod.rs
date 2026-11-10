@@ -167,6 +167,10 @@ impl HeldRelic {
         self.placeable_block() || self.field_camera()
     }
 
+    pub const fn turnable_in_palm(self) -> bool {
+        self.placeable_block() && self.block_medium().mechanical_part()
+    }
+
     pub const fn blocks_perch(self) -> bool {
         self.placeable_block() && !self.field_camera()
     }

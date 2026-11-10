@@ -226,7 +226,7 @@ impl ElevatedShape {
         stage: u8,
         target: &mut dyn MeshTarget,
     ) {
-        if stage > 0 && self.shape.block_medium().rig_mountable() {
+        if stage > 0 && self.shape.block_medium().mechanical_part() {
             let (uc, vc) = cell.center();
             let mut loosened = LoosenedPartTarget {
                 inner: target,

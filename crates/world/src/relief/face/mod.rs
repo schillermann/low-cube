@@ -229,7 +229,9 @@ impl Face for FacetedReliefFace {
         };
         let assembly = self.domain.relief.board_vehicle_at(&self.domain.frame, cu, cv, layer, ray, engage_engine)?;
         if engage_engine {
+            let (eu, ev) = self.domain.frame.cell_at(eye).feed_coordinates(|gu, gv| (gu, gv));
             let (su, sv) = self.domain.frame.cell_at(assembly.origin()).feed_coordinates(|gu, gv| (gu, gv));
+            self.refresh_neighborhood(eu, ev, half);
             self.refresh_neighborhood(cu, cv, half);
             self.refresh_neighborhood(su, sv, half);
         }

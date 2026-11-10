@@ -110,19 +110,19 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
 
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.5, 1.25), crane_dir, av_pos, rig_mold));
-    let mut notice_builder = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 22.0, 1.25), 1.0));
-    notice_builder.apply_attire(YouthAttire::squire().with_relics(HeldRelic::CabinSeat, HeldRelic::EmptyPalm));
-    notice_builder.rotate_degrees(0.0, 58.0);
-    let mut pre_notice_verts = VertCollector(Vec::new());
-    notice_builder.emit_appearance(&mut pre_notice_verts);
-    assert!(!notice_builder.use_right_hand(&mut world) && !notice_builder.release_hand(&mut world));
-    let mut post_notice_verts = VertCollector(Vec::new());
-    notice_builder.emit_appearance(&mut post_notice_verts);
-    assert!(post_notice_verts.0.len() > pre_notice_verts.0.len() + 100);
+    assert!(
+        world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.5, 1.25), crane_dir, av_pos, BlockMold::cube().in_medium(BlockMedium::PedalCluster)),
+        "Any block medium must mount first onto an empty crane without steering-wheel restriction"
+    );
+    let mut seatless = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.25), 1.0));
+    seatless.rotate_degrees(-90.0, 12.0);
+    let stand_y = cam_pos(&seatless).y;
+    let _ = seatless.use_right_hand(&mut world);
+    assert!((cam_pos(&seatless).y - stand_y).abs() < 1e-4, "Without a seat on the crane object, player must not sit");
+    assert!(world.adjust_rig(Vec3::new(0.25, g0 + 1.5, 1.25), crane_dir, -1, false));
 
     for (eye, dir, mold) in [
-        (Vec3::new(0.25, g0 + 1.5, 1.25), crane_dir, eng_mold),
-        (Vec3::new(1.25, g0 + 1.0, 0.25), Vec3::Y, BlockMold::cube().in_medium(BlockMedium::PedalCluster)),
+        (Vec3::new(1.25, g0 + 2.40, 0.25), Vec3::NEG_Y, eng_mold),
         (Vec3::new(1.25, g0 + 1.25, 0.75), Vec3::NEG_Z, m1),
         (Vec3::new(1.25, g0 + 1.75, 1.25), Vec3::NEG_Z, seat_mold),
         (Vec3::new(0.25, g0 + 1.75, 0.75), Vec3::X, m1),

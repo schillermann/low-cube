@@ -88,6 +88,12 @@ impl BeltSatchel {
         self
     }
 
+    pub fn turn_mold(mut self, attire: YouthAttire) -> Self {
+        let (r, l) = attire.held_pair();
+        self.palms.map_sides(attire, r.turnable_in_palm(), l.turnable_in_palm(), BlockMold::turn_clockwise);
+        self
+    }
+
     pub fn reconcile_attire(mut self, attire: YouthAttire) -> Self {
         self.palms.reconcile_attire(attire);
         self
@@ -144,9 +150,6 @@ impl BeltSatchel {
         let (hand, _) = attire.hand_pair(side);
         let placed_mold = self.palms.mold_on(side).in_medium(hand.block_medium());
         if !world.place_molded_surface_block(eye, view_dir, avatar_pos, placed_mold) {
-            if hand.block_medium().rig_mountable() && hand != HeldRelic::SteeringWheel {
-                self.tray.flag_steering_notice();
-            }
             return (self, attire, false);
         }
         self.tray.close();
@@ -163,9 +166,9 @@ impl BeltSatchel {
         }
         self.palms.assign_mold(side, placed_mold);
         self.tray.focus_side(side);
-        let has_refill = !hand.field_camera() && self.tray.take_stowed(hand);
-        let next_hand = if has_refill { hand } else { HeldRelic::EmptyPalm };
-        self.palms.assign_blocks(side, u32::from(has_refill));
+        let refilled = !hand.field_camera() && self.tray.take_stowed(hand);
+        let next_hand = if refilled { hand } else { HeldRelic::EmptyPalm };
+        self.palms.assign_blocks(side, u32::from(refilled));
         (self, attire.with_hand_relic(side, next_hand), true)
     }
 

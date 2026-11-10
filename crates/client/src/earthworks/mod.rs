@@ -69,6 +69,12 @@ impl PalmEarthworks {
             let (next_tome, next_satchel, next_attire, ok) = self.tome.dispatch_trigger(trigger, bindings, self.satchel, attire);
             return (Self::with_tome(next_satchel, next_tome, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, ok);
         }
+        if !self.satchel.open() && bindings.matches(ControlAction::MoldForm, trigger) {
+            let (r, l) = attire.held_pair();
+            if r.turnable_in_palm() || l.turnable_in_palm() {
+                return (self.with_satchel(self.satchel.turn_mold(attire)), attire, true);
+            }
+        }
         if !self.satchel.open() && bindings.matches(ControlAction::MoldRight, trigger) {
             return (self.mold_next_form(attire), attire, true);
         }

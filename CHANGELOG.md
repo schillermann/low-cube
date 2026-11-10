@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-11-10
+
+### Added
+- Added `CraftCluster` and `ParkedFleet` (`crates/world/src/relief/craft_cluster/mod.rs` and `fleet.rs`) so everything built onto a `CantileverRig` is encapsulated as an independent multi-block object separate from World-Cube blocks, allowing any block medium on both World-Cube buildings and crane crafts without turning decorative wheels, seats, or steering wheels on houses into vehicles.
+- Added the `MoldedStructure` trait, strictly private `VoxelCells`, and the `RiggedStructure(ParkedStructure(&WorldBlocks))` decorator chain (`crates/world/src/relief/molded_structure/mod.rs`, `cells.rs`, and `decorators.rs`) so support, collision, raycast hits, perching, and mesh emission compose polymorphically in `OverhangMolds` (`crates/world/src/relief/overhang_molds.rs`).
+
+### Changed
+- Updated `CantileverRig`, `RigArm`, and `RigRegistry` (`crates/world/src/relief/cantilever_rig/mod.rs`, `arm.rs`, and `registry.rs`) to accept any initial block medium on an empty crane, forbid sitting when no `CabinSeat` is installed in the crane object, and keep the object attached to the crane whenever no `SteeringWheel` is installed.
+- Removed the obsolete `"ON CRANE FIRST"` steering-wheel notice (`TrayState::SteeringNotice`) from `SatchelTray` (`crates/client/src/attire/tray.rs`) and `BeltSatchel` (`crates/client/src/attire/pouch/mod.rs`), and restored `ControlAction::MoldForm` quarter-turn palm rotation (`HeldRelic::turnable_in_palm`, `BeltSatchel::turn_mold`) in `PalmEarthworks::handle_trigger` (`crates/client/src/earthworks/mod.rs`).
+
 ## [0.60.0] - 2026-11-10
 
 ### Added

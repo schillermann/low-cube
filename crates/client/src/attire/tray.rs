@@ -3,12 +3,11 @@ use world::{BlockMold, MeshTarget};
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
 
-/// Visibility state of the waist satchel inspection tray and crane steering-wheel notice.
+/// Visibility state of the waist satchel inspection tray.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TrayState {
     Closed,
     Open,
-    SteeringNotice,
 }
 
 /// Encapsulates stowed satchel items, WASD inspection cursor, and waist-grid rendering.
@@ -34,10 +33,6 @@ impl SatchelTray {
         matches!(self.state, TrayState::Open)
     }
 
-    pub const fn steering_notice(&self) -> bool {
-        matches!(self.state, TrayState::SteeringNotice)
-    }
-
     pub const fn active_side(&self) -> f32 {
         self.active_side
     }
@@ -53,10 +48,6 @@ impl SatchelTray {
 
     pub fn close(&mut self) {
         self.state = TrayState::Closed;
-    }
-
-    pub fn flag_steering_notice(&mut self) {
-        self.state = TrayState::SteeringNotice;
     }
 
     pub fn focus_side(&mut self, side: f32) {
@@ -186,19 +177,6 @@ impl SatchelTray {
     }
 
     pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
-        if self.steering_notice() {
-            let notice = pose.view_frame().shifted(0.0, 0.12, 0.40);
-            notice.emit_framed_plaque(0.125, 0.030, 0.0024, Vec3::new(0.18, 0.06, 0.05), Vec3::new(0.88, 0.32, 0.18), target);
-            let icon = notice.shifted(-0.088, 0.0, -0.008).scaled(0.52);
-            HeldRelic::SteeringWheel
-                .figure(BlockMold::cube())
-                .emit_in_slot(true, Vec3::new(0.95, 0.78, 0.24), &icon, target);
-            crate::menu::PixelStamp::new(0.0023, 0.0023, Vec3::new(1.65, 1.35, 0.42))
-                .emit_on_frame(HeldRelic::SteeringWheel.title(), 0.030, 0.007, 0.016, &notice, target);
-            crate::menu::PixelStamp::new(0.0021, 0.0021, Vec3::new(1.45, 1.48, 1.54))
-                .emit_on_frame("ON CRANE FIRST", 0.030, -0.008, 0.016, &notice, target);
-            return;
-        }
         if !self.open() {
             return;
         }

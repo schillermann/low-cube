@@ -1,11 +1,13 @@
 mod cantilever_rig;
 mod column_clearance;
 mod corner;
+mod craft_cluster;
 mod crust_vault;
 mod elevation;
 mod face;
 mod facet;
 mod magma_core;
+mod molded_structure;
 mod natural_strata;
 mod overhang_molds;
 mod palette;
@@ -17,6 +19,8 @@ mod turf_scars;
 mod vehicle_assembly;
 mod wall;
 
+#[cfg(test)]
+mod cantilever_rig_tests;
 #[cfg(test)]
 mod corner_seam_tests;
 #[cfg(test)]

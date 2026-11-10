@@ -1,16 +1,22 @@
-use std::collections::HashMap;
 use glam::{Quat, Vec3};
-use crate::block::{BlockMedium, ElevatedShape, GridCell, VoxelShape};
+use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
+use super::super::craft_cluster::CraftCluster;
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
 
 pub(super) const BLOCK_STEP: f32 = GridCell::SPAN;
 
 pub(super) struct ShiftedMeshTarget<'a> {
-    pub(super) shift: Vec3,
-    pub(super) inner: &'a mut dyn MeshTarget,
+    shift: Vec3,
+    inner: &'a mut dyn MeshTarget,
+}
+
+impl<'a> ShiftedMeshTarget<'a> {
+    pub(super) fn new(shift: Vec3, inner: &'a mut dyn MeshTarget) -> Self {
+        Self { shift, inner }
+    }
 }
 
 impl<'a> MeshTarget for ShiftedMeshTarget<'a> {
@@ -48,7 +54,7 @@ impl VehiclePart {
         (self.shape.block_medium() == BlockMedium::CarWheel).then(|| self.shape.wheel_radius())
     }
 
-    pub(super) fn steering_heading(&self, frame: &SurfaceFrame) -> Option<Vec3> {
+    pub fn steering_heading(&self, frame: &SurfaceFrame) -> Option<Vec3> {
         (self.shape.block_medium() == BlockMedium::SteeringWheel).then(|| self.shape.block_heading().forward_vector(frame))
     }
 
@@ -58,8 +64,13 @@ impl VehiclePart {
     }
 
     pub(super) fn park_into(
-        mut self, seat: (i32, i32), turn: (i32, i32, u8), lift: f32,
-        blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>, strata: &NaturalStrata, shafts: &ShaftExcavation,
+        mut self,
+        seat: (i32, i32),
+        turn: (i32, i32, u8),
+        lift: f32,
+        craft: &mut CraftCluster,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
     ) {
         let ((rxx, rxy, quarter_turns), (ox, oy)) = (turn, self.offset);
         let (ryx, ryy) = (-rxy, rxx);
@@ -68,9 +79,7 @@ impl VehiclePart {
         }
         let (bu, bv) = (seat.0 + ox * rxx + oy * ryx, seat.1 + ox * rxy + oy * ryy);
         let ground_top = (shafts.elevation_at(strata, bu, bv) as f32) * BLOCK_STEP;
-        let list = blocks.entry((bu, bv)).or_default();
-        list.push(ElevatedShape::new(self.shape, ground_top + lift + self.floor_offset));
-        list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
+        craft.insert(bu, bv, ground_top + lift + self.floor_offset, self.shape);
     }
 }
 

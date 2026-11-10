@@ -37,13 +37,13 @@ impl BlockMedium {
         matches!(self, Self::Sand)
     }
 
-    /// Indicates whether this block medium is a vehicle engine or steering control mountable on a cantilever rig.
+    /// Indicates whether this block medium is a vehicle engine or steering control.
     pub const fn vehicle_engine(self) -> bool {
         matches!(self, Self::SteeringWheel | Self::AircraftEngine | Self::RocketEngine)
     }
 
-    /// Indicates whether this block medium is a vehicle component that can initiate or attach to a crane assembly.
-    pub const fn rig_mountable(self) -> bool {
+    /// Indicates whether this block medium is a sculpted mechanical vehicle component.
+    pub const fn mechanical_part(self) -> bool {
         self.vehicle_engine() || matches!(self, Self::CabinSeat | Self::CarWheel | Self::PedalCluster | Self::CrossAxle)
     }
 
@@ -210,7 +210,7 @@ impl MediumShape {
 
 impl VoxelShape for MediumShape {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        if self.medium.rig_mountable() || matches!(self.medium, BlockMedium::CantileverRig | BlockMedium::FieldCamera) {
+        if self.medium.mechanical_part() || matches!(self.medium, BlockMedium::CantileverRig | BlockMedium::FieldCamera) {
             GridCell::SPAN
         } else {
             self.inner.elevation_at(local_u, local_v)
@@ -221,7 +221,7 @@ impl VoxelShape for MediumShape {
     fn block_heading(&self) -> WedgeHeading { self.heading }
     fn wheel_radius(&self) -> f32 { WheelProfile::from_archetype(self.archetype).radius() }
     fn full_cube_envelope(&self) -> bool {
-        self.archetype.full_height_flat() && !self.medium.rig_mountable() && !matches!(self.medium, BlockMedium::FieldCamera)
+        self.archetype.full_height_flat() && !self.medium.mechanical_part() && !matches!(self.medium, BlockMedium::FieldCamera)
     }
     fn step_camera_turn(&mut self, delta: i32) -> bool {
         if self.medium == BlockMedium::FieldCamera {
