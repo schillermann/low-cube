@@ -6,6 +6,7 @@ use crate::attire::{
     ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, SatchelWardrobe,
     SightMode, StrideRhythm, Wardrobe, YouthAttire,
 };
+use crate::cardiac::{AcousticWave, PalmScrape, SpadeStrike};
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 pub use crate::grip::{DigGrip, DigStroke};
 use self::debris::{DebrisSplash, DigOperation};
@@ -50,7 +51,6 @@ impl PalmEarthworks {
     fn with_satchel(self, satchel: BeltSatchel) -> Self { Self { satchel, ..self } }
     pub fn mold_next_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }
     pub fn mold_prev_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::prev_form)) }
-    pub fn turn_mold_clockwise(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::turn_clockwise)) }
     pub fn reconcile_attire(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.reconcile_attire(attire)) }
     pub fn with_provisioned_satchel(self, provider: &dyn crate::server_satchel::StartingSatchel) -> Self {
         self.with_satchel(provider.provision(self.satchel))
@@ -68,12 +68,6 @@ impl PalmEarthworks {
         if self.tome.open() {
             let (next_tome, next_satchel, next_attire, ok) = self.tome.dispatch_trigger(trigger, bindings, self.satchel, attire);
             return (Self::with_tome(next_satchel, next_tome, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, ok);
-        }
-        if !self.satchel.open()
-            && matches!(self.camera_mount(attire), CameraMount::Unmounted)
-            && bindings.matches(ControlAction::MoldForm, trigger)
-        {
-            return (self.turn_mold_clockwise(attire), attire, true);
         }
         if !self.satchel.open() && bindings.matches(ControlAction::MoldRight, trigger) {
             return (self.mold_next_form(attire), attire, true);
@@ -178,6 +172,7 @@ impl PalmEarthworks {
             let state = Self { satchel: self.satchel, tome: self.tome, dig: promoted }.reconcile_attire(attire);
             if rhythm.cleave_surge(side) > 0.0 {
                 if let Some(med) = world.loosen_surface(eye, view_dir, 1) {
+                    PalmScrape::earthy().thump();
                     return (Self::with_tome_and_medium(state.satchel, state.tome, 1, state.dig.grip(), d.resolve_site(eye, view_dir, world), med, true), attire, rhythm, true);
                 }
                 return (Self::with_tome_and_medium(state.satchel, state.tome, 0, state.dig.grip(), Vec3::ZERO, BlockMedium::TurfEarth, false), attire, rhythm, false);
@@ -259,6 +254,7 @@ impl PalmEarthworks {
         let (site, progress, next_grip, next_rhythm) = (d.resolve_site(eye, view_dir, world), stroke.advance_progress(d.progress()), stroke.next_grip(), stroke.next_rhythm());
         if progress >= EXCAVATION_THRESHOLD {
             if let Some(med) = world.harvest_surface(eye, view_dir) {
+                if active.spade_blade() { SpadeStrike::forged().thump(); } else { PalmScrape::earthy().thump(); }
                 let harvested = HeldRelic::from_medium(med);
                 let (next_satchel, next_attire) = state.satchel.collect_excavated_block(stroke.recipient_side(), harvested, attire);
                 return (Self::with_tome_and_medium(next_satchel, state.tome, 0, next_grip.without_pending_place(), site, med, true), next_attire, next_rhythm, true);
@@ -266,6 +262,9 @@ impl PalmEarthworks {
             return (Self::new(state.satchel, 0, next_grip.without_pending_place(), Vec3::ZERO, false), attire, next_rhythm, false);
         }
         if let Some(med) = world.loosen_surface(eye, view_dir, progress.div_ceil(2).clamp(1, 3) as u8) {
+            if progress > d.progress() {
+                if active.spade_blade() { SpadeStrike::forged().thump(); } else { PalmScrape::earthy().thump(); }
+            }
             return (Self::with_tome_and_medium(state.satchel, state.tome, progress, next_grip, site, med, true), attire, next_rhythm, false);
         }
         let fallback_grip = if w_place { DigGrip::with_pending_place(side) } else { next_grip.without_pending_place() };

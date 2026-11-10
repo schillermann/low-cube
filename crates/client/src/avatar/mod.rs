@@ -130,7 +130,7 @@ impl PlanetaryAvatar {
         let (eye, view_dir) = self.hand_ray();
         if !self.gear.satchel_open() {
             let allow_perch = !self.gear.holding_placeable_on(side);
-            if let Some(outcome) = self.body.interact_vehicle(eye, view_dir, allow_perch, true, &mut self.sight_line, world) {
+            if let Some(outcome) = self.body.interact_vehicle(eye, view_dir, allow_perch, &mut self.sight_line, world) {
                 self.bearing.calm();
                 return outcome;
             }
@@ -203,12 +203,7 @@ impl Avatar for PlanetaryAvatar {
         }
         let terrain_up = world.surface_up_at(pos);
         self.sight_line.reorient_surface(terrain_up, dt);
-        if let Some(steer_px) = self.body.step_driving(dt, controls, world) {
-            if steer_px.abs() > 1e-5 {
-                self.sight_line.steer_vehicle(steer_px);
-            }
-            let next_up = world.surface_up_at(self.body.position());
-            self.sight_line.reorient_surface(next_up, dt);
+        if self.body.step_driving(dt, controls, &mut self.sight_line, world) {
             self.bearing.calm();
             self.bearing.decay_tilt(dt);
             return;

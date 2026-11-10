@@ -49,8 +49,7 @@ impl VehiclePart {
 
     fn emit_driven(&self, lift: f32, spin: f32, turn: f32, frame: &SurfaceFrame, top: Vec3, wall: Vec3, out: &mut dyn MeshTarget) {
         let cell = GridCell::new(self.offset.0, self.offset.1);
-        let floor = if self.shape.block_medium() == BlockMedium::CarWheel { self.floor_offset } else { self.floor_offset + lift };
-        self.shape.emit_driven_part(cell, floor, spin, turn, frame, top, wall, out);
+        self.shape.emit_driven_part(cell, self.floor_offset + lift, spin, turn, frame, top, wall, out);
     }
 
     fn park_into(
@@ -131,12 +130,17 @@ impl VehicleAssembly {
         seat_off + self.wheel_ground_lift()
     }
 
+    pub fn perch_shell(&self) -> Self {
+        let seat_off = self.parts.iter().find_map(VehiclePart::origin_seat_floor).unwrap_or(0.0);
+        Self::new(self.origin + self.axes.normal() * seat_off, self.axes, self.heading, Vec::new())
+    }
+
     pub fn wheel_radius(&self) -> f32 {
         self.parts.iter().filter_map(VehiclePart::wheel_radius).fold(0.0f32, f32::max).max(0.16)
     }
 
     fn wheel_ground_lift(&self) -> f32 {
-        self.parts.iter().filter_map(VehiclePart::wheel_radius).map(|r| (r - 0.25).max(0.0)).fold(0.0f32, f32::max)
+        self.parts.iter().filter_map(VehiclePart::wheel_radius).map(|r| (r - 0.11).max(0.05)).fold(0.0f32, f32::max)
     }
 
     pub fn steer(&mut self, delta_yaw: f32) {
@@ -169,7 +173,7 @@ impl VehicleAssembly {
         }
     }
 
-    fn connected_cluster(u: i32, v: i32, seat_idx: usize, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>) -> Vec<(i32, i32, usize)> {
+    pub(super) fn connected_cluster(u: i32, v: i32, seat_idx: usize, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>) -> Vec<(i32, i32, usize)> {
         let (mut visited, mut queue, mut cluster) = (HashSet::new(), VecDeque::new(), Vec::new());
         visited.insert((u, v, seat_idx));
         queue.push_back((u, v, seat_idx));
@@ -224,19 +228,18 @@ impl VehicleAssembly {
             let eng = cluster.iter().copied().find(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].block_medium() == BlockMedium::SteeringWheel);
             let heading = eng.map_or_else(
                 || blocks[&(u, v)][seat_idx].block_heading().forward_vector(frame),
-                |(eu, ev, idx)| {
-                    if (eu, ev) != (u, v) {
-                        (frame.tangent() * ((eu - u) as f32) + frame.bitangent() * ((ev - v) as f32)).normalize_or_zero()
-                    } else {
-                        blocks[&(eu, ev)][idx].block_heading().forward_vector(frame)
-                    }
-                },
+                |(eu, ev, idx)| if (eu, ev) != (u, v) { (frame.tangent() * ((eu - u) as f32) + frame.bitangent() * ((ev - v) as f32)).normalize_or_zero() } else { blocks[&(eu, ev)][idx].block_heading().forward_vector(frame) },
             );
             let (cx, cy) = GridCell::new(u, v).center();
             return Some(Self::new(frame.point_at(cx, cy, seat_floor), VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal()), heading, Vec::new()));
         }
+        let eng_hit = (!rigs.present_at(u, v)).then(|| Self::locate_engine(u, v, layer_elev, ray, frame, blocks)).flatten();
+        let Some((eng_u, eng_v, eng_idx)) = eng_hit else {
+            let (mu, mv) = rigs.find_aimed_rig(u, v, ray, frame)?;
+            let (origin, heading) = rigs.reconnect_seated_car(mu, mv, ray, frame, blocks)?;
+            return Some(Self::new(origin, VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal()), heading, Vec::new()));
+        };
         let ((eng_u, eng_v, _), mut cluster, seat_u, seat_v, ground_top, min_floor) = {
-            let (eng_u, eng_v, eng_idx) = Self::locate_engine(u, v, layer_elev, ray, frame, blocks)?;
             let cluster = Self::connected_cluster(eng_u, eng_v, eng_idx, blocks);
             if !cluster.iter().any(|&(cu, cv, idx)| blocks[&(cu, cv)][idx].block_medium() == BlockMedium::CarWheel) {
                 return None;

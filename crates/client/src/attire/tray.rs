@@ -3,27 +3,39 @@ use world::{BlockMold, MeshTarget};
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
 
+/// Visibility state of the waist satchel inspection tray and crane steering-wheel notice.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrayState {
+    Closed,
+    Open,
+    SteeringNotice,
+}
+
 /// Encapsulates stowed satchel items, WASD inspection cursor, and waist-grid rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SatchelTray {
-    stowed: [u32; 21],
+    stowed: [u32; 22],
     active_side: f32,
     cursor: usize,
-    open: bool,
+    state: TrayState,
 }
 
 impl SatchelTray {
-    pub const fn new(stowed: [u32; 21], active_side: f32, cursor: usize, open: bool) -> Self {
+    pub const fn new(stowed: [u32; 22], active_side: f32, cursor: usize, open: bool) -> Self {
         Self {
             stowed,
             active_side,
             cursor,
-            open,
+            state: if open { TrayState::Open } else { TrayState::Closed },
         }
     }
 
     pub const fn open(&self) -> bool {
-        self.open
+        matches!(self.state, TrayState::Open)
+    }
+
+    pub const fn steering_notice(&self) -> bool {
+        matches!(self.state, TrayState::SteeringNotice)
     }
 
     pub const fn active_side(&self) -> f32 {
@@ -35,12 +47,16 @@ impl SatchelTray {
     }
 
     pub const fn with_open(mut self, open: bool) -> Self {
-        self.open = open;
+        self.state = if open { TrayState::Open } else { TrayState::Closed };
         self
     }
 
     pub fn close(&mut self) {
-        self.open = false;
+        self.state = TrayState::Closed;
+    }
+
+    pub fn flag_steering_notice(&mut self) {
+        self.state = TrayState::SteeringNotice;
     }
 
     pub fn focus_side(&mut self, side: f32) {
@@ -48,7 +64,7 @@ impl SatchelTray {
     }
 
     pub fn open_for_side(&mut self, side: f32, len: usize) {
-        self.open = true;
+        self.state = TrayState::Open;
         self.cursor = self.cursor.min(len.saturating_sub(1));
         self.focus_side(side);
     }
@@ -70,16 +86,18 @@ impl SatchelTray {
             HeldRelic::CabinSeat,
             HeldRelic::CarWheel,
             HeldRelic::PedalCluster,
+            HeldRelic::CrossAxle,
         ]
         .iter()
         .any(|&relic| self.count(relic) > 0)
     }
 
-    pub fn packed_slots(&self) -> ([HeldRelic; 12], usize) {
-        let (mut slots, mut len) = ([HeldRelic::EmptyPalm; 12], 0usize);
+    pub fn packed_slots(&self) -> ([HeldRelic; 15], usize) {
+        let (mut slots, mut len) = ([HeldRelic::EmptyPalm; 15], 0usize);
         let materials = [
             HeldRelic::CabinSeat,
             HeldRelic::PedalCluster,
+            HeldRelic::CrossAxle,
             HeldRelic::CarWheel,
             HeldRelic::SteeringWheel,
             HeldRelic::AircraftEngine,
@@ -93,7 +111,7 @@ impl SatchelTray {
             HeldRelic::FlintStone,
         ];
         for mat in materials {
-            if self.count(mat) > 0 && len < 12 {
+            if self.count(mat) > 0 && len < 15 {
                 slots[len] = mat;
                 len += 1;
             }
@@ -109,7 +127,7 @@ impl SatchelTray {
         ];
         for relic in tools {
             for _ in 0..self.count(relic) {
-                if len < 12 {
+                if len < 15 {
                     slots[len] = relic;
                     len += 1;
                 }
@@ -141,14 +159,14 @@ impl SatchelTray {
 
     pub fn toggle_open(&mut self) {
         let (_, len) = self.packed_slots();
-        self.open = !self.open;
-        if self.open {
+        self.state = if self.open() { TrayState::Closed } else { TrayState::Open };
+        if self.open() {
             self.cursor = self.cursor.min(len.saturating_sub(1));
         }
     }
 
     pub fn navigate(&mut self, dx: i32, dy: i32) -> bool {
-        if !self.open {
+        if !self.open() {
             return false;
         }
         let (_, len) = self.packed_slots();
@@ -168,7 +186,16 @@ impl SatchelTray {
     }
 
     pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
-        if !self.open {
+        if self.steering_notice() {
+            let notice = pose.view_frame().shifted(0.0, 0.12, 0.40);
+            notice.emit_framed_plaque(0.185, 0.024, 0.0024, Vec3::new(0.18, 0.06, 0.05), Vec3::new(0.88, 0.32, 0.18), target);
+            crate::menu::PixelStamp::new(0.0024, 0.0024, Vec3::new(1.65, 1.35, 0.42))
+                .emit_on_frame("LENKRAD FEHLT AM KRAN", 0.0, 0.006, 0.016, &notice, target);
+            crate::menu::PixelStamp::new(0.0020, 0.0020, Vec3::new(1.45, 1.48, 1.54))
+                .emit_on_frame("ERST LENKRAD AN KRAN SETZEN", 0.0, -0.008, 0.016, &notice, target);
+            return;
+        }
+        if !self.open() {
             return;
         }
         let ((slots, len), tray, mold) = (

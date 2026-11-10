@@ -72,28 +72,28 @@ impl AvatarBody {
         eye: Vec3,
         view_dir: Vec3,
         allow_perch: bool,
-        allow_dismount: bool,
         sight_line: &mut AvatarSight,
         world: &mut dyn PlanetaryWorld,
     ) -> Option<bool> {
         if self.pilot.driving() {
-            let dismounted = self.dismount_vehicle(world);
-            sight_line.constrain_shoulders(false, 0.0);
-            return Some(dismounted);
+            if let Some(perch_pos) = self.pilot.release_wheel(world) {
+                self.position = perch_pos;
+                sight_line.constrain_shoulders(false, 0.0);
+                return Some(true);
+            }
         }
         if self.pilot.seated() {
             if let Some(assembly) = world.board_vehicle(eye, view_dir, true) {
                 let heading = assembly.heading();
-                self.board_vehicle(assembly, world);
+                if assembly.drivable() {
+                    self.board_vehicle(assembly, world);
+                } else {
+                    self.sit_in_seat(assembly);
+                }
                 sight_line.anchor_vehicle_heading(heading);
                 return Some(true);
             }
-            if !allow_dismount {
-                return None;
-            }
-            let dismounted = self.dismount_vehicle(world);
-            sight_line.constrain_shoulders(false, 0.0);
-            return Some(dismounted);
+            return Some(false);
         }
         if allow_perch {
             if let Some(perch) = world.board_vehicle(eye, view_dir, false) {
@@ -126,22 +126,29 @@ impl AvatarBody {
         self.pilot = VehiclePilot::Driving(car);
     }
 
-    pub fn dismount_vehicle(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        if let Some(exit_pos) = self.pilot.dismount(world) {
-            self.posture = AvatarPosture::standing();
-            self.position = exit_pos;
-            self.flight.ground();
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn step_driving(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) -> Option<f32> {
-        let (seat_pos, steer_px) = self.pilot.step(dt, controls, world)?;
+    pub fn step_driving(
+        &mut self,
+        dt: f32,
+        controls: &dyn KeyboardControls,
+        sight_line: &mut AvatarSight,
+        world: &dyn PlanetaryWorld,
+    ) -> bool {
+        let Some((seat_pos, steer_px)) = self.pilot.step(dt, controls, world) else {
+            return false;
+        };
         self.position = seat_pos;
-        self.posture = self.posture.crouch_down(dt);
-        Some(steer_px)
+        if self.pilot.standing() {
+            self.posture = AvatarPosture::standing();
+            self.flight.ground();
+            sight_line.constrain_shoulders(false, 0.0);
+        } else {
+            self.posture = self.posture.crouch_down(dt);
+            if steer_px.abs() > 1e-5 {
+                sight_line.steer_vehicle(steer_px);
+            }
+        }
+        sight_line.reorient_surface(world.surface_up_at(self.position), dt);
+        true
     }
 
     pub fn emit_vehicle(&self, target: &mut dyn MeshTarget) {

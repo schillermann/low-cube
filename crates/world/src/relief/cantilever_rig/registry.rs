@@ -1,9 +1,12 @@
 use std::collections::HashMap;
-use crate::block::{ElevatedShape, GridCell};
+use glam::Vec3;
+use crate::block::{BlockMedium, ElevatedShape, GridCell};
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
+use super::super::sight_ray::SurfaceSightRay;
+use super::super::vehicle_assembly::VehicleAssembly;
 use super::{CantileverRig, BLOCK_STEP, MAX_HOIST_STEPS};
 
 /// Collection of active polyhedral cantilever rigs across a planetary face.
@@ -69,6 +72,97 @@ impl RigRegistry {
         &self, u: i32, v: i32, blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>,
     ) -> Option<f32> {
         self.rigs.iter().find_map(|(&(mu, mv), rig)| rig.attach_elevation(mu, mv, u, v, blocks))
+    }
+
+    pub fn cluster_hoisted(&self, cluster: &[(i32, i32, usize)], blocks: &HashMap<(i32, i32), Vec<ElevatedShape>>) -> bool {
+        self.rigs.iter().any(|(&(mu, mv), rig)| {
+            if !rig.hoisted() {
+                return false;
+            }
+            let gripped = rig.connected_cluster(mu, mv, blocks);
+            cluster.iter().any(|c| gripped.contains(c))
+        })
+    }
+
+    pub fn find_aimed_rig(&self, u: i32, v: i32, ray: SurfaceSightRay, frame: &SurfaceFrame) -> Option<(i32, i32)> {
+        if self.rigs.contains_key(&(u, v)) {
+            return Some((u, v));
+        }
+        if let Some((&mast, _)) = self.rigs.iter().find(|(&(mu, mv), r)| r.occupies_boom_cell(mu, mv, u, v)) {
+            return Some(mast);
+        }
+        for step in 1..=60 {
+            let sample = ray.sample_point((step as f32) * 0.08);
+            let (su, sv) = frame.decompose(sample);
+            let (ru, rv) = GridCell::at_planar(su, sv).feed_coordinates(|gu, gv| (gu, gv));
+            if self.rigs.contains_key(&(ru, rv)) {
+                return Some((ru, rv));
+            }
+            if let Some((&mast, _)) = self.rigs.iter().find(|(&(mu, mv), r)| r.occupies_boom_cell(mu, mv, ru, rv)) {
+                return Some(mast);
+            }
+        }
+        None
+    }
+
+    pub fn reconnect_seated_car(
+        &mut self, mu: i32, mv: i32, ray: SurfaceSightRay, frame: &SurfaceFrame,
+        blocks: &mut HashMap<(i32, i32), Vec<ElevatedShape>>,
+    ) -> Option<(Vec3, Vec3)> {
+        let (eu, ev) = frame.decompose(ray.sample_point(0.0));
+        let (seat_u, seat_v, seat_idx) = blocks
+            .iter()
+            .filter_map(|(&(cu, cv), list)| {
+                let idx = list.iter().rposition(|b| b.block_medium() == BlockMedium::CabinSeat)?;
+                let (cx, cy) = GridCell::new(cu, cv).center();
+                let dist = (cx - eu).hypot(cy - ev);
+                (dist <= 2.5).then_some((cu, cv, idx, dist))
+            })
+            .min_by(|a, b| a.3.total_cmp(&b.3))
+            .map(|(cu, cv, idx, _)| (cu, cv, idx))?;
+        let cluster = VehicleAssembly::connected_cluster(seat_u, seat_v, seat_idx, blocks);
+        let &(eng_u, eng_v, eng_idx) = cluster.iter().find(|&&(cu, cv, idx)| blocks[&(cu, cv)][idx].block_medium() == BlockMedium::SteeringWheel)?;
+        let (seat_floor, eng_floor, heading) = (
+            blocks[&(seat_u, seat_v)][seat_idx].floor(),
+            blocks[&(eng_u, eng_v)][eng_idx].floor(),
+            blocks[&(eng_u, eng_v)][eng_idx].block_heading().forward_vector(frame),
+        );
+        let (gu, gv, hoist_z) = {
+            let rig = self.rigs.get_mut(&(mu, mv))?;
+            rig.reset_arm();
+            let (gu, gv) = rig.gripped_cell(mu, mv);
+            (gu, gv, rig.hoist_elevation())
+        };
+        let (du, dv, dz) = (gu - eng_u, gv - eng_v, hoist_z - eng_floor);
+        let (mut extracted, mut by_cell): (Vec<_>, HashMap<(i32, i32), Vec<usize>>) = (Vec::with_capacity(cluster.len()), HashMap::new());
+        for &(cu, cv, idx) in &cluster {
+            by_cell.entry((cu, cv)).or_default().push(idx);
+        }
+        for ((cu, cv), mut indices) in by_cell {
+            indices.sort_unstable_by(|a, b| b.cmp(a));
+            if let Some(list) = blocks.get_mut(&(cu, cv)) {
+                for idx in indices {
+                    extracted.push((cu, cv, list.remove(idx)));
+                }
+                if list.is_empty() {
+                    blocks.remove(&(cu, cv));
+                }
+            }
+        }
+        let mut moved_floors = Vec::with_capacity(extracted.len());
+        for (cu, cv, mut shape) in extracted {
+            shape.shift_elevation(dz);
+            let (ncu, ncv, nf) = (cu + du, cv + dv, shape.floor());
+            moved_floors.push((ncu, ncv, nf));
+            let list = blocks.entry((ncu, ncv)).or_default();
+            list.push(shape);
+            list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
+        }
+        for (ncu, ncv, nf) in moved_floors {
+            self.retract_for_block(ncu, ncv, nf);
+        }
+        let (cx, cy) = GridCell::new(seat_u + du, seat_v + dv).center();
+        Some((frame.point_at(cx, cy, seat_floor + dz), heading))
     }
 
     pub fn release_cluster(&mut self, cluster: &[(i32, i32, usize)]) {

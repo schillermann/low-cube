@@ -76,6 +76,7 @@ impl VehicleBlockMesh {
         match self.medium {
             BlockMedium::SteeringWheel => self.emit_steering_wheel(cell, floor_elevation, frame, target),
             BlockMedium::CarWheel => self.emit_wheel(cell, floor_elevation, frame, target),
+            BlockMedium::CrossAxle => self.emit_cross_axle(cell, floor_elevation, frame, target),
             _ => self.emit_engine(cell, floor_elevation, frame, target),
         }
     }
@@ -111,8 +112,8 @@ impl VehicleBlockMesh {
         let base_pt = |x: f32, y: f32, z: f32| origin + right * x + up * y + fwd * z;
         // Full-width sculpted dashboard cowl, walnut fascia, and glowing instrument dials
         emit_prism(
-            base_pt(-0.24, 0.0, -0.06), base_pt(0.24, 0.0, -0.06), base_pt(0.24, 0.0, 0.24), base_pt(-0.24, 0.0, 0.24),
-            base_pt(-0.23, 0.25, -0.02), base_pt(0.23, 0.25, -0.02), base_pt(0.24, 0.29, 0.22), base_pt(-0.24, 0.29, 0.22),
+            base_pt(-0.25, 0.0, -0.06), base_pt(0.25, 0.0, -0.06), base_pt(0.25, 0.0, 0.25), base_pt(-0.25, 0.0, 0.25),
+            base_pt(-0.23, 0.25, -0.02), base_pt(0.23, 0.25, -0.02), base_pt(0.25, 0.29, 0.25), base_pt(-0.25, 0.29, 0.25),
             walnut, grip_leather, target,
         );
         emit_prism(
@@ -177,16 +178,12 @@ impl VehicleBlockMesh {
         let ((u0, u1), (v0, v1), top_elev) = (cell.u_bounds(), cell.v_bounds(), floor_elevation + 0.5);
         let (chassis, rib, top_glow, lens_glow) = match self.medium {
             BlockMedium::AircraftEngine => (
-                Vec3::new(0.48, 0.56, 0.66),
-                Vec3::new(0.74, 0.82, 0.90),
-                Vec3::new(0.20, 0.86, 0.98),
-                Vec3::new(0.56, 0.96, 1.00),
+                Vec3::new(0.48, 0.56, 0.66), Vec3::new(0.74, 0.82, 0.90),
+                Vec3::new(0.20, 0.86, 0.98), Vec3::new(0.56, 0.96, 1.00),
             ),
             _ => (
-                Vec3::new(0.22, 0.20, 0.26),
-                Vec3::new(0.84, 0.64, 0.22),
-                Vec3::new(0.99, 0.32, 0.12),
-                Vec3::new(0.98, 0.18, 0.46),
+                Vec3::new(0.22, 0.20, 0.26), Vec3::new(0.84, 0.64, 0.22),
+                Vec3::new(0.99, 0.32, 0.12), Vec3::new(0.98, 0.18, 0.46),
             ),
         };
         BlockMedium::emit_box(u0, u1, v0, v1, floor_elevation, top_elev, frame, chassis, rib, true, target);
@@ -201,35 +198,46 @@ impl VehicleBlockMesh {
         target.push_quad(Quad::glowing(p0, p1, p2, p3, n, top_glow, 0.92));
         let (c0, c1, c2, c3, ln) = match self.heading {
             WedgeHeading::East => (
-                frame.point_at(u1 + 0.005, v0 + 0.13, floor_elevation + 0.13),
-                frame.point_at(u1 + 0.005, v1 - 0.13, floor_elevation + 0.13),
-                frame.point_at(u1 + 0.005, v1 - 0.13, top_elev - 0.13),
-                frame.point_at(u1 + 0.005, v0 + 0.13, top_elev - 0.13),
-                t,
+                frame.point_at(u1 + 0.005, v0 + 0.13, floor_elevation + 0.13), frame.point_at(u1 + 0.005, v1 - 0.13, floor_elevation + 0.13),
+                frame.point_at(u1 + 0.005, v1 - 0.13, top_elev - 0.13), frame.point_at(u1 + 0.005, v0 + 0.13, top_elev - 0.13), t,
             ),
             WedgeHeading::West => (
-                frame.point_at(u0 - 0.005, v1 - 0.13, floor_elevation + 0.13),
-                frame.point_at(u0 - 0.005, v0 + 0.13, floor_elevation + 0.13),
-                frame.point_at(u0 - 0.005, v0 + 0.13, top_elev - 0.13),
-                frame.point_at(u0 - 0.005, v1 - 0.13, top_elev - 0.13),
-                -t,
+                frame.point_at(u0 - 0.005, v1 - 0.13, floor_elevation + 0.13), frame.point_at(u0 - 0.005, v0 + 0.13, floor_elevation + 0.13),
+                frame.point_at(u0 - 0.005, v0 + 0.13, top_elev - 0.13), frame.point_at(u0 - 0.005, v1 - 0.13, top_elev - 0.13), -t,
             ),
             WedgeHeading::North => (
-                frame.point_at(u1 - 0.13, v1 + 0.005, floor_elevation + 0.13),
-                frame.point_at(u0 + 0.13, v1 + 0.005, floor_elevation + 0.13),
-                frame.point_at(u0 + 0.13, v1 + 0.005, top_elev - 0.13),
-                frame.point_at(u1 - 0.13, v1 + 0.005, top_elev - 0.13),
-                b,
+                frame.point_at(u1 - 0.13, v1 + 0.005, floor_elevation + 0.13), frame.point_at(u0 + 0.13, v1 + 0.005, floor_elevation + 0.13),
+                frame.point_at(u0 + 0.13, v1 + 0.005, top_elev - 0.13), frame.point_at(u1 - 0.13, v1 + 0.005, top_elev - 0.13), b,
             ),
             WedgeHeading::South => (
-                frame.point_at(u0 + 0.13, v0 - 0.005, floor_elevation + 0.13),
-                frame.point_at(u1 - 0.13, v0 - 0.005, floor_elevation + 0.13),
-                frame.point_at(u1 - 0.13, v0 - 0.005, top_elev - 0.13),
-                frame.point_at(u0 + 0.13, v0 - 0.005, top_elev - 0.13),
-                -b,
+                frame.point_at(u0 + 0.13, v0 - 0.005, floor_elevation + 0.13), frame.point_at(u1 - 0.13, v0 - 0.005, floor_elevation + 0.13),
+                frame.point_at(u1 - 0.13, v0 - 0.005, top_elev - 0.13), frame.point_at(u0 + 0.13, v0 - 0.005, top_elev - 0.13), -b,
             ),
         };
         target.push_quad(Quad::glowing(c0, c1, c2, c3, ln, lens_glow, 0.95));
+    }
+
+    fn emit_cross_axle(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
+        let ((u0, u1), (v0, v1), (uc, vc)) = (cell.u_bounds(), cell.v_bounds(), cell.center());
+        let hc = floor_elev + 0.11;
+        let (walnut, iron_dark, axle_steel, brass) = (
+            Vec3::new(0.32, 0.18, 0.11),
+            Vec3::new(0.20, 0.22, 0.27),
+            Vec3::new(0.66, 0.70, 0.76),
+            Vec3::new(0.90, 0.70, 0.22),
+        );
+        BlockMedium::emit_box(u0, u1, vc - 0.042, vc + 0.042, hc - 0.042, hc + 0.042, frame, axle_steel, axle_steel, true, target);
+        BlockMedium::emit_box(uc - 0.042, uc + 0.042, v0, v1, hc - 0.042, hc + 0.042, frame, axle_steel, axle_steel, true, target);
+        for (a0, a1) in [(u0, u0 + 0.036), (u1 - 0.036, u1)] {
+            BlockMedium::emit_box(a0, a1, vc - 0.064, vc + 0.064, hc - 0.064, hc + 0.064, frame, brass, brass, true, target);
+        }
+        for (b0, b1) in [(v0, v0 + 0.036), (v1 - 0.036, v1)] {
+            BlockMedium::emit_box(uc - 0.064, uc + 0.064, b0, b1, hc - 0.064, hc + 0.064, frame, brass, brass, true, target);
+        }
+        BlockMedium::emit_box(uc - 0.11, uc + 0.11, vc - 0.11, vc + 0.11, floor_elev + 0.02, floor_elev + 0.24, frame, iron_dark, brass, true, target);
+        BlockMedium::emit_box(uc - 0.16, uc + 0.16, vc - 0.06, vc + 0.06, floor_elev + 0.22, floor_elev + 0.43, frame, iron_dark, iron_dark, false, target);
+        BlockMedium::emit_box(uc - 0.06, uc + 0.06, vc - 0.16, vc + 0.16, floor_elev + 0.22, floor_elev + 0.43, frame, iron_dark, iron_dark, false, target);
+        BlockMedium::emit_box(u0, u1, v0, v1, floor_elev + 0.43, floor_elev + 0.50, frame, walnut, iron_dark, true, target);
     }
 
     fn emit_wheel(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
@@ -237,33 +245,19 @@ impl VehicleBlockMesh {
         let (r, hw, spin) = (profile.radius(), profile.half_width(), self.motion.0);
         let (rim_r, hub_r) = (r * 0.56, r * 0.28);
         let (uc, vc) = cell.center();
-        let hc = floor_elev + r;
+        let hc = floor_elev + 0.11;
         let (rubber, tread, rim, hub) = (Vec3::new(0.15, 0.17, 0.20), Vec3::new(0.10, 0.11, 0.13), Vec3::new(0.68, 0.72, 0.78), Vec3::new(0.90, 0.70, 0.22));
         let cross = self.cross_grain();
-        let pt = |roll: f32, axle: f32, h: f32| -> Vec3 {
-            if cross { frame.point_at(uc + roll, vc + axle, hc + h) } else { frame.point_at(uc + axle, vc + roll, hc + h) }
+        let axle_shift = match self.heading {
+            WedgeHeading::East | WedgeHeading::North => 0.25 - hw,
+            WedgeHeading::West | WedgeHeading::South => -0.25 + hw,
         };
-        let axle_norm = if cross { frame.bitangent() } else { frame.tangent() };
+        let pt = |roll: f32, axle: f32, h: f32| -> Vec3 {
+            let a = axle_shift + axle;
+            if cross { frame.point_at(uc + a, vc + roll, hc + h) } else { frame.point_at(uc + roll, vc + a, hc + h) }
+        };
+        let axle_norm = if cross { frame.tangent() } else { frame.bitangent() };
         let (segs, step) = (8usize, (2.0 * PI) / 8.0);
-        // Single-sided connecting steel axle rod & brass mounting collar anchoring the wheel to the adjacent block
-        match self.heading {
-            WedgeHeading::East => {
-                BlockMedium::emit_box(uc - 0.030, uc + 0.030, vc, vc + 0.25, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
-                BlockMedium::emit_box(uc - 0.052, uc + 0.052, vc + 0.21, vc + 0.25, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
-            }
-            WedgeHeading::West => {
-                BlockMedium::emit_box(uc - 0.030, uc + 0.030, vc - 0.25, vc, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
-                BlockMedium::emit_box(uc - 0.052, uc + 0.052, vc - 0.25, vc - 0.21, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
-            }
-            WedgeHeading::North => {
-                BlockMedium::emit_box(uc - 0.25, uc, vc - 0.030, vc + 0.030, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
-                BlockMedium::emit_box(uc - 0.25, uc - 0.21, vc - 0.052, vc + 0.052, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
-            }
-            WedgeHeading::South => {
-                BlockMedium::emit_box(uc, uc + 0.25, vc - 0.030, vc + 0.030, hc - 0.030, hc + 0.030, frame, rim, rim, true, target);
-                BlockMedium::emit_box(uc + 0.21, uc + 0.25, vc - 0.052, vc + 0.052, hc - 0.052, hc + 0.052, frame, hub, hub, true, target);
-            }
-        }
         for i in 0..segs {
             let (a0, a1) = ((i as f32) * step + spin, ((i + 1) as f32) * step + spin);
             let ((s0, c0), (s1, c1)) = (a0.sin_cos(), a1.sin_cos());

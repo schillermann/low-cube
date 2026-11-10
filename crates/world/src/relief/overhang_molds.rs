@@ -137,6 +137,9 @@ impl OverhangMolds {
         if self.rigs.pack_up(u, v, ground_top, &mut self.blocks) {
             return Some((self.clear_stage(u, v), BlockMedium::CantileverRig));
         }
+        if self.car_locked_at(u, v, layer_elev) {
+            return None;
+        }
         let list = self.blocks.get_mut(&(u, v))?;
         let pos = list.iter().rposition(|b| b.occupies_layer(layer_elev))?;
         let removed = list.remove(pos);
@@ -147,6 +150,14 @@ impl OverhangMolds {
             }
         }
         Some((self.clear_stage(u, v), removed.block_medium()))
+    }
+
+    pub fn car_locked_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
+        let Some(list) = self.blocks.get(&(u, v)) else { return false };
+        let Some(pos) = list.iter().rposition(|b| b.occupies_layer(layer_elev)) else { return false };
+        let cluster = VehicleAssembly::connected_cluster(u, v, pos, &self.blocks);
+        cluster.iter().any(|&(cu, cv, idx)| self.blocks[&(cu, cv)][idx].block_medium() == BlockMedium::SteeringWheel)
+            && !self.rigs.cluster_hoisted(&cluster, &self.blocks)
     }
 
     pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32) {
@@ -171,18 +182,21 @@ impl OverhangMolds {
             self.clear_if_at(u, v);
             return true;
         }
-        let mountable = shape.block_medium().rig_mountable();
-        if mountable {
-            if let Some((eu, ev, hoist_z)) = self.rigs.mount_target(u, v, &self.blocks) {
-                let list = self.blocks.entry((eu, ev)).or_default();
-                list.push(ElevatedShape::new(shape, hoist_z));
-                list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
-                self.clear_if_at(eu, ev);
-                return true;
+        if let Some((eu, ev, hoist_z)) = self.rigs.mount_target(u, v, &self.blocks) {
+            if shape.block_medium() != BlockMedium::SteeringWheel {
+                return false;
             }
+            let list = self.blocks.entry((eu, ev)).or_default();
+            list.push(ElevatedShape::new(shape, hoist_z));
+            list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
+            self.clear_if_at(eu, ev);
+            return true;
+        }
+        if self.rigs.present_at(u, v) && self.rigs.attach_elevation(u, v, &self.blocks).is_none() {
+            return false;
         }
         let mut next_base = if sub { base } else { base.max(ground_top) };
-        if mountable && (next_base - ground_top).abs() <= 0.05 {
+        if (next_base - ground_top).abs() <= 0.05 {
             next_base = self.rigs.attach_elevation(u, v, &self.blocks).unwrap_or(next_base);
         }
         while self.blocks.get(&(u, v)).is_some_and(|l| l.iter().any(|b| b.occupies_layer(next_base + HALF_BLOCK_STEP))) {
@@ -190,6 +204,13 @@ impl OverhangMolds {
         }
         if next_base >= MAX_STACK_ELEVATION {
             return false;
+        }
+        for (du, dv) in [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)] {
+            if let Some(nlist) = self.blocks.get(&(u + du, v + dv)) {
+                if nlist.iter().any(|nb| (nb.floor() - next_base).abs() <= BLOCK_STEP + 0.12 && self.car_locked_at(u + du, v + dv, nb.floor() + HALF_BLOCK_STEP)) {
+                    return false;
+                }
+            }
         }
         self.rigs.retract_for_block(u, v, next_base);
         let list = self.blocks.entry((u, v)).or_default();

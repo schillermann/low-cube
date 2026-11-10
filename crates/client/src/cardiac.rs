@@ -1,6 +1,9 @@
+mod work_waves;
+
 use std::f32::consts::PI;
 #[cfg(not(test))]
 use std::sync::OnceLock;
+pub use self::work_waves::{EngineRumble, PalmScrape, SpadeStrike};
 
 #[cfg(all(target_os = "windows", not(test)))]
 #[link(name = "winmm")]

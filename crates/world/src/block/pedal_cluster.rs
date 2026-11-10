@@ -34,14 +34,14 @@ impl FootwellPlinth for WalnutFloorPan {
             Vec3::new(0.92, 0.74, 0.24),
         );
         BlockMedium::emit_box(cu0, cu1, cv0, cv1, floor_elev, plinth_h, frame, walnut, walnut, true, target);
-        BlockMedium::emit_box(cu0 - 0.004, cu1 + 0.004, cv0 - 0.004, cv1 + 0.004, plinth_h - 0.006, plinth_h + 0.006, frame, brass, brass, false, target);
-        let (mu0, mu1, mv0, mv1, su0, su1, sv0, sv1) = match self.heading {
-            WedgeHeading::East => (cu1 - 0.23, cu1 - 0.02, cv0 + 0.03, cv1 - 0.03, cu1 - 0.025, cu1 - 0.005, cv0 + 0.05, cv1 - 0.05),
-            WedgeHeading::West => (cu0 + 0.02, cu0 + 0.23, cv0 + 0.03, cv1 - 0.03, cu0 + 0.005, cu0 + 0.025, cv0 + 0.05, cv1 - 0.05),
-            WedgeHeading::North => (cu0 + 0.03, cu1 - 0.03, cv1 - 0.23, cv1 - 0.02, cu0 + 0.05, cu1 - 0.05, cv1 - 0.025, cv1 - 0.005),
-            WedgeHeading::South => (cu0 + 0.03, cu1 - 0.03, cv0 + 0.02, cv0 + 0.23, cu0 + 0.05, cu1 - 0.05, cv0 + 0.005, cv0 + 0.025),
+        BlockMedium::emit_box(cu0, cu1, cv0, cv1, plinth_h - 0.006, plinth_h + 0.006, frame, brass, brass, false, target);
+        BlockMedium::emit_box(cu0, cu1, cv0, cv1, plinth_h, plinth_h + 0.012, frame, stitch, mat_col, false, target);
+        let (su0, su1, sv0, sv1) = match self.heading {
+            WedgeHeading::East => (cu1 - 0.025, cu1, cv0, cv1),
+            WedgeHeading::West => (cu0, cu0 + 0.025, cv0, cv1),
+            WedgeHeading::North => (cu0, cu1, cv1 - 0.025, cv1),
+            WedgeHeading::South => (cu0, cu1, cv0, cv0 + 0.025),
         };
-        BlockMedium::emit_box(mu0, mu1, mv0, mv1, plinth_h, plinth_h + 0.012, frame, stitch, mat_col, false, target);
         BlockMedium::emit_box(su0, su1, sv0, sv1, plinth_h, plinth_h + 0.018, frame, brass, brass, false, target);
     }
 }
@@ -97,15 +97,20 @@ impl<P: FootwellPlinth> FootwellPlinth for PedalClusterMesh<P> {
             }
         };
 
-        // Angled firewall toe-board & center transmission tunnel rib
+        // Angled firewall toe-board, full-height rear bulkhead reaching the block above, & transmission tunnel rib
         emit_prism(
-            pt(-0.22, 0.055, 0.06), pt(0.22, 0.055, 0.06), pt(0.22, 0.055, 0.23), pt(-0.22, 0.055, 0.23),
-            pt(-0.22, 0.19, 0.14), pt(0.22, 0.19, 0.14), pt(0.22, 0.22, 0.23), pt(-0.22, 0.22, 0.23),
+            pt(-0.25, 0.055, 0.04), pt(0.25, 0.055, 0.04), pt(0.25, 0.055, 0.25), pt(-0.25, 0.055, 0.25),
+            pt(-0.25, 0.22, 0.15), pt(0.25, 0.22, 0.15), pt(0.25, 0.22, 0.25), pt(-0.25, 0.22, 0.25),
             walnut, iron_pan, target,
         );
         emit_prism(
-            pt(-0.035, 0.055, -0.23), pt(0.035, 0.055, -0.23), pt(0.035, 0.055, 0.12), pt(-0.035, 0.055, 0.12),
-            pt(-0.025, 0.085, -0.23), pt(0.025, 0.085, -0.23), pt(0.025, 0.095, 0.12), pt(-0.025, 0.095, 0.12),
+            pt(-0.25, 0.22, 0.15), pt(0.25, 0.22, 0.15), pt(0.25, 0.22, 0.25), pt(-0.25, 0.22, 0.25),
+            pt(-0.25, 0.50, 0.15), pt(0.25, 0.50, 0.15), pt(0.25, 0.50, 0.25), pt(-0.25, 0.50, 0.25),
+            walnut, iron_pan, target,
+        );
+        emit_prism(
+            pt(-0.035, 0.055, -0.25), pt(0.035, 0.055, -0.25), pt(0.035, 0.055, 0.15), pt(-0.035, 0.055, 0.15),
+            pt(-0.025, 0.085, -0.25), pt(0.025, 0.085, -0.25), pt(0.025, 0.095, 0.15), pt(-0.025, 0.095, 0.15),
             brass, iron_pan, target,
         );
 

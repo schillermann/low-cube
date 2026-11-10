@@ -228,7 +228,7 @@ impl BlockMold {
     #[allow(clippy::too_many_arguments)]
     pub fn emit_miniature(
         self, origin: Vec3, right: Vec3, up: Vec3, forward: Vec3,
-        scale: f32, side_color: Vec3, top_color: Vec3, target: &mut dyn MeshTarget,
+        scale: f32, side_color: Vec3, _top_color: Vec3, target: &mut dyn MeshTarget,
     ) {
         struct MiniatureBasis {
             origin: Vec3,
@@ -236,49 +236,29 @@ impl BlockMold {
             up: Vec3,
             back: Vec3,
         }
-        struct MiniatureCoat {
-            scale: f32,
-            side_col: Vec3,
-            top_col: Vec3,
-            self_pigmented: bool,
-        }
         struct MiniatureTarget<'a> {
             basis: MiniatureBasis,
-            coat: MiniatureCoat,
+            scale: f32,
             out: &'a mut dyn MeshTarget,
         }
         impl MeshTarget for MiniatureTarget<'_> {
             fn push_quad(&mut self, quad: Quad) {
                 let b = &self.basis;
-                let s = self.coat.scale;
+                let s = self.scale;
                 let map_pt = |p: Vec3| b.origin + b.right * ((p.x - 0.25) * s) + b.up * (p.y * s) + b.back * ((p.z - 0.25) * s);
                 let map_n = |n: Vec3| (b.right * n.x + b.up * n.y + b.back * n.z).normalize_or_zero();
                 let glow = quad.radiate(|g| g);
                 let mapped = quad.transfer(|v0, v1, v2, v3, n, col| {
-                    let c = if self.coat.self_pigmented { col } else if n.y > 0.25 { self.coat.top_col } else { self.coat.side_col };
-                    Quad::glowing(map_pt(v0), map_pt(v1), map_pt(v2), map_pt(v3), map_n(n), c, glow)
+                    Quad::glowing(map_pt(v0), map_pt(v1), map_pt(v2), map_pt(v3), map_n(n), col, glow)
                 });
                 self.out.push_quad(mapped);
             }
         }
         let unit_frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
         let shape = self.shape_for(Vec3::NEG_Z, &unit_frame);
-        let self_pigmented = self.medium.self_pigmented() || self.full_height_flat();
-        let lift = if self_pigmented || matches!(self.archetype, MoldArchetype::ConvexRidge | MoldArchetype::GentleLowerRidge) {
-            Vec3::ZERO
-        } else {
-            let (r, lift) = (0.25 * scale, up * (0.08 * scale));
-            let (b0, b1, b2, b3) = (origin - right * r + forward * r, origin + right * r + forward * r, origin + right * r - forward * r, origin - right * r - forward * r);
-            target.push_quad(Quad::new(b0, b3, b2, b1, -up, side_color));
-            target.push_quad(Quad::new(b0, b1, b1 + lift, b0 + lift, forward, side_color));
-            target.push_quad(Quad::new(b1, b2, b2 + lift, b1 + lift, right, side_color));
-            target.push_quad(Quad::new(b2, b3, b3 + lift, b2 + lift, -forward, side_color));
-            target.push_quad(Quad::new(b3, b0, b0 + lift, b3 + lift, -right, side_color));
-            lift
-        };
         let mut mini = MiniatureTarget {
-            basis: MiniatureBasis { origin: origin + lift, right, up, back: -forward },
-            coat: MiniatureCoat { scale, side_col: side_color, top_col: top_color, self_pigmented },
+            basis: MiniatureBasis { origin, right, up, back: -forward },
+            scale,
             out: target,
         };
         shape.emit_shape(GridCell::new(0, 0), 0.0, &unit_frame, side_color, &mut mini);

@@ -28,14 +28,10 @@ pub enum BlockMedium {
     CarWheel,
     FieldCamera,
     PedalCluster,
+    CrossAxle,
 }
 
 impl BlockMedium {
-    /// Indicates whether this medium carries its own self-colored architectural geometry across all forms.
-    pub const fn self_pigmented(self) -> bool {
-        !matches!(self, Self::TurfEarth)
-    }
-
     /// Indicates whether this block medium settles downward under planetary gravity when unsupported below.
     pub const fn settles_under_gravity(self) -> bool {
         matches!(self, Self::Sand)
@@ -48,7 +44,7 @@ impl BlockMedium {
 
     /// Indicates whether this block medium is a vehicle component that can initiate or attach to a crane assembly.
     pub const fn rig_mountable(self) -> bool {
-        self.vehicle_engine() || matches!(self, Self::CabinSeat | Self::CarWheel | Self::PedalCluster)
+        self.vehicle_engine() || matches!(self, Self::CabinSeat | Self::CarWheel | Self::PedalCluster | Self::CrossAxle)
     }
 
     /// Indicates whether this medium is a portable item picked up in a single click without excavation stages.
@@ -78,7 +74,7 @@ impl BlockMedium {
             Self::AircraftEngine => (Vec3::new(0.22, 0.88, 0.98), Vec3::new(0.54, 0.62, 0.72)),
             Self::RocketEngine => (Vec3::new(0.99, 0.32, 0.14), Vec3::new(0.24, 0.22, 0.28)),
             Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.36, 0.20, 0.13)),
-            Self::CarWheel => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
+            Self::CarWheel | Self::CrossAxle => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
             Self::PedalCluster => (Vec3::new(0.88, 0.22, 0.18), Vec3::new(0.24, 0.84, 0.36)),
         }
     }
@@ -242,8 +238,7 @@ impl VoxelShape for MediumShape {
     fn rotate_quarter(&mut self) { self.heading = self.heading.rotated_ccw(); }
 
     fn emit_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, color: Vec3, target: &mut dyn MeshTarget) {
-        let top_col = if self.medium == BlockMedium::TurfEarth { Vec3::new(0.28, 0.65, 0.25) } else { color };
-        self.emit_terraced_shape(cell, floor_elevation, frame, top_col, color, false, target);
+        self.emit_terraced_shape(cell, floor_elevation, frame, color, color, true, target);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -254,7 +249,7 @@ impl VoxelShape for MediumShape {
             PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target);
         } else if self.medium == BlockMedium::FieldCamera {
             FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
-        } else if matches!(self.medium, BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel) {
+        } else if matches!(self.medium, BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel | BlockMedium::CrossAxle) {
             VehicleBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle)).emit(cell, floor_elevation, frame, target);
         } else {
             self.emit_terraced_shape(cell, floor_elevation, frame, top_color, wall_color, true, target);
@@ -262,7 +257,7 @@ impl VoxelShape for MediumShape {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, bare_top: bool, target: &mut dyn MeshTarget) {
+    fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, _wall_color: Vec3, bare_top: bool, target: &mut dyn MeshTarget) {
         match (self.medium, self.archetype.full_height_flat()) {
             (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_terraced(top_color, bare_top, frame, target),
             (BlockMedium::CrustRock, true) => BlockMedium::emit_crust_rock_cube(cell, floor_elevation, frame, target),
@@ -273,12 +268,11 @@ impl VoxelShape for MediumShape {
             (BlockMedium::CabinSeat, _) => CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target),
             (BlockMedium::PedalCluster, _) => PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
-            (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel, _) => {
+            (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel | BlockMedium::CrossAxle, _) => {
                 VehicleBlockMesh::with_archetype(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
             }
             (BlockMedium::TurfEarth, false) => {
-                let cap = if bare_top { wall_color } else { top_color };
-                self.emit_sculpted_turf(cell, floor_elevation, frame, cap, wall_color, target);
+                EarthClods::new(cell, floor_elevation).emit_shaped(self.inner.as_ref(), top_color, bare_top, frame, target);
             }
             _ => {
                 let (cap, wall) = self.medium.sculpted_tones();

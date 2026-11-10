@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{MeshTarget, Quad};
-use crate::block::{EarthClods, GridCell};
+use crate::block::{BlockMedium, BlockMold, CardinalTurn, EarthClods, GridCell, MoldArchetype};
 use crate::topology::ClimateZone;
 use super::{ReliefElevation, ReliefPalette, ReliefStrata, TerracedRelief};
 
@@ -50,6 +50,14 @@ fn test_excavated_terrain_soil_wears_the_hand_held_earth_block_clods() {
     assert!(pit.tones.contains(&Vec3::new(0.45, 0.30, 0.17)), "Bare pit floor must share the hand block's loam top tone");
     let rim_clods = rim.tones.iter().filter(|&&c| c == pebble).count();
     assert!(rim_clods >= 3, "Each exposed 0.5 m soil layer of the pit wall must carry hand block flank clods, got {rim_clods}");
+    for code in 0..16 {
+        let mut form_ledger = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
+        BlockMold::with_medium(MoldArchetype::from_code(code), CardinalTurn::Forward, BlockMedium::TurfEarth)
+            .emit_miniature(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::Z, 1.0, Vec3::new(0.45, 0.30, 0.17), Vec3::new(0.45, 0.30, 0.17), &mut form_ledger);
+        assert!(form_ledger.tones.contains(&pebble), "Mold form {code} must carry full-cube dirt clods and pebbles");
+        assert!(form_ledger.tones.contains(&Vec3::new(0.41, 0.27, 0.15)), "Mold form {code} must carry full-cube dirt loam walls");
+        assert!(!form_ledger.tones.iter().any(|c| c.y > c.x + 0.05), "Handheld dirt form {code} must have no green grass");
+    }
 }
 
 #[test]
@@ -224,6 +232,7 @@ fn test_polyhedral_cantilever_rig_deploys_retracts_telescopic_gripper_and_hoists
         Some((2, 0, 1.75)),
         "Aiming directly at the suspended crane claw in mid-air must intercept the crane boom at (2, 0, 1.75)"
     );
+    assert!(!relief.stack_molded_cell(0, 0, 0.0, Box::new(crate::block::CuboidShape::new(0.5))), "Non-SteeringWheel blocks must be rejected on an empty crane");
     assert!(relief.stack_molded_cell(0, 0, 0.0, engine_shape), "Mounting SteeringWheel onto crane must succeed");
     assert!(relief.layer_occupied_at(2, 0, 1.75), "Mounted SteeringWheel must be suspended at (2, 0) height 1.5m..2.0m");
     let mut rig_ledger = ToneLedger { tones: Vec::new(), down_pebbles: 0 };
@@ -282,11 +291,9 @@ fn test_polyhedral_cantilever_rig_deploys_retracts_telescopic_gripper_and_hoists
         "Placing FieldCamera on 3 stacked dirt blocks must preserve the 3rd dirt block's top quads and add tripod leg quads"
     );
     let mut car_rel = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
-    assert!(car_rel.stack_molded_cell(2, 0, 1.0, Box::new(crate::block::CuboidShape::new(0.5))));
-    assert!(car_rel.stack_molded_cell(2, 0, 1.5, crate::block::BlockMold::cube().in_medium(crate::block::BlockMedium::SteeringWheel).shape_for(frame.bitangent(), &frame)));
-    assert!(car_rel.stack_molded_cell(2, -1, 1.0, crate::block::BlockMold::cube().in_medium(crate::block::BlockMedium::CabinSeat).shape_for(frame.bitangent(), &frame)));
+    assert!(car_rel.stack_molded_cell(0, 0, 0.0, Box::new(crate::block::MediumShape::new(Box::new(crate::block::CuboidShape::new(0.5)), crate::block::BlockMedium::CantileverRig, true, false))));
+    assert!(car_rel.stack_molded_cell(0, 0, 0.0, crate::block::BlockMold::cube().in_medium(crate::block::BlockMedium::SteeringWheel).shape_for(frame.bitangent(), &frame)));
+    assert!(car_rel.stack_molded_cell(2, -1, 1.5, crate::block::BlockMold::cube().in_medium(crate::block::BlockMedium::CabinSeat).shape_for(frame.bitangent(), &frame)));
     let s_ray = super::SurfaceSightRay::new(frame.point_at(1.25, -0.25, 2.12), frame.bitangent());
     assert!(car_rel.board_vehicle_at(&frame, 2, 0, 1.75, s_ray, true).is_none());
 }
-
-

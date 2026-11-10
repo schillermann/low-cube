@@ -8,6 +8,20 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-10
+
+### Added
+- Added `BlockMedium::CrossAxle` (`crates/world/src/block/timber_grain.rs`), `VehicleBlockMesh::emit_cross_axle` (`crates/world/src/block/vehicle_parts.rs`), and `HeldRelic::CrossAxle` (`crates/client/src/attire/relic/mod.rs`, `SatchelTray`, `BeltSatchel`, `TestKitSatchel`, and `ArtisanTome`) for connecting lateral wheels to a vehicle chassis.
+- Added `TrayState::SteeringNotice` (`crates/client/src/attire/tray.rs`) and crane placement validation (`OverhangMolds::stack_molded` in `crates/world/src/relief/overhang_molds.rs` and `BeltSatchel::place_from_hand` in `crates/client/src/attire/pouch/mod.rs`) requiring `SteeringWheel` as the first block mounted on an empty `CantileverRig` and displaying a HUD notice when another block is attempted first.
+- Added `RigRegistry::cluster_hoisted`, `RigRegistry::find_aimed_rig`, and `RigRegistry::reconnect_seated_car` (`crates/world/src/relief/cantilever_rig/registry.rs`) together with `OverhangMolds::car_locked_at` (`crates/world/src/relief/overhang_molds.rs`) so parked vehicles not connected to a hoisted crane cannot be modified, and clicking a crane while seated reconnects and hoists the vehicle.
+- Added `PalmScrape`, `SpadeStrike`, and `EngineRumble` (`crates/client/src/cardiac/work_waves.rs`) implementing `AcousticWave` for distinct bare-hand digging, iron-spade digging, and vehicle driving sounds.
+
+### Changed
+- Updated `VehiclePilot` and `DrivenCar` (`crates/client/src/drive.rs`) and `AvatarBody::interact_vehicle` / `AvatarBody::step_driving` (`crates/client/src/avatar/body_sight.rs`) so clicking while driving releases hands from the steering wheel back to the seated perch state, and pressing movement keys (`W`/`A`/`S`/`D`) while seated stands the player up next to the vehicle in the pressed direction.
+- Updated `EarthClodfigure` (`crates/world/src/block/earth_clods.rs`) and `LimbFrame::emit_upright_block` (`crates/client/src/attire/relic/mesh.rs`) to apply the full-cube soil clod and pebble relief across all 16 block forms and render handheld dirt blocks with bare soil on top instead of grass.
+- Removed handheld block rotation on `WheelClick` (`crates/world/src/block/mold.rs` and `crates/client/src/earthworks_tests.rs`) so block orientation follows player movement and sight direction.
+- Expanded `WalnutFloorPan` and `PedalClusterMesh` (`crates/world/src/block/pedal_cluster.rs`) to fill the full `0.5m × 0.5m` cell footprint and raise the rear wall to `y = 0.50m`, and updated `VehicleBlockMesh::emit_wheel` (`crates/world/src/block/vehicle_parts.rs`) to remove the protruding axle, orient the wheel rim toward the player, shift the wheel laterally to dock flush with `CrossAxle`, and lower the wheel hub (`0.11m`) so vehicles sit above the world cube.
+
 ## [0.56.1] - 2026-11-08
 
 ### Changed

@@ -121,7 +121,7 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), Option<BlockMedium>) {
-        if stage > 0 && !self.shafts.diggable_at(&self.strata, u, v, layer_elev) && !self.molds.present_at(u, v) {
+        if stage > 0 && (!self.shafts.diggable_at(&self.strata, u, v, layer_elev) && !self.molds.present_at(u, v) || self.molds.car_locked_at(u, v, layer_elev)) {
             return ((u, v), None);
         }
         let medium = self.molds.layer_medium_at(&self.strata, &self.shafts, u, v, layer_elev);
@@ -133,6 +133,9 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn harvest_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
+        if self.molds.car_locked_at(u, v, layer_elev) {
+            return ((u, v), None);
+        }
         let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
         if let Some((prev_cell, medium)) = self.molds.remove_layer(u, v, layer_elev, ground_top) {
             return (prev_cell, Some(medium));

@@ -21,7 +21,7 @@ pub struct BeltSatchel {
 impl BeltSatchel {
     #[allow(clippy::too_many_arguments)]
     pub const fn new(
-        right_blocks: u32, left_blocks: u32, stowed: [u32; 21], right_mold: BlockMold, left_mold: BlockMold,
+        right_blocks: u32, left_blocks: u32, stowed: [u32; 22], right_mold: BlockMold, left_mold: BlockMold,
         active_side: f32, cursor: usize, open: bool,
     ) -> Self {
         Self {
@@ -32,7 +32,7 @@ impl BeltSatchel {
     }
 
     pub const fn empty() -> Self {
-        Self::new(0, 0, [0; 21], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false)
+        Self::new(0, 0, [0; 22], BlockMold::cube(), BlockMold::cube(), 1.0, 0, false)
     }
 
     pub fn with_stowed_relic(mut self, relic: HeldRelic, count: u32) -> Self {
@@ -144,8 +144,12 @@ impl BeltSatchel {
         let (hand, _) = attire.hand_pair(side);
         let placed_mold = self.palms.mold_on(side).in_medium(hand.block_medium());
         if !world.place_molded_surface_block(eye, view_dir, avatar_pos, placed_mold) {
+            if hand != HeldRelic::SteeringWheel && hand != HeldRelic::CantileverCrane {
+                self.tray.flag_steering_notice();
+            }
             return (self, attire, false);
         }
+        self.tray.close();
         if hand.field_camera() {
             self.tripod = world.placed_camera_tripod().map_or(
                 TripodMount::Unmounted,
@@ -177,6 +181,7 @@ impl BeltSatchel {
                 (HeldRelic::AircraftEngine, 1),
                 (HeldRelic::SteeringWheel, 1),
                 (HeldRelic::CarWheel, 8),
+                (HeldRelic::CrossAxle, 4),
                 (HeldRelic::CabinSeat, 2),
                 (HeldRelic::PedalCluster, 2),
             ] {

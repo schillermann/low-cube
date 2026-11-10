@@ -154,17 +154,14 @@ fn test_mouse_wheel_molds_rotates_and_places_sloped_and_slab_blocks() {
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world));
     assert!(avatar.dispatch_trigger(InputTrigger::WheelDown) && avatar.dispatch_trigger(InputTrigger::WheelDown));
 
-    let (mut wedge_fwd_mesh, mut wedge_right_mesh) = (SurfaceLedger::empty(), SurfaceLedger::empty());
+    let (mut wedge_fwd_mesh, mut wedge_after_click) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut wedge_fwd_mesh);
-    assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
-    avatar.emit_appearance(&mut wedge_right_mesh);
+    assert!(!avatar.dispatch_trigger(InputTrigger::WheelClick));
+    avatar.emit_appearance(&mut wedge_after_click);
     let vertices = |ledger: &SurfaceLedger| -> Vec<Vec3> {
         ledger.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect()
     };
-    assert_ne!(vertices(&wedge_fwd_mesh), vertices(&wedge_right_mesh));
-    for _ in 0..3 {
-        assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
-    }
+    assert_eq!(vertices(&wedge_fwd_mesh), vertices(&wedge_after_click));
     assert!(!avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world));
     assert!(world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.95), 0.0).y > world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.55), 0.0).y + 0.3);
 
