@@ -61,4 +61,12 @@ impl TreeSpecies for ArcticPine {
         }
         0.0
     }
+
+    fn perch_offset(&self, variant: u32) -> (f32, f32, f32) {
+        match variant % 3 {
+            0 => (0.72, 0.24, 1.62),
+            1 => (-0.54, 0.18, 2.32),
+            _ => (0.0, 0.0, 4.32),
+        }
+    }
 }

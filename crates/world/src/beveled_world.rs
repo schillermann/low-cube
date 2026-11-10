@@ -151,6 +151,10 @@ impl PlanetaryWorld for BeveledWorld {
         self.world.emit_meadow_around(center, view_dir, target);
     }
 
+    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
+        self.world.arboreal_perch_near(center, selector)
+    }
+
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
         self.world.visible_slice_mask(position)
     }

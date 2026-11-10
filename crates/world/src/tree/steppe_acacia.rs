@@ -58,4 +58,12 @@ impl TreeSpecies for SteppeAcacia {
             0.0
         }
     }
+
+    fn perch_offset(&self, variant: u32) -> (f32, f32, f32) {
+        match variant % 3 {
+            0 => (-1.12, 0.36, 3.72),
+            1 => (1.08, -0.40, 3.72),
+            _ => (0.0, 0.0, 3.98),
+        }
+    }
 }

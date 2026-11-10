@@ -65,4 +65,12 @@ impl TreeSpecies for DesertSucculent {
             0.0
         }
     }
+
+    fn perch_offset(&self, variant: u32) -> (f32, f32, f32) {
+        match variant % 3 {
+            0 => (-0.45, 0.10, 2.88),
+            1 => (0.45, -0.10, 2.98),
+            _ => (0.0, 0.0, 2.55),
+        }
+    }
 }

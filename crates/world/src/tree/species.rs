@@ -24,4 +24,13 @@ pub trait TreeSpecies: Send + Sync {
 
     /// Evaluates aerodynamic braking drag of canopy foliage at a given distance and relative height.
     fn canopy_drag(&self, distance: f32, relative_height: f32) -> f32;
+
+    /// Evaluates a visible branch or crown perch offset `(du, dv, dh)` relative to the tree root.
+    fn perch_offset(&self, variant: u32) -> (f32, f32, f32) {
+        match variant % 3 {
+            0 => (-0.65, 0.20, 3.32),
+            1 => (0.65, -0.20, 3.18),
+            _ => (0.0, 0.0, 4.56),
+        }
+    }
 }

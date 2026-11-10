@@ -42,6 +42,7 @@ pub trait Avatar {
         self.rotate_view(yaw_deg * px_per_deg, pitch_deg * px_per_deg);
     }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
+    fn step_fauna(&self, _dt: f32, _flock: &mut crate::sparrow::SparrowFlock, _world: &dyn PlanetaryWorld) {}
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
     fn view_projection_for_sight(&self, aspect: f32, _sight: SightMode) -> Mat4 { self.view_projection_matrix(aspect) }
     fn surface_rotation(&self) -> Quat;
@@ -249,6 +250,10 @@ impl Avatar for PlanetaryAvatar {
             active_env.wedged_in_shaft(final_pos, terrain_up, EYE_SUPPORT_HEIGHT, world),
             self.gear.shaft_yaw_play(),
         );
+    }
+
+    fn step_fauna(&self, dt: f32, flock: &mut crate::sparrow::SparrowFlock, world: &dyn PlanetaryWorld) {
+        let _ = flock.step(dt, self.body.position(), world);
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {

@@ -54,4 +54,9 @@ pub trait Arboreal: Send + Sync {
 
     /// Evaluates aerodynamic braking drag of canopy foliage at a given surface-relative point.
     fn canopy_drag(&self, u: f32, v: f32, height: f32) -> f32;
+
+    /// Evaluates a world-space crown perch point when this specimen is a standing tree.
+    fn crown_perch(&self, _variant: u32) -> Option<Vec3> {
+        None
+    }
 }

@@ -126,6 +126,7 @@ pub trait PlanetaryWorld: GravityField {
         0
     }
     fn emit_meadow_around(&self, _center: Vec3, _view_dir: Vec3, _target: &mut dyn MeshTarget) {}
+    fn arboreal_perch_near(&self, _center: Vec3, _selector: usize) -> Option<Vec3> { None }
     fn visible_slice_mask(&self, _position: Vec3) -> u32 { u32::MAX }
 }
 
@@ -141,6 +142,7 @@ pub trait Face: Send + Sync {
     }
     fn emit_flora(&self, _target: &mut dyn MeshTarget) {}
     fn emit_meadow_around(&self, _center: Vec3, _view_dir: Vec3, _target: &mut dyn MeshTarget) {}
+    fn arboreal_perch_near(&self, _center: Vec3, _selector: usize) -> Option<Vec3> { None }
     fn canopy_drag(&self, _point: Vec3) -> f32 {
         0.0
     }

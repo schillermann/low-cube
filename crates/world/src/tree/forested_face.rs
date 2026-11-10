@@ -103,6 +103,26 @@ impl Face for ForestedFace {
         self.origin.emit_meadow_around(center, view_dir, target);
     }
 
+    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
+        let variant = selector as u32;
+        let near_count = self
+            .trees
+            .iter()
+            .filter_map(|t| t.crown_perch(variant))
+            .filter(|&p| (p - center).length_squared() <= 576.0)
+            .count();
+        if near_count > 0 {
+            return self
+                .trees
+                .iter()
+                .filter_map(|t| t.crown_perch(variant))
+                .filter(|&p| (p - center).length_squared() <= 576.0)
+                .nth(selector % near_count);
+        }
+        let total = self.trees.iter().filter_map(|t| t.crown_perch(variant)).count();
+        (total > 0).then(|| self.trees.iter().filter_map(|t| t.crown_perch(variant)).nth(selector % total)).flatten()
+    }
+
     fn emit_flora(&self, target: &mut dyn MeshTarget) {
         if let Ok(flora) = self.cache.slots.read() {
             if flora.len() == self.trees.len() {

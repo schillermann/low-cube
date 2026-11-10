@@ -215,4 +215,10 @@ impl Arboreal for StandingTree {
         let relative_h = height - r.elevation;
         self.species.canopy_drag(dist, relative_h)
     }
+
+    fn crown_perch(&self, variant: u32) -> Option<Vec3> {
+        let r = self.root;
+        let (du, dv, dh) = self.species.perch_offset(variant);
+        Some(r.frame.point_at(r.u + du, r.v + dv, r.elevation + dh))
+    }
 }

@@ -77,6 +77,10 @@ impl Face for FoldedFace {
         self.origin.emit_meadow_around(center, view_dir, target);
     }
 
+    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
+        self.origin.arboreal_perch_near(center, selector)
+    }
+
     fn canopy_drag(&self, point: Vec3) -> f32 {
         self.origin.canopy_drag(point)
     }

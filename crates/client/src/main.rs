@@ -47,6 +47,7 @@ mod server_physics;
 mod server_satchel;
 mod server_scale;
 mod session;
+mod sparrow;
 mod stride;
 mod surface;
 mod threshold;
@@ -82,6 +83,8 @@ mod physics_tests;
 mod posture_tests;
 #[cfg(test)]
 mod seam_clearance_tests;
+#[cfg(test)]
+mod sparrow_tests;
 #[cfg(test)]
 mod threshold_tests;
 #[cfg(test)]

@@ -1,4 +1,5 @@
 mod display;
+mod stage;
 
 use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
@@ -10,7 +11,8 @@ use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
 use crate::surface::PlatformSurface;
-use self::display::{FramePace, RenderPass, SessionDisplay, SessionStage};
+use self::display::{FramePace, RenderPass, SessionDisplay};
+use self::stage::SessionStage;
 
 /// Interface representing an active, interactive display session.
 pub trait Session {

@@ -48,7 +48,19 @@ impl TreeSpecies for VolcanicSpire {
         Box::new(Self::new())
     }
 
-    fn canopy_drag(&self, _distance: f32, _relative_height: f32) -> f32 {
-        0.0
+    fn canopy_drag(&self, distance: f32, relative_height: f32) -> f32 {
+        if (1.8..=3.8).contains(&relative_height) && distance <= 0.45 {
+            0.35
+        } else {
+            0.0
+        }
+    }
+
+    fn perch_offset(&self, variant: u32) -> (f32, f32, f32) {
+        match variant % 3 {
+            0 => (-0.20, 0.15, 2.42),
+            1 => (0.20, -0.15, 2.42),
+            _ => (0.05, -0.05, 3.62),
+        }
     }
 }

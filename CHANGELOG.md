@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-11-10
+
+### Added
+- Added `SparrowFlock`, `Sparrow`, `SparrowActivity`, and `SparrowFigure` (`crates/client/src/sparrow/mod.rs`, `crates/client/src/sparrow/activity.rs`, and `crates/client/src/sparrow/mesh.rs`) for 3D sculpted house sparrows that fly between clearings and trees, peck seeds on the ground, perch in tree crowns, and flee away when a player approaches within `4.5m`.
+- Added `SparrowChirp` (`crates/client/src/cardiac/birdsong.rs`) implementing `AcousticWave` to synthesize 24 kHz three-syllable woodland birdsong chirps.
+- Added `TreeSpecies::perch_offset` (`crates/world/src/tree/species.rs`), `Arboreal::crown_perch` (`crates/world/src/tree/arboreal.rs` and `standing.rs`), and `PlanetaryWorld::arboreal_perch_near` / `Face::arboreal_perch_near` (`crates/world/src/lib.rs` and `crates/world/src/tree/forested_face.rs`) so sparrows discover standing tree crown perches across all biomes and take flight when a perched tree is felled.
+
+### Changed
+- Split `SessionStage` and `StageOverlay` into `crates/client/src/session/stage.rs` to orchestrate per-frame sparrow flock simulation (`Avatar::step_fauna`) and dynamic mesh emission alongside the player avatar.
+
 ## [0.58.0] - 2026-11-10
 
 ### Added

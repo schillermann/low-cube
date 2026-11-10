@@ -56,4 +56,12 @@ impl TreeSpecies for JungleEmergent {
             0.0
         }
     }
+
+    fn perch_offset(&self, variant: u32) -> (f32, f32, f32) {
+        match variant % 3 {
+            0 => (-1.35, 0.42, 4.96),
+            1 => (1.32, -0.38, 4.96),
+            _ => (0.0, 0.0, 5.28),
+        }
+    }
 }

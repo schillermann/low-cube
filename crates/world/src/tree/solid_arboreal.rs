@@ -131,4 +131,8 @@ impl Arboreal for SolidArboreal {
     fn canopy_drag(&self, u: f32, v: f32, height: f32) -> f32 {
         self.origin.canopy_drag(u, v, height)
     }
+
+    fn crown_perch(&self, variant: u32) -> Option<Vec3> {
+        self.origin.crown_perch(variant)
+    }
 }

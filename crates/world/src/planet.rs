@@ -231,6 +231,10 @@ impl PlanetaryWorld for CubePlanet {
         self.active_face(center).emit_meadow_around(center, view_dir, target);
     }
 
+    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
+        self.active_face(center).arboreal_perch_near(center, selector)
+    }
+
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
         if self.weightless_at(position) {
             return u32::MAX;
