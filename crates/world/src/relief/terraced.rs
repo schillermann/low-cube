@@ -70,24 +70,8 @@ impl ReliefElevation for TerracedRelief {
         self.shafts.reworked_at(u, v)
     }
 
-    fn breached_at(&self, u: i32, v: i32) -> bool {
-        self.shafts.breached_at(&self.strata, u, v)
-    }
-
     fn crust_floor_at(&self, u: i32, v: i32) -> i32 {
         self.shafts.crust_floor_at(&self.strata, u, v)
-    }
-
-    fn ceiling_inset(&self, u: i32, v: i32, margin: f32) -> f32 {
-        if self.breached_at(u, v) || self.shafts.upward_at(u, v) > 0 || self.reworked_at(u, v) || self.molds.present_at(u, v) {
-            0.0
-        } else {
-            self.strata.vault().ceiling_inset(margin)
-        }
-    }
-
-    fn weightless_at(&self, u: f32, v: f32, elev: f32) -> bool {
-        self.clearance().weightless_at(u, v, elev)
     }
 
     fn lethal_at(&self, u: f32, v: f32, elev: f32) -> bool {
@@ -143,7 +127,7 @@ impl ReliefElevation for TerracedRelief {
 
     fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>) -> bool {
         let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
-        let sub = !self.breached_at(u, v) && base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
+        let sub = base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
         self.molds.stack_molded(u, v, ground_top, sub, base, shape)
     }
 

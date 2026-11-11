@@ -1,12 +1,10 @@
 mod mesh;
 
-use glam::Vec3;
-use crate::block::{CornerHeading, GridCell, InvertedShape};
+use crate::block::{CornerHeading, GridCell};
 use crate::frame::SurfaceFrame;
-use super::magma_core::MagmaCore;
 pub use mesh::VaultGeometry;
 
-/// Spherical inner shell of the 4-layer planetary crust enclosing the hollow world with beveled ceiling blocks.
+/// Subterranean 4-layer planetary crust depth contour and indestructible bottom floor.
 #[derive(Clone, Copy, Debug)]
 pub struct CrustVault {
     radius: f32,
@@ -30,54 +28,37 @@ impl CrustVault {
         Self::new(r, half_blocks)
     }
 
-    pub fn circumference(&self) -> f32 {
-        std::f32::consts::TAU * self.radius
-    }
-
     pub const fn geometry<'a>(&'a self, frame: &'a SurfaceFrame) -> VaultGeometry<'a> {
-        VaultGeometry::new(self, frame)
-    }
-
-    pub(super) const fn radius(&self) -> f32 {
-        self.radius
-    }
-
-    pub fn core(&self) -> MagmaCore {
-        let drop = if self.half_blocks >= 128 { (self.half_blocks as f32) * (14.0 / 128.0) } else { 8.0 };
-        MagmaCore::new((self.radius - drop).max((self.radius - 2.0) * 0.5).max(1.0), self.half_blocks, (self.half_blocks / 16).max(1))
+        VaultGeometry::new(frame)
     }
 
     fn half_size(&self) -> f32 {
         (self.half_blocks as f32) * 0.5
     }
 
-    pub fn ceiling_inset(&self, margin: f32) -> f32 {
-        self.half_size() - self.radius + margin
-    }
-
-    /// Face-local point on the vault vertically beneath (u, v), clamped onto this face's pyramid sector seam.
-    pub(super) fn shell_point(&self, u: f32, v: f32) -> (f32, f32, f32) {
+    /// Face-local depth point vertically beneath (u, v), clamped onto this face's pyramid sector seam.
+    fn shell_point(&self, u: f32, v: f32) -> (f32, f32, f32) {
         let reach = u * u + v * v + u.abs().max(v.abs()).powi(2);
         let scale = if reach > self.radius * self.radius { self.radius / reach.sqrt() } else { 1.0 };
         let (su, sv) = (u * scale, v * scale);
         (su, sv, (self.radius * self.radius - su * su - sv * sv).max(0.0).sqrt() - self.half_size())
     }
 
-    pub(super) fn opens_at(&self, u: f32, v: f32) -> bool {
+    fn opens_at(&self, u: f32, v: f32) -> bool {
         u * u + v * v + u.abs().max(v.abs()).powi(2) < self.radius * self.radius
     }
 
-    pub fn cell_opens(&self, u: i32, v: i32) -> bool {
+    fn cell_opens(&self, u: i32, v: i32) -> bool {
         let ((u0, u1), (v0, v1)) = (GridCell::new(u, v).u_bounds(), GridCell::new(u, v).v_bounds());
         [(u0, v0), (u1, v0), (u1, v1), (u0, v1)].iter().any(|&(a, b)| self.opens_at(a, b))
     }
 
-    pub fn ceiling_height_at(&self, u: f32, v: f32) -> f32 {
+    fn ceiling_height_at(&self, u: f32, v: f32) -> f32 {
         let h = self.shell_point(u, v).2;
         if self.opens_at(u, v) { (h * 4.0).round() * 0.25 } else { h }
     }
 
-    /// Deepest 4-layer crust step of cell (u, v) directly above the spherical hollow world ceiling.
+    /// Deepest 4-layer crust step of cell (u, v) where the indestructible lethal core floor sits.
     pub fn floor_steps_at(&self, u: i32, v: i32) -> i32 {
         if self.cell_opens(u, v) {
             let c = self.corners_at(u, v);
@@ -101,26 +82,6 @@ impl CrustVault {
         self.crust_layer_at(u, v, top_step - 1)
     }
 
-    /// Indicates whether a point at tangential (u, v) and face elevation lies inside the vault by at least `margin`.
-    pub fn encloses(&self, u: f32, v: f32, elev: f32, margin: f32) -> bool {
-        Vec3::new(u, v, self.half_size() + elev).length() < self.radius - margin
-    }
-
-    /// Pushes an eye elevation that rose into the vault ceiling back beneath it so the crust stays opaque.
-    pub fn confine(&self, u: f32, v: f32, elev: f32) -> f32 {
-        if elev >= -0.5 {
-            return elev;
-        }
-        let (su, sv, shell_h) = self.shell_point(u, v);
-        let inner_r = (self.radius - 0.30).max(1.0);
-        let inner_h = (inner_r * inner_r - su * su - sv * sv).max(0.0).sqrt() - self.half_size();
-        let (cu, cv) = ((u * 2.0).floor() as i32, (v * 2.0).floor() as i32);
-        let c = self.corners_at(cu, cv);
-        let low_block = c[0].min(c[1]).min(c[2]).min(c[3]) - 0.25;
-        let ceiling = inner_h.min(low_block).min(self.ceiling_height_at(u, v) - 0.30).min(shell_h - 0.30);
-        if elev < ceiling + 1.2 && elev > ceiling { ceiling } else { elev }
-    }
-
     fn floor_and_drops(&self, cell: GridCell) -> (f32, [i32; 4]) {
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
         let q = [
@@ -142,12 +103,7 @@ impl CrustVault {
         }
     }
 
-    pub(super) fn block_at(&self, cell: GridCell) -> (f32, InvertedShape) {
-        let (floor_elev, drops) = self.floor_and_drops(cell);
-        (floor_elev, InvertedShape::from_corner_drops(drops[0], drops[1], drops[2], drops[3]))
-    }
-
-    pub(super) fn corners_at(&self, u: i32, v: i32) -> [f32; 4] {
+    fn corners_at(&self, u: i32, v: i32) -> [f32; 4] {
         let cell = GridCell::new(u, v);
         let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
         let (floor_elev, [s0, s1, s2, s3]) = self.floor_and_drops(cell);

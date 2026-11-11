@@ -11,7 +11,7 @@ mod slope;
 #[cfg(test)]
 mod tests;
 
-use aerial::{AerialKinematics, AerialTrajectory, CliffReboundTrajectory, ParabolicTrajectory, WeightlessTrajectory};
+use aerial::{AerialKinematics, AerialTrajectory, CliffReboundTrajectory, ParabolicTrajectory};
 pub use canopy::CanopyBraking;
 pub use context::FlightContext;
 pub use gravity::AsymmetricGravity;
@@ -127,10 +127,7 @@ impl AirborneFlight {
 
     pub fn advance(&self, ctx: &FlightContext) -> FlightProgress {
         let kinematics = AerialKinematics::from_flight(self, ctx);
-        let trajectory = WeightlessTrajectory::new(
-            CliffReboundTrajectory::new(ParabolicTrajectory::new(*self), *self),
-            *self,
-        );
+        let trajectory = CliffReboundTrajectory::new(ParabolicTrajectory::new(*self), *self);
         trajectory.resolve(ctx, kinematics)
     }
 }

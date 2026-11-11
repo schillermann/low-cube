@@ -11,9 +11,7 @@ pub(super) const SHAFT_FLOOR_TOLERANCE: f32 = 0.1;
 pub(super) const CEILING_CLEARANCE_INSET: f32 = 0.30;
 const NEIGHBOR_ESCAPE_MARGIN: f32 = 0.02;
 const SHAFT_WALL_MARGIN: f32 = 0.21;
-pub(super) const UPWARD_CEILING_CATCH_SPAN: f32 = 2.0;
-pub(super) const UPWARD_CEILING_FLOOR_INSET: f32 = 0.15;
-pub(super) const VAULT_CEILING_FLOOR_INSET: f32 = 0.55;
+pub(super) const FLOOR_HIT_INSET: f32 = 0.55;
 pub(super) const SURFACE_HIT_TOLERANCE: f32 = 0.02;
 pub(super) const LETHAL_CORE_MARGIN: f32 = 1.05;
 
@@ -47,14 +45,9 @@ impl<'a> ColumnClearance<'a> {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
         let core_step = self.strata.vault().floor_steps_at(cu, cv);
         let core_top = (core_step as f32) * BLOCK_STEP;
-        self.strata.vault().core().engulfs(u, v, elev, LETHAL_CORE_MARGIN)
-            || elev < core_top - SHAFT_FLOOR_TOLERANCE
+        elev < core_top - SHAFT_FLOOR_TOLERANCE
             || (elev <= core_top + LETHAL_CORE_MARGIN
                 && self.shafts.elevation_at(self.strata, cu, cv) <= core_step)
-    }
-
-    pub fn weightless_at(&self, _u: f32, _v: f32, _elev: f32) -> bool {
-        false
     }
 
     pub fn support_height_at(&self, u: f32, v: f32, foot_elev: f32, body_span: f32) -> f32 {
@@ -63,28 +56,20 @@ impl<'a> ColumnClearance<'a> {
     }
 
     fn solid_wall_at(&self, cu: i32, cv: i32, elev: f32) -> bool {
-        if self.shafts.breached_at(self.strata, cu, cv) {
-            return self.molds.layer_occupied_at(cu, cv, elev);
-        }
         let ground = (self.shafts.elevation_at(self.strata, cu, cv) as f32) * BLOCK_STEP;
-        let ceiling = if self.shafts.upward_at(cu, cv) > 0 {
-            (self.shafts.crust_floor_at(self.strata, cu, cv) as f32) * BLOCK_STEP - CEILING_CLEARANCE_INSET
-        } else {
-            let (cx, cy) = GridCell::new(cu, cv).center();
-            self.strata.vault().ceiling_height_at(cx, cy) - CEILING_CLEARANCE_INSET
-        };
-        self.molds.solid_wall_at(cu, cv, ground, ceiling, elev)
+        let floor_h = (self.shafts.crust_floor_at(self.strata, cu, cv) as f32) * BLOCK_STEP - CEILING_CLEARANCE_INSET;
+        self.molds.solid_wall_at(cu, cv, ground, floor_h, elev)
     }
 
     pub fn confine(&self, u: f32, v: f32, elev: f32) -> (f32, f32, f32) {
         let cell = GridCell::at_planar(u, v);
         let (mut cu, mut cv) = cell.feed_coordinates(|cu, cv| (cu, cv));
-        if self.shafts.pristine() && self.shafts.ceilings_untouched() && self.molds.empty() {
+        if self.shafts.pristine() && self.molds.empty() {
             return (u, v, NaturalColumn::new(self.strata).confine_elevation(cell, u, v, elev));
         }
         let natural_steps = self.strata.elevation_at(cu, cv);
         let natural_top = (natural_steps as f32) * BLOCK_STEP;
-        if self.shafts.ceilings_untouched() && self.molds.empty() && elev >= natural_top {
+        if self.molds.empty() && elev >= natural_top {
             return (u, v, elev);
         }
         let (mut tu, mut tv) = (u, v);
@@ -96,25 +81,17 @@ impl<'a> ColumnClearance<'a> {
             .confine_niche_elevation(cu, cv, ground, elev)
             .filter(|_| elev >= ground - SHAFT_FLOOR_TOLERANCE)
             .unwrap_or(elev);
-        let in_own_upward = self.shafts.upward_at(cu, cv) > 0
-            && !self.shafts.breached_at(self.strata, cu, cv)
-            && !self.molds.layer_occupied_at(cu, cv, probe_elev);
-        if enclosed && !in_own_upward && self.solid_wall_at(cu, cv, probe_elev) {
+        if enclosed && self.solid_wall_at(cu, cv, probe_elev) {
             for (du, dv) in [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)] {
                 let (nu, nv) = (cu + du, cv + dv);
-                if (self.shafts.upward_at(nu, nv) > 0 || self.shafts.breached_at(self.strata, nu, nv) || self.molds.present_at(nu, nv))
-                    && !self.solid_wall_at(nu, nv, probe_elev)
-                {
+                if self.molds.present_at(nu, nv) && !self.solid_wall_at(nu, nv, probe_elev) {
                     (tu, tv) = GridCell::new(nu, nv).clamp_interior(u, v, NEIGHBOR_ESCAPE_MARGIN);
                     (cu, cv) = (nu, nv);
                     break;
                 }
             }
         }
-        let near_upward = self.shafts.upward_at(cu, cv) > 0
-            || self.shafts.adjacent_upward_at(self.strata, cu, cv) > i32::MIN
-            || self.molds.present_at(cu, cv);
-        if enclosed && near_upward && (in_own_upward || !self.solid_wall_at(cu, cv, probe_elev)) {
+        if enclosed && self.molds.present_at(cu, cv) && !self.solid_wall_at(cu, cv, probe_elev) {
             let walls = (
                 self.solid_wall_at(cu - 1, cv, probe_elev),
                 self.solid_wall_at(cu + 1, cv, probe_elev),

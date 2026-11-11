@@ -133,10 +133,6 @@ impl Face for FoldedFace {
         self.origin.step_flora(dt)
     }
 
-    fn weightless_at(&self, point: Vec3) -> bool {
-        self.origin.weightless_at(point)
-    }
-
     fn lethal_at(&self, point: Vec3) -> bool {
         self.origin.lethal_at(point)
     }

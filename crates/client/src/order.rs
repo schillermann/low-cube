@@ -13,7 +13,6 @@ use crate::threshold::StepThreshold;
 pub enum LeapIntent {
     Resting,
     Active,
-    Descend,
 }
 
 impl LeapIntent {
@@ -21,7 +20,6 @@ impl LeapIntent {
         match self {
             Self::Resting => {}
             Self::Active => flight.jump(),
-            Self::Descend => flight.descend(),
         }
     }
 }
@@ -101,21 +99,6 @@ impl LocomotionOrder {
     /// Secondary constructor initializing with idle state and walking gait.
     pub fn idle() -> Self {
         Self::new(Vec3::ZERO, LeapIntent::Resting, ActiveGait::Walk(WalkGait::upright()))
-    }
-
-    /// Suppresses fast floating (sprinting) and maps sneak to downward descent when weightless beneath the planetary crust.
-    pub fn calm_beneath_crust(&mut self, weightless: bool) {
-        if weightless {
-            if matches!(self.gait, ActiveGait::Sprint(_)) {
-                self.gait = ActiveGait::Walk(WalkGait::upright());
-            }
-            if matches!(self.leap, LeapIntent::Resting)
-                && matches!(self.gait, ActiveGait::Sneak(_))
-                && self.direction.y <= 0.85
-            {
-                self.leap = LeapIntent::Descend;
-            }
-        }
     }
 
     /// Computes the horizontal stride aligned with a surface normal for a given distance scaled by gait pace.

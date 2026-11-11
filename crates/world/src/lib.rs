@@ -108,9 +108,6 @@ pub trait PlanetaryWorld: GravityField {
     fn step_surface(&mut self, _dt: f32) -> bool {
         false
     }
-    fn weightless_at(&self, _position: Vec3) -> bool {
-        false
-    }
     fn lethal_at(&self, _position: Vec3) -> bool {
         false
     }
@@ -183,9 +180,6 @@ pub trait Face: Send + Sync {
         false
     }
     fn step_flora(&mut self, _dt: f32) -> bool {
-        false
-    }
-    fn weightless_at(&self, _point: Vec3) -> bool {
         false
     }
     fn lethal_at(&self, _point: Vec3) -> bool {

@@ -253,11 +253,6 @@ impl Face for FacetedReliefFace {
         !cells.is_empty()
     }
 
-    fn weightless_at(&self, point: Vec3) -> bool {
-        let (u, v) = self.domain.frame.decompose(point);
-        self.domain.relief.weightless_at(u, v, self.domain.frame.elevation_of(point))
-    }
-
     fn lethal_at(&self, point: Vec3) -> bool {
         let (u, v) = self.domain.frame.decompose(point);
         self.domain.relief.lethal_at(u, v, self.domain.frame.elevation_of(point))
@@ -266,10 +261,6 @@ impl Face for FacetedReliefFace {
     fn confine_beneath_crust(&self, point: Vec3) -> Vec3 {
         let ((u, v), elev) = (self.domain.frame.decompose(point), self.domain.frame.elevation_of(point));
         let (cu, cv, z) = self.domain.relief.confine(u, v, elev);
-        let (grid_u, grid_v) = GridCell::at_planar(cu, cv).feed_coordinates(|gu, gv| (gu, gv));
-        self.domain.frame.confine_radius(
-            self.domain.frame.point_at(cu, cv, z),
-            self.domain.relief.ceiling_inset(grid_u, grid_v, 0.30),
-        )
+        self.domain.frame.point_at(cu, cv, z)
     }
 }

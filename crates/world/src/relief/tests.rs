@@ -70,19 +70,18 @@ fn test_zoned_relief_direct_sampling() {
 }
 
 #[test]
-fn test_deep_crust_excavation_hollow_world_breach_and_indestructible_magma_core() {
+fn test_deep_crust_excavation_and_indestructible_lethal_core_floor() {
     let mut deep = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 64);
     for step in 1..=15 {
         let layer = -((step as f32) * 0.5) + 0.25;
         assert!(deep.excavate_layer(0, 0, layer).1, "Must excavate through mantle and first 3 crust layers (step {step})");
     }
     assert_eq!(deep.elevation_at(0, 0), -15);
-    assert!(!deep.breached_at(0, 0) && !deep.lethal_at(0.0, 0.0, -6.5), "4th crust layer at -15 (-7.5m) must shield avatar from magma core");
-    assert!(deep.excavate_layer(0, 0, -7.75).1, "Excavating 4th crust layer must expose the indestructible magma core block at -16 (-8.0m)");
-    assert!(!deep.breached_at(0, 0) && deep.elevation_at(0, 0) == -16, "Column floor must rest on the indestructible magma core block at -16 without hollow breach");
-    assert!(!deep.excavate_layer(0, 0, -7.75).1 && !deep.excavate_layer(0, 0, -8.25).1 && deep.mark_dig_layer(0, 0, -8.25, 1).1.is_none(), "Indestructible magma core block at -16 must reject all further excavation");
-    assert!(!deep.weightless_at(0.0, 0.0, -7.0) && !deep.weightless_at(0.0, 0.0, -13.0), "Solid planetary model has no subterranean weightless cavity");
-    assert!(deep.lethal_at(0.0, 0.0, -7.0) && !deep.lethal_at(0.0, 0.0, -6.5), "Contact with the exposed magma core block at -8.0m (waist at -7.0m) must be lethal");
+    assert!(!deep.lethal_at(0.0, 0.0, -6.5), "4th crust layer at -15 (-7.5m) must shield avatar from lethal core floor");
+    assert!(deep.excavate_layer(0, 0, -7.75).1, "Excavating 4th crust layer must expose the indestructible core floor at -16 (-8.0m)");
+    assert_eq!(deep.elevation_at(0, 0), -16, "Column floor must rest on the indestructible core floor at -16");
+    assert!(!deep.excavate_layer(0, 0, -7.75).1 && !deep.excavate_layer(0, 0, -8.25).1 && deep.mark_dig_layer(0, 0, -8.25, 1).1.is_none(), "Indestructible core floor at -16 must reject all further excavation");
+    assert!(deep.lethal_at(0.0, 0.0, -7.0) && !deep.lethal_at(0.0, 0.0, -6.5), "Contact with the exposed core floor at -8.0m (waist at -7.0m) must be lethal");
 
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     for step in 1..=12 {
@@ -95,8 +94,8 @@ fn test_deep_crust_excavation_hollow_world_breach_and_indestructible_magma_core(
     assert_eq!((cu, cv), (3, 2));
     assert!(deep.excavate_layer(cu, cv, layer).1 && deep.hit_top_at(1.75, 1.25, layer).is_none() && deep.hit_top_at(1.75, 1.25, layer + 0.5).is_some() && deep.hit_top_at(1.75, 1.25, layer - 0.5).is_some(), "Digging sideways from shaft must excavate only that single block layer");
     let (_, _, confined_z) = deep.confine(1.65, 1.25, layer);
-    assert!((confined_z - layer).abs() < 0.35 && deep.ceiling_inset(3, 2, 0.30) == 0.0, "Lateral niche must keep avatar at niche elevation, got {confined_z}");
-    assert!(deep.support_height_at(1.65, 1.25, layer - 1.0, 1.0) > -8.0 && !deep.weightless_at(1.65, 1.25, layer), "Lateral niche must provide solid floor support with gravity active");
+    assert!((confined_z - layer).abs() < 0.35, "Lateral niche must keep avatar at niche elevation, got {confined_z}");
+    assert!(deep.support_height_at(1.65, 1.25, layer - 1.0, 1.0) > -8.0, "Lateral niche must provide solid floor support");
     assert!(deep.excavate_layer(1, 0, -2.25).1 && deep.elevation_at(1, 0) == -5 && deep.hit_top_at(0.75, 0.25, -2.25).is_none());
     assert!(deep.excavate_layer(1, 0, -1.75).1 && deep.hit_top_at(0.75, 0.25, -1.75).is_none(), "Mining next side block at -2.0..-1.5 must open only that layer");
     for kept in [-1.25, -0.75, -0.25] { assert!(deep.hit_top_at(0.75, 0.25, kept).is_some(), "Block at {kept} above mined side blocks must remain intact"); }
@@ -204,7 +203,7 @@ fn test_seam_chamfer_emission_at_world_border() {
 }
 
 #[test]
-fn test_upward_excavation_from_core_shares_identical_layer_logic_and_watertight_seams_with_downward_digging() {
+fn test_downward_shaft_excavation_through_mantle_and_crust_layers() {
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
     let mut downward = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 64);
@@ -220,11 +219,11 @@ fn test_upward_excavation_from_core_shares_identical_layer_logic_and_watertight_
         let mut ledger = QuadLedger;
         let mut counter = CountedMeshTarget::new(&mut ledger);
         ReliefStrata::new().emit_cell(crate::block::GridCell::new(0, 0), &frame, &downward, &palette, 64, &mut counter);
-        assert!(counter.count() >= 10, "Excavated shaft floor and walls at stage 2 must emit recessed 3D crater quads");
+        assert!(counter.count() >= 9, "Excavated shaft floor at stage 2 must emit recessed 3D crater quads");
         assert_eq!(downward.harvest_layer(0, 0, layer).1, Some(expected_med));
     }
-    assert_eq!(downward.elevation_at(0, 0), -16, "Excavating all 16 layers stops on the indestructible magma core block at -16");
-    assert!(!downward.breached_at(0, 0) && downward.harvest_layer(0, 0, -8.25).1.is_none());
+    assert_eq!(downward.elevation_at(0, 0), -16, "Excavating all 16 layers stops on the indestructible core floor at -16");
+    assert!(downward.harvest_layer(0, 0, -8.25).1.is_none());
 }
 
 #[test]

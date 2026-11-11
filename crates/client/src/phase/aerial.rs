@@ -6,7 +6,7 @@ const CLIFF_BONK_RISE: f32 = 0.35;
 const TOP_REACHED_PENETRATION: f32 = 0.04;
 const SLOPE_ORIGIN_TOLERANCE: f32 = -0.01;
 
-/// Polymorphic airborne trajectory contract decorated by cliff rebound and weightless core/shaft flight.
+/// Polymorphic airborne trajectory contract decorated by cliff rebound.
 pub trait AerialTrajectory {
     fn resolve(&self, ctx: &FlightContext, step: AerialKinematics) -> FlightProgress;
 }
@@ -141,41 +141,6 @@ impl<T: AerialTrajectory> AerialTrajectory for CliffReboundTrajectory<T> {
             FlightProgress::new(
                 FlightPhase::Airborne(AirborneFlight::with_momentum(next_speed.min(0.0), next_momentum, threshold)),
                 bonked,
-            )
-        } else {
-            self.inner.resolve(ctx, step)
-        }
-    }
-}
-
-/// Decorator intercepting weightless core and upward-shaft flight before cliff/parabolic resolution.
-pub struct WeightlessTrajectory<T: AerialTrajectory> {
-    inner: T,
-    flight: AirborneFlight,
-}
-
-impl<T: AerialTrajectory> WeightlessTrajectory<T> {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(inner: T, flight: AirborneFlight) -> Self {
-        Self { inner, flight }
-    }
-}
-
-impl<T: AerialTrajectory> AerialTrajectory for WeightlessTrajectory<T> {
-    fn resolve(&self, ctx: &FlightContext, step: AerialKinematics) -> FlightProgress {
-        if ctx.weightless_ascent(step.next_speed) {
-            let (_, momentum, threshold) = self.flight.inspect_state();
-            let raw = ctx.candidate_point(step.airborne_stride) + step.vertical_step;
-            let confined = ctx.confine_crust(raw);
-            let bonked_speed = if (confined - raw).dot(step.surface_up) < -1e-4 {
-                step.next_speed.min(0.0)
-            } else {
-                step.next_speed
-            };
-            let next_momentum = ctx.damp_aerial_momentum(momentum);
-            FlightProgress::new(
-                FlightPhase::Airborne(AirborneFlight::with_momentum(bonked_speed, next_momentum, threshold)),
-                confined,
             )
         } else {
             self.inner.resolve(ctx, step)

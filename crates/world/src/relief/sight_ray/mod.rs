@@ -157,8 +157,7 @@ impl SurfaceSightRay {
         let (up, eye_steps, eye_crust) = (d_up > Self::STEEP_UP_DOT, relief.elevation_at(ecu, ecv), relief.crust_floor_at(ecu, ecv));
         let start_occupied = relief.layer_occupied_at(ecu, ecv, start_elev);
         let start_layer_top = ((start_elev / Self::CELL_SPAN).floor() + 1.0) * Self::CELL_SPAN;
-        let weightless = relief.weightless_at(eu, ev, prev_elev);
-        let (steps, max_span) = if weightless || up { (100, 4) } else { (85, 3) };
+        let (steps, max_span) = if up { (100, 4) } else { (85, 3) };
 
         for step in 1..=steps {
             let sample = self.eye + dir * ((step as f32) * Self::RAY_STEP);
@@ -180,8 +179,7 @@ impl SurfaceSightRay {
                         (prev_cu, prev_cv, prev_u, prev_v, prev_elev) = (cu, cv, u, v, ray_elev);
                         continue;
                     }
-                    if !weightless
-                        && slanted
+                    if slanted
                         && d_up < 0.0
                         && (cu, cv) == (scu, scv)
                         && hit_top <= max_stand_top

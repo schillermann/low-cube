@@ -83,18 +83,8 @@ impl<'a> FlightContext<'a> {
     pub fn clearance(&self, point: Vec3, surface_point: Vec3) -> SurfaceClearance { SurfaceClearance::between(self.step.position, point, surface_point, self.step.surface_up, self.terrain.world) }
     pub fn permits_seam_fold(&self) -> bool { self.terrain.gait.permits_seam_fold() }
 
-    pub fn weightless_ascent(&self, _vertical_speed: f32) -> bool {
-        self.terrain.world.weightless_at(self.step.position)
-            || self.body.envelope.crust(self.terrain.world).in_upward_shaft(self.step.position, self.step.surface_up, self.body.eye_height)
-    }
-
     pub fn confine_crust(&self, point: Vec3) -> Vec3 {
-        let crust = self.body.envelope.crust(self.terrain.world);
-        if crust.in_upward_shaft(point, self.step.surface_up, self.body.eye_height) {
-            self.terrain.world.confine_beneath_crust(point)
-        } else {
-            crust.confine(point, self.step.position, self.step.surface_up)
-        }
+        self.body.envelope.crust(self.terrain.world).confine(point, self.step.surface_up)
     }
 
     pub fn origin_supported(&self) -> bool {
@@ -106,16 +96,7 @@ impl<'a> FlightContext<'a> {
     }
 
     pub fn gravitational_acceleration(&self, vertical_speed: f32) -> f32 {
-        let probe = if vertical_speed < 0.0 { self.step.position + self.step.surface_up * 0.25 } else { self.step.position };
-        if self.terrain.world.weightless_at(probe) {
-            if vertical_speed < 0.0 {
-                vertical_speed - vertical_speed.max(-3.6) * (1.0 - (16.0 * self.step.dt).min(1.0))
-            } else {
-                vertical_speed * (8.0 * self.step.dt).min(1.0)
-            }
-        } else {
-            self.dynamics.gravity.delta_velocity(vertical_speed, self.step.dt)
-        }
+        self.dynamics.gravity.delta_velocity(vertical_speed, self.step.dt)
     }
 
     pub fn brake_canopy(&self, vertical_speed: f32) -> f32 {

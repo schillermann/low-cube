@@ -240,7 +240,6 @@ impl Face for ForestedFace {
         timber_moved
     }
 
-    fn weightless_at(&self, point: Vec3) -> bool { self.origin.weightless_at(point) }
     fn lethal_at(&self, point: Vec3) -> bool { self.origin.lethal_at(point) }
     fn confine_beneath_crust(&self, point: Vec3) -> Vec3 { self.origin.confine_beneath_crust(point) }
 }

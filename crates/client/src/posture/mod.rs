@@ -28,8 +28,8 @@ impl LeapSpring {
         Self::new(0.0, 0.0, 0.0)
     }
 
-    pub fn flex_with_hover(self, hover: f32) -> f32 {
-        self.flex * (1.0 - hover)
+    pub const fn flex(self) -> f32 {
+        self.flex
     }
 
     pub fn advance(self, previous: Vec3, next: Vec3, terrain_up: Vec3, dt: f32) -> Self {
@@ -88,8 +88,8 @@ impl AvatarPosture {
         (STANDING_EYE_OFFSET - self.eye_elevation()).clamp(0.0, MAX_CROUCH_DROP)
     }
 
-    pub fn eye_elevation(&self) -> f32 {
-        self.elevation * (1.0 - self.vital.hover_factor())
+    pub const fn eye_elevation(&self) -> f32 {
+        self.elevation
     }
 
     pub fn perish(self) -> Self {
@@ -130,11 +130,6 @@ impl AvatarPosture {
         Self::with_components(updated, self.leap, self.vital)
     }
 
-    pub fn advance_core_hover(self, weightless: bool, core_closeness: f32, dt: f32) -> (Self, bool) {
-        let (next_vital, beat) = self.vital.advance_core_hover(weightless, core_closeness, dt);
-        (Self::with_components(self.elevation, self.leap, next_vital), beat)
-    }
-
     pub fn advance_leap(self, previous: Vec3, next: Vec3, terrain_up: Vec3, dt: f32) -> Self {
         Self::with_components(self.elevation, self.leap.advance(previous, next, terrain_up, dt), self.vital)
     }
@@ -144,10 +139,8 @@ impl AvatarPosture {
     }
 
     pub fn body_pose(&self, position: Vec3, surface_rot: Quat, view_rot: Quat, rhythm: StrideRhythm) -> BodyPose {
-        let hover = self.vital.hover_factor();
         BodyPose::new(position, surface_rot, view_rot, self.eye_elevation(), rhythm, YouthPhysique::SlenderSquire)
-            .with_leap(self.leap.flex_with_hover(hover))
-            .with_hover(hover)
+            .with_leap(self.leap.flex())
     }
 
     #[cfg(test)]

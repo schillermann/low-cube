@@ -53,12 +53,12 @@ impl StrideRhythm {
         if c > 0.0 && c + dt * 1.65 < 1.0 { c + dt * 1.65 } else { 0.0 }
     }
 
-    pub fn stance_bob(self, hover: f32) -> f32 {
-        (2.0 * self.phase).cos() * 0.012 * self.blend * (1.0 - hover) - self.phase.sin() * 0.045 * hover
+    pub fn stance_bob(self) -> f32 {
+        (2.0 * self.phase).cos() * 0.012 * self.blend
     }
 
-    pub fn stance_twist(self, hover: f32) -> f32 {
-        self.phase.sin() * (0.045 * self.blend + 0.06 * hover)
+    pub fn stance_twist(self) -> f32 {
+        self.phase.sin() * (0.045 * self.blend)
             - 0.22 * (-self.cleave_arc(1.0)).max(0.0)
             + 0.22 * (-self.cleave_arc(-1.0)).max(0.0)
     }

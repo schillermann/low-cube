@@ -15,7 +15,6 @@ const RIM_PROBE_OFFSET: f32 = 0.50;
 const RIM_STEP_TOLERANCE: f32 = 0.45;
 const STEP_SCAN_RISE: f32 = 0.55;
 const FLOOR_SNAP_MARGIN: f32 = -0.05;
-const UPWARD_SHAFT_CEILING_RISE: f32 = 0.20;
 
 /// Decorator over `BodyEnvelope` and `PlanetaryWorld` enforcing subterranean crust and shaft confinement.
 #[derive(Clone, Copy)]
@@ -30,11 +29,8 @@ impl<'a> CrustEnvelope<'a> {
         Self { envelope, world }
     }
 
-    pub fn confine(&self, point: Vec3, origin: Vec3, up: Vec3) -> Vec3 {
+    pub fn confine(&self, point: Vec3, up: Vec3) -> Vec3 {
         let floor_pt = self.envelope.constrain_with_height(point, 1.0, self.world);
-        if self.world.weightless_at(point) || self.world.weightless_at(origin) {
-            return self.world.confine_beneath_crust(point);
-        }
         let (half_w, half_d, height, facing) = self.envelope.dimensions();
         let head_off = up * (height - 1.0).clamp(CROWN_REACH_MIN, CROWN_REACH_MAX);
         let mut confined = self.world.confine_beneath_crust(point + head_off) - head_off;
@@ -59,14 +55,8 @@ impl<'a> CrustEnvelope<'a> {
         (point - self.envelope.constrain_with_height(point, eye, self.world)).dot(up) > DEEP_SHAFT_SPAN
     }
 
-    pub fn in_upward_shaft(&self, point: Vec3, up: Vec3, eye: f32) -> bool {
-        self.in_deep_shaft(point, up, eye)
-            && (self.world.constrain_to_surface(point, 0.0) - point).dot(up) > UPWARD_SHAFT_CEILING_RISE
-    }
-
     pub fn catch_shaft_rim(&self, origin: Vec3, next_pos: Vec3, up: Vec3, eye: f32) -> Option<Vec3> {
         if (next_pos - origin).dot(up) <= 0.0
-            || self.world.weightless_at(next_pos)
             || (next_pos - self.world.constrain_to_surface(next_pos, eye)).dot(up) <= DEEP_SHAFT_SPAN
         {
             return None;
@@ -75,7 +65,7 @@ impl<'a> CrustEnvelope<'a> {
         let axis_b = up.cross(axis_a).normalize();
         for dir in [axis_a, -axis_a, axis_b, -axis_b] {
             let rim = self.world.constrain_to_surface(next_pos + dir * RIM_PROBE_OFFSET + up * RIM_PROBE_OFFSET, eye);
-            if (next_pos - rim).dot(up).abs() <= RIM_STEP_TOLERANCE && !self.world.weightless_at(rim) {
+            if (next_pos - rim).dot(up).abs() <= RIM_STEP_TOLERANCE {
                 return Some(rim);
             }
         }

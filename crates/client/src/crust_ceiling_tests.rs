@@ -27,7 +27,7 @@ fn test_jumping_beneath_the_round_crust_never_peeks_through_the_vault_ceiling() 
     assert!(world.excavate_surface(Vec3::new(0.25, 29.0, 0.25), Vec3::new(1.0, 0.2, 0.0).normalize()));
     assert!(world.excavate_surface(Vec3::new(0.25, 29.5, 0.25), Vec3::new(1.0, 0.2, 0.0).normalize()));
     let mut pos = Vec3::new(0.65, 29.5, 0.25);
-    assert!(!world.weightless_at(pos) && !world.lethal_at(pos), "Subterranean niche has standard planetary gravity");
+    assert!(!world.lethal_at(pos), "Subterranean niche has standard planetary gravity");
     flight.jump();
     for frame in 0..120 {
         pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, &world);
@@ -49,12 +49,12 @@ fn test_repeated_head_bumps_against_crust_never_catapult_avatar_to_surface() {
         controls.register_key(KeyCode::Space, frame % 4 < 2);
         avatar.step_motion(1.0 / 60.0, &controls, &world);
         let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-        assert!(eye.y < 30.0 && !world.weightless_at(eye), "Frame {frame}: repeated head bumps under overhang must never catapult avatar to outer surface, got {eye:?}");
+        assert!(eye.y < 30.0, "Frame {frame}: repeated head bumps under overhang must never catapult avatar to outer surface, got {eye:?}");
     }
 }
 
 #[test]
-fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface_and_magma_core_kills() {
+fn test_digging_down_through_crust_stops_at_indestructible_lethal_core_floor() {
     use crate::cardiac::{AcousticWave, CardiacPulse, MonitoredPulse};
     let mut world = BiomedCubeWorld::beveled(64, 1.0);
     for _ in 0..40 {
@@ -64,10 +64,9 @@ fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface
         }
     }
     let core_floor_y = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;
-    assert!((core_floor_y - 24.0).abs() < 1e-3, "Digging through all topsoil and 4 crust layers must stop on the indestructible magma core block at y=24.0, got {core_floor_y}");
-    assert!(!world.excavate_surface(Vec3::new(0.25, core_floor_y + 1.0, 0.25), Vec3::NEG_Y), "Indestructible magma core block must never be excavated");
-    assert!(!world.weightless_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)), "Planet has no weightless hollow cavity");
-    assert!(world.lethal_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)), "Direct contact with the exposed magma core block must be lethal");
+    assert!((core_floor_y - 24.0).abs() < 1e-3, "Digging through all topsoil and 4 crust layers must stop on the indestructible core floor at y=24.0, got {core_floor_y}");
+    assert!(!world.excavate_surface(Vec3::new(0.25, core_floor_y + 1.0, 0.25), Vec3::NEG_Y), "Indestructible core floor must never be excavated");
+    assert!(world.lethal_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)), "Direct contact with the exposed core floor must be lethal");
 
     let mut controls = KeyMotion::idle();
     controls.register_key(KeyCode::Space, true);
@@ -76,13 +75,13 @@ fn test_digging_upward_from_beneath_crust_removes_block_breaches_exit_to_surface
     for _ in 0..60 { doomed.step_motion(1.0 / 60.0, &controls, &world); }
     let dead_vp = doomed.view_projection_matrix(1.0);
     let dead_eye = dead_vp.inverse().project_point3(Vec3::ZERO);
-    assert!(dead_eye.y < 26.5 && world.lethal_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)) && dead_vp.y_axis.y > initial_fov_scale * 1.25, "Avatar touching exposed magma core block must enter shrinking tunnel-vision blackout, got {dead_eye:?}");
+    assert!(dead_eye.y < 26.5 && world.lethal_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)) && dead_vp.y_axis.y > initial_fov_scale * 1.25, "Avatar touching exposed core floor must enter shrinking tunnel-vision blackout, got {dead_eye:?}");
     let mut hud = SpanCapture::empty();
     doomed.emit_reticle(&mut hud);
     assert!(hud.max_y - hud.min_y > 1.8, "Blackout posture must emit full-screen transparent-gradient vignette");
     for _ in 0..120 { doomed.step_motion(1.0 / 60.0, &controls, &world); }
     let awoken_eye = doomed.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-    assert!(awoken_eye.y >= 32.5 && !world.lethal_at(awoken_eye) && !world.weightless_at(awoken_eye), "Once completely black before their eyes, avatar must wake up at surface spawn, got {awoken_eye:?}");
+    assert!(awoken_eye.y >= 32.5 && !world.lethal_at(awoken_eye), "Once completely black before their eyes, avatar must wake up at surface spawn, got {awoken_eye:?}");
     let wav = CardiacPulse::studio().riff_wave();
     let monitored_wav = MonitoredPulse::clinical().riff_wave();
     assert!(wav.starts_with(b"RIFF") && wav.len() > 8000 && monitored_wav != wav, "MonitoredPulse decorator must overlay clinical beep onto CardiacPulse RIFF WAVE audio");
@@ -102,10 +101,16 @@ fn test_neck_remains_anchored_to_torso_when_head_tilts_back_and_server_scale_val
     use crate::attire::{BodyPose, StrideRhythm, YouthPhysique};
     use crate::server_scale::{ArgumentScale, FileScale, MoonletScale, PlanetaryScale, ScaledCube};
 
-    let upright = BodyPose::with_hover_pose(Vec3::ZERO, Quat::IDENTITY, Quat::IDENTITY, 0.8, 0.0, 0.0, StrideRhythm::idle(), YouthPhysique::SlenderSquire);
-    let hovered = upright.with_hover(1.0);
-    assert_eq!(hovered.neck_frame().point(0.0, 0.0, 0.0), hovered.torso_frame().point(0.0, hovered.torso_span(0.88), -0.056), "Neck frame must remain anchored to torso");
-    assert_ne!(hovered.crown_frame().point(0.0, 0.15, 0.0), hovered.neck_frame().point(0.0, 0.15, 0.0), "Head must tilt back around the neck top in hover");
+    let tilted = BodyPose::new(
+        Vec3::ZERO,
+        Quat::IDENTITY,
+        Quat::from_rotation_x(0.45),
+        0.8,
+        StrideRhythm::idle(),
+        YouthPhysique::SlenderSquire,
+    );
+    assert_eq!(tilted.neck_frame().point(0.0, 0.0, 0.0), tilted.torso_frame().point(0.0, tilted.torso_span(0.88), -0.056), "Neck frame must remain anchored to torso");
+    assert_ne!(tilted.crown_frame().point(0.0, 0.15, 0.0), tilted.neck_frame().point(0.0, 0.15, 0.0), "Head must tilt back around the neck top when pitching view");
 
     assert_eq!(MoonletScale::new().multiple(), 1);
     assert_eq!(MoonletScale::new().blocks(), 128);

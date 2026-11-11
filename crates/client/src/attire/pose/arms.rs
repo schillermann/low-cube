@@ -19,12 +19,12 @@ impl<'a> ArmKinematics<'a> {
 
     pub fn external(self, holding: bool) -> (Vec3, Vec3, LimbFrame, f32) {
         let (pose, side, martial) = (self.pose, self.side, self.martial);
-        let (rhythm, hover, leap) = pose.motion_factors();
+        let (rhythm, leap) = pose.motion_factors();
         let (seated, driving, steer) = (pose.seated_factor(), pose.driving_factor(), pose.steering_turn());
         let (torso, crouch) = (pose.torso_frame(), pose.crouch_compression() * (1.0 - seated));
         let ext = (pose.eye_height() + leap - 0.80).clamp(0.0, 0.40) * (1.0 - seated);
         let shoulder = Vec3::new(side * pose.scale(if pose.feminine() { 0.194 } else { 0.222 }), pose.torso_span(0.64), -0.066);
-        let ground = (1.0 - ext * 2.0).clamp(0.0, 1.0) * (1.0 - hover) * (1.0 - seated);
+        let ground = (1.0 - ext * 2.0).clamp(0.0, 1.0) * (1.0 - seated);
         let offset = if side > 0.0 { 0.0 } else { std::f32::consts::PI };
         let (phase, walk, run) = rhythm.limb_gait(offset, ground);
         let (s, breath) = (phase.sin() * (1.0 - seated), rhythm.breath_wave(walk) * (1.0 - seated));
@@ -36,17 +36,17 @@ impl<'a> ArmKinematics<'a> {
         let (upper_len, fore_len) = (pose.arm_size(0.26), pose.arm_size(0.24));
         let (up_axis, view_fwd, _) = pose.view_axes();
         let hand_lift = view_fwd.dot(up_axis).clamp(-0.85, 0.85) * hold_factor;
-        let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + (0.42 + 0.08 * s.abs()) * hover + 0.08 * hold_factor + (crouch + ext) * 0.10 + driving * 0.08 + abduct_add;
+        let theta_abduct = 0.06 + 0.04 * walk + (0.28 + 0.04 * s.abs()) * run + 0.08 * hold_factor + (crouch + ext) * 0.10 + driving * 0.08 + abduct_add;
         let r_sag = upper_len * theta_abduct.cos();
         let steer_wave = driving * (0.94 - side * steer * 0.26);
-        let upper_swing = (ext * 0.38 + crouch * 1.15 + (0.56 + 0.18 * s) * hover) * (1.0 - 0.55 * hold_factor) + steer_wave + swing_add + hand_lift * 0.65;
+        let upper_swing = (ext * 0.38 + crouch * 1.15) * (1.0 - 0.55 * hold_factor) + steer_wave + swing_add + hand_lift * 0.65;
         let theta_upper = -0.04 * (1.0 - run) + 0.22 * hold_factor + upper_swing + s * (0.26 * walk * (1.0 - 0.55 * hold_factor) + 0.16 * run);
         let elbow = Vec3::new(
             shoulder.x + side * (upper_len * theta_abduct.sin() + elbow_delta.x),
             shoulder.y - r_sag * theta_upper.cos() + elbow_delta.y,
             shoulder.z + r_sag * theta_upper.sin() + elbow_delta.z,
         );
-        let theta_elbow = 0.20 + 0.14 * walk + 0.88 * run + 0.35 * hover + 0.92 * hold_factor + driving * 0.58 + (crouch * 1.35 + ext * 0.22) * (1.0 - 0.5 * hold_factor) + elbow_bend_add + s.max(0.0) * 0.16 * walk + s * 0.12 * run + breath * 0.03;
+        let theta_elbow = 0.20 + 0.14 * walk + 0.88 * run + 0.92 * hold_factor + driving * 0.58 + (crouch * 1.35 + ext * 0.22) * (1.0 - 0.5 * hold_factor) + elbow_bend_add + s.max(0.0) * 0.16 * walk + s * 0.12 * run + breath * 0.03;
         let theta_forearm = theta_upper + theta_elbow;
         let wheel_dx = driving * (steer * 0.048 - side * steer.abs() * 0.022);
         let wheel_dy = driving * (-side * steer * 0.065);
@@ -63,7 +63,7 @@ impl<'a> ArmKinematics<'a> {
 
     pub fn first_person(self) -> (Vec3, Vec3, LimbFrame, f32) {
         let (pose, side, martial) = (self.pose, self.side, self.martial);
-        let (rhythm, _, leap) = pose.motion_factors();
+        let (rhythm, leap) = pose.motion_factors();
         let (up, view_fwd, right) = pose.view_axes();
         let style = martial.active_for(pose.striking_on(side));
         let imp = style.cleave_impulse(rhythm, side);
@@ -101,7 +101,7 @@ impl<'a> ArmKinematics<'a> {
         if holding_relic || pose.driving_factor() > 0.5 {
             return 0.88;
         }
-        let (rhythm, _, _) = pose.motion_factors();
+        let (rhythm, _) = pose.motion_factors();
         let (arc, surge) = if pose.striking_on(side) { (rhythm.cleave_arc(side), rhythm.cleave_surge(side)) } else { (0.0, 0.0) };
         let offset = if side > 0.0 { 0.0 } else { std::f32::consts::PI };
         let (phase, walk, run) = rhythm.limb_gait(offset, 1.0);

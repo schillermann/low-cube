@@ -6,7 +6,6 @@ mod crust_vault;
 mod elevation;
 mod face;
 mod facet;
-mod magma_core;
 mod molded_structure;
 mod natural_strata;
 mod overhang_molds;
@@ -23,8 +22,6 @@ mod wall;
 mod cantilever_rig_tests;
 #[cfg(test)]
 mod corner_seam_tests;
-#[cfg(test)]
-mod hollow_world_tests;
 #[cfg(test)]
 mod soil_clod_tests;
 #[cfg(test)]

@@ -123,10 +123,6 @@ impl PlanetaryWorld for BeveledWorld {
         self.world.step_surface(dt)
     }
 
-    fn weightless_at(&self, position: Vec3) -> bool {
-        self.world.weightless_at(position)
-    }
-
     fn lethal_at(&self, position: Vec3) -> bool {
         self.world.lethal_at(position)
     }

@@ -213,8 +213,6 @@ impl Avatar for PlanetaryAvatar {
         self.sight_line.drive_order(controls, &mut order);
         let facing = self.sight_line.view_direction();
         let standing_env = self.gear.standing_envelope(facing);
-        let in_upward_shaft = standing_env.crust(world).in_upward_shaft(pos, terrain_up, EYE_SUPPORT_HEIGHT);
-        order.calm_beneath_crust(world.weightless_at(pos) || in_upward_shaft);
         let _ = self.body.prepare_stride(&order, standing_env, terrain_up, dt, world);
         let active_env = standing_env.with_crouch_and_facing(self.body.posture().crouch_drop(), facing);
         let active_crust = active_env.crust(world);
@@ -225,26 +223,14 @@ impl Avatar for PlanetaryAvatar {
             self.step_perish(dt, world);
             return;
         }
-        let weightless = world.weightless_at(raw_next) || world.weightless_at(pos);
-        let in_shaft = weightless || active_crust.in_deep_shaft(raw_next, terrain_up, EYE_SUPPORT_HEIGHT);
-        let pre_eye = if weightless { Vec3::ZERO } else { self.body.eye_offset(terrain_up) };
-        let next_pos = if in_shaft { world.confine_beneath_crust(raw_next + pre_eye) - pre_eye } else { active_crust.confine(raw_next, pos, terrain_up) };
-        let core_closeness = if weightless {
-            let core_pt = world.constrain_to_surface(next_pos, EYE_SUPPORT_HEIGHT);
-            let span = (core_pt.length() * 0.36).clamp(6.4, 13.0);
-            (1.0 - (next_pos.length() - core_pt.length()).max(0.0) / span).clamp(0.0, 1.0)
-        } else {
-            0.0
-        };
-        let beat = self.body.advance_leap_and_hover(next_pos, terrain_up, weightless, core_closeness, dt);
+        let in_shaft = active_crust.in_deep_shaft(raw_next, terrain_up, EYE_SUPPORT_HEIGHT);
+        let pre_eye = self.body.eye_offset(terrain_up);
+        let next_pos = if in_shaft { world.confine_beneath_crust(raw_next + pre_eye) - pre_eye } else { active_crust.confine(raw_next, terrain_up) };
+        self.body.advance_leap(next_pos, terrain_up, dt);
         self.sight_line.advance_lens(&order, self.body.posture(), dt);
-        if beat {
-            use crate::cardiac::AcousticWave;
-            crate::cardiac::CardiacPulse::studio().thump();
-        }
         self.bearing.advance_stride(pos, next_pos, terrain_up, dt);
         let post_eye = self.body.eye_offset(terrain_up);
-        let final_pos = if in_shaft { world.confine_beneath_crust(next_pos + post_eye) - post_eye } else { active_crust.confine(next_pos, pos, terrain_up) };
+        let final_pos = if in_shaft { world.confine_beneath_crust(next_pos + post_eye) - post_eye } else { active_crust.confine(next_pos, terrain_up) };
         self.body.relocate(final_pos);
         self.sight_line.constrain_shoulders(
             active_env.wedged_in_shaft(final_pos, terrain_up, EYE_SUPPORT_HEIGHT, world),

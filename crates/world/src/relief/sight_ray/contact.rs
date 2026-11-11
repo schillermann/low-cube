@@ -7,7 +7,6 @@ pub(super) enum ContactFace {
     Top(f32),
     Underside(f32),
     Lateral((i32, i32), f32),
-    CrustCeiling(f32),
 }
 
 impl ContactFace {
@@ -31,14 +30,6 @@ impl ContactFace {
         relief: &dyn ReliefElevation,
     ) -> Self {
         let ((cu, cv), (prev_cu, prev_cv), (min_c, max_c)) = (cell, prior_cell, bounds);
-        let crust_h = (relief.crust_floor_at(cu, cv) as f32) * Self::CELL_SPAN;
-        if !relief.breached_at(cu, cv)
-            && hit_top <= crust_h + Self::CELL_SPAN + Self::CRUST_SEAM_TOLERANCE
-            && (hit_top < crust_h - Self::CRUST_SEAM_TOLERANCE || (d_up > 0.0 && prior_elev < crust_h))
-        {
-            let snapped = (hit_top * 2.0).round() * Self::CELL_SPAN - 2.0 * Self::CELL_SPAN;
-            return Self::CrustCeiling(snapped);
-        }
         let ground_top = (relief.elevation_at(cu, cv) as f32) * Self::CELL_SPAN;
         let block_top = ((hit_top * 2.0).round() * Self::CELL_SPAN).max(ground_top);
         let layer_mid = block_top - Self::CELL_SPAN * 0.5;
@@ -113,7 +104,7 @@ impl SightContact {
     ) -> (i32, i32, f32) {
         let ((mut cu, mut cv), (min_c, max_c)) = (self.cell, bounds);
         match self.face {
-            ContactFace::CrustCeiling(base) | ContactFace::Underside(base) => (cu, cv, base),
+            ContactFace::Underside(base) => (cu, cv, base),
             ContactFace::Lateral((ncu, ncv), base) => (ncu, ncv, base),
             ContactFace::Top(block_top) => {
                 let (au, av) = frame.decompose(avatar_pos);

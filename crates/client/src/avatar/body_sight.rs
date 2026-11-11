@@ -183,13 +183,8 @@ impl AvatarBody {
         order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, pace, world)
     }
 
-    pub fn advance_leap_and_hover(&mut self, next_pos: Vec3, terrain_up: Vec3, weightless: bool, core_closeness: f32, dt: f32) -> bool {
-        let (next_posture, beat) = self
-            .posture
-            .advance_leap(self.position, next_pos, terrain_up, dt)
-            .advance_core_hover(weightless, core_closeness, dt);
-        self.posture = next_posture;
-        beat
+    pub fn advance_leap(&mut self, next_pos: Vec3, terrain_up: Vec3, dt: f32) {
+        self.posture = self.posture.advance_leap(self.position, next_pos, terrain_up, dt);
     }
 }
 

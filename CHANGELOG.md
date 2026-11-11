@@ -8,6 +8,13 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.61.1] - 2026-11-11
+
+### Removed
+- Removed all legacy remnants of the spherical magma core and hollow-world weightlessness concept: deleted `MagmaCore` (`crates/world/src/relief/magma_core.rs`), `InvertedShape` (`crates/world/src/block/inverted_shape.rs`), and `hollow_world_tests.rs` (`crates/world/src/relief/hollow_world_tests.rs`).
+- Removed hollow-dome ceiling geometry (`VaultCeilingTarget`, `emit_ceiling`, `emit_skirt`, `emit_upward_shaft`), upward crust-breach tracking (`ceilings`, `upward_at`, `breached_at`, `ContactFace::CrustCeiling`), and weightlessness queries (`weightless_at`) across `CrustVault`, `VaultGeometry`, `ShaftExcavation`, `ColumnClearance`, `SurfaceSightRay`, `TerracedRelief`, `FacetedReliefFace`, `PlanetaryWorld`, and `Face` while preserving the 4-layer `BlockMedium::CrustRock` crust and indestructible lethal core floor (`floor_steps_at`, `emit_crust_floor`, `emit_crust_flank`, `emit_crust_sole`).
+- Removed `WeightlessTrajectory`, `weightless_ascent`, `in_upward_shaft`, `LeapIntent::Descend`, `calm_beneath_crust`, `GravitationalFlight::descend`, `VitalStrain::advance_core_hover`, `BodyPose::with_hover_pose`, and `StudioAnimation::WeightlessHover` across `crates/client` while preserving the lethal core-floor heart-attack blackout and surface respawn sequence (`VitalStrain::perish`, `advance_perish`, `MonitoredPulse::clinical`).
+
 ## [0.61.0] - 2026-11-10
 
 ### Added

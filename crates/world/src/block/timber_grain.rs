@@ -133,7 +133,7 @@ impl BlockMedium {
         let ((u0, u1), (v0, v1), y0, y1) = (cell.u_bounds(), cell.v_bounds(), floor_elev, floor_elev + 0.5);
         let layer = (floor_elev * 2.0).round() as i32;
         geom.emit_crust_floor(cell, y1, false, target);
-        geom.emit_shaft_ceiling(cell, y0, 1.0, target);
+        geom.emit_crust_sole(cell, y0, target);
         for (edge, norm) in [
             (((u0, v1), (u1, v1)), frame.bitangent()),
             (((u1, v0), (u0, v0)), -frame.bitangent()),

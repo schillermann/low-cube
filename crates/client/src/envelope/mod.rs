@@ -212,7 +212,7 @@ impl PhysicalEnvelope for BodyEnvelope {
     }
 
     fn wedged_in_shaft(&self, position: Vec3, up: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> bool {
-        if world.weightless_at(position) || (world.constrain_to_surface(position, 0.0) - position).dot(up) > POST_WALL_RISE {
+        if (world.constrain_to_surface(position, 0.0) - position).dot(up) > POST_WALL_RISE {
             return false;
         }
         let foot_pos = self.constrain_with_height(position, eye, world) - up * eye;

@@ -6,37 +6,28 @@ use super::overhang_molds::OverhangMolds;
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
 
-/// Excavated downward shaft deltas and upward crust-ceiling breach steps across a relief face.
+/// Excavated downward shaft deltas across a relief face.
 pub struct ShaftExcavation {
     deltas: HashMap<(i32, i32), i32>,
-    ceilings: HashMap<(i32, i32), i32>,
 }
 
 impl ShaftExcavation {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(deltas: HashMap<(i32, i32), i32>, ceilings: HashMap<(i32, i32), i32>) -> Self {
-        Self { deltas, ceilings }
+    pub fn new(deltas: HashMap<(i32, i32), i32>) -> Self {
+        Self { deltas }
     }
 
-    /// Secondary constructor for unexcavated terrain without pits or ceiling breaches.
+    /// Secondary constructor for unexcavated terrain without pits.
     pub fn untouched() -> Self {
-        Self::new(HashMap::new(), HashMap::new())
+        Self::new(HashMap::new())
     }
 
     pub fn pristine(&self) -> bool {
         self.deltas.is_empty()
     }
 
-    pub fn ceilings_untouched(&self) -> bool {
-        self.ceilings.is_empty()
-    }
-
     pub fn delta_at(&self, u: i32, v: i32) -> i32 {
         if self.deltas.is_empty() { 0 } else { self.deltas.get(&(u, v)).copied().unwrap_or(0) }
-    }
-
-    pub fn upward_at(&self, u: i32, v: i32) -> i32 {
-        if self.ceilings.is_empty() { 0 } else { self.ceilings.get(&(u, v)).copied().unwrap_or(0) }
     }
 
     pub fn reworked_at(&self, u: i32, v: i32) -> bool {
@@ -52,26 +43,7 @@ impl ShaftExcavation {
     }
 
     pub fn crust_floor_at(&self, strata: &NaturalStrata, u: i32, v: i32) -> i32 {
-        strata.vault().floor_steps_at(u, v) + self.upward_at(u, v)
-    }
-
-    pub fn breached_at(&self, strata: &NaturalStrata, u: i32, v: i32) -> bool {
-        let elev = self.elevation_at(strata, u, v);
-        self.reworked_at(u, v)
-            && (elev < strata.vault().floor_steps_at(u, v)
-                || (self.upward_at(u, v) > 0 && elev <= self.crust_floor_at(strata, u, v)))
-    }
-
-    pub fn adjacent_upward_at(&self, strata: &NaturalStrata, u: i32, v: i32) -> i32 {
-        if self.ceilings.is_empty() {
-            return i32::MIN;
-        }
-        [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, -1), (-1, 1), (1, 1)]
-            .iter()
-            .filter(|&&(du, dv)| self.upward_at(u + du, v + dv) > 0)
-            .map(|&(du, dv)| self.crust_floor_at(strata, u + du, v + dv))
-            .max()
-            .unwrap_or(i32::MIN)
+        strata.vault().floor_steps_at(u, v)
     }
 
     pub fn deepened_steps(&self, strata: &NaturalStrata, u: i32, v: i32) -> i32 {
@@ -90,7 +62,7 @@ impl ShaftExcavation {
     }
 
     pub fn body_elevation_at(&self, strata: &NaturalStrata, u: i32, v: i32) -> i32 {
-        if !self.reworked_at(u, v) || self.upward_at(u, v) > 0 || self.adjacent_upward_at(strata, u, v) > i32::MIN {
+        if !self.reworked_at(u, v) {
             self.elevation_at(strata, u, v)
         } else {
             [(1, 0), (-1, 0), (0, 1), (0, -1)]
@@ -104,9 +76,7 @@ impl ShaftExcavation {
     pub fn diggable_at(&self, strata: &NaturalStrata, u: i32, v: i32, layer_elev: f32) -> bool {
         let step_at = ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
         let crust = self.crust_floor_at(strata, u, v);
-        !self.breached_at(strata, u, v)
-            && step_at >= crust
-            && self.deepened_steps(strata, u, v) != self.elevation_at(strata, u, v)
+        step_at >= crust && self.deepened_steps(strata, u, v) != self.elevation_at(strata, u, v)
     }
 
     pub fn excavated_medium_at(&self, strata: &NaturalStrata, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
@@ -125,7 +95,7 @@ impl ShaftExcavation {
     pub fn excavate_layer(&mut self, strata: &NaturalStrata, molds: &mut OverhangMolds, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
         let (crust, elev, nat) = (self.crust_floor_at(strata, u, v), self.elevation_at(strata, u, v), strata.elevation_at(u, v));
         let step_at = ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
-        if self.breached_at(strata, u, v) || step_at < crust || elev <= crust {
+        if step_at < crust || elev <= crust {
             return ((u, v), None);
         }
         let medium = self.excavated_medium_at(strata, u, v, layer_elev);

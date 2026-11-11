@@ -3,38 +3,32 @@ use glam::Vec3;
 const BLACKOUT_DURATION: f32 = 2.6;
 const HEARTBEAT_PERIOD: f32 = 0.85;
 
-/// Zero-gravity horizontal hover, core-proximity cardiac strain, and dying blackout state.
+/// Dying cardiac strain and tunnel-vision blackout state upon lethal core floor contact.
 #[derive(Clone, Copy, Debug)]
 pub struct VitalStrain {
-    hover: f32,
-    strain: f32,
     cardiac_timer: f32,
     perished: bool,
 }
 
 impl VitalStrain {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(hover: f32, strain: f32, cardiac_timer: f32, perished: bool) -> Self {
-        Self { hover, strain, cardiac_timer, perished }
+    pub const fn new(cardiac_timer: f32, perished: bool) -> Self {
+        Self { cardiac_timer, perished }
     }
 
     pub const fn calm() -> Self {
-        Self::new(0.0, 0.0, 0.0, false)
+        Self::new(0.0, false)
     }
 
     pub const fn perished(self) -> bool {
         self.perished
     }
 
-    pub fn hover_factor(self) -> f32 {
-        self.hover.clamp(0.0, 1.0)
-    }
-
     pub fn perish(self) -> Self {
         if self.perished {
             self
         } else {
-            Self::new(1.0, self.strain.max(0.45), 0.0, true)
+            Self::new(0.0, true)
         }
     }
 
@@ -53,70 +47,27 @@ impl VitalStrain {
         let next_timer = self.cardiac_timer.max(0.0) + dt.max(0.0);
         let beat = self.cardiac_timer <= 0.0
             || Self::perish_cycles(self.cardiac_timer).floor() < Self::perish_cycles(next_timer).floor();
-        (Self::new(self.hover, self.strain, next_timer, true), beat)
-    }
-
-    pub fn advance_core_hover(self, weightless: bool, core_closeness: f32, dt: f32) -> (Self, bool) {
-        if self.perished {
-            return self.advance_perish(dt);
-        }
-        let target = if weightless { 1.0 } else { 0.0 };
-        let next_hover = self.hover + (target - self.hover) * (14.0 * dt).clamp(0.0, 1.0);
-        let closeness = core_closeness.clamp(0.0, 1.0);
-        let next_strain = if weightless {
-            let rate = (1.0 / 120.0) + closeness * closeness * 0.78;
-            let floor = closeness * closeness * 0.72;
-            let climbed = (self.strain + dt * rate).min(1.0);
-            if climbed < floor {
-                climbed + (floor - climbed) * (3.0 * dt).clamp(0.0, 1.0)
-            } else {
-                climbed
-            }
-        } else {
-            (self.strain - dt * 0.6).max(0.0)
-        };
-        if next_strain >= 1.0 {
-            return Self::new(1.0, 1.0, 0.0, true).advance_perish(dt);
-        }
-        let pace = 1.0 / (1.0 + 1.35 * next_strain * next_strain);
-        let next_timer = if next_strain > 0.0 {
-            self.cardiac_timer.max(0.0) + dt.max(0.0) * pace
-        } else {
-            0.0
-        };
-        let beat = next_strain > 0.15
-            && (self.cardiac_timer <= 0.0
-                || (self.cardiac_timer / HEARTBEAT_PERIOD).floor() < (next_timer / HEARTBEAT_PERIOD).floor());
-        (Self::new(next_hover, next_strain, next_timer, false), beat)
+        (Self::new(next_timer, true), beat)
     }
 
     pub fn cardiac_throb(self) -> f32 {
-        let scale = if self.perished { 1.0 } else { self.strain };
-        if scale <= 0.0 {
+        if !self.perished {
             return 0.0;
         }
-        let phase = if self.perished {
-            Self::perish_cycles(self.cardiac_timer).fract() * HEARTBEAT_PERIOD
-        } else {
-            self.cardiac_timer.max(0.0).rem_euclid(HEARTBEAT_PERIOD)
-        };
-        let wave = if phase < 0.16 {
+        let phase = Self::perish_cycles(self.cardiac_timer).fract() * HEARTBEAT_PERIOD;
+        if phase < 0.16 {
             (phase / 0.16 * std::f32::consts::PI).sin().powi(2)
         } else if (0.20..0.36).contains(&phase) {
             0.78 * ((phase - 0.20) / 0.16 * std::f32::consts::PI).sin().powi(2)
         } else {
             0.0
-        };
-        wave * scale
+        }
     }
 
     pub fn cardiac_constriction(self) -> f32 {
         if self.perished {
             let fade = (self.cardiac_timer.max(0.0) / 2.2).clamp(0.0, 1.0);
-            let start = self.strain.clamp(0.45, 0.85);
-            (start + (1.0 - start) * fade).clamp(0.0, 1.0)
-        } else if self.strain > 0.0 {
-            (self.strain * 0.85 + 0.04 * self.cardiac_throb()).clamp(0.0, 0.92)
+            (0.45 + 0.55 * fade).clamp(0.0, 1.0)
         } else {
             0.0
         }

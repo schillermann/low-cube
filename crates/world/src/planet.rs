@@ -195,10 +195,6 @@ impl PlanetaryWorld for CubePlanet {
         regrown
     }
 
-    fn weightless_at(&self, position: Vec3) -> bool {
-        self.active_face(position).weightless_at(position)
-    }
-
     fn lethal_at(&self, position: Vec3) -> bool {
         self.active_face(position).lethal_at(position)
     }
@@ -236,9 +232,6 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
-        if self.weightless_at(position) {
-            return u32::MAX;
-        }
         let len = self.faces.len();
         let up = self.surface_up_at(position);
         let mut mask = 1u32 << (len * 2).min(31);

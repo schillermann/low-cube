@@ -3,12 +3,10 @@ use super::super::natural_strata::NaturalStrata;
 use super::super::overhang_molds::OverhangMolds;
 use super::super::shaft_excavation::ShaftExcavation;
 use super::{
-    BLOCK_STEP, CEILING_CLEARANCE_INSET, SHAFT_FLOOR_TOLERANCE,
-    SURFACE_HIT_TOLERANCE, UPWARD_CEILING_CATCH_SPAN, UPWARD_CEILING_FLOOR_INSET,
-    VAULT_CEILING_FLOOR_INSET, VerticalColumn,
+    BLOCK_STEP, FLOOR_HIT_INSET, SHAFT_FLOOR_TOLERANCE, SURFACE_HIT_TOLERANCE, VerticalColumn,
 };
 
-/// Base vertical column backed by natural planetary strata and the subterranean vault.
+/// Base vertical column backed by natural planetary strata.
 pub struct NaturalColumn<'a> {
     strata: &'a NaturalStrata,
 }
@@ -25,21 +23,20 @@ impl VerticalColumn for NaturalColumn<'_> {
         self.strata.surface_height_at(u, v)
     }
 
-    fn confine_elevation(&self, _cell: GridCell, u: f32, v: f32, elev: f32) -> f32 {
-        self.strata.vault().confine(u, v, elev)
+    fn confine_elevation(&self, _cell: GridCell, _u: f32, _v: f32, elev: f32) -> f32 {
+        elev
     }
 
     fn hit_top(&self, cell: GridCell, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         let (cu, cv) = cell.feed_coordinates(|cu, cv| (cu, cv));
         let ground_h = (self.strata.elevation_at(cu, cv) as f32) * BLOCK_STEP;
-        let ceil_h = (self.strata.vault().floor_steps_at(cu, cv) as f32) * BLOCK_STEP;
+        let floor_h = (self.strata.vault().floor_steps_at(cu, cv) as f32) * BLOCK_STEP;
         let ground_surf = self.strata.surface_height_at(u, v);
-        let ceil_floor = (self.strata.vault().ceiling_height_at(u, v) - VAULT_CEILING_FLOOR_INSET)
-            .min(ground_h - VAULT_CEILING_FLOOR_INSET);
-        if ray_elev >= ceil_floor && ray_elev <= ground_surf + SURFACE_HIT_TOLERANCE {
+        let floor_bound = (floor_h - FLOOR_HIT_INSET).min(ground_h - FLOOR_HIT_INSET);
+        if ray_elev >= floor_bound && ray_elev <= ground_surf + SURFACE_HIT_TOLERANCE {
             let top_layer_floor = (ground_h - BLOCK_STEP).min(ground_surf - SHAFT_FLOOR_TOLERANCE);
-            let hit = if ray_elev < ceil_h + BLOCK_STEP || ray_elev < top_layer_floor {
-                ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp((ceil_h + BLOCK_STEP).min(ground_h), ground_h)
+            let hit = if ray_elev < floor_h + BLOCK_STEP || ray_elev < top_layer_floor {
+                ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp((floor_h + BLOCK_STEP).min(ground_h), ground_h)
             } else {
                 ground_h
             };
@@ -50,7 +47,7 @@ impl VerticalColumn for NaturalColumn<'_> {
     }
 }
 
-/// Decorator adding downward and upward shaft excavation semantics to a vertical column.
+/// Decorator adding downward shaft excavation semantics to a vertical column.
 pub struct ShaftColumn<'a, C: VerticalColumn> {
     inner: C,
     strata: &'a NaturalStrata,
@@ -81,49 +78,21 @@ impl<C: VerticalColumn> VerticalColumn for ShaftColumn<'_, C> {
     }
 
     fn confine_elevation(&self, cell: GridCell, u: f32, v: f32, elev: f32) -> f32 {
-        let (cu, cv) = cell.feed_coordinates(|cu, cv| (cu, cv));
-        let ground = (self.shafts.elevation_at(self.strata, cu, cv) as f32) * BLOCK_STEP;
-        let ceiling = (self.shafts.crust_floor_at(self.strata, cu, cv) as f32) * BLOCK_STEP - CEILING_CLEARANCE_INSET;
-        if !self.shafts.breached_at(self.strata, cu, cv)
-            && self.shafts.upward_at(cu, cv) > 0
-            && elev < ceiling + UPWARD_CEILING_CATCH_SPAN
-        {
-            elev.min(ceiling)
-        } else if self.shafts.breached_at(self.strata, cu, cv) || elev >= ground {
-            elev
-        } else {
-            self.inner.confine_elevation(cell, u, v, elev)
-        }
+        self.inner.confine_elevation(cell, u, v, elev)
     }
 
     fn hit_top(&self, cell: GridCell, u: f32, v: f32, ray_elev: f32) -> Option<f32> {
         let (cu, cv) = cell.feed_coordinates(|cu, cv| (cu, cv));
-        if self.shafts.breached_at(self.strata, cu, cv) {
-            return None;
-        }
-        if !self.shafts.reworked_at(cu, cv) && self.shafts.upward_at(cu, cv) == 0 {
+        if !self.shafts.reworked_at(cu, cv) {
             return self.inner.hit_top(cell, u, v, ray_elev);
         }
         let ground_h = (self.shafts.elevation_at(self.strata, cu, cv) as f32) * BLOCK_STEP;
-        let ceil_h = (self.shafts.crust_floor_at(self.strata, cu, cv) as f32) * BLOCK_STEP;
-        let ground_surf = if self.shafts.reworked_at(cu, cv) {
-            ground_h
-        } else {
-            self.strata.surface_height_at(u, v)
-        };
-        let ceil_floor = if self.shafts.upward_at(cu, cv) > 0 {
-            ceil_h - UPWARD_CEILING_FLOOR_INSET
-        } else {
-            (self.strata.vault().ceiling_height_at(u, v) - VAULT_CEILING_FLOOR_INSET)
-                .min(ground_h - VAULT_CEILING_FLOOR_INSET)
-        };
-        if ray_elev >= ceil_floor && ray_elev <= ground_surf + SURFACE_HIT_TOLERANCE {
-            let top_layer_floor = (ground_h - BLOCK_STEP).min(ground_surf - SHAFT_FLOOR_TOLERANCE);
-            let hit = if (self.shafts.upward_at(cu, cv) > 0 && ray_elev <= ceil_h + BLOCK_STEP)
-                || ray_elev < ceil_h + BLOCK_STEP
-                || ray_elev < top_layer_floor
-            {
-                ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp((ceil_h + BLOCK_STEP).min(ground_h), ground_h)
+        let floor_h = (self.shafts.crust_floor_at(self.strata, cu, cv) as f32) * BLOCK_STEP;
+        let floor_bound = (floor_h - FLOOR_HIT_INSET).min(ground_h - FLOOR_HIT_INSET);
+        if ray_elev >= floor_bound && ray_elev <= ground_h + SURFACE_HIT_TOLERANCE {
+            let top_layer_floor = ground_h - BLOCK_STEP;
+            let hit = if ray_elev < floor_h + BLOCK_STEP || ray_elev < top_layer_floor {
+                ((ray_elev / BLOCK_STEP).floor() * BLOCK_STEP + BLOCK_STEP).clamp((floor_h + BLOCK_STEP).min(ground_h), ground_h)
             } else {
                 ground_h
             };
@@ -162,21 +131,10 @@ impl<C: VerticalColumn> VerticalColumn for MoldedColumn<'_, C> {
     fn confine_elevation(&self, cell: GridCell, u: f32, v: f32, elev: f32) -> f32 {
         let (cu, cv) = cell.feed_coordinates(|cu, cv| (cu, cv));
         let ground = (self.shafts.elevation_at(self.strata, cu, cv) as f32) * BLOCK_STEP;
-        if let Some(confined) = self
-            .molds
+        self.molds
             .confine_niche_elevation(cu, cv, ground, elev)
             .filter(|_| elev >= ground - SHAFT_FLOOR_TOLERANCE)
-        {
-            return confined;
-        }
-        let raw_z = self.inner.confine_elevation(cell, u, v, elev);
-        if self.shafts.breached_at(self.strata, cu, cv) || elev >= ground {
-            raw_z
-        } else {
-            self.molds
-                .confine_niche_elevation(cu, cv, self.strata.vault().core().crest_at(u, v), raw_z)
-                .unwrap_or(raw_z)
-        }
+            .unwrap_or_else(|| self.inner.confine_elevation(cell, u, v, elev))
     }
 
     fn hit_top(&self, cell: GridCell, u: f32, v: f32, ray_elev: f32) -> Option<f32> {

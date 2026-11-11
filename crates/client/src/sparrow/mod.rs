@@ -69,7 +69,7 @@ impl SparrowFlock {
                 }
             }
         }
-        if !world.weightless_at(listener) && self.chirp_cooldown <= 0.0 {
+        if self.chirp_cooldown <= 0.0 {
             if let Some((idx, bird_pos, dist_sq)) = vocalizer {
                 let up = world.surface_up_at(listener);
                 let seed = (idx as u32).wrapping_mul(747_796_405).wrapping_add((dist_sq * 100.0) as u32);

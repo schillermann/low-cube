@@ -36,22 +36,13 @@ pub trait ReliefElevation: Send + Sync {
     /// Indicates whether the discrete cell (u, v) was excavated by earthworks.
     fn reworked_at(&self, _u: i32, _v: i32) -> bool { false }
 
-    /// Indicates whether the discrete cell (u, v) has breached through the planetary crust into the hollow world.
-    fn breached_at(&self, _u: i32, _v: i32) -> bool { false }
-
-    /// Indicates whether an entity at tangential (u, v) and elevation above datum floats in the weightless hollow world.
-    fn weightless_at(&self, _u: f32, _v: f32, _elev: f32) -> bool { false }
-
-    /// Indicates whether an entity at tangential (u, v) and elevation above datum contacts the lethal spherical magma core.
+    /// Indicates whether an entity at tangential (u, v) and elevation above datum contacts the lethal exposed core floor.
     fn lethal_at(&self, _u: f32, _v: f32, _elev: f32) -> bool { false }
 
-    /// Deepest diggable crust step of the discrete cell (u, v) above the hollow world.
+    /// Deepest diggable crust step of the discrete cell (u, v).
     fn crust_floor_at(&self, _u: i32, _v: i32) -> i32 { i32::MIN }
 
-    /// Radial inset from the face datum to the inner vault ceiling at (u, v) plus an eye safety margin.
-    fn ceiling_inset(&self, _u: i32, _v: i32, margin: f32) -> f32 { 2.0 + margin }
-
-    /// Tangential coordinates and elevation of an eye at (u, v, elev) kept inside the crust vault or upward shaft.
+    /// Tangential coordinates and elevation of an eye at (u, v, elev) kept inside enclosed rooms and niches.
     fn confine(&self, u: f32, v: f32, elev: f32) -> (f32, f32, f32) { (u, v, elev) }
 
     /// Indicates whether the discrete cell (u, v) has bare exposed soil without regrown grass.

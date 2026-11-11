@@ -38,7 +38,7 @@ impl ReliefFacet {
     ) {
         let (surf_col, ramp_col, ridge_col, valley_col, chamfer_col, cliff_col) = palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
-        let (crust, h) = (if relief.breached_at(u, v) { i32::MIN } else { relief.crust_floor_at(u, v) }, relief.elevation_at(u, v));
+        let (crust, h) = (relief.crust_floor_at(u, v), relief.elevation_at(u, v));
         let (hn, hs, he, hw) = (relief.elevation_at(u, v + 1).max(crust), relief.elevation_at(u, v - 1).max(crust), relief.elevation_at(u + 1, v).max(crust), relief.elevation_at(u - 1, v).max(crust));
         let ((u0, u1), (v0, v1), top_h) = (cell.u_bounds(), cell.v_bounds(), (h as f32) * 0.5);
         let molded = relief.emit_molded_top(cell, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
@@ -66,8 +66,8 @@ impl ReliefFacet {
                 let sub_dirt = relief.bare_dirt_at(u, v) || molded;
                 let col = if sub_dirt { Vec3::new(0.45, 0.30, 0.17) } else { surf_col };
                 let glow = if !sub_dirt && col.y > col.x * 1.15 && col.y > col.z * 1.15 { 0.02 } else { 0.0 };
-                if !relief.breached_at(u, v) { top_out.push_quad(Quad::glowing(p0, p1, p2, p3, frame.normal(), col, glow)); }
-                if !relief.breached_at(u, v) && sub_dirt {
+                top_out.push_quad(Quad::glowing(p0, p1, p2, p3, frame.normal(), col, glow));
+                if sub_dirt {
                     EarthClods::new(cell, top_h - 0.5).emit_crown(frame, top_out);
                 }
                 col
