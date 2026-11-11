@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.61.2] - 2026-11-11
+
+### Changed
+- Parameterized `MediumShape<S = Box<dyn VoxelShape>>` (`crates/world/src/block/timber_grain.rs` and `crates/world/src/block/shape.rs`) over generic `S: VoxelShape` to eliminate double-boxing in `BlockMold::shape_for` and execute `BlockMold::emit_miniature` (`crates/world/src/block/mold.rs`) entirely on the stack with zero heap allocations.
+- Cached `lod = 0` meadow tuft quads per cell (`cached_tufts`) and replaced the hardcoded 81-cell (`9x9`) invalidation window with action-scoped radii (`0`, `1`, `4`) in `ReliefCellCache` and `FacetedReliefFace` (`crates/world/src/relief/face/cache.rs` and `mod.rs`), while gating `SessionDisplay::refresh_modified_and_meadow` (`crates/client/src/session/mod.rs`) on actual world modification.
+- Precomputed the `6x6` `depth_tier_at` grid on the stack in `MeadowCrown::emit_contour_terraces`, skipped `depth_tier_at` on distant `lod = 0` tufts (`crates/world/src/mesh_target/crown.rs` and `mod.rs`), skipped clod/terrace/tuft emission on actively cratered blocks (`stage > 0`) in `ElevatedShape::emit_terraced` (`crates/world/src/block/elevated_shape.rs`), and removed 51 buried inner clod quads per dirt block in `EarthClods` (`crates/world/src/block/earth_clods.rs`).
+- Optimized `FRAGMENT_SHADER_SRC` (`crates/engine/src/shader.rs`) with edge-gated neighbor `contour_tier` sampling and early `discard` on faded grass blades, added `CpuMeshBatch::with_quad_capacity` (`crates/engine/src/buffer.rs` and `crates/client/src/session/display.rs`), and switched single-frame `CpuMeshBatch::draw` and `CpuLineBatch::draw` uploads to `glow::STREAM_DRAW`.
+
 ## [0.61.1] - 2026-11-11
 
 ### Removed

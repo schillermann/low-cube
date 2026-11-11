@@ -237,7 +237,11 @@ impl ElevatedShape {
             return;
         }
         let mut cratered = CrateredMeshTarget::new(target, stage);
-        if flank_only && stage == 0 {
+        if stage > 0 && self.shape.block_medium() == BlockMedium::TurfEarth && self.shape.full_cube_envelope() {
+            let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
+            let cap = if bare_top { Vec3::new(0.45, 0.30, 0.17) } else { top_color };
+            BlockMedium::emit_box(u0, u1, v0, v1, self.elevation_offset, self.elevation_offset + BLOCK_HEIGHT, frame, super::earth_clods::LOAM_WALL, cap, true, &mut cratered);
+        } else if flank_only && stage == 0 {
             let mut flank = FlankMeshTarget { inner: &mut cratered, up: frame.normal() };
             self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, bare_top, &mut flank);
         } else {

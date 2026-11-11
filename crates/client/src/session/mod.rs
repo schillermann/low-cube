@@ -102,12 +102,14 @@ impl Session for GameSession {
                     self.display.capture_cursor();
                     match button {
                         MouseButton::Left => {
-                            let _ = self.stage.use_left();
-                            self.display.refresh_modified_and_meadow(&mut self.stage);
+                            if self.stage.use_left() {
+                                self.display.refresh_modified_and_meadow(&mut self.stage);
+                            }
                         }
                         MouseButton::Right => {
-                            let _ = self.stage.use_right();
-                            self.display.refresh_modified_and_meadow(&mut self.stage);
+                            if self.stage.use_right() {
+                                self.display.refresh_modified_and_meadow(&mut self.stage);
+                            }
                         }
                         _ => {}
                     }

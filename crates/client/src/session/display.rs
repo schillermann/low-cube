@@ -80,7 +80,7 @@ impl SessionDisplay {
             let next = self.surface.replace_tron_mesh(self.tron.mesh.slice_at(idx), &tron_buf);
             self.tron.mesh.store_slice(idx, next);
         } else {
-            let mut cpu_buf = CpuMeshBatch::empty();
+            let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
             world.emit_face(idx, &mut cpu_buf);
             let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
             self.primary.mesh.store_slice(idx, next);
@@ -95,7 +95,7 @@ impl SessionDisplay {
         self.tron.mesh.select_visible(mask);
         if !self.tron_active {
             let meadow_idx = world.face_count() * 2;
-            let mut meadow_buf = CpuMeshBatch::empty();
+            let mut meadow_buf = CpuMeshBatch::with_quad_capacity(32_768);
             avatar.emit_surroundings(world, &mut meadow_buf);
             let next = self.surface.replace_mesh(self.primary.mesh.slice_at(meadow_idx), &meadow_buf);
             self.primary.mesh.store_slice(meadow_idx, next);
@@ -109,7 +109,7 @@ impl SessionDisplay {
             let next = self.surface.replace_tron_mesh(self.tron.mesh.slice_at(idx), &tron_buf);
             self.tron.mesh.store_slice(idx, next);
         } else {
-            let mut cpu_buf = CpuMeshBatch::empty();
+            let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
             let idx = world.emit_modified_face(&mut cpu_buf);
             let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
             self.primary.mesh.store_slice(idx, next);
@@ -163,7 +163,7 @@ impl SessionDisplay {
             );
         } else {
             if let PhotoShutter::Triggered(sight) = shutter {
-                let mut shot_batch = CpuMeshBatch::empty();
+                let mut shot_batch = CpuMeshBatch::with_quad_capacity(4_096);
                 stage.emit_avatar_for_sight(sight, &mut shot_batch);
                 let composed = CompositeMesh::new(&self.primary.mesh, &shot_batch);
                 let mosaic = self.surface.capture_sight_frame(
@@ -176,7 +176,7 @@ impl SessionDisplay {
                 );
                 stage.apply_polaroid_mosaic(mosaic);
             }
-            let mut avatar_batch = CpuMeshBatch::empty();
+            let mut avatar_batch = CpuMeshBatch::with_quad_capacity(4_096);
             stage.emit_avatar(&mut avatar_batch);
             let composed = CompositeMesh::new(&self.primary.mesh, &avatar_batch);
             self.surface.render_frame(

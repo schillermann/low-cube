@@ -151,7 +151,7 @@ impl MeshTarget for NaturalMeadowTarget<'_> {
                     if lod >= 1 {
                         crown.emit_contour_terraces([v0, v1, v2, v3], normal, col, lod >= 2, self.target);
                     }
-                    crown.emit_natural_patch([v0, v1, v2, v3], col, self.target);
+                    crown.emit_natural_patch([v0, v1, v2, v3], lod >= 1, col, self.target);
                 } else if lod >= 1 && crown.vertical_flank(normal, self.top_col) {
                     crown.emit_wall_turf([v0, v1, v2, v3], normal, self.top_col, lod >= 2, self.target);
                 }

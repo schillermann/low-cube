@@ -19,12 +19,18 @@ pub(super) struct ReliefCellCache {
     strata: ReliefStrata,
     divisions: u32,
     cached_cells: RwLock<Vec<Vec<Quad>>>,
+    cached_tufts: RwLock<Vec<Vec<Quad>>>,
 }
 
 impl ReliefCellCache {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) fn new(strata: ReliefStrata, divisions: u32, cached_cells: RwLock<Vec<Vec<Quad>>>) -> Self {
-        Self { strata, divisions, cached_cells }
+    pub(super) fn new(
+        strata: ReliefStrata,
+        divisions: u32,
+        cached_cells: RwLock<Vec<Vec<Quad>>>,
+        cached_tufts: RwLock<Vec<Vec<Quad>>>,
+    ) -> Self {
+        Self { strata, divisions, cached_cells, cached_tufts }
     }
 
     pub(super) const fn half_blocks(&self) -> i32 {
@@ -38,16 +44,20 @@ impl ReliefCellCache {
         cell_quads
     }
 
-    pub(super) fn refresh_neighborhood(&mut self, cu: i32, cv: i32, half: i32, frame: &SurfaceFrame, relief: &dyn ReliefElevation, palette: &ReliefPalette) {
+    pub(super) fn refresh_neighborhood(&mut self, cu: i32, cv: i32, half: i32, radius: i32, frame: &SurfaceFrame, relief: &dyn ReliefElevation, palette: &ReliefPalette) {
         let side = self.divisions as usize;
         let total = side * side;
         let populated = self.cached_cells.get_mut().expect("Relief cell cache poisoned").len() == total;
         if populated {
-            for v in (cv - 4).max(-half)..=(cv + 4).min(half - 1) {
-                for u in (cu - 4).max(-half)..=(cu + 4).min(half - 1) {
+            for v in (cv - radius).max(-half)..=(cv + radius).min(half - 1) {
+                for u in (cu - radius).max(-half)..=(cu + radius).min(half - 1) {
                     let quads = self.build_cell(u, v, half, frame, relief, palette);
                     let slot = ((v + half) as usize) * side + ((u + half) as usize);
                     self.cached_cells.get_mut().expect("Relief cell cache poisoned")[slot] = quads;
+                    let tufts = self.cached_tufts.get_mut().expect("Relief tuft cache poisoned");
+                    if slot < tufts.len() {
+                        tufts[slot].clear();
+                    }
                 }
             }
         }
@@ -93,17 +103,22 @@ impl ReliefCellCache {
     ) {
         let half = self.half_blocks();
         let side = self.divisions as usize;
+        let total = side * side;
         let Ok(cells) = self.cached_cells.read() else { return };
-        if cells.len() != side * side {
+        if cells.len() != total {
             return;
+        }
+        let Ok(mut tufts) = self.cached_tufts.write() else { return };
+        if tufts.len() != total {
+            tufts.resize_with(total, Vec::new);
         }
         let (u_pos, v_pos) = frame.decompose(center);
         let (cu, cv) = GridCell::at_planar(u_pos, v_pos).feed_coordinates(|gu, gv| (gu, gv));
         let up = frame.normal();
-        for dv in -88..=88 {
-            for du in -88..=88 {
+        for dv in -56..=56 {
+            for du in -56..=56 {
                 let dist_sq = du * du + dv * dv;
-                if dist_sq > 7744 {
+                if dist_sq > 3136 {
                     continue;
                 }
                 let (gu, gv) = (cu + du, cv + dv);
@@ -114,10 +129,23 @@ impl ReliefCellCache {
                 if cells[slot].len() > 10 {
                     continue;
                 }
-                let lod = if dist_sq <= 196 { 2 } else if dist_sq <= 576 { 1 } else { 0 };
-                let mut meadow = crate::NaturalMeadowTarget::with_lod(target, GridCell::new(gu, gv), up, lod);
-                for &quad in &cells[slot] {
-                    meadow.push_quad(quad);
+                let lod = if dist_sq <= 36 { 2 } else if dist_sq <= 144 { 1 } else { 0 };
+                if lod == 0 {
+                    if tufts[slot].is_empty() {
+                        let mut cell_target = CellQuadTarget(&mut tufts[slot]);
+                        let mut meadow = crate::NaturalMeadowTarget::with_lod(&mut cell_target, GridCell::new(gu, gv), up, 0);
+                        for &quad in &cells[slot] {
+                            meadow.push_quad(quad);
+                        }
+                    }
+                    for &quad in &tufts[slot] {
+                        target.push_quad(quad);
+                    }
+                } else {
+                    let mut meadow = crate::NaturalMeadowTarget::with_lod(target, GridCell::new(gu, gv), up, lod);
+                    for &quad in &cells[slot] {
+                        meadow.push_quad(quad);
+                    }
                 }
             }
         }

@@ -63,6 +63,9 @@ void main() {
     if (v_glow > 1.5) {
         float cam_dist = 1.0 / max(gl_FragCoord.w, 0.0001);
         float dist_fade = clamp((42.0 - cam_dist) * 0.15, 0.0, 1.0);
+        if (dist_fade <= 0.01) {
+            discard;
+        }
         float seed = v_glow - 2.0;
         float x = v_uv.x * 9.0 + seed;
         float cell = floor(x);
@@ -90,11 +93,11 @@ void main() {
         vec3 an = abs(norm);
         vec2 wp = (an.y >= max(an.x, an.z)) ? v_world.xz : ((an.x >= an.z) ? v_world.yz : v_world.xy);
         vec2 grid_p = floor(wp * 8.0) * 0.125 + vec2(0.0625);
-        int t = contour_tier(grid_p);
-        int tx = contour_tier(grid_p + vec2(0.125, 0.0));
-        int ty = contour_tier(grid_p + vec2(0.0, 0.125));
         vec2 cell_uv = fract(wp * 8.0);
-        float riser = ((t != tx && cell_uv.x > 0.86) || (t != ty && cell_uv.y > 0.86)) ? 0.88 : 1.0;
+        int t = contour_tier(grid_p);
+        bool rx = (cell_uv.x > 0.86) && (t != contour_tier(grid_p + vec2(0.125, 0.0)));
+        bool ry = !rx && (cell_uv.y > 0.86) && (t != contour_tier(grid_p + vec2(0.0, 0.125)));
+        float riser = (rx || ry) ? 0.88 : 1.0;
         base_col = clamp(v_color * tier_scale(t) * riser, vec3(0.0), vec3(1.0));
     }
     float diff = max(dot(norm, normalize(u_light_dir)), 0.0);

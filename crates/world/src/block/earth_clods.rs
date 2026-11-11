@@ -160,7 +160,7 @@ impl EarthClods {
     pub fn emit_sole(&self, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let ((u0, _), (v0, _)) = (self.cell.u_bounds(), self.cell.v_bounds());
         for (du0, du1, dv0, dv1, dh, col) in SOLE_PATTERN {
-            BlockMedium::emit_box(u0 + du0, u0 + du1, v0 + dv0, v0 + dv1, self.floor_elev - dh, self.floor_elev, frame, col, col, true, target);
+            self.emit_sole_clod(u0 + du0, u0 + du1, v0 + dv0, v0 + dv1, self.floor_elev - dh, self.floor_elev, col, frame, target);
         }
     }
 
@@ -168,9 +168,21 @@ impl EarthClods {
         let ((u0, _), (v0, _)) = (self.cell.u_bounds(), self.cell.v_bounds());
         for (du0, du1, dv0, dv1, dh, col) in SOLE_PATTERN {
             if shape.elevation_at(du0 + du1, dv0 + dv1) > 0.0 {
-                BlockMedium::emit_box(u0 + du0, u0 + du1, v0 + dv0, v0 + dv1, self.floor_elev - dh, self.floor_elev, frame, col, col, true, target);
+                self.emit_sole_clod(u0 + du0, u0 + du1, v0 + dv0, v0 + dv1, self.floor_elev - dh, self.floor_elev, col, frame, target);
             }
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn emit_sole_clod(&self, u0: f32, u1: f32, v0: f32, v1: f32, h0: f32, h1: f32, col: Vec3, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
+        let (n, t, b) = (frame.normal(), frame.tangent(), frame.bitangent());
+        let [b0, b1, b2, b3] = [frame.point_at(u0, v0, h0), frame.point_at(u1, v0, h0), frame.point_at(u1, v1, h0), frame.point_at(u0, v1, h0)];
+        let [p0, p1, p2, p3] = [frame.point_at(u0, v0, h1), frame.point_at(u1, v0, h1), frame.point_at(u1, v1, h1), frame.point_at(u0, v1, h1)];
+        target.push_quad(Quad::new(b0, b3, b2, b1, -n, col));
+        target.push_quad(Quad::new(b0, b1, p1, p0, -b, col));
+        target.push_quad(Quad::new(p3, p2, b2, b3, b, col));
+        target.push_quad(Quad::new(b3, b0, p0, p3, -t, col));
+        target.push_quad(Quad::new(b1, b2, p2, p1, t, col));
     }
 
     /// Emits soil clods protruding from one bare flank (0 = -v, 1 = +v, 2 = -u, 3 = +u) of this loam layer.
@@ -262,11 +274,20 @@ impl EarthClods {
     fn emit_flank_box(
         &self, side: usize, u0: f32, u1: f32, v0: f32, v1: f32, a0: f32, a1: f32, y0: f32, y1: f32, d: f32, col: Vec3, frame: &SurfaceFrame, target: &mut dyn MeshTarget,
     ) {
-        match side {
-            0 => BlockMedium::emit_box(u0 + a0, u0 + a1, v0 - d, v0, y0, y1, frame, col, col, true, target),
-            1 => BlockMedium::emit_box(u1 - a1, u1 - a0, v1, v1 + d, y0, y1, frame, col, col, true, target),
-            2 => BlockMedium::emit_box(u0 - d, u0, v0 + a0, v0 + a1, y0, y1, frame, col, col, true, target),
-            _ => BlockMedium::emit_box(u1, u1 + d, v1 - a1, v1 - a0, y0, y1, frame, col, col, true, target),
-        }
+        let (n, t, b) = (frame.normal(), frame.tangent(), frame.bitangent());
+        let (p_w0, p_w1, out_n, side_n) = match side {
+            0 => (frame.point_at(u0 + a0, v0, y0), frame.point_at(u0 + a1, v0, y0), -b, t),
+            1 => (frame.point_at(u1 - a0, v1, y0), frame.point_at(u1 - a1, v1, y0), b, -t),
+            2 => (frame.point_at(u0, v0 + a1, y0), frame.point_at(u0, v0 + a0, y0), -t, -b),
+            _ => (frame.point_at(u1, v1 - a1, y0), frame.point_at(u1, v1 - a0, y0), t, b),
+        };
+        let (out, lift) = (out_n * d, n * (y1 - y0));
+        let [w0, w1, f1, f0] = [p_w0, p_w1, p_w1 + out, p_w0 + out];
+        let [wt0, wt1, ft1, ft0] = [w0 + lift, w1 + lift, f1 + lift, f0 + lift];
+        target.push_quad(Quad::new(f0, f1, ft1, ft0, out_n, col));
+        target.push_quad(Quad::new(wt0, wt1, ft1, ft0, n, col));
+        target.push_quad(Quad::new(f0, f1, w1, w0, -n, col));
+        target.push_quad(Quad::new(w0, f0, ft0, wt0, -side_n, col));
+        target.push_quad(Quad::new(f1, w1, wt1, ft1, side_n, col));
     }
 }

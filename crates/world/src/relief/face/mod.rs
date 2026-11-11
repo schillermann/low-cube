@@ -40,7 +40,7 @@ impl FacetedReliefFace {
         Self {
             domain: ReliefDomain { frame, relief },
             palette,
-            cache: ReliefCellCache::new(strata, divisions, cached_cells),
+            cache: ReliefCellCache::new(strata, divisions, cached_cells, RwLock::new(Vec::new())),
         }
     }
 
@@ -91,8 +91,8 @@ impl FacetedReliefFace {
         self
     }
 
-    fn refresh_neighborhood(&mut self, cu: i32, cv: i32, half: i32) {
-        self.cache.refresh_neighborhood(cu, cv, half, &self.domain.frame, self.domain.relief.as_ref(), &self.palette);
+    fn refresh_neighborhood(&mut self, cu: i32, cv: i32, half: i32, radius: i32) {
+        self.cache.refresh_neighborhood(cu, cv, half, radius, &self.domain.frame, self.domain.relief.as_ref(), &self.palette);
     }
 }
 
@@ -129,9 +129,10 @@ impl Face for FacetedReliefFace {
             let ((prev_u, prev_v), harvested) = self.domain.relief.harvest_layer(cu, cv, layer);
             if harvested.is_some() {
                 if (prev_u, prev_v) != (cu, cv) {
-                    self.refresh_neighborhood(prev_u, prev_v, half);
+                    self.refresh_neighborhood(prev_u, prev_v, half, 0);
                 }
-                self.refresh_neighborhood(cu, cv, half);
+                let radius = if harvested == Some(BlockMedium::CantileverRig) { 4 } else { 1 };
+                self.refresh_neighborhood(cu, cv, half, radius);
             }
             return harvested;
         }
@@ -143,7 +144,7 @@ impl Face for FacetedReliefFace {
         if stage == 0 {
             let ((prev_u, prev_v), changed) = self.domain.relief.clear_dig_stage();
             if changed {
-                self.refresh_neighborhood(prev_u, prev_v, half);
+                self.refresh_neighborhood(prev_u, prev_v, half, 0);
             }
             return changed.then_some(BlockMedium::TurfEarth);
         }
@@ -154,9 +155,9 @@ impl Face for FacetedReliefFace {
             let ((prev_u, prev_v), loosened) = self.domain.relief.mark_dig_layer(cu, cv, layer, stage);
             if loosened.is_some() {
                 if (prev_u, prev_v) != (cu, cv) {
-                    self.refresh_neighborhood(prev_u, prev_v, half);
+                    self.refresh_neighborhood(prev_u, prev_v, half, 0);
                 }
-                self.refresh_neighborhood(cu, cv, half);
+                self.refresh_neighborhood(cu, cv, half, 0);
             }
             return loosened;
         }
@@ -169,14 +170,11 @@ impl Face for FacetedReliefFace {
         if let Some((cu, cv, base)) = SurfaceSightRay::new(eye, direction)
             .placement_cell(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos)
         {
-            let changed = self.domain.relief.stack_molded_cell(
-                cu,
-                cv,
-                base,
-                mold.shape_for(direction, &self.domain.frame),
-            );
+            let shape = mold.shape_for(direction, &self.domain.frame);
+            let radius = if shape.block_medium() == BlockMedium::CantileverRig { 4 } else { 1 };
+            let changed = self.domain.relief.stack_molded_cell(cu, cv, base, shape);
             if changed {
-                self.refresh_neighborhood(cu, cv, half);
+                self.refresh_neighborhood(cu, cv, half, radius);
             }
             return changed;
         }
@@ -191,7 +189,7 @@ impl Face for FacetedReliefFace {
             .map_or((0, 0), |(cu, cv, _)| (cu, cv));
         let (changed, (ru, rv)) = self.domain.relief.adjust_rig_at(cu, cv, delta_steps, rotate_quarter);
         if changed {
-            self.refresh_neighborhood(ru, rv, half);
+            self.refresh_neighborhood(ru, rv, half, 4);
         }
         changed
     }
@@ -207,7 +205,7 @@ impl Face for FacetedReliefFace {
             .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)
         {
             if self.domain.relief.lower_rig_at(cu, cv) {
-                self.refresh_neighborhood(cu, cv, half);
+                self.refresh_neighborhood(cu, cv, half, 4);
                 return true;
             }
         }
@@ -231,9 +229,9 @@ impl Face for FacetedReliefFace {
         if engage_engine {
             let (eu, ev) = self.domain.frame.cell_at(eye).feed_coordinates(|gu, gv| (gu, gv));
             let (su, sv) = self.domain.frame.cell_at(assembly.origin()).feed_coordinates(|gu, gv| (gu, gv));
-            self.refresh_neighborhood(eu, ev, half);
-            self.refresh_neighborhood(cu, cv, half);
-            self.refresh_neighborhood(su, sv, half);
+            self.refresh_neighborhood(eu, ev, half, 4);
+            self.refresh_neighborhood(cu, cv, half, 4);
+            self.refresh_neighborhood(su, sv, half, 4);
         }
         Some(assembly)
     }
@@ -241,14 +239,14 @@ impl Face for FacetedReliefFace {
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
         let half = self.cache.half_blocks();
         let (cu, cv) = self.domain.relief.park_vehicle_at(&self.domain.frame, assembly);
-        self.refresh_neighborhood(cu, cv, half);
+        self.refresh_neighborhood(cu, cv, half, 4);
         true
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
         let (half, cells) = (self.cache.half_blocks(), self.domain.relief.step_grass(dt));
         for &(cu, cv) in &cells {
-            self.refresh_neighborhood(cu, cv, half);
+            self.refresh_neighborhood(cu, cv, half, 0);
         }
         !cells.is_empty()
     }

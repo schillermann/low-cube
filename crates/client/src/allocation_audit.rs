@@ -93,4 +93,17 @@ fn test_hot_simulation_loop_zero_runtime_allocations() {
         }
     });
     assert_eq!(sprint_allocs, 0, "Sprinting/jumping must have zero runtime allocations in hot simulation loop");
+
+    struct NullTarget;
+    impl world::MeshTarget for NullTarget {
+        fn push_quad(&mut self, _quad: world::Quad) {}
+    }
+    let mut sink = NullTarget;
+    let mold = world::BlockMold::with_medium(world::MoldArchetype::FullCube, world::CardinalTurn::Forward, world::BlockMedium::TurfEarth);
+    let mini_allocs = count_allocations(|| {
+        for _ in 0..60 {
+            mold.emit_miniature(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::Z, 0.25, Vec3::ONE, Vec3::ONE, &mut sink);
+        }
+    });
+    assert_eq!(mini_allocs, 0, "Miniature block emission in hand/satchel must perform zero heap allocations");
 }

@@ -70,6 +70,10 @@ impl CpuLineBatch {
     /// # Safety
     /// Requires a valid, current OpenGL context.
     pub unsafe fn upload_gl(&self, gl: &glow::Context) -> GlLineMesh {
+        self.upload_gl_usage(gl, glow::STATIC_DRAW)
+    }
+
+    unsafe fn upload_gl_usage(&self, gl: &glow::Context, usage: u32) -> GlLineMesh {
         let vao = gl.create_vertex_array().expect("Failed to create VAO");
         let vbo = gl.create_buffer().expect("Failed to create VBO");
         let ebo = gl.create_buffer().expect("Failed to create EBO");
@@ -80,14 +84,14 @@ impl CpuLineBatch {
             self.vertices.as_ptr() as *const u8,
             self.vertices.len() * core::mem::size_of::<Vertex>(),
         );
-        gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertex_bytes, glow::STATIC_DRAW);
+        gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertex_bytes, usage);
 
         gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
         let index_bytes = core::slice::from_raw_parts(
             self.indices.as_ptr() as *const u8,
             self.indices.len() * core::mem::size_of::<u32>(),
         );
-        gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, index_bytes, glow::STATIC_DRAW);
+        gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, index_bytes, usage);
 
         let stride = core::mem::size_of::<Vertex>() as i32;
         gl.enable_vertex_attrib_array(0);
@@ -108,7 +112,7 @@ impl Mesh for CpuLineBatch {
             return;
         }
         unsafe {
-            let mesh = self.upload_gl(gl);
+            let mesh = self.upload_gl_usage(gl, glow::STREAM_DRAW);
             mesh.draw(gl);
             mesh.dispose(gl);
         }

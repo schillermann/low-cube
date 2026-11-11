@@ -88,18 +88,25 @@ impl MeadowCrown {
         }
         let n = if full_detail { 4usize } else { 2usize };
         let inv = 1.0 / (n as f32);
-        let (nu, nv) = ((v1 - v0).normalize_or_zero(), (v3 - v0).normalize_or_zero());
-        let sample_tier = |ix: i32, iz: i32| {
-            let (u, v) = ((ix as f32 + 0.5) * inv, (iz as f32 + 0.5) * inv);
-            self.depth_tier_at(v0 + (v1 - v0) * u + (v3 - v0) * v)
-        };
+        let (du_vec, dv_vec) = (v1 - v0, v3 - v0);
+        let (nu, nv) = (du_vec.normalize_or_zero(), dv_vec.normalize_or_zero());
+        let mut grid = [[0usize; 6]; 6];
+        let pad = i32::from(full_detail);
+        for gz in -pad..((n as i32) + pad) {
+            let v = (gz as f32 + 0.5) * inv;
+            for gx in -pad..((n as i32) + pad) {
+                let u = (gx as f32 + 0.5) * inv;
+                grid[(gz + 1) as usize][(gx + 1) as usize] = self.depth_tier_at(v0 + du_vec * u + dv_vec * v);
+            }
+        }
+        let tier_at = |ix: i32, iz: i32| grid[(iz + 1) as usize][(ix + 1) as usize];
         for iz in 0..(n as i32) {
             let (v_a, v_b) = ((iz as f32) * inv, ((iz + 1) as f32) * inv);
             let mut ix = 0i32;
             while ix < (n as i32) {
-                let tier = sample_tier(ix, iz);
+                let tier = tier_at(ix, iz);
                 let mut ix_end = ix + 1;
-                while ix_end < (n as i32) && sample_tier(ix_end, iz) == tier {
+                while ix_end < (n as i32) && tier_at(ix_end, iz) == tier {
                     ix_end += 1;
                 }
                 let (u_a, u_b) = ((ix as f32) * inv, (ix_end as f32) * inv);
@@ -118,7 +125,7 @@ impl MeadowCrown {
                 continue;
             }
             for cell_x in 0..(n as i32) {
-                let tier = sample_tier(cell_x, iz);
+                let tier = tier_at(cell_x, iz);
                 let (dh, _, wall_c) = self.tier_style(tier, top_col);
                 let (u_a, u_b) = ((cell_x as f32) * inv, ((cell_x + 1) as f32) * inv);
                 let [b0, b1, b2, b3] = [
@@ -128,10 +135,10 @@ impl MeadowCrown {
                     self.bilerp(corners, u_a, v_b),
                 ];
                 for (nb_t, e0, e1, wn) in [
-                    (sample_tier(cell_x, iz - 1), b0, b1, -nv),
-                    (sample_tier(cell_x, iz + 1), b3, b2, nv),
-                    (sample_tier(cell_x - 1, iz), b3, b0, -nu),
-                    (sample_tier(cell_x + 1, iz), b1, b2, nu),
+                    (tier_at(cell_x, iz - 1), b0, b1, -nv),
+                    (tier_at(cell_x, iz + 1), b3, b2, nv),
+                    (tier_at(cell_x - 1, iz), b3, b0, -nu),
+                    (tier_at(cell_x + 1, iz), b1, b2, nu),
                 ] {
                     if tier > nb_t {
                         let (nb_h, _, _) = self.tier_style(nb_t, top_col);
@@ -154,6 +161,7 @@ impl MeadowCrown {
         r_uv: f32,
         height: f32,
         seed_base: f32,
+        terraced: bool,
         color: Vec3,
         target: &mut dyn MeshTarget,
     ) {
@@ -167,9 +175,13 @@ impl MeadowCrown {
             [(0.7071, -0.7071), (-0.9659, -0.2588), (0.2588, 0.9659)],
             [(0.3827, -0.9239), (-0.9914, 0.1305), (0.6088, 0.7934)],
         ];
-        let root_pt = self.bilerp(corners, fu, fv);
-        let (terrace_dh, _, _) = self.tier_style(self.depth_tier_at(root_pt), color);
-        let base_lift = self.up * terrace_dh;
+        let base_lift = if terraced {
+            let root_pt = self.bilerp(corners, fu, fv);
+            let (terrace_dh, _, _) = self.tier_style(self.depth_tier_at(root_pt), color);
+            self.up * terrace_dh
+        } else {
+            Vec3::ZERO
+        };
         let up_h = base_lift + self.up * (height * 0.866_025_4);
         let splay_uv = height * 0.85;
         let r_top = r_uv * 1.18;
@@ -186,11 +198,11 @@ impl MeadowCrown {
 
     /// Emits a dense meadow of 6 30°-splayed cross-billboard fans (18 quads = 126 cutout grass blades) inside `corners`.
     pub fn emit_hybrid(&self, corners: [Vec3; 4], _normal: Vec3, color: Vec3, target: &mut dyn MeshTarget) {
-        self.emit_tiered(corners, 1.0, 6, color, target);
+        self.emit_tiered(corners, 1.0, 6, true, color, target);
     }
 
     /// Emits a world-anchored natural meadow patch with organic clearings, varied tuft counts, and tall grass islands.
-    pub fn emit_natural_patch(&self, corners: [Vec3; 4], color: Vec3, target: &mut dyn MeshTarget) {
+    pub fn emit_natural_patch(&self, corners: [Vec3; 4], terraced: bool, color: Vec3, target: &mut dyn MeshTarget) {
         let (gu, gv) = self.cell.feed_coordinates(|u, v| (u, v));
         let tri = |x: f32| 1.0 - ((x - x.floor() - 0.5).abs() * 4.0);
         let jitter = (((gu.wrapping_mul(374_761_393) ^ gv.wrapping_mul(668_265_263)).abs() % 100) as f32) * 0.006 - 0.30;
@@ -207,11 +219,11 @@ impl MeadowCrown {
         } else {
             (3, 2.10 + (wave - 0.64).min(0.40) * 2.0)
         };
-        self.emit_tiered(corners, height_scale, clusters, color, target);
+        self.emit_tiered(corners, height_scale, clusters, terraced, color, target);
     }
 
     /// Emits a 30°-splayed 3-wing star-fan meadow tier (`cluster_count` in `1..=6`) inside `corners`.
-    pub fn emit_tiered(&self, corners: [Vec3; 4], height_scale: f32, cluster_count: usize, color: Vec3, target: &mut dyn MeshTarget) {
+    pub fn emit_tiered(&self, corners: [Vec3; 4], height_scale: f32, cluster_count: usize, terraced: bool, color: Vec3, target: &mut dyn MeshTarget) {
         let [v0, v1, v2, v3] = corners;
         if (v1 - v0).length_squared() < 0.048 || (v3 - v0).length_squared() < 0.048 || (v2 - v3).length_squared() < 0.040 || cluster_count == 0 {
             return;
@@ -239,7 +251,7 @@ impl MeadowCrown {
                 _ => (0.245 * r_boost, 0.072, Vec3::new(0.86, 0.95, 0.80)),
             };
             let col = (color * tone).clamp(Vec3::ZERO, Vec3::ONE);
-            self.emit_splayed_cross_fan(corners, fu, fv, yaw_idx, r_uv, h_raw * size_jitter * height_scale, seed_base, col, target);
+            self.emit_splayed_cross_fan(corners, fu, fv, yaw_idx, r_uv, h_raw * size_jitter * height_scale, seed_base, terraced, col, target);
         }
     }
 

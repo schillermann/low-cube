@@ -68,3 +68,26 @@ pub trait VoxelShape: Send + Sync {
         turf.seal_underside();
     }
 }
+
+impl<S: VoxelShape + ?Sized> VoxelShape for Box<S> {
+    fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 { (**self).elevation_at(local_u, local_v) }
+    fn shape_color(&self) -> Vec3 { (**self).shape_color() }
+    fn block_medium(&self) -> BlockMedium { (**self).block_medium() }
+    fn block_heading(&self) -> WedgeHeading { (**self).block_heading() }
+    fn wheel_radius(&self) -> f32 { (**self).wheel_radius() }
+    fn full_cube_envelope(&self) -> bool { (**self).full_cube_envelope() }
+    fn step_camera_turn(&mut self, delta: i32) -> bool { (**self).step_camera_turn(delta) }
+    fn camera_tripod_hub(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
+        (**self).camera_tripod_hub(cell, floor_elevation, frame)
+    }
+    fn rotate_quarter(&mut self) { (**self).rotate_quarter(); }
+    fn emit_shape(&self, cell: GridCell, base_elevation: f32, frame: &SurfaceFrame, color: Vec3, target: &mut dyn MeshTarget) {
+        (**self).emit_shape(cell, base_elevation, frame, color, target);
+    }
+    fn emit_driven_part(&self, cell: GridCell, base_elevation: f32, spin_angle: f32, steer_angle: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, target: &mut dyn MeshTarget) {
+        (**self).emit_driven_part(cell, base_elevation, spin_angle, steer_angle, frame, top_color, wall_color, target);
+    }
+    fn emit_terraced_shape(&self, cell: GridCell, base_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, bare_top: bool, target: &mut dyn MeshTarget) {
+        (**self).emit_terraced_shape(cell, base_elevation, frame, top_color, wall_color, bare_top, target);
+    }
+}

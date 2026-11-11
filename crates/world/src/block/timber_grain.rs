@@ -12,7 +12,7 @@ use super::vehicle_parts::{VehicleBlockMesh, WheelProfile};
 use super::wedge::WedgeHeading;
 
 /// Material medium governing the sculpted 3D surface of a molded block in hand and world.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum BlockMedium {
     TurfEarth,
     CrustRock,
@@ -170,17 +170,17 @@ impl BlockMedium {
 }
 
 /// Decorator binding a material medium to a VoxelShape.
-pub struct MediumShape {
-    inner: Box<dyn VoxelShape>,
+pub struct MediumShape<S = Box<dyn VoxelShape>> {
+    inner: S,
     medium: BlockMedium,
     archetype: MoldArchetype,
     heading: WedgeHeading,
 }
 
-impl MediumShape {
+impl<S: VoxelShape> MediumShape<S> {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn with_archetype(
-        inner: Box<dyn VoxelShape>,
+        inner: S,
         medium: BlockMedium,
         archetype: MoldArchetype,
         heading: WedgeHeading,
@@ -188,12 +188,12 @@ impl MediumShape {
         Self { inner, medium, archetype, heading }
     }
 
-    pub fn with_heading(inner: Box<dyn VoxelShape>, medium: BlockMedium, full_cube: bool, heading: WedgeHeading) -> Self {
+    pub fn with_heading(inner: S, medium: BlockMedium, full_cube: bool, heading: WedgeHeading) -> Self {
         let archetype = if full_cube { MoldArchetype::FullCube } else { MoldArchetype::HalfSlab };
         Self::with_archetype(inner, medium, archetype, heading)
     }
 
-    pub fn new(inner: Box<dyn VoxelShape>, medium: BlockMedium, full_cube: bool, cross_grain: bool) -> Self {
+    pub fn new(inner: S, medium: BlockMedium, full_cube: bool, cross_grain: bool) -> Self {
         Self::with_heading(inner, medium, full_cube, if cross_grain { WedgeHeading::East } else { WedgeHeading::South })
     }
 
@@ -208,7 +208,7 @@ impl MediumShape {
     }
 }
 
-impl VoxelShape for MediumShape {
+impl<S: VoxelShape> VoxelShape for MediumShape<S> {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
         if self.medium.mechanical_part() || matches!(self.medium, BlockMedium::CantileverRig | BlockMedium::FieldCamera) {
             GridCell::SPAN
@@ -244,7 +244,7 @@ impl VoxelShape for MediumShape {
     #[allow(clippy::too_many_arguments)]
     fn emit_driven_part(&self, cell: GridCell, floor_elevation: f32, spin_angle: f32, steer_angle: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, target: &mut dyn MeshTarget) {
         if self.medium == BlockMedium::CabinSeat {
-            CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target);
+            CabinSeatMesh::new(self.heading).emit(&self.inner, cell, floor_elevation, frame, target);
         } else if self.medium == BlockMedium::PedalCluster {
             PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target);
         } else if self.medium == BlockMedium::FieldCamera {
@@ -265,14 +265,14 @@ impl VoxelShape for MediumShape {
             (BlockMedium::PlanedPlanks, true) | (BlockMedium::CantileverRig, _) => {
                 BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target);
             }
-            (BlockMedium::CabinSeat, _) => CabinSeatMesh::new(self.heading).emit(self.inner.as_ref(), cell, floor_elevation, frame, target),
+            (BlockMedium::CabinSeat, _) => CabinSeatMesh::new(self.heading).emit(&self.inner, cell, floor_elevation, frame, target),
             (BlockMedium::PedalCluster, _) => PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
             (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel | BlockMedium::CrossAxle, _) => {
                 VehicleBlockMesh::with_archetype(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
             }
             (BlockMedium::TurfEarth, false) => {
-                EarthClods::new(cell, floor_elevation).emit_shaped(self.inner.as_ref(), top_color, bare_top, frame, target);
+                EarthClods::new(cell, floor_elevation).emit_shaped(&self.inner, top_color, bare_top, frame, target);
             }
             _ => {
                 let (cap, wall) = self.medium.sculpted_tones();

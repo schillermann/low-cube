@@ -40,6 +40,11 @@ impl CpuMeshBatch {
         Self::new(Vec::new(), Vec::new())
     }
 
+    /// Secondary constructor pre-allocating storage for `quads` quads to avoid vector growth reallocations.
+    pub fn with_quad_capacity(quads: usize) -> Self {
+        Self::new(Vec::with_capacity(quads * 4), Vec::with_capacity(quads * 6))
+    }
+
     /// # Safety
     /// Requires a valid, current OpenGL context.
     pub unsafe fn upload(&self, gl: &glow::Context) -> Box<dyn Mesh> {
@@ -49,6 +54,10 @@ impl CpuMeshBatch {
     /// # Safety
     /// Requires a valid, current OpenGL context.
     pub unsafe fn upload_gl(&self, gl: &glow::Context) -> GlMesh {
+        self.upload_gl_usage(gl, glow::STATIC_DRAW)
+    }
+
+    unsafe fn upload_gl_usage(&self, gl: &glow::Context, usage: u32) -> GlMesh {
         let vao = gl.create_vertex_array().expect("Failed to create VAO");
         let vbo = gl.create_buffer().expect("Failed to create VBO");
         let ebo = gl.create_buffer().expect("Failed to create EBO");
@@ -60,14 +69,14 @@ impl CpuMeshBatch {
             self.vertices.as_ptr() as *const u8,
             self.vertices.len() * core::mem::size_of::<Vertex>(),
         );
-        gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertex_bytes, glow::STATIC_DRAW);
+        gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertex_bytes, usage);
 
         gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
         let index_bytes = core::slice::from_raw_parts(
             self.indices.as_ptr() as *const u8,
             self.indices.len() * core::mem::size_of::<u32>(),
         );
-        gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, index_bytes, glow::STATIC_DRAW);
+        gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, index_bytes, usage);
 
         let stride = core::mem::size_of::<Vertex>() as i32;
 
@@ -95,7 +104,7 @@ impl Mesh for CpuMeshBatch {
             return;
         }
         unsafe {
-            let mesh = self.upload_gl(gl);
+            let mesh = self.upload_gl_usage(gl, glow::STREAM_DRAW);
             mesh.draw(gl);
             mesh.dispose(gl);
         }
