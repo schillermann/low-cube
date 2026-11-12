@@ -2,10 +2,12 @@ use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{BodyPose, CameraMount, PhotoShutter, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger};
-use crate::earthworks::PalmEarthworks;
+use crate::earthworks::{PalmEarthworks, SurfaceReach};
 use crate::envelope::BodyEnvelope;
 use crate::photo_plate::CameraExposure;
 use crate::server_satchel::StartingSatchel;
+use super::body::AvatarBody;
+use super::sight::AvatarSight;
 
 /// Encapsulated kinematic bearing: horizon tilt, stride rhythm, sight mode, and camera exposure state.
 pub struct AvatarBearing {
@@ -115,10 +117,6 @@ impl AvatarGear {
         self.earthworks.satchel_open()
     }
 
-    pub fn holding_placeable_on(&self, side: f32) -> bool {
-        self.attire.hand_pair(side).0.blocks_perch()
-    }
-
     pub fn placed_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
         self.earthworks.placed_camera_lens(self.attire)
     }
@@ -172,26 +170,38 @@ impl AvatarGear {
     }
 
     pub fn act_with_hand(
-        &mut self, side: f32, bearing: &mut AvatarBearing, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
+        &mut self, side: f32, reach: SurfaceReach, bearing: &mut AvatarBearing, world: &mut dyn PlanetaryWorld,
     ) -> bool {
         let (next_ew, next_attire, next_rhythm, changed) =
-            self.earthworks.act_with_hand(side, self.attire, bearing.rhythm(), eye, view_dir, world);
+            self.earthworks.act_with_hand(side, reach, self.attire, bearing.rhythm(), world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
         bearing.apply_rhythm(next_rhythm);
         bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
         changed
     }
 
-    pub fn release_hand(&mut self, bearing: &mut AvatarBearing, eye: Vec3, dir: Vec3, position: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
-        let (next_ew, next_attire, changed) = self.earthworks.release_hand(self.attire, eye, dir, position, world);
+    pub fn release_hand(
+        &mut self,
+        reach: SurfaceReach,
+        body: &mut AvatarBody,
+        sight_line: &mut AvatarSight,
+        bearing: &mut AvatarBearing,
+        world: &mut dyn PlanetaryWorld,
+    ) -> bool {
+        let (next_ew, next_attire, perch_ready, changed) =
+            self.earthworks.release_hand(reach, self.attire, world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
         bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
+        if perch_ready && body.perch_vehicle(reach.eye(), reach.view_dir(), sight_line, world) {
+            bearing.calm();
+            return true;
+        }
         changed
     }
 
-    pub fn continue_digging(&mut self, rhythm: StrideRhythm, eye: Vec3, dir: Vec3, world: &mut dyn PlanetaryWorld) -> (StrideRhythm, bool) {
+    pub fn continue_digging(&mut self, reach: SurfaceReach, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld) -> (StrideRhythm, bool) {
         let (next_ew, next_attire, next_rhythm, changed) =
-            self.earthworks.continue_digging(self.attire, rhythm, eye, dir, world);
+            self.earthworks.continue_digging(reach, self.attire, rhythm, world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
         (next_rhythm, changed)
     }

@@ -115,6 +115,10 @@ impl DigOperation {
         self.grip.bare_hand_digging(r.placeable_block(), l.placeable_block(), self.dig_progress)
     }
 
+    pub const fn ready_to_perch(self) -> bool {
+        self.grip.pending_perch_any() && self.dig_progress == 0
+    }
+
     pub const fn ready_to_place(self, overhead: bool) -> bool {
         self.grip.pending_place_any() && (self.dig_progress == 0 || (overhead && self.dig_progress <= 4))
     }

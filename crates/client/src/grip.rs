@@ -9,6 +9,10 @@ const ANY_PLACE: u8 = RIGHT_PLACE | LEFT_PLACE;
 const RIGHT_DIG: u8 = 16;
 const LEFT_DIG: u8 = 32;
 const BOTH_DIG: u8 = RIGHT_DIG | LEFT_DIG;
+const RIGHT_PERCH: u8 = 64;
+const LEFT_PERCH: u8 = 128;
+const ANY_PERCH: u8 = RIGHT_PERCH | LEFT_PERCH;
+const ANY_PENDING: u8 = ANY_PLACE | ANY_PERCH;
 
 /// Encapsulates dual-hand button press, deferred block placement, and active digging states without exposing bitmasks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,6 +57,22 @@ impl DigGrip {
         (self.mask & (Self::hand_bit(side) << 2)) != 0
     }
 
+    pub const fn pending_perch_any(self) -> bool {
+        (self.mask & ANY_PERCH) != 0
+    }
+
+    pub const fn pending_perch_on(self, side: f32) -> bool {
+        (self.mask & (Self::hand_bit(side) << 6)) != 0
+    }
+
+    pub const fn pending_click_any(self) -> bool {
+        (self.mask & ANY_PENDING) != 0
+    }
+
+    pub const fn pending_click_on(self, side: f32) -> bool {
+        self.pending_place_on(side) || self.pending_perch_on(side)
+    }
+
     pub const fn combined_both_held(self, side: f32) -> bool {
         ((self.mask & BOTH_HELD) | Self::hand_bit(side)) == BOTH_HELD
     }
@@ -62,9 +82,14 @@ impl DigGrip {
         Self { mask: b | (b << 2) }
     }
 
+    pub const fn with_pending_perch(side: f32) -> Self {
+        let b = Self::hand_bit(side);
+        Self { mask: b | (b << 6) }
+    }
+
     pub const fn promoted_to_dig(self, side: f32) -> Self {
         Self {
-            mask: (self.mask & !ANY_PLACE) | (Self::hand_bit(side) << 4),
+            mask: (self.mask & !ANY_PENDING) | (Self::hand_bit(side) << 4),
         }
     }
 
@@ -84,7 +109,7 @@ impl DigGrip {
 
     pub const fn without_pending_place(self) -> Self {
         Self {
-            mask: self.mask & !ANY_PLACE,
+            mask: self.mask & !ANY_PENDING,
         }
     }
 
@@ -123,7 +148,7 @@ impl DigStroke {
     pub fn dual_palm(
         side: f32, prev_grip: DigGrip, active_receives: bool, weightless: bool, weightless_place: bool, rhythm: StrideRhythm,
     ) -> Self {
-        let step = if prev_grip.both_held() { 2 } else { 1 + u32::from(prev_grip.pending_place_any()) };
+        let step = if prev_grip.both_held() { 2 } else { 1 + u32::from(prev_grip.pending_click_any()) };
         let recipient = if active_receives { side } else { -side };
         let next_grip = if weightless { DigGrip::with_dig_on(side, weightless_place) } else { DigGrip::with_both_digging() };
         Self::new(if weightless { 4 } else { step }, next_grip, recipient, rhythm.trigger_right_strike().trigger_left_strike())

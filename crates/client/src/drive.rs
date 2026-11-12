@@ -125,6 +125,11 @@ impl DrivenCar {
         self.assembly.origin() + self.assembly.normal().normalize_or_zero() * (SEAT_EYE_SUPPORT + 0.12)
     }
 
+    pub fn seat_intact(&self, world: &dyn PlanetaryWorld) -> bool {
+        let (origin, up) = (self.assembly.origin(), self.assembly.normal().normalize_or_zero());
+        (world.constrain_to_surface(origin + up * 1.15, 0.9) - origin).dot(up) > 1.15
+    }
+
     pub fn seat_position(&self, world: &dyn PlanetaryWorld) -> Vec3 {
         let origin = self.assembly.origin();
         let up = world.surface_up_at(origin);
@@ -214,6 +219,11 @@ impl VehiclePilot {
         match self {
             Self::Pedestrian => None,
             Self::Perch(car) => {
+                if !car.seat_intact(world) {
+                    let pos = world.constrain_to_surface(car.perch_position(), SEAT_EYE_SUPPORT);
+                    *self = Self::Pedestrian;
+                    return Some((pos, 0.0));
+                }
                 let mut pedals = PedalInput::idle();
                 controls.drive_locomotion(Vec3::Y, Vec3::X, &mut pedals);
                 if pedals.throttle.abs() > 0.1 || pedals.steer.abs() > 0.1 {

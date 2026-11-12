@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-11-12
+
+### Added
+- Added pending seat-perch grip flags (`DigGrip::with_pending_perch`, `pending_perch_any`, `pending_perch_on`, `pending_click_any`, `pending_click_on` in `crates/client/src/grip.rs`), `DigOperation::ready_to_perch` (`crates/client/src/earthworks/debris.rs`), and `DrivenCar::seat_intact` (`crates/client/src/drive.rs`) so holding down a mouse button on a `CabinSeat` dismantles the seat—both while standing and while seated looking down—and automatically transitions `VehiclePilot::Perch` back to `Pedestrian`, whereas a short click perches on the seat.
+- Added `SurfaceReach` (`crates/client/src/earthworks/reach.rs`) to encapsulate 3D eye ray, view direction, stance origin, and perch eligibility for surface strikes, sustained excavation, and release actions, plus `#[cfg(test)] HandGesture` (`crates/client/src/avatar/gesture.rs`) and polymorphic `CodebaseAudit` (`SourceFileAudit`, `SourceTreeAudit` in `crates/client/src/architecture_tests.rs`).
+
+### Changed
+- **Pure OOP Modularization (Elegant Objects)**:
+  - Decomposed `crates/client/src/avatar/` into focused collaborators (`mod.rs`, `planetary.rs`, `body.rs`, `sight.rs`, `bearing_gear.rs`, `gesture.rs`) with a clean 4-field primary constructor on `PlanetaryAvatar`.
+  - Extracted `SatchelIntake` (`crates/client/src/attire/pouch/intake.rs`) from `BeltSatchel` (`crates/client/src/attire/pouch/mod.rs`) and split `crane_drive_tests.rs` out of `posture_tests.rs`.
+  - Split `crates/world/src/block/{earth_clods,mold,timber_grain,vehicle_parts}` into dedicated submodule directories (`earth_clods/patterns.rs`, `mold/archetype.rs`, `timber_grain/medium_shape.rs`, `vehicle_parts/steering.rs` with `SteeringColumn`) and extracted subterranean shaft and multi-story tests into `crates/world/src/relief/shaft_story_tests.rs` so every source file across the workspace stays well below the 300-line ceiling.
+
 ## [0.61.4] - 2026-11-12
 
 ### Added

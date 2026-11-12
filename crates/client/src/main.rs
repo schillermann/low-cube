@@ -60,6 +60,8 @@ mod allocation_audit;
 static ALLOCATOR: allocation_audit::HeapLedger = allocation_audit::HeapLedger;
 
 #[cfg(test)]
+mod architecture_tests;
+#[cfg(test)]
 mod aurora_tests;
 #[cfg(test)]
 mod ballistic_tests;
@@ -71,6 +73,8 @@ mod celestial_tests;
 mod circuit_tests;
 #[cfg(test)]
 mod controls_tests;
+#[cfg(test)]
+mod crane_drive_tests;
 #[cfg(test)]
 mod earthworks_tests;
 #[cfg(test)]

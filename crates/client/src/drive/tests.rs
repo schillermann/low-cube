@@ -2,7 +2,7 @@ use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, SurfaceFrame};
 use crate::attire::{HeldRelic, MartialStyle, StrideRhythm, YouthAttire};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{Avatar, HandGesture, PlanetaryAvatar};
 use crate::cardiac::{AcousticWave, EngineRumble, PalmScrape, SpadeStrike};
 use crate::controls::{InputTrigger, KeyMotion, KeyboardControls};
 use crate::posture::AvatarPosture;
@@ -92,7 +92,7 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     let mut world_sitter = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(2.25, 22.0, 1.25), 1.0));
     world_sitter.apply_attire(YouthAttire::squire().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
     world_sitter.rotate_degrees(0.0, 58.0);
-    assert!(world_sitter.use_right_hand(&mut world));
+    assert!(!world_sitter.use_right_hand(&mut world) && world_sitter.release_hand(&mut world));
     let sit_eye = cam_pos(&world_sitter);
     assert!(world_sitter.dispatch_trigger(InputTrigger::WheelClick) && (cam_pos(&world_sitter) - sit_eye).length() < 1e-4);
     let (mut step_d, mut step_a) = (KeyMotion::idle(), KeyMotion::idle());
@@ -103,7 +103,7 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     assert!(stand_right.x > 2.50 && stand_right.y < g0 + 2.0);
     world_sitter = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(2.25, 22.0, 1.25), 1.0));
     world_sitter.rotate_degrees(0.0, 58.0);
-    assert!(world_sitter.use_right_hand(&mut world));
+    assert!(!world_sitter.use_right_hand(&mut world) && world_sitter.release_hand(&mut world));
     world_sitter.step_motion(1.0 / 60.0, &step_a, &world);
     let stand_left = cam_pos(&world_sitter);
     assert!(stand_left.x < 2.00 && stand_left.y < g0 + 2.0);
@@ -152,7 +152,7 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     );
     let mut driver = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0));
     driver.rotate_degrees(-90.0, 12.0);
-    assert!(driver.use_right_hand(&mut world));
+    assert!(HandGesture::RightTap.perform(&mut driver, &mut world));
     driver.apply_attire(YouthAttire::squire().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
     assert!(driver.dispatch_trigger(InputTrigger::WheelClick));
     driver.apply_attire(YouthAttire::squire());
@@ -214,4 +214,34 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     let (r_left, r_right) = (pose_c.with_seated_steer(-1.0).arm(1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0), pose_c.with_seated_steer(1.0).arm(1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0));
     let (l_left, l_right) = (pose_c.with_seated_steer(-1.0).arm(-1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0), pose_c.with_seated_steer(1.0).arm(-1.0, MartialStyle::Unarmed).external(false).2.point(0.0, 0.0, 0.0));
     assert!(r_left.y > r_right.y + 0.08 && l_right.y > l_left.y + 0.08);
+}
+
+#[test]
+fn test_holding_mouse_button_dismantles_seat_while_short_click_perches() {
+    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let g0 = world.constrain_to_surface(Vec3::new(2.25, 22.0, 0.25), 0.0).y;
+    let seat_mold = BlockMold::cube().in_medium(BlockMedium::CabinSeat);
+    let aim = Vec3::new(0.0, -0.8, -0.6).normalize();
+    let av_pos = Vec3::new(2.25, g0, 1.75);
+    assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), aim, av_pos, seat_mold));
+    assert!((world.constrain_to_surface(Vec3::new(2.25, 22.0, 0.25), 0.0).y - (g0 + 0.5)).abs() < 1e-4);
+
+    let stand = world.constrain_to_surface(Vec3::new(2.25, 22.0, 1.25), 1.0);
+    let cam_pos = |a: &PlanetaryAvatar| a.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+
+    let mut bare_miner = PlanetaryAvatar::at(stand);
+    bare_miner.rotate_degrees(0.0, 58.0);
+    let stand_eye = cam_pos(&bare_miner);
+    assert!(HandGesture::RightHold(280).perform(&mut bare_miner, &mut world));
+    assert!((cam_pos(&bare_miner) - stand_eye).length() < 0.05, "Avatar must remain standing while dismantling seat");
+    assert!((world.constrain_to_surface(Vec3::new(2.25, 22.0, 0.25), 0.0).y - g0).abs() < 1e-4, "Held mouse button must dismantle the seat");
+
+    assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), aim, av_pos, seat_mold));
+    bare_miner.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    assert!(HandGesture::RightTap.perform(&mut bare_miner, &mut world));
+    assert!(cam_pos(&bare_miner).z < 0.6, "Short click must perch on the seat");
+    bare_miner.rotate_degrees(0.0, 88.0);
+    assert!(HandGesture::RightHold(90).perform(&mut bare_miner, &mut world));
+    bare_miner.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
+    assert!((world.constrain_to_surface(Vec3::new(2.25, 22.0, 0.25), 0.0).y - g0).abs() < 1e-4, "Holding mouse button while seated must also dismantle the seat");
 }

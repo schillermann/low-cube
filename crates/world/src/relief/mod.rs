@@ -24,6 +24,8 @@ mod cantilever_rig_tests;
 #[cfg(test)]
 mod corner_seam_tests;
 #[cfg(test)]
+mod shaft_story_tests;
+#[cfg(test)]
 mod soil_clod_tests;
 #[cfg(test)]
 mod tests;
