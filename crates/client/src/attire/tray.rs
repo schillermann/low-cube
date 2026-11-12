@@ -1,7 +1,14 @@
 use glam::Vec3;
 use world::{BlockMold, MeshTarget};
+use super::burden::{CarryLoad, SatchelBurden, SlotBurden};
+use super::compartment::{
+    CompartmentBackplate, LegendCompartment, ShowcasedCompartment, SlotPlaque, TalliedCompartment,
+    WeightedCompartment,
+};
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
+
+const TRAY_SLOTS: usize = 15;
 
 /// Visibility state of the waist satchel inspection tray.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -20,25 +27,17 @@ pub struct SatchelTray {
 }
 
 impl SatchelTray {
-    pub const fn new(stowed: [u32; 22], active_side: f32, cursor: usize, open: bool) -> Self {
-        Self {
-            stowed,
-            active_side,
-            cursor,
-            state: if open { TrayState::Open } else { TrayState::Closed },
-        }
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(stowed: [u32; 22], active_side: f32, cursor: usize, state: TrayState) -> Self {
+        Self { stowed, active_side, cursor, state }
     }
 
     pub const fn open(&self) -> bool {
         matches!(self.state, TrayState::Open)
     }
 
-    pub const fn active_side(&self) -> f32 {
-        self.active_side
-    }
-
-    pub const fn cursor(&self) -> usize {
-        self.cursor
+    pub const fn focused_sides(&self) -> (bool, bool) {
+        (self.active_side > 0.0, self.active_side < 0.0)
     }
 
     pub const fn with_open(mut self, open: bool) -> Self {
@@ -54,10 +53,23 @@ impl SatchelTray {
         self.active_side = if side > 0.0 { 1.0 } else { -1.0 };
     }
 
-    pub fn open_for_side(&mut self, side: f32, len: usize) {
+    pub fn open_if_populated(&mut self, side: f32) -> bool {
+        let (slots, len) = self.packed_slots();
+        if len == 0 {
+            return false;
+        }
         self.state = TrayState::Open;
-        self.cursor = self.cursor.min(len.saturating_sub(1));
+        self.cursor = self.cursor.min(TRAY_SLOTS - 1);
+        if slots[self.cursor].free_palm() {
+            self.cursor = 0;
+        }
         self.focus_side(side);
+        true
+    }
+
+    pub fn selected_relic(&self) -> HeldRelic {
+        let (slots, _) = self.packed_slots();
+        slots[self.cursor.min(TRAY_SLOTS - 1)]
     }
 
     pub const fn count(&self, relic: HeldRelic) -> u32 {
@@ -83,8 +95,8 @@ impl SatchelTray {
         .any(|&relic| self.count(relic) > 0)
     }
 
-    pub fn packed_slots(&self) -> ([HeldRelic; 15], usize) {
-        let (mut slots, mut len) = ([HeldRelic::EmptyPalm; 15], 0usize);
+    fn packed_slots(&self) -> ([HeldRelic; TRAY_SLOTS], usize) {
+        let (mut slots, mut len) = ([HeldRelic::EmptyPalm; TRAY_SLOTS], 0usize);
         let materials = [
             HeldRelic::CabinSeat,
             HeldRelic::PedalCluster,
@@ -102,7 +114,7 @@ impl SatchelTray {
             HeldRelic::FlintStone,
         ];
         for mat in materials {
-            if self.count(mat) > 0 && len < 15 {
+            if self.count(mat) > 0 && len < TRAY_SLOTS {
                 slots[len] = mat;
                 len += 1;
             }
@@ -118,7 +130,7 @@ impl SatchelTray {
         ];
         for relic in tools {
             for _ in 0..self.count(relic) {
-                if len < 15 {
+                if len < TRAY_SLOTS {
                     slots[len] = relic;
                     len += 1;
                 }
@@ -149,10 +161,13 @@ impl SatchelTray {
     }
 
     pub fn toggle_open(&mut self) {
-        let (_, len) = self.packed_slots();
+        let (slots, len) = self.packed_slots();
         self.state = if self.open() { TrayState::Closed } else { TrayState::Open };
         if self.open() {
-            self.cursor = self.cursor.min(len.saturating_sub(1));
+            self.cursor = self.cursor.min(TRAY_SLOTS - 1);
+            if slots[self.cursor].free_palm() && len > 0 {
+                self.cursor = 0;
+            }
         }
     }
 
@@ -160,18 +175,16 @@ impl SatchelTray {
         if !self.open() {
             return false;
         }
-        let (_, len) = self.packed_slots();
-        if len > 0 {
-            let step = if dy > 0 {
-                3
-            } else if dy < 0 {
-                len.saturating_sub(3).max(1)
-            } else if dx > 0 {
-                1
-            } else {
-                len - 1
-            };
-            self.cursor = (self.cursor + step) % len;
+        let cur = self.cursor.min(TRAY_SLOTS - 1);
+        let (col, row) = (cur % 3, cur / 3);
+        if dy > 0 {
+            self.cursor = ((row + 1) % 5) * 3 + col;
+        } else if dy < 0 {
+            self.cursor = ((row + 4) % 5) * 3 + col;
+        } else if dx > 0 {
+            self.cursor = (cur + 1) % TRAY_SLOTS;
+        } else if dx < 0 {
+            self.cursor = (cur + TRAY_SLOTS - 1) % TRAY_SLOTS;
         }
         true
     }
@@ -180,44 +193,57 @@ impl SatchelTray {
         if !self.open() {
             return;
         }
-        let ((slots, len), tray, mold) = (
+        let ((slots, _), eye, tray, mold, sel) = (
             self.packed_slots(),
-            pose.view_frame().shifted(0.0, -0.02, 0.40),
+            pose.eye_origin(),
+            pose.view_frame().shifted(0.0, 0.034, 0.60),
             BlockMold::cube(),
+            self.cursor.min(TRAY_SLOTS - 1),
         );
-        let (cols, rows, sel) = (
-            len.clamp(1, 3),
-            len.max(1).div_ceil(3),
-            self.cursor.min(len.saturating_sub(1)),
-        );
-        if len == 0 {
-            HeldRelic::EmptyPalm.figure(mold).emit_in_slot(false, Vec3::new(0.42, 0.27, 0.16), &tray, target);
-        }
-        for (i, &item) in slots[..len].iter().enumerate() {
+        for (i, &item) in slots.iter().enumerate() {
             let (col, row) = (i % 3, i / 3);
-            let r_cols = if row + 1 == rows && len % 3 != 0 { len % 3 } else { cols };
-            let sx = ((col as f32) - (r_cols as f32 - 1.0) * 0.5) * 0.115;
-            let sy = ((rows as f32 - 1.0) * 0.5 - (row as f32)) * 0.115;
+            let sx = ((col as f32) - 1.0) * 0.104;
+            let sy = (2.0 - (row as f32)) * 0.098;
             let selected = i == sel;
             let sz = if selected { -0.022 } else { 0.0 };
             let rim_col = if selected {
                 Vec3::new(0.95, 0.78, 0.24)
-            } else {
+            } else if item.gripped() {
                 Vec3::new(0.42, 0.27, 0.16)
+            } else {
+                Vec3::new(0.28, 0.22, 0.17)
             };
-            let slot_frame = tray.shifted(sx, sy, sz);
-            item.figure(mold).emit_in_slot(selected, rim_col, &slot_frame, target);
-            let badge = slot_frame.shifted(0.021, -0.023, -0.085);
-            badge.emit_framed_plaque(0.011, 0.007, 0.0012, Vec3::new(0.07, 0.09, 0.14), rim_col, target);
-            crate::menu::PixelStamp::new(0.0018, 0.0018, Vec3::new(1.65, 1.42, 0.48))
-                .emit_on_frame(&format!("{}", self.count(item)), 0.0, 0.0, 0.016, &badge, target);
+            let qty = if item.gripped() { self.count(item) } else { 0 };
+            let compartment = TalliedCompartment::new(
+                ShowcasedCompartment::new(
+                    WeightedCompartment::new(
+                        CompartmentBackplate::new(selected, item.gripped(), rim_col),
+                        SlotBurden::new(item, qty),
+                    ),
+                    item.figure(mold),
+                ),
+                eye,
+                rim_col,
+                qty,
+            );
+            compartment.emit_slot(&tray.shifted(sx, sy, sz), target);
         }
-        let (legend, count) = if len > 0 { (slots[sel], self.count(slots[sel])) } else { (HeldRelic::EmptyPalm, 0) };
-        super::relic::RelicFigure::emit_legend(
-            legend,
-            count,
-            &tray.shifted(0.0, -((rows as f32 - 1.0) * 0.5) * 0.115 - 0.090, 0.0),
-            target,
-        );
+        let chosen = slots[sel];
+        let qty = if chosen.gripped() { self.count(chosen) } else { 0 };
+        LegendCompartment::new(SlotBurden::new(chosen, qty)).emit_slot(&tray.shifted(0.0, -0.284, 0.0), target);
+    }
+}
+
+impl CarryLoad for SatchelTray {
+    fn fold_burden(&self, mut acc: SatchelBurden) -> SatchelBurden {
+        let mut code = 1u8;
+        while code < 22 {
+            let qty = self.stowed[code as usize];
+            if qty > 0 {
+                acc = SlotBurden::new(HeldRelic::from_code(code), qty).fold_burden(acc);
+            }
+            code += 1;
+        }
+        acc
     }
 }

@@ -2,6 +2,8 @@ use winit::keyboard::KeyCode;
 use world::MeshTarget;
 
 mod accoutrement;
+mod burden;
+mod compartment;
 mod crown;
 mod file_attire;
 mod footwear;
@@ -21,6 +23,7 @@ mod tray;
 #[cfg(test)]
 mod tests;
 
+pub use burden::SatchelBurden;
 pub use crown::CrownStyle;
 pub use file_attire::{AttireProfile, FileAttire};
 pub use footwear::FootwearStyle;

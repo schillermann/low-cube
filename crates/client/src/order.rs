@@ -1,5 +1,6 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
+use crate::attire::SatchelBurden;
 use crate::controls::LocomotionTarget;
 use crate::flight::GravitationalFlight;
 use crate::gait::{LocomotionGait, SneakGait, SprintGait, WalkGait};
@@ -16,10 +17,10 @@ pub enum LeapIntent {
 }
 
 impl LeapIntent {
-    pub fn apply(&self, flight: &mut dyn GravitationalFlight) {
+    pub fn apply(&self, flight: &mut dyn GravitationalFlight, burden: SatchelBurden) {
         match self {
             Self::Resting => {}
-            Self::Active => flight.jump(),
+            Self::Active => flight.jump_burdened(burden),
         }
     }
 }
@@ -112,9 +113,9 @@ impl LocomotionOrder {
         }
     }
 
-    /// Dispatches leap command to flight entity.
-    pub fn dispatch_jump(&self, flight: &mut dyn GravitationalFlight) {
-        self.leap.apply(flight);
+    /// Dispatches leap command scaled by carried burden to flight entity.
+    pub fn dispatch_jump(&self, flight: &mut dyn GravitationalFlight, burden: SatchelBurden) {
+        self.leap.apply(flight, burden);
     }
 
     /// Advances avatar posture towards this order's active gait across elapsed time.

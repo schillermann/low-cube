@@ -32,6 +32,16 @@ impl LimbFrame {
         Self::new(self.origin, self.right * factor, self.up * factor, self.forward * factor)
     }
 
+    /// Projects this frame toward `eye_origin` so perspective screen coordinates stay invariant while depth moves closer.
+    pub fn projected_toward(&self, eye_origin: Vec3, factor: f32) -> Self {
+        Self::new(
+            eye_origin + (self.origin - eye_origin) * factor,
+            self.right * factor,
+            self.up * factor,
+            self.forward * factor,
+        )
+    }
+
     /// Pitches the local up and forward axes around the right axis by radians.
     pub fn pitched(&self, angle: f32) -> Self {
         let (s, c) = angle.sin_cos();

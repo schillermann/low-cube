@@ -3,11 +3,12 @@ mod palms;
 
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, PlanetaryWorld};
+use super::burden::{CarryLoad, JoinedLoad, SatchelBurden};
 use super::limb::LimbFrame;
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
 use super::sight::{CameraMount, TripodMount};
-use super::tray::SatchelTray;
+use super::tray::{SatchelTray, TrayState};
 use super::YouthAttire;
 use self::intake::SatchelIntake;
 use self::palms::PalmStack;
@@ -29,7 +30,7 @@ impl BeltSatchel {
     pub const fn empty() -> Self {
         Self::new(
             PalmStack::new(0, 0, BlockMold::cube(), BlockMold::cube()),
-            SatchelTray::new([0; 22], 1.0, 0, false),
+            SatchelTray::new([0; 22], 1.0, 0, TrayState::Closed),
             TripodMount::Unmounted,
         )
     }
@@ -69,6 +70,11 @@ impl BeltSatchel {
         u32::from(r == relic) + u32::from(l == relic) + self.tray.count(relic)
     }
 
+    pub fn carried_burden(&self, attire: YouthAttire) -> SatchelBurden {
+        let (r, l) = attire.held_pair();
+        JoinedLoad::new(JoinedLoad::new(r, l), self.tray).fold_burden(SatchelBurden::weightless())
+    }
+
     pub fn map_mold(mut self, attire: YouthAttire, op: fn(BlockMold) -> BlockMold) -> Self {
         let (r, l) = attire.held_pair();
         let (pr, pl) = self.palms.placed_camera_sides();
@@ -82,7 +88,7 @@ impl BeltSatchel {
         } else if self.palms.empty_hands() && !self.tray.any_stowed_blocks() {
             (true, true)
         } else {
-            (self.tray.active_side() > 0.0, self.tray.active_side() < 0.0)
+            self.tray.focused_sides()
         };
         self.palms.map_sides(attire, mr, ml, op);
         self
@@ -111,20 +117,21 @@ impl BeltSatchel {
 
     pub fn transfer_hand(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
         let (mut state, (hand, other)) = (self.reconcile_attire(attire), attire.hand_pair(side));
-        let (slots, len) = state.tray.packed_slots();
-        if state.tray.open() && len > 0 {
-            let chosen = slots[state.tray.cursor().min(len - 1)];
-            let _ = state.tray.take_stowed(chosen);
-            if hand.gripped() { state.tray.stow_relic(hand, state.palms.blocks_on(side)); }
-            if chosen.placeable_block() && other.placeable_block() && !chosen.field_camera() && !other.field_camera() {
-                state.palms.sync_mold_from_opposite(side);
-            } else if !chosen.placeable_block() || chosen.field_camera() || state.palms.mold_on(side).placed_camera() {
-                state.palms.reset_mold(side);
+        if state.tray.open() {
+            let chosen = state.tray.selected_relic();
+            if chosen.gripped() {
+                let _ = state.tray.take_stowed(chosen);
+                if hand.gripped() { state.tray.stow_relic(hand, state.palms.blocks_on(side)); }
+                if chosen.placeable_block() && other.placeable_block() && !chosen.field_camera() && !other.field_camera() {
+                    state.palms.sync_mold_from_opposite(side);
+                } else if !chosen.placeable_block() || chosen.field_camera() || state.palms.mold_on(side).placed_camera() {
+                    state.palms.reset_mold(side);
+                }
+                state.palms.assign_blocks(side, u32::from(chosen.placeable_block()));
+                state.tray.focus_side(side);
+                state.tray.close();
+                return (state, attire.with_hand_relic(side, chosen), true);
             }
-            state.palms.assign_blocks(side, u32::from(chosen.placeable_block()));
-            state.tray.focus_side(side);
-            state.tray.close();
-            return (state, attire.with_hand_relic(side, chosen), true);
         }
         if hand.gripped() {
             state.tray.close();
@@ -136,8 +143,7 @@ impl BeltSatchel {
         } else if state.tray.open() {
             state.tray.close();
             (state, attire, true)
-        } else if len > 0 {
-            state.tray.open_for_side(side, len);
+        } else if state.tray.open_if_populated(side) {
             (state, attire, true)
         } else {
             (state, attire, false)

@@ -35,15 +35,47 @@ Examples: `dirt_stair`, `stone_wedge`, `sand_gentle_lower_wedge`, `dark_stone_cu
 
 ## 2. Available Materials
 
-| Material ID | Name | RGB Color | Rust Entity | Occurrence / Usage |
-|---|---|---|---|---|
-| `form` | **Form Block (Template)** | `Vec3(1.0, 1.0, 1.0)` | [`FormBlock`](file:///home/mario/code/low-cube/crates/world/src/block/form.rs) | Neutral building template / geometric prototype. |
-| `dirt` | **Dirt (Loam)** | `Vec3(0.48, 0.35, 0.22)` | [`DirtBlock`](file:///home/mario/code/low-cube/crates/world/src/block/material/dirt.rs) | Fertile topsoil, temperate valleys. |
-| `sand` | **Sand** | `Vec3(0.85, 0.75, 0.35)` | [`SandBlock`](file:///home/mario/code/low-cube/crates/world/src/block/material/sand.rs) | Warm desert sand, dune landscapes. |
-| `snow` | **Snow** | `Vec3(0.92, 0.95, 0.98)` | [`SnowBlock`](file:///home/mario/code/low-cube/crates/world/src/block/material/snow.rs) | Crystalline alpine snow, polar ice caps. |
-| `stone` | **Stone (Granite)** | `Vec3(0.48, 0.50, 0.46)` | [`StoneBlock::natural`](file:///home/mario/code/low-cube/crates/world/src/block/material/stone.rs) | Alpine rock, mountain ranges. |
-| `dark_stone` | **Dark Stone (Shale)** | `Vec3(0.35, 0.42, 0.35)` | [`StoneBlock::dark`](file:///home/mario/code/low-cube/crates/world/src/block/material/stone.rs) | Dark volcanic rock, crater rims. |
-| `lava` | **Lava / Magma** | `Vec3(0.95, 0.28, 0.05)` | [`MaterialBlock`](file:///home/mario/code/low-cube/crates/world/src/block/material/material_block.rs) | Glowing magma pools in calderas. |
+| Material ID | Name | Weight Grade | RGB Color | Rust Entity | Occurrence / Usage |
+|---|---|:---:|---|---|---|
+| `form` | **Form Block (Template)** | — | `Vec3(1.0, 1.0, 1.0)` | [`FormBlock`](../crates/world/src/block/form.rs) | Neutral building template / geometric prototype. |
+| `dirt` | **Dirt (Loam)** | **`MODERATE`** | `Vec3(0.48, 0.35, 0.22)` | [`DirtBlock`](../crates/world/src/block/material/dirt.rs) | Fertile topsoil, temperate valleys (`EARTH BLOCK`). |
+| `sand` | **Sand** | **`MODERATE`** | `Vec3(0.85, 0.75, 0.35)` | [`SandBlock`](../crates/world/src/block/material/sand.rs) | Warm desert sand, dune landscapes (`EARTH BLOCK`). |
+| `snow` | **Snow** | **`MODERATE`** | `Vec3(0.92, 0.95, 0.98)` | [`SnowBlock`](../crates/world/src/block/material/snow.rs) | Crystalline alpine snow, polar ice caps. |
+| `stone` | **Stone (Granite)** | **`HEAVY`** | `Vec3(0.48, 0.50, 0.46)` | [`StoneBlock::natural`](../crates/world/src/block/material/stone.rs) | Alpine rock, mountain ranges (`STONE BLOCK`). |
+| `dark_stone` | **Dark Stone (Shale)** | **`HEAVY`** | `Vec3(0.35, 0.42, 0.35)` | [`StoneBlock::dark`](../crates/world/src/block/material/stone.rs) | Dark volcanic rock, planetary crust (`CRUST BLOCK`). |
+| `lava` | **Lava / Magma** | — *(Indestructible)* | `Vec3(0.95, 0.28, 0.05)` | [`MaterialBlock`](../crates/world/src/block/material/material_block.rs) | Glowing lethal magma core floor. |
+
+### 2.1 Satchel Blocks & Items — Weight Catalog ([`WeightGrade`](../crates/client/src/attire/burden.rs))
+
+Every harvestable block, vehicle component, foraged resource, tool, and weapon in [`HeldRelic`](../crates/client/src/attire/relic/mod.rs) carries one of three English weight grades (**`LIGHT`**, **`MODERATE`**, **`HEAVY`**) encapsulated in [`SlotBurden`](../crates/client/src/attire/burden.rs) and [`SatchelBurden`](../crates/client/src/attire/burden.rs):
+
+- **All 15 Satchel Slots Visible**: Opening the waist satchel (<kbd>Tab</kbd>) always renders the complete `3 × 5` grid (**15 slots**), whether occupied or empty, with free `WASD` cursor navigation across all compartments.
+- **Stack Summation & Top-Left Corner Triangle**: Stacking multiple blocks or items in a single slot sums their unit mass (`total_mass = unit_mass × count`), escalating the slot's effective grade (`0..=2` -> **`LIGHT`**, `3..=5` -> **`MODERATE`**, `>= 6` -> **`HEAVY`**, e.g. `LIGHT -> HEAVY`) and shifting the color of the unframed triangle in the **top-left corner** of the slot box from **Emerald Green** (`LIGHT`) through **Warm Amber** (`MODERATE`) to **Crimson Red / Deep Ruby** (`HEAVY` and heavy stacks).
+- **Locomotion & Jump Encumbrance**: Total carried inventory mass across both hands and all stowed satchel slots continuously reduces player movement speed (`SatchelBurden::scale_pace`) and peak jump height (`SatchelBurden::scale_leap`).
+
+| Satchel Title | Rust Variant (`HeldRelic` / `BlockMedium`) | Category | Weight Grade | Unit Mass | Corner Triangle Color (1×) |
+|---|---|---|:---:|:---:|:---:|
+| **`WOOD PLANKS`** | `HeldRelic::PlankBlock` / `BlockMedium::PlanedPlanks` | Building Block | **`LIGHT`** | `1` | Emerald Green |
+| **`STEERING WHEEL`** | `HeldRelic::SteeringWheel` / `BlockMedium::SteeringWheel` | Vehicle Block | **`LIGHT`** | `1` | Emerald Green |
+| **`PEDAL BLOCK`** | `HeldRelic::PedalCluster` / `BlockMedium::PedalCluster` | Vehicle Block | **`LIGHT`** | `1` | Emerald Green |
+| **`FIELD CAMERA`** | `HeldRelic::FieldCamera` / `BlockMedium::FieldCamera` | Apparatus / Block | **`LIGHT`** | `1` | Emerald Green |
+| **`DEADWOOD`** | `HeldRelic::DeadwoodBough` | Foraged Resource | **`LIGHT`** | `1` | Emerald Green |
+| **`TIMBER TORCH`** | `HeldRelic::TimberTorch` | Tool / Light | **`LIGHT`** | `1` | Emerald Green |
+| **`EARTH BLOCK`** | `HeldRelic::ExcavatedEarth` / `BlockMedium::TurfEarth` | Building Block | **`MODERATE`** | `3` | Warm Amber |
+| **`WOOD BLOCK`** | `HeldRelic::TimberBlock` / `BlockMedium::RawTimber` | Building Block | **`MODERATE`** | `3` | Warm Amber |
+| **`SEAT BLOCK`** | `HeldRelic::CabinSeat` / `BlockMedium::CabinSeat` | Vehicle Block | **`MODERATE`** | `3` | Warm Amber |
+| **`CROSS AXLE`** | `HeldRelic::CrossAxle` / `BlockMedium::CrossAxle` | Vehicle Block | **`MODERATE`** | `3` | Warm Amber |
+| **`CAR WHEEL`** | `HeldRelic::CarWheel` / `BlockMedium::CarWheel` | Vehicle Block | **`MODERATE`** | `3` | Warm Amber |
+| **`FLINT STONE`** | `HeldRelic::FlintStone` | Foraged Resource | **`MODERATE`** | `3` | Warm Amber |
+| **`WOODEN MALLET`** | `HeldRelic::WoodenMallet` | Tool | **`MODERATE`** | `3` | Warm Amber |
+| **`IRON SPADE`** | `HeldRelic::IronSpade` | Excavation Tool | **`MODERATE`** | `3` | Warm Amber |
+| **`STONE BLOCK`** | `HeldRelic::QuarriedStone` / `BlockMedium::QuarriedStone` | Building Block | **`HEAVY`** | `6` | Crimson Red |
+| **`CRUST BLOCK`** | `HeldRelic::CrustBlock` / `BlockMedium::CrustRock` | Building Block | **`HEAVY`** | `6` | Crimson Red |
+| **`CRANE LIFT`** | `HeldRelic::CantileverCrane` / `BlockMedium::CantileverRig` | Assembly Apparatus | **`HEAVY`** | `6` | Crimson Red |
+| **`PLANE ENGINE`** | `HeldRelic::AircraftEngine` / `BlockMedium::AircraftEngine` | Vehicle Engine | **`HEAVY`** | `6` | Crimson Red |
+| **`ROCKET ENGINE`** | `HeldRelic::RocketEngine` / `BlockMedium::RocketEngine` | Vehicle Engine | **`HEAVY`** | `6` | Crimson Red |
+| **`WOODMAN AXE`** | `HeldRelic::WoodmanAxe` | Felling Tool / Weapon | **`HEAVY`** | `6` | Crimson Red |
+| **`KNIGHT SWORD`** | `HeldRelic::KnightlySword` | Martial Weapon | **`HEAVY`** | `6` | Crimson Red |
 
 ---
 

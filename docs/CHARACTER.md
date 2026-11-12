@@ -129,14 +129,25 @@ Players can also customize their character live during gameplay using keyboard h
 | **`5`** | **Hair & Headgear** | [`CrownStyle`](../crates/client/src/attire/crown.rs)<br>[`PolygonHeadgear`](../crates/client/src/attire/headgear.rs) | • `0`: **Tousled Mop** • `1`: **Squire Crop** • `2`: **Medieval Gugel** • `3`: **Merchant Cap**<br>• `4`: **Visored Helm** • `5`: **Kettle Helm** • `6`: **Smith Goggles** *(+ Beard)* |
 | **`6`** | **Natural Cloth Dye** | [`PigmentSwatch`](../crates/client/src/attire/palette.rs) | • `0`: **Unbleached Linen** • `1`: **Forest Moss** • `2`: **Madder Crimson** • `3`: **Woad Indigo** • `4`: **Ochre Gold** • `5`: **Saddle Hide** • `6`: **Charcoal Slate** • `7`: **Russet Bark** |
 | **`7`** | **Complexion & Stature** | [`ComplexionSwatch`](../crates/client/src/attire/palette.rs)<br>[`YouthPhysique`](../crates/client/src/attire/proportion.rs) | **8 Skin Tones**: Birch, Meadow, Amber, Umber, Porcelain, Olive, Bronze, Ebony<br>**Per-Region Proportions**: Head, Torso, Arms, and Legs (`SIZE` & `THICKNESS`) |
-| **`8` / `H`** | **Right-Hand Relic** | [`HeldRelic`](../crates/client/src/attire/relic.rs) | • `0`: **Empty Palm** • `1`: **Quarried Stone** • `2`: **Timber Torch**<br>• `3`: **Wooden Mallet** • `4`: **Woodman Axe** • `5`: **Knightly Sword** |
-| **`9` / `G`** | **Left-Hand Relic** | [`HeldRelic`](../crates/client/src/attire/relic.rs) | Independent cycling of all 6 [`HeldRelic`](../crates/client/src/attire/relic.rs) items in the left hand (`offhand`) for full dual-wielding. |
+| **`Tab`** | **Waist Satchel (`3×5` Grid)** | [`BeltSatchel`](../crates/client/src/attire/pouch/mod.rs)<br>[`SatchelTray`](../crates/client/src/attire/tray.rs) | Opens/closes the 15-slot waist satchel showing all occupied and unoccupied compartments, top-left weight triangles, and `WASD` slot navigation. |
+| **`Q` / `E`** | **Left / Right Hand Satchel Transfer** | [`BeltSatchel::transfer_hand`](../crates/client/src/attire/pouch/mod.rs) | Stows the held left (`Q`) or right (`E`) item into the satchel, or equips/swaps the selected satchel slot into that hand. |
 | **`F`** | **Gender Toggle** | [`YouthPhysique`](../crates/client/src/attire/proportion.rs) | Toggles between **Male** and **Female** character anatomy, garments, and headgear variants. |
-| **`E`** | **Pick Up Weapon** | [`FieldAxe`](../crates/client/src/axe.rs) | Picks up the medieval **Woodman Axe** or **Knightly Sword** near spawn into the next free hand (right hand first, then left hand). |
-| **`Q`** | **Throw Weapon** | [`FieldAxe`](../crates/client/src/axe.rs) | Throws a wielded weapon forward on a ballistic arc with planetary gravity and spin until it lands back on the terrain. |
-| **Left Click** | **Left-Hand Strike** | [`Avatar::trigger_left_strike`](../crates/client/src/avatar.rs) | Strikes with the weapon/tool held in the **left hand** (`offhand`), converging onto the center crosshair. |
-| **Right Click** | **Right-Hand Strike** | [`Avatar::trigger_right_strike`](../crates/client/src/avatar.rs) | Strikes with the weapon/tool held in the **right hand** (`relic`), converging onto the center crosshair. |
+| **Left Click** | **Left-Hand Action / Strike** | [`Avatar::use_left_hand`](../crates/client/src/avatar/mod.rs) | Excavates, places blocks, crafts, or strikes with the item held in the **left hand** (`offhand`). |
+| **Right Click** | **Right-Hand Action / Strike** | [`Avatar::use_right_hand`](../crates/client/src/avatar/mod.rs) | Excavates, places blocks, crafts, or strikes with the item held in the **right hand** (`relic`). |
 | **`M`** | **Looking-Glass Mirror** | [`SightMode`](../crates/client/src/attire/sight.rs) | Toggles between First-Person view (`FirstPersonSight`) and frontal 3rd-Person mirror inspection (`LookingGlassSight`). |
+
+### 4.1 Satchel Inventory (`15` Slots) & Held Relic / Block Weights ([`WeightGrade`](../crates/client/src/attire/burden.rs))
+
+All 15 slots (`3 columns × 5 rows`) of [`SatchelTray`](../crates/client/src/attire/tray.rs) are always displayed when the satchel is open, whether occupied or empty. Every item and block in [`HeldRelic`](../crates/client/src/attire/relic/mod.rs) has one of three English weight grades ([`WeightGrade`](../crates/client/src/attire/burden.rs)):
+
+| Weight Grade | Unit Mass | Held Items, Tools & Weapons | Placeable Blocks & Vehicle Parts | Corner Triangle Color (1× Item) |
+| :---: | :---: | :--- | :--- | :---: |
+| **`LIGHT`** | `1` | `DEADWOOD` (`DeadwoodBough`), `TIMBER TORCH` (`TimberTorch`), `FIELD CAMERA` (`FieldCamera`) | `WOOD PLANKS` (`PlankBlock`), `STEERING WHEEL` (`SteeringWheel`), `PEDAL BLOCK` (`PedalCluster`) | **Emerald Green** |
+| **`MODERATE`** | `3` | `FLINT STONE` (`FlintStone`), `WOODEN MALLET` (`WoodenMallet`), `IRON SPADE` (`IronSpade`) | `EARTH BLOCK` (`ExcavatedEarth`), `WOOD BLOCK` (`TimberBlock`), `SEAT BLOCK` (`CabinSeat`), `CROSS AXLE` (`CrossAxle`), `CAR WHEEL` (`CarWheel`) | **Warm Amber** |
+| **`HEAVY`** | `6` | `WOODMAN AXE` (`WoodmanAxe`), `KNIGHT SWORD` (`KnightlySword`), `CRANE LIFT` (`CantileverCrane`) | `STONE BLOCK` (`QuarriedStone`), `CRUST BLOCK` (`CrustBlock`), `PLANE ENGINE` (`AircraftEngine`), `ROCKET ENGINE` (`RocketEngine`) | **Crimson Red** |
+
+- **Stack Weight Summation ([`SlotBurden`](../crates/client/src/attire/burden.rs))**: Multiple blocks or items stacked in a slot sum their weight (`unit_mass × count`), escalating the slot's grade (`LIGHT -> MODERATE -> HEAVY`) and shifting the color of the unframed top-left corner triangle from Emerald Green -> Lime -> Amber -> Orange -> Crimson Red -> Deep Ruby.
+- **Encumbrance Physics ([`SatchelBurden`](../crates/client/src/attire/burden.rs))**: Total carried mass across both hands and all stowed satchel slots scales down walking/sneaking/sprinting speed (`scale_pace`) and vertical jump impulse (`scale_leap`).
 
 ---
 

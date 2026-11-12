@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
-use crate::attire::BodyPose;
+use crate::attire::{BodyPose, SatchelBurden};
 use crate::controls::KeyboardControls;
 use crate::drive::{DrivenCar, VehiclePilot};
 use crate::envelope::BodyEnvelope;
@@ -168,8 +168,8 @@ impl AvatarBody {
         (false, beat)
     }
 
-    pub fn prepare_stride(&mut self, order: &LocomotionOrder, standing_env: BodyEnvelope, terrain_up: Vec3, dt: f32, world: &dyn PlanetaryWorld) -> BodyEnvelope {
-        order.dispatch_jump(&mut *self.flight);
+    pub fn prepare_stride(&mut self, order: &LocomotionOrder, burden: SatchelBurden, standing_env: BodyEnvelope, terrain_up: Vec3, dt: f32, world: &dyn PlanetaryWorld) -> BodyEnvelope {
+        order.dispatch_jump(&mut *self.flight, burden);
         let next_posture = order.advance_posture(self.posture, dt);
         self.posture = if standing_env.crust(world).overhead_obstructed(self.position, terrain_up, EYE_SUPPORT_HEIGHT) {
             self.posture.crouch_down(dt)

@@ -1,3 +1,4 @@
+mod burden;
 mod camera;
 
 use glam::{Quat, Vec3};

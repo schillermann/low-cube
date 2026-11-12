@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.63.0] - 2026-11-12
+
+### Added
+- Added 3-tier English item and block weight system (`WeightGrade::Light`, `Moderate`, `Heavy`), stack weight summation (`SlotBurden`), composable `CarryLoad` / `JoinedLoad` mass folding, and total carried inventory burden (`SatchelBurden`) in `crates/client/src/attire/burden.rs`, plus unit tests in `crates/client/src/attire/tests/burden.rs`.
+- Added composable `SlotPlaque` compartment decorators (`CompartmentBackplate`, `WeightedCompartment`, `ShowcasedCompartment`, `TalliedCompartment`, `LegendCompartment` in `crates/client/src/attire/compartment.rs`) and `LimbFrame::projected_toward` (`crates/client/src/attire/limb.rs`) rendering an unframed weight-colored backplate corner triangle behind the 3D item and a white foreground stack count badge.
+- Added locomotion and jump encumbrance scaling (`SatchelBurden::scale_pace`, `SatchelBurden::scale_leap`, `GravitationalFlight::jump_burdened` in `crates/client/src/flight.rs`, `order.rs`, `avatar/body.rs`, and `avatar/planetary.rs`) so carrying heavier blocks and tools across hands and stowed slots progressively reduces movement speed and peak jump height.
+- Documented all 21 block and item weight grades in `docs/BLOCKS.md` and `docs/CHARACTER.md`, and recorded remaining Elegant Objects refactoring steps in `YEGOR_CHECKLIST.md`.
+
+### Changed
+- Updated `SatchelTray` (`crates/client/src/attire/tray.rs`) and `BeltSatchel::transfer_hand` (`crates/client/src/attire/pouch/mod.rs`) to always display all 15 satchel compartments (`3x5` grid) whether occupied or empty, support free `WASD` cursor navigation across empty and occupied slots, and stow held items directly into unoccupied slots.
+
 ## [0.62.0] - 2026-11-12
 
 ### Added

@@ -4,7 +4,7 @@ mod reach;
 use glam::Vec3;
 use world::{BlockMedium, BlockMold, MeshTarget, PlanetaryWorld};
 use crate::attire::{
-    ArtisanTome, BeltSatchel, BodyPose, CameraMount, SatchelWardrobe,
+    ArtisanTome, BeltSatchel, BodyPose, CameraMount, SatchelBurden, SatchelWardrobe,
     SightMode, StrideRhythm, Wardrobe, YouthAttire,
 };
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
@@ -51,6 +51,9 @@ impl PalmEarthworks {
     }
     pub fn placed_camera_lens(&self, attire: YouthAttire) -> Option<(Vec3, Vec3, Vec3)> {
         self.satchel.placed_camera_lens(attire)
+    }
+    pub fn carried_burden(&self, attire: YouthAttire) -> SatchelBurden {
+        self.satchel.carried_burden(attire)
     }
     fn with_satchel(self, satchel: BeltSatchel) -> Self { Self { satchel, ..self } }
     pub fn mold_next_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }

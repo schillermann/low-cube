@@ -180,11 +180,12 @@ impl Avatar for PlanetaryAvatar {
         self.sight_line.drive_order(controls, &mut order);
         let facing = self.sight_line.view_direction();
         let standing_env = self.gear.standing_envelope(facing);
-        let _ = self.body.prepare_stride(&order, standing_env, terrain_up, dt, world);
+        let burden = self.gear.carried_burden();
+        let _ = self.body.prepare_stride(&order, burden, standing_env, terrain_up, dt, world);
         let active_env = standing_env.with_crouch_and_facing(self.body.posture().crouch_drop(), facing);
         let active_crust = active_env.crust(world);
         self.bearing.decay_tilt(dt);
-        let raw_next = self.body.apply_flight(active_env, &order, dt, terrain_up, WALK_PACE_SPEED, world);
+        let raw_next = self.body.apply_flight(active_env, &order, dt, terrain_up, burden.scale_pace(WALK_PACE_SPEED), world);
         if world.lethal_at(raw_next) {
             self.body.relocate(raw_next);
             self.step_perish(dt, world);

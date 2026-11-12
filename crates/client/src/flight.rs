@@ -1,5 +1,6 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
+use crate::attire::SatchelBurden;
 use crate::envelope::BodyEnvelope;
 use crate::gait::LocomotionGait;
 use crate::phase::{
@@ -11,6 +12,10 @@ use crate::threshold::StepThreshold;
 /// Interface representing vertical flight and gravitational physics on a planetary surface.
 pub trait GravitationalFlight: Send + Sync {
     fn jump(&mut self);
+    fn jump_burdened(&mut self, burden: SatchelBurden) {
+        let _ = burden;
+        self.jump();
+    }
     fn ground(&mut self) {}
     fn apply_envelope(&mut self, _envelope: BodyEnvelope) {}
     fn advance(
@@ -24,11 +29,17 @@ pub trait GravitationalFlight: Send + Sync {
     ) -> Vec3;
 }
 
+#[derive(Clone, Copy)]
+enum PendingLeap {
+    Idle,
+    Queued(f32),
+}
+
 struct FlightState {
     phase: FlightPhase,
     jump_strength: f32,
     eye_height: f32,
-    jump_pending: bool,
+    leap: PendingLeap,
 }
 
 struct FlightAerodynamics {
@@ -69,7 +80,7 @@ impl SurfaceFlight {
                 phase,
                 jump_strength,
                 eye_height,
-                jump_pending: false,
+                leap: PendingLeap::Idle,
             },
             aero: FlightAerodynamics {
                 gravity,
@@ -132,12 +143,16 @@ impl SurfaceFlight {
 
 impl GravitationalFlight for SurfaceFlight {
     fn jump(&mut self) {
-        self.state.jump_pending = true;
+        self.state.leap = PendingLeap::Queued(1.0);
+    }
+
+    fn jump_burdened(&mut self, burden: SatchelBurden) {
+        self.state.leap = PendingLeap::Queued(burden.scale_leap(1.0));
     }
 
     fn ground(&mut self) {
         self.state.phase = FlightPhase::Grounded(GroundedFlight::human());
-        self.state.jump_pending = false;
+        self.state.leap = PendingLeap::Idle;
     }
 
     fn apply_envelope(&mut self, envelope: BodyEnvelope) {
@@ -155,15 +170,16 @@ impl GravitationalFlight for SurfaceFlight {
     ) -> Vec3 {
         let crust = self.aero.envelope.crust(world);
         let in_shaft = crust.in_deep_shaft(position, surface_up, self.state.eye_height);
-        if std::mem::take(&mut self.state.jump_pending) {
+        if let PendingLeap::Queued(leap_scale) = std::mem::replace(&mut self.state.leap, PendingLeap::Idle) {
+            let leap_speed = self.state.jump_strength * leap_scale;
             if in_shaft {
                 self.state.phase = FlightPhase::Airborne(AirborneFlight::new(
-                    self.state.jump_strength,
+                    leap_speed,
                     StepThreshold::human_stride(),
                 ));
             } else {
                 let (launch_speed, launch_momentum) = self.slope.ski_launch.evaluate_launch(
-                    self.state.jump_strength,
+                    leap_speed,
                     stride,
                     surface_up,
                     position,

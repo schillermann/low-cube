@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, Quad};
-use crate::menu::PixelStamp;
+use super::super::compartment::{CompartmentBackplate, ShowcasedCompartment, SlotPlaque};
 use super::super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
 use super::HeldRelic;
 
@@ -197,9 +197,7 @@ impl RelicFigure {
         }
     }
 
-    pub fn emit_in_slot(self, selected: bool, rim: Vec3, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
-        let bg = if selected { Vec3::new(0.28, 0.33, 0.44) } else { Vec3::new(0.16, 0.19, 0.27) };
-        slot_frame.emit_framed_plaque(0.044, 0.044, 0.0032, bg, rim * 1.25, target);
+    pub fn emit_showcase(self, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let light_dir = (slot_frame.point(0.4, 0.6, -0.7) - slot_frame.point(0.0, 0.0, 0.0)).normalize_or_zero();
         let zenith = (slot_frame.point(0.0, 1.0, -1.0) - slot_frame.point(0.0, 0.0, 0.0)).normalize_or_zero();
         let mut lit = LitSlotTarget { light_dir, zenith, inner: target };
@@ -238,12 +236,8 @@ impl RelicFigure {
         }
     }
 
-    pub fn emit_legend(relic: HeldRelic, count: u32, legend_frame: &LimbFrame, target: &mut dyn MeshTarget) {
-        legend_frame.emit_framed_plaque(0.168, 0.032, 0.0024, Vec3::new(0.08, 0.10, 0.15), Vec3::new(0.42, 0.27, 0.16), target);
-        let heading = if count > 0 { format!("{} X{}", relic.title(), count) } else { relic.title().to_string() };
-        PixelStamp::new(0.0024, 0.0024, Vec3::new(1.55, 1.30, 0.48)).emit_on_frame(&heading, 0.0, 0.017, 0.016, legend_frame, target);
-        let hint = PixelStamp::new(0.0022, 0.0022, Vec3::new(1.42, 1.46, 1.54));
-        hint.emit_on_frame("WASD: NAVIGATION  ESC: CLOSE", 0.0, 0.0, 0.016, legend_frame, target);
-        hint.emit_on_frame("Q: LEFT HAND  E: RIGHT HAND", 0.0, -0.017, 0.016, legend_frame, target);
+    pub fn emit_in_slot(self, selected: bool, rim: Vec3, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
+        ShowcasedCompartment::new(CompartmentBackplate::new(selected, self.relic.gripped(), rim), self)
+            .emit_slot(slot_frame, target);
     }
 }

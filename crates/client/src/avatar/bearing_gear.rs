@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, CameraMount, PhotoShutter, SightMode, StrideRhythm, YouthAttire};
+use crate::attire::{BodyPose, CameraMount, PhotoShutter, SatchelBurden, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
 use crate::envelope::BodyEnvelope;
@@ -123,6 +123,10 @@ impl AvatarGear {
 
     pub fn standing_envelope(&self, facing: Vec3) -> BodyEnvelope {
         self.attire.body_envelope().with_crouch_and_facing(0.0, facing)
+    }
+
+    pub fn carried_burden(&self) -> SatchelBurden {
+        self.earthworks.carried_burden(self.attire)
     }
 
     pub fn shaft_yaw_play(&self) -> f32 {
