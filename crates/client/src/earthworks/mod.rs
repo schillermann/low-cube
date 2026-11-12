@@ -2,14 +2,14 @@ mod debris;
 mod reach;
 
 use glam::Vec3;
-use world::{BlockMedium, BlockMold, MeshTarget, PlanetaryWorld};
+use world::{BlockMold, MeshTarget, PlanetaryWorld};
 use crate::attire::{
     ArtisanTome, BeltSatchel, BodyPose, CameraMount, SatchelBurden, SatchelWardrobe,
     SightMode, StrideRhythm, Wardrobe, YouthAttire,
 };
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 pub use crate::grip::DigGrip;
-use self::debris::{DebrisSplash, DigOperation};
+use self::debris::DigOperation;
 pub use self::reach::SurfaceReach;
 
 /// Immutable dual-hand block inventory, satchel inspection state, crafting tome, per-hand block molds, and excavation progress.
@@ -26,25 +26,9 @@ impl PalmEarthworks {
         Self { satchel, tome, dig }
     }
 
-    pub const fn with_tome_and_medium(
-        satchel: BeltSatchel, tome: ArtisanTome, dig_progress: u32, grip: DigGrip, dig_site: Vec3, medium: BlockMedium, splash_active: bool,
-    ) -> Self {
-        Self::with_dig(satchel, tome, DigOperation::new(dig_progress, grip, DebrisSplash::new(dig_site, medium, splash_active)))
+    pub const fn empty() -> Self {
+        Self::with_dig(BeltSatchel::empty(), ArtisanTome::closed(), DigOperation::idle())
     }
-
-    pub const fn with_tome(
-        satchel: BeltSatchel, tome: ArtisanTome, dig_progress: u32, grip: DigGrip, dig_site: Vec3, splash_active: bool,
-    ) -> Self {
-        Self::with_tome_and_medium(satchel, tome, dig_progress, grip, dig_site, BlockMedium::TurfEarth, splash_active)
-    }
-
-    pub const fn new(
-        satchel: BeltSatchel, dig_progress: u32, grip: DigGrip, dig_site: Vec3, splash_active: bool,
-    ) -> Self {
-        Self::with_tome(satchel, ArtisanTome::closed(), dig_progress, grip, dig_site, splash_active)
-    }
-
-    pub const fn empty() -> Self { Self::new(BeltSatchel::empty(), 0, DigGrip::idle(), Vec3::ZERO, false) }
     pub const fn satchel_open(&self) -> bool { self.satchel.open() || self.tome.open() }
     pub const fn camera_mount(&self, attire: YouthAttire) -> CameraMount {
         if self.tome.open() { CameraMount::Unmounted } else { self.satchel.camera_mount(attire) }
@@ -70,11 +54,11 @@ impl PalmEarthworks {
             || (self.tome.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape))
         {
             let next_satchel = self.satchel.reconcile_attire(attire).with_open(false);
-            return (Self::with_tome(next_satchel, self.tome.toggle(), 0, DigGrip::idle(), Vec3::ZERO, false), attire, true);
+            return (Self::with_dig(next_satchel, self.tome.toggle(), self.dig.with_grip(DigGrip::idle())), attire, true);
         }
         if self.tome.open() {
             let (next_tome, next_satchel, next_attire, ok) = self.tome.dispatch_trigger(trigger, bindings, self.satchel, attire);
-            return (Self::with_tome(next_satchel, next_tome, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, ok);
+            return (Self::with_dig(next_satchel, next_tome, self.dig.with_grip(DigGrip::idle())), next_attire, ok);
         }
         if !self.satchel.open() && bindings.matches(ControlAction::MoldForm, trigger) {
             let (r, l) = attire.held_pair();
@@ -92,12 +76,12 @@ impl PalmEarthworks {
             || (self.satchel.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape))
         {
             let (next_satchel, ok) = self.satchel.reconcile_attire(attire).toggle_open();
-            return (Self::new(next_satchel, 0, DigGrip::idle(), Vec3::ZERO, false), attire, ok);
+            return (Self::with_dig(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle())), attire, ok);
         }
         if bindings.matches(ControlAction::SatchelRight, trigger) || bindings.matches(ControlAction::SatchelLeft, trigger) {
             let side = if bindings.matches(ControlAction::SatchelRight, trigger) { 1.0 } else { -1.0 };
             let (next_satchel, next_attire, ok) = self.satchel.transfer_hand(side, attire);
-            return (Self::new(next_satchel, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, ok);
+            return (Self::with_dig(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle())), next_attire, ok);
         }
         let dx = if bindings.matches(ControlAction::MoveLeft, trigger) || bindings.matches(ControlAction::MoldLeft, trigger) { -1 } else if bindings.matches(ControlAction::MoveRight, trigger) || bindings.matches(ControlAction::MoldRight, trigger) { 1 } else { 0 };
         let dy = if bindings.matches(ControlAction::MoveForward, trigger) { -1 } else if bindings.matches(ControlAction::MoveBackward, trigger) { 1 } else { 0 };
@@ -162,12 +146,12 @@ impl PalmEarthworks {
     ) -> (Self, YouthAttire, StrideRhythm, bool) {
         if self.satchel.open() {
             let (next_satchel, next_attire, _) = self.satchel.transfer_hand(side, attire);
-            return (Self::new(next_satchel, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, rhythm, false);
+            return (Self::with_dig(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle())), next_attire, rhythm, false);
         }
         if self.tome.open() {
             let (next_tome, next_satchel, next_attire, ok) = self.tome.craft_selected(side, self.satchel, attire);
             let next_rhythm = if ok { SurfaceReach::swing_rhythm(next_attire, rhythm, side) } else { rhythm };
-            return (Self::with_tome(next_satchel, next_tome, 0, DigGrip::idle(), Vec3::ZERO, false), next_attire, next_rhythm, false);
+            return (Self::with_dig(next_satchel, next_tome, self.dig.with_grip(DigGrip::idle())), next_attire, next_rhythm, false);
         }
         let (ns, na, nd, nr, changed) = reach.strike(side, self.satchel, attire, rhythm, self.dig, world);
         (Self::with_dig(ns, self.tome, nd), na, nr, changed)

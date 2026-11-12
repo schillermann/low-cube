@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-11-12
+
+### Added
+- Added composable `AcousticWave` decorators (`InflectedWave`, `CrumbledWave`, and `CadencedWave` in `crates/client/src/cardiac/dig_decorators.rs`) that warp pitch/duration, overlay delayed soil-clod crumble textures, and cycle across 8 distinct excavation contours while keeping `PalmScrape` and `SpadeStrike` untouched.
+- Added polymorphic `StrokeResonance` interface (`crates/client/src/earthworks/debris.rs`) implemented for `HeldRelic` plus `#[cfg(test)] DigWaveTrace` and unit test `test_sustained_digging_varies_palm_and_spade_sound_via_decorators` (`crates/client/src/earthworks_tests.rs`).
+
+### Changed
+- Updated `DigOperation` (`crates/client/src/earthworks/debris.rs`), `SurfaceReach` (`crates/client/src/earthworks/reach.rs`), and `PalmEarthworks` (`crates/client/src/earthworks/mod.rs`) to advance stroke cadence across sustained digging without boolean tool flags or raw progress getters.
+
 ## [0.63.0] - 2026-11-12
 
 ### Added

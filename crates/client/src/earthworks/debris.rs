@@ -1,7 +1,8 @@
 use glam::Vec3;
 use world::{BlockMedium, MeshTarget, PlanetaryWorld};
-use crate::attire::{FacetedSolid, LimbFrame, StrideRhythm, TaperedPrism, YouthAttire};
-use crate::grip::DigGrip;
+use crate::attire::{FacetedSolid, HeldRelic, LimbFrame, StrideRhythm, TaperedPrism, YouthAttire};
+use crate::cardiac::{AcousticWave, CadencedWave};
+use crate::grip::{DigGrip, DigStroke};
 
 const SUBTERRANEAN_ROOF_OFFSET: f32 = 0.5;
 const OVERHEAD_AIM_DOT: f32 = 0.7;
@@ -84,30 +85,87 @@ impl DebrisSplash {
     }
 }
 
-/// Encapsulated excavation progress, dual-hand grip, and debris splash state.
+/// Polymorphic digging instrument resonance triggered at a progressive stroke cadence.
+pub trait StrokeResonance {
+    fn resonate(&self, cadence: u32);
+}
+
+impl StrokeResonance for HeldRelic {
+    fn resonate(&self, cadence: u32) {
+        if self.spade_blade() {
+            CadencedWave::spade(cadence).thump();
+        } else {
+            CadencedWave::palm(cadence).thump();
+        }
+    }
+}
+
+/// Encapsulated excavation progress, stroke cadence, dual-hand grip, and debris splash state.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DigOperation {
     dig_progress: u32,
+    cadence: u32,
     grip: DigGrip,
     splash: DebrisSplash,
 }
 
 impl DigOperation {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(dig_progress: u32, grip: DigGrip, splash: DebrisSplash) -> Self {
-        Self { dig_progress, grip, splash }
+    pub const fn new(dig_progress: u32, cadence: u32, grip: DigGrip, splash: DebrisSplash) -> Self {
+        Self { dig_progress, cadence, grip, splash }
     }
 
-    pub const fn progress(self) -> u32 {
-        self.dig_progress
+    pub const fn idle() -> Self {
+        Self::new(0, 0, DigGrip::idle(), DebrisSplash::new(Vec3::ZERO, BlockMedium::TurfEarth, false))
+    }
+
+    pub const fn halted(self) -> Self {
+        Self::new(0, self.cadence, DigGrip::idle(), self.splash.halted())
+    }
+
+    pub const fn with_grip(self, grip: DigGrip) -> Self {
+        Self::new(0, self.cadence, grip, DebrisSplash::new(Vec3::ZERO, BlockMedium::TurfEarth, false))
+    }
+
+    pub const fn promoted(self, grip: DigGrip) -> Self {
+        Self::new(self.dig_progress, self.cadence, grip, self.splash)
+    }
+
+    pub fn advanced_stroke(
+        self, progress: u32, grip: DigGrip, site: Vec3, medium: BlockMedium, instrument: &dyn StrokeResonance,
+    ) -> Self {
+        instrument.resonate(self.cadence);
+        Self::new(progress, self.cadence.wrapping_add(1), grip, DebrisSplash::new(site, medium, true))
+    }
+
+    pub fn loosen_stroke(
+        self, progress: u32, grip: DigGrip, site: Vec3, medium: BlockMedium, instrument: &dyn StrokeResonance,
+    ) -> Self {
+        if progress > self.dig_progress {
+            self.advanced_stroke(progress, grip, site, medium, instrument)
+        } else {
+            Self::new(progress, self.cadence, grip, DebrisSplash::new(site, medium, true))
+        }
+    }
+
+    pub const fn untouched(self) -> bool {
+        self.dig_progress == 0
+    }
+
+    pub const fn scarred(self) -> bool {
+        self.dig_progress > 0
+    }
+
+    pub const fn progressed_from(self, prior: Self) -> bool {
+        self.dig_progress != prior.dig_progress
+    }
+
+    pub const fn step_progress(self, stroke: DigStroke) -> u32 {
+        stroke.advance_progress(self.dig_progress)
     }
 
     pub const fn grip(self) -> DigGrip {
         self.grip
-    }
-
-    pub const fn splash(self) -> DebrisSplash {
-        self.splash
     }
 
     pub fn bare_hand_digging(self, attire: &YouthAttire) -> (bool, bool) {

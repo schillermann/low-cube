@@ -1,10 +1,14 @@
 mod birdsong;
+mod dig_decorators;
 mod work_waves;
 
 use std::f32::consts::PI;
 #[cfg(not(test))]
 use std::sync::OnceLock;
 pub use self::birdsong::SparrowChirp;
+pub use self::dig_decorators::CadencedWave;
+#[cfg(test)]
+pub use self::dig_decorators::{CrumbledWave, DigWaveTrace, InflectedWave};
 pub use self::work_waves::{EngineRumble, PalmScrape, SpadeStrike};
 
 #[cfg(all(target_os = "windows", not(test)))]

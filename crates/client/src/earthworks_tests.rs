@@ -235,3 +235,53 @@ fn test_crosshair_aim_excavates_within_three_blocks_and_rejects_beyond_three_blo
     assert!((world.constrain_to_surface(closer_probe, 0.0).y - initial_closer).abs() < 1e-4);
     assert!((initial_aimed - world.constrain_to_surface(aimed_probe, 0.0).y - 0.5).abs() < 1e-4);
 }
+
+#[test]
+fn test_sustained_digging_varies_palm_and_spade_sound_via_decorators() {
+    use crate::cardiac::{AcousticWave, CadencedWave, CrumbledWave, DigWaveTrace, InflectedWave, PalmScrape};
+
+    let base_palm = PalmScrape::earthy();
+    let inflected = InflectedWave::new(base_palm, 0.80, 0.96);
+    let crumbled = CrumbledWave::new(inflected, 0.09, 0.25, 313);
+    assert_ne!(base_palm.riff_wave(), inflected.riff_wave());
+    assert_ne!(inflected.riff_wave(), crumbled.riff_wave());
+
+    let palm_waves: Vec<Vec<u8>> = (0..8).map(|s| CadencedWave::palm(s).riff_wave()).collect();
+    let spade_waves: Vec<Vec<u8>> = (0..8).map(|s| CadencedWave::spade(s).riff_wave()).collect();
+    for i in 0..8 {
+        for j in (i + 1)..8 {
+            assert_ne!(palm_waves[i], palm_waves[j]);
+            assert_ne!(spade_waves[i], spade_waves[j]);
+        }
+    }
+
+    let mut world = BiomedCubeWorld::beveled(16, 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
+    let mut avatar = PlanetaryAvatar::at(spawn);
+    avatar.rotate_degrees(0.0, 70.5);
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+
+    let spade_trace = DigWaveTrace::new(2).record_variants(|| {
+        let _ = avatar.use_right_hand(&mut world);
+        for _ in 0..40 {
+            avatar.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
+            let _ = avatar.step_digging(&mut world);
+        }
+        let _ = avatar.release_hand(&mut world);
+    });
+    assert!(spade_trace.windows(2).all(|w| w[0] != w[1]));
+
+    let palm_trace = DigWaveTrace::new(8).record_variants(|| {
+        let _ = avatar.use_left_hand(&mut world);
+        for _ in 0..270 {
+            avatar.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
+            let _ = avatar.step_digging(&mut world);
+        }
+        let _ = avatar.release_hand(&mut world);
+    });
+    assert!(palm_trace.windows(2).all(|w| w[0] != w[1]));
+    let mut unique_palm = palm_trace[..8].to_vec();
+    unique_palm.sort_unstable();
+    unique_palm.dedup();
+    assert_eq!(unique_palm.len(), 8);
+}
