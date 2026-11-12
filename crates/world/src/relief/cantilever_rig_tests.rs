@@ -118,3 +118,72 @@ fn test_decorative_wheels_seat_and_helm_on_world_cube_house_remain_static_world(
     ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &cam_relief, &palette, 64, &mut with_cam);
     assert!(with_cam.count() >= three_dirt.count() + 30);
 }
+
+struct QuadCollector {
+    quads: Vec<Quad>,
+}
+
+impl MeshTarget for QuadCollector {
+    fn push_quad(&mut self, quad: Quad) {
+        self.quads.push(quad);
+    }
+}
+
+#[test]
+fn test_crane_arm_advances_to_remaining_dirt_block_and_pedestal_fills_ground_cell() {
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+
+    let rig_shape = Box::new(MediumShape::new(Box::new(CuboidShape::new(0.5)), BlockMedium::CantileverRig, true, false));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, rig_shape));
+
+    let mut base_collector = QuadCollector { quads: Vec::new() };
+    ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut base_collector);
+    let full_pedestal = base_collector.quads.iter().any(|q| {
+        q.transfer(|v0, v1, v2, v3, _, _| {
+            let (mut min_u, mut max_u, mut min_v, mut max_v, mut max_z) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN, f32::MIN);
+            for pt in [v0, v1, v2, v3] {
+                let (u, pv) = frame.decompose(pt);
+                min_u = min_u.min(u);
+                max_u = max_u.max(u);
+                min_v = min_v.min(pv);
+                max_v = max_v.max(pv);
+                max_z = max_z.max(frame.elevation_of(pt));
+            }
+            (min_u - 0.0).abs() < 1e-4
+                && (max_u - 0.5).abs() < 1e-4
+                && (min_v - 0.0).abs() < 1e-4
+                && (max_v - 0.5).abs() < 1e-4
+                && (max_z - 0.08).abs() < 1e-4
+        })
+    });
+    assert!(full_pedestal, "Crane ground pedestal must cover the full 0.5m x 0.5m block cell footprint");
+
+    let max_arm_u = |rel: &TerracedRelief| -> f32 {
+        let mut col = QuadCollector { quads: Vec::new() };
+        ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, rel, &palette, 64, &mut col);
+        col.quads.iter().fold(f32::MIN, |acc, q| {
+            q.transfer(|v0, v1, v2, v3, _, _| [v0, v1, v2, v3].into_iter().fold(acc, |m, pt| m.max(frame.decompose(pt).0)))
+        })
+    };
+
+    assert!(relief.stack_molded_cell(0, 0, 0.0, Box::new(CuboidShape::new(0.5))));
+    assert!(relief.layer_occupied_at(2, 0, 1.75));
+    let reach_at_two = max_arm_u(&relief);
+
+    assert!(relief.stack_molded_cell(1, 0, 1.5, Box::new(CuboidShape::new(0.5))));
+    assert!(relief.layer_occupied_at(1, 0, 1.75));
+    let reach_at_one = max_arm_u(&relief);
+    assert!(reach_at_one < reach_at_two - 0.4, "Placing a block in the claw slot must retract the crane arm by 1 block");
+
+    assert_eq!(relief.harvest_layer(1, 0, 1.75).1, Some(BlockMedium::TurfEarth));
+    assert!(!relief.layer_occupied_at(1, 0, 1.75) && relief.layer_occupied_at(2, 0, 1.75));
+    assert!((max_arm_u(&relief) - reach_at_two).abs() < 1e-4, "Removing the block at the crane must advance the arm 1 block forward to (2,0)");
+
+    assert!(relief.stack_molded_cell(3, 0, 1.5, Box::new(CuboidShape::new(0.5))));
+    assert!(relief.layer_occupied_at(3, 0, 1.75));
+    assert_eq!(relief.harvest_layer(2, 0, 1.75).1, Some(BlockMedium::TurfEarth));
+    assert!(!relief.layer_occupied_at(2, 0, 1.75) && relief.layer_occupied_at(3, 0, 1.75));
+    assert!((max_arm_u(&relief) - (reach_at_two + 0.5)).abs() < 1e-4, "Removing the first block at (2,0) must advance the arm 1 block forward to (3,0)");
+}

@@ -79,11 +79,13 @@ impl RigGeometry {
             Vec3::new(0.22, 0.88, 0.98),
         );
 
+        let (u0, u1) = cell.u_bounds();
+        let (v0, v1) = cell.v_bounds();
         let mast_u = cx - dir_u * 0.12;
         let mast_v = cy - dir_v * 0.12;
 
         // 1. Beveled stone & forged-iron pedestal on the ground
-        BlockMedium::emit_box(cx - 0.21, cx + 0.21, cy - 0.21, cy + 0.21, base_z, base_z + 0.08, frame, stone, stone, true, target);
+        BlockMedium::emit_box(u0, u1, v0, v1, base_z, base_z + 0.08, frame, stone, stone, true, target);
         BlockMedium::emit_box(mast_u - 0.13, mast_u + 0.13, mast_v - 0.13, mast_v + 0.13, base_z + 0.08, base_z + 0.18, frame, iron_dark, iron_steel, false, target);
 
         // 2. Octagonal/chamfered timber mast with iron rack-and-pinion track

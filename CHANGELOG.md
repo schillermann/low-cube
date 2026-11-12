@@ -8,6 +8,12 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.61.3] - 2026-11-12
+
+### Fixed
+- Advanced the cantilever crane boom (`RigArm::advance_toward_craft`, `RigArm::reset_reach`, `CantileverRig::remove_craft_layer`, `RigRegistry::remove_craft_layer` in `crates/world/src/relief/cantilever_rig/`) forward to the next remaining craft block along the boom axis whenever the block directly gripped by the crane arm is removed, and refreshed the `4`-cell neighborhood in `FacetedReliefFace::harvest` and `FacetedReliefFace::place_molded_block` (`crates/world/src/relief/face/mod.rs`) so mast geometry updates immediately.
+- Expanded the ground stone pedestal in `RigGeometry::emit` (`crates/world/src/relief/cantilever_rig/mesh.rs`) to span the full `0.5m x 0.5m` cell bounds (`cell.u_bounds()` and `cell.v_bounds()`).
+
 ## [0.61.2] - 2026-11-11
 
 ### Changed

@@ -131,8 +131,7 @@ impl Face for FacetedReliefFace {
                 if (prev_u, prev_v) != (cu, cv) {
                     self.refresh_neighborhood(prev_u, prev_v, half, 0);
                 }
-                let radius = if harvested == Some(BlockMedium::CantileverRig) { 4 } else { 1 };
-                self.refresh_neighborhood(cu, cv, half, radius);
+                self.refresh_neighborhood(cu, cv, half, 4);
             }
             return harvested;
         }
@@ -171,10 +170,9 @@ impl Face for FacetedReliefFace {
             .placement_cell(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos)
         {
             let shape = mold.shape_for(direction, &self.domain.frame);
-            let radius = if shape.block_medium() == BlockMedium::CantileverRig { 4 } else { 1 };
             let changed = self.domain.relief.stack_molded_cell(cu, cv, base, shape);
             if changed {
-                self.refresh_neighborhood(cu, cv, half, radius);
+                self.refresh_neighborhood(cu, cv, half, 4);
             }
             return changed;
         }

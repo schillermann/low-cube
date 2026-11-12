@@ -71,7 +71,7 @@ impl RigRegistry {
     }
 
     pub fn remove_craft_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
-        self.rigs.values_mut().find_map(|rig| rig.remove_craft_layer(u, v, layer_elev))
+        self.rigs.iter_mut().find_map(|(&(mu, mv), rig)| rig.remove_craft_layer(mu, mv, u, v, layer_elev))
     }
 
     pub fn pack_up(&mut self, u: i32, v: i32, layer_elev: f32, ground_top: f32, world_blocks: &mut WorldBlocks) -> bool {

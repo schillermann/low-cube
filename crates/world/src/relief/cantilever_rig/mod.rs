@@ -40,7 +40,18 @@ impl CantileverRig {
     pub fn craft_medium_at(&self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> { self.craft.medium_at(u, v, layer_elev) }
     pub fn tripod_hub(&self, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> { self.craft.tripod_hub(frame) }
     pub fn step_camera_turn(&mut self, u: i32, v: i32, delta_steps: i32) -> Option<(i32, i32)> { self.craft.step_camera_turn(u, v, delta_steps) }
-    pub fn remove_craft_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> { self.craft.remove_layer(u, v, layer_elev) }
+    pub fn remove_craft_layer(&mut self, mast_u: i32, mast_v: i32, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
+        let removed = self.craft.remove_layer(u, v, layer_elev)?;
+        if self.craft.vacant() {
+            self.arm.reset_reach();
+        } else {
+            let hoist_z = self.arm.hoist_elevation();
+            self.arm.advance_toward_craft(mast_u, mast_v, |cu, cv| {
+                self.craft.occupies_claw((cu, cv), hoist_z) || self.craft.present_at(cu, cv)
+            });
+        }
+        Some(removed)
+    }
 
     pub fn perch_at(&self, u: i32, v: i32, layer_elev: f32, eu: f32, ev: f32, frame: &SurfaceFrame) -> Option<VehicleAssembly> {
         self.craft.perch_at(u, v, layer_elev, eu, ev, frame)

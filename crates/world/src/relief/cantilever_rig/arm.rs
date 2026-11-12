@@ -38,6 +38,24 @@ impl RigArm {
         self.reach_steps = INITIAL_REACH_STEPS;
     }
 
+    pub fn reset_reach(&mut self) {
+        self.reach_steps = INITIAL_REACH_STEPS;
+    }
+
+    pub fn advance_toward_craft(&mut self, mast_u: i32, mast_v: i32, occupied_at: impl Fn(i32, i32) -> bool) {
+        let (gu, gv) = self.gripped_cell(mast_u, mast_v);
+        if occupied_at(gu, gv) {
+            return;
+        }
+        let (du, dv) = self.step_vectors();
+        for step in (self.reach_steps + 1)..=(self.reach_steps + 8) {
+            if occupied_at(mast_u + du * step, mast_v + dv * step) {
+                self.reach_steps = step;
+                return;
+            }
+        }
+    }
+
     pub const fn step_vectors(&self) -> (i32, i32) {
         match self.turn & 3 {
             0 => (1, 0),
