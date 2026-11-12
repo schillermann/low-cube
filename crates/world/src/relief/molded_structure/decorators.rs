@@ -1,16 +1,17 @@
 use glam::Vec3;
 use crate::MeshTarget;
 use crate::block::{
-    BlockMedium, CuboidShape, ElevatedShape, GridCell, MediumShape, VoxelShape,
+    BlockMedium, CuboidShape, ElevatedShape, GridCell, MediumShape, TurfCoat, VoxelShape,
 };
 use crate::frame::SurfaceFrame;
 use super::super::cantilever_rig::RigRegistry;
 use super::super::craft_cluster::ParkedFleet;
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
+use super::super::turf_habitat::{CanopyHabitat, NaturalHabitat};
 use super::super::turf_scars::TurfScars;
 use super::super::vehicle_assembly::VehicleAssembly;
-use super::{MoldedStructure, VoxelCells, NICHE_CONTACT_TOLERANCE};
+use super::{MoldedStructure, VoxelCells};
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 
@@ -29,12 +30,52 @@ impl WorldBlocks {
         Self::new(VoxelCells::untouched())
     }
 
-    pub fn insert(&mut self, u: i32, v: i32, floor_elev: f32, shape: Box<dyn VoxelShape>) {
-        self.grid.insert(u, v, floor_elev, shape);
-    }
-
     pub fn insert_elevated(&mut self, u: i32, v: i32, shape: ElevatedShape) {
         self.grid.insert_elevated(u, v, shape);
+    }
+
+    pub fn stack_bare(
+        &mut self,
+        u: i32,
+        v: i32,
+        floor_elev: f32,
+        ground_top: f32,
+        sub: bool,
+        shape: Box<dyn VoxelShape>,
+        scars: &mut TurfScars,
+    ) {
+        let coated: Box<dyn VoxelShape> = Box::new(TurfCoat::bare(shape));
+        let elevated = ElevatedShape::new(coated, floor_elev);
+        if !sub && elevated.smothers_turf_below(ground_top) {
+            scars.expose_dirt(u, v);
+        }
+        self.insert_elevated(u, v, elevated);
+    }
+
+    pub fn covers_ground_at(&self, u: i32, v: i32, ground_top: f32) -> bool {
+        self.grid.covers_ground_at(u, v, ground_top)
+    }
+
+    pub fn bare_surface_at(&self, u: i32, v: i32, ground_bare: bool) -> bool {
+        self.grid.bare_surface_at(u, v, ground_bare)
+    }
+
+    pub fn verdant_near_step(&self, u: i32, v: i32, target_step: i32) -> bool {
+        self.grid.verdant_near_step(u, v, target_step)
+    }
+
+    pub fn regrow_sod(
+        &mut self,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        scars: &TurfScars,
+        dt: f32,
+    ) -> Vec<(i32, i32)> {
+        let active = {
+            let habitat = CanopyHabitat::new(NaturalHabitat::new(strata, shafts, scars), self);
+            self.grid.collect_colonization(&habitat)
+        };
+        self.grid.apply_colonization(dt, active)
     }
 
     pub fn step_camera_turn(&mut self, u: i32, v: i32, delta: i32) -> Option<(i32, i32)> {
@@ -47,28 +88,38 @@ impl WorldBlocks {
 
     pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32, ground_top: f32, scars: &mut TurfScars) -> Option<((i32, i32), BlockMedium)> {
         let (removed, column_vacated) = self.grid.remove_at(u, v, layer_elev)?;
-        if column_vacated && removed.floor() >= ground_top - NICHE_CONTACT_TOLERANCE {
+        if column_vacated && removed.smothers_turf_below(ground_top) {
             scars.expose_dirt(u, v);
         }
         Some((scars.clear_stage(u, v), removed.block_medium()))
     }
 
-    pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32) {
+    pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32, ground_verdant: bool) {
         let (nat, vault) = (strata.elevation_at(u, v), strata.vault());
+        let crown_verdant = ground_verdant && !self.covers_ground_at(u, v, (nat as f32) * BLOCK_STEP);
         for step in (next_elev + 1)..elev {
-            let shape: Box<dyn VoxelShape> = if vault.crust_layer_at(u, v, step) {
-                Box::new(MediumShape::new(Box::new(CuboidShape::new(BLOCK_STEP)), BlockMedium::CrustRock, true, false))
+            let floor = (step as f32) * BLOCK_STEP;
+            let elevated = if vault.crust_layer_at(u, v, step) {
+                let shape = Box::new(MediumShape::new(Box::new(CuboidShape::new(BLOCK_STEP)), BlockMedium::CrustRock, true, false));
+                ElevatedShape::new(shape, floor)
             } else if step == nat - 1 {
-                strata.crown_shape_at(u, v)
+                let crown = strata.crown_shape_at(u, v);
+                let coated: Box<dyn VoxelShape> = if crown_verdant {
+                    Box::new(TurfCoat::verdant(crown))
+                } else {
+                    Box::new(TurfCoat::bare(crown))
+                };
+                ElevatedShape::new(coated, floor)
             } else {
-                Box::new(CuboidShape::new(BLOCK_STEP))
+                let soil: Box<dyn VoxelShape> = Box::new(CuboidShape::new(BLOCK_STEP));
+                ElevatedShape::new(Box::new(TurfCoat::bare(soil)), floor)
             };
-            self.insert(u, v, (step as f32) * BLOCK_STEP, shape);
+            self.insert_elevated(u, v, elevated);
         }
     }
 
-    pub fn settle_gravity(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation) -> Vec<(i32, i32)> {
-        self.grid.settle_gravity(|u, v| (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP)
+    pub fn settle_gravity(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, scars: &mut TurfScars) -> Vec<(i32, i32)> {
+        self.grid.settle_gravity(|u, v| (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP, scars)
     }
 }
 

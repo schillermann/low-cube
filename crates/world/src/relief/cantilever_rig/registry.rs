@@ -74,12 +74,22 @@ impl RigRegistry {
         self.rigs.iter_mut().find_map(|(&(mu, mv), rig)| rig.remove_craft_layer(mu, mv, u, v, layer_elev))
     }
 
-    pub fn pack_up(&mut self, u: i32, v: i32, layer_elev: f32, ground_top: f32, world_blocks: &mut WorldBlocks) -> bool {
+    #[allow(clippy::too_many_arguments)]
+    pub fn pack_up(
+        &mut self,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        u: i32,
+        v: i32,
+        layer_elev: f32,
+        world_blocks: &mut WorldBlocks,
+        scars: &mut TurfScars,
+    ) -> bool {
         if !self.rigs.get(&(u, v)).is_some_and(|rig| rig.occupies_mast_layer(layer_elev)) {
             return false;
         }
         let Some(rig) = self.rigs.remove(&(u, v)) else { return false };
-        rig.pack_up(u, v, ground_top, world_blocks);
+        rig.pack_up(u, v, strata, shafts, world_blocks, scars);
         true
     }
 

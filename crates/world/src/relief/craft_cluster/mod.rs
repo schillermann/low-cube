@@ -5,6 +5,8 @@ use crate::MeshTarget;
 use crate::block::{BlockMedium, ElevatedShape, GridCell, VoxelShape, WedgeHeading};
 use crate::frame::SurfaceFrame;
 use super::molded_structure::{MoldedStructure, VoxelCells, WorldBlocks};
+use super::natural_strata::NaturalStrata;
+use super::shaft_excavation::ShaftExcavation;
 use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::{VehicleAssembly, VehicleAxes, VehiclePart};
@@ -83,10 +85,17 @@ impl CraftCluster {
     pub fn shift_elevation(&mut self, dz: f32) { self.grid.shift_elevation(dz); }
     pub fn rotate_around(&mut self, piv_u: i32, piv_v: i32) { self.grid.rotate_around(piv_u, piv_v); }
 
-    pub fn dismantle_into(self, world_blocks: &mut WorldBlocks) {
+    pub fn dismantle_into(
+        self,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        world_blocks: &mut WorldBlocks,
+        scars: &mut TurfScars,
+    ) {
         for ((cu, cv), shape) in self.grid.into_entries() {
             if !shape.block_medium().vehicle_engine() {
-                world_blocks.insert_elevated(cu, cv, shape);
+                let ground_top = (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP;
+                world_blocks.stack_bare(cu, cv, shape.floor(), ground_top, false, shape.into_shape(), scars);
             }
         }
     }

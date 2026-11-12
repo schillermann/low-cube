@@ -1,5 +1,6 @@
 mod cells;
 mod decorators;
+mod sod;
 
 use glam::Vec3;
 use crate::MeshTarget;

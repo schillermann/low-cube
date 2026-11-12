@@ -8,6 +8,8 @@ use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::craft_cluster::CraftCluster;
 use super::molded_structure::{MoldedStructure, WorldBlocks};
+use super::natural_strata::NaturalStrata;
+use super::shaft_excavation::ShaftExcavation;
 use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
@@ -212,8 +214,18 @@ impl CantileverRig {
         }
     }
 
-    pub fn pack_up(mut self, mast_u: i32, mast_v: i32, ground_top: f32, world_blocks: &mut WorldBlocks) {
-        let _ = self.adjust(mast_u, mast_v, -MAX_HOIST_STEPS, false, |_, _| ground_top);
-        self.craft.dismantle_into(world_blocks);
+    pub fn pack_up(
+        mut self,
+        mast_u: i32,
+        mast_v: i32,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        world_blocks: &mut WorldBlocks,
+        scars: &mut TurfScars,
+    ) {
+        let _ = self.adjust(mast_u, mast_v, -MAX_HOIST_STEPS, false, |cu, cv| {
+            (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP
+        });
+        self.craft.dismantle_into(strata, shafts, world_blocks, scars);
     }
 }

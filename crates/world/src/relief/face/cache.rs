@@ -14,11 +14,36 @@ impl MeshTarget for CellQuadTarget<'_> {
     }
 }
 
+/// Cached geometry of a single relief cell partitioning molded structures from ground strata.
+pub(super) struct CachedCell {
+    quads: Vec<Quad>,
+    ground_start: usize,
+}
+
+impl CachedCell {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub(super) const fn new(quads: Vec<Quad>, ground_start: usize) -> Self {
+        Self { quads, ground_start }
+    }
+
+    pub(super) fn emit_all(&self, target: &mut dyn MeshTarget) {
+        for &quad in &self.quads {
+            target.push_quad(quad);
+        }
+    }
+
+    pub(super) fn emit_ground(&self, target: &mut dyn MeshTarget) {
+        for &quad in &self.quads[self.ground_start..] {
+            target.push_quad(quad);
+        }
+    }
+}
+
 /// Encapsulated per-cell quad cache and strata emitter for a planetary relief face.
 pub(super) struct ReliefCellCache {
     strata: ReliefStrata,
     divisions: u32,
-    cached_cells: RwLock<Vec<Vec<Quad>>>,
+    cached_cells: RwLock<Vec<CachedCell>>,
     cached_tufts: RwLock<Vec<Vec<Quad>>>,
 }
 
@@ -27,21 +52,37 @@ impl ReliefCellCache {
     pub(super) fn new(
         strata: ReliefStrata,
         divisions: u32,
-        cached_cells: RwLock<Vec<Vec<Quad>>>,
+        cached_cells: RwLock<Vec<CachedCell>>,
         cached_tufts: RwLock<Vec<Vec<Quad>>>,
     ) -> Self {
-        Self { strata, divisions, cached_cells, cached_tufts }
+        Self {
+            strata,
+            divisions,
+            cached_cells,
+            cached_tufts,
+        }
+    }
+
+    pub(super) fn empty(strata: ReliefStrata, divisions: u32) -> Self {
+        Self::new(strata, divisions, RwLock::new(Vec::new()), RwLock::new(Vec::new()))
     }
 
     pub(super) const fn half_blocks(&self) -> i32 {
         (self.divisions as i32) / 2
     }
 
-    fn build_cell(&self, u: i32, v: i32, half: i32, frame: &SurfaceFrame, relief: &dyn ReliefElevation, palette: &ReliefPalette) -> Vec<Quad> {
+    fn build_cell(&self, u: i32, v: i32, half: i32, frame: &SurfaceFrame, relief: &dyn ReliefElevation, palette: &ReliefPalette) -> CachedCell {
         let mut cell_quads = Vec::with_capacity(8);
-        let mut target = CellQuadTarget(&mut cell_quads);
-        self.strata.emit_cell(GridCell::new(u, v), frame, relief, palette, half, &mut target);
-        cell_quads
+        let ground_start = {
+            let mut molded_out = CellQuadTarget(&mut cell_quads);
+            let mut ground_quads = Vec::with_capacity(4);
+            let mut ground_out = CellQuadTarget(&mut ground_quads);
+            self.strata.emit_cell_layers(GridCell::new(u, v), frame, relief, palette, half, &mut molded_out, &mut ground_out);
+            let split = cell_quads.len();
+            cell_quads.extend(ground_quads);
+            split
+        };
+        CachedCell::new(cell_quads, ground_start)
     }
 
     pub(super) fn refresh_neighborhood(&mut self, cu: i32, cv: i32, half: i32, radius: i32, frame: &SurfaceFrame, relief: &dyn ReliefElevation, palette: &ReliefPalette) {
@@ -51,9 +92,9 @@ impl ReliefCellCache {
         if populated {
             for v in (cv - radius).max(-half)..=(cv + radius).min(half - 1) {
                 for u in (cu - radius).max(-half)..=(cu + radius).min(half - 1) {
-                    let quads = self.build_cell(u, v, half, frame, relief, palette);
+                    let cell_mesh = self.build_cell(u, v, half, frame, relief, palette);
                     let slot = ((v + half) as usize) * side + ((u + half) as usize);
-                    self.cached_cells.get_mut().expect("Relief cell cache poisoned")[slot] = quads;
+                    self.cached_cells.get_mut().expect("Relief cell cache poisoned")[slot] = cell_mesh;
                     let tufts = self.cached_tufts.get_mut().expect("Relief tuft cache poisoned");
                     if slot < tufts.len() {
                         tufts[slot].clear();
@@ -69,10 +110,8 @@ impl ReliefCellCache {
         let total = side * side;
         if let Ok(cells) = self.cached_cells.read() {
             if cells.len() == total {
-                for cell_quads in cells.iter() {
-                    for &quad in cell_quads {
-                        target.push_quad(quad);
-                    }
+                for cell_mesh in cells.iter() {
+                    cell_mesh.emit_all(target);
                 }
                 return;
             }
@@ -87,10 +126,8 @@ impl ReliefCellCache {
                 }
             }
         }
-        for cell_quads in cells.iter() {
-            for &quad in cell_quads {
-                target.push_quad(quad);
-            }
+        for cell_mesh in cells.iter() {
+            cell_mesh.emit_all(target);
         }
     }
 
@@ -126,26 +163,19 @@ impl ReliefCellCache {
                     continue;
                 }
                 let slot = ((gv + half) as usize) * side + ((gu + half) as usize);
-                if cells[slot].len() > 10 {
-                    continue;
-                }
                 let lod = if dist_sq <= 36 { 2 } else if dist_sq <= 144 { 1 } else { 0 };
                 if lod == 0 {
                     if tufts[slot].is_empty() {
                         let mut cell_target = CellQuadTarget(&mut tufts[slot]);
                         let mut meadow = crate::NaturalMeadowTarget::with_lod(&mut cell_target, GridCell::new(gu, gv), up, 0);
-                        for &quad in &cells[slot] {
-                            meadow.push_quad(quad);
-                        }
+                        cells[slot].emit_ground(&mut meadow);
                     }
                     for &quad in &tufts[slot] {
                         target.push_quad(quad);
                     }
                 } else {
                     let mut meadow = crate::NaturalMeadowTarget::with_lod(target, GridCell::new(gu, gv), up, lod);
-                    for &quad in &cells[slot] {
-                        meadow.push_quad(quad);
-                    }
+                    cells[slot].emit_ground(&mut meadow);
                 }
             }
         }

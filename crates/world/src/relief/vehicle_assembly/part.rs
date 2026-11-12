@@ -46,8 +46,7 @@ impl VehiclePart {
     }
 
     pub(super) fn wheel_floor_drop(&self) -> Option<f32> {
-        (self.shape.block_medium() == BlockMedium::CarWheel)
-            .then(|| (self.shape.wheel_radius() * 1.07 - 0.11).max(0.05) - self.floor_offset)
+        self.shape.wheel_tread_drop().map(|drop| drop - self.floor_offset)
     }
 
     pub(super) fn wheel_radius(&self) -> Option<f32> {

@@ -187,3 +187,74 @@ fn test_crane_arm_advances_to_remaining_dirt_block_and_pedestal_fills_ground_cel
     assert!(!relief.layer_occupied_at(2, 0, 1.75) && relief.layer_occupied_at(3, 0, 1.75));
     assert!((max_arm_u(&relief) - (reach_at_two + 0.5)).abs() < 1e-4, "Removing the first block at (2,0) must advance the arm 1 block forward to (3,0)");
 }
+
+#[test]
+fn test_dirt_blocks_on_crane_and_parked_car_stay_bare_without_grass_blades() {
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+
+    let rig_shape = Box::new(MediumShape::new(Box::new(CuboidShape::new(0.5)), BlockMedium::CantileverRig, true, false));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, rig_shape));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, Box::new(CuboidShape::new(0.5))));
+    assert!(!relief.bare_dirt_at(2, 0), "Mounting dirt on crane must leave meadow ground underneath unscarred");
+
+    let elevated_grass = |rel: &TerracedRelief, cell_u: i32, cell_v: i32| -> bool {
+        let mut col = QuadCollector { quads: Vec::new() };
+        ReliefStrata::new().emit_cell(GridCell::new(cell_u, cell_v), &frame, rel, &palette, 64, &mut col);
+        col.quads.iter().any(|q| {
+            let glow = q.radiate(|g| g);
+            q.transfer(|v0, v1, v2, v3, _, color| {
+                let z = [v0, v1, v2, v3].into_iter().fold(0.0f32, |m, p| m.max(frame.elevation_of(p)));
+                z > 0.05 && (glow > 1.5 || (color.y > color.x * 1.15 && color.y > color.z * 1.15))
+            })
+        })
+    };
+
+    assert!(!elevated_grass(&relief, 2, 0), "Dirt block placed on crane arm must immediately lack grass layer and blades");
+    assert!(relief.lower_rig_at(0, 0));
+    assert!(relief.step_grass(1000.0).is_empty());
+    assert!(!elevated_grass(&relief, 2, 0), "Dirt block on crane arm must never grow grass even when lowered");
+
+    assert!(relief.stack_molded_cell(2, 1, 0.0, BlockMold::cube().in_medium(BlockMedium::CarWheel).shape_for(frame.tangent(), &frame)));
+    assert!(relief.stack_molded_cell(2, -1, 0.0, BlockMold::cube().in_medium(BlockMedium::CabinSeat).shape_for(frame.bitangent(), &frame)));
+    assert!(relief.stack_molded_cell(1, 0, 0.0, BlockMold::cube().in_medium(BlockMedium::SteeringWheel).shape_for(frame.bitangent(), &frame)));
+
+    let ray = SurfaceSightRay::new(frame.point_at(0.75, 0.25, 1.5), -frame.normal());
+    let car = relief.board_vehicle_at(&frame, 1, 0, 0.25, ray, true).expect("Complete vehicle must release from crane");
+    let seat_cell = relief.park_vehicle_at(&frame, car);
+    assert!(relief.step_grass(1000.0).is_empty());
+    for dv in -2..=2 {
+        for du in -2..=2 {
+            assert!(!elevated_grass(&relief, seat_cell.0 + du, seat_cell.1 + dv), "Dirt block on parked car must never grow grass");
+        }
+    }
+
+    assert!(relief.stack_molded_cell(8, 8, 0.0, Box::new(CuboidShape::new(0.5))) && relief.bare_dirt_at(8, 8));
+    assert!(!elevated_grass(&relief, 8, 8), "Placed dirt block on ground must start bare without grass");
+    assert!(!relief.step_grass(120.0).is_empty() && !relief.bare_dirt_at(8, 8));
+    assert!(elevated_grass(&relief, 8, 8), "Ground-connected dirt block regrows grass after neighbor contact");
+    assert_eq!(relief.harvest_layer(8, 8, 0.25).1, Some(BlockMedium::TurfEarth));
+    assert!(relief.stack_molded_cell(8, 8, 0.0, Box::new(CuboidShape::new(0.5))) && relief.bare_dirt_at(8, 8));
+    assert!(!elevated_grass(&relief, 8, 8), "Harvested grass block must be placed bare without grass again");
+}
+
+#[test]
+fn test_dismantled_crane_adopts_bare_dirt_and_smothered_meadow_renders_loam() {
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
+    let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+
+    let rig_shape = Box::new(MediumShape::new(Box::new(CuboidShape::new(0.5)), BlockMedium::CantileverRig, true, false));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, rig_shape));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, Box::new(CuboidShape::new(0.5))));
+    assert_eq!(relief.harvest_layer(0, 0, 0.25).1, Some(BlockMedium::CantileverRig));
+    assert!(relief.bare_dirt_at(2, 0) && relief.ground_bare_at(2, 0), "Dismantled crane block must land bare and smother ground below");
+    assert!(!relief.step_grass(120.0).is_empty() && !relief.bare_dirt_at(2, 0), "Dismantled dirt block on ground must regrow grass");
+    assert!(relief.ground_bare_at(2, 0), "Ground beneath verdant block must stay bare");
+
+    assert_eq!(relief.harvest_layer(2, 0, 0.25).1, Some(BlockMedium::TurfEarth));
+    let mut col = QuadCollector { quads: Vec::new() };
+    ReliefStrata::new().emit_cell(GridCell::new(2, 0), &frame, &relief, &palette, 64, &mut col);
+    assert!(!col.quads.iter().any(|q| q.radiate(|g| g > 0.01)), "Vacated smothered meadow must render bare loam without grass glow");
+}

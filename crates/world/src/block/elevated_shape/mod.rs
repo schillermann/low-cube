@@ -1,49 +1,18 @@
+mod coat;
+mod niche;
+mod sod;
+
 use glam::Vec3;
-use crate::{CrateredMeshTarget, MeshTarget, Quad};
+use crate::{CrateredMeshTarget, MeshTarget};
 use crate::frame::SurfaceFrame;
 use super::cell::GridCell;
+use super::earth_clods::{LOAM_CROWN, LOAM_WALL};
 use super::shape::VoxelShape;
 use super::timber_grain::BlockMedium;
-
-struct FlankMeshTarget<'a> {
-    inner: &'a mut dyn MeshTarget,
-    up: Vec3,
-}
-
-impl<'a> MeshTarget for FlankMeshTarget<'a> {
-    fn push_quad(&mut self, quad: Quad) {
-        let horizontal = quad.transfer(|_, _, _, _, norm, _| norm.dot(self.up).abs() > 0.9);
-        if !horizontal {
-            self.inner.push_quad(quad);
-        }
-    }
-}
-
-struct LoosenedPartTarget<'a> {
-    inner: &'a mut dyn MeshTarget,
-    pivot: Vec3,
-    stage: u8,
-}
-
-impl<'a> MeshTarget for LoosenedPartTarget<'a> {
-    fn push_quad(&mut self, quad: Quad) {
-        let s = self.stage.min(3) as f32;
-        let (scale, shade, glow) = (1.0 - s * 0.14, 1.0 - s * 0.16, quad.radiate(|g| g));
-        let p = self.pivot;
-        let contracted = quad.transfer(|v0, v1, v2, v3, norm, col| {
-            Quad::glowing(
-                p + (v0 - p) * scale,
-                p + (v1 - p) * scale,
-                p + (v2 - p) * scale,
-                p + (v3 - p) * scale,
-                norm,
-                (col * shade).clamp(Vec3::ZERO, Vec3::ONE),
-                glow,
-            )
-        });
-        self.inner.push_quad(contracted);
-    }
-}
+pub use self::coat::TurfCoat;
+pub use self::niche::NicheColumn;
+pub use self::sod::TurfSod;
+use self::niche::{FlankMeshTarget, LoosenedPartTarget};
 
 const BLOCK_HEIGHT: f32 = GridCell::SPAN;
 const EYE_SPAN_SENTINEL: f32 = 1.0;
@@ -53,53 +22,9 @@ const FOOT_SUPPORT_TOLERANCE: f32 = 0.08;
 const LAYER_FLOOR_MARGIN: f32 = 0.05;
 const LAYER_CEILING_MARGIN: f32 = 0.48;
 const RAY_INTERCEPT_MARGIN: f32 = 0.02;
-const NICHE_CONTACT_TOLERANCE: f32 = 0.05;
-const NICHE_MIN_GAP: f32 = 0.45;
-const NICHE_WALL_MARGIN: f32 = 0.10;
-const NICHE_HEAD_CLEARANCE: f32 = 0.15;
-const SUB_METER_NICHE_SPAN: f32 = 0.75;
+pub(super) const NICHE_CONTACT_TOLERANCE: f32 = 0.05;
 
-/// Vertical column slice of elevated blocks evaluating sub-meter niche cavities.
-pub struct NicheColumn<'a> {
-    blocks: &'a [ElevatedShape],
-    ground_h: f32,
-}
-
-impl<'a> NicheColumn<'a> {
-    pub const fn new(blocks: &'a [ElevatedShape], ground_h: f32) -> Self {
-        Self { blocks, ground_h }
-    }
-
-    pub fn confine(&self, elev: f32) -> Option<f32> {
-        let (mut idx, mut floor) = (0, self.ground_h);
-        while idx < self.blocks.len() {
-            let base = self.blocks[idx].floor();
-            if base <= floor + NICHE_CONTACT_TOLERANCE {
-                floor = floor.max(self.blocks[idx].ceiling());
-                idx += 1;
-            } else if base >= floor + NICHE_MIN_GAP {
-                let (cav_ceil, mut roof_top) = (base, self.blocks[idx].ceiling());
-                idx += 1;
-                while idx < self.blocks.len() && self.blocks[idx].floor() <= roof_top + NICHE_CONTACT_TOLERANCE {
-                    roof_top = roof_top.max(self.blocks[idx].ceiling());
-                    idx += 1;
-                }
-                let limit = (cav_ceil + SUB_METER_NICHE_SPAN).max(roof_top - NICHE_WALL_MARGIN);
-                if elev >= floor - NICHE_WALL_MARGIN && elev <= limit {
-                    let min_z = floor + NICHE_HEAD_CLEARANCE;
-                    return Some(elev.clamp(min_z, (cav_ceil - NICHE_HEAD_CLEARANCE).max(min_z)));
-                }
-                floor = roof_top;
-            } else {
-                floor = floor.max(self.blocks[idx].ceiling());
-                idx += 1;
-            }
-        }
-        None
-    }
-}
-
-/// Decorator elevating a voxel shape's base height by an encapsulated offset.
+/// Decorator elevating a sculpted voxel shape above a planetary surface datum.
 pub struct ElevatedShape {
     shape: Box<dyn VoxelShape>,
     elevation_offset: f32,
@@ -107,7 +32,7 @@ pub struct ElevatedShape {
 
 impl ElevatedShape {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(shape: Box<dyn VoxelShape>, elevation_offset: f32) -> Self {
+    pub const fn new(shape: Box<dyn VoxelShape>, elevation_offset: f32) -> Self {
         Self {
             shape,
             elevation_offset,
@@ -119,13 +44,40 @@ impl ElevatedShape {
         self.shape.block_medium()
     }
 
+    /// Evaluates whether the exposed surface at this block is bare dirt, falling back to `ground_bare` for non-earth.
+    pub fn bare_surface(&self, ground_bare: bool) -> bool {
+        self.shape.bare_surface(ground_bare)
+    }
+
+    /// Indicates whether this block carries bare earth eligible for grass colonization.
+    pub fn bare_turf(&self) -> bool {
+        self.shape.bare_turf()
+    }
+
+    /// Indicates whether this block carries established living grass sod.
+    pub fn verdant_turf(&self) -> bool {
+        self.shape.verdant_turf()
+    }
+
+    /// Indicates whether this block rests directly on `lower_ceiling` with a turf-smothering footprint.
+    pub fn smothers_turf_below(&self, lower_ceiling: f32) -> bool {
+        (self.elevation_offset - lower_ceiling).abs() < NICHE_CONTACT_TOLERANCE
+            && self.shape.smothers_turf()
+    }
+
+    /// Strips any living grass coat when buried directly beneath an upper solid block.
+    pub fn smother_turf(&mut self) {
+        self.shape.smother_turf();
+    }
+
+    /// Advances biological grass colonization when touching `grass_neighbors` verdant cells.
+    pub fn colonize_turf(&mut self, cell: GridCell, dt: f32, grass_neighbors: u32) -> bool {
+        self.shape.colonize_turf(cell, dt, grass_neighbors)
+    }
+
     /// Vertical ground lift required when this shape is a car wheel with lug tread extending below its cell floor.
     pub fn wheel_ground_lift(&self) -> f32 {
-        if self.shape.block_medium() == BlockMedium::CarWheel {
-            (self.shape.wheel_radius() * 1.07 - 0.11).max(0.05)
-        } else {
-            0.0
-        }
+        self.shape.wheel_tread_drop().unwrap_or(0.0)
     }
 
     /// Indicates whether this elevated shape fills an entire 0.5m cube cell envelope.
@@ -221,28 +173,26 @@ impl ElevatedShape {
         frame: &SurfaceFrame,
         top_color: Vec3,
         wall_color: Vec3,
-        bare_top: bool,
+        covered_above: bool,
         flank_only: bool,
         stage: u8,
         target: &mut dyn MeshTarget,
     ) {
+        let bare_top = covered_above || !self.shape.verdant_turf();
         if stage > 0 && self.shape.block_medium().mechanical_part() {
             let (uc, vc) = cell.center();
-            let mut loosened = LoosenedPartTarget {
-                inner: target,
-                pivot: frame.point_at(uc, vc, self.elevation_offset + BLOCK_HEIGHT * 0.5),
-                stage,
-            };
+            let pivot = frame.point_at(uc, vc, self.elevation_offset + BLOCK_HEIGHT * 0.5);
+            let mut loosened = LoosenedPartTarget::new(target, pivot, stage);
             self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, bare_top, &mut loosened);
             return;
         }
         let mut cratered = CrateredMeshTarget::new(target, stage);
-        if stage > 0 && self.shape.block_medium() == BlockMedium::TurfEarth && self.shape.full_cube_envelope() {
+        if stage > 0 && self.shape.fertile_soil() && self.shape.full_cube_envelope() {
             let ((u0, u1), (v0, v1)) = (cell.u_bounds(), cell.v_bounds());
-            let cap = if bare_top { Vec3::new(0.45, 0.30, 0.17) } else { top_color };
-            BlockMedium::emit_box(u0, u1, v0, v1, self.elevation_offset, self.elevation_offset + BLOCK_HEIGHT, frame, super::earth_clods::LOAM_WALL, cap, true, &mut cratered);
+            let cap = if bare_top { LOAM_CROWN } else { top_color };
+            BlockMedium::emit_box(u0, u1, v0, v1, self.elevation_offset, self.elevation_offset + BLOCK_HEIGHT, frame, LOAM_WALL, cap, true, &mut cratered);
         } else if flank_only && stage == 0 {
-            let mut flank = FlankMeshTarget { inner: &mut cratered, up: frame.normal() };
+            let mut flank = FlankMeshTarget::new(&mut cratered, frame.normal());
             self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, bare_top, &mut flank);
         } else {
             self.shape.emit_terraced_shape(cell, self.elevation_offset, frame, top_color, wall_color, bare_top, &mut cratered);
@@ -268,13 +218,6 @@ impl VoxelShape for ElevatedShape {
         color: Vec3,
         target: &mut dyn MeshTarget,
     ) {
-        self.shape.emit_shape(
-            cell,
-            base_elevation + self.elevation_offset,
-            frame,
-            color,
-            target,
-        );
+        self.shape.emit_shape(cell, base_elevation + self.elevation_offset, frame, color, target);
     }
 }
-

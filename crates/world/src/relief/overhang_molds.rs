@@ -40,7 +40,12 @@ impl OverhangMolds {
 
     pub fn empty(&self) -> bool { self.decorated().vacant() }
     pub fn present_at(&self, u: i32, v: i32) -> bool { self.decorated().present_at(u, v) }
-    pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool { self.scars.bare_at(u, v) }
+    pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool {
+        self.world_blocks.bare_surface_at(u, v, self.scars.bare_at(u, v))
+    }
+    pub fn ground_bare_at(&self, u: i32, v: i32, ground_top: f32) -> bool {
+        self.scars.bare_at(u, v) || self.world_blocks.covers_ground_at(u, v, ground_top)
+    }
     pub fn expose_dirt(&mut self, u: i32, v: i32) { self.scars.expose_dirt(u, v); }
 
     pub fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32) -> u8 {
@@ -101,21 +106,30 @@ impl OverhangMolds {
         self.decorated().tripod_hub(frame)
     }
 
-    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32, ground_top: f32) -> Option<((i32, i32), BlockMedium)> {
+    pub fn remove_layer(
+        &mut self,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        u: i32,
+        v: i32,
+        layer_elev: f32,
+    ) -> Option<((i32, i32), BlockMedium)> {
         if self.car_locked_at(u, v, layer_elev) {
             return None;
         }
         if let Some(med) = self.rigs.remove_craft_layer(u, v, layer_elev) {
             return Some((self.clear_stage(u, v), med));
         }
-        if self.rigs.pack_up(u, v, layer_elev, ground_top, &mut self.world_blocks) {
+        if self.rigs.pack_up(strata, shafts, u, v, layer_elev, &mut self.world_blocks, &mut self.scars) {
             return Some((self.clear_stage(u, v), BlockMedium::CantileverRig));
         }
+        let ground_top = (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP;
         self.world_blocks.remove_layer(u, v, layer_elev, ground_top, &mut self.scars)
     }
 
     pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32) {
-        self.world_blocks.retain_overhang(strata, u, v, next_elev, elev);
+        let ground_verdant = !self.scars.bare_at(u, v);
+        self.world_blocks.retain_overhang(strata, u, v, next_elev, elev, ground_verdant);
     }
 
     pub fn stack_molded(&mut self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, shape: Box<dyn VoxelShape>) -> bool {
@@ -147,10 +161,7 @@ impl OverhangMolds {
                 if next_floor >= MAX_STACK_ELEVATION || self.fleet.blocks_placement_at(u, v, next_floor) {
                     return false;
                 }
-                self.world_blocks.insert(u, v, next_floor, shape);
-                if !sub {
-                    self.scars.expose_dirt(u, v);
-                }
+                self.world_blocks.stack_bare(u, v, next_floor, ground_top, sub, shape, &mut self.scars);
                 self.scars.reset_stage();
                 true
             }
@@ -210,11 +221,9 @@ impl OverhangMolds {
     }
 
     pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> Vec<(i32, i32)> {
-        let settled_cells = self.world_blocks.settle_gravity(strata, shafts);
-        let world_blocks = &self.world_blocks;
-        let mut regrown = self.scars.regrow_step(dt, |u, v| {
-            world_blocks.top_steps_at(u, v, shafts.elevation_at(strata, u, v))
-        });
+        let settled_cells = self.world_blocks.settle_gravity(strata, shafts, &mut self.scars);
+        let mut regrown = self.scars.regrow_step(strata, shafts, &self.world_blocks, dt);
+        regrown.extend(self.world_blocks.regrow_sod(strata, shafts, &self.scars, dt));
         regrown.extend(settled_cells);
         regrown
     }

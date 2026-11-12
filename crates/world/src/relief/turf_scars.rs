@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use crate::block::{ElevatedShape, GridCell};
+use crate::block::{ElevatedShape, GridCell, TurfSod};
+use super::molded_structure::WorldBlocks;
+use super::natural_strata::NaturalStrata;
+use super::shaft_excavation::ShaftExcavation;
+use super::turf_habitat::{CanopyHabitat, NaturalHabitat, TurfHabitat};
 
-const REGH_EFFORT_FLOOR: f32 = 320.0;
-const REGH_EFFORT_SPAN: f32 = 440.0;
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
-const CELL_HASH_U: i32 = 73_856_093;
-const CELL_HASH_V: i32 = 19_349_663;
 
 /// Active excavation crack focus on a specific grid cell, elevation layer, and stage (0..=3).
 #[derive(Clone, Copy, Debug)]
@@ -19,7 +19,11 @@ pub struct DigStageFocus {
 impl DigStageFocus {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(cell: (i32, i32), layer_elev: f32, stage: u8) -> Self {
-        Self { cell, layer_elev, stage }
+        Self {
+            cell,
+            layer_elev,
+            stage,
+        }
     }
 
     /// Secondary constructor for an inactive excavation focus.
@@ -77,16 +81,19 @@ impl DigStageFocus {
     }
 }
 
-/// Bare-soil regrowth progress and active digging crack focus across surface cells.
+/// Bare-soil regrowth progress on the natural ground and active digging crack focus across cells.
 pub struct TurfScars {
-    bare_dirt: HashMap<(i32, i32), f32>,
+    bare_dirt: HashMap<(i32, i32), TurfSod>,
     dig_stage: DigStageFocus,
 }
 
 impl TurfScars {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(bare_dirt: HashMap<(i32, i32), f32>, dig_stage: DigStageFocus) -> Self {
-        Self { bare_dirt, dig_stage }
+    pub fn new(bare_dirt: HashMap<(i32, i32), TurfSod>, dig_stage: DigStageFocus) -> Self {
+        Self {
+            bare_dirt,
+            dig_stage,
+        }
     }
 
     /// Secondary constructor for unscarred turf without bare dirt or digging cracks.
@@ -99,7 +106,7 @@ impl TurfScars {
     }
 
     pub fn expose_dirt(&mut self, u: i32, v: i32) {
-        self.bare_dirt.insert((u, v), 0.0);
+        self.bare_dirt.insert((u, v), TurfSod::bare());
     }
 
     pub fn probes_occupied<F: FnOnce(f32) -> bool>(&self, predicate: F) -> bool {
@@ -130,37 +137,42 @@ impl TurfScars {
         self.dig_stage.record(u, v, layer_elev, stage)
     }
 
-    pub fn regrow_step<F: Fn(i32, i32) -> i32>(&mut self, dt: f32, top_steps_at: F) -> Vec<(i32, i32)> {
+    pub fn regrow_step(
+        &mut self,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        blocks: &WorldBlocks,
+        dt: f32,
+    ) -> Vec<(i32, i32)> {
         if self.bare_dirt.is_empty() {
             return Vec::new();
         }
-        let active: Vec<((i32, i32), u32)> = self
-            .bare_dirt
-            .keys()
-            .copied()
-            .filter_map(|(u, v)| {
-                let h = top_steps_at(u, v);
-                let mut count = 0;
-                for du in -1..=1 {
-                    for dv in -1..=1 {
-                        let (nu, nv) = (u + du, v + dv);
-                        if (du != 0 || dv != 0) && !self.bare_at(nu, nv) && (h - top_steps_at(nu, nv)).abs() <= 1 {
-                            count += 1;
-                        }
+        let active: Vec<((i32, i32), u32)> = {
+            let natural = NaturalHabitat::new(strata, shafts, self);
+            let habitat = CanopyHabitat::new(&natural, blocks);
+            self.bare_dirt
+                .keys()
+                .copied()
+                .filter_map(|(u, v)| {
+                    let g_step = natural.ground_step_at(u, v);
+                    let smothered = blocks.covers_ground_at(u, v, (g_step as f32) * BLOCK_STEP);
+                    if !natural.fertile_ground(u, v) || smothered {
+                        return None;
                     }
-                }
-                (count > 0).then_some(((u, v), count))
-            })
-            .collect();
+                    let count = habitat.verdant_neighbors(u, v, g_step);
+                    (count > 0).then_some(((u, v), count))
+                })
+                .collect()
+        };
         let mut regrown_cells = Vec::new();
         for ((u, v), neighbors) in active {
-            if let Some(effort) = self.bare_dirt.get_mut(&(u, v)) {
-                *effort += dt * (neighbors as f32);
-                let hash = (u.wrapping_mul(CELL_HASH_U) ^ v.wrapping_mul(CELL_HASH_V)).unsigned_abs() % 100;
-                let threshold = REGH_EFFORT_FLOOR + (hash as f32 * 0.01) * REGH_EFFORT_SPAN;
-                if *effort >= threshold {
+            if let Some(sod) = self.bare_dirt.get_mut(&(u, v)) {
+                let (next_sod, grown) = sod.colonized(GridCell::new(u, v), dt, neighbors);
+                if grown {
                     self.bare_dirt.remove(&(u, v));
                     regrown_cells.push((u, v));
+                } else {
+                    *sod = next_sod;
                 }
             }
         }

@@ -1,12 +1,12 @@
 use glam::Vec3;
 use crate::{CrateredMeshTarget, MeshTarget, Quad};
-use crate::block::GridCell;
+use crate::block::{EarthClods, GridCell};
+use crate::block::LOAM_CROWN;
 use crate::frame::SurfaceFrame;
 
 use super::corner::{NaturalCrown, ReliefCorner};
 use super::{ReliefElevation, ReliefPalette};
 use super::wall::ReliefWall;
-use crate::block::EarthClods;
 
 struct SuppressedTop;
 
@@ -22,28 +22,83 @@ pub struct ReliefFacet {
 
 impl ReliefFacet {
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self { Self { corner: ReliefCorner::new(), wall: ReliefWall } }
+    pub fn new() -> Self {
+        Self {
+            corner: ReliefCorner::new(),
+            wall: ReliefWall,
+        }
+    }
 
     pub fn emit_facet(
-        &self, cell: GridCell, frame: &SurfaceFrame, relief: &dyn ReliefElevation,
-        half_blocks: i32, palette: &ReliefPalette, target: &mut dyn MeshTarget,
+        &self,
+        cell: GridCell,
+        frame: &SurfaceFrame,
+        relief: &dyn ReliefElevation,
+        half_blocks: i32,
+        palette: &ReliefPalette,
+        target: &mut dyn MeshTarget,
     ) {
         self.emit_with_vault(cell, frame, relief, half_blocks, &super::CrustVault::beneath(half_blocks), palette, target);
     }
 
     #[allow(clippy::too_many_arguments)]
     pub fn emit_with_vault(
-        &self, cell: GridCell, frame: &SurfaceFrame, relief: &dyn ReliefElevation,
-        half_blocks: i32, vault: &super::CrustVault, palette: &ReliefPalette, target: &mut dyn MeshTarget,
+        &self,
+        cell: GridCell,
+        frame: &SurfaceFrame,
+        relief: &dyn ReliefElevation,
+        half_blocks: i32,
+        vault: &super::CrustVault,
+        palette: &ReliefPalette,
+        target: &mut dyn MeshTarget,
     ) {
-        let (surf_col, ramp_col, ridge_col, valley_col, chamfer_col, cliff_col) = palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
+        let facets = palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
+        let _ = relief.emit_molded_top(cell, frame, facets.0, Vec3::new(0.48, 0.35, 0.22), target);
+        self.emit_ground_with_vault(cell, frame, relief, half_blocks, vault, palette, facets, target);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn emit_layers_with_vault(
+        &self,
+        cell: GridCell,
+        frame: &SurfaceFrame,
+        relief: &dyn ReliefElevation,
+        half_blocks: i32,
+        vault: &super::CrustVault,
+        palette: &ReliefPalette,
+        molded_target: &mut dyn MeshTarget,
+        ground_target: &mut dyn MeshTarget,
+    ) {
+        let facets = palette.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
+        let _ = relief.emit_molded_top(cell, frame, facets.0, Vec3::new(0.48, 0.35, 0.22), molded_target);
+        self.emit_ground_with_vault(cell, frame, relief, half_blocks, vault, palette, facets, ground_target);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn emit_ground_with_vault(
+        &self,
+        cell: GridCell,
+        frame: &SurfaceFrame,
+        relief: &dyn ReliefElevation,
+        half_blocks: i32,
+        vault: &super::CrustVault,
+        palette: &ReliefPalette,
+        facets: (Vec3, Vec3, Vec3, Vec3, Vec3, Vec3),
+        target: &mut dyn MeshTarget,
+    ) {
+        let (surf_col, ramp_col, ridge_col, valley_col, chamfer_col, cliff_col) = facets;
         let (u, v) = cell.feed_coordinates(|u, v| (u, v));
         let (crust, h) = (relief.crust_floor_at(u, v), relief.elevation_at(u, v));
-        let (hn, hs, he, hw) = (relief.elevation_at(u, v + 1).max(crust), relief.elevation_at(u, v - 1).max(crust), relief.elevation_at(u + 1, v).max(crust), relief.elevation_at(u - 1, v).max(crust));
+        let (hn, hs, he, hw) = (
+            relief.elevation_at(u, v + 1).max(crust),
+            relief.elevation_at(u, v - 1).max(crust),
+            relief.elevation_at(u + 1, v).max(crust),
+            relief.elevation_at(u - 1, v).max(crust),
+        );
         let ((u0, u1), (v0, v1), top_h) = (cell.u_bounds(), cell.v_bounds(), (h as f32) * 0.5);
-        let molded = relief.emit_molded_top(cell, frame, surf_col, Vec3::new(0.48, 0.35, 0.22), target);
         let stage = relief.layer_dig_stage_at(u, v, top_h - 0.25);
         let (tn, ts, te, tw) = (v + 1 >= half_blocks, v <= -half_blocks, u + 1 >= half_blocks, u <= -half_blocks);
+        let ground_bare = relief.ground_bare_at(u, v);
         let mut suppressed = SuppressedTop;
         let top_out: &mut dyn MeshTarget = if stage == 0 { target } else { &mut suppressed };
 
@@ -63,25 +118,34 @@ impl ReliefFacet {
                 vault.geometry(frame).emit_crust_floor(cell, top_h, core_exposed, &mut cratered)
             } else {
                 let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
-                let sub_dirt = relief.bare_dirt_at(u, v) || molded;
-                let col = if sub_dirt { Vec3::new(0.45, 0.30, 0.17) } else { surf_col };
-                let glow = if !sub_dirt && col.y > col.x * 1.15 && col.y > col.z * 1.15 { 0.02 } else { 0.0 };
+                let col = if ground_bare { LOAM_CROWN } else { surf_col };
+                let glow = if !ground_bare && col.y > col.x * 1.15 && col.y > col.z * 1.15 { 0.02 } else { 0.0 };
                 top_out.push_quad(Quad::glowing(p0, p1, p2, p3, frame.normal(), col, glow));
-                if sub_dirt {
+                if ground_bare {
                     EarthClods::new(cell, top_h - 0.5).emit_crown(frame, top_out);
                 }
                 col
             };
             ([top_h, top_h, top_h, top_h], top_c)
         } else {
-            let colors = (surf_col, ramp_col, ridge_col, valley_col);
-            NaturalCrown::at(u, v, |gu, gv| relief.natural_elevation_at(gu, gv))
-                .emit_top(&self.corner, cell, top_h, frame, colors, top_out)
+            let colors = if ground_bare {
+                (LOAM_CROWN, LOAM_CROWN, LOAM_CROWN, LOAM_CROWN)
+            } else {
+                (surf_col, ramp_col, ridge_col, valley_col)
+            };
+            let crown = NaturalCrown::at(u, v, |gu, gv| relief.natural_elevation_at(gu, gv));
+            let res = crown.emit_top(&self.corner, cell, top_h, frame, colors, top_out);
+            if ground_bare && matches!(crown, NaturalCrown::Flat) && !relief.layer_occupied_at(u, v, top_h + 0.25) {
+                EarthClods::new(cell, top_h - 0.5).emit_crown(frame, top_out);
+            }
+            res
         };
 
         let crust_top = relief.reworked_at(u, v) && vault.crust_surface_at(u, v, h);
-        if stage > 0 && !crust_top { self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, palette, frame, target); }
-        let turf_rim = (!relief.bare_dirt_at(u, v) && !molded && !crust_top).then_some(surf_col);
+        if stage > 0 && !crust_top {
+            self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, palette, frame, target);
+        }
+        let turf_rim = (!ground_bare && !crust_top).then_some(surf_col);
         self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, vault, relief, frame, cliff_col, turf_rim, target);
     }
 
@@ -109,7 +173,7 @@ impl ReliefFacet {
         for i in 0..4 {
             let j = (i + 1) & 3;
             target.push_quad(Quad::new(o[i], o[j], m[j], m[i], surf_n, top_col));
-            target.push_quad(Quad::new(b[i], b[j], m[j], m[i], wall_n[i], wall_col));
+            target.push_quad(Quad::new(m[i], m[j], b[j], b[i], wall_n[i], wall_col));
         }
         target.push_quad(Quad::new(b[0], b[1], b[2], b[3], surf_n, floor_col));
     }

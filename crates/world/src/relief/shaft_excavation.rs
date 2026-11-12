@@ -105,9 +105,8 @@ impl ShaftExcavation {
         }
         if step_at < elev - 1 {
             molds.retain_overhang(strata, u, v, next_elev, elev);
-        } else if !molds.present_at(u, v) {
-            molds.expose_dirt(u, v);
         }
+        molds.expose_dirt(u, v);
         self.record_delta(u, v, next_elev - nat);
         (molds.clear_stage(u, v), Some(medium))
     }

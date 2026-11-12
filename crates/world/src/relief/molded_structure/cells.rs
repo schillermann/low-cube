@@ -3,8 +3,10 @@ use glam::Vec3;
 use crate::MeshTarget;
 use crate::block::{BlockMedium, ElevatedShape, GridCell, NicheColumn, VoxelShape, WedgeHeading};
 use crate::frame::SurfaceFrame;
+use super::super::turf_habitat::TurfHabitat;
 use super::super::turf_scars::TurfScars;
 use super::super::vehicle_assembly::{VehicleAssembly, VehicleAxes};
+use super::sod::SodColumn;
 use super::{MoldedStructure, NICHE_CONTACT_TOLERANCE};
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
@@ -24,14 +26,25 @@ impl VoxelCells {
         Self::new(HashMap::new())
     }
 
+    fn refresh_column_smother(&mut self, u: i32, v: i32) {
+        if let Some(list) = self.cells.get_mut(&(u, v)) {
+            list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
+            for idx in 0..list.len().saturating_sub(1) {
+                let ceiling = list[idx].ceiling();
+                if list[idx + 1].smothers_turf_below(ceiling) {
+                    list[idx].smother_turf();
+                }
+            }
+        }
+    }
+
     pub fn insert(&mut self, u: i32, v: i32, floor_elev: f32, shape: Box<dyn VoxelShape>) {
         self.insert_elevated(u, v, ElevatedShape::new(shape, floor_elev));
     }
 
     pub fn insert_elevated(&mut self, u: i32, v: i32, shape: ElevatedShape) {
-        let list = self.cells.entry((u, v)).or_default();
-        list.push(shape);
-        list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
+        self.cells.entry((u, v)).or_default().push(shape);
+        self.refresh_column_smother(u, v);
     }
 
     pub fn remove_at(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<(ElevatedShape, bool)> {
@@ -43,6 +56,43 @@ impl VoxelCells {
             self.cells.remove(&(u, v));
         }
         Some((removed, column_vacated))
+    }
+
+    pub fn covers_ground_at(&self, u: i32, v: i32, ground_top: f32) -> bool {
+        self.cells.get(&(u, v)).is_some_and(|list| SodColumn::new(list).covers_ground(ground_top))
+    }
+
+    pub fn bare_surface_at(&self, u: i32, v: i32, ground_bare: bool) -> bool {
+        self.cells
+            .get(&(u, v))
+            .map_or(ground_bare, |list| SodColumn::new(list).bare_surface(ground_bare))
+    }
+
+    pub fn verdant_near_step(&self, u: i32, v: i32, target_step: i32) -> bool {
+        self.cells.get(&(u, v)).is_some_and(|list| SodColumn::new(list).verdant_near_step(target_step))
+    }
+
+    pub(super) fn collect_colonization(&self, habitat: &dyn TurfHabitat) -> Vec<((i32, i32), usize, u32)> {
+        let mut active = Vec::new();
+        for (&cell, list) in &self.cells {
+            SodColumn::new(list).collect_colonization(cell, habitat, &mut active);
+        }
+        active
+    }
+
+    pub(super) fn apply_colonization(&mut self, dt: f32, active: Vec<((i32, i32), usize, u32)>) -> Vec<(i32, i32)> {
+        let mut regrown = Vec::new();
+        for ((u, v), idx, neighbors) in active {
+            let grown = self
+                .cells
+                .get_mut(&(u, v))
+                .and_then(|list| list.get_mut(idx))
+                .is_some_and(|block| block.colonize_turf(GridCell::new(u, v), dt, neighbors));
+            if grown {
+                regrown.push((u, v));
+            }
+        }
+        regrown
     }
 
     pub fn step_camera_turn(&mut self, u: i32, v: i32, delta_steps: i32) -> Option<(i32, i32)> {
@@ -58,20 +108,26 @@ impl VoxelCells {
         NicheColumn::new(self.cells.get(&(u, v))?, ground_h).confine(elev)
     }
 
-    pub fn settle_gravity(&mut self, ground_fn: impl Fn(i32, i32) -> f32) -> Vec<(i32, i32)> {
+    pub fn settle_gravity(&mut self, ground_fn: impl Fn(i32, i32) -> f32, scars: &mut TurfScars) -> Vec<(i32, i32)> {
+        let keys: Vec<(i32, i32)> = self.cells.keys().copied().collect();
         let mut settled = Vec::new();
-        for (&(u, v), list) in &mut self.cells {
+        for (u, v) in keys {
             let ground_top = ground_fn(u, v);
             let mut moved = false;
-            for idx in 0..list.len() {
-                let floor_limit = if idx == 0 { ground_top } else { list[idx - 1].ceiling() };
-                if list[idx].settles_under_gravity() && list[idx].floor() >= floor_limit + BLOCK_STEP - NICHE_CONTACT_TOLERANCE {
-                    list[idx].settle_step();
-                    moved = true;
+            if let Some(list) = self.cells.get_mut(&(u, v)) {
+                for idx in 0..list.len() {
+                    let floor_limit = if idx == 0 { ground_top } else { list[idx - 1].ceiling() };
+                    if list[idx].settles_under_gravity() && list[idx].floor() >= floor_limit + BLOCK_STEP - NICHE_CONTACT_TOLERANCE {
+                        list[idx].settle_step();
+                        moved = true;
+                    }
                 }
             }
             if moved {
-                list.sort_by(|a, b| a.ceiling().total_cmp(&b.ceiling()));
+                self.refresh_column_smother(u, v);
+                if self.covers_ground_at(u, v, ground_top) {
+                    scars.expose_dirt(u, v);
+                }
                 settled.push((u, v));
             }
         }
@@ -194,23 +250,6 @@ impl MoldedStructure for VoxelCells {
     fn emit_at(&self, cell: GridCell, frame: &SurfaceFrame, colors: (Vec3, Vec3), scars: &TurfScars, target: &mut dyn MeshTarget) -> bool {
         let (u, v) = cell.feed_coordinates(|gu, gv| (gu, gv));
         let Some(list) = self.cells.get(&(u, v)) else { return false };
-        let (top_col, wall_col) = colors;
-        for (idx, block) in list.iter().enumerate() {
-            let stage = scars.block_stage(u, v, block);
-            let covered_above = idx + 1 < list.len()
-                && list[idx + 1].block_medium() == BlockMedium::TurfEarth
-                && (list[idx + 1].floor() - block.ceiling()).abs() < NICHE_CONTACT_TOLERANCE;
-            let bare_top = covered_above || scars.bare_at(u, v);
-            let flank_only = list.len() > 2
-                && idx > 0
-                && idx + 1 < list.len()
-                && block.full_cube_envelope()
-                && list[idx - 1].full_cube_envelope()
-                && list[idx + 1].full_cube_envelope()
-                && (block.floor() - list[idx - 1].ceiling()).abs() < NICHE_CONTACT_TOLERANCE
-                && (list[idx + 1].floor() - block.ceiling()).abs() < NICHE_CONTACT_TOLERANCE;
-            block.emit_terraced(cell, frame, top_col, wall_col, bare_top, flank_only, stage, target);
-        }
-        !list.is_empty()
+        SodColumn::new(list).emit(cell, frame, colors, scars, target)
     }
 }

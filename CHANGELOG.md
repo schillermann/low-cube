@@ -8,6 +8,19 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.61.4] - 2026-11-12
+
+### Added
+- Added the `TurfCoat` `VoxelShape` decorator and immutable `TurfSod` biological state (`crates/world/src/block/elevated_shape/coat.rs` and `sod.rs`), plus `SodColumn` (`crates/world/src/relief/molded_structure/sod.rs`) and the `TurfHabitat` / `CanopyHabitat(NaturalHabitat)` 3D turf-contact decorator chain (`crates/world/src/relief/turf_habitat.rs`) so static `WorldBlocks` earth blocks start bare on placement and only regrow grass through real `±0.5m` 3D neighbor contact with living turf.
+- Added `CachedCell` (`crates/world/src/relief/face/cache.rs`) to partition cached planetary ground quads from molded overhang quads per cell and `ReliefElevation::ground_bare_at` (`crates/world/src/relief/elevation.rs` and `facet.rs`) to distinguish scarred or smothered ground from overhanging blocks.
+
+### Changed
+- Split `crates/world/src/block/elevated_shape.rs` into `crates/world/src/block/elevated_shape/{mod.rs,coat.rs,sod.rs,niche.rs}` and reduced `ElevatedShape` to a pure 2-field spatial decorator (`shape`, `elevation_offset`) where uncoated `VoxelShape` soil is bare by nature (`!self.shape.verdant_turf()`).
+
+### Fixed
+- Fixed earth blocks (`BlockMedium::TurfEarth`) placed on cantilever crane arms (`CraftCluster`), driven vehicles (`VehicleAssembly`), and parked cars (`ParkedFleet`) rendering with an immediate green grass cap and grass tufts; all harvested and placed earth blocks now always start bare and never grow grass on cranes or vehicles.
+- Fixed floating cranes, bridges, and parked cars stripping 3D meadow tufts from unscarred planetary ground underneath (`CachedCell`), unexcavated smothered ground rendering green instead of `EarthClods::LOAM_CROWN` (`ReliefFacet`), and crane dismantling (`CraftCluster::dismantle_into`) dropping remaining non-engine blocks onto per-cell ground height as bare `TurfCoat` soil.
+
 ## [0.61.3] - 2026-11-12
 
 ### Fixed

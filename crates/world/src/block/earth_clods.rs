@@ -5,7 +5,7 @@ use super::cell::GridCell;
 use super::shape::VoxelShape;
 use super::timber_grain::BlockMedium;
 
-const LOAM_CROWN: Vec3 = Vec3::new(0.45, 0.30, 0.17);
+pub(crate) const LOAM_CROWN: Vec3 = Vec3::new(0.45, 0.30, 0.17);
 pub(crate) const LOAM_WALL: Vec3 = Vec3::new(0.41, 0.27, 0.15);
 const CLOD_A: Vec3 = Vec3::new(0.52, 0.36, 0.21);
 const CLOD_B: Vec3 = Vec3::new(0.46, 0.31, 0.18);

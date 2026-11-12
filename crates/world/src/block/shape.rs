@@ -18,7 +18,30 @@ pub trait VoxelShape: Send + Sync {
     fn wheel_radius(&self) -> f32 {
         0.25
     }
+    fn wheel_tread_drop(&self) -> Option<f32> {
+        (self.block_medium() == BlockMedium::CarWheel)
+            .then(|| (self.wheel_radius() * 1.07 - 0.11).max(0.05))
+    }
     fn full_cube_envelope(&self) -> bool {
+        false
+    }
+    fn fertile_soil(&self) -> bool {
+        matches!(self.block_medium(), BlockMedium::TurfEarth)
+    }
+    fn smothers_turf(&self) -> bool {
+        self.fertile_soil() || self.full_cube_envelope()
+    }
+    fn verdant_turf(&self) -> bool {
+        false
+    }
+    fn bare_turf(&self) -> bool {
+        false
+    }
+    fn bare_surface(&self, ground_bare: bool) -> bool {
+        self.fertile_soil() || ground_bare
+    }
+    fn smother_turf(&mut self) {}
+    fn colonize_turf(&mut self, _cell: GridCell, _dt: f32, _grass_neighbors: u32) -> bool {
         false
     }
     fn step_camera_turn(&mut self, _delta: i32) -> bool {
@@ -75,7 +98,31 @@ impl<S: VoxelShape + ?Sized> VoxelShape for Box<S> {
     fn block_medium(&self) -> BlockMedium { (**self).block_medium() }
     fn block_heading(&self) -> WedgeHeading { (**self).block_heading() }
     fn wheel_radius(&self) -> f32 { (**self).wheel_radius() }
+    fn wheel_tread_drop(&self) -> Option<f32> {
+        (**self).wheel_tread_drop()
+    }
     fn full_cube_envelope(&self) -> bool { (**self).full_cube_envelope() }
+    fn fertile_soil(&self) -> bool {
+        (**self).fertile_soil()
+    }
+    fn smothers_turf(&self) -> bool {
+        (**self).smothers_turf()
+    }
+    fn verdant_turf(&self) -> bool {
+        (**self).verdant_turf()
+    }
+    fn bare_turf(&self) -> bool {
+        (**self).bare_turf()
+    }
+    fn bare_surface(&self, ground_bare: bool) -> bool {
+        (**self).bare_surface(ground_bare)
+    }
+    fn smother_turf(&mut self) {
+        (**self).smother_turf();
+    }
+    fn colonize_turf(&mut self, cell: GridCell, dt: f32, grass_neighbors: u32) -> bool {
+        (**self).colonize_turf(cell, dt, grass_neighbors)
+    }
     fn step_camera_turn(&mut self, delta: i32) -> bool { (**self).step_camera_turn(delta) }
     fn camera_tripod_hub(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
         (**self).camera_tripod_hub(cell, floor_elevation, frame)

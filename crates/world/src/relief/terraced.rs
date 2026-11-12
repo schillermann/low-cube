@@ -86,6 +86,11 @@ impl ReliefElevation for TerracedRelief {
         self.molds.bare_dirt_at(u, v)
     }
 
+    fn ground_bare_at(&self, u: i32, v: i32) -> bool {
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        self.molds.ground_bare_at(u, v, ground_top)
+    }
+
     fn emit_molded_top(&self, cell: GridCell, frame: &SurfaceFrame, top_col: Vec3, wall_col: Vec3, target: &mut dyn MeshTarget) -> bool {
         self.molds.emit_molded_top(cell, frame, (top_col, wall_col), target)
     }
@@ -118,8 +123,7 @@ impl ReliefElevation for TerracedRelief {
         if self.molds.car_locked_at(u, v, layer_elev) {
             return ((u, v), None);
         }
-        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
-        if let Some((prev_cell, medium)) = self.molds.remove_layer(u, v, layer_elev, ground_top) {
+        if let Some((prev_cell, medium)) = self.molds.remove_layer(&self.strata, &self.shafts, u, v, layer_elev) {
             return (prev_cell, Some(medium));
         }
         self.shafts.excavate_layer(&self.strata, &mut self.molds, u, v, layer_elev)

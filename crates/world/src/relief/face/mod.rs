@@ -1,12 +1,11 @@
 mod cache;
 
-use std::sync::RwLock;
 use glam::Vec3;
 use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics};
 use crate::topology::ClimateZone;
-use crate::{Face, MeshTarget, Quad};
+use crate::{Face, MeshTarget};
 use super::elevation::{ReliefElevation, ZonedRelief};
 use super::palette::ReliefPalette;
 use super::sight_ray::SurfaceSightRay;
@@ -20,6 +19,12 @@ struct ReliefDomain {
     relief: Box<dyn ReliefElevation>,
 }
 
+impl ReliefDomain {
+    fn new(frame: SurfaceFrame, relief: Box<dyn ReliefElevation>) -> Self {
+        Self { frame, relief }
+    }
+}
+
 /// Planetary relief face generating undulating climbable terrain and subterranean cavities ("Tell, Don't Ask").
 pub struct FacetedReliefFace {
     domain: ReliefDomain,
@@ -29,19 +34,8 @@ pub struct FacetedReliefFace {
 
 impl FacetedReliefFace {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(
-        frame: SurfaceFrame,
-        relief: Box<dyn ReliefElevation>,
-        palette: ReliefPalette,
-        strata: ReliefStrata,
-        divisions: u32,
-        cached_cells: RwLock<Vec<Vec<Quad>>>,
-    ) -> Self {
-        Self {
-            domain: ReliefDomain { frame, relief },
-            palette,
-            cache: ReliefCellCache::new(strata, divisions, cached_cells, RwLock::new(Vec::new())),
-        }
+    fn new(domain: ReliefDomain, palette: ReliefPalette, cache: ReliefCellCache) -> Self {
+        Self { domain, palette, cache }
     }
 
     /// Secondary constructor assembling a relief face calibrated for a specific planetary climate zone.
@@ -75,7 +69,7 @@ impl FacetedReliefFace {
         };
         let zoned = Box::new(ZonedRelief::new(warped, frame.normal(), frame.tangent(), frame.bitangent(), half_size, min_elev, max_elev));
         let relief = Box::new(TerracedRelief::in_span(zoned, (divisions as i32) / 2));
-        Self::new(frame, relief, palette, strata, divisions, RwLock::new(Vec::new()))
+        Self::new(ReliefDomain::new(frame, relief), palette, ReliefCellCache::empty(strata, divisions))
     }
 
     /// Secondary constructor assembling a relief face calibrated for Tron wireframe visualization.

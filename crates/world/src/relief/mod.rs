@@ -14,6 +14,7 @@ mod shaft_excavation;
 mod sight_ray;
 mod strata;
 mod terraced;
+mod turf_habitat;
 mod turf_scars;
 mod vehicle_assembly;
 mod wall;

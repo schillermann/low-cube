@@ -48,6 +48,9 @@ pub trait ReliefElevation: Send + Sync {
     /// Indicates whether the discrete cell (u, v) has bare exposed soil without regrown grass.
     fn bare_dirt_at(&self, _u: i32, _v: i32) -> bool { false }
 
+    /// Indicates whether the planetary ground surface at (u, v) is scarred or smothered beneath a block.
+    fn ground_bare_at(&self, u: i32, v: i32) -> bool { self.bare_dirt_at(u, v) }
+
     /// Emits molded voxel shapes at cell if present, returning true when emitted.
     fn emit_molded_top(&self, _cell: GridCell, _frame: &SurfaceFrame, _top_col: Vec3, _wall_col: Vec3, _target: &mut dyn MeshTarget) -> bool { false }
 

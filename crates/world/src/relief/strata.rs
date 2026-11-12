@@ -20,6 +20,7 @@ impl ReliefStrata {
     }
 
     /// Emits all surface and subterranean facets for a single discrete grid cell ("Tell, Don't Ask").
+    #[cfg(test)]
     pub fn emit_cell(
         &self,
         cell: GridCell,
@@ -30,9 +31,22 @@ impl ReliefStrata {
         target: &mut dyn MeshTarget,
     ) {
         let vault = CrustVault::beneath(half_blocks);
-        self.facet.emit_with_vault(
-            cell, frame, relief, half_blocks,
-            &vault, palette, target,
-        );
+        self.facet.emit_with_vault(cell, frame, relief, half_blocks, &vault, palette, target);
+    }
+
+    /// Emits molded block geometry and ground strata into distinct mesh targets.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn emit_cell_layers(
+        &self,
+        cell: GridCell,
+        frame: &SurfaceFrame,
+        relief: &dyn ReliefElevation,
+        palette: &ReliefPalette,
+        half_blocks: i32,
+        molded_target: &mut dyn MeshTarget,
+        ground_target: &mut dyn MeshTarget,
+    ) {
+        let vault = CrustVault::beneath(half_blocks);
+        self.facet.emit_layers_with_vault(cell, frame, relief, half_blocks, &vault, palette, molded_target, ground_target);
     }
 }
