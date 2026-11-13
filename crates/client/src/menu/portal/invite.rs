@@ -5,6 +5,9 @@ use sanctuary::{JoinTarget, PortalCode};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PortalDirective {
     StayInPortal,
+    OpenLivePortal,
+    OpenJoinScreen,
+    ReturnToMultiplayer,
     ReturnToPauseMenu,
     ConnectToWorld(JoinTarget),
     PunchGuest(SocketAddr),

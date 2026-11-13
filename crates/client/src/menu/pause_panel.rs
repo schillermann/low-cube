@@ -11,8 +11,7 @@ pub enum PauseSelection {
     ResumeGame,
     OpenWardrobe,
     OpenSettings,
-    HostOrCopyPortal,
-    OpenJoinPortal,
+    OpenMultiplayer,
     QuitGame,
 }
 
@@ -37,16 +36,12 @@ impl PausePanel {
         ScreenBounds::new(-0.28, -0.22, 0.28, -0.10)
     }
 
-    fn quit_button(&self) -> ScreenBounds {
+    pub fn multiplayer_button(&self) -> ScreenBounds {
         ScreenBounds::new(-0.28, -0.40, 0.28, -0.28)
     }
 
-    pub fn portal_button(&self) -> ScreenBounds {
+    pub fn quit_button(&self) -> ScreenBounds {
         ScreenBounds::new(-0.28, -0.58, 0.28, -0.46)
-    }
-
-    pub fn join_portal_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.28, -0.76, 0.28, -0.64)
     }
 
     pub fn select(&self, pointer: ScreenPoint) -> PauseSelection {
@@ -56,10 +51,8 @@ impl PausePanel {
             PauseSelection::OpenWardrobe
         } else if self.settings_button().contains(pointer) {
             PauseSelection::OpenSettings
-        } else if self.portal_button().contains(pointer) {
-            PauseSelection::HostOrCopyPortal
-        } else if self.join_portal_button().contains(pointer) {
-            PauseSelection::OpenJoinPortal
+        } else if self.multiplayer_button().contains(pointer) {
+            PauseSelection::OpenMultiplayer
         } else if self.quit_button().contains(pointer) {
             PauseSelection::QuitGame
         } else {
@@ -71,12 +64,14 @@ impl PausePanel {
         let bg = Vec3::new(0.08, 0.10, 0.15);
         let rim = Vec3::new(0.32, 0.39, 0.50);
         let gold = Vec3::new(0.96, 0.82, 0.34);
-        ScreenBounds::new(-0.36, -0.94, 0.36, 0.44).emit_framed(bg, rim, 0.008, target);
+        let hosted = portal.hosted_active();
+        let mp_col = if hosted { Vec3::new(0.22, 0.52, 0.32) } else { Vec3::new(0.18, 0.44, 0.46) };
+        ScreenBounds::new(-0.36, -0.66, 0.36, 0.44).emit_framed(bg, rim, 0.008, target);
         PixelStamp::title(gold).emit_centered("MAIN MENU", 0.0, 0.35, target);
         self.resume_button().emit_button("RESUME GAME", pointer, Vec3::new(0.18, 0.42, 0.24), false, target);
         self.character_button().emit_button("CHARACTER", pointer, Vec3::new(0.20, 0.32, 0.52), false, target);
         self.settings_button().emit_button("KEYBINDINGS", pointer, Vec3::new(0.28, 0.26, 0.48), false, target);
+        self.multiplayer_button().emit_button("MULTIPLAYER", pointer, mp_col, hosted, target);
         self.quit_button().emit_button("QUIT GAME", pointer, Vec3::new(0.54, 0.18, 0.18), false, target);
-        portal.emit_pause_portal_buttons(self.portal_button(), self.join_portal_button(), pointer, target);
     }
 }

@@ -57,6 +57,18 @@ impl PortalStudio {
         self.draft.formatted()
     }
 
+    pub fn portal_button() -> ScreenBounds {
+        PortalLayout::portal_button()
+    }
+
+    pub fn join_portal_button() -> ScreenBounds {
+        PortalLayout::join_portal_button()
+    }
+
+    pub fn hub_back_button() -> ScreenBounds {
+        PortalLayout::hub_back_button()
+    }
+
     pub fn paste_button() -> ScreenBounds {
         PortalLayout::paste_button()
     }
@@ -180,6 +192,23 @@ impl PortalStudio {
         }
     }
 
+    pub fn press_hub_pointer(&mut self, pointer: ScreenPoint) -> PortalDirective {
+        if Self::portal_button().contains(pointer) {
+            if self.hosted_active() {
+                self.copy_hosted_ticket();
+                PortalDirective::StayInPortal
+            } else {
+                PortalDirective::OpenLivePortal
+            }
+        } else if Self::join_portal_button().contains(pointer) {
+            PortalDirective::OpenJoinScreen
+        } else if Self::hub_back_button().contains(pointer) {
+            PortalDirective::ReturnToPauseMenu
+        } else {
+            PortalDirective::StayInPortal
+        }
+    }
+
     pub fn press_pointer(&mut self, pointer: ScreenPoint) -> PortalDirective {
         if Self::paste_button().contains(pointer) {
             self.paste_from_clipboard();
@@ -193,21 +222,15 @@ impl PortalStudio {
             self.submit_draft()
         } else if Self::back_button().contains(pointer) {
             self.clear_dial_state();
-            PortalDirective::ReturnToPauseMenu
+            PortalDirective::ReturnToMultiplayer
         } else {
             PortalDirective::StayInPortal
         }
     }
 
-    pub fn emit_pause_portal_buttons(
-        &self,
-        host_bounds: ScreenBounds,
-        join_bounds: ScreenBounds,
-        pointer: ScreenPoint,
-        target: &mut dyn MeshTarget,
-    ) {
+    pub fn emit_multiplayer_hub(&self, pointer: ScreenPoint, target: &mut dyn MeshTarget) {
         PortalLayout::new(&self.invite, &self.draft, self.notice, pointer)
-            .emit_pause_buttons(host_bounds, join_bounds, target);
+            .emit_multiplayer_hub(target);
     }
 
     pub fn emit_overlay(&self, pointer: ScreenPoint, target: &mut dyn MeshTarget) {

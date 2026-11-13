@@ -13,8 +13,8 @@ use crate::controls::ControlAction;
 use crate::posture::AvatarPosture;
 use crate::surface::PlatformSurface;
 use super::{
-    AvatarArchetype, ControlStudio, EscapeMenu, ModalDirective, ScreenPoint, SessionModal,
-    StudioAnimation, TurntableStage, VersionStamp, WardrobeStudio,
+    AvatarArchetype, ControlStudio, EscapeMenu, ModalDirective, PausePanel, ScreenPoint,
+    SessionModal, StudioAnimation, TurntableStage, VersionStamp, WardrobeStudio,
 };
 
 pub(super) struct MockSurface { captured: Cell<bool> }
@@ -118,7 +118,8 @@ fn test_escape_key_opens_menu_character_stage_and_keybinding_settings() {
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
     menu.move_cursor(ScreenPoint::new(back_btn.center_x(), back_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    menu.move_cursor(ScreenPoint::new(0.0, -0.34));
+    let quit_btn = PausePanel::new().quit_button();
+    menu.move_cursor(ScreenPoint::new(quit_btn.center_x(), quit_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ExitGame);
 }
 

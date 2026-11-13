@@ -26,13 +26,22 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
 
     menu.toggle_escape(&surface);
     let pause = PausePanel::new();
-    let host_btn = pause.portal_button();
+    let mp_btn = pause.multiplayer_button();
+    let quit_btn = pause.quit_button();
+    assert!(
+        mp_btn.center_y() > quit_btn.center_y(),
+        "MULTIPLAYER button must sit above QUIT GAME on the Main Menu"
+    );
+    menu.move_cursor(ScreenPoint::new(mp_btn.center_x(), mp_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+
+    let host_btn = PortalStudio::portal_button();
     menu.move_cursor(ScreenPoint::new(host_btn.center_x(), host_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::OpenPortal);
     menu.announce_portal(PortalInvite::hosted(host_code_str.clone(), encoded_ticket.clone()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
-    let join_btn = pause.join_portal_button();
+    let join_btn = PortalStudio::join_portal_button();
     menu.move_cursor(ScreenPoint::new(join_btn.center_x(), join_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
     let mut join_ui = QuadCapture::empty();
@@ -70,7 +79,14 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
         ModalDirective::JoinPortal(JoinTarget::Wormhole(remote_code))
     );
 
-    // 4) Guest receives NAT-locked punch code banner, then completes join!
+    // 4) Navigate BACK TO MULTIPLAYER -> BACK TO MAIN MENU, and test NAT-locked punch completion!
+    let back_to_mp = PortalStudio::back_button();
+    menu.move_cursor(ScreenPoint::new(back_to_mp.center_x(), back_to_mp.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    let back_to_main = PortalStudio::hub_back_button();
+    menu.move_cursor(ScreenPoint::new(back_to_main.center_x(), back_to_main.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+
     menu.announce_punch_code("ABCD-EFGH-JKMN".to_string());
     assert!(menu.dialing_active());
     menu.complete_join(&surface);

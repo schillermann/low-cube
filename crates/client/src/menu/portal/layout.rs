@@ -25,6 +25,18 @@ impl<'a> PortalLayout<'a> {
         Self { invite, draft, notice, pointer }
     }
 
+    pub fn portal_button() -> ScreenBounds {
+        ScreenBounds::new(-0.34, 0.12, 0.34, 0.24)
+    }
+
+    pub fn join_portal_button() -> ScreenBounds {
+        ScreenBounds::new(-0.34, -0.06, 0.34, 0.06)
+    }
+
+    pub fn hub_back_button() -> ScreenBounds {
+        ScreenBounds::new(-0.34, -0.50, 0.34, -0.38)
+    }
+
     pub fn paste_button() -> ScreenBounds {
         ScreenBounds::new(-0.64, -0.14, -0.03, -0.01)
     }
@@ -41,28 +53,31 @@ impl<'a> PortalLayout<'a> {
         ScreenBounds::new(-0.34, -0.60, 0.34, -0.48)
     }
 
-    pub fn emit_pause_buttons(
-        &self,
-        host_bounds: ScreenBounds,
-        join_bounds: ScreenBounds,
-        target: &mut dyn MeshTarget,
-    ) {
+    pub fn emit_multiplayer_hub(&self, target: &mut dyn MeshTarget) {
+        let bg = Vec3::new(0.08, 0.10, 0.15);
+        let rim = Vec3::new(0.32, 0.39, 0.50);
         let gold = Vec3::new(0.96, 0.82, 0.34);
         let mint = Vec3::new(0.56, 0.86, 0.68);
+        let silver = Vec3::new(0.76, 0.82, 0.90);
         let active = self.invite.active();
         let host_label = if active { "COPY INVITE TICKET" } else { "OPEN CO-OP PORTAL" };
         let join_label = if active { "PUNCH NAT / JOIN" } else { "JOIN CO-OP / SERVER" };
         let host_col = if active { Vec3::new(0.22, 0.52, 0.32) } else { Vec3::new(0.18, 0.44, 0.46) };
-        host_bounds.emit_button(host_label, self.pointer, host_col, active, target);
-        join_bounds.emit_button(join_label, self.pointer, Vec3::new(0.20, 0.36, 0.56), false, target);
+        ScreenBounds::new(-0.58, -0.60, 0.58, 0.44).emit_framed(bg, rim, 0.008, target);
+        PixelStamp::title(gold).emit_centered("MULTIPLAYER", 0.0, 0.35, target);
+        Self::portal_button().emit_button(host_label, self.pointer, host_col, active, target);
+        Self::join_portal_button().emit_button(join_label, self.pointer, Vec3::new(0.20, 0.36, 0.56), false, target);
         if active {
-            PixelStamp::title(gold).emit_centered(&self.invite.banner_headline(), 0.0, -0.81, target);
+            PixelStamp::title(gold).emit_centered(&self.invite.banner_headline(), 0.0, -0.17, target);
             let sub = match self.notice {
                 PortalNotice::TicketCopied | PortalNotice::StartupTicketCopied => "SHARE 12-CHAR CODE OR PASTE TICKET",
                 _ => "SHARE 12-CHAR CODE WITH FRIEND",
             };
-            PixelStamp::caption(mint).emit_centered(sub, 0.0, -0.89, target);
+            PixelStamp::caption(mint).emit_centered(sub, 0.0, -0.27, target);
+        } else {
+            PixelStamp::caption(silver).emit_centered("HOST A 12-CHAR PORTAL OR JOIN A WORLD", 0.0, -0.22, target);
         }
+        Self::hub_back_button().emit_button("BACK TO MAIN MENU", self.pointer, Vec3::new(0.28, 0.32, 0.40), false, target);
     }
 
     fn status_line(&self, silver: Vec3) -> (String, Vec3) {
@@ -148,7 +163,7 @@ impl<'a> PortalLayout<'a> {
         Self::paste_button().emit_button("PASTE (CTRL+V)", self.pointer, Vec3::new(0.22, 0.38, 0.56), false, target);
         Self::clear_button().emit_button("CLEAR", self.pointer, Vec3::new(0.36, 0.26, 0.32), false, target);
         Self::join_button().emit_button(action_label, self.pointer, Vec3::new(0.18, 0.48, 0.28), false, target);
-        Self::back_button().emit_button("BACK TO MAIN MENU", self.pointer, Vec3::new(0.28, 0.32, 0.40), false, target);
+        Self::back_button().emit_button("BACK TO MULTIPLAYER", self.pointer, Vec3::new(0.28, 0.32, 0.40), false, target);
 
         let (status_text, status_col) = self.status_line(silver);
         PixelStamp::caption(status_col).emit_centered(&status_text, 0.0, -0.41, target);

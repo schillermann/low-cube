@@ -59,6 +59,15 @@ impl EscapeMenu {
     fn map_portal_directive(&mut self, directive: PortalDirective) -> ModalDirective {
         match directive {
             PortalDirective::StayInPortal => ModalDirective::ContinueSession,
+            PortalDirective::OpenLivePortal => ModalDirective::OpenPortal,
+            PortalDirective::OpenJoinScreen => {
+                self.phase = ModalPhase::PortalJoin;
+                ModalDirective::ContinueSession
+            }
+            PortalDirective::ReturnToMultiplayer => {
+                self.phase = ModalPhase::MultiplayerHub;
+                ModalDirective::ContinueSession
+            }
             PortalDirective::ReturnToPauseMenu => {
                 self.phase = ModalPhase::EscapePause;
                 ModalDirective::ContinueSession
@@ -85,16 +94,8 @@ impl EscapeMenu {
                 self.panels.settings.move_pointer(self.pointer);
                 ModalDirective::ContinueSession
             }
-            PauseSelection::HostOrCopyPortal => {
-                if self.panels.portal.hosted_active() {
-                    self.panels.portal.copy_hosted_ticket();
-                    ModalDirective::ContinueSession
-                } else {
-                    ModalDirective::OpenPortal
-                }
-            }
-            PauseSelection::OpenJoinPortal => {
-                self.phase = ModalPhase::PortalJoin;
+            PauseSelection::OpenMultiplayer => {
+                self.phase = ModalPhase::MultiplayerHub;
                 ModalDirective::ContinueSession
             }
             PauseSelection::QuitGame => ModalDirective::ExitGame,
@@ -123,9 +124,13 @@ impl SessionModal for EscapeMenu {
                 self.phase = ModalPhase::Gameplay;
                 surface.capture_cursor();
             }
-            ModalPhase::CharacterWardrobe | ModalPhase::PortalJoin => {
-                self.panels.portal.clear_dial_state();
+            ModalPhase::CharacterWardrobe | ModalPhase::MultiplayerHub => {
                 self.phase = ModalPhase::EscapePause;
+                surface.release_cursor();
+            }
+            ModalPhase::PortalJoin => {
+                self.panels.portal.clear_dial_state();
+                self.phase = ModalPhase::MultiplayerHub;
                 surface.release_cursor();
             }
             ModalPhase::ControlSettings => {
@@ -167,6 +172,10 @@ impl SessionModal for EscapeMenu {
                 }
                 ModalDirective::ContinueSession
             }
+            ModalPhase::MultiplayerHub => {
+                let directive = self.panels.portal.press_hub_pointer(self.pointer);
+                self.map_portal_directive(directive)
+            }
             ModalPhase::PortalJoin => {
                 let directive = self.panels.portal.press_pointer(self.pointer);
                 self.map_portal_directive(directive)
@@ -190,7 +199,7 @@ impl SessionModal for EscapeMenu {
                 let directive = self.panels.portal.handle_key(code, ctrl_held);
                 return self.map_portal_directive(directive);
             }
-            ModalPhase::EscapePause if ctrl_held && code == KeyCode::KeyC => {
+            ModalPhase::EscapePause | ModalPhase::MultiplayerHub if ctrl_held && code == KeyCode::KeyC => {
                 self.panels.portal.copy_hosted_ticket();
             }
             _ => {}

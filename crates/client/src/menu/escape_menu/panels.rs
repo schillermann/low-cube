@@ -10,13 +10,14 @@ use crate::menu::studio::WardrobeStudio;
 use crate::menu::version_stamp::VersionStamp;
 use crate::menu::widget::ScreenPoint;
 
-/// Polymorphic modal state machine for gameplay, Escape pause menu, Character studio, Settings, and Co-op join.
+/// Polymorphic modal state machine for gameplay, Escape pause menu, Character studio, Settings, and Multiplayer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ModalPhase {
     Gameplay,
     EscapePause,
     CharacterWardrobe,
     ControlSettings,
+    MultiplayerHub,
     PortalJoin,
 }
 
@@ -52,6 +53,10 @@ impl StudioPanels {
             }
             ModalPhase::ControlSettings => {
                 self.settings.emit_overlay(target);
+                VersionStamp::current().emit(target);
+            }
+            ModalPhase::MultiplayerHub => {
+                self.portal.emit_multiplayer_hub(pointer, target);
                 VersionStamp::current().emit(target);
             }
             ModalPhase::PortalJoin => {

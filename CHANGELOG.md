@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.70.0] - 2026-11-13
+
+### Changed
+- Grouped the two `CO-OP` actions (`OPEN CO-OP PORTAL` / `COPY INVITE TICKET` and `JOIN CO-OP / SERVER` / `PUNCH NAT / JOIN`) into a dedicated `MULTIPLAYER` submenu (`ModalPhase::MultiplayerHub`, `PortalLayout::emit_multiplayer_hub`, and `PortalStudio::press_hub_pointer` in `crates/client/src/menu/portal/`) and positioned the `MULTIPLAYER` button directly above `QUIT GAME` on the Main Menu (`PausePanel` in `crates/client/src/menu/pause_panel.rs`).
+
 ## [0.69.0] - 2026-11-13
 
 ### Added
