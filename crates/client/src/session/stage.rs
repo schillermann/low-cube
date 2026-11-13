@@ -10,16 +10,25 @@ use crate::sparrow::SparrowFlock;
 use crate::surface::PlatformSurface;
 use super::display::SessionDisplay;
 
-/// Encapsulated keyboard control state and pause/studio modal overlay.
+/// Encapsulated keyboard control state, pause/studio modal overlay, and shortcut modifier state.
 pub(super) struct StageOverlay {
     controls: Box<dyn KeyboardControls>,
     modal: Box<dyn SessionModal>,
+    ctrl_held: bool,
 }
 
 impl StageOverlay {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub(super) fn with_modifiers(
+        controls: Box<dyn KeyboardControls>,
+        modal: Box<dyn SessionModal>,
+        ctrl_held: bool,
+    ) -> Self {
+        Self { controls, modal, ctrl_held }
+    }
+
     pub(super) fn new(controls: Box<dyn KeyboardControls>, modal: Box<dyn SessionModal>) -> Self {
-        Self { controls, modal }
+        Self::with_modifiers(controls, modal, false)
     }
 }
 
@@ -94,18 +103,47 @@ impl SessionStage {
         false
     }
 
-    pub(super) fn press_modal_mouse(&mut self, surface: &dyn PlatformSurface, tron_active: bool) -> ModalDirective {
-        let directive = self.overlay.modal.press_mouse(surface, self.avatar.as_mut());
-        self.overlay.modal.sync_controls(self.overlay.controls.as_mut());
-        if matches!(directive, ModalDirective::OpenPortal) {
-            let current = std::mem::replace(&mut self.world, Box::new(world::BiomedCubeWorld::of_size(4)));
-            let blocks = ServerScale::assembled().blocks();
-            let (hosted, ticket) = PortalConfig::open_live_portal(current, blocks, tron_active);
-            self.world = hosted;
-            self.overlay.modal.announce_portal(ticket);
-            return ModalDirective::ContinueSession;
+    pub(super) fn update_ctrl(&mut self, held: bool) {
+        self.overlay.ctrl_held = held;
+    }
+
+    pub(super) fn ctrl_active(&self) -> bool {
+        self.overlay.ctrl_held
+    }
+
+    fn resolve_modal_directive(&mut self, directive: ModalDirective, display: &mut SessionDisplay) -> ModalDirective {
+        match directive {
+            ModalDirective::OpenPortal => {
+                let current = std::mem::replace(&mut self.world, Box::new(world::BiomedCubeWorld::of_size(4)));
+                let blocks = ServerScale::assembled().blocks();
+                let (hosted, ticket) = PortalConfig::open_live_portal(current, blocks, display.tron_enabled());
+                self.world = hosted;
+                self.overlay.modal.announce_portal(ticket);
+                ModalDirective::ContinueSession
+            }
+            ModalDirective::JoinPortal(target) => {
+                let blocks = ServerScale::assembled().blocks();
+                match PortalConfig::join_live_portal(target, blocks, display.tron_enabled()) {
+                    Ok(remote) => {
+                        self.world = remote;
+                        self.avatar.land_on_world(self.world.as_ref());
+                        self.overlay.modal.complete_join(display.surface());
+                        display.refresh_world_mesh(self.world.as_ref(), self.avatar.as_ref());
+                    }
+                    Err(_) => {
+                        self.overlay.modal.report_join_failure();
+                    }
+                }
+                ModalDirective::ContinueSession
+            }
+            other => other,
         }
-        directive
+    }
+
+    pub(super) fn press_modal_mouse(&mut self, display: &mut SessionDisplay) -> ModalDirective {
+        let directive = self.overlay.modal.press_mouse(display.surface(), self.avatar.as_mut());
+        self.overlay.modal.sync_controls(self.overlay.controls.as_mut());
+        self.resolve_modal_directive(directive, display)
     }
 
     pub(super) fn handle_modal_trigger(&mut self, trigger: InputTrigger) {
@@ -114,10 +152,14 @@ impl SessionStage {
         }
     }
 
-    pub(super) fn handle_modal_key(&mut self, code: winit::keyboard::KeyCode) {
-        if self.overlay.modal.handle_key(code, self.avatar.as_mut()) {
-            self.overlay.modal.sync_controls(self.overlay.controls.as_mut());
-        }
+    pub(super) fn handle_modal_key(&mut self, code: winit::keyboard::KeyCode, display: &mut SessionDisplay) -> ModalDirective {
+        let directive = self.overlay.modal.handle_key(code, self.overlay.ctrl_held, self.avatar.as_mut());
+        self.overlay.modal.sync_controls(self.overlay.controls.as_mut());
+        self.resolve_modal_directive(directive, display)
+    }
+
+    pub(super) fn handle_modal_text(&mut self, text: &str) {
+        self.overlay.modal.handle_text(text);
     }
 
     pub(super) fn toggle_escape(&mut self, surface: &dyn PlatformSurface) {

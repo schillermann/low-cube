@@ -2,6 +2,8 @@
 
 [![Download for Windows](https://img.shields.io/badge/⬇_Download_for_Windows-.exe-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/schillermann/low-cube/releases/latest/download/low-cube-windows.exe)
 [![Download for Linux](https://img.shields.io/badge/⬇_Download_for_Linux-x86__64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](https://github.com/schillermann/low-cube/releases/latest/download/low-cube-linux)
+[![Server for Windows](https://img.shields.io/badge/⬇_Server_(Windows)-.exe-1E293B?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/schillermann/low-cube/releases/latest/download/low-cube-server-windows.exe)
+[![Server for Linux](https://img.shields.io/badge/⬇_Server_(Linux)-x86__64-1E293B?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/schillermann/low-cube/releases/latest/download/low-cube-server-linux)
 
 > *Survive. Build. Defy gravity across the faces of cubic worlds.*
 
@@ -57,14 +59,21 @@ Scattered across the stars are ancient Ring Gates. Step through the shimmering p
 
 ## Quick Play (Pre-built Binaries)
 
-Ready-to-run executables for Linux and Windows are built automatically via GitHub Actions and published under [Releases](../../releases):
+Ready-to-run executables for Linux and Windows are built automatically via GitHub Actions and published under [Releases](../../releases). **For solo play and co-op with friends, players only need the single game file:**
 
+### 1. Game (Solo & Co-op)
+- **Windows**: Download `low-cube-windows.exe` and double-click to play.
 - **Linux**: Download `low-cube-linux`, mark as executable, and run:
   ```bash
   chmod +x low-cube-linux
   ./low-cube-linux
   ```
-- **Windows**: Download `low-cube-windows.exe` and launch directly by double-clicking.
+- **Play Together In-Game**: Press **`Esc`** $\rightarrow$ click **`OPEN CO-OP PORTAL`** (automatically copies your `LC1-...` invite ticket) $\rightarrow$ friends press **`Esc`** $\rightarrow$ **`JOIN CO-OP / SERVER`** $\rightarrow$ **`PASTE (CTRL+V)`** $\rightarrow$ **`JOIN WORLD`**.
+
+### 2. Optional 24/7 Dedicated Server
+Only needed if you want to host a permanent headless server without graphics:
+- **Windows**: Download `low-cube-server-windows.exe` and double-click to start on UDP port `27777` (customizable via [`server.toml`](docs/SETTINGS.md)).
+- **Linux**: Download `low-cube-server-linux`, mark as executable (`chmod +x low-cube-server-linux`), and run `./low-cube-server-linux`.
 
 ---
 

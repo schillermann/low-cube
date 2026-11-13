@@ -260,4 +260,10 @@ impl Avatar for PlanetaryAvatar {
         );
         world.sync_presence(presence);
     }
+
+    fn land_on_world(&mut self, world: &dyn PlanetaryWorld) {
+        self.body.respawn(world);
+        self.sight_line.reset_horizon();
+        self.bearing.reset();
+    }
 }

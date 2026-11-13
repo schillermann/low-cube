@@ -152,11 +152,27 @@ pub enum JoinTarget {
 
 impl JoinTarget {
     pub fn parse(spec: &str) -> Option<Self> {
-        if let Some(ticket) = PortalTicket::decode(spec) {
+        let trimmed = spec.trim();
+        let token = trimmed
+            .rsplit_once("--join")
+            .map_or(trimmed, |(_, rhs)| rhs.trim())
+            .split_whitespace()
+            .last()?;
+        if token.is_empty() {
+            return None;
+        }
+        if let Some(ticket) = PortalTicket::decode(token) {
             return Some(Self::Ticket(ticket));
         }
-        let mut resolved = spec.trim().to_socket_addrs().ok()?;
-        let addr = resolved.find(SocketAddr::is_ipv4).or_else(|| spec.trim().to_socket_addrs().ok()?.next())?;
+        let candidate = if token.contains(':') {
+            token.to_string()
+        } else {
+            format!("{token}:27777")
+        };
+        let mut resolved = candidate.to_socket_addrs().ok()?;
+        let addr = resolved
+            .find(SocketAddr::is_ipv4)
+            .or_else(|| candidate.to_socket_addrs().ok()?.next())?;
         Some(Self::Direct(addr))
     }
 }

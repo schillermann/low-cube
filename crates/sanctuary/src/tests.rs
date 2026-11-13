@@ -218,3 +218,29 @@ fn test_zero_router_config_relay_beacon_connects_guests_behind_strict_nat() {
     }
     assert!(guest.connected(), "Guest must establish E2EE session through RelayBeacon even when direct port is blocked");
 }
+
+#[test]
+fn test_sanctuary_plan_and_join_target_support_zero_flag_player_defaults() {
+    use crate::{SanctuaryEndpoint, SanctuaryPlan, SanctuaryToml};
+
+    let args = vec!["low-cube-server".to_string()];
+    let default_plan = SanctuaryPlan::assembled(&args, &SanctuaryToml::new(String::new()));
+    assert_eq!(
+        default_plan,
+        SanctuaryPlan::new(SanctuaryEndpoint::new(27777, false, BeaconRoute::Unassisted), 128)
+    );
+
+    let toml = SanctuaryToml::new("[world]\nsize = 2\n[server]\nport = 28888\nrelay = \"127.0.0.1:27778\"\n".to_string());
+    let configured = SanctuaryPlan::assembled(&args, &toml);
+    let relay_addr: std::net::SocketAddr = "127.0.0.1:27778".parse().expect("relay");
+    assert_eq!(
+        configured,
+        SanctuaryPlan::new(SanctuaryEndpoint::new(28888, false, BeaconRoute::Assisted(relay_addr)), 256)
+    );
+
+    let default_port_ip: std::net::SocketAddr = "127.0.0.1:27777".parse().expect("default ip");
+    assert_eq!(JoinTarget::parse("127.0.0.1"), Some(JoinTarget::Direct(default_port_ip)));
+    let ticket = PortalTicket::new([7u8; 32], default_port_ip, BeaconRoute::Unassisted);
+    let pasted_line = format!("  Invite Ticket: --join {}  ", ticket.encode());
+    assert_eq!(JoinTarget::parse(&pasted_line), Some(JoinTarget::Ticket(ticket)));
+}

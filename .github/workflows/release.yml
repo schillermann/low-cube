@@ -36,20 +36,23 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build release binary
-        run: cargo build --release -p client
+      - name: Build release binaries
+        run: cargo build --release -p client -p sanctuary
 
-      - name: Prepare executable
+      - name: Prepare executables
         run: |
           mkdir -p dist
           cp target/release/client dist/low-cube-linux
-          chmod +x dist/low-cube-linux
+          cp target/release/sanctuary dist/low-cube-server-linux
+          chmod +x dist/low-cube-linux dist/low-cube-server-linux
 
-      - name: Upload Linux artifact
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: low-cube-linux
-          path: dist/low-cube-linux
+          path: |
+            dist/low-cube-linux
+            dist/low-cube-server-linux
 
   build-windows:
     name: Build Windows
@@ -61,20 +64,23 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build release binary
-        run: cargo build --release -p client
+      - name: Build release binaries
+        run: cargo build --release -p client -p sanctuary
 
-      - name: Prepare executable
+      - name: Prepare executables
         shell: bash
         run: |
           mkdir -p dist
           cp target/release/client.exe dist/low-cube-windows.exe
+          cp target/release/sanctuary.exe dist/low-cube-server-windows.exe
 
-      - name: Upload Windows artifact
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: low-cube-windows
-          path: dist/low-cube-windows.exe
+          path: |
+            dist/low-cube-windows.exe
+            dist/low-cube-server-windows.exe
 
   publish:
     name: Publish Release
@@ -84,20 +90,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Linux executable
+      - name: Download Linux executables
         uses: actions/download-artifact@v4
         with:
           name: low-cube-linux
           path: dist
 
-      - name: Download Windows executable
+      - name: Download Windows executables
         uses: actions/download-artifact@v4
         with:
           name: low-cube-windows
           path: dist
 
       - name: Ensure executable permission
-        run: chmod +x dist/low-cube-linux
+        run: chmod +x dist/low-cube-linux dist/low-cube-server-linux
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
@@ -111,5 +117,7 @@ jobs:
           files: |
             dist/low-cube-linux
             dist/low-cube-windows.exe
+            dist/low-cube-server-linux
+            dist/low-cube-server-windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

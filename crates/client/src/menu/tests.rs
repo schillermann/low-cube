@@ -10,7 +10,10 @@ use crate::celestial::CelestialCadence;
 use crate::controls::ControlAction;
 use crate::posture::AvatarPosture;
 use crate::surface::PlatformSurface;
-use super::{AvatarArchetype, ControlStudio, EscapeMenu, ModalDirective, ScreenPoint, SessionModal, StudioAnimation, TurntableStage, WardrobeStudio};
+use super::{
+    AvatarArchetype, ControlStudio, EscapeMenu, MemoryClipboard, ModalDirective, PausePanel,
+    PortalStudio, ScreenPoint, SessionModal, StudioAnimation, TurntableStage, WardrobeStudio,
+};
 
 struct MockSurface { captured: Cell<bool> }
 impl MockSurface {
@@ -101,7 +104,7 @@ fn test_escape_key_opens_menu_character_stage_and_keybinding_settings() {
     let satchel_btn = ControlStudio::action_bounds(ControlAction::Satchel);
     menu.move_cursor(ScreenPoint::new(satchel_btn.center_x(), satchel_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    assert!(menu.handle_key(winit::keyboard::KeyCode::KeyN, &mut avatar));
+    assert_eq!(menu.handle_key(winit::keyboard::KeyCode::KeyN, false, &mut avatar), ModalDirective::ContinueSession);
     assert!(!avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyN));
 
@@ -203,4 +206,56 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
     let mut next_anim_stage = QuadCapture::empty();
     studio.emit_stage(&mut next_anim_stage);
     assert_ne!(male_stage.positions(), next_anim_stage.positions(), "Clicking animation button in Character Studio must cycle stage animation");
+}
+
+#[test]
+fn test_in_game_menu_supports_portal_hosting_clipboard_paste_and_server_join() {
+    use sanctuary::{BeaconRoute, JoinTarget, PortalTicket};
+    use winit::keyboard::KeyCode;
+
+    let surface = MockSurface::active();
+    let mut avatar = PlanetaryAvatar::at(Vec3::new(0.0, 9.0, 0.0));
+    let addr: std::net::SocketAddr = "127.0.0.1:27777".parse().expect("addr");
+    let sample_ticket = PortalTicket::new([9u8; 32], addr, BeaconRoute::Unassisted);
+    let encoded_ticket = sample_ticket.encode();
+    let mut menu = EscapeMenu::with_custom_portal(PortalStudio::with_clipboard(
+        String::new(),
+        Box::new(MemoryClipboard::seeded(&encoded_ticket)),
+    ));
+
+    menu.toggle_escape(&surface);
+    let pause = PausePanel::new();
+    let host_btn = pause.portal_button();
+    menu.move_cursor(ScreenPoint::new(host_btn.center_x(), host_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::OpenPortal);
+    menu.announce_portal(encoded_ticket.clone());
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+
+    let join_btn = pause.join_portal_button();
+    menu.move_cursor(ScreenPoint::new(join_btn.center_x(), join_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    let mut join_ui = QuadCapture::empty();
+    menu.emit_ui(&avatar, &mut join_ui);
+    assert!(join_ui.count() > 50, "Portal Join panel must render input field and action buttons");
+
+    let paste_btn = PortalStudio::paste_button();
+    menu.move_cursor(ScreenPoint::new(paste_btn.center_x(), paste_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    let connect_btn = PortalStudio::join_button();
+    menu.move_cursor(ScreenPoint::new(connect_btn.center_x(), connect_btn.center_y()));
+    assert_eq!(
+        menu.press_mouse(&surface, &mut avatar),
+        ModalDirective::JoinPortal(JoinTarget::Ticket(sample_ticket))
+    );
+
+    let clear_btn = PortalStudio::clear_button();
+    menu.move_cursor(ScreenPoint::new(clear_btn.center_x(), clear_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    menu.handle_text("127.0.0.1");
+    assert_eq!(
+        menu.handle_key(KeyCode::Enter, false, &mut avatar),
+        ModalDirective::JoinPortal(JoinTarget::Direct(addr))
+    );
+    menu.complete_join(&surface);
+    assert!(!menu.open() && surface.cursor_captured());
 }

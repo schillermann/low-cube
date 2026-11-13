@@ -1,4 +1,15 @@
-# Low-Cube Server Configuration
+# Low-Cube Game & Dedicated Server Configuration
+
+[server]
+# UDP port for the dedicated server (`low-cube-server`, default: 27777).
+port = 27777
+
+# Optional NAT Rendezvous & Encrypted Relay address (e.g. "relay.example.com:27778").
+# Leave empty ("") for direct UDP connections.
+relay = ""
+
+# Set to true to run `low-cube-server` exclusively as a lightweight NAT Relay Beacon.
+relay_only = false
 
 [physics]
 # Planetary gravity (default: 10 for Earth gravity).

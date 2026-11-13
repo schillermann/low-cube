@@ -104,7 +104,7 @@ All code in this project must strictly adhere to **Pure Object-Oriented Programm
   - `BodyPose` & `ArmKinematics` (`attire/pose/mod.rs` & `attire/pose/arms.rs`), `AvatarPosture` (`posture/mod.rs` & `posture/vital.rs`) & `StrideRhythm` / `MartialStyle` (`attire/rhythm/mod.rs` & `attire/rhythm/martial.rs`): 3D joint kinematics, cardiac blackout strain, and polymorphic weapon/digging swings.
   - `SparrowFlock`, `Sparrow` / `SparrowActivity` & `SparrowFigure` (`sparrow/mod.rs`, `sparrow/activity.rs`, `sparrow/mesh.rs`) & `SparrowChirp` (`cardiac/birdsong.rs`): Woodland house sparrows cycling through flight (`Flying`), ground foraging (`GroundPecking`), and tree crown perching (`TreePerched` via `arboreal_perch_near`), plus synthesized 3-syllable birdsong chirps.
   - `ActionBindings` & `InputTrigger` (`controls/mod.rs` & `controls/bindings.rs`): Keyboard, mouse button, and wheel input bindings.
-  - `Session` (`session/mod.rs`, `session/display.rs`, `session/stage.rs`) & `WardrobeStudio` / `StudioLayout` (`menu/studio/mod.rs` & `menu/studio/layout.rs`): Interactive window loop, GPU scene orchestration, and 3D wardrobe preview studio.
+  - `Session` (`session/mod.rs`, `session/display.rs`, `session/stage.rs`), `EscapeMenu` / `PausePanel` / `PortalStudio` (`menu/escape_menu.rs`, `menu/pause_panel.rs`, `menu/portal.rs`, `menu/clipboard.rs`) & `WardrobeStudio` / `StudioLayout` (`menu/studio/mod.rs` & `menu/studio/layout.rs`): Interactive window loop, GPU scene orchestration, in-game Co-op / Server join & clipboard ticket menu, and 3D wardrobe preview studio.
 
 ---
 

@@ -30,12 +30,22 @@ All server configurations follow the **Principle of Static Configuration on Star
 
 ## 2. Configuration File: `server.toml` (Recommended)
 
-Place a `server.toml` file in the same directory as the game executable (`low-cube-linux` or `low-cube-windows.exe`).
+Place a `server.toml` file in the same directory as the game executable (`low-cube-linux` / `low-cube-windows.exe`) or dedicated server executable (`low-cube-server-linux` / `low-cube-server-windows.exe`).
 
 ### Example `server.toml`
 
 ```toml
-# Low-Cube Server Configuration
+# Low-Cube Game & Dedicated Server Configuration
+
+[server]
+# UDP port for `low-cube-server` (default: 27777)
+port = 27777
+
+# Optional NAT Rendezvous & Encrypted Relay address (e.g. "relay.example.com:27778")
+relay = ""
+
+# Set to true to run `low-cube-server` exclusively as an encrypted NAT Relay Beacon
+relay_only = false
 
 [physics]
 # Planetary gravity (default: 10 for Earth gravity)

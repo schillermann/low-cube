@@ -1,59 +1,83 @@
 # Multiplayer & Subterranean Mining Guide
 
-Play **Low-Cube** solo offline, open a spontaneous co-op portal for friends without touching router settings, or host a persistent dedicated World-Cube on the internet.
+Play **Low-Cube** solo offline, open a spontaneous co-op portal for friends directly from the in-game menu without touching router settings, or run a persistent 24/7 dedicated server.
 
 ---
 
-## 1. Quick Start: Playing Together
+## 1. Playing Together (One Game File — No Terminal Needed)
 
-### Option A: Open a Co-op Portal In-Game (No Router Setup)
-1. Start the game normally (`./low-cube-linux` or `cargo run -p client`).
-2. Press **`Esc`** and click **`OPEN CO-OP PORTAL`** (or launch directly with `--host`).
-3. Copy the **`LC1-...` Invite Ticket** printed in the console (and previewed on the Pause Menu).
-4. Friends join immediately with:
-   ```bash
-   cargo run -p client -- --join LC1-...
-   ```
-   *Neither host nor guest needs to configure router port-forwarding when using a Relay Beacon (`--relay <host:port>` or `LOWCUBE_RELAY=<host:port>`).*
+For normal solo and co-op sessions, every player only needs the game executable (`low-cube-windows.exe` or `low-cube-linux`).
 
-### Option B: Dedicated Public Internet Server (`sanctuary`)
-Run a headless 24/7 World-Cube server that anyone with the address or ticket can join:
-```bash
-# Start authoritative World-Cube server on UDP 27777 (default: 64 blocks/edge)
-cargo run -p sanctuary -- --port 27777 --blocks 64
+### Host a Co-op World
+1. Launch `low-cube-windows.exe` (or `./low-cube-linux`).
+2. Press **`Esc`** to open the Main Menu and click **`OPEN CO-OP PORTAL`**.
+3. Your **`LC1-...` Invite Ticket** is **automatically copied to your clipboard** (click **`COPY INVITE TICKET`** anytime to copy it again).
+4. Paste (`Ctrl+V`) the ticket to your friends in Discord, Steam, or chat.
 
-# Players join by IP/domain or by Invite Ticket:
-cargo run -p client -- --join play.example.com:27777
-```
-
-To operate a lightweight NAT Rendezvous & Encrypted Relay node for home hosts behind CGNAT/DS-Lite:
-```bash
-cargo run -p sanctuary -- --relay-only --port 27778
-```
+### Join a Friend's World or Public Server
+1. Launch `low-cube-windows.exe` (or `./low-cube-linux`).
+2. Press **`Esc`** and click **`JOIN CO-OP / SERVER`**.
+3. Click **`PASTE (CTRL+V)`** to insert your friend's `LC1-...` ticket—or type a server address such as `play.example.com` or `192.168.1.50:27777`.
+4. Click **`JOIN WORLD (ENTER)`** (or press **`Enter`**) to land directly on the shared World-Cube.
 
 ---
 
-## 2. CLI & Environment Reference
+## 2. Hosting a 24/7 Dedicated Server (`low-cube-server`)
 
-| Command / Flag | Purpose |
+If you want a permanent world running on a home server or headless Linux VPS (no GPU or display required), download the standalone server executable from [Releases](../../releases):
+
+- **Windows**: Double-click `low-cube-server-windows.exe`.
+- **Linux**:
+  ```bash
+  chmod +x low-cube-server-linux
+  ./low-cube-server-linux
+  ```
+
+By default, the server starts a `128 × 128 × 128` World-Cube (`size = 1`) on UDP port **`27777`** and prints both its direct address and an `LC1-...` invite ticket.
+
+### Customizing via `server.toml` (No Command-Line Flags Required)
+Place an optional `server.toml` file in the same folder as `low-cube-server-windows.exe` / `low-cube-server-linux` and restart the server:
+
+```toml
+[server]
+port = 27777
+relay = ""          # Optional NAT relay address, e.g. "relay.example.com:27778"
+relay_only = false  # Set true to run as an encrypted NAT Relay Beacon
+
+[world]
+size = 1            # 1 = 128^3 blocks, 2 = 256^3 blocks
+cycle = 20
+```
+
+See the [Server & Game Settings Guide](SETTINGS.md) for all world, gravity, and aurora options.
+
+---
+
+## 3. Optional Launch Shortcuts (Advanced)
+
+Players and server operators who prefer desktop shortcuts or startup scripts can also pass optional flags to the executables:
+
+| Executable & Flag | Purpose |
 |---|---|
-| *(no flags)* | Offline Singleplayer (0 sockets, instant `Esc` pause). |
-| `--host` | Start as an authoritative Co-op Host and print an `LC1-...` ticket. |
-| `--port <udp>` | Bind a fixed UDP port when hosting (`--host --port 27777`). |
-| `--join <LC1-... \| host:port>` | Connect to a friend's portal ticket or a public server (`LOWCUBE_JOIN`). |
-| `--relay <host:port>` | Assist `--host` / Pause-Menu portals with NAT hole-punching & encrypted relay (`LOWCUBE_RELAY`). |
+| *(no flags)* | Launch offline singleplayer (`low-cube`) or default UDP `27777` server (`low-cube-server`). |
+| `--host` | Automatically open a co-op portal on game launch and copy the `LC1-...` ticket. |
+| `--port <udp>` | Bind a specific UDP port (`--host --port 27777` or on `low-cube-server`). |
+| `--join <LC1-... \| host[:port]>` | Join a friend's ticket or server directly on startup (`LOWCUBE_JOIN`). |
+| `--relay <host:port>` | Assist NAT hole-punching & encrypted relay fallback (`LOWCUBE_RELAY`). |
+
+*(Compiling and launching from Rust source via `cargo` is documented in the [Developer Guide](DEVELOPMENT.md).)*
 
 ---
 
-## 3. Subterranean Geology & Fair Mining
+## 4. Subterranean Geology & Fair Mining
 
-All six cube faces can be worked solo or cooperatively on the same face. Beneath the surface turf lies a stratified mantle above the indestructible molten core ([`CrustVault`](../crates/world/src/relief/crust_vault/mod.rs)):
+All six cube faces can be worked solo or cooperatively on the same face. Beneath the surface turf lies a stratified mantle above the indestructible molten core:
 
 | Ore | Geological Stratum | Weight Grade | Primary Crafting Uses (`C`) |
 |---|---|---|---|
 | **Copper Ore** | Upper-to-mid mantle (`2–4` layers below surface) | `WEIGHTY` | **Steering Wheel**, **Field Camera**, **Plane Engine** |
 | **Iron Ore** | Mid-to-deep mantle (`5+` layers below surface) | `WEIGHTY` | **Plane Engine**, **Rocket Engine** |
-| **Gold Ore** | Deep core boundary (`0–3` layers above `CrustVault`) | `HEAVY` | **Field Camera**, **Rocket Engine** |
+| **Gold Ore** | Deep core boundary (`0–3` layers above core vault) | `HEAVY` | **Field Camera**, **Rocket Engine** |
 
 ### Fair-Play Protections
 - **X-Ray Proof**: Hidden ores do not exist on client machines until an adjacent shaft wall or floor block is physically excavated.

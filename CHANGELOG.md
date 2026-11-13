@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-11-13
+
+### Added
+- Added in-game `JOIN CO-OP / SERVER` studio (`PortalStudio` in `crates/client/src/menu/portal.rs`, `PausePanel` in `crates/client/src/menu/pause_panel.rs`, and `EscapeMenu` in `crates/client/src/menu/escape_menu.rs`) with cross-platform clipboard copy/paste (`SystemClipboard` in `crates/client/src/menu/clipboard.rs`), keyboard address/ticket entry, live target validation, and hot world-swap connection (`PortalConfig::join_live_portal` and `Avatar::land_on_world`).
+- Added zero-flag `server.toml` configuration support (`SanctuaryToml`, `SanctuaryEndpoint`, `SanctuaryPlan` in `crates/sanctuary/src/config.rs`) with `128`-block (`size = 1`) default scale and default `:27777` port resolution on bare hostnames in `JoinTarget::parse` (`crates/sanctuary/src/ticket.rs`).
+- Added pre-built standalone dedicated server executables (`low-cube-server-linux` and `low-cube-server-windows.exe`) alongside the game executables in `.github/workflows/release.yml`.
+
+### Changed
+- Separated player-facing single-file & server documentation (`README.md`, `docs/MULTIPLAYER.md`, `docs/SETTINGS.md`, `server.toml`) from developer `cargo run` workflows (`docs/DEVELOPMENT.md`).
+
 ## [0.66.0] - 2026-11-13
 
 ### Added

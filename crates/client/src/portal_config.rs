@@ -64,9 +64,9 @@ impl PortalConfig {
                 let host = SanctuaryHost::bind(&bind_spec, local_authoritative(), blocks, tron_active, beacon)
                     .expect("Failed to bind multiplayer SanctuaryHost UDP socket");
                 let ticket = host.ticket().encode();
-                println!("=== WORLD-CUBE CO-OP PORTAL OPEN ===");
-                println!("Direct LAN:    --join {}", host.ticket().direct());
-                println!("Invite Ticket: --join {ticket}");
+                println!("=== LOW-CUBE CO-OP PORTAL OPEN ===");
+                println!("Direct Address: {}", host.ticket().direct());
+                println!("Invite Ticket:  {ticket}");
                 Box::new(HostedPlanet::new(host))
             }
             Self::JoinRemote { target } => {
@@ -81,16 +81,27 @@ impl PortalConfig {
     /// Wraps an already-running solitary `PlanetaryWorld` inside `HostedPlanet` on demand from the Pause Menu.
     pub fn open_live_portal(world: Box<dyn PlanetaryWorld>, blocks: u32, tron_active: bool) -> (Box<dyn PlanetaryWorld>, String) {
         if let Some(existing) = world.portal_ticket() {
-            println!("=== WORLD-CUBE CO-OP PORTAL TICKET ===\n--join {existing}");
+            println!("=== LOW-CUBE CO-OP PORTAL TICKET ===\n{existing}");
             return (world, existing);
         }
         let beacon = Self::resolve_beacon(&CommandFlags::process());
         let host = SanctuaryHost::bind("0.0.0.0:0", world, blocks, tron_active, beacon)
             .expect("Failed to bind live co-op portal socket");
         let ticket = host.ticket().encode();
-        println!("=== WORLD-CUBE CO-OP PORTAL OPEN ===");
-        println!("Direct LAN:    --join {}", host.ticket().direct());
-        println!("Invite Ticket: --join {ticket}");
+        println!("=== LOW-CUBE CO-OP PORTAL OPEN ===");
+        println!("Direct Address: {}", host.ticket().direct());
+        println!("Invite Ticket:  {ticket}");
         (Box::new(HostedPlanet::new(host)), ticket)
+    }
+
+    /// Connects in-game from the Pause Menu to a friend's invite ticket or dedicated server address.
+    pub fn join_live_portal(
+        target: JoinTarget,
+        blocks: u32,
+        tron_active: bool,
+    ) -> std::io::Result<Box<dyn PlanetaryWorld>> {
+        let remote = RemotePlanet::connect(target, blocks, tron_active, 1.0)?;
+        println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
+        Ok(Box::new(remote))
     }
 }

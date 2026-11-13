@@ -1,6 +1,7 @@
 mod beacon;
 mod chronicle_log;
 mod cohort;
+mod config;
 mod envelope;
 mod hosted_planet;
 mod link_state;
@@ -17,6 +18,7 @@ mod tests;
 pub use beacon::RelayBeacon;
 pub use chronicle_log::{ChronicleLog, DirtySlices};
 pub use cohort::{GuestCohort, HostIdentity, HostPresence, HostState};
+pub use config::{SanctuaryEndpoint, SanctuaryPlan, SanctuaryToml};
 pub use envelope::{CrackNotice, SanctuaryEnvelope};
 pub use hosted_planet::HostedPlanet;
 pub use remote_link::RemoteLink;

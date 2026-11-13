@@ -87,7 +87,7 @@ impl Session for GameSession {
                     if pressed {
                         if button == MouseButton::Middle {
                             self.stage.handle_modal_trigger(InputTrigger::WheelClick);
-                        } else if matches!(self.stage.press_modal_mouse(self.display.surface(), self.display.tron_enabled()), ModalDirective::ExitGame) {
+                        } else if matches!(self.stage.press_modal_mouse(&mut self.display), ModalDirective::ExitGame) {
                             event_loop.exit();
                         }
                     } else {
@@ -134,11 +134,21 @@ impl Session for GameSession {
                     self.dispatch_gameplay_trigger(trigger, false);
                 }
             }
+            WindowEvent::ModifiersChanged(modifiers) => {
+                let state = modifiers.state();
+                self.stage.update_ctrl(state.control_key() || state.super_key());
+            }
             WindowEvent::KeyboardInput {
-                event: KeyEvent { physical_key: PhysicalKey::Code(code), state, .. },
+                event: KeyEvent { physical_key: PhysicalKey::Code(code), state, text, .. },
                 ..
             } => {
                 let pressed = state == ElementState::Pressed;
+                if matches!(
+                    code,
+                    KeyCode::ControlLeft | KeyCode::ControlRight | KeyCode::SuperLeft | KeyCode::SuperRight
+                ) {
+                    self.stage.update_ctrl(pressed);
+                }
                 if code == KeyCode::Escape {
                     if pressed {
                         self.stage.toggle_escape(self.display.surface());
@@ -147,7 +157,15 @@ impl Session for GameSession {
                 }
                 if self.stage.modal_open() {
                     if pressed {
-                        self.stage.handle_modal_key(code);
+                        if matches!(self.stage.handle_modal_key(code, &mut self.display), ModalDirective::ExitGame) {
+                            event_loop.exit();
+                            return;
+                        }
+                        if !self.stage.ctrl_active() {
+                            if let Some(chars) = text.as_deref() {
+                                self.stage.handle_modal_text(chars);
+                            }
+                        }
                     }
                     return;
                 }
