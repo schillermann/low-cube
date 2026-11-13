@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-11-13
+
+### Added
+- Added bottom-right compile-time release version watermark (`VersionStamp` in `crates/client/src/menu/version_stamp.rs`, `PixelStamp::emit_bottom_right` in `crates/client/src/menu/glyph.rs`, and `StudioPanels::emit_ui` in `crates/client/src/menu/escape_menu/panels.rs`) rendered with a 1-pixel contrast shadow across all open Escape menu views while remaining hidden during gameplay.
+
 ## [0.68.1] - 2026-11-13
 
 ### Fixed

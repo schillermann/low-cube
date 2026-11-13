@@ -243,13 +243,7 @@ impl SessionModal for EscapeMenu {
     }
 
     fn emit_ui(&self, avatar: &dyn Avatar, target: &mut dyn MeshTarget) {
-        match self.phase {
-            ModalPhase::Gameplay => avatar.emit_reticle(target),
-            ModalPhase::EscapePause => PausePanel::new().emit(self.pointer, &self.panels.portal, target),
-            ModalPhase::CharacterWardrobe => self.panels.studio.emit_overlay(target),
-            ModalPhase::ControlSettings => self.panels.settings.emit_overlay(target),
-            ModalPhase::PortalJoin => self.panels.portal.emit_overlay(self.pointer, target),
-        }
+        self.panels.emit_ui(self.phase, self.pointer, avatar, target);
     }
 
     fn emit_studio(&self, target: &mut dyn MeshTarget) {

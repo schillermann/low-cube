@@ -1,9 +1,14 @@
 use glam::{Mat4, Vec3};
 use glow::HasContext;
 use engine::{CpuMeshBatch, Mesh, ShaderProgram};
+use world::MeshTarget;
+use crate::avatar::Avatar;
+use crate::menu::pause_panel::PausePanel;
 use crate::menu::portal::PortalStudio;
 use crate::menu::settings::ControlStudio;
 use crate::menu::studio::WardrobeStudio;
+use crate::menu::version_stamp::VersionStamp;
+use crate::menu::widget::ScreenPoint;
 
 /// Polymorphic modal state machine for gameplay, Escape pause menu, Character studio, Settings, and Co-op join.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,6 +31,34 @@ impl StudioPanels {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub(super) fn new(studio: WardrobeStudio, settings: ControlStudio, portal: PortalStudio) -> Self {
         Self { studio, settings, portal }
+    }
+
+    pub(super) fn emit_ui(
+        &self,
+        phase: ModalPhase,
+        pointer: ScreenPoint,
+        avatar: &dyn Avatar,
+        target: &mut dyn MeshTarget,
+    ) {
+        match phase {
+            ModalPhase::Gameplay => avatar.emit_reticle(target),
+            ModalPhase::EscapePause => {
+                PausePanel::new().emit(pointer, &self.portal, target);
+                VersionStamp::current().emit(target);
+            }
+            ModalPhase::CharacterWardrobe => {
+                self.studio.emit_overlay(target);
+                VersionStamp::current().emit(target);
+            }
+            ModalPhase::ControlSettings => {
+                self.settings.emit_overlay(target);
+                VersionStamp::current().emit(target);
+            }
+            ModalPhase::PortalJoin => {
+                self.portal.emit_overlay(pointer, target);
+                VersionStamp::current().emit(target);
+            }
+        }
     }
 
     pub(super) fn draw_overlay(

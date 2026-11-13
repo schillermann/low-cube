@@ -88,6 +88,17 @@ impl PixelStamp {
         self.emit_on_frame(text, center_x, center_y, 0.0, &ortho, target);
     }
 
+    /// Emits right-aligned text string anchored by its bottom-right pixel corner in Normalized Device Coordinates.
+    pub fn emit_bottom_right(&self, text: &str, right_x: f32, bottom_y: f32, target: &mut dyn MeshTarget) {
+        let count = text.chars().count() as f32;
+        if count <= 0.0 {
+            return;
+        }
+        let total_w = count * (self.cell_w * 4.0) - self.cell_w;
+        let total_h = self.cell_h * 5.0;
+        self.emit_centered(text, right_x - total_w * 0.5, bottom_y + total_h * 0.5, target);
+    }
+
     /// Emits centered text string onto a local 3D LimbFrame plane at depth z.
     pub fn emit_on_frame(&self, text: &str, center_x: f32, center_y: f32, z: f32, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let count = text.chars().count() as f32;

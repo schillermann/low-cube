@@ -18,6 +18,7 @@ mod stage;
 mod studio;
 #[cfg(test)]
 mod tests;
+mod version_stamp;
 mod widget;
 
 #[cfg(test)]
@@ -38,6 +39,8 @@ pub use settings::ControlStudio;
 pub use stage::{StudioAnimation, TurntableStage};
 #[cfg(test)]
 pub use studio::WardrobeStudio;
+#[cfg(test)]
+pub use version_stamp::VersionStamp;
 pub use widget::ScreenPoint;
 
 /// Directive returned when interacting with the Escape menu, Character studio, Settings, or Portal panel.

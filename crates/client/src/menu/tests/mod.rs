@@ -14,7 +14,7 @@ use crate::posture::AvatarPosture;
 use crate::surface::PlatformSurface;
 use super::{
     AvatarArchetype, ControlStudio, EscapeMenu, ModalDirective, ScreenPoint, SessionModal,
-    StudioAnimation, TurntableStage, WardrobeStudio,
+    StudioAnimation, TurntableStage, VersionStamp, WardrobeStudio,
 };
 
 pub(super) struct MockSurface { captured: Cell<bool> }
@@ -208,4 +208,45 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
     let mut next_anim_stage = QuadCapture::empty();
     studio.emit_stage(&mut next_anim_stage);
     assert_ne!(male_stage.positions(), next_anim_stage.positions(), "Clicking animation button in Character Studio must cycle stage animation");
+}
+
+#[test]
+fn test_open_menu_displays_crate_version_in_bottom_right_corner() {
+    let surface = MockSurface::active();
+    let avatar = PlanetaryAvatar::at(Vec3::new(0.0, 9.0, 0.0));
+    let mut menu = EscapeMenu::closed();
+
+    let mut gameplay_ui = QuadCapture::empty();
+    menu.emit_ui(&avatar, &mut gameplay_ui);
+    let gameplay_corner = gameplay_ui
+        .positions()
+        .into_iter()
+        .any(|v| v.x > 0.80 && v.y < -0.90);
+    assert!(!gameplay_corner, "Closed gameplay HUD must not display menu version stamp");
+
+    let mut stamp_only = QuadCapture::empty();
+    VersionStamp::current().emit(&mut stamp_only);
+    assert!(stamp_only.count() > 20, "VersionStamp must emit pixel quads for crate version");
+    let all_verts: Vec<Vec3> = stamp_only
+        .quads
+        .iter()
+        .flat_map(|q| q.transfer(|v0, v1, v2, v3, _, _| [v0, v1, v2, v3]))
+        .collect();
+    let max_x = all_verts.iter().map(|v| v.x).fold(f32::NEG_INFINITY, f32::max);
+    let min_x = all_verts.iter().map(|v| v.x).fold(f32::INFINITY, f32::min);
+    let min_y = all_verts.iter().map(|v| v.y).fold(f32::INFINITY, f32::min);
+    let max_y = all_verts.iter().map(|v| v.y).fold(f32::NEG_INFINITY, f32::max);
+    assert!(min_x > 0.75 && max_x <= 1.0 && (max_x - 0.983).abs() < 0.01);
+    assert!(min_y >= -1.0 && max_y < -0.90 && (min_y - (-0.976)).abs() < 0.01);
+
+    menu.toggle_escape(&surface);
+    let mut pause_ui = QuadCapture::empty();
+    menu.emit_ui(&avatar, &mut pause_ui);
+    let pause_positions = pause_ui.positions();
+    for v in stamp_only.positions() {
+        assert!(
+            pause_positions.contains(&v),
+            "Opening Escape menu must render the version number in the bottom-right corner"
+        );
+    }
 }
