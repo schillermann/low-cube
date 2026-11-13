@@ -218,3 +218,36 @@ fn test_spade_and_dirt_block_replaces_held_block_when_excavating_different_mediu
     satchel_after_wheel.with_stowed_relic(HeldRelic::CarWheel, 7).with_open(true).emit_for_attire(&pose, attire_after_wheel, &mut tray_eight);
     assert_ne!(tray_one.quads.len(), tray_eight.quads.len());
 }
+
+#[test]
+fn test_handheld_crane_baseplate_and_pedestal_ring_emit_orthogonal_square_plinths() {
+    let hand = super::limb::LimbFrame::new(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::NEG_Z);
+    let mut ledger = QuadLedger::empty();
+    HeldRelic::CantileverCrane.figure(world::BlockMold::cube()).emit_in_palm(1.0, &hand, &mut ledger);
+    let (stone, iron_steel, timber_dark) = (Vec3::new(0.52, 0.54, 0.58), Vec3::new(0.42, 0.46, 0.52), Vec3::new(0.54, 0.38, 0.20));
+    let mut stone_normals = Vec::new();
+    let (mut stone_span, mut steel_quads, mut brace_flanks) = (0.0_f32, 0_usize, 0_usize);
+    let mut ring_square_top = false;
+    for q in &ledger.quads {
+        q.transfer(|v0, v1, v2, v3, n, col| {
+            if (col - stone).length_squared() < 1e-6 {
+                assert!((v2 - v3).length_squared() > 1e-5, "Stone baseplate must emit full rectangular quads");
+                stone_span = stone_span.max((v1 - v0).length());
+                stone_normals.push(n);
+            } else if (col - iron_steel).length_squared() < 1e-6 && (v2 - v3).length_squared() > 1e-5 {
+                let (ea, eb) = (v1 - v0, v3 - v0);
+                steel_quads += 1;
+                ring_square_top |= (ea.length() - 0.030).abs() < 1e-4 && (ea.length() - eb.length()).abs() < 1e-5 && ea.dot(eb).abs() < 1e-5;
+            } else if (col - timber_dark).length_squared() < 1e-6 && (v2 - v3).length_squared() > 1e-5 {
+                brace_flanks += 1;
+            }
+        });
+    }
+    assert_eq!(stone_normals.len(), 6, "Square crane baseplate must emit 6 orthogonal box faces");
+    assert!((stone_span - 0.054).abs() < 1e-4, "Stone baseplate must be compact and proportional to the crane mast, got {stone_span}");
+    assert!(
+        stone_normals.iter().all(|a| stone_normals.iter().all(|b| a.dot(*b).abs() < 1e-4 || (a.dot(*b).abs() - 1.0).abs() < 1e-4)),
+        "Stone baseplate faces must meet at 90-degree angles"
+    );
+    assert!(ring_square_top && steel_quads == 4 && brace_flanks == 3, "Pedestal ring, mast/crossbar iron shoes, and timber-iron sloped knee brace must match placed crane");
+}

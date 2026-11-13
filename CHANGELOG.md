@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.65.2] - 2026-11-13
+
+### Fixed
+- Aligned the handheld and showcase cantilever crane geometry (`RelicFigure::emit_cantilever` in `crates/client/src/attire/relic/mesh.rs`) with the placed crane (`RigGeometry::emit`) via `SquarePlinth` and `SlopedBeam` (`crates/client/src/attire/relic/plinth.rs`), replacing the octagonal baseplate, hexagonal collar, and round steel rod with a compact square stone baseplate, square forged-iron pedestal ring, mast/crossbar iron shoes, and a rectangular timber-and-iron sloped knee brace (`crates/client/src/attire/tests/mod.rs`).
+
 ## [0.65.1] - 2026-11-13
 
 ### Fixed

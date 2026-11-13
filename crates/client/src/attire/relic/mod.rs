@@ -1,4 +1,5 @@
 mod mesh;
+mod plinth;
 
 use world::{BlockMedium, BlockMold};
 pub use super::rhythm::MartialStyle;

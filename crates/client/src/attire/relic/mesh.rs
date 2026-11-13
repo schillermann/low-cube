@@ -2,6 +2,7 @@ use glam::Vec3;
 use world::{BlockMold, MeshTarget, Quad};
 use super::super::compartment::{CompartmentBackplate, ShowcasedCompartment, SlotPlaque};
 use super::super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
+use super::plinth::{SlopedBeam, SquarePlinth};
 use super::HeldRelic;
 
 struct LitSlotTarget<'a> {
@@ -69,21 +70,26 @@ impl RelicFigure {
     }
 
     fn emit_cantilever(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
-        let (stone, iron_dark, iron_steel, timber, brass, amber) = (
-            Vec3::new(0.54, 0.56, 0.60),
-            Vec3::new(0.26, 0.30, 0.36),
-            Vec3::new(0.44, 0.48, 0.54),
+        let (stone, iron_dark, iron_steel, timber, timber_dark, brass, amber) = (
+            Vec3::new(0.52, 0.54, 0.58),
+            Vec3::new(0.24, 0.27, 0.32),
+            Vec3::new(0.42, 0.46, 0.52),
             Vec3::new(0.76, 0.56, 0.32),
+            Vec3::new(0.54, 0.38, 0.20),
             Vec3::new(0.88, 0.72, 0.28),
             Vec3::new(0.98, 0.68, 0.18),
         );
-        TaperedPrism::new(8, Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.016, 0.0), 0.046, 0.046, 0.042, 0.042, stone).emit(cradle, true, target);
-        TaperedPrism::new(6, Vec3::new(-0.022, 0.014, 0.0), Vec3::new(-0.022, 0.032, 0.0), 0.020, 0.020, 0.018, 0.018, iron_dark).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(-0.022, 0.026, 0.0), Vec3::new(-0.022, 0.165, 0.0), 0.012, 0.011, timber).emit(cradle, true, target);
+        SquarePlinth::new((Vec3::new(-0.037, 0.0, -0.027), Vec3::new(0.017, 0.009, 0.027)), (stone, stone)).emit(cradle, true, target);
+        SquarePlinth::new((Vec3::new(-0.037, 0.009, -0.015), Vec3::new(-0.007, 0.020, 0.015)), (iron_dark, iron_steel)).emit(cradle, false, target);
+        AxialLimb::new(Vec3::new(-0.022, 0.017, 0.0), Vec3::new(-0.022, 0.165, 0.0), 0.012, 0.011, timber).emit(cradle, true, target);
         TaperedPrism::new(6, Vec3::new(-0.022, 0.105, 0.0), Vec3::new(-0.022, 0.136, 0.0), 0.016, 0.016, 0.016, 0.016, iron_dark).emit(cradle, true, target);
         AxialLimb::new(Vec3::new(-0.022, 0.120, -0.020), Vec3::new(-0.022, 0.120, 0.020), 0.007, 0.007, brass).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(-0.022, 0.068, 0.0), Vec3::new(0.024, 0.122, 0.0), 0.008, 0.008, iron_steel).emit(cradle, true, target);
         AxialLimb::new(Vec3::new(-0.026, 0.122, 0.0), Vec3::new(0.056, 0.122, 0.0), 0.010, 0.010, timber).emit(cradle, true, target);
+        SquarePlinth::new((Vec3::new(-0.0355, 0.062, -0.0135), Vec3::new(-0.0085, 0.075, 0.0135)), (iron_dark, iron_steel)).emit(cradle, true, target);
+        SquarePlinth::new((Vec3::new(0.015, 0.110, -0.0115), Vec3::new(0.029, 0.134, 0.0115)), (iron_dark, iron_steel)).emit(cradle, true, target);
+        let brace_ends = (Vec3::new(-0.020, 0.069, 0.0), Vec3::new(0.022, 0.120, 0.0));
+        SlopedBeam::new(brace_ends, (0.0052, 0.0056), (timber_dark, timber)).emit(cradle, false, target);
+        SlopedBeam::new(brace_ends, (0.0025, 0.0066), (iron_dark, iron_steel)).emit(cradle, false, target);
         TaperedPrism::new(6, Vec3::new(0.054, 0.102, 0.0), Vec3::new(0.054, 0.142, 0.0), 0.012, 0.022, 0.012, 0.022, iron_dark).emit(cradle, true, target);
         TaperedPrism::new(6, Vec3::new(0.062, 0.108, 0.0), Vec3::new(0.062, 0.136, 0.0), 0.010, 0.016, 0.010, 0.016, amber).emit(cradle, true, target);
     }

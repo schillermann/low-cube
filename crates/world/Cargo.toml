@@ -1,6 +1,6 @@
 [package]
 name = "world"
-version = "0.65.1"
+version = "0.65.2"
 edition = "2021"
 
 [dependencies]
