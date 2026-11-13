@@ -41,41 +41,41 @@ Examples: `dirt_stair`, `stone_wedge`, `sand_gentle_lower_wedge`, `dark_stone_cu
 | `dirt` | **Dirt (Loam)** | **`MODERATE`** | `Vec3(0.48, 0.35, 0.22)` | [`DirtBlock`](../crates/world/src/block/material/dirt.rs) | Fertile topsoil, temperate valleys (`EARTH BLOCK`). |
 | `sand` | **Sand** | **`MODERATE`** | `Vec3(0.85, 0.75, 0.35)` | [`SandBlock`](../crates/world/src/block/material/sand.rs) | Warm desert sand, dune landscapes (`EARTH BLOCK`). |
 | `snow` | **Snow** | **`MODERATE`** | `Vec3(0.92, 0.95, 0.98)` | [`SnowBlock`](../crates/world/src/block/material/snow.rs) | Crystalline alpine snow, polar ice caps. |
-| `stone` | **Stone (Granite)** | **`HEAVY`** | `Vec3(0.48, 0.50, 0.46)` | [`StoneBlock::natural`](../crates/world/src/block/material/stone.rs) | Alpine rock, mountain ranges (`STONE BLOCK`). |
+| `stone` | **Stone (Granite)** | **`WEIGHTY`** | `Vec3(0.48, 0.50, 0.46)` | [`StoneBlock::natural`](../crates/world/src/block/material/stone.rs) | Alpine rock, mountain ranges (`STONE BLOCK`). |
 | `dark_stone` | **Dark Stone (Shale)** | **`HEAVY`** | `Vec3(0.35, 0.42, 0.35)` | [`StoneBlock::dark`](../crates/world/src/block/material/stone.rs) | Dark volcanic rock, planetary crust (`CRUST BLOCK`). |
 | `lava` | **Lava / Magma** | — *(Indestructible)* | `Vec3(0.95, 0.28, 0.05)` | [`MaterialBlock`](../crates/world/src/block/material/material_block.rs) | Glowing lethal magma core floor. |
 
 ### 2.1 Satchel Blocks & Items — Weight Catalog ([`WeightGrade`](../crates/client/src/attire/burden.rs))
 
-Every harvestable block, vehicle component, foraged resource, tool, and weapon in [`HeldRelic`](../crates/client/src/attire/relic/mod.rs) carries one of three English weight grades (**`LIGHT`**, **`MODERATE`**, **`HEAVY`**) encapsulated in [`SlotBurden`](../crates/client/src/attire/burden.rs) and [`SatchelBurden`](../crates/client/src/attire/burden.rs):
+Every harvestable block, vehicle component, foraged resource, tool, and weapon in [`HeldRelic`](../crates/client/src/attire/relic/mod.rs) carries one of four English weight grades (**`LIGHT`**, **`MODERATE`**, **`WEIGHTY`**, **`HEAVY`**) encapsulated in [`SlotBurden`](../crates/client/src/attire/burden.rs) and [`SatchelBurden`](../crates/client/src/attire/burden.rs):
 
-- **All 15 Satchel Slots Visible**: Opening the waist satchel (<kbd>Tab</kbd>) always renders the complete `3 × 5` grid (**15 slots**), whether occupied or empty, with free `WASD` cursor navigation across all compartments.
-- **Stack Summation & Top-Left Corner Triangle**: Stacking multiple blocks or items in a single slot sums their unit mass (`total_mass = unit_mass × count`), escalating the slot's effective grade (`0..=2` -> **`LIGHT`**, `3..=5` -> **`MODERATE`**, `>= 6` -> **`HEAVY`**, e.g. `LIGHT -> HEAVY`) and shifting the color of the unframed triangle in the **top-left corner** of the slot box from **Emerald Green** (`LIGHT`) through **Warm Amber** (`MODERATE`) to **Crimson Red / Deep Ruby** (`HEAVY` and heavy stacks).
+- **All 15 Satchel Slots + Top-Right Hanging Sack**: Opening the waist satchel (<kbd>Tab</kbd>) always renders the complete `3 × 5` grid (**15 slots**) with an unframed 3D [`HangingSack`](../crates/client/src/attire/sack.rs) hanging directly from the **top-right slot corner tip** (without character or background plaque) that bulges outward to the right and hangs progressively lower down alongside the palette as carried weight increases.
+- **10-Step Slot Escalation (`+1 Tier Every 10 Items`)**: Within each slot, `1..=9` items keep their base grade, `10..=19` step `+1` tier higher, `20..=29` step `+2` tiers higher, and `30+` step `+3` tiers higher (`LIGHT -> MODERATE -> WEIGHTY -> HEAVY`), shifting both the legend text and the top-left corner triangle color.
 - **Locomotion & Jump Encumbrance**: Total carried inventory mass across both hands and all stowed satchel slots continuously reduces player movement speed (`SatchelBurden::scale_pace`) and peak jump height (`SatchelBurden::scale_leap`).
 
-| Satchel Title | Rust Variant (`HeldRelic` / `BlockMedium`) | Category | Weight Grade | Unit Mass | Corner Triangle Color (1×) |
+| Satchel Title | Rust Variant (`HeldRelic` / `BlockMedium`) | Category | Weight Grade | 10-Step Escalation | Corner Triangle Color (1–9×) |
 |---|---|---|:---:|:---:|:---:|
-| **`WOOD PLANKS`** | `HeldRelic::PlankBlock` / `BlockMedium::PlanedPlanks` | Building Block | **`LIGHT`** | `1` | Emerald Green |
-| **`STEERING WHEEL`** | `HeldRelic::SteeringWheel` / `BlockMedium::SteeringWheel` | Vehicle Block | **`LIGHT`** | `1` | Emerald Green |
-| **`PEDAL BLOCK`** | `HeldRelic::PedalCluster` / `BlockMedium::PedalCluster` | Vehicle Block | **`LIGHT`** | `1` | Emerald Green |
-| **`FIELD CAMERA`** | `HeldRelic::FieldCamera` / `BlockMedium::FieldCamera` | Apparatus / Block | **`LIGHT`** | `1` | Emerald Green |
-| **`DEADWOOD`** | `HeldRelic::DeadwoodBough` | Foraged Resource | **`LIGHT`** | `1` | Emerald Green |
-| **`TIMBER TORCH`** | `HeldRelic::TimberTorch` | Tool / Light | **`LIGHT`** | `1` | Emerald Green |
-| **`EARTH BLOCK`** | `HeldRelic::ExcavatedEarth` / `BlockMedium::TurfEarth` | Building Block | **`MODERATE`** | `3` | Warm Amber |
-| **`WOOD BLOCK`** | `HeldRelic::TimberBlock` / `BlockMedium::RawTimber` | Building Block | **`MODERATE`** | `3` | Warm Amber |
-| **`SEAT BLOCK`** | `HeldRelic::CabinSeat` / `BlockMedium::CabinSeat` | Vehicle Block | **`MODERATE`** | `3` | Warm Amber |
-| **`CROSS AXLE`** | `HeldRelic::CrossAxle` / `BlockMedium::CrossAxle` | Vehicle Block | **`MODERATE`** | `3` | Warm Amber |
-| **`CAR WHEEL`** | `HeldRelic::CarWheel` / `BlockMedium::CarWheel` | Vehicle Block | **`MODERATE`** | `3` | Warm Amber |
-| **`FLINT STONE`** | `HeldRelic::FlintStone` | Foraged Resource | **`MODERATE`** | `3` | Warm Amber |
-| **`WOODEN MALLET`** | `HeldRelic::WoodenMallet` | Tool | **`MODERATE`** | `3` | Warm Amber |
-| **`IRON SPADE`** | `HeldRelic::IronSpade` | Excavation Tool | **`MODERATE`** | `3` | Warm Amber |
-| **`STONE BLOCK`** | `HeldRelic::QuarriedStone` / `BlockMedium::QuarriedStone` | Building Block | **`HEAVY`** | `6` | Crimson Red |
-| **`CRUST BLOCK`** | `HeldRelic::CrustBlock` / `BlockMedium::CrustRock` | Building Block | **`HEAVY`** | `6` | Crimson Red |
-| **`CRANE LIFT`** | `HeldRelic::CantileverCrane` / `BlockMedium::CantileverRig` | Assembly Apparatus | **`HEAVY`** | `6` | Crimson Red |
-| **`PLANE ENGINE`** | `HeldRelic::AircraftEngine` / `BlockMedium::AircraftEngine` | Vehicle Engine | **`HEAVY`** | `6` | Crimson Red |
-| **`ROCKET ENGINE`** | `HeldRelic::RocketEngine` / `BlockMedium::RocketEngine` | Vehicle Engine | **`HEAVY`** | `6` | Crimson Red |
-| **`WOODMAN AXE`** | `HeldRelic::WoodmanAxe` | Felling Tool / Weapon | **`HEAVY`** | `6` | Crimson Red |
-| **`KNIGHT SWORD`** | `HeldRelic::KnightlySword` | Martial Weapon | **`HEAVY`** | `6` | Crimson Red |
+| **`WOOD PLANKS`** | `HeldRelic::PlankBlock` / `BlockMedium::PlanedPlanks` | Building Block | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
+| **`STEERING WHEEL`** | `HeldRelic::SteeringWheel` / `BlockMedium::SteeringWheel` | Vehicle Block | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
+| **`PEDAL BLOCK`** | `HeldRelic::PedalCluster` / `BlockMedium::PedalCluster` | Vehicle Block | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
+| **`FIELD CAMERA`** | `HeldRelic::FieldCamera` / `BlockMedium::FieldCamera` | Apparatus / Block | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
+| **`DEADWOOD`** | `HeldRelic::DeadwoodBough` | Foraged Resource | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
+| **`TIMBER TORCH`** | `HeldRelic::TimberTorch` | Tool / Light | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
+| **`EARTH BLOCK`** | `HeldRelic::ExcavatedEarth` / `BlockMedium::TurfEarth` | Building Block | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
+| **`WOOD BLOCK`** | `HeldRelic::TimberBlock` / `BlockMedium::RawTimber` | Building Block | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
+| **`SEAT BLOCK`** | `HeldRelic::CabinSeat` / `BlockMedium::CabinSeat` | Vehicle Block | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
+| **`FLINT STONE`** | `HeldRelic::FlintStone` | Foraged Resource | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
+| **`WOODEN MALLET`** | `HeldRelic::WoodenMallet` | Tool | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
+| **`STONE BLOCK`** | `HeldRelic::QuarriedStone` / `BlockMedium::QuarriedStone` | Building Block | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
+| **`CROSS AXLE`** | `HeldRelic::CrossAxle` / `BlockMedium::CrossAxle` | Vehicle Block | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
+| **`CAR WHEEL`** | `HeldRelic::CarWheel` / `BlockMedium::CarWheel` | Vehicle Block | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
+| **`IRON SPADE`** | `HeldRelic::IronSpade` | Excavation Tool | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
+| **`WOODMAN AXE`** | `HeldRelic::WoodmanAxe` | Felling Tool / Weapon | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
+| **`KNIGHT SWORD`** | `HeldRelic::KnightlySword` | Martial Weapon | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
+| **`CRUST BLOCK`** | `HeldRelic::CrustBlock` / `BlockMedium::CrustRock` | Building Block | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
+| **`CRANE LIFT`** | `HeldRelic::CantileverCrane` / `BlockMedium::CantileverRig` | Assembly Apparatus | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
+| **`PLANE ENGINE`** | `HeldRelic::AircraftEngine` / `BlockMedium::AircraftEngine` | Vehicle Engine | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
+| **`ROCKET ENGINE`** | `HeldRelic::RocketEngine` / `BlockMedium::RocketEngine` | Vehicle Engine | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
 
 ---
 

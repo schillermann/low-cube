@@ -17,6 +17,7 @@ mod pouch;
 mod proportion;
 mod relic;
 mod rhythm;
+mod sack;
 mod sight;
 mod tome;
 mod tray;
@@ -208,7 +209,7 @@ impl YouthAttire {
             satchel,
             target,
         );
-        satchel.emit_on_waist(&scaled_pose, target);
+        satchel.emit_for_attire(&scaled_pose, *self, target);
         sight.emit_crown(self.identity.crown, &scaled_pose, self.identity.complexion, self.identity.pigment, target);
     }
 }

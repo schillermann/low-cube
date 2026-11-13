@@ -202,7 +202,7 @@ impl BeltSatchel {
         hand_relic.figure(self.palms.mold_on(side)).emit_in_palm(side, frame, target);
     }
 
-    pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
-        self.tray.emit_on_waist(pose, target);
+    pub fn emit_for_attire(&self, pose: &BodyPose, attire: YouthAttire, target: &mut dyn MeshTarget) {
+        self.tray.emit_with_burden(pose, self.carried_burden(attire), target);
     }
 }

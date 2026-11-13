@@ -29,12 +29,33 @@ impl<A: CarryLoad, B: CarryLoad> CarryLoad for JoinedLoad<A, B> {
     }
 }
 
-/// Three-tier English weight classification for blocks, tools, and summed satchel stacks.
+/// Four-tier English weight classification for blocks, tools, and summed satchel stacks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WeightGrade {
     Light,
     Moderate,
+    Weighty,
     Heavy,
+}
+
+impl WeightGrade {
+    pub const fn tier_rank(self) -> u32 {
+        match self {
+            Self::Light => 0,
+            Self::Moderate => 1,
+            Self::Weighty => 2,
+            Self::Heavy => 3,
+        }
+    }
+
+    pub const fn escalated(self, steps: u32) -> Self {
+        match self.tier_rank().saturating_add(steps) {
+            0 => Self::Light,
+            1 => Self::Moderate,
+            2 => Self::Weighty,
+            _ => Self::Heavy,
+        }
+    }
 }
 
 impl fmt::Display for WeightGrade {
@@ -42,12 +63,13 @@ impl fmt::Display for WeightGrade {
         f.write_str(match self {
             Self::Light => "LIGHT",
             Self::Moderate => "MODERATE",
+            Self::Weighty => "WEIGHTY",
             Self::Heavy => "HEAVY",
         })
     }
 }
 
-/// Encapsulated slot stack combining a held relic type and stack count to resolve summed weight and backplate triangle color.
+/// Encapsulated slot stack escalating one weight grade per 10 stacked items (`1..=9`, `10..=19`, `20..=29`, `30+`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SlotBurden {
     relic: HeldRelic,
@@ -73,14 +95,14 @@ impl SlotBurden {
             | HeldRelic::ExcavatedEarth
             | HeldRelic::TimberBlock
             | HeldRelic::WoodenMallet
-            | HeldRelic::IronSpade
-            | HeldRelic::CabinSeat
-            | HeldRelic::CrossAxle
-            | HeldRelic::CarWheel => WeightGrade::Moderate,
+            | HeldRelic::CabinSeat => WeightGrade::Moderate,
             HeldRelic::QuarriedStone
-            | HeldRelic::CrustBlock
+            | HeldRelic::IronSpade
             | HeldRelic::WoodmanAxe
             | HeldRelic::KnightlySword
+            | HeldRelic::CrossAxle
+            | HeldRelic::CarWheel => WeightGrade::Weighty,
+            HeldRelic::CrustBlock
             | HeldRelic::CantileverCrane
             | HeldRelic::AircraftEngine
             | HeldRelic::RocketEngine => WeightGrade::Heavy,
@@ -93,8 +115,9 @@ impl SlotBurden {
         } else {
             match self.unit_grade() {
                 WeightGrade::Light => 1,
-                WeightGrade::Moderate => 3,
-                WeightGrade::Heavy => 6,
+                WeightGrade::Moderate => 2,
+                WeightGrade::Weighty => 4,
+                WeightGrade::Heavy => 8,
             }
         }
     }
@@ -103,21 +126,28 @@ impl SlotBurden {
         self.unit_mass().saturating_mul(self.count)
     }
 
+    const fn escalated_rank(&self) -> u32 {
+        if self.relic.free_palm() || self.count == 0 {
+            0
+        } else {
+            self.unit_grade().tier_rank().saturating_add(self.count / 10)
+        }
+    }
+
     pub const fn summed_grade(&self) -> WeightGrade {
-        match self.total_mass() {
-            0..=2 => WeightGrade::Light,
-            3..=5 => WeightGrade::Moderate,
-            _ => WeightGrade::Heavy,
+        if self.relic.free_palm() || self.count == 0 {
+            WeightGrade::Light
+        } else {
+            self.unit_grade().escalated(self.count / 10)
         }
     }
 
     pub const fn corner_pigment(&self) -> Vec3 {
-        match self.total_mass() {
-            0 | 1 => Vec3::new(0.20, 1.42, 0.52),
-            2 => Vec3::new(0.68, 1.46, 0.34),
-            3 => Vec3::new(1.56, 1.18, 0.20),
-            4..=5 => Vec3::new(1.60, 0.76, 0.16),
-            6..=11 => Vec3::new(1.58, 0.28, 0.22),
+        match self.escalated_rank() {
+            0 => Vec3::new(0.20, 1.42, 0.52),
+            1 => Vec3::new(1.56, 1.18, 0.20),
+            2 => Vec3::new(1.62, 0.72, 0.16),
+            3 => Vec3::new(1.58, 0.28, 0.22),
             _ => Vec3::new(1.26, 0.12, 0.36),
         }
     }
@@ -168,7 +198,7 @@ impl fmt::Display for SlotBurden {
     }
 }
 
-/// Total carried mass across hands and stowed satchel compartments governing movement pace and jump altitude.
+/// Total carried mass across hands and stowed satchel compartments governing movement pace, jump height, and hanging sack size.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SatchelBurden {
     mass: u32,
@@ -201,6 +231,26 @@ impl SatchelBurden {
             unencumbered_leap
         } else {
             unencumbered_leap * (0.48 + 0.52 / (1.0 + (self.mass as f32) * 0.024))
+        }
+    }
+
+    pub fn swell(self, empty_val: f32, full_delta: f32) -> f32 {
+        if self.mass == 0 {
+            empty_val
+        } else {
+            let m = self.mass as f32;
+            let ratio = (0.08 + 0.92 * (m / (m + 36.0))).clamp(0.0, 1.0);
+            empty_val + full_delta * ratio
+        }
+    }
+
+    pub const fn pigment(self) -> Vec3 {
+        match self.mass {
+            0 => Vec3::new(0.46, 0.34, 0.20),
+            1..=19 => Vec3::new(0.24, 1.32, 0.50),
+            20..=39 => Vec3::new(1.48, 1.12, 0.22),
+            40..=79 => Vec3::new(1.56, 0.68, 0.16),
+            _ => Vec3::new(1.52, 0.28, 0.22),
         }
     }
 }

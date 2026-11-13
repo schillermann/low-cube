@@ -88,7 +88,7 @@ fn test_satchel_renders_all_fifteen_slots_and_navigates_empty_and_occupied_compa
     );
     let empty_satchel = BeltSatchel::empty().with_open(true);
     let mut empty_ledger = QuadLedger::empty();
-    empty_satchel.emit_on_waist(&pose, &mut empty_ledger);
+    empty_satchel.emit_for_attire(&pose, YouthAttire::squire(), &mut empty_ledger);
     assert!(
         empty_ledger.quads.len() >= 15 * 73,
         "Empty satchel must still render all 15 available slot frames, got {}",
@@ -99,7 +99,7 @@ fn test_satchel_renders_all_fifteen_slots_and_navigates_empty_and_occupied_compa
     let (moved_down, ok_down) = moved_right.navigate(0, 1);
     assert!(ok_right && ok_down, "WASD must navigate freely across unoccupied slots");
     let mut moved_ledger = QuadLedger::empty();
-    moved_down.emit_on_waist(&pose, &mut moved_ledger);
+    moved_down.emit_for_attire(&pose, YouthAttire::squire(), &mut moved_ledger);
     let changed_selection = empty_ledger
         .quads
         .iter()
@@ -112,25 +112,43 @@ fn test_satchel_renders_all_fifteen_slots_and_navigates_empty_and_occupied_compa
 fn test_english_weight_grades_stack_summation_and_corner_triangle_pigment() {
     let light_one = SlotBurden::new(HeldRelic::PlankBlock, 1);
     let moderate_one = SlotBurden::new(HeldRelic::ExcavatedEarth, 1);
-    let heavy_one = SlotBurden::new(HeldRelic::QuarriedStone, 1);
+    let weighty_one = SlotBurden::new(HeldRelic::QuarriedStone, 1);
+    let heavy_one = SlotBurden::new(HeldRelic::CrustBlock, 1);
 
     assert_eq!(light_one.unit_grade(), WeightGrade::Light);
     assert_eq!(moderate_one.unit_grade(), WeightGrade::Moderate);
+    assert_eq!(weighty_one.unit_grade(), WeightGrade::Weighty);
     assert_eq!(heavy_one.unit_grade(), WeightGrade::Heavy);
     assert_eq!(format!("{}", WeightGrade::Light), "LIGHT");
     assert_eq!(format!("{}", WeightGrade::Moderate), "MODERATE");
+    assert_eq!(format!("{}", WeightGrade::Weighty), "WEIGHTY");
     assert_eq!(format!("{}", WeightGrade::Heavy), "HEAVY");
 
-    let light_three = SlotBurden::new(HeldRelic::PlankBlock, 3);
-    let light_six = SlotBurden::new(HeldRelic::PlankBlock, 6);
-    let heavy_three = SlotBurden::new(HeldRelic::QuarriedStone, 3);
-    assert_eq!(light_three.summed_grade(), WeightGrade::Moderate);
-    assert_eq!(light_six.summed_grade(), WeightGrade::Heavy);
-    assert!(format!("{}", light_six).contains("LIGHT -> HEAVY"));
+    // 10-step escalation rule: 1..=9 stays at unit grade, +1 tier at 10, +2 at 20, +3 at 30+
+    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 9).summed_grade(), WeightGrade::Light);
+    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 10).summed_grade(), WeightGrade::Moderate);
+    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 19).summed_grade(), WeightGrade::Moderate);
+    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 20).summed_grade(), WeightGrade::Weighty);
+    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 29).summed_grade(), WeightGrade::Weighty);
+    let light_thirty = SlotBurden::new(HeldRelic::PlankBlock, 30);
+    let mod_nine = SlotBurden::new(HeldRelic::ExcavatedEarth, 9);
+    let mod_ten = SlotBurden::new(HeldRelic::ExcavatedEarth, 10);
+    let mod_twenty = SlotBurden::new(HeldRelic::ExcavatedEarth, 20);
+    let weighty_ten = SlotBurden::new(HeldRelic::QuarriedStone, 10);
+    let heavy_ten = SlotBurden::new(HeldRelic::CrustBlock, 10);
+    assert_eq!(light_thirty.summed_grade(), WeightGrade::Heavy);
+    assert_eq!(mod_nine.summed_grade(), WeightGrade::Moderate);
+    assert_eq!(mod_ten.summed_grade(), WeightGrade::Weighty);
+    assert_eq!(mod_twenty.summed_grade(), WeightGrade::Heavy);
+    assert_eq!(weighty_ten.summed_grade(), WeightGrade::Heavy);
+    assert!(format!("{}", mod_ten).contains("MODERATE -> WEIGHTY"));
+    assert!(format!("{}", light_thirty).contains("LIGHT -> HEAVY"));
     assert_ne!(light_one.corner_pigment(), moderate_one.corner_pigment());
-    assert_ne!(moderate_one.corner_pigment(), heavy_one.corner_pigment());
-    assert_ne!(heavy_one.corner_pigment(), heavy_three.corner_pigment());
+    assert_ne!(moderate_one.corner_pigment(), weighty_one.corner_pigment());
+    assert_ne!(weighty_one.corner_pigment(), heavy_one.corner_pigment());
+    assert_ne!(heavy_one.corner_pigment(), heavy_ten.corner_pigment());
 
+    let squire = YouthAttire::squire();
     let pose = BodyPose::new(
         Vec3::new(0.0, 9.0, 0.0),
         Quat::IDENTITY,
@@ -140,14 +158,68 @@ fn test_english_weight_grades_stack_summation_and_corner_triangle_pigment() {
         YouthPhysique::SlenderSquire,
     );
     let (mut light_tray, mut heavy_tray) = (QuadLedger::empty(), QuadLedger::empty());
-    BeltSatchel::empty().with_stowed_relic(HeldRelic::PlankBlock, 1).with_open(true).emit_on_waist(&pose, &mut light_tray);
-    BeltSatchel::empty().with_stowed_relic(HeldRelic::PlankBlock, 6).with_open(true).emit_on_waist(&pose, &mut heavy_tray);
+    BeltSatchel::empty().with_stowed_relic(HeldRelic::PlankBlock, 1).with_open(true).emit_for_attire(&pose, squire, &mut light_tray);
+    BeltSatchel::empty().with_stowed_relic(HeldRelic::PlankBlock, 30).with_open(true).emit_for_attire(&pose, squire, &mut heavy_tray);
     let color_changed = light_tray
         .quads
         .iter()
         .zip(heavy_tray.quads.iter())
         .any(|(a, b)| a.transfer(|_, _, _, _, _, ca| b.transfer(|_, _, _, _, _, cb| (ca - cb).length_squared() > 1e-4)));
-    assert!(color_changed, "Stacking items in a slot must shift the top-left corner triangle weight color");
+    assert!(color_changed, "Stacking items in 10-steps in a slot must shift the top-left corner triangle weight color");
+}
+
+#[test]
+fn test_hanging_sack_at_top_right_slot_tip_bulges_right_and_hangs_lower_with_weight() {
+    let pose = BodyPose::new(
+        Vec3::new(0.0, 9.0, 0.0),
+        Quat::IDENTITY,
+        Quat::IDENTITY,
+        0.8,
+        StrideRhythm::new(0.0, 1.0),
+        YouthPhysique::SlenderSquire,
+    );
+    let jute_bot = Vec3::new(0.45, 0.33, 0.19);
+    let brass_eyelet = Vec3::new(0.88, 0.70, 0.26);
+    let sack_bounds = |count: u32| -> (f32, f32, f32, f32) {
+        let mut ledger = QuadLedger::empty();
+        BeltSatchel::empty()
+            .with_stowed_relic(HeldRelic::ExcavatedEarth, count)
+            .with_open(true)
+            .emit_for_attire(&pose, YouthAttire::squire(), &mut ledger);
+        let (mut min_x, mut max_x, mut min_y, mut tip_x) = (f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY, f32::INFINITY);
+        for q in &ledger.quads {
+            q.transfer(|v0, v1, v2, v3, _, col| {
+                if (col - jute_bot).length_squared() < 1e-5 {
+                    for v in [v0, v1, v2, v3] {
+                        min_x = min_x.min(v.x);
+                        max_x = max_x.max(v.x);
+                        min_y = min_y.min(v.y);
+                    }
+                } else if (col - brass_eyelet).length_squared() < 1e-5 {
+                    for v in [v0, v1, v2, v3] {
+                        tip_x = tip_x.min(v.x);
+                    }
+                }
+            });
+        }
+        (max_x - min_x, max_x, min_y, tip_x)
+    };
+    let (w0, x0, y0, tip0) = sack_bounds(0);
+    let (w5, x5, y5, tip5) = sack_bounds(5);
+    let (w20, x20, y20, _) = sack_bounds(20);
+    let (w60, x60, y60, _) = sack_bounds(60);
+    assert!(
+        (tip0 - 0.148).abs() < 0.01 && (tip0 - tip5).abs() < 1e-5,
+        "Sack eyelet must stay anchored directly on the top-right slot tip (x=0.148): tip0={tip0}, tip5={tip5}"
+    );
+    assert!(
+        x0 < x5 && x5 < x20 && x20 < x60 && w0 < w5 && w5 < w20 && w20 < w60,
+        "Hanging sack must bulge progressively further to the right as weight increases: x=({x0}, {x5}, {x20}, {x60})"
+    );
+    assert!(
+        y0 > y5 && y5 > y20 && y20 > y60,
+        "Hanging sack must sag progressively lower along the slot palette: y=({y0}, {y5}, {y20}, {y60})"
+    );
 }
 
 #[test]

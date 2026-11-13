@@ -7,6 +7,7 @@ use super::compartment::{
 };
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
+use super::sack::HangingSack;
 
 const TRAY_SLOTS: usize = 15;
 
@@ -189,7 +190,7 @@ impl SatchelTray {
         true
     }
 
-    pub fn emit_on_waist(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
+    pub fn emit_with_burden(&self, pose: &BodyPose, burden: SatchelBurden, target: &mut dyn MeshTarget) {
         if !self.open() {
             return;
         }
@@ -228,6 +229,7 @@ impl SatchelTray {
             );
             compartment.emit_slot(&tray.shifted(sx, sy, sz), target);
         }
+        HangingSack::new(burden).emit_slot(&tray, target);
         let chosen = slots[sel];
         let qty = if chosen.gripped() { self.count(chosen) } else { 0 };
         LegendCompartment::new(SlotBurden::new(chosen, qty)).emit_slot(&tray.shifted(0.0, -0.284, 0.0), target);

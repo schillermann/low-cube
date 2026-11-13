@@ -136,17 +136,19 @@ Players can also customize their character live during gameplay using keyboard h
 | **Right Click** | **Right-Hand Action / Strike** | [`Avatar::use_right_hand`](../crates/client/src/avatar/mod.rs) | Excavates, places blocks, crafts, or strikes with the item held in the **right hand** (`relic`). |
 | **`M`** | **Looking-Glass Mirror** | [`SightMode`](../crates/client/src/attire/sight.rs) | Toggles between First-Person view (`FirstPersonSight`) and frontal 3rd-Person mirror inspection (`LookingGlassSight`). |
 
-### 4.1 Satchel Inventory (`15` Slots) & Held Relic / Block Weights ([`WeightGrade`](../crates/client/src/attire/burden.rs))
+### 4.1 Satchel Inventory (`15` Slots), Top-Right Hanging Sack & Weights ([`WeightGrade`](../crates/client/src/attire/burden.rs))
 
-All 15 slots (`3 columns × 5 rows`) of [`SatchelTray`](../crates/client/src/attire/tray.rs) are always displayed when the satchel is open, whether occupied or empty. Every item and block in [`HeldRelic`](../crates/client/src/attire/relic/mod.rs) has one of three English weight grades ([`WeightGrade`](../crates/client/src/attire/burden.rs)):
+All 15 slots (`3 columns × 5 rows`) of [`SatchelTray`](../crates/client/src/attire/tray.rs) are always displayed when the satchel is open, with an unframed 3D [`HangingSack`](../crates/client/src/attire/sack.rs) hanging directly from the **top-right slot corner tip** (without character or background plaque) that bulges outward to the right and hangs progressively lower down alongside the palette as carried weight rises. Every item and block in [`HeldRelic`](../crates/client/src/attire/relic/mod.rs) has one of four English weight grades ([`WeightGrade`](../crates/client/src/attire/burden.rs)):
 
-| Weight Grade | Unit Mass | Held Items, Tools & Weapons | Placeable Blocks & Vehicle Parts | Corner Triangle Color (1× Item) |
+| Weight Grade | 10-Step Escalation | Held Items, Tools & Weapons | Placeable Blocks & Vehicle Parts | Corner Triangle Color (1–9×) |
 | :---: | :---: | :--- | :--- | :---: |
-| **`LIGHT`** | `1` | `DEADWOOD` (`DeadwoodBough`), `TIMBER TORCH` (`TimberTorch`), `FIELD CAMERA` (`FieldCamera`) | `WOOD PLANKS` (`PlankBlock`), `STEERING WHEEL` (`SteeringWheel`), `PEDAL BLOCK` (`PedalCluster`) | **Emerald Green** |
-| **`MODERATE`** | `3` | `FLINT STONE` (`FlintStone`), `WOODEN MALLET` (`WoodenMallet`), `IRON SPADE` (`IronSpade`) | `EARTH BLOCK` (`ExcavatedEarth`), `WOOD BLOCK` (`TimberBlock`), `SEAT BLOCK` (`CabinSeat`), `CROSS AXLE` (`CrossAxle`), `CAR WHEEL` (`CarWheel`) | **Warm Amber** |
-| **`HEAVY`** | `6` | `WOODMAN AXE` (`WoodmanAxe`), `KNIGHT SWORD` (`KnightlySword`), `CRANE LIFT` (`CantileverCrane`) | `STONE BLOCK` (`QuarriedStone`), `CRUST BLOCK` (`CrustBlock`), `PLANE ENGINE` (`AircraftEngine`), `ROCKET ENGINE` (`RocketEngine`) | **Crimson Red** |
+| **`LIGHT`** | `10× -> MODERATE` | `DEADWOOD` (`DeadwoodBough`), `TIMBER TORCH` (`TimberTorch`), `FIELD CAMERA` (`FieldCamera`) | `WOOD PLANKS` (`PlankBlock`), `STEERING WHEEL` (`SteeringWheel`), `PEDAL BLOCK` (`PedalCluster`) | **Emerald Green** |
+| **`MODERATE`** | `10× -> WEIGHTY` | `FLINT STONE` (`FlintStone`), `WOODEN MALLET` (`WoodenMallet`) | `EARTH BLOCK` (`ExcavatedEarth`), `WOOD BLOCK` (`TimberBlock`), `SEAT BLOCK` (`CabinSeat`) | **Warm Amber** |
+| **`WEIGHTY`** | `10× -> HEAVY` | `IRON SPADE` (`IronSpade`), `WOODMAN AXE` (`WoodmanAxe`), `KNIGHT SWORD` (`KnightlySword`) | `STONE BLOCK` (`QuarriedStone`), `CROSS AXLE` (`CrossAxle`), `CAR WHEEL` (`CarWheel`) | **Burnt Orange** |
+| **`HEAVY`** | `1× = HEAVY` | `CRANE LIFT` (`CantileverCrane`) | `CRUST BLOCK` (`CrustBlock`), `PLANE ENGINE` (`AircraftEngine`), `ROCKET ENGINE` (`RocketEngine`) | **Crimson Red** |
 
-- **Stack Weight Summation ([`SlotBurden`](../crates/client/src/attire/burden.rs))**: Multiple blocks or items stacked in a slot sum their weight (`unit_mass × count`), escalating the slot's grade (`LIGHT -> MODERATE -> HEAVY`) and shifting the color of the unframed top-left corner triangle from Emerald Green -> Lime -> Amber -> Orange -> Crimson Red -> Deep Ruby.
+- **10-Step Slot Escalation ([`SlotBurden`](../crates/client/src/attire/burden.rs))**: Every 10 stacked items in a slot step one weight grade higher (`1..=9` base grade, `10..=19` `+1` tier, `20..=29` `+2` tiers, `30+` `+3` tiers: `LIGHT -> MODERATE -> WEIGHTY -> HEAVY`) and shift the unframed top-left corner triangle color from Emerald Green -> Warm Amber -> Burnt Orange -> Crimson Red -> Deep Ruby.
+- **Top-Right Hanging Sack ([`HangingSack`](../crates/client/src/attire/sack.rs))**: Hangs directly from the top-right slot corner tip of the `3×5` slot palette without character or background; bulges outward to the right and sags further downward along the right edge of the palette as total [`SatchelBurden`](../crates/client/src/attire/burden.rs) increases.
 - **Encumbrance Physics ([`SatchelBurden`](../crates/client/src/attire/burden.rs))**: Total carried mass across both hands and all stowed satchel slots scales down walking/sneaking/sprinting speed (`scale_pace`) and vertical jump impulse (`scale_leap`).
 
 ---

@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.65.0] - 2026-11-13
+
+### Added
+- Added intermediate `WeightGrade::Weighty` (`WEIGHTY`) tier between `Moderate` and `Heavy` (`LIGHT -> MODERATE -> WEIGHTY -> HEAVY`) and `WeightGrade::escalated` (`crates/client/src/attire/burden.rs`).
+- Added unframed 3D `HangingSack` (`crates/client/src/attire/sack.rs`) hanging directly from the top-right slot corner tip of the `3x5` satchel palette (`SatchelTray::emit_with_burden` in `crates/client/src/attire/tray.rs`), progressively bulging outward to the right and sagging lower along the palette as `SatchelBurden` increases.
+
+### Changed
+- Updated `SlotBurden::summed_grade` and `SlotBurden::corner_pigment` (`crates/client/src/attire/burden.rs`) so stacked items in a slot escalate one weight tier every 10 items (`1..=9` base grade, `10..=19` `+1` tier, `20..=29` `+2` tiers, `30+` `+3` tiers), and updated `docs/BLOCKS.md`, `docs/CHARACTER.md`, and unit tests in `crates/client/src/attire/tests/burden.rs`.
+
 ## [0.64.0] - 2026-11-12
 
 ### Added

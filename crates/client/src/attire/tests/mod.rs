@@ -214,7 +214,7 @@ fn test_spade_and_dirt_block_replaces_held_block_when_excavating_different_mediu
         StrideRhythm::new(0.0, 1.0), YouthPhysique::SlenderSquire,
     );
     let (mut tray_one, mut tray_eight) = (QuadLedger::empty(), QuadLedger::empty());
-    satchel_after_wheel.with_open(true).emit_on_waist(&pose, &mut tray_one);
-    satchel_after_wheel.with_stowed_relic(HeldRelic::CarWheel, 7).with_open(true).emit_on_waist(&pose, &mut tray_eight);
+    satchel_after_wheel.with_open(true).emit_for_attire(&pose, attire_after_wheel, &mut tray_one);
+    satchel_after_wheel.with_stowed_relic(HeldRelic::CarWheel, 7).with_open(true).emit_for_attire(&pose, attire_after_wheel, &mut tray_eight);
     assert_ne!(tray_one.quads.len(), tray_eight.quads.len());
 }
