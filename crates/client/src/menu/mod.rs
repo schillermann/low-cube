@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use sanctuary::JoinTarget;
 use winit::keyboard::KeyCode;
 use engine::ShaderProgram;
@@ -22,13 +23,15 @@ mod widget;
 #[cfg(test)]
 pub use archetype::AvatarArchetype;
 #[cfg(test)]
-pub use clipboard::MemoryClipboard;
+pub use clipboard::{MemoryClipboard, ScratchClipboard};
+pub use clipboard::{SystemClipboard, TextClipboard};
 pub use escape_menu::EscapeMenu;
 pub use glyph::PixelStamp;
 #[cfg(test)]
 pub use pause_panel::PausePanel;
+pub use portal::PortalInvite;
 #[cfg(test)]
-pub use portal::PortalStudio;
+pub use portal::{PortalNotice, PortalStudio};
 #[cfg(test)]
 pub use settings::ControlStudio;
 #[cfg(test)]
@@ -43,12 +46,14 @@ pub enum ModalDirective {
     ContinueSession,
     OpenPortal,
     JoinPortal(JoinTarget),
+    PunchGuest(SocketAddr),
     ExitGame,
 }
 
 /// Interface for session modal overlay interaction and rendering.
 pub trait SessionModal {
     fn open(&self) -> bool;
+    fn dialing_active(&self) -> bool { false }
     fn toggle_escape(&mut self, surface: &dyn PlatformSurface);
     fn move_cursor(&mut self, point: ScreenPoint);
     fn press_mouse(&mut self, surface: &dyn PlatformSurface, avatar: &mut dyn Avatar) -> ModalDirective;
@@ -59,7 +64,8 @@ pub trait SessionModal {
         false
     }
     fn sync_controls(&self, _controls: &mut dyn KeyboardControls) {}
-    fn announce_portal(&mut self, _ticket: String) {}
+    fn announce_portal(&mut self, _invite: PortalInvite) {}
+    fn announce_punch_code(&mut self, _punch_code: String) {}
     fn complete_join(&mut self, _surface: &dyn PlatformSurface) {}
     fn report_join_failure(&mut self) {}
     fn step(&mut self, dt: f32);

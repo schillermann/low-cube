@@ -4,17 +4,18 @@ use crate::avatar::Avatar;
 use crate::companion::CompanionFigure;
 use crate::controls::{ControlAction, InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
-use crate::portal_config::PortalConfig;
+use crate::portal_config::{DialOutcome, PortalConfig, PortalDial};
 use crate::server_scale::{PlanetaryScale, ServerScale};
 use crate::sparrow::SparrowFlock;
 use crate::surface::PlatformSurface;
 use super::display::SessionDisplay;
 
-/// Encapsulated keyboard control state, pause/studio modal overlay, and shortcut modifier state.
+/// Encapsulated keyboard control state, pause/studio modal overlay, shortcut state, and P2P NAT dial.
 pub(super) struct StageOverlay {
     controls: Box<dyn KeyboardControls>,
     modal: Box<dyn SessionModal>,
     ctrl_held: bool,
+    dial: PortalDial,
 }
 
 impl StageOverlay {
@@ -23,12 +24,13 @@ impl StageOverlay {
         controls: Box<dyn KeyboardControls>,
         modal: Box<dyn SessionModal>,
         ctrl_held: bool,
+        dial: PortalDial,
     ) -> Self {
-        Self { controls, modal, ctrl_held }
+        Self { controls, modal, ctrl_held, dial }
     }
 
     pub(super) fn new(controls: Box<dyn KeyboardControls>, modal: Box<dyn SessionModal>) -> Self {
-        Self::with_modifiers(controls, modal, false)
+        Self::with_modifiers(controls, modal, false, PortalDial::Idle)
     }
 }
 
@@ -85,7 +87,7 @@ impl SessionStage {
     pub(super) fn release_modal_mouse(&mut self) { self.overlay.modal.release_mouse(); }
     pub(super) fn rotate_avatar(&mut self, dx: f32, dy: f32) { self.avatar.rotate_view(dx, dy); }
     pub(super) fn use_left(&mut self) -> bool { self.avatar.use_left_hand(self.world.as_mut()) }
-    pub(super) fn use_right(&mut self, ) -> bool { self.avatar.use_right_hand(self.world.as_mut()) }
+    pub(super) fn use_right(&mut self) -> bool { self.avatar.use_right_hand(self.world.as_mut()) }
     pub(super) fn release_hand(&mut self) -> bool { self.avatar.release_hand(self.world.as_mut()) }
     pub(super) fn matches_tron(&self, trigger: InputTrigger) -> bool {
         self.overlay.controls.matches_action(ControlAction::TronMode, trigger)
@@ -111,29 +113,35 @@ impl SessionStage {
         self.overlay.ctrl_held
     }
 
+    fn activate_remote_world(&mut self, remote: Box<dyn PlanetaryWorld>, display: &mut SessionDisplay) {
+        self.world = remote;
+        self.avatar.land_on_world(self.world.as_ref());
+        self.overlay.modal.complete_join(display.surface());
+        display.refresh_world_mesh(self.world.as_ref(), self.avatar.as_ref());
+    }
+
     fn resolve_modal_directive(&mut self, directive: ModalDirective, display: &mut SessionDisplay) -> ModalDirective {
         match directive {
             ModalDirective::OpenPortal => {
                 let current = std::mem::replace(&mut self.world, Box::new(world::BiomedCubeWorld::of_size(4)));
                 let blocks = ServerScale::assembled().blocks();
-                let (hosted, ticket) = PortalConfig::open_live_portal(current, blocks, display.tron_enabled());
+                let (hosted, invite) = PortalConfig::open_live_portal(current, blocks, display.tron_enabled());
                 self.world = hosted;
-                self.overlay.modal.announce_portal(ticket);
+                self.overlay.modal.announce_portal(invite);
                 ModalDirective::ContinueSession
             }
             ModalDirective::JoinPortal(target) => {
-                let blocks = ServerScale::assembled().blocks();
-                match PortalConfig::join_live_portal(target, blocks, display.tron_enabled()) {
-                    Ok(remote) => {
-                        self.world = remote;
-                        self.avatar.land_on_world(self.world.as_ref());
-                        self.overlay.modal.complete_join(display.surface());
-                        display.refresh_world_mesh(self.world.as_ref(), self.avatar.as_ref());
-                    }
-                    Err(_) => {
-                        self.overlay.modal.report_join_failure();
-                    }
+                let (dial, outcome) = PortalDial::begin(target);
+                self.overlay.dial = dial;
+                match outcome {
+                    DialOutcome::Connected(remote) => self.activate_remote_world(remote, display),
+                    DialOutcome::Punching(reply_code) => self.overlay.modal.announce_punch_code(reply_code),
+                    DialOutcome::Failed => self.overlay.modal.report_join_failure(),
                 }
+                ModalDirective::ContinueSession
+            }
+            ModalDirective::PunchGuest(peer) => {
+                let _ = self.world.punch_nat_peer(peer);
                 ModalDirective::ContinueSession
             }
             other => other,
@@ -165,12 +173,21 @@ impl SessionStage {
     pub(super) fn toggle_escape(&mut self, surface: &dyn PlatformSurface) {
         if self.overlay.modal.open() || !self.avatar.dispatch_trigger(InputTrigger::Key(winit::keyboard::KeyCode::Escape)) {
             self.overlay.modal.toggle_escape(surface);
+            if !self.overlay.modal.dialing_active() {
+                self.overlay.dial.cancel();
+            }
         }
     }
 
     pub(super) fn step_frame(&mut self, dt: f32, display: &mut SessionDisplay) {
         if self.overlay.modal.open() {
             self.overlay.modal.step(dt);
+            if !self.overlay.modal.dialing_active() {
+                self.overlay.dial.cancel();
+            } else if let Some(remote) = self.overlay.dial.step(dt) {
+                self.activate_remote_world(remote, display);
+                return;
+            }
             self.avatar.sync_world_presence(self.world.as_mut());
             if self.world.pump_portal(dt) {
                 display.refresh_modified_face(self.world.as_mut());

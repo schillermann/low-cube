@@ -9,7 +9,7 @@ use crate::chronicle_log::DirtySlices;
 use crate::remote_link::RemoteLink;
 use crate::ticket::JoinTarget;
 
-/// Zero-knowledge multiplayer client decorator implementing `PlanetaryWorld` over `HollowVeins`.
+/// Zero-knowledge P2P client decorator implementing `PlanetaryWorld` over `HollowVeins`.
 pub struct RemotePlanet {
     world: Box<dyn PlanetaryWorld>,
     link: RemoteLink,
@@ -28,7 +28,16 @@ impl RemotePlanet {
         Self { world, link, predicted, slices }
     }
 
-    /// Connects to a `SanctuaryHost` via `PortalTicket` or `host:port` and builds a zero-knowledge cube.
+    pub fn from_link(link: RemoteLink, blocks: u32, tron: bool, bevel_margin: f32) -> Self {
+        let world: Box<dyn PlanetaryWorld> = if tron {
+            Box::new(BiomedCubeWorld::hollow_beveled_tron(blocks, bevel_margin))
+        } else {
+            Box::new(BiomedCubeWorld::hollow_beveled(blocks, bevel_margin))
+        };
+        Self::new(world, link, VecDeque::new(), DirtySlices::clean())
+    }
+
+    /// Connects to a `SanctuaryHost` via `PortalCode`, `PortalTicket`, or `host:port`.
     pub fn connect(
         target: JoinTarget,
         fallback_blocks: u32,
@@ -36,13 +45,18 @@ impl RemotePlanet {
         bevel_margin: f32,
     ) -> std::io::Result<Self> {
         let mut link = RemoteLink::bind(target)?;
-        let (blocks, tron) = link.await_welcome(Duration::from_millis(450), fallback_blocks, fallback_tron);
-        let world: Box<dyn PlanetaryWorld> = if tron {
-            Box::new(BiomedCubeWorld::hollow_beveled_tron(blocks, bevel_margin))
-        } else {
-            Box::new(BiomedCubeWorld::hollow_beveled(blocks, bevel_margin))
+        let wait = match target {
+            JoinTarget::Wormhole(_) => Duration::from_millis(650),
+            JoinTarget::Ticket(_) | JoinTarget::Direct(_) => Duration::from_millis(450),
         };
-        Ok(Self::new(world, link, VecDeque::new(), DirtySlices::clean()))
+        let (blocks, tron) = link.await_welcome(wait, fallback_blocks, fallback_tron);
+        if link.unresolved_wormhole() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Portal code did not match an active reachable sanctuary",
+            ));
+        }
+        Ok(Self::from_link(link, blocks, tron, bevel_margin))
     }
 
     /// Non-blocking connection constructor firing the initial knock immediately without sleeping.
@@ -53,12 +67,7 @@ impl RemotePlanet {
         bevel_margin: f32,
     ) -> std::io::Result<Self> {
         let link = RemoteLink::bind(target)?;
-        let world: Box<dyn PlanetaryWorld> = if tron_mode {
-            Box::new(BiomedCubeWorld::hollow_beveled_tron(blocks_per_edge, bevel_margin))
-        } else {
-            Box::new(BiomedCubeWorld::hollow_beveled(blocks_per_edge, bevel_margin))
-        };
-        Ok(Self::new(world, link, VecDeque::new(), DirtySlices::clean()))
+        Ok(Self::from_link(link, blocks_per_edge, tron_mode, bevel_margin))
     }
 
     pub fn connected(&self) -> bool {
@@ -222,6 +231,10 @@ impl PlanetaryWorld for RemotePlanet {
 
     fn portal_ticket(&self) -> Option<String> {
         self.link.ticket_string()
+    }
+
+    fn portal_phrase(&self) -> Option<String> {
+        self.link.phrase_string()
     }
 
     fn pump_portal(&mut self, dt: f32) -> bool {

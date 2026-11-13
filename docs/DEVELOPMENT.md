@@ -71,7 +71,7 @@ Launch directly from the repository root using `cargo`:
   ```
   *See the [Server & Game Settings Guide](SETTINGS.md) for full configuration options.*
 
-- **Local Multiplayer, Dedicated Sanctuary & Relay Development**:
+- **Local Multiplayer & Dedicated Sanctuary Development**:
   ```bash
   # Start headless authoritative World-Cube server on UDP 27777 (default: 128 blocks/edge, reads server.toml)
   cargo run -p sanctuary -- --port 27777 --size 1
@@ -79,11 +79,9 @@ Launch directly from the repository root using `cargo`:
   # Custom block resolution for fast integration testing
   cargo run -p sanctuary -- --port 27777 --blocks 64
 
-  # Start lightweight NAT Rendezvous & Encrypted Relay node
-  cargo run -p sanctuary -- --relay-only --port 27778
-
-  # Launch client directly into co-op host or remote join mode
+  # Launch client directly into co-op host or remote P2P join mode
   cargo run -p client -- --host
+  cargo run -p client -- --join K7M9-P2X4-R8W3
   cargo run -p client -- --join 127.0.0.1:27777
   cargo run -p client -- --join LC1-...
   ```
@@ -116,5 +114,5 @@ cargo test
 
 - `crates/world`: Cubic planetary world, face orientations, gravity mechanics, biome voxel generation, subterranean veins, and vehicles.
 - `crates/engine`: OpenGL 3.3 forward pipeline, VBO/VAO batching, and embedded GLSL shaders.
-- `crates/sanctuary`: Authoritative E2EE multiplayer World-Cube server (`SanctuaryHost`), zero-knowledge client decorator (`RemotePlanet`), `LC1-...` tickets, and NAT `RelayBeacon`.
+- `crates/sanctuary`: Authoritative P2P E2EE multiplayer World-Cube server (`SanctuaryHost`), zero-knowledge client decorator (`RemotePlanet`), 12-char SPAKE2 portal/punch codes (`PortalCode`, `PunchCode`), `LC1-...` tickets, and STUN/UPnP NAT traversal (`NatAperture`).
 - `crates/client`: Application lifecycle, `winit` event loop, `glutin` surface handling, input mapping, 3D avatar kinematics, and menus.

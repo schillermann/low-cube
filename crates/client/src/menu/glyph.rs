@@ -75,6 +75,7 @@ impl PixelStamp {
             ':' => Self::mask(0, 2, 0, 2, 0),
             '.' => Self::mask(0, 0, 0, 0, 2),
             '/' => Self::mask(1, 1, 2, 4, 4),
+            '@' => Self::mask(7, 5, 7, 4, 7),
             _ => 0,
         }
     }

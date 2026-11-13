@@ -41,12 +41,6 @@ Place a `server.toml` file in the same directory as the game executable (`low-cu
 # UDP port for `low-cube-server` (default: 27777)
 port = 27777
 
-# Optional NAT Rendezvous & Encrypted Relay address (e.g. "relay.example.com:27778")
-relay = ""
-
-# Set to true to run `low-cube-server` exclusively as an encrypted NAT Relay Beacon
-relay_only = false
-
 [physics]
 # Planetary gravity (default: 10 for Earth gravity)
 # Lower values increase jump height; higher values reduce jump height.

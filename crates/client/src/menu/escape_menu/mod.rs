@@ -1,39 +1,21 @@
-use glam::{Mat4, Vec3};
-use glow::HasContext;
+mod panels;
+
 use winit::keyboard::KeyCode;
-use engine::{CpuMeshBatch, Mesh, ShaderProgram};
+use engine::{CpuMeshBatch, ShaderProgram};
 use world::MeshTarget;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
 use crate::surface::PlatformSurface;
+use super::clipboard::TextClipboard;
+#[cfg(test)]
+use super::clipboard::MemoryClipboard;
 use super::pause_panel::{PausePanel, PauseSelection};
-use super::portal::{PortalDirective, PortalStudio};
+use super::portal::{PortalDirective, PortalInvite, PortalStudio};
 use super::settings::{ControlStudio, SettingsDirective};
 use super::studio::{StudioDirective, WardrobeStudio};
 use super::widget::ScreenPoint;
 use super::{ModalDirective, SessionModal};
-
-/// Polymorphic modal state machine for gameplay, Escape pause menu, Character studio, Settings, and Co-op join.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ModalPhase {
-    Gameplay,
-    EscapePause,
-    CharacterWardrobe,
-    ControlSettings,
-    PortalJoin,
-}
-
-struct StudioPanels {
-    studio: WardrobeStudio,
-    settings: ControlStudio,
-    portal: PortalStudio,
-}
-
-impl StudioPanels {
-    fn new(studio: WardrobeStudio, settings: ControlStudio, portal: PortalStudio) -> Self {
-        Self { studio, settings, portal }
-    }
-}
+use panels::{ModalPhase, StudioPanels};
 
 /// Encapsulated Escape menu, 3D Character Studio, Keybinding Settings, and Co-op Portal studio.
 pub struct EscapeMenu {
@@ -50,7 +32,7 @@ impl EscapeMenu {
 
     #[cfg(test)]
     pub fn closed() -> Self {
-        Self::with_portal(String::new())
+        Self::with_clipboard(PortalInvite::empty(), Box::new(MemoryClipboard::seeded("")))
     }
 
     #[cfg(test)]
@@ -62,14 +44,14 @@ impl EscapeMenu {
         )
     }
 
-    pub fn with_portal(portal_code: String) -> Self {
+    pub fn with_clipboard(invite: PortalInvite, clipboard: Box<dyn TextClipboard>) -> Self {
         Self::new(
             ModalPhase::Gameplay,
             ScreenPoint::center(),
             StudioPanels::new(
                 WardrobeStudio::from_profile(),
                 ControlStudio::from_profile(),
-                PortalStudio::with_ticket(portal_code),
+                PortalStudio::with_invite(invite, clipboard),
             ),
         )
     }
@@ -82,6 +64,7 @@ impl EscapeMenu {
                 ModalDirective::ContinueSession
             }
             PortalDirective::ConnectToWorld(target) => ModalDirective::JoinPortal(target),
+            PortalDirective::PunchGuest(peer) => ModalDirective::PunchGuest(peer),
         }
     }
 
@@ -125,10 +108,15 @@ impl SessionModal for EscapeMenu {
         !matches!(self.phase, ModalPhase::Gameplay)
     }
 
+    fn dialing_active(&self) -> bool {
+        matches!(self.phase, ModalPhase::PortalJoin)
+    }
+
     fn toggle_escape(&mut self, surface: &dyn PlatformSurface) {
         match self.phase {
             ModalPhase::Gameplay => {
                 self.phase = ModalPhase::EscapePause;
+                self.panels.portal.refresh_startup_copy();
                 surface.release_cursor();
             }
             ModalPhase::EscapePause => {
@@ -136,6 +124,7 @@ impl SessionModal for EscapeMenu {
                 surface.capture_cursor();
             }
             ModalPhase::CharacterWardrobe | ModalPhase::PortalJoin => {
+                self.panels.portal.clear_dial_state();
                 self.phase = ModalPhase::EscapePause;
                 surface.release_cursor();
             }
@@ -227,11 +216,17 @@ impl SessionModal for EscapeMenu {
         controls.apply_bindings(self.panels.settings.current_bindings());
     }
 
-    fn announce_portal(&mut self, ticket: String) {
-        self.panels.portal.announce_hosted(ticket);
+    fn announce_portal(&mut self, invite: PortalInvite) {
+        self.panels.portal.announce_hosted(invite);
+    }
+
+    fn announce_punch_code(&mut self, punch_code: String) {
+        self.phase = ModalPhase::PortalJoin;
+        self.panels.portal.announce_punch_reply(punch_code);
     }
 
     fn complete_join(&mut self, surface: &dyn PlatformSurface) {
+        self.panels.portal.clear_dial_state();
         self.phase = ModalPhase::Gameplay;
         surface.capture_cursor();
     }
@@ -264,29 +259,10 @@ impl SessionModal for EscapeMenu {
     }
 
     fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, avatar: &dyn Avatar, aspect: f32) {
-        if matches!(self.phase, ModalPhase::CharacterWardrobe) {
-            let mut stage_batch = CpuMeshBatch::empty();
-            self.emit_studio(&mut stage_batch);
-            let vp = self.panels.studio.stage_projection(aspect);
-            let light = Vec3::new(0.35, 0.55, 0.75).normalize();
-            unsafe {
-                gl.clear(glow::DEPTH_BUFFER_BIT);
-            }
-            shader.bind(gl, &vp, light);
-            stage_batch.draw(gl);
-        }
+        let mut stage_batch = CpuMeshBatch::empty();
+        self.emit_studio(&mut stage_batch);
         let mut ui_batch = CpuMeshBatch::empty();
         self.emit_ui(avatar, &mut ui_batch);
-        unsafe {
-            gl.disable(glow::DEPTH_TEST);
-            gl.enable(glow::BLEND);
-            gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
-        }
-        shader.bind(gl, &Mat4::IDENTITY, Vec3::Z);
-        ui_batch.draw(gl);
-        unsafe {
-            gl.disable(glow::BLEND);
-            gl.enable(glow::DEPTH_TEST);
-        }
+        self.panels.draw_overlay(self.phase, gl, shader, stage_batch, ui_batch, aspect);
     }
 }

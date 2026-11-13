@@ -13,7 +13,7 @@ use crate::avatar::PlanetaryAvatar;
 use crate::celestial::CelestialCadence;
 use crate::controls::{BindingProfile, FileBindings, KeyMotion};
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
-use crate::menu::EscapeMenu;
+use crate::menu::{EscapeMenu, PortalInvite};
 use crate::physics::PlanetaryPhysics;
 use crate::portal_config::PortalConfig;
 use crate::server_aurora::ServerAurora;
@@ -86,7 +86,10 @@ impl SessionAssembly for SessionLaunch {
 
         let planet: Box<dyn PlanetaryWorld> =
             PortalConfig::from_process().assemble_planet(self.cosmos.world_blocks, self.tron_active);
-        let initial_ticket = planet.portal_ticket().unwrap_or_default();
+        let initial_invite = PortalInvite::hosted(
+            planet.portal_phrase().unwrap_or_default(),
+            planet.portal_ticket().unwrap_or_default(),
+        );
 
         let half = (self.cosmos.world_blocks as f32) * 0.5;
         let spawn_position = planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0);
@@ -143,7 +146,10 @@ impl SessionAssembly for SessionLaunch {
         let tron_shader = surface.compile_shader(&TronShaderSource::embedded());
         let tron_pipeline = Box::new(TronPipeline::void());
         let controls = Box::new(KeyMotion::with_bindings(bindings));
-        let modal = Box::new(EscapeMenu::with_portal(initial_ticket));
+        let modal = Box::new(EscapeMenu::with_clipboard(
+            initial_invite,
+            surface.attach_clipboard(),
+        ));
 
         Box::new(GameSession::new(
             surface,

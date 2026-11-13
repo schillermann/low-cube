@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-11-13
+
+### Added
+- Added serverless 12-character P2P Co-op Portal & FRITZ!Box NAT Counter-Punch codes (`XXXX-XXXX-XXXX`, e.g. `K7M9-P2X4-R8W3`) authenticated via RFC 9382 SPAKE2 over Ristretto255 + ChaCha20-Poly1305 (`CrockfordStamp`, `PortalCode`, `PunchCode`, `WormholePledge`, `WormholeGate` in `crates/sanctuary/src/wormhole/`), combined with cross-platform pure-Rust RFC 5389 STUN and local router UPnP IGD / NAT-PMP discovery (`NatAperture`, `StunProbe`, `GatewayLease` in `crates/sanctuary/src/nat/`) and live non-blocking Ping-Pong NAT hole-punching (`PortalDial` in `crates/client/src/portal_config.rs`, `PortalStudio` & `PortalLayout` in `crates/client/src/menu/portal/`).
+
+### Removed
+- Removed `RelayBeacon`, `BeaconRoute`, `--relay`, `--relay-only`, and `LOWCUBE_RELAY` across `crates/sanctuary`, `crates/client`, and `server.toml` so multiplayer operates 100% peer-to-peer without any intermediate relay server.
+
+### Fixed
+- Replaced external CLI-only Linux clipboard shelling (`wl-copy`/`xclip`/`xsel`) with in-process Wayland display seat binding (`WaylandClipboard` via `smithay-clipboard` attached to `GlPlatformSurface`) and persistent X11/data-control selection ownership (`SelectionClipboard` via `arboard`), keeping `PipeClipboard` and `ScratchClipboard` as fallbacks (`crates/client/src/menu/clipboard/`) and reporting accurate clipboard state in `PortalStudio` (`crates/client/src/menu/portal/mod.rs`).
+
 ## [0.67.0] - 2026-11-13
 
 ### Added

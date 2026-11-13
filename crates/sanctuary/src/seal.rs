@@ -27,12 +27,6 @@ impl HandshakeIdentity {
         self.public.to_bytes()
     }
 
-    pub fn portal_id(&self) -> [u8; 8] {
-        let mut out = [0u8; 8];
-        out.copy_from_slice(&self.public.as_bytes()[0..8]);
-        out
-    }
-
     /// Derives a symmetric ChaCha20-Poly1305 `SessionSeal` bound to both parties' public keys.
     pub fn establish(&self, remote_pub: [u8; 32], initiator: bool) -> SessionSeal {
         let peer_key = PublicKey::from(remote_pub);

@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, ExposedStratum, GravityField,
@@ -165,6 +166,15 @@ impl PlanetaryWorld for HostedPlanet {
 
     fn portal_ticket(&self) -> Option<String> {
         Some(self.host.ticket().encode())
+    }
+
+    fn portal_phrase(&self) -> Option<String> {
+        Some(self.host.code().encode())
+    }
+
+    fn punch_nat_peer(&mut self, peer: SocketAddr) -> bool {
+        self.host.punch_nat_peer(peer);
+        true
     }
 
     fn pump_portal(&mut self, dt: f32) -> bool {

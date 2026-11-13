@@ -1,31 +1,31 @@
 use std::collections::HashMap;
-use std::net::UdpSocket;
+use std::net::{SocketAddr, UdpSocket};
 use glam::{Quat, Vec3};
 use world::{CompanionPresence, PlanetaryWorld, PresenceKinematics};
 use crate::chronicle_log::ChronicleLog;
 use crate::envelope::{CrackNotice, SanctuaryEnvelope};
 use crate::seal::HandshakeIdentity;
-use crate::ticket::BeaconRoute;
-use crate::ward::{GuestWard, ReturnPath, WardVitals};
+use crate::ward::{GuestWard, WardVitals};
+use crate::wormhole::WormholeGate;
 
-/// Cryptographic identity, grid resolution, and NAT beacon configuration of a `SanctuaryHost`.
+/// Cryptographic identity, grid resolution, and advertised P2P endpoint of a `SanctuaryHost`.
 pub struct HostIdentity {
     keys: HandshakeIdentity,
     blocks_per_edge: u32,
     tron_mode: bool,
-    beacon: BeaconRoute,
+    endpoint: SocketAddr,
 }
 
 impl HostIdentity {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(keys: HandshakeIdentity, blocks_per_edge: u32, tron_mode: bool, beacon: BeaconRoute) -> Self {
-        Self { keys, blocks_per_edge, tron_mode, beacon }
+    pub const fn new(keys: HandshakeIdentity, blocks_per_edge: u32, tron_mode: bool, endpoint: SocketAddr) -> Self {
+        Self { keys, blocks_per_edge, tron_mode, endpoint }
     }
 
     pub const fn keys(&self) -> &HandshakeIdentity { &self.keys }
     pub const fn blocks_per_edge(&self) -> u32 { self.blocks_per_edge }
     pub const fn tron_mode(&self) -> bool { self.tron_mode }
-    pub const fn beacon(&self) -> BeaconRoute { self.beacon }
+    pub const fn endpoint(&self) -> SocketAddr { self.endpoint }
 }
 
 /// Polymorphic local-host avatar presence (`Headless` for dedicated servers, `Occupied` for `--host`).
@@ -64,7 +64,7 @@ impl GuestCohort {
         }
     }
 
-    pub fn admit_guest(&mut self, identity: &HostIdentity, world: &dyn PlanetaryWorld, path: ReturnPath, guest_pub: [u8; 32]) -> u32 {
+    pub fn admit_guest(&mut self, identity: &HostIdentity, world: &dyn PlanetaryWorld, peer: SocketAddr, guest_pub: [u8; 32]) -> u32 {
         let cid = if let Some(&existing) = self.key_index.get(&guest_pub) {
             existing
         } else {
@@ -77,7 +77,7 @@ impl GuestCohort {
         let spawn = world.constrain_to_surface(Vec3::new(0.0, 64.0, 0.0), 0.0);
         let kin = PresenceKinematics::new(spawn, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
         let pres = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4]));
-        self.wards.entry(cid).or_insert_with(|| GuestWard::new(seal, path, pres, WardVitals::fresh()));
+        self.wards.entry(cid).or_insert_with(|| GuestWard::new(seal, peer, pres, WardVitals::fresh()));
         cid
     }
 
@@ -116,17 +116,35 @@ impl GuestCohort {
     }
 }
 
-/// Mutable chronicle, guest cohort, local presence, and transient crack state of `SanctuaryHost`.
-pub struct HostState {
-    pub(crate) chronicle: ChronicleLog,
-    pub(crate) cohort: GuestCohort,
+/// Local host presence and transient dig-crack notice bundled for cohort broadcast.
+pub struct HostAura {
     pub(crate) presence: HostPresence,
     pub(crate) crack: CrackNotice,
 }
 
+impl HostAura {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(presence: HostPresence, crack: CrackNotice) -> Self {
+        Self { presence, crack }
+    }
+}
+
+/// Mutable chronicle, guest cohort, host aura, and SPAKE2 wormhole gate of `SanctuaryHost`.
+pub struct HostState {
+    pub(crate) chronicle: ChronicleLog,
+    pub(crate) cohort: GuestCohort,
+    pub(crate) aura: HostAura,
+    pub(crate) wormhole: WormholeGate,
+}
+
 impl HostState {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(chronicle: ChronicleLog, cohort: GuestCohort, presence: HostPresence, crack: CrackNotice) -> Self {
-        Self { chronicle, cohort, presence, crack }
+    pub const fn new(
+        chronicle: ChronicleLog,
+        cohort: GuestCohort,
+        aura: HostAura,
+        wormhole: WormholeGate,
+    ) -> Self {
+        Self { chronicle, cohort, aura, wormhole }
     }
 }

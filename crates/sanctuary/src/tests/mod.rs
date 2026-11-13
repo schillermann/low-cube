@@ -1,3 +1,5 @@
+mod wormhole;
+
 use std::net::UdpSocket;
 use glam::{Quat, Vec3};
 use world::{
@@ -5,10 +7,7 @@ use world::{
     FacetedReliefFace, FoldedFace, HollowVeins, LivingVeins, NullFace, PlanetaryWorld,
     PresenceKinematics, WorldFact,
 };
-use crate::{
-    BeaconRoute, JoinTarget, PortalTicket, RelayBeacon, RemotePlanet, SanctuaryEnvelope,
-    SanctuaryHost,
-};
+use crate::{JoinTarget, PortalTicket, RemotePlanet, SanctuaryEnvelope, SanctuaryHost};
 
 fn build_ore_test_planet(authoritative: bool) -> CubePlanet {
     let half = 16.0;
@@ -38,7 +37,7 @@ fn pump_pair(host: &mut SanctuaryHost, guest_a: &mut RemotePlanet, guest_b: &mut
 #[test]
 fn test_encrypted_multiplayer_companions_dig_and_build_together_on_shared_cube() {
     let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
-    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16, false, BeaconRoute::Unassisted).expect("bind host");
+    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16, false).expect("bind host");
     let ticket = host.ticket();
     let encoded = ticket.encode();
     let parsed = JoinTarget::parse(&encoded).expect("parse LC1 ticket");
@@ -60,7 +59,6 @@ fn test_encrypted_multiplayer_companions_dig_and_build_together_on_shared_cube()
     bob.active_companions(&mut seen_by_bob);
     assert_eq!(seen_by_bob.len(), 1, "Bob must see Alice's companion avatar on the same cube face");
 
-    // Alice digs a block downward and places a stone cube beside her; Bob's world receives both without Alice double-digging.
     let eye = spawn + Vec3::Y * 1.55;
     let before_alice = alice.constrain_to_surface(spawn, 0.0).y;
     assert!(alice.harvest_surface(eye, Vec3::NEG_Y).is_some());
@@ -89,7 +87,6 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
         Box::new(build_ore_test_planet(true)),
         16,
         false,
-        BeaconRoute::Unassisted,
     )
     .expect("bind ore host");
     let addr = host.local_addr().expect("addr");
@@ -107,7 +104,6 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
     );
     pump_pair(&mut host, &mut guest, &mut observer, 6);
 
-    // Before digging, an X-Ray client inspecting `observer` finds ZERO mineral ores anywhere in the planet.
     let mut disclosed_ores = 0usize;
     for idx in 0..8 {
         let x = 0.25 + (idx as f32) * 1.5;
@@ -119,7 +115,6 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
             pump_pair(&mut host, &mut guest, &mut observer, 5);
         }
     }
-    // Check that observer received StratumDisclosed facts ONLY for pit walls/floors and can harvest an exposed ore!
     for idx in 0..8 {
         let x = 0.25 + (idx as f32) * 1.5;
         let pit_floor = observer.constrain_to_surface(Vec3::new(x, 28.0, 0.25), 0.0);
@@ -139,10 +134,9 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
 #[test]
 fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping() {
     let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
-    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16, false, BeaconRoute::Unassisted).expect("bind host");
+    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16, false).expect("bind host");
     let ticket = host.ticket();
 
-    // Connect a raw custom "cheater" client using `HandshakeIdentity` directly to craft illegal packets!
     let sock = UdpSocket::bind("127.0.0.1:0").expect("bind cheater");
     sock.set_nonblocking(true).expect("nb");
     let cheater_keys = crate::HandshakeIdentity::generate();
@@ -156,8 +150,6 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
     let cid = u32::from_le_bytes(buf[36..40].try_into().expect("cid"));
     let mut seal = cheater_keys.establish(ticket.host_key(), true);
 
-    // Position cheater at (0.25, y, 0.25), then attempt:
-    // 1) Telekinesis dig 14m away at (-7.25, y, -7.25) -> MUST BE REJECTED!
     let stand = host.world().constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0);
     let (mut payload, mut frame) = (Vec::new(), Vec::new());
     let pulse = SanctuaryEnvelope::GuestPulse {
@@ -179,7 +171,6 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
     let far_after = host.world().constrain_to_surface(Vec3::new(-6.25, 16.0, -6.25), 0.0);
     assert!((far_after.y - far_spot.y).abs() < 1e-4, "Out-of-reach telekinesis mining must be rejected");
 
-    // 2) Speed-mining packet flood: 12 instant harvest packets in 1ms at cheater's feet -> at most 2 burst tokens accepted!
     for _ in 0..12 {
         let cur = host.world().constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0);
         SanctuaryEnvelope::GuestPetition {
@@ -195,52 +186,20 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
 }
 
 #[test]
-fn test_zero_router_config_relay_beacon_connects_guests_behind_strict_nat() {
-    let mut relay = RelayBeacon::bind("127.0.0.1:0").expect("bind relay");
-    let relay_addr = relay.local_addr().expect("relay addr");
-
-    let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
-    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16, false, BeaconRoute::Assisted(relay_addr)).expect("bind host");
-
-    // Register host on relay beacon, then forge a ticket whose direct IP is unreachable (`127.0.0.1:9` discard port)
-    // proving the guest connects 100% through the encrypted RelayBeacon without router port-forwarding!
-    let _ = host.pump_network(0.06);
-    relay.step(0.06);
-    let unreachable_direct: std::net::SocketAddr = "127.0.0.1:9".parse().expect("discard addr");
-    let nat_locked_ticket = PortalTicket::new(host.ticket().host_key(), unreachable_direct, BeaconRoute::Assisted(relay_addr));
-
-    let mut guest = RemotePlanet::dial(JoinTarget::Ticket(nat_locked_ticket), 16, false, 0.5).expect("dial via relay");
-    for _ in 0..12 {
-        let _ = guest.step_surface(0.06);
-        relay.step(0.06);
-        let _ = host.tick(0.06);
-        relay.step(0.06);
-    }
-    assert!(guest.connected(), "Guest must establish E2EE session through RelayBeacon even when direct port is blocked");
-}
-
-#[test]
 fn test_sanctuary_plan_and_join_target_support_zero_flag_player_defaults() {
     use crate::{SanctuaryEndpoint, SanctuaryPlan, SanctuaryToml};
 
     let args = vec!["low-cube-server".to_string()];
     let default_plan = SanctuaryPlan::assembled(&args, &SanctuaryToml::new(String::new()));
-    assert_eq!(
-        default_plan,
-        SanctuaryPlan::new(SanctuaryEndpoint::new(27777, false, BeaconRoute::Unassisted), 128)
-    );
+    assert_eq!(default_plan, SanctuaryPlan::new(SanctuaryEndpoint::new(27777), 128));
 
-    let toml = SanctuaryToml::new("[world]\nsize = 2\n[server]\nport = 28888\nrelay = \"127.0.0.1:27778\"\n".to_string());
+    let toml = SanctuaryToml::new("[world]\nsize = 2\n[server]\nport = 28888\n".to_string());
     let configured = SanctuaryPlan::assembled(&args, &toml);
-    let relay_addr: std::net::SocketAddr = "127.0.0.1:27778".parse().expect("relay");
-    assert_eq!(
-        configured,
-        SanctuaryPlan::new(SanctuaryEndpoint::new(28888, false, BeaconRoute::Assisted(relay_addr)), 256)
-    );
+    assert_eq!(configured, SanctuaryPlan::new(SanctuaryEndpoint::new(28888), 256));
 
     let default_port_ip: std::net::SocketAddr = "127.0.0.1:27777".parse().expect("default ip");
     assert_eq!(JoinTarget::parse("127.0.0.1"), Some(JoinTarget::Direct(default_port_ip)));
-    let ticket = PortalTicket::new([7u8; 32], default_port_ip, BeaconRoute::Unassisted);
+    let ticket = PortalTicket::new([7u8; 32], default_port_ip);
     let pasted_line = format!("  Invite Ticket: --join {}  ", ticket.encode());
     assert_eq!(JoinTarget::parse(&pasted_line), Some(JoinTarget::Ticket(ticket)));
 }

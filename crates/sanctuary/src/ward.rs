@@ -8,35 +8,6 @@ const MAX_DIG_BURST_TOKENS: f32 = 2.0;
 const DIG_REFILL_PER_SEC: f32 = 5.0;
 const INITIAL_STARTER_BLOCKS: u32 = 64;
 
-/// Polymorphic network return path supporting direct P2P UDP and encrypted NAT relay forwarding.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ReturnPath {
-    Direct(SocketAddr),
-    Relayed {
-        beacon: SocketAddr,
-        portal_id: [u8; 8],
-        slot: u16,
-    },
-}
-
-impl ReturnPath {
-    pub fn transmit(&self, socket: &UdpSocket, frame: &[u8]) {
-        match *self {
-            Self::Direct(addr) => {
-                let _ = socket.send_to(frame, addr);
-            }
-            Self::Relayed { beacon, portal_id, slot } => {
-                let mut wrapped = Vec::with_capacity(14 + frame.len());
-                wrapped.extend_from_slice(b"LBFW");
-                wrapped.extend_from_slice(&portal_id);
-                wrapped.extend_from_slice(&slot.to_le_bytes());
-                wrapped.extend_from_slice(frame);
-                let _ = socket.send_to(&wrapped, beacon);
-            }
-        }
-    }
-}
-
 /// Authoritative per-guest anti-cheat vitals: chronicle ack, dig rate tokens, timeout, and block tally.
 pub struct WardVitals {
     ack_seq: u32,
@@ -65,10 +36,10 @@ impl WardVitals {
     }
 }
 
-/// Authoritative companion session sealing UDP frames and vetting reach, dig cadence, and block credits.
+/// Authoritative P2P companion session sealing UDP frames and vetting reach, dig cadence, and block credits.
 pub struct GuestWard {
     seal: SessionSeal,
-    path: ReturnPath,
+    peer: SocketAddr,
     presence: CompanionPresence,
     vitals: WardVitals,
 }
@@ -77,11 +48,11 @@ impl GuestWard {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
         seal: SessionSeal,
-        path: ReturnPath,
+        peer: SocketAddr,
         presence: CompanionPresence,
         vitals: WardVitals,
     ) -> Self {
-        Self { seal, path, presence, vitals }
+        Self { seal, peer, presence, vitals }
     }
 
     pub fn step(&mut self, dt: f32) {
@@ -100,11 +71,9 @@ impl GuestWard {
         self.presence
     }
 
-    pub fn open_datagram(&mut self, path: ReturnPath, frame: &[u8]) -> Option<Vec<u8>> {
+    pub fn open_datagram(&mut self, src: SocketAddr, frame: &[u8]) -> Option<Vec<u8>> {
         let (_, body) = self.seal.open_frame(frame)?;
-        if matches!(path, ReturnPath::Direct(_)) || matches!(self.path, ReturnPath::Relayed { .. }) {
-            self.path = path;
-        }
+        self.peer = src;
         self.vitals.silence_secs = 0.0;
         Some(body)
     }
@@ -145,6 +114,6 @@ impl GuestWard {
 
     pub fn send_sealed(&mut self, socket: &UdpSocket, companion_id: u32, payload: &[u8], scratch: &mut Vec<u8>) {
         self.seal.seal(companion_id, payload, scratch);
-        self.path.transmit(socket, scratch);
+        let _ = socket.send_to(scratch, self.peer);
     }
 }

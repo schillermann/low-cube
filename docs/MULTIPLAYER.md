@@ -11,14 +11,14 @@ For normal solo and co-op sessions, every player only needs the game executable 
 ### Host a Co-op World
 1. Launch `low-cube-windows.exe` (or `./low-cube-linux`).
 2. Press **`Esc`** to open the Main Menu and click **`OPEN CO-OP PORTAL`**.
-3. Your **`LC1-...` Invite Ticket** is **automatically copied to your clipboard** (click **`COPY INVITE TICKET`** anytime to copy it again).
-4. Paste (`Ctrl+V`) the ticket to your friends in Discord, Steam, or chat.
+3. Share the **12-Character Portal Code** shown in the menu (for example **`CODE: K7M9-P2X4-R8W3`**), or paste (`Ctrl+V`) the automatically copied **`LC1-...` Invite Ticket** in chat.
 
 ### Join a Friend's World or Public Server
 1. Launch `low-cube-windows.exe` (or `./low-cube-linux`).
 2. Press **`Esc`** and click **`JOIN CO-OP / SERVER`**.
-3. Click **`PASTE (CTRL+V)`** to insert your friend's `LC1-...` ticket—or type a server address such as `play.example.com` or `192.168.1.50:27777`.
-4. Click **`JOIN WORLD (ENTER)`** (or press **`Enter`**) to land directly on the shared World-Cube.
+3. Type the **12-Character Portal Code** (`K7M9-P2X4-R8W3` — hyphens and uppercase are optional), click **`PASTE (CTRL+V)`** for an `LC1-...` ticket, or enter a server address such as `play.example.com` or `192.168.1.50:27777`.
+4. Press **`Enter`** (`JOIN WORLD`). On Wi-Fi/LAN or routers with UPnP/NAT-PMP enabled, you land immediately!
+5. **Closed Routers (e.g. FRITZ!Box with UPnP disabled — Zero-Server Ping-Pong Punch)**: If the host's router blocks unsolicited packets, your screen displays **`NAT LOCKED - TELL HOST: XXXX-XXXX-XXXX`**. Once the host enters that 12-character reply code under **`PUNCH NAT / JOIN`**, both routers punch a direct P2P UDP tunnel without any external relay server!
 
 ---
 
@@ -41,8 +41,6 @@ Place an optional `server.toml` file in the same folder as `low-cube-server-wind
 ```toml
 [server]
 port = 27777
-relay = ""          # Optional NAT relay address, e.g. "relay.example.com:27778"
-relay_only = false  # Set true to run as an encrypted NAT Relay Beacon
 
 [world]
 size = 1            # 1 = 128^3 blocks, 2 = 256^3 blocks
@@ -62,8 +60,7 @@ Players and server operators who prefer desktop shortcuts or startup scripts can
 | *(no flags)* | Launch offline singleplayer (`low-cube`) or default UDP `27777` server (`low-cube-server`). |
 | `--host` | Automatically open a co-op portal on game launch and copy the `LC1-...` ticket. |
 | `--port <udp>` | Bind a specific UDP port (`--host --port 27777` or on `low-cube-server`). |
-| `--join <LC1-... \| host[:port]>` | Join a friend's ticket or server directly on startup (`LOWCUBE_JOIN`). |
-| `--relay <host:port>` | Assist NAT hole-punching & encrypted relay fallback (`LOWCUBE_RELAY`). |
+| `--join <XXXX-XXXX-XXXX \| LC1-... \| host[:port]>` | Join a friend's 12-char code, ticket, or server on startup (`LOWCUBE_JOIN`). |
 
 *(Compiling and launching from Rust source via `cargo` is documented in the [Developer Guide](DEVELOPMENT.md).)*
 

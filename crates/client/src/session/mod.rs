@@ -22,15 +22,15 @@ pub trait Session {
 
 /// Fully initialized active game session with code-free primary constructor.
 pub struct GameSession {
-    display: SessionDisplay,
     stage: SessionStage,
+    display: SessionDisplay,
     pace: FramePace,
 }
 
 impl GameSession {
     /// Primary constructor doing zero computation or I/O.
-    fn with_pace(display: SessionDisplay, stage: SessionStage, pace: FramePace) -> Self {
-        Self { display, stage, pace }
+    fn with_pace(stage: SessionStage, display: SessionDisplay, pace: FramePace) -> Self {
+        Self { stage, display, pace }
     }
 
     /// Secondary constructor assembling display and stage passes with real-time frame pacing.
@@ -50,13 +50,13 @@ impl GameSession {
         modal: Box<dyn SessionModal>,
     ) -> Self {
         Self::with_pace(
+            SessionStage::new(world, avatar, controls, modal),
             SessionDisplay::new(
                 surface,
                 RenderPass::new(primary_pipeline, primary_shader, primary_mesh),
                 RenderPass::new(tron_pipeline, tron_shader, tron_mesh),
                 tron_active,
             ),
-            SessionStage::new(world, avatar, controls, modal),
             FramePace::realtime(),
         )
     }

@@ -1,10 +1,9 @@
 use std::env;
 use std::fs;
-use std::net::ToSocketAddrs;
 use std::thread;
 use std::time::{Duration, Instant};
 use world::{BiomedCubeWorld, PlanetaryWorld};
-use crate::{BeaconRoute, RelayBeacon, SanctuaryHost};
+use crate::SanctuaryHost;
 
 /// Encapsulated `server.toml` text resolving dedicated sanctuary properties without external crates.
 #[derive(Clone, Debug)]
@@ -45,79 +44,42 @@ impl SanctuaryToml {
     }
 }
 
-/// Encapsulated UDP binding port, relay-only mode, and optional NAT rendezvous route.
+/// Encapsulated UDP binding port for a dedicated P2P `SanctuaryHost`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SanctuaryEndpoint {
     port: u16,
-    relay_only: bool,
-    beacon: BeaconRoute,
 }
 
 impl SanctuaryEndpoint {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(port: u16, relay_only: bool, beacon: BeaconRoute) -> Self {
-        Self { port, relay_only, beacon }
+    pub const fn new(port: u16) -> Self {
+        Self { port }
     }
 
-    fn with_port_and_mode(mut self, port: u16, relay_only: bool) -> Self {
-        self.port = port;
-        self.relay_only = relay_only;
-        self
-    }
-
-    fn with_beacon_spec(mut self, spec: &str) -> Self {
-        let trimmed = spec.trim();
-        if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("off") || trimmed.eq_ignore_ascii_case("none") {
-            self.beacon = BeaconRoute::Unassisted;
-            return self;
-        }
-        let candidate = if trimmed.contains(':') {
-            trimmed.to_string()
-        } else {
-            format!("{trimmed}:27778")
-        };
-        if let Ok(mut addrs) = candidate.to_socket_addrs() {
-            if let Some(addr) = addrs.next() {
-                self.beacon = BeaconRoute::Assisted(addr);
-            }
-        }
-        self
+    pub const fn port(&self) -> u16 {
+        self.port
     }
 
     fn serve(self, blocks_per_edge: u32) -> std::io::Result<()> {
         let bind_addr = format!("0.0.0.0:{}", self.port);
-        if self.relay_only {
-            let mut relay = RelayBeacon::bind(&bind_addr)?;
-            let bound = relay.local_addr()?;
-            println!("=== LOW-CUBE RELAY BEACON ===");
-            println!("Listening UDP:  {bound} (end-to-end encrypted NAT rendezvous & fallback)");
-            let mut last = Instant::now();
-            loop {
-                let now = Instant::now();
-                let dt = (now - last).as_secs_f32().min(0.1);
-                last = now;
-                relay.step(dt);
-                thread::sleep(Duration::from_millis(10));
-            }
-        } else {
-            let bevel = ((blocks_per_edge as f32) * 0.5 * 0.125).clamp(0.5, 1.0);
-            let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(blocks_per_edge, bevel));
-            let mut host = SanctuaryHost::bind(&bind_addr, world, blocks_per_edge, false, self.beacon)?;
-            let bound = host.local_addr()?;
-            let ticket = host.ticket().encode();
-            println!("=== LOW-CUBE DEDICATED SERVER ===");
-            println!("Listening UDP:  {bound} ({blocks_per_edge} blocks/edge)");
-            println!("Direct Address: {}", host.ticket().direct());
-            println!("Invite Ticket:  {ticket}");
-            println!("Players join in-game via Esc -> JOIN CO-OP / SERVER");
-            let mut last = Instant::now();
-            loop {
-                let now = Instant::now();
-                let dt = (now - last).as_secs_f32().min(0.1);
-                last = now;
-                let _ = host.tick(dt);
-                thread::sleep(Duration::from_millis(15));
-            }
+        let bevel = ((blocks_per_edge as f32) * 0.5 * 0.125).clamp(0.5, 1.0);
+        let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(blocks_per_edge, bevel));
+        let mut host = SanctuaryHost::bind(&bind_addr, world, blocks_per_edge, false)?;
+        let bound = host.local_addr()?;
+        let ticket = host.ticket().encode();
+        println!("=== LOW-CUBE DEDICATED SERVER ===");
+        println!("Listening UDP:  {bound} ({blocks_per_edge} blocks/edge)");
+        println!("Portal Code:    {}", host.code().encode());
+        println!("Direct Address: {}", host.ticket().direct());
+        println!("Invite Ticket:  {ticket}");
+        println!("Players join in-game via Esc -> JOIN CO-OP / SERVER");
+        let mut last = Instant::now();
+        loop {
+            let now = Instant::now();
+            let dt = (now - last).as_secs_f32().min(0.1);
+            last = now;
+            let _ = host.tick(dt);
+            thread::sleep(Duration::from_millis(15));
         }
     }
 }
@@ -135,12 +97,18 @@ impl SanctuaryPlan {
         Self { endpoint, blocks_per_edge }
     }
 
+    pub const fn endpoint(&self) -> SanctuaryEndpoint {
+        self.endpoint
+    }
+
+    pub const fn blocks_per_edge(&self) -> u32 {
+        self.blocks_per_edge
+    }
+
     /// Secondary constructor assembling configuration in priority order: CLI > Env > `server.toml` > Baseline.
     pub fn assembled(args: &[String], toml: &SanctuaryToml) -> Self {
         let mut port = 27777u16;
         let mut blocks = 128u32;
-        let mut relay_only = false;
-        let mut endpoint = SanctuaryEndpoint::new(port, relay_only, BeaconRoute::Unassisted);
 
         if let Some(raw_size) = toml
             .section_property("world", "size", true)
@@ -157,12 +125,6 @@ impl SanctuaryPlan {
                 panic!("Invalid server port '{raw_port}' in server.toml: expected 1..=65535")
             });
         }
-        if let Some(raw_mode) = toml.section_property("server", "relay_only", false) {
-            relay_only = raw_mode.eq_ignore_ascii_case("true") || raw_mode == "1";
-        }
-        if let Some(raw_relay) = toml.section_property("server", "relay", false) {
-            endpoint = endpoint.with_beacon_spec(&raw_relay);
-        }
 
         if let Ok(env_size) = env::var("LOW_CUBE_SIZE").or_else(|_| env::var("LOW_CUBE_SCALE")) {
             let factor = env_size.trim().parse::<i64>().unwrap_or_else(|_| {
@@ -175,9 +137,6 @@ impl SanctuaryPlan {
             if let Ok(parsed) = env_port.trim().parse::<u16>() {
                 port = parsed;
             }
-        }
-        if let Ok(env_relay) = env::var("LOWCUBE_RELAY") {
-            endpoint = endpoint.with_beacon_spec(&env_relay);
         }
 
         let mut idx = 1;
@@ -203,18 +162,12 @@ impl SanctuaryPlan {
                     port = p;
                 }
                 idx += 2;
-            } else if arg == "--relay" && idx + 1 < args.len() {
-                endpoint = endpoint.with_beacon_spec(&args[idx + 1]);
-                idx += 2;
-            } else if arg == "--relay-only" {
-                relay_only = true;
-                idx += 1;
             } else {
                 idx += 1;
             }
         }
 
-        Self::new(endpoint.with_port_and_mode(port, relay_only), blocks)
+        Self::new(SanctuaryEndpoint::new(port), blocks)
     }
 
     pub fn execute(self) -> std::io::Result<()> {

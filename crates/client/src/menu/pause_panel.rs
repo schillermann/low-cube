@@ -71,7 +71,7 @@ impl PausePanel {
         let bg = Vec3::new(0.08, 0.10, 0.15);
         let rim = Vec3::new(0.32, 0.39, 0.50);
         let gold = Vec3::new(0.96, 0.82, 0.34);
-        ScreenBounds::new(-0.36, -0.88, 0.36, 0.44).emit_framed(bg, rim, 0.008, target);
+        ScreenBounds::new(-0.36, -0.94, 0.36, 0.44).emit_framed(bg, rim, 0.008, target);
         PixelStamp::title(gold).emit_centered("MAIN MENU", 0.0, 0.35, target);
         self.resume_button().emit_button("RESUME GAME", pointer, Vec3::new(0.18, 0.42, 0.24), false, target);
         self.character_button().emit_button("CHARACTER", pointer, Vec3::new(0.20, 0.32, 0.52), false, target);

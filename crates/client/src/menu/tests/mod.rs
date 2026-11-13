@@ -1,3 +1,5 @@
+mod portal_tests;
+
 use std::cell::Cell;
 use glam::Vec3;
 use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
@@ -11,14 +13,14 @@ use crate::controls::ControlAction;
 use crate::posture::AvatarPosture;
 use crate::surface::PlatformSurface;
 use super::{
-    AvatarArchetype, ControlStudio, EscapeMenu, MemoryClipboard, ModalDirective, PausePanel,
-    PortalStudio, ScreenPoint, SessionModal, StudioAnimation, TurntableStage, WardrobeStudio,
+    AvatarArchetype, ControlStudio, EscapeMenu, ModalDirective, ScreenPoint, SessionModal,
+    StudioAnimation, TurntableStage, WardrobeStudio,
 };
 
-struct MockSurface { captured: Cell<bool> }
+pub(super) struct MockSurface { captured: Cell<bool> }
 impl MockSurface {
-    fn active() -> Self { Self { captured: Cell::new(true) } }
-    fn cursor_captured(&self) -> bool { self.captured.get() }
+    pub(super) fn active() -> Self { Self { captured: Cell::new(true) } }
+    pub(super) fn cursor_captured(&self) -> bool { self.captured.get() }
 }
 
 impl PlatformSurface for MockSurface {
@@ -33,10 +35,10 @@ impl PlatformSurface for MockSurface {
     fn render_frame(&self, _p: &dyn GraphicPipeline, _s: &dyn ShaderProgram, _m: &dyn Mesh, _a: &dyn Avatar, _os: &dyn ShaderProgram, _mo: &dyn SessionModal) {}
 }
 
-struct QuadCapture { quads: Vec<Quad> }
+pub(super) struct QuadCapture { quads: Vec<Quad> }
 impl QuadCapture {
-    fn empty() -> Self { Self { quads: Vec::new() } }
-    fn count(&self) -> usize { self.quads.len() }
+    pub(super) fn empty() -> Self { Self { quads: Vec::new() } }
+    pub(super) fn count(&self) -> usize { self.quads.len() }
     fn positions(&self) -> Vec<Vec3> { self.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect() }
     fn colors(&self) -> Vec<Vec3> { self.quads.iter().map(|q| q.transfer(|_, _, _, _, _, col| col)).collect() }
     fn bust_projection(&self) -> f32 {
@@ -206,56 +208,4 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
     let mut next_anim_stage = QuadCapture::empty();
     studio.emit_stage(&mut next_anim_stage);
     assert_ne!(male_stage.positions(), next_anim_stage.positions(), "Clicking animation button in Character Studio must cycle stage animation");
-}
-
-#[test]
-fn test_in_game_menu_supports_portal_hosting_clipboard_paste_and_server_join() {
-    use sanctuary::{BeaconRoute, JoinTarget, PortalTicket};
-    use winit::keyboard::KeyCode;
-
-    let surface = MockSurface::active();
-    let mut avatar = PlanetaryAvatar::at(Vec3::new(0.0, 9.0, 0.0));
-    let addr: std::net::SocketAddr = "127.0.0.1:27777".parse().expect("addr");
-    let sample_ticket = PortalTicket::new([9u8; 32], addr, BeaconRoute::Unassisted);
-    let encoded_ticket = sample_ticket.encode();
-    let mut menu = EscapeMenu::with_custom_portal(PortalStudio::with_clipboard(
-        String::new(),
-        Box::new(MemoryClipboard::seeded(&encoded_ticket)),
-    ));
-
-    menu.toggle_escape(&surface);
-    let pause = PausePanel::new();
-    let host_btn = pause.portal_button();
-    menu.move_cursor(ScreenPoint::new(host_btn.center_x(), host_btn.center_y()));
-    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::OpenPortal);
-    menu.announce_portal(encoded_ticket.clone());
-    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-
-    let join_btn = pause.join_portal_button();
-    menu.move_cursor(ScreenPoint::new(join_btn.center_x(), join_btn.center_y()));
-    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    let mut join_ui = QuadCapture::empty();
-    menu.emit_ui(&avatar, &mut join_ui);
-    assert!(join_ui.count() > 50, "Portal Join panel must render input field and action buttons");
-
-    let paste_btn = PortalStudio::paste_button();
-    menu.move_cursor(ScreenPoint::new(paste_btn.center_x(), paste_btn.center_y()));
-    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    let connect_btn = PortalStudio::join_button();
-    menu.move_cursor(ScreenPoint::new(connect_btn.center_x(), connect_btn.center_y()));
-    assert_eq!(
-        menu.press_mouse(&surface, &mut avatar),
-        ModalDirective::JoinPortal(JoinTarget::Ticket(sample_ticket))
-    );
-
-    let clear_btn = PortalStudio::clear_button();
-    menu.move_cursor(ScreenPoint::new(clear_btn.center_x(), clear_btn.center_y()));
-    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    menu.handle_text("127.0.0.1");
-    assert_eq!(
-        menu.handle_key(KeyCode::Enter, false, &mut avatar),
-        ModalDirective::JoinPortal(JoinTarget::Direct(addr))
-    );
-    menu.complete_join(&surface);
-    assert!(!menu.open() && surface.cursor_captured());
 }

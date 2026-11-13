@@ -135,6 +135,8 @@ pub trait PlanetaryWorld: GravityField {
     fn sync_presence(&mut self, _presence: CompanionPresence) {}
     fn active_companions(&self, _out: &mut Vec<CompanionPresence>) {}
     fn portal_ticket(&self) -> Option<String> { None }
+    fn portal_phrase(&self) -> Option<String> { None }
+    fn punch_nat_peer(&mut self, _peer: std::net::SocketAddr) -> bool { false }
     fn pump_portal(&mut self, _dt: f32) -> bool { false }
 }
 

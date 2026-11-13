@@ -14,7 +14,7 @@ use crate::aurora_canopy::AuroraCanopy;
 use crate::avatar::Avatar;
 use crate::celestial::CelestialCadence;
 use crate::diurnal_pipeline::DiurnalPipeline;
-use crate::menu::{ScreenPoint, SessionModal};
+use crate::menu::{ScreenPoint, SessionModal, SystemClipboard, TextClipboard};
 use crate::photo_plate::PhotoPlate;
 
 /// Interface for platform window and display surface operations.
@@ -23,6 +23,9 @@ pub trait PlatformSurface {
     fn capture_cursor(&self);
     fn release_cursor(&self);
     fn normalize_cursor(&self, x: f64, y: f64) -> ScreenPoint;
+    fn attach_clipboard(&self) -> Box<dyn TextClipboard> {
+        SystemClipboard::new().detached()
+    }
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh>;
     fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh>;
     fn replace_mesh(&self, _previous: &dyn Mesh, batch: &CpuMeshBatch) -> Box<dyn Mesh> {
@@ -121,6 +124,10 @@ impl PlatformSurface for GlPlatformSurface {
         let w = size.width.max(1) as f32;
         let h = size.height.max(1) as f32;
         ScreenPoint::new((x as f32 / w) * 2.0 - 1.0, 1.0 - (y as f32 / h) * 2.0)
+    }
+
+    fn attach_clipboard(&self) -> Box<dyn TextClipboard> {
+        SystemClipboard::new().attach_window(&self.window)
     }
 
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh> {

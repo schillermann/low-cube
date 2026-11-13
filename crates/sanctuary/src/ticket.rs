@@ -1,33 +1,17 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs};
+use crate::wormhole::{CrockfordStamp, PortalCode};
 
-/// Polymorphic relay route state eliminating nullable socket fields.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BeaconRoute {
-    Unassisted,
-    Assisted(SocketAddr),
-}
-
-impl BeaconRoute {
-    pub fn address(&self) -> Option<SocketAddr> {
-        match *self {
-            Self::Unassisted => None,
-            Self::Assisted(addr) => Some(addr),
-        }
-    }
-}
-
-/// Shareable invite code (`LC1-...`) pinning the host X25519 key, direct socket, and optional NAT relay beacon.
+/// Shareable invite ticket (`LC1-...`) pinning the host X25519 key and direct P2P UDP socket.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PortalTicket {
     host_key: [u8; 32],
     direct: SocketAddr,
-    beacon: BeaconRoute,
 }
 
 impl PortalTicket {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(host_key: [u8; 32], direct: SocketAddr, beacon: BeaconRoute) -> Self {
-        Self { host_key, direct, beacon }
+    pub const fn new(host_key: [u8; 32], direct: SocketAddr) -> Self {
+        Self { host_key, direct }
     }
 
     pub const fn host_key(&self) -> [u8; 32] {
@@ -36,16 +20,6 @@ impl PortalTicket {
 
     pub const fn direct(&self) -> SocketAddr {
         self.direct
-    }
-
-    pub const fn beacon(&self) -> BeaconRoute {
-        self.beacon
-    }
-
-    pub fn portal_id(&self) -> [u8; 8] {
-        let mut id = [0u8; 8];
-        id.copy_from_slice(&self.host_key[0..8]);
-        id
     }
 
     pub fn push_v4(addr: SocketAddr, out: &mut Vec<u8>) {
@@ -63,21 +37,34 @@ impl PortalTicket {
         }
         let ip = Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]);
         let port = u16::from_le_bytes([bytes[4], bytes[5]]);
+        if port == 0 {
+            return None;
+        }
         Some(SocketAddr::V4(SocketAddrV4::new(ip, port)))
+    }
+
+    /// Serializes this ticket into `38` raw binary bytes (`32B` X25519 public key + `6B` IPv4:Port).
+    pub fn encode_bytes(&self, out: &mut Vec<u8>) {
+        out.clear();
+        out.reserve(38);
+        out.extend_from_slice(&self.host_key);
+        Self::push_v4(self.direct, out);
+    }
+
+    pub fn decode_bytes(raw: &[u8]) -> Option<Self> {
+        if raw.len() < 38 {
+            return None;
+        }
+        let mut host_key = [0u8; 32];
+        host_key.copy_from_slice(&raw[0..32]);
+        let direct = Self::read_v4(&raw[32..38])?;
+        Some(Self::new(host_key, direct))
     }
 
     /// Formats this invite ticket as a compact copy-pasteable `LC1-...` uppercase hex code.
     pub fn encode(&self) -> String {
-        let mut raw = Vec::with_capacity(45);
-        raw.extend_from_slice(&self.host_key);
-        Self::push_v4(self.direct, &mut raw);
-        match self.beacon {
-            BeaconRoute::Unassisted => raw.push(0),
-            BeaconRoute::Assisted(addr) => {
-                raw.push(1);
-                Self::push_v4(addr, &mut raw);
-            }
-        }
+        let mut raw = Vec::with_capacity(38);
+        self.encode_bytes(&mut raw);
         const HEX: &[u8; 16] = b"0123456789ABCDEF";
         let mut text = String::with_capacity(4 + raw.len() * 2);
         text.push_str("LC1-");
@@ -112,52 +99,73 @@ impl PortalTicket {
             raw.push((hi << 4) | lo);
             idx += 2;
         }
-        if raw.len() < 39 {
-            return None;
-        }
-        let mut host_key = [0u8; 32];
-        host_key.copy_from_slice(&raw[0..32]);
-        let direct = Self::read_v4(&raw[32..38])?;
-        let beacon = if raw[38] == 1 && raw.len() >= 45 {
-            BeaconRoute::Assisted(Self::read_v4(&raw[39..45])?)
-        } else {
-            BeaconRoute::Unassisted
-        };
-        Some(Self::new(host_key, direct, beacon))
-    }
-
-    /// Resolves a shareable local IPv4 address for outbound UDP sockets bound to `0.0.0.0`.
-    pub fn shareable_local_endpoint(bound: SocketAddr) -> SocketAddr {
-        if !bound.ip().is_unspecified() {
-            return bound;
-        }
-        if let Ok(probe) = UdpSocket::bind("0.0.0.0:0") {
-            let _ = probe.connect("192.0.2.1:9");
-            if let Ok(local) = probe.local_addr() {
-                if !local.ip().is_unspecified() {
-                    return SocketAddr::new(local.ip(), bound.port());
-                }
-            }
-        }
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), bound.port())
+        Self::decode_bytes(&raw)
     }
 }
 
-/// Polymorphic destination parsed from `--join <LC1-ticket | host:port>`.
+/// Non-blocking UI validation state avoiding per-frame DNS resolution while typing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum JoinPreview {
+    Empty,
+    CodeReady(PortalCode),
+    CodeTypo,
+    TicketOrAddressReady,
+    Malformed,
+}
+
+/// Polymorphic P2P destination parsed from a 12-char `PortalCode`, `LC1-...` ticket, or `host[:port]`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum JoinTarget {
     Ticket(PortalTicket),
     Direct(SocketAddr),
+    Wormhole(PortalCode),
 }
 
 impl JoinTarget {
+    /// Pure lexical preview without network or DNS calls (safe to invoke every frame at 60 FPS).
+    pub fn preview(spec: &str) -> JoinPreview {
+        let trimmed = spec.trim();
+        if trimmed.is_empty() {
+            return JoinPreview::Empty;
+        }
+        if trimmed.len() >= 4 && trimmed[..4].eq_ignore_ascii_case("lc1-") {
+            return if PortalTicket::decode(trimmed).is_some() {
+                JoinPreview::TicketOrAddressReady
+            } else {
+                JoinPreview::Malformed
+            };
+        }
+        if let Some(code) = PortalCode::parse(trimmed) {
+            return JoinPreview::CodeReady(code);
+        }
+        if CrockfordStamp::resembles_twelve_char_code(trimmed) {
+            return JoinPreview::CodeTypo;
+        }
+        let plausible_host = trimmed.eq_ignore_ascii_case("localhost")
+            || trimmed.contains('.')
+            || trimmed.contains(':');
+        if plausible_host && !trimmed.contains(' ') {
+            JoinPreview::TicketOrAddressReady
+        } else {
+            JoinPreview::Malformed
+        }
+    }
+
     pub fn parse(spec: &str) -> Option<Self> {
         let trimmed = spec.trim();
-        let token = trimmed
+        let body = trimmed
             .rsplit_once("--join")
-            .map_or(trimmed, |(_, rhs)| rhs.trim())
-            .split_whitespace()
-            .last()?;
+            .map_or(trimmed, |(_, rhs)| rhs.trim());
+        if body.is_empty() {
+            return None;
+        }
+        if let Some(code) = PortalCode::parse(body) {
+            return Some(Self::Wormhole(code));
+        }
+        if CrockfordStamp::resembles_twelve_char_code(body) {
+            return None;
+        }
+        let token = body.split_whitespace().last()?;
         if token.is_empty() {
             return None;
         }
@@ -166,8 +174,10 @@ impl JoinTarget {
         }
         let candidate = if token.contains(':') {
             token.to_string()
-        } else {
+        } else if token.contains('.') || token.eq_ignore_ascii_case("localhost") {
             format!("{token}:27777")
+        } else {
+            return None;
         };
         let mut resolved = candidate.to_socket_addrs().ok()?;
         let addr = resolved
