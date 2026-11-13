@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.65.1] - 2026-11-13
+
+### Fixed
+- Suspended `HangingSack` (`crates/client/src/attire/sack.rs`) from the top-right slot corner via a clearly visible taut hemp cord (`corner_hitch -> cinch_knot`) with an outward-tilted mouth tuft so the cord is never occluded, and aligned its octagonal left flank (`SLOT_WALL_X = 0.1508`) in direct physical contact against the right slot border (`x = 0.1512`) across all burden weights (`crates/client/src/attire/tests/burden.rs`).
+
 ## [0.65.0] - 2026-11-13
 
 ### Added

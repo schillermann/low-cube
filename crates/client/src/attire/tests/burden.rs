@@ -179,14 +179,16 @@ fn test_hanging_sack_at_top_right_slot_tip_bulges_right_and_hangs_lower_with_wei
         YouthPhysique::SlenderSquire,
     );
     let jute_bot = Vec3::new(0.45, 0.33, 0.19);
+    let hemp_cord = Vec3::new(0.84, 0.70, 0.46);
     let brass_eyelet = Vec3::new(0.88, 0.70, 0.26);
-    let sack_bounds = |count: u32| -> (f32, f32, f32, f32) {
+    let sack_bounds = |count: u32| -> (f32, f32, f32, f32, f32, f32) {
         let mut ledger = QuadLedger::empty();
         BeltSatchel::empty()
             .with_stowed_relic(HeldRelic::ExcavatedEarth, count)
             .with_open(true)
             .emit_for_attire(&pose, YouthAttire::squire(), &mut ledger);
         let (mut min_x, mut max_x, mut min_y, mut tip_x) = (f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY, f32::INFINITY);
+        let (mut cord_min_y, mut cord_max_y) = (f32::INFINITY, f32::NEG_INFINITY);
         for q in &ledger.quads {
             q.transfer(|v0, v1, v2, v3, _, col| {
                 if (col - jute_bot).length_squared() < 1e-5 {
@@ -199,19 +201,30 @@ fn test_hanging_sack_at_top_right_slot_tip_bulges_right_and_hangs_lower_with_wei
                     for v in [v0, v1, v2, v3] {
                         tip_x = tip_x.min(v.x);
                     }
+                } else if (col - hemp_cord).length_squared() < 1e-5 {
+                    for v in [v0, v1, v2, v3] {
+                        cord_min_y = cord_min_y.min(v.y);
+                        cord_max_y = cord_max_y.max(v.y);
+                    }
                 }
             });
         }
-        (max_x - min_x, max_x, min_y, tip_x)
+        (min_x, max_x, min_y, tip_x, cord_max_y - cord_min_y, max_x - min_x)
     };
-    let (w0, x0, y0, tip0) = sack_bounds(0);
-    let (w5, x5, y5, tip5) = sack_bounds(5);
-    let (w20, x20, y20, _) = sack_bounds(20);
-    let (w60, x60, y60, _) = sack_bounds(60);
+    let (lx0, x0, y0, tip0, cord0, w0) = sack_bounds(0);
+    let (lx5, x5, y5, tip5, cord5, w5) = sack_bounds(5);
+    let (lx20, x20, y20, _, cord20, w20) = sack_bounds(20);
+    let (lx60, x60, y60, _, cord60, w60) = sack_bounds(60);
     assert!(
-        (tip0 - 0.148).abs() < 0.01 && (tip0 - tip5).abs() < 1e-5,
-        "Sack eyelet must stay anchored directly on the top-right slot tip (x=0.148): tip0={tip0}, tip5={tip5}"
+        (tip0 - 0.148).abs() < 0.01 && (tip0 - tip5).abs() < 1e-5 && cord0 >= 0.065 && cord5 > cord0 && cord60 >= cord20,
+        "Sack must hang via a visible cord from the top-right slot corner (x=0.148): tip0={tip0}, cord=({cord0}, {cord5}, {cord60})"
     );
+    for lx in [lx0, lx5, lx20, lx60] {
+        assert!(
+            (lx - 0.1512).abs() < 0.002,
+            "Sack left flank must lean directly in contact with the right slot border (x=0.1512), got left_x={lx}"
+        );
+    }
     assert!(
         x0 < x5 && x5 < x20 && x20 < x60 && w0 < w5 && w5 < w20 && w20 < w60,
         "Hanging sack must bulge progressively further to the right as weight increases: x=({x0}, {x5}, {x20}, {x60})"
