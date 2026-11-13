@@ -1,7 +1,8 @@
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CleaveOutcome, ClimateZone, GravityField, MeshTarget, PerimeterEdge,
-    PlanetaryTopology, PlanetaryWorld, SeamBevel, SurfaceFind, VehicleAssembly,
+    BlockMedium, BlockMold, CleaveOutcome, ClimateZone, CompanionPresence, ExposedStratum,
+    GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology, PlanetaryWorld, SeamBevel,
+    SurfaceFind, VehicleAssembly,
 };
 
 /// Decorator enabling smooth, continuous surface normal transitions in bevel zones across planetary seams.
@@ -153,5 +154,29 @@ impl PlanetaryWorld for BeveledWorld {
 
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
         self.world.visible_slice_mask(position)
+    }
+
+    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
+        self.world.disclose_stratum(face_index, stratum);
+    }
+
+    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {
+        self.world.drain_disclosures(out);
+    }
+
+    fn sync_presence(&mut self, presence: CompanionPresence) {
+        self.world.sync_presence(presence);
+    }
+
+    fn active_companions(&self, out: &mut Vec<CompanionPresence>) {
+        self.world.active_companions(out);
+    }
+
+    fn portal_ticket(&self) -> Option<String> {
+        self.world.portal_ticket()
+    }
+
+    fn pump_portal(&mut self, dt: f32) -> bool {
+        self.world.pump_portal(dt)
     }
 }

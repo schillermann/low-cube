@@ -2,8 +2,10 @@ use glam::Vec3;
 use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
-use crate::noise::SpatialFrequency;
+use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
+use crate::topology::ClimateZone;
 use super::corner::NaturalCrown;
+use super::mineral_vein::ExposedStratum;
 use super::sight_ray::SurfaceSightRay;
 use super::vehicle_assembly::VehicleAssembly;
 
@@ -100,6 +102,17 @@ pub trait ReliefElevation: Send + Sync {
     fn park_vehicle_at(&mut self, _frame: &SurfaceFrame, _assembly: VehicleAssembly) -> (i32, i32) {
         (0, 0)
     }
+
+    /// Air-exposed subterranean mineral ore at `(u, v, step)`, if uncovered.
+    fn exposed_ore_at(&self, _u: i32, _v: i32, _step: i32) -> Option<BlockMedium> {
+        None
+    }
+
+    /// Applies an authoritative sanctuary stratum disclosure onto a client relief face.
+    fn accept_disclosure(&mut self, _stratum: ExposedStratum) {}
+
+    /// Drains newly uncovered subterranean strata produced since the previous drain.
+    fn drain_disclosures(&mut self, _out: &mut Vec<ExposedStratum>) {}
 }
 
 /// Zoned planetary relief evaluating continuous spatial frequency into stepped voxel strata.
@@ -127,6 +140,38 @@ impl ZonedRelief {
             half_size,
             bounds: (min_elevation, max_elevation),
         }
+    }
+
+    /// Secondary constructor calibrating coherent noise harmonics and domain warp for a climate zone.
+    pub fn in_climate(zone: ClimateZone, half_size: f32) -> Self {
+        let frame = zone.surface_frame(half_size);
+        let (seed_offset, max_large, max_med) = match zone {
+            ClimateZone::Volcanic => (202, 16, 12),
+            ClimateZone::Arctic => (404, 14, 10),
+            ClimateZone::Steppe => (606, 10, 8),
+            ClimateZone::Temperate => (101, 9, 7),
+            ClimateZone::Jungle => (505, 8, 6),
+            ClimateZone::Desert => (303, 7, 5),
+        };
+        let min_elev = if matches!(zone, ClimateZone::Jungle) { -1 } else { 0 };
+        let freq = if half_size >= 48.0 { 0.025 } else { 0.04 };
+        let harmonics = Box::new(FractalHarmonics::new(Box::new(CoherentNoise::new(seed_offset, freq)), 3, 0.5, 2.0));
+        let warped = Box::new(DomainWarp::new(
+            harmonics,
+            Box::new(CoherentNoise::new(seed_offset + 10, freq * 0.5)),
+            Box::new(CoherentNoise::new(seed_offset + 20, freq * 0.5)),
+            2.5,
+        ));
+        let max_elev = if half_size >= 48.0 {
+            max_large
+        } else if half_size >= 24.0 {
+            max_med
+        } else if matches!(zone, ClimateZone::Volcanic | ClimateZone::Arctic) {
+            3
+        } else {
+            2
+        };
+        Self::new(warped, frame.normal(), frame.tangent(), frame.bitangent(), half_size, min_elev, max_elev)
     }
 
     fn sample_at(&self, u: f32, v: f32) -> f32 {

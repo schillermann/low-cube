@@ -21,7 +21,7 @@ pub enum TrayState {
 /// Encapsulates stowed satchel items, WASD inspection cursor, and waist-grid rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SatchelTray {
-    stowed: [u32; 22],
+    stowed: [u32; 25],
     active_side: f32,
     cursor: usize,
     state: TrayState,
@@ -29,7 +29,7 @@ pub struct SatchelTray {
 
 impl SatchelTray {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(stowed: [u32; 22], active_side: f32, cursor: usize, state: TrayState) -> Self {
+    pub const fn new(stowed: [u32; 25], active_side: f32, cursor: usize, state: TrayState) -> Self {
         Self { stowed, active_side, cursor, state }
     }
 
@@ -91,6 +91,9 @@ impl SatchelTray {
             HeldRelic::CarWheel,
             HeldRelic::PedalCluster,
             HeldRelic::CrossAxle,
+            HeldRelic::CopperOre,
+            HeldRelic::IronOre,
+            HeldRelic::GoldOre,
         ]
         .iter()
         .any(|&relic| self.count(relic) > 0)
@@ -99,6 +102,9 @@ impl SatchelTray {
     fn packed_slots(&self) -> ([HeldRelic; TRAY_SLOTS], usize) {
         let (mut slots, mut len) = ([HeldRelic::EmptyPalm; TRAY_SLOTS], 0usize);
         let materials = [
+            HeldRelic::GoldOre,
+            HeldRelic::IronOre,
+            HeldRelic::CopperOre,
             HeldRelic::CabinSeat,
             HeldRelic::PedalCluster,
             HeldRelic::CrossAxle,
@@ -239,7 +245,7 @@ impl SatchelTray {
 impl CarryLoad for SatchelTray {
     fn fold_burden(&self, mut acc: SatchelBurden) -> SatchelBurden {
         let mut code = 1u8;
-        while code < 22 {
+        while code < 25 {
             let qty = self.stowed[code as usize];
             if qty > 0 {
                 acc = SlotBurden::new(HeldRelic::from_code(code), qty).fold_burden(acc);

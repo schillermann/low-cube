@@ -65,6 +65,10 @@ impl SessionDisplay {
         self.surface.as_ref()
     }
 
+    pub(super) const fn tron_enabled(&self) -> bool {
+        self.tron_active
+    }
+
     pub(super) fn resize(&mut self, width: u32, height: u32) {
         self.surface.resize(width, height);
     }

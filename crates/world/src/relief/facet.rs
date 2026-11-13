@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{CrateredMeshTarget, MeshTarget, Quad};
-use crate::block::{EarthClods, GridCell};
+use crate::block::{EarthClods, GridCell, MineralSeam};
 use crate::block::LOAM_CROWN;
 use crate::frame::SurfaceFrame;
 
@@ -116,6 +116,9 @@ impl ReliefFacet {
                 let mut cratered = CrateredMeshTarget::new(target, stage);
                 let core_exposed = h <= vault.floor_steps_at(u, v);
                 vault.geometry(frame).emit_crust_floor(cell, top_h, core_exposed, &mut cratered)
+            } else if let Some(ore) = relief.exposed_ore_at(u, v, h - 1) {
+                let mut cratered = CrateredMeshTarget::new(target, stage);
+                MineralSeam::new(ore).emit_floor_face(cell, top_h, frame, &mut cratered)
             } else {
                 let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
                 let col = if ground_bare { LOAM_CROWN } else { surf_col };
@@ -141,11 +144,12 @@ impl ReliefFacet {
             res
         };
 
-        let crust_top = relief.reworked_at(u, v) && vault.crust_surface_at(u, v, h);
-        if stage > 0 && !crust_top {
+        let mineral_top = relief.reworked_at(u, v)
+            && (vault.crust_surface_at(u, v, h) || relief.exposed_ore_at(u, v, h - 1).is_some());
+        if stage > 0 && !mineral_top {
             self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, palette, frame, target);
         }
-        let turf_rim = (!ground_bare && !crust_top).then_some(surf_col);
+        let turf_rim = (!ground_bare && !mineral_top).then_some(surf_col);
         self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, vault, relief, frame, cliff_col, turf_rim, target);
     }
 

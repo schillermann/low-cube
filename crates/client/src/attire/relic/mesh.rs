@@ -125,7 +125,10 @@ impl RelicFigure {
             | HeldRelic::CabinSeat
             | HeldRelic::CarWheel
             | HeldRelic::PedalCluster
-            | HeldRelic::CrossAxle => {
+            | HeldRelic::CrossAxle
+            | HeldRelic::CopperOre
+            | HeldRelic::IronOre
+            | HeldRelic::GoldOre => {
                 frame.emit_cradled_block(
                     side,
                     Vec3::new(-side * 0.015, 0.001, 0.048),
@@ -221,7 +224,10 @@ impl RelicFigure {
             | HeldRelic::CabinSeat
             | HeldRelic::CarWheel
             | HeldRelic::PedalCluster
-            | HeldRelic::CrossAxle => {
+            | HeldRelic::CrossAxle
+            | HeldRelic::CopperOre
+            | HeldRelic::IronOre
+            | HeldRelic::GoldOre => {
                 showcase.emit_upright_block(Vec3::new(0.0, -0.025, 0.0), self.mold.in_medium(self.relic.block_medium()), 0.082, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.28, 0.65, 0.25), &mut lit);
             }
             HeldRelic::DeadwoodBough => Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit),

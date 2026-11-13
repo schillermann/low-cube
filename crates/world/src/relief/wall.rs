@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{CrateredMeshTarget, MeshTarget, Quad};
-use crate::block::{EarthClods, GridCell};
+use crate::block::{EarthClods, GridCell, MineralSeam};
 use crate::frame::SurfaceFrame;
 use super::{CrustVault, ReliefElevation};
 
@@ -43,22 +43,26 @@ impl ReliefWall {
         let side_turf = turf_rim.filter(|_| (t_l - top_h).abs() < 1e-3 && (t_r - top_h).abs() < 1e-3);
         if t_l > ub_l + 1e-4 || t_r > ub_r + 1e-4 {
             let (s_low, s_high) = ((ub_l.min(ub_r) * 2.0).floor() as i32, (t_l.max(t_r) * 2.0).ceil() as i32);
-            if (s_low..s_high).all(|layer| relief.layer_dig_stage_at(u, v, (layer as f32) * 0.5 + 0.25) == 0) {
+            if (s_low..s_high).all(|layer| relief.layer_dig_stage_at(u, v, (layer as f32) * 0.5 + 0.25) == 0 && relief.exposed_ore_at(u, v, layer).is_none()) {
                 target.push_quad(Quad::new(frame.point_at(a0, b0, ub_l), frame.point_at(a1, b1, ub_r), frame.point_at(a1, b1, t_r), frame.point_at(a0, b0, t_l), norm, col));
                 if dug { self.emit_clods(cell, side, ub_l.max(ub_r), t_l.min(t_r), top_h, side_turf, frame, target); }
             } else {
                 for layer in s_low..s_high {
                     let (y0, y1) = ((layer as f32) * 0.5, ((layer + 1) as f32) * 0.5);
                     let (ly0_l, ly0_r, ly1_l, ly1_r) = (y0.clamp(ub_l, t_l), y0.clamp(ub_r, t_r), y1.clamp(ub_l, t_l), y1.clamp(ub_r, t_r));
-                    if ly1_l > ly0_l + 1e-4 || ly1_r > ly0_r + 1e-4 {
+                    if ly1_l > ly0_l + 1e-4 || ly1_r > ly1_r.min(ly0_r) + 1e-4 {
                         let l_stage = relief.layer_dig_stage_at(u, v, y0 + 0.25);
                         let mut cratered = CrateredMeshTarget::new(target, l_stage);
-                        cratered.push_quad(Quad::new(frame.point_at(a0, b0, ly0_l), frame.point_at(a1, b1, ly0_r), frame.point_at(a1, b1, ly1_r), frame.point_at(a0, b0, ly1_l), norm, col));
-                        if dug && l_stage == 0 && ly0_l >= ub_l - 1e-4 && ly0_r >= ub_r - 1e-4 && ly1_l <= t_l + 1e-4 && ly1_r <= t_r + 1e-4 {
-                            if let Some(t_col) = side_turf.filter(|_| (y1 - top_h).abs() < 1e-3) {
-                                EarthClods::new(cell, y0).emit_turf_flank(side, t_col, frame, target);
-                            } else {
-                                EarthClods::new(cell, y0).emit_flank(side, frame, target);
+                        if let Some(ore) = relief.exposed_ore_at(u, v, layer) {
+                            MineralSeam::new(ore).emit_wall_flank(edge, layer, norm, frame, &mut cratered);
+                        } else {
+                            cratered.push_quad(Quad::new(frame.point_at(a0, b0, ly0_l), frame.point_at(a1, b1, ly0_r), frame.point_at(a1, b1, ly1_r), frame.point_at(a0, b0, ly1_l), norm, col));
+                            if dug && l_stage == 0 && ly0_l >= ub_l - 1e-4 && ly0_r >= ub_r - 1e-4 && ly1_l <= t_l + 1e-4 && ly1_r <= t_r + 1e-4 {
+                                if let Some(t_col) = side_turf.filter(|_| (y1 - top_h).abs() < 1e-3) {
+                                    EarthClods::new(cell, y0).emit_turf_flank(side, t_col, frame, target);
+                                } else {
+                                    EarthClods::new(cell, y0).emit_flank(side, frame, target);
+                                }
                             }
                         }
                     }

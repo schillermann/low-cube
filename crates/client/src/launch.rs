@@ -5,7 +5,7 @@ use engine::{
     CpuMeshBatch, CpuTronBatch, PlanetaryMesh, TronPipeline, TronShaderSource,
     VoxelShaderSource,
 };
-use world::{BiomedCubeWorld, PlanetaryWorld};
+use world::PlanetaryWorld;
 use crate::attire::{AttireProfile, FileAttire, HeldRelic};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::CalibratedCanopy;
@@ -15,6 +15,7 @@ use crate::controls::{BindingProfile, FileBindings, KeyMotion};
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
 use crate::menu::EscapeMenu;
 use crate::physics::PlanetaryPhysics;
+use crate::portal_config::PortalConfig;
 use crate::server_aurora::ServerAurora;
 use crate::server_celestial::ServerCelestial;
 use crate::server_physics::ServerPhysics;
@@ -83,11 +84,9 @@ impl SessionAssembly for SessionLaunch {
         let surface = self.host_env.attach(event_loop);
         surface.capture_cursor();
 
-        let planet: Box<dyn PlanetaryWorld> = if self.tron_active {
-            Box::new(BiomedCubeWorld::beveled_tron(self.cosmos.world_blocks, 1.0))
-        } else {
-            Box::new(BiomedCubeWorld::beveled(self.cosmos.world_blocks, 1.0))
-        };
+        let planet: Box<dyn PlanetaryWorld> =
+            PortalConfig::from_process().assemble_planet(self.cosmos.world_blocks, self.tron_active);
+        let initial_ticket = planet.portal_ticket().unwrap_or_default();
 
         let half = (self.cosmos.world_blocks as f32) * 0.5;
         let spawn_position = planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0);
@@ -144,7 +143,7 @@ impl SessionAssembly for SessionLaunch {
         let tron_shader = surface.compile_shader(&TronShaderSource::embedded());
         let tron_pipeline = Box::new(TronPipeline::void());
         let controls = Box::new(KeyMotion::with_bindings(bindings));
-        let modal = Box::new(EscapeMenu::closed());
+        let modal = Box::new(EscapeMenu::with_portal(initial_ticket));
 
         Box::new(GameSession::new(
             surface,

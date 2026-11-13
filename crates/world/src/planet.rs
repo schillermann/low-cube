@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CleaveOutcome, Face, GravityField, MeshTarget, PlanetaryWorld,
-    SurfaceFind, VehicleAssembly,
+    BlockMedium, BlockMold, CleaveOutcome, ExposedStratum, Face, GravityField, MeshTarget,
+    PlanetaryWorld, SurfaceFind, VehicleAssembly,
 };
 
 /// A cubic planetary world composed of polymorphic Face instances with Dependency Injection.
@@ -245,5 +245,22 @@ impl PlanetaryWorld for CubePlanet {
             }
         }
         mask
+    }
+
+    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
+        if let Some(face) = self.faces.get_mut(face_index) {
+            face.accept_disclosure(stratum);
+            self.modified_face = face_index;
+        }
+    }
+
+    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {
+        let mut buf = Vec::new();
+        for (idx, face) in self.faces.iter_mut().enumerate() {
+            face.drain_disclosures(&mut buf);
+            for stratum in buf.drain(..) {
+                out.push((idx as u8, stratum));
+            }
+        }
     }
 }

@@ -101,8 +101,11 @@ impl SlotBurden {
             | HeldRelic::WoodmanAxe
             | HeldRelic::KnightlySword
             | HeldRelic::CrossAxle
-            | HeldRelic::CarWheel => WeightGrade::Weighty,
+            | HeldRelic::CarWheel
+            | HeldRelic::CopperOre
+            | HeldRelic::IronOre => WeightGrade::Weighty,
             HeldRelic::CrustBlock
+            | HeldRelic::GoldOre
             | HeldRelic::CantileverCrane
             | HeldRelic::AircraftEngine
             | HeldRelic::RocketEngine => WeightGrade::Heavy,

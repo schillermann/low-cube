@@ -249,4 +249,15 @@ impl Avatar for PlanetaryAvatar {
             self.bearing.emit_polaroid(target);
         }
     }
+
+    fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) {
+        let pose = self.current_pose();
+        let presence = world::CompanionPresence::new(
+            0,
+            pose.capture_kinematics(),
+            self.bearing.rhythm().wire_tuple(),
+            self.gear.attire_wire(),
+        );
+        world.sync_presence(presence);
+    }
 }

@@ -10,6 +10,24 @@ pub enum CardinalTurn {
 }
 
 impl CardinalTurn {
+    pub const fn code(self) -> u8 {
+        match self {
+            Self::Forward => 0,
+            Self::Right => 1,
+            Self::Backward => 2,
+            Self::Left => 3,
+        }
+    }
+
+    pub const fn from_code(code: u8) -> Self {
+        match code & 3 {
+            1 => Self::Right,
+            2 => Self::Backward,
+            3 => Self::Left,
+            _ => Self::Forward,
+        }
+    }
+
     pub const fn turn_clockwise(self) -> Self {
         match self {
             Self::Forward => Self::Right,

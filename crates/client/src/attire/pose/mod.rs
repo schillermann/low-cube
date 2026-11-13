@@ -58,6 +58,15 @@ impl BodyPose {
         Self::with_leap_pose(position, surface_rot, view_rot, eye_height, 0.0, rhythm, physique)
     }
 
+    pub const fn capture_kinematics(&self) -> world::PresenceKinematics {
+        world::PresenceKinematics::new(
+            self.stance.position,
+            self.stance.surface_rot,
+            self.stance.view_rot,
+            (self.stance.eye_height, self.motion.leap),
+        )
+    }
+
     pub fn with_leap(self, leap: f32) -> Self {
         Self { motion: PoseMotion { leap, ..self.motion }, ..self }
     }

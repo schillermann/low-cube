@@ -87,7 +87,7 @@ impl Session for GameSession {
                     if pressed {
                         if button == MouseButton::Middle {
                             self.stage.handle_modal_trigger(InputTrigger::WheelClick);
-                        } else if matches!(self.stage.press_modal_mouse(self.display.surface()), ModalDirective::ExitGame) {
+                        } else if matches!(self.stage.press_modal_mouse(self.display.surface(), self.display.tron_enabled()), ModalDirective::ExitGame) {
                             event_loop.exit();
                         }
                     } else {

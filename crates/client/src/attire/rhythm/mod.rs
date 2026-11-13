@@ -25,6 +25,10 @@ impl StrideRhythm {
         Self::with_dual_cleave(phase, blend, 0.0, 0.0)
     }
 
+    pub const fn wire_tuple(self) -> (f32, f32, f32, f32) {
+        (self.phase, self.blend, self.right_cleave, self.left_cleave)
+    }
+
     pub fn idle() -> Self {
         Self::new(0.0, 0.0)
     }

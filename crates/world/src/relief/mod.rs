@@ -6,6 +6,7 @@ mod crust_vault;
 mod elevation;
 mod face;
 mod facet;
+mod mineral_vein;
 mod molded_structure;
 mod natural_strata;
 mod overhang_molds;
@@ -24,6 +25,8 @@ mod cantilever_rig_tests;
 #[cfg(test)]
 mod corner_seam_tests;
 #[cfg(test)]
+mod mineral_vein_tests;
+#[cfg(test)]
 mod shaft_story_tests;
 #[cfg(test)]
 mod soil_clod_tests;
@@ -38,6 +41,7 @@ pub use crust_vault::CrustVault;
 pub use elevation::ReliefElevation;
 pub use face::FacetedReliefFace;
 pub use facet::ReliefFacet;
+pub use mineral_vein::{ExposedStratum, HollowVeins, LivingVeins, SubterraneanVeins};
 pub use palette::ReliefPalette;
 pub use sight_ray::SurfaceSightRay;
 pub use terraced::TerracedRelief;

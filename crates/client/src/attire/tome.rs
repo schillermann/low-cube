@@ -49,7 +49,7 @@ impl ArtisanTome {
     pub const fn closed() -> Self { Self::new(0, false) }
     pub const fn open(&self) -> bool { self.open }
 
-    pub const fn entries() -> [CraftingEntry; 12] {
+    pub const fn entries() -> [CraftingEntry; 16] {
         [
             CraftingEntry::new(HeldRelic::WoodmanAxe, 1, "TOOL", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
             CraftingEntry::new(HeldRelic::PlankBlock, 4, "BLOCK", [(HeldRelic::TimberBlock, 1), (HeldRelic::EmptyPalm, 0)]),
@@ -63,6 +63,10 @@ impl ArtisanTome {
             CraftingEntry::new(HeldRelic::PedalCluster, 1, "CAR", [(HeldRelic::PlankBlock, 1), (HeldRelic::FlintStone, 1)]),
             CraftingEntry::new(HeldRelic::CrossAxle, 2, "CAR", [(HeldRelic::PlankBlock, 1), (HeldRelic::FlintStone, 1)]),
             CraftingEntry::new(HeldRelic::CarWheel, 4, "CAR", [(HeldRelic::PlankBlock, 1), (HeldRelic::FlintStone, 1)]),
+            CraftingEntry::new(HeldRelic::SteeringWheel, 1, "CAR", [(HeldRelic::CopperOre, 1), (HeldRelic::PlankBlock, 1)]),
+            CraftingEntry::new(HeldRelic::FieldCamera, 1, "OPTIC", [(HeldRelic::CopperOre, 2), (HeldRelic::GoldOre, 1)]),
+            CraftingEntry::new(HeldRelic::AircraftEngine, 1, "CRAFT", [(HeldRelic::IronOre, 2), (HeldRelic::CopperOre, 2)]),
+            CraftingEntry::new(HeldRelic::RocketEngine, 1, "CRAFT", [(HeldRelic::GoldOre, 2), (HeldRelic::IronOre, 3)]),
         ]
     }
 
@@ -120,10 +124,12 @@ impl ArtisanTome {
         PixelStamp::new(0.0028, 0.0028, Vec3::new(1.58, 1.32, 0.48))
             .emit_on_frame("CRAFTING BOOK", 0.0, 0.205, 0.016, &tray, target);
 
-        for (i, entry) in entries.iter().enumerate() {
-            let selected = i == (self.cursor % entries.len());
+        let sel = self.cursor % entries.len();
+        let start = sel.saturating_sub(9).min(entries.len() - 10);
+        for (vis_idx, (i, entry)) in entries.iter().enumerate().skip(start).take(10).enumerate() {
+            let selected = i == sel;
             let ready = entry.craftable(satchel, attire);
-            let row_y = 0.160 - (i as f32) * 0.036;
+            let row_y = 0.160 - (vis_idx as f32) * 0.036;
             let row_frame = tray.shifted(0.0, row_y, if selected { -0.012 } else { 0.0 });
             let row_bg = if selected { Vec3::new(0.16, 0.21, 0.30) } else { Vec3::new(0.10, 0.13, 0.19) };
             let row_rim = if selected {

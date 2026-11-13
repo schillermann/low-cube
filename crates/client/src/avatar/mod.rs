@@ -49,4 +49,5 @@ pub trait Avatar {
     #[cfg(test)]
     fn polaroid_tilt(&self) -> f32 { 0.0 }
     fn emit_reticle(&self, target: &mut dyn MeshTarget) { ScreenPoint::center().emit_crosshair(target); }
+    fn sync_world_presence(&self, _world: &mut dyn PlanetaryWorld) {}
 }

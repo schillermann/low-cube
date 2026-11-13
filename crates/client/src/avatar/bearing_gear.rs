@@ -133,6 +133,10 @@ impl AvatarGear {
         self.attire.shaft_yaw_play()
     }
 
+    pub fn attire_wire(&self) -> ([u8; 9], [u8; 4]) {
+        (self.attire.multiplayer_bytes(), self.attire.region_bytes())
+    }
+
     pub fn apply_attire(&mut self, attire: YouthAttire) {
         let (r, l) = self.attire.held_pair();
         let merged = if !attire.armed() && self.attire.armed() { attire.with_relics(r, l) } else { attire };

@@ -190,6 +190,16 @@ impl YouthAttire {
         ]
     }
 
+    pub fn from_multiplayer_wire(bytes: [u8; 9], regions: [u8; 4]) -> Self {
+        FileAttire::new(String::new())
+            .decode_multiplayer(bytes)
+            .with_physique(YouthPhysique::from_region_bytes(regions))
+    }
+
+    pub fn emit_companion(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
+        self.emit(pose, SightMode::LookingGlassSight, target);
+    }
+
     #[cfg(test)]
     pub fn emit_peer(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
         self.emit(pose, SightMode::LookingGlassSight, target);

@@ -140,4 +140,12 @@ impl Face for FoldedFace {
     fn confine_beneath_crust(&self, point: Vec3) -> Vec3 {
         self.origin.confine_beneath_crust(point)
     }
+
+    fn accept_disclosure(&mut self, stratum: crate::ExposedStratum) {
+        self.origin.accept_disclosure(stratum);
+    }
+
+    fn drain_disclosures(&mut self, out: &mut Vec<crate::ExposedStratum>) {
+        self.origin.drain_disclosures(out);
+    }
 }

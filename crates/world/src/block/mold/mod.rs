@@ -80,6 +80,17 @@ impl BlockMold {
     pub const fn turn_counter_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_counter_clockwise(), self.medium) }
     pub const fn full_height_flat(self) -> bool { self.archetype.full_height_flat() }
     pub const fn placed_camera(self) -> bool { matches!(self.medium, BlockMedium::FieldCamera) }
+    pub const fn medium(self) -> BlockMedium { self.medium }
+    pub const fn chronicle_bytes(self) -> [u8; 3] {
+        [self.archetype.code(), self.turn.code(), self.medium.code()]
+    }
+    pub const fn from_chronicle_bytes(bytes: [u8; 3]) -> Self {
+        Self::with_medium(
+            MoldArchetype::from_code(bytes[0]),
+            CardinalTurn::from_code(bytes[1]),
+            BlockMedium::from_code(bytes[2]),
+        )
+    }
     pub const fn camera_turn(self) -> u8 { self.archetype.code() % 8 }
 
     pub fn palm_camera_yaw(self, side: f32) -> f32 {

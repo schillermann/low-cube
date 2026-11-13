@@ -1,9 +1,11 @@
+mod lexicon;
 mod mesh;
 mod plinth;
 
 use world::{BlockMedium, BlockMold};
 pub use super::rhythm::MartialStyle;
 pub use mesh::RelicFigure;
+use lexicon::RelicLexicon;
 
 /// Object held in the avatar's right or left hand visible in first-person and multiplayer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,16 +32,19 @@ pub enum HeldRelic {
     FieldCamera,
     PedalCluster,
     CrossAxle,
+    CopperOre,
+    IronOre,
+    GoldOre,
 }
 
 impl HeldRelic {
     #[cfg(test)]
     pub fn next(self) -> Self {
-        Self::from_code((self.code() + 1) % 22)
+        Self::from_code((self.code() + 1) % 25)
     }
 
     pub const fn from_code(code: u8) -> Self {
-        match code % 22 {
+        match code % 25 {
             0 => Self::EmptyPalm,
             1 => Self::QuarriedStone,
             2 => Self::TimberTorch,
@@ -61,7 +66,10 @@ impl HeldRelic {
             18 => Self::CarWheel,
             19 => Self::FieldCamera,
             20 => Self::PedalCluster,
-            _ => Self::CrossAxle,
+            21 => Self::CrossAxle,
+            22 => Self::CopperOre,
+            23 => Self::IronOre,
+            _ => Self::GoldOre,
         }
     }
 
@@ -89,67 +97,18 @@ impl HeldRelic {
             Self::FieldCamera => 19,
             Self::PedalCluster => 20,
             Self::CrossAxle => 21,
+            Self::CopperOre => 22,
+            Self::IronOre => 23,
+            Self::GoldOre => 24,
         }
     }
 
     pub const fn title(self) -> &'static str {
-        match self {
-            Self::EmptyPalm => "EMPTY SATCHEL",
-            Self::QuarriedStone => "STONE BLOCK",
-            Self::TimberTorch => "TIMBER TORCH",
-            Self::WoodenMallet => "WOODEN MALLET",
-            Self::WoodmanAxe => "WOODMAN AXE",
-            Self::KnightlySword => "KNIGHT SWORD",
-            Self::IronSpade => "IRON SPADE",
-            Self::ExcavatedEarth => "EARTH BLOCK",
-            Self::DeadwoodBough => "DEADWOOD",
-            Self::FlintStone => "FLINT STONE",
-            Self::TimberBlock => "WOOD BLOCK",
-            Self::PlankBlock => "WOOD PLANKS",
-            Self::CrustBlock => "CRUST BLOCK",
-            Self::CantileverCrane => "CRANE LIFT",
-            Self::SteeringWheel => "STEERING WHEEL",
-            Self::AircraftEngine => "PLANE ENGINE",
-            Self::RocketEngine => "ROCKET ENGINE",
-            Self::CabinSeat => "SEAT BLOCK",
-            Self::CarWheel => "CAR WHEEL",
-            Self::FieldCamera => "FIELD CAMERA",
-            Self::PedalCluster => "PEDAL BLOCK",
-            Self::CrossAxle => "CROSS AXLE",
-        }
+        RelicLexicon::new(self).title()
     }
 
     pub fn parse_token(&self, token: &str) -> Option<Self> {
-        let key: String = token
-            .trim()
-            .chars()
-            .filter(|c| !matches!(c, '_' | '-' | ' '))
-            .map(|c| c.to_ascii_lowercase())
-            .collect();
-        match key.as_str() {
-            "camera" | "fieldcamera" => Some(Self::FieldCamera),
-            "stoneblock" | "quarriedstone" | "stone" => Some(Self::QuarriedStone),
-            "timbertorch" | "torch" => Some(Self::TimberTorch),
-            "woodenmallet" | "mallet" => Some(Self::WoodenMallet),
-            "woodmanaxe" | "axe" => Some(Self::WoodmanAxe),
-            "knightlysword" | "knightsword" | "sword" => Some(Self::KnightlySword),
-            "ironspade" | "spade" => Some(Self::IronSpade),
-            "earthblock" | "excavatedearth" | "earth" | "dirt" => Some(Self::ExcavatedEarth),
-            "deadwood" | "deadwoodbough" => Some(Self::DeadwoodBough),
-            "flintstone" | "flint" => Some(Self::FlintStone),
-            "woodblock" | "timberblock" | "timber" => Some(Self::TimberBlock),
-            "woodplanks" | "plankblock" | "planks" => Some(Self::PlankBlock),
-            "crustblock" | "crust" => Some(Self::CrustBlock),
-            "cranelift" | "cantilevercrane" | "crane" => Some(Self::CantileverCrane),
-            "steeringwheel" | "steering" => Some(Self::SteeringWheel),
-            "planeengine" | "aircraftengine" => Some(Self::AircraftEngine),
-            "rocketengine" | "rocket" => Some(Self::RocketEngine),
-            "seatblock" | "cabinsat" | "cabinseat" | "seat" => Some(Self::CabinSeat),
-            "carwheel" | "wheel" => Some(Self::CarWheel),
-            "pedalblock" | "pedalcluster" | "pedals" | "pedal" => Some(Self::PedalCluster),
-            "crossaxle" | "axle" | "axleblock" | "querachse" => Some(Self::CrossAxle),
-            _ => None,
-        }
+        RelicLexicon::new(*self).parse(token)
     }
 
     pub const fn gripped(self) -> bool {
@@ -201,6 +160,9 @@ impl HeldRelic {
                 | Self::FieldCamera
                 | Self::PedalCluster
                 | Self::CrossAxle
+                | Self::CopperOre
+                | Self::IronOre
+                | Self::GoldOre
         )
     }
 
@@ -219,6 +181,9 @@ impl HeldRelic {
             Self::FieldCamera => BlockMedium::FieldCamera,
             Self::PedalCluster => BlockMedium::PedalCluster,
             Self::CrossAxle => BlockMedium::CrossAxle,
+            Self::CopperOre => BlockMedium::CopperOre,
+            Self::IronOre => BlockMedium::IronOre,
+            Self::GoldOre => BlockMedium::GoldOre,
             _ => BlockMedium::TurfEarth,
         }
     }
@@ -239,6 +204,9 @@ impl HeldRelic {
             BlockMedium::FieldCamera => Self::FieldCamera,
             BlockMedium::PedalCluster => Self::PedalCluster,
             BlockMedium::CrossAxle => Self::CrossAxle,
+            BlockMedium::CopperOre => Self::CopperOre,
+            BlockMedium::IronOre => Self::IronOre,
+            BlockMedium::GoldOre => Self::GoldOre,
         }
     }
 
@@ -260,7 +228,10 @@ impl HeldRelic {
             | Self::FlintStone
             | Self::FieldCamera
             | Self::PedalCluster
-            | Self::CrossAxle => MartialStyle::PalmCradle,
+            | Self::CrossAxle
+            | Self::CopperOre
+            | Self::IronOre
+            | Self::GoldOre => MartialStyle::PalmCradle,
             Self::IronSpade => MartialStyle::SpadeDig,
             Self::WoodenMallet | Self::WoodmanAxe => MartialStyle::LumberjackCleave,
             Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,

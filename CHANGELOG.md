@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-11-13
+
+### Added
+- Added zero-knowledge `crates/sanctuary` multiplayer crate and standalone server/relay binary (`SanctuaryHost`, `HostedPlanet`, `RemotePlanet`, `RemoteLink`, `ChronicleLog`) decorating `PlanetaryWorld` so singleplayer, live co-op hosting, and remote guest play share identical gameplay logic (`crates/sanctuary/src/`).
+- Added pure-Rust end-to-end encryption (`HandshakeIdentity`, `SessionSeal` via X25519 + ChaCha20-Poly1305), shareable `LC1-...` invite tickets (`PortalTicket`), UDP hole-punching with encrypted blind relay fallback (`RelayBeacon`), and authoritative reach/cadence/block-credit anti-cheat (`GuestWard` in `crates/sanctuary/src/ward.rs`).
+- Added stratified subterranean mineral veins (`LivingVeins`, `HollowVeins`, `EntropyWell`, `ExposedStratum` in `crates/world/src/relief/mineral_vein/`) with air-exposure X-ray culling, geological elevation bands, finite vein bud propagation, and per-band `16x16` sector saturation, plus sculpted 3D `MineralSeam` nuggets for `CopperOre`, `IronOre`, and `GoldOre` (`crates/world/src/block/mineral_seam.rs`).
+- Added `CompanionPresence` (`crates/world/src/presence.rs`), binary `WorldFact` chronicle serialization (`crates/world/src/chronicle.rs`), 3D companion avatar rendering in gameplay and Polaroid exposures (`CompanionFigure` in `crates/client/src/companion.rs`), CLI `--host` / `--join` / `--relay` (`PortalConfig` in `crates/client/src/portal_config.rs`), and a live `OPEN CO-OP PORTAL` button in `EscapeMenu` (`crates/client/src/menu/mod.rs`).
+- Added player multiplayer guide (`docs/MULTIPLAYER.md`) and architectural decision record (`docs/adr/0004-zero-knowledge-sanctuary-multiplayer.md`).
+
+### Changed
+- Extended `HeldRelic`, `RelicLexicon`, `SlotBurden`, and `ArtisanTome` (`crates/client/src/attire/`) with `CopperOre`, `IronOre`, and `GoldOre` handheld nuggets, weight grades (`MODERATE` / `WEIGHTY` / `HEAVY`), and ore-forged crafting recipes for `SteeringWheel`, `FieldCamera`, `AircraftEngine`, and `RocketEngine`.
+
 ## [0.65.2] - 2026-11-13
 
 ### Fixed

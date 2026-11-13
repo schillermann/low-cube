@@ -198,3 +198,34 @@ fn test_satchel_open_shows_weapons_behind_and_outside_satchel_without_overlap() 
     dual_axes.emit_appearance(&mut unpacked_axes_mesh);
     assert_eq!(unpacked_axes_mesh.count(), initial_axes_mesh.count(), "Stowing 2 axes and unpacking both must preserve both axes");
 }
+
+#[test]
+fn test_multiplayer_companion_figure_renders_ore_relics_and_live_host_guest_sync() {
+    use sanctuary::{BeaconRoute, HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
+    use crate::companion::CompanionFigure;
+
+    let base_world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
+    let raw_host = SanctuaryHost::bind("127.0.0.1:0", base_world, 16, false, BeaconRoute::Unassisted).expect("bind");
+    let ticket = raw_host.ticket().encode();
+    let mut host_planet = HostedPlanet::new(raw_host);
+    let mut guest_planet = RemotePlanet::dial(JoinTarget::parse(&ticket).expect("ticket"), 16, false, 0.5).expect("dial");
+
+    let spawn = host_planet.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 1.0);
+    let mut host_avatar = PlanetaryAvatar::at(spawn);
+    let mut guest_avatar = PlanetaryAvatar::at(spawn + Vec3::X * 1.5);
+    host_avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::GoldOre, HeldRelic::CopperOre));
+    guest_avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronOre, HeldRelic::IronSpade));
+
+    for _ in 0..8 {
+        host_avatar.sync_world_presence(&mut host_planet);
+        guest_avatar.sync_world_presence(&mut guest_planet);
+        let _ = guest_planet.step_surface(0.06);
+        let _ = host_planet.step_surface(0.06);
+    }
+
+    let (mut host_view_companions, mut guest_view_companions) = (QuadLedger::empty(), QuadLedger::empty());
+    CompanionFigure::emit_all(&host_planet, &mut host_view_companions);
+    CompanionFigure::emit_all(&guest_planet, &mut guest_view_companions);
+    assert!(host_view_companions.count() > 80, "Host must render 3D companion holding IronOre + IronSpade");
+    assert!(guest_view_companions.count() > 80, "Guest must render 3D host companion holding GoldOre + CopperOre");
+}

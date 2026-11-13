@@ -102,7 +102,7 @@ impl CodebaseAudit for SourceTreeAudit {
 fn test_workspace_architecture_guard_enforces_line_and_field_limits() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let crates_dir = manifest_dir.parent().expect("crates dir");
-    for subdir in ["world/src", "engine/src", "client/src"] {
+    for subdir in ["world/src", "engine/src", "sanctuary/src", "client/src"] {
         SourceTreeAudit::new(crates_dir.join(subdir)).verify();
     }
 }

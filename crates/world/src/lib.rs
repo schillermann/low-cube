@@ -3,11 +3,13 @@ use glam::Vec3;
 mod beveled_world;
 mod biome;
 mod block;
+mod chronicle;
 mod frame;
 mod mesh_target;
 mod noise;
 mod null_face;
 mod planet;
+mod presence;
 mod quad;
 mod relief;
 mod topology;
@@ -25,9 +27,10 @@ pub use biome::BiomedCubeWorld;
 pub use block::{
     BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
     ElevatedShape, FieldCameraTripod, FootwellPlinth, GentleRidge, GentleValley, GentleWedge, GridCell,
-    MediumShape, MoldArchetype, PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, StairCorner,
-    StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
+    MediumShape, MineralSeam, MoldArchetype, PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner,
+    StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
 };
+pub use chronicle::WorldFact;
 pub use frame::SurfaceFrame;
 pub use mesh_target::{
     CountedMeshTarget, CrateredMeshTarget, MeadowCrown, NaturalMeadowTarget, TurfMeshTarget,
@@ -35,9 +38,11 @@ pub use mesh_target::{
 pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
 pub use planet::CubePlanet;
+pub use presence::{CompanionPresence, PresenceKinematics};
 pub use relief::{
-    CrustVault, FacetedReliefFace, ReliefElevation, ReliefFacet, ReliefPalette, SurfaceSightRay,
-    TerracedRelief, VehicleAssembly, VehicleAxes, VehiclePart,
+    CrustVault, ExposedStratum, FacetedReliefFace, HollowVeins, LivingVeins, ReliefElevation,
+    ReliefFacet, ReliefPalette, SubterraneanVeins, SurfaceSightRay, TerracedRelief,
+    VehicleAssembly, VehicleAxes, VehiclePart,
 };
 pub use topology::{
     BevelTransition, ClimateZone, CoordinateFold, FacePerimeter, FoldedFace,
@@ -125,6 +130,12 @@ pub trait PlanetaryWorld: GravityField {
     fn emit_meadow_around(&self, _center: Vec3, _view_dir: Vec3, _target: &mut dyn MeshTarget) {}
     fn arboreal_perch_near(&self, _center: Vec3, _selector: usize) -> Option<Vec3> { None }
     fn visible_slice_mask(&self, _position: Vec3) -> u32 { u32::MAX }
+    fn disclose_stratum(&mut self, _face_index: usize, _stratum: ExposedStratum) {}
+    fn drain_disclosures(&mut self, _out: &mut Vec<(u8, ExposedStratum)>) {}
+    fn sync_presence(&mut self, _presence: CompanionPresence) {}
+    fn active_companions(&self, _out: &mut Vec<CompanionPresence>) {}
+    fn portal_ticket(&self) -> Option<String> { None }
+    fn pump_portal(&mut self, _dt: f32) -> bool { false }
 }
 
 /// Interface representing an individual face of a planetary body.
@@ -186,5 +197,7 @@ pub trait Face: Send + Sync {
         false
     }
     fn confine_beneath_crust(&self, point: Vec3) -> Vec3 { point }
+    fn accept_disclosure(&mut self, _stratum: ExposedStratum) {}
+    fn drain_disclosures(&mut self, _out: &mut Vec<ExposedStratum>) {}
 }
 

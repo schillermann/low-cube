@@ -9,6 +9,7 @@ This directory documents all significant technical and architectural decisions f
 | [0001](0001-graphics-api-selection.md) | Graphics API Selection (Modern Core OpenGL) | Accepted | 2026-10-11 |
 | [0002](0002-programming-language-rust.md) | Programming Language Selection (Rust) | Accepted | 2026-10-11 |
 | [0003](0003-planetary-gpu-mesh-partitioning.md) | Planetary GPU Mesh Partitioning (6 Per-Face Meshes with Row & Flora Caching) | Accepted | 2026-10-21 |
+| [0004](0004-zero-knowledge-sanctuary-multiplayer.md) | Zero-Knowledge Sanctuary Multiplayer & Stratified Vein Architecture | Accepted | 2026-11-13 |
 
 ---
 

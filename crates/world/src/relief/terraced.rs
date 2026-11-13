@@ -4,6 +4,7 @@ use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::column_clearance::ColumnClearance;
 use super::elevation::ReliefElevation;
+use super::mineral_vein::{ExposedStratum, SubterraneanVeins};
 use super::natural_strata::NaturalStrata;
 use super::overhang_molds::OverhangMolds;
 use super::shaft_excavation::ShaftExcavation;
@@ -28,6 +29,15 @@ impl TerracedRelief {
         Self::new(
             NaturalStrata::in_span(origin, half_blocks),
             ShaftExcavation::untouched(),
+            OverhangMolds::untouched(),
+        )
+    }
+
+    /// Secondary constructor equipping explicit subterranean vein authority.
+    pub fn with_veins(origin: Box<dyn ReliefElevation>, half_blocks: i32, veins: Box<dyn SubterraneanVeins>) -> Self {
+        Self::new(
+            NaturalStrata::in_span(origin, half_blocks),
+            ShaftExcavation::with_veins(veins),
             OverhangMolds::untouched(),
         )
     }
@@ -155,5 +165,17 @@ impl ReliefElevation for TerracedRelief {
 
     fn park_vehicle_at(&mut self, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {
         self.molds.park_vehicle(&self.strata, &self.shafts, frame, assembly)
+    }
+
+    fn exposed_ore_at(&self, u: i32, v: i32, step: i32) -> Option<BlockMedium> {
+        self.shafts.exposed_ore_at(u, v, step)
+    }
+
+    fn accept_disclosure(&mut self, stratum: ExposedStratum) {
+        self.shafts.accept_disclosure(stratum);
+    }
+
+    fn drain_disclosures(&mut self, out: &mut Vec<ExposedStratum>) {
+        self.shafts.drain_disclosures(out);
     }
 }

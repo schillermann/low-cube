@@ -1,8 +1,11 @@
 use world::PlanetaryWorld;
 use crate::attire::{PhotoShutter, SightMode};
 use crate::avatar::Avatar;
+use crate::companion::CompanionFigure;
 use crate::controls::{ControlAction, InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
+use crate::portal_config::PortalConfig;
+use crate::server_scale::{PlanetaryScale, ServerScale};
 use crate::sparrow::SparrowFlock;
 use crate::surface::PlatformSurface;
 use super::display::SessionDisplay;
@@ -57,11 +60,13 @@ impl SessionStage {
 
     pub(super) fn emit_avatar(&self, target: &mut dyn world::MeshTarget) {
         self.avatar.emit_appearance(target);
+        CompanionFigure::emit_all(self.world.as_ref(), target);
         self.sparrows.emit(target);
     }
 
     pub(super) fn emit_avatar_for_sight(&self, sight: SightMode, target: &mut dyn world::MeshTarget) {
         self.avatar.emit_appearance_for_sight(sight, target);
+        CompanionFigure::emit_all(self.world.as_ref(), target);
         self.sparrows.emit(target);
     }
 
@@ -89,9 +94,17 @@ impl SessionStage {
         false
     }
 
-    pub(super) fn press_modal_mouse(&mut self, surface: &dyn PlatformSurface) -> ModalDirective {
+    pub(super) fn press_modal_mouse(&mut self, surface: &dyn PlatformSurface, tron_active: bool) -> ModalDirective {
         let directive = self.overlay.modal.press_mouse(surface, self.avatar.as_mut());
         self.overlay.modal.sync_controls(self.overlay.controls.as_mut());
+        if matches!(directive, ModalDirective::OpenPortal) {
+            let current = std::mem::replace(&mut self.world, Box::new(world::BiomedCubeWorld::of_size(4)));
+            let blocks = ServerScale::assembled().blocks();
+            let (hosted, ticket) = PortalConfig::open_live_portal(current, blocks, tron_active);
+            self.world = hosted;
+            self.overlay.modal.announce_portal(ticket);
+            return ModalDirective::ContinueSession;
+        }
         directive
     }
 
@@ -116,6 +129,11 @@ impl SessionStage {
     pub(super) fn step_frame(&mut self, dt: f32, display: &mut SessionDisplay) {
         if self.overlay.modal.open() {
             self.overlay.modal.step(dt);
+            self.avatar.sync_world_presence(self.world.as_mut());
+            if self.world.pump_portal(dt) {
+                display.refresh_modified_face(self.world.as_mut());
+                display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());
+            }
         } else {
             let prev_anchor = self.avatar.meadow_anchor();
             let total_dt = dt.clamp(1.0 / 240.0, 0.10);
@@ -129,6 +147,7 @@ impl SessionStage {
                     changed = true;
                 }
             }
+            self.avatar.sync_world_presence(self.world.as_mut());
             if changed {
                 display.refresh_modified_face(self.world.as_mut());
             }

@@ -27,11 +27,20 @@ pub use widget::{ScreenBounds, ScreenPoint};
 
 /// Directive returned when interacting with the Escape menu, Character studio, or Settings panel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ModalDirective { ContinueSession, ExitGame }
+pub enum ModalDirective {
+    ContinueSession,
+    OpenPortal,
+    ExitGame,
+}
 
 /// Polymorphic modal state machine for gameplay, Escape pause menu, Character studio, and Settings.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ModalPhase { Gameplay, EscapePause, CharacterWardrobe, ControlSettings }
+enum ModalPhase {
+    Gameplay,
+    EscapePause,
+    CharacterWardrobe,
+    ControlSettings,
+}
 
 /// Interface for session modal overlay interaction and rendering.
 pub trait SessionModal {
@@ -43,43 +52,73 @@ pub trait SessionModal {
     fn handle_key(&mut self, code: KeyCode, avatar: &mut dyn Avatar) -> bool;
     fn handle_trigger(&mut self, _trigger: InputTrigger, _avatar: &mut dyn Avatar) -> bool { false }
     fn sync_controls(&self, _controls: &mut dyn KeyboardControls) {}
+    fn announce_portal(&mut self, _ticket: String) {}
     fn step(&mut self, dt: f32);
     fn emit_ui(&self, avatar: &dyn Avatar, target: &mut dyn MeshTarget);
     fn emit_studio(&self, target: &mut dyn MeshTarget);
     fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, avatar: &dyn Avatar, aspect: f32);
 }
 
-/// Encapsulated Escape menu, 3D Character Studio, and Keybinding Settings modal overlay.
-pub struct EscapeMenu {
-    phase: ModalPhase,
-    pointer: ScreenPoint,
+struct StudioPanels {
     studio: WardrobeStudio,
     settings: ControlStudio,
 }
 
+impl StudioPanels {
+    fn new(studio: WardrobeStudio, settings: ControlStudio) -> Self {
+        Self { studio, settings }
+    }
+}
+
+/// Encapsulated Escape menu, 3D Character Studio, Keybinding Settings, and Co-op Portal banner.
+pub struct EscapeMenu {
+    phase: ModalPhase,
+    pointer: ScreenPoint,
+    panels: StudioPanels,
+    portal_code: String,
+}
+
 impl EscapeMenu {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    fn new(phase: ModalPhase, pointer: ScreenPoint, studio: WardrobeStudio, settings: ControlStudio) -> Self {
-        Self { phase, pointer, studio, settings }
+    fn new(phase: ModalPhase, pointer: ScreenPoint, panels: StudioPanels, portal_code: String) -> Self {
+        Self { phase, pointer, panels, portal_code }
     }
 
+    #[cfg(test)]
     pub fn closed() -> Self {
-        Self::new(ModalPhase::Gameplay, ScreenPoint::center(), WardrobeStudio::from_profile(), ControlStudio::from_profile())
+        Self::with_portal(String::new())
+    }
+
+    pub fn with_portal(portal_code: String) -> Self {
+        Self::new(
+            ModalPhase::Gameplay,
+            ScreenPoint::center(),
+            StudioPanels::new(WardrobeStudio::from_profile(), ControlStudio::from_profile()),
+            portal_code,
+        )
     }
 
     fn resume_button() -> ScreenBounds { ScreenBounds::new(-0.28, 0.14, 0.28, 0.26) }
     fn character_button() -> ScreenBounds { ScreenBounds::new(-0.28, -0.04, 0.28, 0.08) }
     fn settings_button() -> ScreenBounds { ScreenBounds::new(-0.28, -0.22, 0.28, -0.10) }
     fn quit_button() -> ScreenBounds { ScreenBounds::new(-0.28, -0.40, 0.28, -0.28) }
+    fn portal_button() -> ScreenBounds { ScreenBounds::new(-0.28, -0.58, 0.28, -0.46) }
 
     fn emit_pause_panel(&self, target: &mut dyn MeshTarget) {
         let (bg, rim, gold) = (Vec3::new(0.08, 0.10, 0.15), Vec3::new(0.32, 0.39, 0.50), Vec3::new(0.96, 0.82, 0.34));
-        ScreenBounds::new(-0.36, -0.46, 0.36, 0.44).emit_framed(bg, rim, 0.008, target);
+        ScreenBounds::new(-0.36, -0.68, 0.36, 0.44).emit_framed(bg, rim, 0.008, target);
         PixelStamp::title(gold).emit_centered("MAIN MENU", 0.0, 0.35, target);
         Self::resume_button().emit_button("RESUME GAME", self.pointer, Vec3::new(0.18, 0.42, 0.24), false, target);
         Self::character_button().emit_button("CHARACTER", self.pointer, Vec3::new(0.20, 0.32, 0.52), false, target);
         Self::settings_button().emit_button("KEYBINDINGS", self.pointer, Vec3::new(0.28, 0.26, 0.48), false, target);
         Self::quit_button().emit_button("QUIT GAME", self.pointer, Vec3::new(0.54, 0.18, 0.18), false, target);
+        let portal_label = if self.portal_code.is_empty() { "OPEN CO-OP PORTAL" } else { "PORTAL ACTIVE (LOG)" };
+        let portal_col = if self.portal_code.is_empty() { Vec3::new(0.18, 0.44, 0.46) } else { Vec3::new(0.22, 0.52, 0.32) };
+        Self::portal_button().emit_button(portal_label, self.pointer, portal_col, !self.portal_code.is_empty(), target);
+        if !self.portal_code.is_empty() {
+            let preview: String = self.portal_code.chars().take(24).collect();
+            PixelStamp::caption(gold).emit_centered(&format!("{preview}..."), 0.0, -0.63, target);
+        }
     }
 }
 
@@ -91,15 +130,15 @@ impl SessionModal for EscapeMenu {
             ModalPhase::Gameplay => { self.phase = ModalPhase::EscapePause; surface.release_cursor(); }
             ModalPhase::EscapePause => { self.phase = ModalPhase::Gameplay; surface.capture_cursor(); }
             ModalPhase::CharacterWardrobe => { self.phase = ModalPhase::EscapePause; surface.release_cursor(); }
-            ModalPhase::ControlSettings => { self.settings.cancel_focus(); self.phase = ModalPhase::EscapePause; surface.release_cursor(); }
+            ModalPhase::ControlSettings => { self.panels.settings.cancel_focus(); self.phase = ModalPhase::EscapePause; surface.release_cursor(); }
         }
     }
 
     fn move_cursor(&mut self, point: ScreenPoint) {
         self.pointer = point;
         match self.phase {
-            ModalPhase::CharacterWardrobe => self.studio.move_pointer(point),
-            ModalPhase::ControlSettings => self.settings.move_pointer(point),
+            ModalPhase::CharacterWardrobe => self.panels.studio.move_pointer(point),
+            ModalPhase::ControlSettings => self.panels.settings.move_pointer(point),
             _ => {}
         }
     }
@@ -109,32 +148,33 @@ impl SessionModal for EscapeMenu {
             ModalPhase::Gameplay => ModalDirective::ContinueSession,
             ModalPhase::EscapePause => {
                 if Self::resume_button().contains(self.pointer) { self.phase = ModalPhase::Gameplay; surface.capture_cursor(); }
-                else if Self::character_button().contains(self.pointer) { self.phase = ModalPhase::CharacterWardrobe; self.studio.move_pointer(self.pointer); }
-                else if Self::settings_button().contains(self.pointer) { self.phase = ModalPhase::ControlSettings; self.settings.move_pointer(self.pointer); }
+                else if Self::character_button().contains(self.pointer) { self.phase = ModalPhase::CharacterWardrobe; self.panels.studio.move_pointer(self.pointer); }
+                else if Self::settings_button().contains(self.pointer) { self.phase = ModalPhase::ControlSettings; self.panels.settings.move_pointer(self.pointer); }
+                else if Self::portal_button().contains(self.pointer) { return ModalDirective::OpenPortal; }
                 else if Self::quit_button().contains(self.pointer) { return ModalDirective::ExitGame; }
                 ModalDirective::ContinueSession
             }
             ModalPhase::CharacterWardrobe => {
-                let directive = self.studio.press_pointer();
-                avatar.apply_attire(self.studio.current_attire());
+                let directive = self.panels.studio.press_pointer();
+                avatar.apply_attire(self.panels.studio.current_attire());
                 if matches!(directive, StudioDirective::ReturnToPauseMenu) { self.phase = ModalPhase::EscapePause; }
                 ModalDirective::ContinueSession
             }
             ModalPhase::ControlSettings => {
-                let (directive, changed) = self.settings.press_pointer();
-                if changed { avatar.apply_bindings(self.settings.current_bindings()); }
+                let (directive, changed) = self.panels.settings.press_pointer();
+                if changed { avatar.apply_bindings(self.panels.settings.current_bindings()); }
                 if matches!(directive, SettingsDirective::ReturnToPauseMenu) { self.phase = ModalPhase::EscapePause; }
                 ModalDirective::ContinueSession
             }
         }
     }
 
-    fn release_mouse(&mut self) { self.studio.release_pointer(); }
+    fn release_mouse(&mut self) { self.panels.studio.release_pointer(); }
 
     fn handle_key(&mut self, code: KeyCode, avatar: &mut dyn Avatar) -> bool {
         match self.phase {
-            ModalPhase::CharacterWardrobe if self.studio.handle_key(code) => {
-                avatar.apply_attire(self.studio.current_attire());
+            ModalPhase::CharacterWardrobe if self.panels.studio.handle_key(code) => {
+                avatar.apply_attire(self.panels.studio.current_attire());
                 true
             }
             ModalPhase::ControlSettings => self.handle_trigger(InputTrigger::Key(code), avatar),
@@ -143,39 +183,43 @@ impl SessionModal for EscapeMenu {
     }
 
     fn handle_trigger(&mut self, trigger: InputTrigger, avatar: &mut dyn Avatar) -> bool {
-        if matches!(self.phase, ModalPhase::ControlSettings) && self.settings.handle_trigger(trigger) {
-            avatar.apply_bindings(self.settings.current_bindings());
+        if matches!(self.phase, ModalPhase::ControlSettings) && self.panels.settings.handle_trigger(trigger) {
+            avatar.apply_bindings(self.panels.settings.current_bindings());
             return true;
         }
         false
     }
 
     fn sync_controls(&self, controls: &mut dyn KeyboardControls) {
-        controls.apply_bindings(self.settings.current_bindings());
+        controls.apply_bindings(self.panels.settings.current_bindings());
+    }
+
+    fn announce_portal(&mut self, ticket: String) {
+        self.portal_code = ticket;
     }
 
     fn step(&mut self, dt: f32) {
-        if matches!(self.phase, ModalPhase::CharacterWardrobe) { self.studio.step(dt); }
+        if matches!(self.phase, ModalPhase::CharacterWardrobe) { self.panels.studio.step(dt); }
     }
 
     fn emit_ui(&self, avatar: &dyn Avatar, target: &mut dyn MeshTarget) {
         match self.phase {
             ModalPhase::Gameplay => avatar.emit_reticle(target),
             ModalPhase::EscapePause => self.emit_pause_panel(target),
-            ModalPhase::CharacterWardrobe => self.studio.emit_overlay(target),
-            ModalPhase::ControlSettings => self.settings.emit_overlay(target),
+            ModalPhase::CharacterWardrobe => self.panels.studio.emit_overlay(target),
+            ModalPhase::ControlSettings => self.panels.settings.emit_overlay(target),
         }
     }
 
     fn emit_studio(&self, target: &mut dyn MeshTarget) {
-        if matches!(self.phase, ModalPhase::CharacterWardrobe) { self.studio.emit_stage(target); }
+        if matches!(self.phase, ModalPhase::CharacterWardrobe) { self.panels.studio.emit_stage(target); }
     }
 
     fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, avatar: &dyn Avatar, aspect: f32) {
         if matches!(self.phase, ModalPhase::CharacterWardrobe) {
             let mut stage_batch = CpuMeshBatch::empty();
             self.emit_studio(&mut stage_batch);
-            let vp = self.studio.stage_projection(aspect);
+            let vp = self.panels.studio.stage_projection(aspect);
             let light = Vec3::new(0.35, 0.55, 0.75).normalize();
             unsafe { gl.clear(glow::DEPTH_BUFFER_BIT); }
             shader.bind(gl, &vp, light);

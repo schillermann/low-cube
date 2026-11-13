@@ -30,7 +30,7 @@ impl BeltSatchel {
     pub const fn empty() -> Self {
         Self::new(
             PalmStack::new(0, 0, BlockMold::cube(), BlockMold::cube()),
-            SatchelTray::new([0; 22], 1.0, 0, TrayState::Closed),
+            SatchelTray::new([0; 25], 1.0, 0, TrayState::Closed),
             TripodMount::Unmounted,
         )
     }

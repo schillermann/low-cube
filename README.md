@@ -77,6 +77,7 @@ For environment setup, building, running, and testing instructions, see the [Dev
 ## Documentation
 
 - [Game Concept](CONCEPT.md)
+- [Multiplayer & Subterranean Mining Guide](docs/MULTIPLAYER.md)
 - [Character Concept & Wardrobe Customization Reference](docs/CHARACTER.md)
 - [Planetary Climate Zones & Biomes](docs/CLIMATES.md)
 - [Block Catalog & Geometry Reference](docs/BLOCKS.md)

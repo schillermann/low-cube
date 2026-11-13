@@ -3,10 +3,10 @@ mod cache;
 use glam::Vec3;
 use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
-use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics};
 use crate::topology::ClimateZone;
 use crate::{Face, MeshTarget};
 use super::elevation::{ReliefElevation, ZonedRelief};
+use super::mineral_vein::{ExposedStratum, HollowVeins, LivingVeins, SubterraneanVeins};
 use super::palette::ReliefPalette;
 use super::sight_ray::SurfaceSightRay;
 use super::strata::ReliefStrata;
@@ -38,43 +38,43 @@ impl FacetedReliefFace {
         Self { domain, palette, cache }
     }
 
-    /// Secondary constructor assembling a relief face calibrated for a specific planetary climate zone.
-    pub fn in_zone(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
+    /// Secondary constructor assembling a relief face with explicit subterranean vein authority.
+    pub fn in_zone_with_veins(
+        zone: ClimateZone,
+        half_size: f32,
+        divisions: u32,
+        veins: Box<dyn SubterraneanVeins>,
+    ) -> Self {
         let frame = zone.surface_frame(half_size);
-        let palette = ReliefPalette::for_zone(zone);
-        let strata = ReliefStrata::new();
-        let (seed_offset, max_large, max_med) = match zone {
-            ClimateZone::Volcanic => (202, 16, 12),
-            ClimateZone::Arctic => (404, 14, 10),
-            ClimateZone::Steppe => (606, 10, 8),
-            ClimateZone::Temperate => (101, 9, 7),
-            ClimateZone::Jungle => (505, 8, 6),
-            ClimateZone::Desert => (303, 7, 5),
-        };
-        let min_elev = if matches!(zone, ClimateZone::Jungle) { -1 } else { 0 };
-        let freq = if half_size >= 48.0 { 0.025 } else { 0.04 };
-        let base_noise = Box::new(CoherentNoise::new(seed_offset, freq));
-        let harmonics = Box::new(FractalHarmonics::new(base_noise, 3, 0.5, 2.0));
-        let warp_x = Box::new(CoherentNoise::new(seed_offset + 10, freq * 0.5));
-        let warp_z = Box::new(CoherentNoise::new(seed_offset + 20, freq * 0.5));
-        let warped = Box::new(DomainWarp::new(harmonics, warp_x, warp_z, 2.5));
-        let max_elev = if half_size >= 48.0 {
-            max_large
-        } else if half_size >= 24.0 {
-            max_med
-        } else if matches!(zone, ClimateZone::Volcanic | ClimateZone::Arctic) {
-            3
-        } else {
-            2
-        };
-        let zoned = Box::new(ZonedRelief::new(warped, frame.normal(), frame.tangent(), frame.bitangent(), half_size, min_elev, max_elev));
-        let relief = Box::new(TerracedRelief::in_span(zoned, (divisions as i32) / 2));
-        Self::new(ReliefDomain::new(frame, relief), palette, ReliefCellCache::empty(strata, divisions))
+        let zoned = Box::new(ZonedRelief::in_climate(zone, half_size));
+        let relief = Box::new(TerracedRelief::with_veins(zoned, (divisions as i32) / 2, veins));
+        Self::new(
+            ReliefDomain::new(frame, relief),
+            ReliefPalette::for_zone(zone),
+            ReliefCellCache::empty(ReliefStrata::new(), divisions),
+        )
+    }
+
+    /// Secondary constructor assembling an authoritative relief face with living mineral veins.
+    pub fn in_zone(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
+        Self::in_zone_with_veins(zone, half_size, divisions, Box::new(LivingVeins::ambient(zone.index() as u64 + 1)))
+    }
+
+    /// Secondary constructor assembling a zero-knowledge client relief face without unexposed ores.
+    pub fn hollow_in_zone(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
+        Self::in_zone_with_veins(zone, half_size, divisions, Box::new(HollowVeins::untouched()))
     }
 
     /// Secondary constructor assembling a relief face calibrated for Tron wireframe visualization.
     pub fn tron(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
         let mut face = Self::in_zone(zone, half_size, divisions);
+        face.palette = ReliefPalette::tron();
+        face
+    }
+
+    /// Secondary constructor assembling a zero-knowledge Tron wireframe relief face.
+    pub fn hollow_tron(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
+        let mut face = Self::hollow_in_zone(zone, half_size, divisions);
         face.palette = ReliefPalette::tron();
         face
     }
@@ -252,5 +252,16 @@ impl Face for FacetedReliefFace {
         let ((u, v), elev) = (self.domain.frame.decompose(point), self.domain.frame.elevation_of(point));
         let (cu, cv, z) = self.domain.relief.confine(u, v, elev);
         self.domain.frame.point_at(cu, cv, z)
+    }
+
+    fn accept_disclosure(&mut self, stratum: ExposedStratum) {
+        let half = self.cache.half_blocks();
+        let (cu, cv) = stratum.transfer(|u, v, _, _| (u, v));
+        self.domain.relief.accept_disclosure(stratum);
+        self.refresh_neighborhood(cu, cv, half, 1);
+    }
+
+    fn drain_disclosures(&mut self, out: &mut Vec<ExposedStratum>) {
+        self.domain.relief.drain_disclosures(out);
     }
 }
