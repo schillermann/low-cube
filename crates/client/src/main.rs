@@ -96,6 +96,8 @@ mod threshold_tests;
 #[cfg(test)]
 mod tilt_tests;
 #[cfg(test)]
+mod toss_tests;
+#[cfg(test)]
 mod traversal_tests;
 #[cfg(test)]
 mod troupe_tests;

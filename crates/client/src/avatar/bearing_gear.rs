@@ -151,6 +151,10 @@ impl AvatarGear {
         self.earthworks = self.earthworks.with_provisioned_satchel(provider);
     }
 
+    pub fn step_timers(&mut self, dt: f32) {
+        self.earthworks = self.earthworks.step_toss(dt);
+    }
+
     pub fn dispatch_trigger(&mut self, trigger: InputTrigger, bearing: &mut AvatarBearing, perished: bool) -> bool {
         if trigger == InputTrigger::WheelClick
             && !self.satchel_open()
@@ -165,6 +169,24 @@ impl AvatarGear {
             bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
         }
         handled
+    }
+
+    pub fn try_cast_relic(
+        &mut self,
+        trigger: InputTrigger,
+        bearing: &mut AvatarBearing,
+        eye: Vec3,
+        view_dir: Vec3,
+        world: &mut dyn PlanetaryWorld,
+    ) -> bool {
+        let (next_ew, next_rhythm, cast) =
+            self.earthworks.try_cast_relic(trigger, &self.bindings, self.attire, bearing.rhythm(), eye, view_dir, world);
+        self.earthworks = next_ew;
+        if cast {
+            bearing.apply_rhythm(next_rhythm);
+            bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
+        }
+        cast
     }
 
     pub fn try_adjust_rig(&mut self, trigger: InputTrigger, bearing: &mut AvatarBearing, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> bool {

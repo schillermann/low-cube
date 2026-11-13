@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{CleaveOutcome, PlanetaryWorld, SurfaceFind};
+use world::{CleaveOutcome, PlanetaryWorld};
 use crate::attire::{BeltSatchel, HeldRelic, StrideRhythm, YouthAttire};
 use crate::grip::{DigGrip, DigStroke};
 use super::debris::{DebrisSplash, DigOperation};
@@ -95,8 +95,7 @@ impl SurfaceReach {
     ) -> (BeltSatchel, YouthAttire, DigOperation, StrideRhythm, bool) {
         let (reconciled, find) = (satchel.reconcile_attire(attire), world.forage_surface(self.eye, self.view_dir));
         if find.gathered() {
-            let gathered = if matches!(find, SurfaceFind::DeadwoodBough) { HeldRelic::DeadwoodBough } else { HeldRelic::FlintStone };
-            let (ns, na) = reconciled.collect_foraged(side, gathered, attire);
+            let (ns, na) = reconciled.collect_foraged(side, HeldRelic::from_surface_find(find), attire);
             return (ns, na, dig.with_grip(DigGrip::idle()), rhythm, true);
         }
         let (right, left) = attire.held_pair();

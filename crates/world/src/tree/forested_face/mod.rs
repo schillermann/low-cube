@@ -1,3 +1,5 @@
+mod cache;
+
 use std::sync::RwLock;
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
@@ -5,21 +7,10 @@ use crate::topology::ClimateZone;
 use crate::{BlockMedium, BlockMold, Face, MeshTarget, Quad, VehicleAssembly};
 use super::arboreal::Arboreal;
 use super::depository::WoodlandDepository;
+use super::floor_litter::FloorLitter;
 use super::timber_yield::{CleaveOutcome, SurfaceFind};
 use super::zoned_forest::ZonedForest;
-
-struct FloraQuadTarget<'a>(&'a mut Vec<Quad>);
-
-impl MeshTarget for FloraQuadTarget<'_> {
-    fn push_quad(&mut self, quad: Quad) {
-        self.0.push(quad);
-    }
-}
-
-struct FloraCache {
-    slots: RwLock<Vec<Vec<Quad>>>,
-    settled: bool,
-}
+use self::cache::{FloraCache, LitterLanding};
 
 /// Composite decorator populating a planetary face with climate-adapted arboreal specimens.
 pub struct ForestedFace {
@@ -41,7 +32,7 @@ impl ForestedFace {
             origin,
             frame,
             trees,
-            cache: FloraCache { slots: cached_flora, settled: false },
+            cache: FloraCache::new(cached_flora, false),
         }
     }
 
@@ -52,25 +43,11 @@ impl ForestedFace {
         Self::new(origin, frame, trees, RwLock::new(Vec::new()))
     }
 
-    fn build_tree_quads(tree: &dyn Arboreal) -> Vec<Quad> {
-        let mut quads = Vec::with_capacity(32);
-        let mut collector = FloraQuadTarget(&mut quads);
-        tree.emit_surface(&mut collector);
-        quads
-    }
-
-    fn refresh_tree_cache(&mut self, idx: usize) {
-        let flora = self.cache.slots.get_mut().expect("Flora cache lock poisoned");
-        if flora.len() == self.trees.len() {
-            flora[idx] = Self::build_tree_quads(self.trees[idx].as_ref());
-        }
-    }
-
     fn settle_flora(&mut self) {
         for idx in 0..self.trees.len() {
             if self.trees[idx].settle_onto(self.origin.as_ref(), &self.frame) {
-                self.refresh_tree_cache(idx);
-                self.cache.settled = true;
+                self.cache.refresh_slot(idx, &self.trees);
+                self.cache.mark_settled();
             }
         }
     }
@@ -124,25 +101,7 @@ impl Face for ForestedFace {
     }
 
     fn emit_flora(&self, target: &mut dyn MeshTarget) {
-        if let Ok(flora) = self.cache.slots.read() {
-            if flora.len() == self.trees.len() {
-                for tree_quads in flora.iter() {
-                    for &quad in tree_quads { target.push_quad(quad); }
-                }
-                return;
-            }
-        }
-        let mut flora = self.cache.slots.write().expect("Flora cache lock poisoned");
-        if flora.len() != self.trees.len() {
-            flora.clear();
-            flora.reserve(self.trees.len());
-            for tree in &self.trees {
-                flora.push(Self::build_tree_quads(tree.as_ref()));
-            }
-        }
-        for tree_quads in flora.iter() {
-            for &quad in tree_quads { target.push_quad(quad); }
-        }
+        self.cache.emit(&self.trees, target);
     }
 
     fn canopy_drag(&self, point: Vec3) -> f32 {
@@ -164,7 +123,9 @@ impl Face for ForestedFace {
         harvested
     }
 
-    fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.origin.loosen(eye, direction, stage) }
+    fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
+        self.origin.loosen(eye, direction, stage)
+    }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
         let mut depository = WoodlandDepository::new();
@@ -177,7 +138,7 @@ impl Face for ForestedFace {
                     CleaveOutcome::Felled
                 };
                 self.trees[idx] = next_tree;
-                self.refresh_tree_cache(idx);
+                self.cache.refresh_slot(idx, &self.trees);
                 return outcome;
             }
         }
@@ -185,15 +146,29 @@ impl Face for ForestedFace {
     }
 
     fn forage_timber(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        for idx in 0..self.trees.len() {
+        for idx in (0..self.trees.len()).rev() {
             let (next_tree, find) = self.trees[idx].forage_at(eye, direction);
             if find.gathered() {
                 self.trees[idx] = next_tree;
-                self.refresh_tree_cache(idx);
+                self.cache.refresh_slot(idx, &self.trees);
                 return find;
             }
         }
         SurfaceFind::EmptyHanded
+    }
+
+    fn cast_litter(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
+        if !find.gathered() {
+            return false;
+        }
+        let landing = LitterLanding::new(self.origin.as_ref(), self.frame);
+        let Some((u, v, elev, yaw)) = landing.resolve(eye, direction, &self.trees) else {
+            return false;
+        };
+        let specimen = FloorLitter::new(self.frame, u, v, elev, find, yaw);
+        self.trees.push(Box::new(specimen));
+        self.cache.append_specimen(&specimen, self.trees.len());
+        true
     }
 
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
@@ -229,11 +204,10 @@ impl Face for ForestedFace {
     }
 
     fn step_flora(&mut self, dt: f32) -> bool {
-        let mut timber_moved = self.cache.settled;
-        self.cache.settled = false;
+        let mut timber_moved = self.cache.take_settled();
         for idx in 0..self.trees.len() {
             if self.trees[idx].step_timber(dt) {
-                self.refresh_tree_cache(idx);
+                self.cache.refresh_slot(idx, &self.trees);
                 timber_moved = true;
             }
         }

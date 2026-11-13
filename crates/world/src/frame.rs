@@ -52,6 +52,12 @@ impl SurfaceFrame {
         point.dot(self.normal) - self.half_size
     }
 
+    /// Clamps tangential coordinates inside the face perimeter with the given inward margin.
+    pub fn clamp_interior(&self, u: f32, v: f32, margin: f32) -> (f32, f32) {
+        let limit = (self.half_size - margin).max(0.1);
+        (u.clamp(-limit, limit), v.clamp(-limit, limit))
+    }
+
     pub fn normal(&self) -> Vec3 {
         self.normal
     }

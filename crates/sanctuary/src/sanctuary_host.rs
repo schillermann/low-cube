@@ -193,6 +193,17 @@ impl SanctuaryHost {
                 }
                 false
             }
+            WorldFact::LitterCast { eye, direction, find } => {
+                if !find.gathered() || !ward.eye_within_reach(eye, direction) || !ward.spend_block() {
+                    return false;
+                }
+                if self.world.cast_surface_find(eye, direction, find) {
+                    self.record_local_fact(fact);
+                    return true;
+                }
+                ward.credit_blocks(1);
+                false
+            }
             WorldFact::StratumDisclosed { .. } => false,
         }
     }

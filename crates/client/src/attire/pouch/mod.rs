@@ -181,9 +181,17 @@ impl BeltSatchel {
         (Self::new(palms, tray, self.tripod), next_attire)
     }
 
-    pub fn collect_foraged(self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
+    pub fn collect_foraged(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
+        if relic == HeldRelic::FieldCamera {
+            self.tripod = TripodMount::Unmounted;
+        }
         let (palms, tray, next_attire) = SatchelIntake::new(self.palms, self.tray).foraged(side, relic, attire);
         (Self::new(palms, tray, self.tripod), next_attire)
+    }
+
+    pub fn take_cast_relic(mut self, relic: HeldRelic) -> (Self, bool) {
+        let ok = relic.gripped() && self.tray.take_stowed(relic);
+        (self, ok)
     }
 
     pub fn collect_felled_timber(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire) {

@@ -101,6 +101,10 @@ impl Face for FoldedFace {
         self.origin.forage_timber(eye, direction)
     }
 
+    fn cast_litter(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
+        self.origin.cast_litter(eye, direction, find)
+    }
+
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         self.origin.place_molded_block(eye, direction, avatar_pos, mold)
     }

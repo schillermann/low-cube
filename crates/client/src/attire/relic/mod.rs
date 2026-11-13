@@ -2,7 +2,7 @@ mod lexicon;
 mod mesh;
 mod plinth;
 
-use world::{BlockMedium, BlockMold};
+use world::{BlockMedium, BlockMold, SurfaceFind};
 pub use super::rhythm::MartialStyle;
 pub use mesh::RelicFigure;
 use lexicon::RelicLexicon;
@@ -240,5 +240,33 @@ impl HeldRelic {
 
     pub const fn figure(self, mold: BlockMold) -> RelicFigure {
         RelicFigure::new(self, mold)
+    }
+
+    pub const fn surface_find(self) -> SurfaceFind {
+        match self {
+            Self::EmptyPalm => SurfaceFind::EmptyHanded,
+            Self::DeadwoodBough => SurfaceFind::DeadwoodBough,
+            Self::FlintStone => SurfaceFind::FlintStone,
+            Self::TimberTorch => SurfaceFind::TimberTorch,
+            Self::WoodenMallet => SurfaceFind::WoodenMallet,
+            Self::WoodmanAxe => SurfaceFind::WoodmanAxe,
+            Self::KnightlySword => SurfaceFind::KnightlySword,
+            Self::IronSpade => SurfaceFind::IronSpade,
+            _ => SurfaceFind::LooseBlock(self.block_medium()),
+        }
+    }
+
+    pub const fn from_surface_find(find: SurfaceFind) -> Self {
+        match find {
+            SurfaceFind::EmptyHanded => Self::EmptyPalm,
+            SurfaceFind::DeadwoodBough => Self::DeadwoodBough,
+            SurfaceFind::FlintStone => Self::FlintStone,
+            SurfaceFind::TimberTorch => Self::TimberTorch,
+            SurfaceFind::WoodenMallet => Self::WoodenMallet,
+            SurfaceFind::WoodmanAxe => Self::WoodmanAxe,
+            SurfaceFind::KnightlySword => Self::KnightlySword,
+            SurfaceFind::IronSpade => Self::IronSpade,
+            SurfaceFind::LooseBlock(medium) => Self::from_medium(medium),
+        }
     }
 }

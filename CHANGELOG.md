@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.71.0] - 2026-11-13
+
+### Added
+- Added double-tap `Q` / `E` item tossing onto the ground (`TossCadence` in `crates/client/src/earthworks/toss.rs`, `PalmEarthworks::try_cast_relic` in `crates/client/src/earthworks/mod.rs`, and `Avatar::cast_triggered_relic`) so single-tapping `Q` / `E` continues to stow held items into `BeltSatchel` while double-tapping within `0.38s` casts any held block, ore, mechanical part, camera, tool, or weapon onto the planetary floor for later click-to-retrieve pickup (`SurfaceFind`, `FloorLitter`, `GroundToolFigure`, `LitterLanding` in `crates/world/src/tree/`, and P2P `WorldFact::LitterCast` sync across `crates/world/src/chronicle.rs` and `crates/sanctuary/src/`).
+
 ## [0.70.0] - 2026-11-13
 
 ### Changed

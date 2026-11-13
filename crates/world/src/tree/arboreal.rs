@@ -59,4 +59,9 @@ pub trait Arboreal: Send + Sync {
     fn crown_perch(&self, _variant: u32) -> Option<Vec3> {
         None
     }
+
+    /// Indicates whether this ground specimen already occupies the given local spot.
+    fn crowds_spot(&self, _u: f32, _v: f32, _elevation: f32) -> bool {
+        false
+    }
 }

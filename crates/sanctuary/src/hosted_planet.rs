@@ -69,6 +69,14 @@ impl PlanetaryWorld for HostedPlanet {
         find
     }
 
+    fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
+        let ok = self.host.world_mut().cast_surface_find(eye, direction, find);
+        if ok {
+            self.host.record_local_fact(WorldFact::LitterCast { eye, direction, find });
+        }
+        ok
+    }
+
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let ok = self.host.world_mut().place_molded_surface_block(eye, direction, avatar_pos, mold);
         if ok {

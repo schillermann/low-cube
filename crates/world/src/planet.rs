@@ -143,6 +143,22 @@ impl PlanetaryWorld for CubePlanet {
         .unwrap_or(SurfaceFind::EmptyHanded)
     }
 
+    fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
+        let len = self.faces.len();
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        let order = if secondary != primary { [secondary, primary] } else { [primary, primary] };
+        for (step, idx) in order.into_iter().enumerate() {
+            if step == 1 && secondary == primary { break; }
+            if let Some(face) = self.faces.get_mut(idx) {
+                if face.cast_litter(eye, direction, find) {
+                    self.modified_face = len + idx;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         self.try_aimed_faces(eye, direction, false, |f| {
             f.place_molded_block(eye, direction, avatar_pos, mold).then_some(())

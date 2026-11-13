@@ -28,8 +28,14 @@ pub trait Avatar {
     fn apply_bindings(&mut self, _bindings: ActionBindings) {}
     fn dispatch_trigger(&mut self, _trigger: InputTrigger) -> bool { false }
     fn adjust_aimed_rig(&mut self, _trigger: InputTrigger, _world: &mut dyn PlanetaryWorld) -> bool { false }
+    fn cast_triggered_relic(&mut self, _trigger: InputTrigger, _world: &mut dyn PlanetaryWorld) -> bool { false }
     #[cfg(test)]
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool { self.dispatch_trigger(InputTrigger::Key(code)) }
+    #[cfg(test)]
+    fn press_world_key(&mut self, code: KeyCode, world: &mut dyn PlanetaryWorld) -> bool {
+        let trigger = InputTrigger::Key(code);
+        self.cast_triggered_relic(trigger, world) || self.dispatch_trigger(trigger)
+    }
     #[cfg(test)]
     fn rotate_degrees(&mut self, yaw_deg: f32, pitch_deg: f32) {
         let px_per_deg = std::f32::consts::PI / (180.0 * 0.003);

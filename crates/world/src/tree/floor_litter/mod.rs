@@ -1,11 +1,14 @@
+mod tool_mesh;
+
 use glam::Vec3;
-use crate::{MeshTarget, Quad, SurfaceFrame};
+use crate::{BlockMold, MeshTarget, Quad, SurfaceFrame};
 use super::arboreal::Arboreal;
 use super::cleared_plot::ClearedPlot;
 use super::depository::TimberDepository;
 use super::timber_yield::SurfaceFind;
+use self::tool_mesh::GroundToolFigure;
 
-/// Gatherable deadwood branch or flint nodule resting by woodland trees or rocky outcrops.
+/// Gatherable deadwood branch, flint nodule, or cast relic resting on the planetary floor.
 #[derive(Clone, Copy, Debug)]
 pub struct FloorLitter {
     frame: SurfaceFrame,
@@ -33,7 +36,7 @@ impl FloorLitter {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn emit_bough(
+    pub(super) fn emit_bough(
         &self,
         a: (f32, f32, f32),
         b: (f32, f32, f32),
@@ -126,6 +129,12 @@ impl Arboreal for FloorLitter {
     fn solid(&self) -> bool { false }
     fn standing(&self) -> bool { false }
 
+    fn crowds_spot(&self, u: f32, v: f32, elevation: f32) -> bool {
+        self.find.gathered()
+            && (self.coords.0 - u).hypot(self.coords.1 - v) < 0.22
+            && (self.coords.2 - elevation).abs() < 0.35
+    }
+
     fn settle_onto(&mut self, face: &dyn crate::Face, frame: &SurfaceFrame) -> bool {
         if !self.find.gathered() {
             return false;
@@ -166,6 +175,23 @@ impl Arboreal for FloorLitter {
                 self.emit_nodule((-0.024, 0.014, 0.042), (-0.042, 0.026, 0.122), (0.062, 0.046), (0.012, 0.022), 5, flake, target);
                 self.emit_nodule((0.028, -0.012, 0.038), (0.045, -0.020, 0.108), (0.052, 0.038), (0.010, 0.018), 5, edge, target);
             }
+            SurfaceFind::LooseBlock(medium) => {
+                let (u, v, elevation) = self.coords;
+                let origin = self.frame.point_at(u, v, elevation + 0.008);
+                let right = self.frame.tangent() * c + self.frame.bitangent() * s;
+                let forward = self.frame.bitangent() * c - self.frame.tangent() * s;
+                BlockMold::cube().in_medium(medium).emit_miniature(
+                    origin,
+                    right,
+                    self.frame.normal(),
+                    forward,
+                    0.44,
+                    Vec3::new(0.44, 0.31, 0.19),
+                    Vec3::new(0.28, 0.65, 0.25),
+                    target,
+                );
+            }
+            _ => GroundToolFigure::new(self, self.yaw, self.find).emit(target),
         }
     }
 

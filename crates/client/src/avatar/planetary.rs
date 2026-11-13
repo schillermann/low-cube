@@ -152,9 +152,15 @@ impl Avatar for PlanetaryAvatar {
         let reach = self.surface_reach();
         self.gear.try_adjust_rig(trigger, &mut self.bearing, reach.eye(), reach.view_dir(), world)
     }
+    fn cast_triggered_relic(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
+        if self.body.perished() || world.lethal_at(self.body.position()) { return false; }
+        let reach = self.surface_reach();
+        self.gear.try_cast_relic(trigger, &mut self.bearing, reach.eye(), reach.view_dir(), world)
+    }
 
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
         self.bearing.step_polaroid(dt);
+        self.gear.step_timers(dt);
         let pos = self.body.position();
         if self.gear.satchel_open() || self.body.perished() || world.lethal_at(pos) {
             if self.body.perished() || world.lethal_at(pos) {

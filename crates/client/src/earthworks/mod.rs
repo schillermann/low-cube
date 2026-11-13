@@ -1,5 +1,6 @@
 mod debris;
 mod reach;
+mod toss;
 
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, PlanetaryWorld};
@@ -11,6 +12,7 @@ use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 pub use crate::grip::DigGrip;
 use self::debris::DigOperation;
 pub use self::reach::SurfaceReach;
+use self::toss::TossCadence;
 
 /// Immutable dual-hand block inventory, satchel inspection state, crafting tome, per-hand block molds, and excavation progress.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -18,12 +20,22 @@ pub struct PalmEarthworks {
     satchel: BeltSatchel,
     tome: ArtisanTome,
     dig: DigOperation,
+    toss: TossCadence,
 }
 
 impl PalmEarthworks {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_state(
+        satchel: BeltSatchel,
+        tome: ArtisanTome,
+        dig: DigOperation,
+        toss: TossCadence,
+    ) -> Self {
+        Self { satchel, tome, dig, toss }
+    }
+
     pub const fn with_dig(satchel: BeltSatchel, tome: ArtisanTome, dig: DigOperation) -> Self {
-        Self { satchel, tome, dig }
+        Self::with_state(satchel, tome, dig, TossCadence::Quiet)
     }
 
     pub const fn empty() -> Self {
@@ -39,6 +51,7 @@ impl PalmEarthworks {
     pub fn carried_burden(&self, attire: YouthAttire) -> SatchelBurden {
         self.satchel.carried_burden(attire)
     }
+    pub fn step_toss(self, dt: f32) -> Self { Self { toss: self.toss.advance(dt), ..self } }
     fn with_satchel(self, satchel: BeltSatchel) -> Self { Self { satchel, ..self } }
     pub fn mold_next_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }
     pub fn mold_prev_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::prev_form)) }
@@ -80,8 +93,14 @@ impl PalmEarthworks {
         }
         if bindings.matches(ControlAction::SatchelRight, trigger) || bindings.matches(ControlAction::SatchelLeft, trigger) {
             let side = if bindings.matches(ControlAction::SatchelRight, trigger) { 1.0 } else { -1.0 };
+            let (hand, _) = attire.hand_pair(side);
+            let next_toss = if !self.satchel.open() && hand.gripped() {
+                TossCadence::prime(side, hand)
+            } else {
+                TossCadence::Quiet
+            };
             let (next_satchel, next_attire, ok) = self.satchel.transfer_hand(side, attire);
-            return (Self::with_dig(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle())), next_attire, ok);
+            return (Self::with_state(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle()), next_toss), next_attire, ok);
         }
         let dx = if bindings.matches(ControlAction::MoveLeft, trigger) || bindings.matches(ControlAction::MoldLeft, trigger) { -1 } else if bindings.matches(ControlAction::MoveRight, trigger) || bindings.matches(ControlAction::MoldRight, trigger) { 1 } else { 0 };
         let dy = if bindings.matches(ControlAction::MoveForward, trigger) { -1 } else if bindings.matches(ControlAction::MoveBackward, trigger) { 1 } else { 0 };
@@ -90,6 +109,41 @@ impl PalmEarthworks {
             return (self.with_satchel(next_satchel), attire, ok);
         }
         (self, attire, false)
+    }
+
+    pub fn try_cast_relic(
+        self,
+        trigger: InputTrigger,
+        bindings: &ActionBindings,
+        attire: YouthAttire,
+        rhythm: StrideRhythm,
+        eye: Vec3,
+        view_dir: Vec3,
+        world: &mut dyn PlanetaryWorld,
+    ) -> (Self, StrideRhythm, bool) {
+        if self.satchel.open() || self.tome.open() {
+            return (self, rhythm, false);
+        }
+        let side = if bindings.matches(ControlAction::SatchelRight, trigger) {
+            1.0
+        } else if bindings.matches(ControlAction::SatchelLeft, trigger) {
+            -1.0
+        } else {
+            return (self, rhythm, false);
+        };
+        let Some(relic) = self.toss.ready_on(side) else {
+            return (self, rhythm, false);
+        };
+        let (next_satchel, taken) = self.satchel.take_cast_relic(relic);
+        if !taken || !world.cast_surface_find(eye, view_dir, relic.surface_find()) {
+            return (Self { toss: TossCadence::Quiet, ..self }, rhythm, false);
+        }
+        let next_rhythm = SurfaceReach::swing_rhythm(attire, rhythm, side);
+        (
+            Self::with_state(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle()), TossCadence::Quiet),
+            next_rhythm,
+            true,
+        )
     }
 
     pub fn try_adjust_rig(
@@ -131,14 +185,14 @@ impl PalmEarthworks {
     ) -> (Self, YouthAttire, bool, bool) {
         let state = self.reconcile_attire(attire);
         let (ns, na, nd, perch_ready, changed) = reach.release(state.satchel, attire, state.dig, world);
-        (Self::with_dig(ns, state.tome, nd), na, perch_ready, changed)
+        (Self::with_state(ns, state.tome, nd, state.toss), na, perch_ready, changed)
     }
 
     pub fn continue_digging(
         self, reach: SurfaceReach, attire: YouthAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
     ) -> (Self, YouthAttire, StrideRhythm, bool) {
         let (ns, na, nd, nr, changed) = reach.sustain(self.satchel, attire, rhythm, self.dig, world);
-        (Self::with_dig(ns, self.tome, nd), na, nr, changed)
+        (Self::with_state(ns, self.tome, nd, self.toss), na, nr, changed)
     }
 
     pub fn act_with_hand(

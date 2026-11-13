@@ -67,16 +67,27 @@ impl SatchelIntake {
     }
 
     pub(super) fn foraged(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (PalmStack, SatchelTray, YouthAttire) {
+        if relic == HeldRelic::FieldCamera {
+            self.palms.clear_placed_cameras();
+        }
         let (r, l) = attire.held_pair();
         self.tray.focus_side(side);
-        if (side > 0.0 && r.free_palm()) || (r.free_palm() && !l.free_palm()) {
-            (self.palms, self.tray, attire.with_relics(relic, l))
+        let next_attire = if (side > 0.0 && r.free_palm()) || (r.free_palm() && !l.free_palm()) {
+            if !l.placeable_block() || relic.field_camera() || l.field_camera() {
+                self.palms.reset_mold(1.0);
+            }
+            attire.with_relics(relic, l)
         } else if l.free_palm() {
-            (self.palms, self.tray, attire.with_relics(r, relic))
+            if !r.placeable_block() || relic.field_camera() || r.field_camera() {
+                self.palms.reset_mold(-1.0);
+            }
+            attire.with_relics(r, relic)
         } else {
             self.tray.stow_relic(relic, 1);
-            (self.palms, self.tray, attire)
-        }
+            attire
+        };
+        self.palms.reconcile_attire(next_attire);
+        (self.palms, self.tray, next_attire)
     }
 
     pub(super) fn felled_timber(mut self, side: f32, attire: YouthAttire) -> (PalmStack, SatchelTray, YouthAttire) {

@@ -94,7 +94,11 @@ impl SessionStage {
     }
 
     pub(super) fn dispatch_avatar_or_control(&mut self, trigger: InputTrigger, pressed: bool) -> bool {
-        if pressed && self.avatar.adjust_aimed_rig(trigger, self.world.as_mut()) {
+        if pressed
+            && (self.avatar.adjust_aimed_rig(trigger, self.world.as_mut())
+                || self.avatar.cast_triggered_relic(trigger, self.world.as_mut()))
+        {
+            self.overlay.controls.register_trigger(trigger, false);
             return true;
         }
         if !pressed || !self.avatar.dispatch_trigger(trigger) {

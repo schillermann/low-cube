@@ -96,6 +96,10 @@ impl PlanetaryWorld for BeveledWorld {
         self.world.forage_surface(eye, direction)
     }
 
+    fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
+        self.world.cast_surface_find(eye, direction, find)
+    }
+
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         self.world.place_molded_surface_block(eye, direction, avatar_pos, mold)
     }

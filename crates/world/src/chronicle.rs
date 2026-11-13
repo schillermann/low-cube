@@ -1,6 +1,7 @@
 use glam::Vec3;
 use crate::block::{BlockMedium, BlockMold};
 use crate::relief::ExposedStratum;
+use crate::tree::SurfaceFind;
 use crate::PlanetaryWorld;
 
 /// Authoritative planetary mutation or newly air-exposed subterranean stratum fact.
@@ -14,6 +15,7 @@ pub enum WorldFact {
     Foraged { eye: Vec3, direction: Vec3 },
     RigAdjusted { eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool },
     RigLowered { eye: Vec3, direction: Vec3 },
+    LitterCast { eye: Vec3, direction: Vec3, find: SurfaceFind },
 }
 
 impl WorldFact {
@@ -35,6 +37,7 @@ impl WorldFact {
                 world.adjust_rig(eye, direction, delta_steps, rotate_quarter)
             }
             Self::RigLowered { eye, direction } => world.lower_rig(eye, direction),
+            Self::LitterCast { eye, direction, find } => world.cast_surface_find(eye, direction, find),
         }
     }
 
@@ -111,6 +114,12 @@ impl WorldFact {
                 Self::push_vec3(eye, out);
                 Self::push_vec3(direction, out);
             }
+            Self::LitterCast { eye, direction, find } => {
+                out.push(9);
+                Self::push_vec3(eye, out);
+                Self::push_vec3(direction, out);
+                out.push(find.code());
+            }
         }
     }
 
@@ -179,6 +188,17 @@ impl WorldFact {
                 },
                 25,
             )),
+            9 if bytes.len() >= 26 => {
+                let find = SurfaceFind::from_code(bytes[25]);
+                find.gathered().then_some((
+                    Self::LitterCast {
+                        eye: Self::read_vec3(&bytes[1..13])?,
+                        direction: Self::read_vec3(&bytes[13..25])?,
+                        find,
+                    },
+                    26,
+                ))
+            }
             _ => None,
         }
     }

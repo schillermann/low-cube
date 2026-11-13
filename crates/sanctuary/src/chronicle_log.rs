@@ -38,7 +38,9 @@ impl DirtySlices {
             WorldFact::StratumDisclosed { face, .. } => {
                 self.mark_slice((face as usize).min(count - 1));
             }
-            WorldFact::TimberStruck { eye, direction } | WorldFact::Foraged { eye, direction } => {
+            WorldFact::TimberStruck { eye, direction }
+            | WorldFact::Foraged { eye, direction }
+            | WorldFact::LitterCast { eye, direction, .. } => {
                 let p0 = Self::zone_index(eye).min(count - 1);
                 let p1 = Self::zone_index(eye + direction.normalize_or_zero() * 1.25).min(count - 1);
                 self.mark_slice(count + p0);

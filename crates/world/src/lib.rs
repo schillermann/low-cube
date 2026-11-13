@@ -92,6 +92,9 @@ pub trait PlanetaryWorld: GravityField {
     fn forage_surface(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind {
         SurfaceFind::EmptyHanded
     }
+    fn cast_surface_find(&mut self, _eye: Vec3, _direction: Vec3, _find: SurfaceFind) -> bool {
+        false
+    }
     fn place_molded_surface_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool {
         false
     }
@@ -170,6 +173,9 @@ pub trait Face: Send + Sync {
     }
     fn forage_timber(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind {
         SurfaceFind::EmptyHanded
+    }
+    fn cast_litter(&mut self, _eye: Vec3, _direction: Vec3, _find: SurfaceFind) -> bool {
+        false
     }
     fn place_molded_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool {
         false
