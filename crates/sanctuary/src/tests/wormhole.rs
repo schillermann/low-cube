@@ -64,6 +64,13 @@ fn test_twelve_char_crockford_codes_roundtrip_normalize_confusable_letters_and_r
     let ungrouped_lower = encoded.replace('-', "").to_ascii_lowercase();
     assert_eq!(PortalCode::parse(&ungrouped_lower), Some(host_code));
     assert_eq!(JoinTarget::preview(&ungrouped_lower), JoinPreview::CodeReady(host_code));
+    let prefixed = format!("Portal Code: {}", encoded.replace('V', "U"));
+    assert_eq!(JoinTarget::parse(&prefixed), Some(JoinTarget::Wormhole(host_code)));
+    assert_eq!(JoinTarget::preview(&prefixed), JoinPreview::CodeReady(host_code));
+
+    let unspecified_ep: SocketAddr = "0.0.0.0:27842".parse().expect("unspecified");
+    let safe_code = PortalCode::from_endpoint(unspecified_ep, 0);
+    assert_eq!(PortalCode::parse(&safe_code.encode()), Some(safe_code));
 
     // Flipping the first character must be flagged as a 12-char code typo without DNS resolution!
     let mut chars: Vec<char> = encoded.chars().collect();

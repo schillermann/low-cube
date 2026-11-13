@@ -101,3 +101,50 @@ fn test_portal_studio_distinguishes_os_clipboard_copy_from_local_scratch_fallbac
     startup.refresh_startup_copy();
     assert_eq!(startup.current_notice(), PortalNotice::TicketCopied);
 }
+
+#[test]
+fn test_every_crockford_portal_symbol_renders_unique_5x7_glyph_geometry() {
+    use crate::menu::PixelStamp;
+
+    let stamp = PixelStamp::title(Vec3::ONE);
+    let symbols: Vec<char> = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars().collect();
+    let mut rendered: Vec<(char, Vec<Vec3>)> = Vec::with_capacity(symbols.len());
+
+    for &ch in &symbols {
+        let mut capture = QuadCapture::empty();
+        stamp.emit_centered(&ch.to_string(), 0.0, 0.0, &mut capture);
+        assert!(capture.count() >= 5, "Glyph '{ch}' must emit visible pixel quads");
+        let verts = capture.positions();
+        for (prev_ch, prev_verts) in &rendered {
+            assert_ne!(
+                &verts, prev_verts,
+                "Glyph '{ch}' must never share identical pixel geometry with '{prev_ch}' (e.g. '5' vs 'S')"
+            );
+        }
+        rendered.push((ch, verts));
+    }
+}
+
+#[test]
+fn test_portal_draft_auto_groups_three_four_char_blocks_without_manual_hyphens() {
+    let mut studio = PortalStudio::with_clipboard(
+        PortalInvite::empty(),
+        Box::new(MemoryClipboard::seeded("")),
+    );
+    studio.append_text("sj01");
+    assert_eq!(studio.formatted_draft(), "SJ01-");
+    studio.append_text("sqgk");
+    assert_eq!(studio.formatted_draft(), "SJ01-SQGK-");
+    studio.append_text("w85b");
+    assert_eq!(studio.formatted_draft(), "SJ01-SQGK-W85B");
+
+    let _ = studio.handle_key(KeyCode::Backspace, false);
+    assert_eq!(studio.formatted_draft(), "SJ01-SQGK-W85");
+
+    let mut host_studio = PortalStudio::with_clipboard(
+        PortalInvite::empty(),
+        Box::new(MemoryClipboard::seeded("")),
+    );
+    host_studio.append_text("localhost");
+    assert_eq!(host_studio.formatted_draft(), "localhost");
+}

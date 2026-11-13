@@ -1,3 +1,4 @@
+mod draft;
 mod invite;
 mod layout;
 
@@ -7,13 +8,14 @@ use world::MeshTarget;
 use super::clipboard::TextClipboard;
 use super::widget::{ScreenBounds, ScreenPoint};
 
+pub use draft::PortalDraft;
 pub use invite::{PortalDirective, PortalInvite, PortalNotice};
 pub use layout::PortalLayout;
 
 /// Encapsulated 12-char P2P portal banner, FRITZ!Box NAT punch reply, and server join studio.
 pub struct PortalStudio {
     invite: PortalInvite,
-    join_draft: String,
+    draft: PortalDraft,
     notice: PortalNotice,
     clipboard: Box<dyn TextClipboard>,
 }
@@ -22,11 +24,11 @@ impl PortalStudio {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
         invite: PortalInvite,
-        join_draft: String,
+        draft: PortalDraft,
         notice: PortalNotice,
         clipboard: Box<dyn TextClipboard>,
     ) -> Self {
-        Self { invite, join_draft, notice, clipboard }
+        Self { invite, draft, notice, clipboard }
     }
 
     pub fn with_invite(invite: PortalInvite, clipboard: Box<dyn TextClipboard>) -> Self {
@@ -37,17 +39,22 @@ impl PortalStudio {
         } else {
             PortalNotice::ClipboardUnavailable
         };
-        Self::new(invite, String::new(), notice, clipboard)
+        Self::new(invite, PortalDraft::empty(), notice, clipboard)
     }
 
     #[cfg(test)]
     pub fn with_clipboard(invite: PortalInvite, clipboard: Box<dyn TextClipboard>) -> Self {
-        Self::new(invite, String::new(), PortalNotice::Idle, clipboard)
+        Self::new(invite, PortalDraft::empty(), PortalNotice::Idle, clipboard)
     }
 
     #[cfg(test)]
     pub const fn current_notice(&self) -> PortalNotice {
         self.notice
+    }
+
+    #[cfg(test)]
+    pub fn formatted_draft(&self) -> String {
+        self.draft.formatted()
     }
 
     pub fn paste_button() -> ScreenBounds {
@@ -126,42 +133,24 @@ impl PortalStudio {
         if trimmed.is_empty() {
             self.notice = PortalNotice::ClipboardEmpty;
         } else {
-            self.join_draft = trimmed.to_string();
+            self.draft.replace(trimmed.to_string());
             self.notice = PortalNotice::Idle;
         }
     }
 
     pub fn append_text(&mut self, typed: &str) {
-        let mut appended = false;
-        for ch in typed.chars() {
-            if ch == ' ' {
-                if !self.join_draft.is_empty()
-                    && !self.join_draft.ends_with('-')
-                    && self.join_draft.len() < 160
-                {
-                    self.join_draft.push('-');
-                    appended = true;
-                }
-                continue;
-            }
-            let allowed = ch.is_ascii_alphanumeric() || matches!(ch, '-' | ':' | '.' | '_' | '/');
-            if allowed && self.join_draft.len() < 160 {
-                self.join_draft.push(ch);
-                appended = true;
-            }
-        }
-        if appended {
+        if self.draft.append(typed) {
             self.notice = PortalNotice::Idle;
         }
     }
 
     fn submit_draft(&mut self) -> PortalDirective {
-        if let Some(peer) = self.invite.verify_guest_punch(&self.join_draft) {
-            self.join_draft.clear();
+        if let Some(peer) = self.invite.verify_guest_punch(self.draft.as_str()) {
+            self.draft.clear();
             self.notice = PortalNotice::NatPunchSent;
             return PortalDirective::PunchGuest(peer);
         }
-        if let Some(target) = JoinTarget::parse(&self.join_draft) {
+        if let Some(target) = JoinTarget::parse(self.draft.as_str()) {
             self.invite.clear_punch_reply();
             self.notice = PortalNotice::Idle;
             PortalDirective::ConnectToWorld(target)
@@ -182,7 +171,7 @@ impl PortalStudio {
         }
         match code {
             KeyCode::Backspace => {
-                let _ = self.join_draft.pop();
+                self.draft.backspace();
                 self.notice = PortalNotice::Idle;
                 PortalDirective::StayInPortal
             }
@@ -196,7 +185,7 @@ impl PortalStudio {
             self.paste_from_clipboard();
             PortalDirective::StayInPortal
         } else if Self::clear_button().contains(pointer) {
-            self.join_draft.clear();
+            self.draft.clear();
             self.clear_dial_state();
             self.notice = PortalNotice::Idle;
             PortalDirective::StayInPortal
@@ -217,12 +206,12 @@ impl PortalStudio {
         pointer: ScreenPoint,
         target: &mut dyn MeshTarget,
     ) {
-        PortalLayout::new(&self.invite, &self.join_draft, self.notice, pointer)
+        PortalLayout::new(&self.invite, &self.draft, self.notice, pointer)
             .emit_pause_buttons(host_bounds, join_bounds, target);
     }
 
     pub fn emit_overlay(&self, pointer: ScreenPoint, target: &mut dyn MeshTarget) {
-        PortalLayout::new(&self.invite, &self.join_draft, self.notice, pointer)
+        PortalLayout::new(&self.invite, &self.draft, self.notice, pointer)
             .emit_overlay(target);
     }
 }

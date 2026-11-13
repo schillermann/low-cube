@@ -3,12 +3,13 @@ use sanctuary::{JoinPreview, JoinTarget};
 use world::MeshTarget;
 use crate::menu::glyph::PixelStamp;
 use crate::menu::widget::{ScreenBounds, ScreenPoint};
+use super::draft::PortalDraft;
 use super::invite::{PortalInvite, PortalNotice};
 
 /// Declarative screen layout and status presenter for the in-game Co-op / NAT Punch studio.
 pub struct PortalLayout<'a> {
     invite: &'a PortalInvite,
-    join_draft: &'a str,
+    draft: &'a PortalDraft,
     notice: PortalNotice,
     pointer: ScreenPoint,
 }
@@ -17,11 +18,11 @@ impl<'a> PortalLayout<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(
         invite: &'a PortalInvite,
-        join_draft: &'a str,
+        draft: &'a PortalDraft,
         notice: PortalNotice,
         pointer: ScreenPoint,
     ) -> Self {
-        Self { invite, join_draft, notice, pointer }
+        Self { invite, draft, notice, pointer }
     }
 
     pub fn paste_button() -> ScreenBounds {
@@ -55,12 +56,12 @@ impl<'a> PortalLayout<'a> {
         host_bounds.emit_button(host_label, self.pointer, host_col, active, target);
         join_bounds.emit_button(join_label, self.pointer, Vec3::new(0.20, 0.36, 0.56), false, target);
         if active {
-            PixelStamp::caption(gold).emit_centered(&self.invite.banner_headline(), 0.0, -0.82, target);
+            PixelStamp::title(gold).emit_centered(&self.invite.banner_headline(), 0.0, -0.81, target);
             let sub = match self.notice {
                 PortalNotice::TicketCopied | PortalNotice::StartupTicketCopied => "SHARE 12-CHAR CODE OR PASTE TICKET",
                 _ => "SHARE 12-CHAR CODE WITH FRIEND",
             };
-            PixelStamp::caption(mint).emit_centered(sub, 0.0, -0.88, target);
+            PixelStamp::caption(mint).emit_centered(sub, 0.0, -0.89, target);
         }
     }
 
@@ -81,18 +82,19 @@ impl<'a> PortalLayout<'a> {
             | PortalNotice::StartupTicketCopied
             | PortalNotice::TicketCopied
             | PortalNotice::ClipboardUnavailable => {
-                if self.invite.verify_guest_punch(self.join_draft).is_some() {
+                let raw = self.draft.as_str();
+                if self.invite.verify_guest_punch(raw).is_some() {
                     return ("READY: PUNCH GUEST NAT - PRESS ENTER".to_string(), green);
                 }
-                match JoinTarget::preview(self.join_draft) {
+                match JoinTarget::preview(raw) {
                     JoinPreview::CodeReady(code) => (format!("READY: {} - PRESS ENTER", code.encode()), green),
                     JoinPreview::CodeTypo => ("TYPO IN 12-CHAR CODE - CHECK LETTERS".to_string(), amber),
                     JoinPreview::TicketOrAddressReady => ("READY TO CONNECT - PRESS ENTER".to_string(), green),
                     JoinPreview::Empty | JoinPreview::Malformed => {
                         let hint = if self.invite.active() {
-                            "HOSTING: TYPE GUEST PUNCH CODE OR SERVER"
+                            "HOSTING: TYPE 12 GUEST PUNCH CHARS OR SERVER"
                         } else {
-                            "TYPE 12-CHAR CODE (XXXX-XXXX-XXXX) OR PASTE"
+                            "TYPE 12 CODE CHARS (AUTO-GROUPED) OR PASTE"
                         };
                         (hint.to_string(), silver)
                     }
@@ -110,7 +112,7 @@ impl<'a> PortalLayout<'a> {
         let title = if self.invite.active() { "NAT PUNCH OR JOIN SERVER" } else { "JOIN CO-OP OR SERVER" };
         PixelStamp::title(gold).emit_centered(title, 0.0, 0.39, target);
         PixelStamp::caption(silver).emit_centered(
-            "ENTER 12-CHAR CODE (XXXX-XXXX-XXXX), TICKET, OR IP",
+            "TYPE 12 CODE CHARS (AUTO-GROUPED), TICKET, OR IP",
             0.0,
             0.27,
             target,
@@ -118,21 +120,27 @@ impl<'a> PortalLayout<'a> {
 
         let box_bounds = ScreenBounds::new(-0.64, 0.06, 0.64, 0.20);
         box_bounds.emit_framed(Vec3::new(0.04, 0.06, 0.10), Vec3::new(0.42, 0.58, 0.78), 0.006, target);
-        if self.join_draft.is_empty() {
+        if self.draft.blank() {
             PixelStamp::caption(Vec3::new(0.48, 0.55, 0.66))
-                .emit_centered("TYPE XXXX-XXXX-XXXX OR CLICK PASTE|", 0.0, 0.13, target);
+                .emit_centered("TYPE 12 CHARS OR CLICK PASTE|", 0.0, 0.13, target);
         } else {
-            let chars: Vec<char> = self.join_draft.chars().collect();
+            let formatted = self.draft.formatted();
+            let chars: Vec<char> = formatted.chars().collect();
             let shown = if chars.len() > 44 {
                 let tail: String = chars[chars.len() - 41..].iter().collect();
                 format!("...{tail}|")
             } else {
-                format!("{}|", self.join_draft)
+                format!("{formatted}|")
             };
-            PixelStamp::caption(Vec3::new(0.94, 0.97, 1.0)).emit_centered(&shown, 0.0, 0.13, target);
+            let stamp = if chars.len() <= 20 {
+                PixelStamp::title(Vec3::new(0.94, 0.97, 1.0))
+            } else {
+                PixelStamp::caption(Vec3::new(0.94, 0.97, 1.0))
+            };
+            stamp.emit_centered(&shown, 0.0, 0.13, target);
         }
 
-        let action_label = if self.invite.verify_guest_punch(self.join_draft).is_some() {
+        let action_label = if self.invite.verify_guest_punch(self.draft.as_str()).is_some() {
             "PUNCH GUEST NAT (ENTER)"
         } else {
             "JOIN WORLD (ENTER)"

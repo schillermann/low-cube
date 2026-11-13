@@ -82,15 +82,26 @@ impl CrockfordStamp {
             'M' => Some(20),
             'N' => Some(21),
             c @ 'P'..='T' => Some(22 + (c as u8) - b'P'),
-            c @ 'V'..='Z' => Some(27 + (c as u8) - b'V'),
+            'U' | 'V' => Some(27),
+            c @ 'W'..='Z' => Some(28 + (c as u8) - b'W'),
             _ => None,
         }
+    }
+
+    pub fn strip_code_prefix(input: &str) -> &str {
+        let trimmed = input.trim();
+        for prefix in ["portal code:", "punch code:", "code:"] {
+            if trimmed.len() >= prefix.len() && trimmed[..prefix.len()].eq_ignore_ascii_case(prefix) {
+                return trimmed[prefix.len()..].trim();
+            }
+        }
+        trimmed
     }
 
     pub fn decode60(&self, input: &str) -> Option<(u64, u8)> {
         let mut word60 = 0u64;
         let mut count = 0usize;
-        for ch in input.trim().chars() {
+        for ch in Self::strip_code_prefix(input).chars() {
             if ch == '-' || ch == '_' || ch.is_ascii_whitespace() {
                 continue;
             }
@@ -111,7 +122,7 @@ impl CrockfordStamp {
 
     /// Detects 12-symbol alphanumeric code candidates so typos never trigger blocking DNS lookups.
     pub fn resembles_twelve_char_code(input: &str) -> bool {
-        let trimmed = input.trim();
+        let trimmed = Self::strip_code_prefix(input);
         if trimmed.contains('.') || trimmed.contains(':') || trimmed.eq_ignore_ascii_case("localhost") {
             return false;
         }

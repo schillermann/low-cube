@@ -56,8 +56,8 @@ impl PortalCode {
 
     pub fn from_endpoint(endpoint: SocketAddr, secret: u8) -> Self {
         let v4 = match endpoint.ip() {
-            IpAddr::V4(ip) => ip,
-            IpAddr::V6(_) => Ipv4Addr::LOCALHOST,
+            IpAddr::V4(ip) if !ip.is_unspecified() => ip,
+            _ => Ipv4Addr::LOCALHOST,
         };
         let bounded = if secret == 0 { 1 } else { secret };
         Self::new(v4, endpoint.port().max(1), bounded)

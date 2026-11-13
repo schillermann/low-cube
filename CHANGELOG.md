@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.68.1] - 2026-11-13
+
+### Fixed
+- Upgraded `PixelStamp` (`crates/client/src/menu/glyph.rs`) from a 3x5 bitmap (where `'S'` and `'5'` shared an identical pixel mask) to a 5x7 glyph matrix with distinct silhouettes across all 36 alphanumeric characters, title-scale portal code rendering in `PortalLayout` (`crates/client/src/menu/portal/layout.rs`), automatic `XXXX-XXXX-XXXX` 3x4-block input grouping in `PortalDraft` (`crates/client/src/menu/portal/draft.rs`), `'U' -> 'V'` Crockford normalization and `CODE:` prefix stripping in `CrockfordStamp` (`crates/sanctuary/src/wormhole/crockford.rs`), unspecified-IP fallback in `PortalCode::from_endpoint` (`crates/sanctuary/src/wormhole/phrase.rs`), and `logical_key` text fallback in `GameSession` (`crates/client/src/session/mod.rs`).
+
 ## [0.68.0] - 2026-11-13
 
 ### Added

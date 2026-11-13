@@ -139,7 +139,7 @@ impl Session for GameSession {
                 self.stage.update_ctrl(state.control_key() || state.super_key());
             }
             WindowEvent::KeyboardInput {
-                event: KeyEvent { physical_key: PhysicalKey::Code(code), state, text, .. },
+                event: KeyEvent { physical_key: PhysicalKey::Code(code), logical_key, state, text, .. },
                 ..
             } => {
                 let pressed = state == ElementState::Pressed;
@@ -162,7 +162,11 @@ impl Session for GameSession {
                             return;
                         }
                         if !self.stage.ctrl_active() {
-                            if let Some(chars) = text.as_deref() {
+                            let typed = text.as_deref().or_else(|| match &logical_key {
+                                winit::keyboard::Key::Character(s) => Some(s.as_str()),
+                                _ => None,
+                            });
+                            if let Some(chars) = typed {
                                 self.stage.handle_modal_text(chars);
                             }
                         }
