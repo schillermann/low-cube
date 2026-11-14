@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.72.0] - 2026-11-14
+
+### Added
+- Added European roe deer herd (`RoeHerd`, `RoeDeer`, `RoeActivity`, `TemperateGlade`, `RoeFigure`, and composite `WoodlandFauna` in `crates/client/src/roe_deer/`) native to `ClimateZone::Temperate` oak glades and meadows, featuring sculpted 3D anatomy (snow-white rump mirror, articulated grazing neck, ears, slender cloven-hoofed legs, and forked roebuck antlers), crouch-aware stealth thresholds (`Avatar::step_fauna`), and alternating 3D spatialized stereo bounding hoofbeats with grass rustling (`RoeHoofbeats` in `crates/client/src/cardiac/hoofbeats.rs`) and hoarse laryngeal alarm barks (`RoeBark` in `crates/client/src/cardiac/roe_bark.rs`).
+
 ## [0.71.0] - 2026-11-13
 
 ### Added

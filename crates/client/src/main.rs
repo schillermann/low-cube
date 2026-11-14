@@ -43,6 +43,7 @@ mod photo_plate;
 mod physics;
 mod portal_config;
 mod posture;
+mod roe_deer;
 mod server_aurora;
 mod server_celestial;
 mod server_physics;
@@ -87,6 +88,8 @@ mod flight_tests;
 mod physics_tests;
 #[cfg(test)]
 mod posture_tests;
+#[cfg(test)]
+mod roe_deer_tests;
 #[cfg(test)]
 mod seam_clearance_tests;
 #[cfg(test)]

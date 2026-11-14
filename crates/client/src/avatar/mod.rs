@@ -42,7 +42,7 @@ pub trait Avatar {
         self.rotate_view(yaw_deg * px_per_deg, pitch_deg * px_per_deg);
     }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
-    fn step_fauna(&self, _dt: f32, _flock: &mut crate::sparrow::SparrowFlock, _world: &dyn PlanetaryWorld) {}
+    fn step_fauna(&self, _dt: f32, _fauna: &mut crate::roe_deer::WoodlandFauna, _world: &dyn PlanetaryWorld) {}
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
     fn view_projection_for_sight(&self, aspect: f32, _sight: SightMode) -> Mat4 { self.view_projection_matrix(aspect) }
     fn surface_rotation(&self) -> Quat;

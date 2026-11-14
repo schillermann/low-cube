@@ -5,8 +5,8 @@ use crate::companion::CompanionFigure;
 use crate::controls::{ControlAction, InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
 use crate::portal_config::{DialOutcome, PortalConfig, PortalDial};
+use crate::roe_deer::WoodlandFauna;
 use crate::server_scale::{PlanetaryScale, ServerScale};
-use crate::sparrow::SparrowFlock;
 use crate::surface::PlatformSurface;
 use super::display::SessionDisplay;
 
@@ -34,33 +34,33 @@ impl StageOverlay {
     }
 }
 
-/// Encapsulated planetary world, player avatar, woodland sparrow flock, and modal/control overlay.
+/// Encapsulated planetary world, player avatar, woodland fauna, and modal/control overlay.
 pub(super) struct SessionStage {
     world: Box<dyn PlanetaryWorld>,
     avatar: Box<dyn Avatar>,
-    sparrows: SparrowFlock,
+    fauna: WoodlandFauna,
     overlay: StageOverlay,
 }
 
 impl SessionStage {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) fn with_flock(
+    pub(super) fn with_fauna(
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
-        sparrows: SparrowFlock,
+        fauna: WoodlandFauna,
         overlay: StageOverlay,
     ) -> Self {
-        Self { world, avatar, sparrows, overlay }
+        Self { world, avatar, fauna, overlay }
     }
 
-    /// Secondary constructor initializing a seeded woodland sparrow flock alongside the stage.
+    /// Secondary constructor initializing seeded woodland sparrows and Temperate roe deer alongside the stage.
     pub(super) fn new(
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
         controls: Box<dyn KeyboardControls>,
         modal: Box<dyn SessionModal>,
     ) -> Self {
-        Self::with_flock(world, avatar, SparrowFlock::seeded(), StageOverlay::new(controls, modal))
+        Self::with_fauna(world, avatar, WoodlandFauna::seeded(), StageOverlay::new(controls, modal))
     }
 
     pub(super) fn world(&self) -> &dyn PlanetaryWorld { self.world.as_ref() }
@@ -72,13 +72,13 @@ impl SessionStage {
     pub(super) fn emit_avatar(&self, target: &mut dyn world::MeshTarget) {
         self.avatar.emit_appearance(target);
         CompanionFigure::emit_all(self.world.as_ref(), target);
-        self.sparrows.emit(target);
+        self.fauna.emit(target);
     }
 
     pub(super) fn emit_avatar_for_sight(&self, sight: SightMode, target: &mut dyn world::MeshTarget) {
         self.avatar.emit_appearance_for_sight(sight, target);
         CompanionFigure::emit_all(self.world.as_ref(), target);
-        self.sparrows.emit(target);
+        self.fauna.emit(target);
     }
 
     pub(super) fn take_photo_shutter(&mut self) -> PhotoShutter { self.avatar.take_photo_shutter() }
@@ -205,7 +205,7 @@ impl SessionStage {
             let mut changed = false;
             for _ in 0..steps {
                 self.avatar.step_motion(step, self.overlay.controls.as_ref(), self.world.as_ref());
-                self.avatar.step_fauna(step, &mut self.sparrows, self.world.as_ref());
+                self.avatar.step_fauna(step, &mut self.fauna, self.world.as_ref());
                 if self.avatar.step_digging(self.world.as_mut()) || self.world.step_surface(step) {
                     changed = true;
                 }

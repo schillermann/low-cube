@@ -212,8 +212,9 @@ impl Avatar for PlanetaryAvatar {
         );
     }
 
-    fn step_fauna(&self, dt: f32, flock: &mut crate::sparrow::SparrowFlock, world: &dyn PlanetaryWorld) {
-        let _ = flock.step_spatial(dt, self.body.position(), self.sight_line.view_direction(), world);
+    fn step_fauna(&self, dt: f32, fauna: &mut crate::roe_deer::WoodlandFauna, world: &dyn PlanetaryWorld) {
+        let crouching = self.body.posture().crouch_drop() > 0.18;
+        fauna.step_spatial(dt, self.body.position(), self.sight_line.view_direction(), crouching, world);
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
