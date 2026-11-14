@@ -5,7 +5,7 @@ trait CodebaseAudit {
     fn verify(&self);
 }
 
-/// Immutable source-file audit enforcing 300-line ceiling, 4-field encapsulation, and local `impl` co-location.
+/// Immutable source-file audit enforcing 300-line ceiling, 4-field encapsulation, local `impl`, and declarative naming.
 struct SourceFileAudit {
     path: PathBuf,
 }
@@ -33,6 +33,60 @@ impl SourceFileAudit {
             assert!(declared, "{} splits inherent impl for `{name}` across files", self.path.display());
         }
     }
+
+    fn verify_declarative_names(&self, clean: &str) {
+        for banned in [
+            concat!("fn ", "is_"),
+            concat!("fn ", "has_"),
+            concat!("fn ", "get_"),
+            concat!("fn ", "set_"),
+        ] {
+            assert!(
+                !clean.contains(banned),
+                "{} contains procedural getter/setter/prefix `{banned}`: {}",
+                self.path.display(),
+                clean.trim()
+            );
+        }
+        for kw in [concat!("str", "uct "), concat!("en", "um "), concat!("tra", "it ")] {
+            if let Some((_, rest)) = clean.split_once(kw) {
+                let ident = rest
+                    .split(|c: char| !c.is_alphanumeric() && c != '_')
+                    .next()
+                    .unwrap_or("");
+                if ident.is_empty() {
+                    continue;
+                }
+                for suffix in [
+                    "Manager",
+                    "Controller",
+                    "Helper",
+                    "Handler",
+                    "Renderer",
+                    "Compiler",
+                    "Uploader",
+                    "Receiver",
+                    "Bootstrapper",
+                    "Player",
+                ] {
+                    assert!(
+                        !ident.ends_with(suffix),
+                        "{} names procedural `-er`/`-or` agent `{ident}`",
+                        self.path.display()
+                    );
+                }
+                for vague in [
+                    "Standard", "Default", "Common", "Base", "Simple", "Generic", "Abstract", "Data", "Utils",
+                ] {
+                    assert!(
+                        !ident.contains(vague),
+                        "{} uses generic/vague name `{ident}`",
+                        self.path.display()
+                    );
+                }
+            }
+        }
+    }
 }
 
 impl CodebaseAudit for SourceFileAudit {
@@ -49,6 +103,7 @@ impl CodebaseAudit for SourceFileAudit {
         for line in content.lines() {
             let clean = line.split("//").next().unwrap_or("");
             self.verify_local_impl(&content, clean.trim());
+            self.verify_declarative_names(clean);
             if !in_struct && clean.contains("struct ") && clean.contains('{') {
                 let after_brace = clean.split('{').nth(1).unwrap_or("");
                 if clean.contains('}') {
@@ -102,7 +157,14 @@ impl CodebaseAudit for SourceTreeAudit {
 fn test_workspace_architecture_guard_enforces_line_and_field_limits() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let crates_dir = manifest_dir.parent().expect("crates dir");
-    for subdir in ["world/src", "engine/src", "sanctuary/src", "client/src"] {
+    for subdir in [
+        "world/src",
+        "engine/src",
+        "sanctuary/src",
+        "acoustics/src",
+        "fauna/src",
+        "client/src",
+    ] {
         SourceTreeAudit::new(crates_dir.join(subdir)).verify();
     }
 }

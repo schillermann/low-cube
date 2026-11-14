@@ -19,6 +19,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "366ffbaa4442f4684d91e2cd7c5ea7c4ed8add41959a31447066e279e432b618"
 
 [[package]]
+name = "acoustics"
+version = "0.73.0"
+dependencies = [
+ "glam",
+]
+
+[[package]]
 name = "aead"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -276,10 +283,12 @@ dependencies = [
 
 [[package]]
 name = "client"
-version = "0.72.0"
+version = "0.73.0"
 dependencies = [
+ "acoustics",
  "arboard",
  "engine",
+ "fauna",
  "glam",
  "glow",
  "glutin",
@@ -465,7 +474,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "engine"
-version = "0.72.0"
+version = "0.73.0"
 dependencies = [
  "glam",
  "glow",
@@ -493,6 +502,15 @@ name = "error-code"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b5343afd4a8365a643ac588dab4cf234a190c7f6c88c9f6dd6ffe00837661b7"
+
+[[package]]
+name = "fauna"
+version = "0.73.0"
+dependencies = [
+ "acoustics",
+ "glam",
+ "world",
+]
 
 [[package]]
 name = "fiat-crypto"
@@ -1517,7 +1535,7 @@ dependencies = [
 
 [[package]]
 name = "sanctuary"
-version = "0.72.0"
+version = "0.73.0"
 dependencies = [
  "chacha20poly1305",
  "curve25519-dalek",
@@ -2344,7 +2362,7 @@ dependencies = [
 
 [[package]]
 name = "world"
-version = "0.72.0"
+version = "0.73.0"
 dependencies = [
  "glam",
 ]

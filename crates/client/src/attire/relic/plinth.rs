@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{MeshTarget, Quad};
-use super::super::limb::{FacetedSolid, LimbFrame};
+use super::super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
 
 /// Orthogonal 4-sided pedestal plinth with flat walls and distinct flank/crown tones.
 #[derive(Clone, Copy, Debug)]
@@ -84,5 +84,30 @@ impl FacetedSolid for SlopedBeam {
             let normal = (v1 - v0).cross(v3 - v0).normalize_or_zero();
             target.push_quad(Quad::new(v0, v1, v2, v3, normal, col));
         }
+    }
+}
+
+/// Sculpted wild-boar venison haunch with ivory shank bone, ruby game meat, and pale fat rind.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct BoarHaunch;
+
+impl FacetedSolid for BoarHaunch {
+    fn emit(&self, frame: &LimbFrame, _capped: bool, target: &mut dyn MeshTarget) {
+        let (bone, ruby_meat, dark_rind, fat_cap) = (
+            Vec3::new(0.90, 0.86, 0.76),
+            Vec3::new(0.66, 0.18, 0.15),
+            Vec3::new(0.42, 0.15, 0.11),
+            Vec3::new(0.92, 0.82, 0.72),
+        );
+        TaperedPrism::new(6, Vec3::new(-0.082, 0.015, -0.012), Vec3::new(-0.068, 0.017, -0.009), 0.015, 0.013, 0.011, 0.010, bone)
+            .emit(frame, true, target);
+        AxialLimb::new(Vec3::new(-0.070, 0.017, -0.009), Vec3::new(-0.022, 0.022, -0.002), 0.010, 0.012, bone)
+            .emit(frame, true, target);
+        TaperedPrism::new(7, Vec3::new(-0.026, 0.014, -0.003), Vec3::new(0.034, 0.026, 0.005), 0.034, 0.026, 0.044, 0.034, ruby_meat)
+            .emit(frame, true, target);
+        TaperedPrism::new(7, Vec3::new(0.032, 0.026, 0.005), Vec3::new(0.066, 0.022, 0.009), 0.043, 0.033, 0.022, 0.018, dark_rind)
+            .emit(frame, true, target);
+        TaperedPrism::new(6, Vec3::new(-0.012, 0.040, -0.001), Vec3::new(0.044, 0.048, 0.006), 0.026, 0.011, 0.030, 0.012, fat_cap)
+            .emit(frame, true, target);
     }
 }

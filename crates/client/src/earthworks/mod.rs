@@ -5,7 +5,7 @@ mod toss;
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, PlanetaryWorld};
 use crate::attire::{
-    ArtisanTome, BeltSatchel, BodyPose, CameraMount, SatchelBurden, SatchelWardrobe,
+    ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, SatchelBurden, SatchelWardrobe,
     SightMode, StrideRhythm, Wardrobe, YouthAttire,
 };
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
@@ -197,17 +197,29 @@ impl PalmEarthworks {
 
     pub fn act_with_hand(
         self, side: f32, reach: SurfaceReach, attire: YouthAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, StrideRhythm, bool) {
+    ) -> (Self, YouthAttire, StrideRhythm, bool, bool) {
         if self.satchel.open() {
             let (next_satchel, next_attire, _) = self.satchel.transfer_hand(side, attire);
-            return (Self::with_dig(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle())), next_attire, rhythm, false);
+            return (Self::with_dig(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle())), next_attire, rhythm, false, false);
         }
         if self.tome.open() {
             let (next_tome, next_satchel, next_attire, ok) = self.tome.craft_selected(side, self.satchel, attire);
             let next_rhythm = if ok { SurfaceReach::swing_rhythm(next_attire, rhythm, side) } else { rhythm };
-            return (Self::with_dig(next_satchel, next_tome, self.dig.with_grip(DigGrip::idle())), next_attire, next_rhythm, false);
+            return (Self::with_dig(next_satchel, next_tome, self.dig.with_grip(DigGrip::idle())), next_attire, next_rhythm, false, false);
+        }
+        if attire.hand_pair(side).0.edible_provision() && self.dig.untouched() && !self.dig.grip().any_held() {
+            let find = world.forage_surface(reach.eye(), reach.view_dir());
+            if find.gathered() {
+                let (ns, na) = self.satchel.reconcile_attire(attire).collect_foraged(side, HeldRelic::from_surface_find(find), attire);
+                return (Self::with_dig(ns, self.tome, self.dig.with_grip(DigGrip::idle())), na, rhythm, true, false);
+            }
+            let (ns, na, ate) = self.satchel.reconcile_attire(attire).consume_provision(side, attire);
+            if ate {
+                let nr = SurfaceReach::swing_rhythm(attire, rhythm, side);
+                return (Self::with_dig(ns, self.tome, self.dig.with_grip(DigGrip::idle())), na, nr, false, true);
+            }
         }
         let (ns, na, nd, nr, changed) = reach.strike(side, self.satchel, attire, rhythm, self.dig, world);
-        (Self::with_dig(ns, self.tome, nd), na, nr, changed)
+        (Self::with_dig(ns, self.tome, nd), na, nr, changed, false)
     }
 }

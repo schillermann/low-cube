@@ -1,24 +1,20 @@
 use std::f32::consts::PI;
-#[cfg(not(test))]
 use std::sync::{Mutex, OnceLock};
-use super::{AcousticWave, PalmScrape, SpadeStrike};
+use super::{AcousticWave, PalmScrape, SoundStage, SpadeStrike};
 
 const DIG_VARIATIONS: usize = 8;
 
-#[cfg(test)]
 thread_local! {
     static TRACE_RECORDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     static TRACE_VARIANTS: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
-/// Test-only acoustic trace capturing emitted digging stroke variations without OS playback.
-#[cfg(test)]
+/// Acoustic trace capturing emitted digging stroke variations when recording.
 #[derive(Clone, Copy, Debug)]
 pub struct DigWaveTrace {
     expected_min: usize,
 }
 
-#[cfg(test)]
 impl DigWaveTrace {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(expected_min: usize) -> Self {
@@ -213,10 +209,15 @@ impl<W: AcousticWave + Copy> AcousticWave for CadencedWave<W> {
     }
 
     fn thump(&self) {
-        #[cfg(not(test))]
-        {
+        let idx = (self.cadence as usize) % DIG_VARIATIONS;
+        let tag_offset = if self.slots[0].contains("spade") { 100u8 } else { 0u8 };
+        TRACE_RECORDING.with(|r| {
+            if r.get() {
+                TRACE_VARIANTS.with(|v| v.borrow_mut().push(tag_offset + (idx as u8)));
+            }
+        });
+        if SoundStage::active() {
             static WAVE_BANK: OnceLock<Mutex<Vec<(&'static str, &'static [u8])>>> = OnceLock::new();
-            let idx = (self.cadence as usize) % DIG_VARIATIONS;
             let filename = self.slots[idx];
             let mutex = WAVE_BANK.get_or_init(|| Mutex::new(Vec::with_capacity(16)));
             let mut guard = mutex.lock().expect("dig wave cache poisoned");
@@ -229,17 +230,8 @@ impl<W: AcousticWave + Copy> AcousticWave for CadencedWave<W> {
             };
             drop(guard);
             self.play_cached_wav(bytes, filename);
-        }
-        #[cfg(test)]
-        {
+        } else {
             let _ = self.amplitude_at(0.02);
-            let idx = ((self.cadence as usize) % DIG_VARIATIONS) as u8;
-            let tag_offset = if self.slots[0].contains("spade") { 100u8 } else { 0u8 };
-            TRACE_RECORDING.with(|r| {
-                if r.get() {
-                    TRACE_VARIANTS.with(|v| v.borrow_mut().push(tag_offset + idx));
-                }
-            });
         }
     }
 }

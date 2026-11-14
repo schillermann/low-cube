@@ -64,10 +64,10 @@ impl GameSession {
     fn dispatch_gameplay_trigger(&mut self, trigger: InputTrigger, pressed: bool) {
         if self.stage.matches_tron(trigger) {
             if pressed {
-                self.display.toggle_tron(self.stage.world(), self.stage.avatar());
+                self.stage.toggle_tron(&mut self.display);
             }
         } else if self.stage.dispatch_avatar_or_control(trigger, pressed) {
-            self.display.refresh_modified_and_meadow(&mut self.stage);
+            self.stage.refresh_surface(&mut self.display);
         }
     }
 }
@@ -103,18 +103,18 @@ impl Session for GameSession {
                     match button {
                         MouseButton::Left => {
                             if self.stage.use_left() {
-                                self.display.refresh_modified_and_meadow(&mut self.stage);
+                                self.stage.refresh_surface(&mut self.display);
                             }
                         }
                         MouseButton::Right => {
                             if self.stage.use_right() {
-                                self.display.refresh_modified_and_meadow(&mut self.stage);
+                                self.stage.refresh_surface(&mut self.display);
                             }
                         }
                         _ => {}
                     }
                 } else if matches!(button, MouseButton::Left | MouseButton::Right) && self.stage.release_hand() {
-                    self.display.refresh_modified_and_meadow(&mut self.stage);
+                    self.stage.refresh_surface(&mut self.display);
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -178,7 +178,7 @@ impl Session for GameSession {
             WindowEvent::RedrawRequested => {
                 let dt = self.pace.advance();
                 self.stage.step_frame(dt, &mut self.display);
-                self.display.render_stage(&mut self.stage);
+                self.stage.render_onto(&self.display);
             }
             _ => {}
         }

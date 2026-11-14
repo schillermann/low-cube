@@ -4,10 +4,10 @@ mod mesh;
 
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::cardiac::{AcousticWave, RoeBark, RoeHoofbeats};
-use crate::sparrow::SparrowFlock;
+use acoustics::{AcousticWave, RoeBark, RoeHoofbeats};
+use crate::SightCone;
 use self::activity::RoeDeer;
-#[cfg(test)]
+pub(crate) use self::habitat::TemperateGlade;
 pub use self::activity::{RoeActivity, RoeDeer as TestRoeDeer};
 
 /// Small woodland roe deer herd ("Sprung") inhabiting `ClimateZone::Temperate` oak glades and meadows.
@@ -99,50 +99,23 @@ impl RoeHerd {
         false
     }
 
-    /// Emits 3D faceted geometry for all roe deer in the herd.
+    /// Emits 3D faceted geometry for roe deer within `cone`.
+    pub fn emit_visible(&self, cone: SightCone, target: &mut dyn MeshTarget) {
+        if self.anchored {
+            for member in &self.deer {
+                if cone.reaches(member.position(), 58.0) {
+                    member.emit(target);
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
     pub fn emit(&self, target: &mut dyn MeshTarget) {
         if self.anchored {
             for member in &self.deer {
                 member.emit(target);
             }
         }
-    }
-}
-
-/// Composite woodland wildlife population combining the house sparrow flock and Temperate roe deer herd.
-#[derive(Clone, Copy, Debug)]
-pub struct WoodlandFauna {
-    sparrows: SparrowFlock,
-    roe_herd: RoeHerd,
-}
-
-impl WoodlandFauna {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(sparrows: SparrowFlock, roe_herd: RoeHerd) -> Self {
-        Self { sparrows, roe_herd }
-    }
-
-    /// Secondary constructor seeding both the woodland sparrow flock and the Temperate roe deer herd.
-    pub const fn seeded() -> Self {
-        Self::new(SparrowFlock::seeded(), RoeHerd::seeded())
-    }
-
-    /// Steps both sparrows and roe deer with 3D spatialized birdsong and alarm barks.
-    pub fn step_spatial(
-        &mut self,
-        dt: f32,
-        listener: Vec3,
-        view_dir: Vec3,
-        crouching: bool,
-        world: &dyn PlanetaryWorld,
-    ) {
-        let _ = self.sparrows.step_spatial(dt, listener, view_dir, world);
-        let _ = self.roe_herd.step_spatial(dt, listener, view_dir, crouching, world);
-    }
-
-    /// Emits 3D faceted meshes for all active woodland fauna.
-    pub fn emit(&self, target: &mut dyn MeshTarget) {
-        self.sparrows.emit(target);
-        self.roe_herd.emit(target);
     }
 }

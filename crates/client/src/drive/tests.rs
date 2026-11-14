@@ -3,7 +3,7 @@ use winit::keyboard::KeyCode;
 use world::{BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, SurfaceFrame};
 use crate::attire::{HeldRelic, MartialStyle, StrideRhythm, YouthAttire};
 use crate::avatar::{Avatar, HandGesture, PlanetaryAvatar};
-use crate::cardiac::{AcousticWave, EngineRumble, PalmScrape, SpadeStrike};
+use acoustics::{AcousticWave, EngineRumble, PalmScrape, SpadeStrike};
 use crate::controls::{InputTrigger, KeyMotion, KeyboardControls};
 use crate::posture::AvatarPosture;
 

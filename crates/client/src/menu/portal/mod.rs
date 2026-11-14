@@ -101,7 +101,7 @@ impl PortalStudio {
 
     pub fn announce_punch_reply(&mut self, punch_code: String) {
         let _ = self.clipboard.store_text(&punch_code);
-        self.invite.set_punch_reply(punch_code);
+        self.invite.record_punch_reply(punch_code);
         self.notice = PortalNotice::AwaitingHostPunch;
     }
 

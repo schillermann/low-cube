@@ -1,11 +1,13 @@
 [package]
 name = "client"
-version = "0.72.0"
+version = "0.73.0"
 edition = "2021"
 
 [dependencies]
+acoustics = { path = "../acoustics" }
 world = { path = "../world" }
 engine = { path = "../engine" }
+fauna = { path = "../fauna" }
 sanctuary = { path = "../sanctuary" }
 glam = "0.29"
 glow = "0.16"

@@ -238,7 +238,7 @@ fn test_crosshair_aim_excavates_within_three_blocks_and_rejects_beyond_three_blo
 
 #[test]
 fn test_sustained_digging_varies_palm_and_spade_sound_via_decorators() {
-    use crate::cardiac::{AcousticWave, CadencedWave, CrumbledWave, DigWaveTrace, InflectedWave, PalmScrape};
+    use acoustics::{AcousticWave, CadencedWave, CrumbledWave, DigWaveTrace, InflectedWave, PalmScrape};
 
     let base_palm = PalmScrape::earthy();
     let inflected = InflectedWave::new(base_palm, 0.80, 0.96);

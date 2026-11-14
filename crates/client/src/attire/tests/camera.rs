@@ -2,7 +2,7 @@ use glam::Vec3;
 use world::PlanetaryWorld;
 use crate::attire::{BeltSatchel, HeldRelic, PhotoShutter, SightMode, YouthAttire};
 use crate::avatar::{Avatar, PlanetaryAvatar};
-use crate::cardiac::{AcousticWave, ShutterClick};
+use acoustics::{AcousticWave, ShutterClick};
 use crate::controls::{InputTrigger, KeyMotion, KeyboardControls};
 use crate::photo_plate::PhotoPlate;
 use crate::server_satchel::{ArgumentSatchel, FileSatchel, ParsedSatchel, ServerSatchel, StartingSatchel, TestKitSatchel};

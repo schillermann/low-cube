@@ -3,7 +3,7 @@ use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{BodyPose, PhotoShutter, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
-use crate::envelope::PhysicalEnvelope;
+use fauna::{SightCone, WoodlandFauna};
 use crate::flight::GravitationalFlight;
 #[cfg(test)]
 use crate::flight::SurfaceFlight;
@@ -11,13 +11,11 @@ use crate::lens::PerspectiveLens;
 use crate::order::LocomotionOrder;
 use crate::orientation::{MouseLook, SensitivityLook};
 use crate::posture::AvatarPosture;
-use super::bearing_gear::{AvatarBearing, AvatarGear};
+use super::bearing::AvatarBearing;
 use super::body::AvatarBody;
+use super::gear::AvatarGear;
 use super::sight::AvatarSight;
 use super::Avatar;
-
-const EYE_SUPPORT_HEIGHT: f32 = 1.0;
-const WALK_PACE_SPEED: f32 = 6.0;
 
 /// Fully encapsulated player entity composed of body, sight line, kinematic bearing, and gear.
 pub struct PlanetaryAvatar {
@@ -76,16 +74,12 @@ impl PlanetaryAvatar {
     }
 
     fn surface_reach(&self) -> SurfaceReach {
-        let (pose_eye, up, dir) = (self.current_pose().eye_origin(), self.sight_line.surface_up(), self.sight_line.view_direction());
-        let (pos, d_up) = (self.body.position(), dir.dot(up));
-        let (eye, ray_dir) = if d_up > 0.975 {
-            (pos + up * (pose_eye - pos).dot(up), up)
-        } else if !self.body.standing() && !self.body.driving() && d_up < -0.815 {
-            (pos + up * (pose_eye - pos).dot(up), -up)
-        } else {
-            (pose_eye, dir)
-        };
-        SurfaceReach::new(eye, ray_dir, pos, self.body.standing())
+        self.sight_line.surface_reach(
+            self.current_pose().eye_origin(),
+            self.body.position(),
+            self.body.standing(),
+            self.body.driving(),
+        )
     }
 
     fn act_with_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
@@ -99,7 +93,7 @@ impl PlanetaryAvatar {
                 return outcome;
             }
         }
-        self.gear.act_with_hand(side, reach, &mut self.bearing, world)
+        self.gear.act_with_hand(side, reach, &mut self.body, &mut self.bearing, world)
     }
 
     fn step_perish(&mut self, dt: f32, world: &dyn PlanetaryWorld) {
@@ -113,8 +107,8 @@ impl PlanetaryAvatar {
         self.bearing.tilt_perish(dt);
         self.sight_line.transition_perish_lens(self.body.posture(), dt);
         if beat {
-            use crate::cardiac::AcousticWave;
-            crate::cardiac::MonitoredPulse::clinical().thump();
+            use acoustics::AcousticWave;
+            acoustics::MonitoredPulse::clinical().thump();
         }
     }
 }
@@ -163,69 +157,73 @@ impl Avatar for PlanetaryAvatar {
         self.gear.step_timers(dt);
         let pos = self.body.position();
         if self.gear.satchel_open() || self.body.perished() || world.lethal_at(pos) {
-            if self.body.perished() || world.lethal_at(pos) {
-                self.step_perish(dt, world);
-            } else {
-                self.bearing.calm();
-            }
+            if self.body.perished() || world.lethal_at(pos) { self.step_perish(dt, world); } else { self.bearing.calm(); }
             return;
         }
         let terrain_up = world.surface_up_at(pos);
         self.sight_line.reorient_surface(terrain_up, dt);
         if self.body.step_driving(dt, controls, &mut self.sight_line, world) {
-            if self.body.driving() {
-                self.bearing.calm();
-            } else {
-                let cur = self.body.position();
-                self.bearing.advance_stride(cur, cur, terrain_up, dt);
-            }
+            if self.body.driving() { self.bearing.calm(); } else { let cur = self.body.position(); self.bearing.advance_stride(cur, cur, terrain_up, dt); }
             self.bearing.decay_tilt(dt);
             return;
         }
         let mut order = LocomotionOrder::idle();
         self.sight_line.drive_order(controls, &mut order);
         let facing = self.sight_line.view_direction();
-        let standing_env = self.gear.standing_envelope(facing);
-        let burden = self.gear.carried_burden();
-        let _ = self.body.prepare_stride(&order, burden, standing_env, terrain_up, dt, world);
-        let active_env = standing_env.with_crouch_and_facing(self.body.posture().crouch_drop(), facing);
-        let active_crust = active_env.crust(world);
         self.bearing.decay_tilt(dt);
-        let raw_next = self.body.apply_flight(active_env, &order, dt, terrain_up, burden.scale_pace(WALK_PACE_SPEED), world);
-        if world.lethal_at(raw_next) {
-            self.body.relocate(raw_next);
+        let (final_pos, wedged, lethal) = self.body.step_pedestrian(
+            &order, self.gear.carried_burden(), self.gear.standing_envelope(facing), facing, terrain_up, dt, world,
+        );
+        if lethal {
             self.step_perish(dt, world);
             return;
         }
-        let in_shaft = active_crust.in_deep_shaft(raw_next, terrain_up, EYE_SUPPORT_HEIGHT);
-        let pre_eye = self.body.eye_offset(terrain_up);
-        let next_pos = if in_shaft { world.confine_beneath_crust(raw_next + pre_eye) - pre_eye } else { active_crust.confine(raw_next, terrain_up) };
-        self.body.advance_leap(next_pos, terrain_up, dt);
         self.sight_line.advance_lens(&order, self.body.posture(), dt);
-        self.bearing.advance_stride(pos, next_pos, terrain_up, dt);
-        let post_eye = self.body.eye_offset(terrain_up);
-        let final_pos = if in_shaft { world.confine_beneath_crust(next_pos + post_eye) - post_eye } else { active_crust.confine(next_pos, terrain_up) };
+        self.bearing.advance_stride(pos, final_pos, terrain_up, dt);
         self.body.relocate(final_pos);
-        self.sight_line.constrain_shoulders(
-            active_env.wedged_in_shaft(final_pos, terrain_up, EYE_SUPPORT_HEIGHT, world),
-            self.gear.shaft_yaw_play(),
-        );
+        self.sight_line.constrain_shoulders(wedged, self.gear.shaft_yaw_play());
     }
 
-    fn step_fauna(&self, dt: f32, fauna: &mut crate::roe_deer::WoodlandFauna, world: &dyn PlanetaryWorld) {
+    fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) {
         let crouching = self.body.posture().crouch_drop() > 0.18;
-        fauna.step_spatial(dt, self.body.position(), self.sight_line.view_direction(), crouching, world);
+        if let Some(shove) = fauna.step_spatial(dt, self.body.position(), self.sight_line.view_direction(), crouching, world) {
+            self.body.gore(shove, world);
+        }
+    }
+
+    fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+        if self.body.perished() || self.gear.satchel_open() || self.body.driving() || world.lethal_at(self.body.position()) {
+            return (false, false);
+        }
+        self.gear.strike_fauna(side, self.surface_reach(), &mut self.bearing, fauna, world)
+    }
+
+    fn sight_cone(&self) -> SightCone {
+        self.sight_cone_for_mode(self.bearing.sight())
+    }
+
+    fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone {
+        if let Some((eye, fwd, _)) = self.gear.placed_camera_lens() {
+            return SightCone::from_view(eye, fwd);
+        }
+        if matches!(sight, SightMode::FirstPersonSight) {
+            SightCone::from_view(self.current_pose().eye_origin(), self.sight_line.view_direction())
+        } else {
+            SightCone::omnidirectional(self.body.position())
+        }
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
-        self.sight_line.project_view(aspect, self.bearing.tilt_radians(), self.bearing.sight(), self.body.posture(), self.body.position(), &self.current_pose())
+        let tilt = self.bearing.tilt_radians() + self.body.posture().vertigo_sway();
+        self.sight_line.project_view(aspect, tilt, self.bearing.sight(), self.body.posture(), self.body.position(), &self.current_pose())
     }
 
     fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 {
         if let Some((eye, fwd, up)) = self.gear.placed_camera_lens() {
             return self.sight_line.project_lens_view(aspect, eye, fwd, up);
         }
-        self.sight_line.project_view(aspect, self.bearing.tilt_radians(), sight, self.body.posture(), self.body.position(), &self.current_pose())
+        let tilt = self.bearing.tilt_radians() + self.body.posture().vertigo_sway();
+        self.sight_line.project_view(aspect, tilt, sight, self.body.posture(), self.body.position(), &self.current_pose())
     }
 
     fn surface_rotation(&self) -> Quat { self.sight_line.surface_rotation() }
@@ -258,12 +256,8 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) {
-        let pose = self.current_pose();
         let presence = world::CompanionPresence::new(
-            0,
-            pose.capture_kinematics(),
-            self.bearing.rhythm().wire_tuple(),
-            self.gear.attire_wire(),
+            0, self.current_pose().capture_kinematics(), self.bearing.rhythm().wire_tuple(), self.gear.attire_wire(),
         );
         world.sync_presence(presence);
     }

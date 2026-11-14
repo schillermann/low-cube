@@ -1,0 +1,9 @@
+[package]
+name = "fauna"
+version = "0.73.0"
+edition = "2021"
+
+[dependencies]
+acoustics = { path = "../acoustics" }
+glam = "0.29"
+world = { path = "../world" }

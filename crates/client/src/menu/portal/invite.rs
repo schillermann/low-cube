@@ -54,7 +54,7 @@ impl PortalInvite {
         !self.code.is_empty() || !self.ticket.is_empty()
     }
 
-    pub fn set_punch_reply(&mut self, reply: String) {
+    pub fn record_punch_reply(&mut self, reply: String) {
         self.punch_reply = reply;
     }
 

@@ -82,6 +82,16 @@ impl<'a> GroundToolFigure<'a> {
                 self.bar((0.12, -0.022, 0.020), (0.24, -0.014, 0.018), 0.024, 0.012, steel, target);
                 self.bar((0.12, 0.022, 0.020), (0.24, 0.014, 0.018), 0.024, 0.012, steel, target);
             }
+            SurfaceFind::BoarMeat => {
+                let (bone, meat, fat_rind) = (
+                    Vec3::new(0.92, 0.89, 0.80),
+                    Vec3::new(0.68, 0.19, 0.16),
+                    Vec3::new(0.90, 0.78, 0.68),
+                );
+                self.bar((-0.18, 0.0, 0.036), (-0.06, 0.0, 0.046), 0.020, 0.018, bone, target);
+                self.bar((-0.07, 0.0, 0.056), (0.12, 0.0, 0.062), 0.058, 0.072, meat, target);
+                self.bar((0.10, 0.0, 0.062), (0.17, 0.0, 0.052), 0.066, 0.036, fat_rind, target);
+            }
             _ => {}
         }
     }

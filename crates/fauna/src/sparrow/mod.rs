@@ -3,9 +3,9 @@ mod mesh;
 
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::cardiac::{AcousticWave, SparrowChirp};
+use acoustics::{AcousticWave, SparrowChirp};
+use crate::SightCone;
 use self::activity::Sparrow;
-#[cfg(test)]
 pub use self::activity::{Sparrow as TestSparrow, SparrowActivity};
 
 /// Flock of woodland house sparrows flying, pecking seeds on the ground, perching on trees, and chirping.
@@ -81,7 +81,18 @@ impl SparrowFlock {
         false
     }
 
-    /// Emits 3D faceted geometry for all sparrows in the flock.
+    /// Emits 3D faceted geometry for sparrows within `cone`.
+    pub fn emit_visible(&self, cone: SightCone, target: &mut dyn MeshTarget) {
+        if self.anchored {
+            for bird in &self.birds {
+                if cone.reaches(bird.position(), 42.0) {
+                    bird.emit(target);
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
     pub fn emit(&self, target: &mut dyn MeshTarget) {
         if self.anchored {
             for bird in &self.birds {

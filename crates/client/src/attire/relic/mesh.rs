@@ -2,7 +2,7 @@ use glam::Vec3;
 use world::{BlockMold, MeshTarget, Quad};
 use super::super::compartment::{CompartmentBackplate, ShowcasedCompartment, SlotPlaque};
 use super::super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
-use super::plinth::{SlopedBeam, SquarePlinth};
+use super::plinth::{BoarHaunch, SlopedBeam, SquarePlinth};
 use super::HeldRelic;
 
 struct LitSlotTarget<'a> {
@@ -141,6 +141,7 @@ impl RelicFigure {
             }
             HeldRelic::DeadwoodBough => Self::emit_deadwood(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
             HeldRelic::FlintStone => Self::emit_flint(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
+            HeldRelic::BoarMeat => BoarHaunch.emit(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.002, 0.048)), true, target),
             HeldRelic::TimberTorch => {
                 TaperedPrism::hexagonal(Vec3::new(gx, -0.10, gz), Vec3::new(gx, 0.18, gz + 0.01), 0.013, 0.017, Vec3::new(0.45, 0.28, 0.14)).emit(frame, false, target);
                 TaperedPrism::hexagonal(Vec3::new(gx, 0.18, gz + 0.01), Vec3::new(gx, 0.25, gz + 0.015), 0.022, 0.008, Vec3::new(0.96, 0.52, 0.12)).emit(frame, true, target);
@@ -232,6 +233,7 @@ impl RelicFigure {
             }
             HeldRelic::DeadwoodBough => Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit),
             HeldRelic::FlintStone => Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit),
+            HeldRelic::BoarMeat => BoarHaunch.emit(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.56), true, &mut lit),
             HeldRelic::CantileverCrane => Self::emit_cantilever(&showcase.shifted(0.0, -0.032, 0.0).scaled(0.44), &mut lit),
             HeldRelic::FieldCamera => Self::emit_camera(&showcase.shifted(0.0, -0.022, 0.0).scaled(0.58), &mut lit),
             _ => {

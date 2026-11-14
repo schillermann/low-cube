@@ -35,16 +35,20 @@ pub enum HeldRelic {
     CopperOre,
     IronOre,
     GoldOre,
+    BoarMeat,
 }
 
 impl HeldRelic {
+    pub const COUNT: usize = 26;
+    pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
+
     #[cfg(test)]
     pub fn next(self) -> Self {
-        Self::from_code((self.code() + 1) % 25)
+        Self::from_code((self.code() + 1) % (Self::COUNT as u8))
     }
 
     pub const fn from_code(code: u8) -> Self {
-        match code % 25 {
+        match code % (Self::COUNT as u8) {
             0 => Self::EmptyPalm,
             1 => Self::QuarriedStone,
             2 => Self::TimberTorch,
@@ -69,7 +73,8 @@ impl HeldRelic {
             21 => Self::CrossAxle,
             22 => Self::CopperOre,
             23 => Self::IronOre,
-            _ => Self::GoldOre,
+            24 => Self::GoldOre,
+            _ => Self::BoarMeat,
         }
     }
 
@@ -100,6 +105,7 @@ impl HeldRelic {
             Self::CopperOre => 22,
             Self::IronOre => 23,
             Self::GoldOre => 24,
+            Self::BoarMeat => 25,
         }
     }
 
@@ -123,6 +129,28 @@ impl HeldRelic {
         matches!(self, Self::FieldCamera)
     }
 
+    pub const fn edible_provision(self) -> bool {
+        matches!(self, Self::BoarMeat)
+    }
+
+    pub const fn hunting_power(self) -> u8 {
+        match self {
+            Self::KnightlySword => 4,
+            Self::WoodmanAxe => 3,
+            Self::IronSpade | Self::WoodenMallet => 2,
+            _ => 1,
+        }
+    }
+
+    pub const fn hunting_reach(self) -> f32 {
+        match self {
+            Self::KnightlySword => 2.55,
+            Self::WoodmanAxe | Self::IronSpade | Self::WoodenMallet => 2.25,
+            Self::TimberTorch | Self::DeadwoodBough => 2.00,
+            _ => 1.75,
+        }
+    }
+
     pub const fn rotatable_in_palm(self) -> bool {
         self.placeable_block() || self.field_camera()
     }
@@ -133,6 +161,14 @@ impl HeldRelic {
 
     pub const fn blocks_perch(self) -> bool {
         self.placeable_block() && !self.field_camera()
+    }
+
+    pub const fn stowed_block(self) -> bool {
+        self.placeable_block() && !matches!(self, Self::CantileverCrane | Self::FieldCamera)
+    }
+
+    pub const fn stackable_in_tray(self) -> bool {
+        RelicLexicon::new(self).stackable_in_tray()
     }
 
     pub const fn spade_blade(self) -> bool {
@@ -167,25 +203,7 @@ impl HeldRelic {
     }
 
     pub const fn block_medium(self) -> BlockMedium {
-        match self {
-            Self::CrustBlock => BlockMedium::CrustRock,
-            Self::QuarriedStone => BlockMedium::QuarriedStone,
-            Self::TimberBlock => BlockMedium::RawTimber,
-            Self::PlankBlock => BlockMedium::PlanedPlanks,
-            Self::CantileverCrane => BlockMedium::CantileverRig,
-            Self::SteeringWheel => BlockMedium::SteeringWheel,
-            Self::AircraftEngine => BlockMedium::AircraftEngine,
-            Self::RocketEngine => BlockMedium::RocketEngine,
-            Self::CabinSeat => BlockMedium::CabinSeat,
-            Self::CarWheel => BlockMedium::CarWheel,
-            Self::FieldCamera => BlockMedium::FieldCamera,
-            Self::PedalCluster => BlockMedium::PedalCluster,
-            Self::CrossAxle => BlockMedium::CrossAxle,
-            Self::CopperOre => BlockMedium::CopperOre,
-            Self::IronOre => BlockMedium::IronOre,
-            Self::GoldOre => BlockMedium::GoldOre,
-            _ => BlockMedium::TurfEarth,
-        }
+        RelicLexicon::new(self).block_medium()
     }
 
     pub const fn from_medium(medium: BlockMedium) -> Self {
@@ -211,31 +229,7 @@ impl HeldRelic {
     }
 
     pub const fn martial_style(self) -> MartialStyle {
-        match self {
-            Self::EmptyPalm => MartialStyle::Unarmed,
-            Self::ExcavatedEarth
-            | Self::CrustBlock
-            | Self::QuarriedStone
-            | Self::TimberBlock
-            | Self::PlankBlock
-            | Self::CantileverCrane
-            | Self::SteeringWheel
-            | Self::AircraftEngine
-            | Self::RocketEngine
-            | Self::CabinSeat
-            | Self::CarWheel
-            | Self::DeadwoodBough
-            | Self::FlintStone
-            | Self::FieldCamera
-            | Self::PedalCluster
-            | Self::CrossAxle
-            | Self::CopperOre
-            | Self::IronOre
-            | Self::GoldOre => MartialStyle::PalmCradle,
-            Self::IronSpade => MartialStyle::SpadeDig,
-            Self::WoodenMallet | Self::WoodmanAxe => MartialStyle::LumberjackCleave,
-            Self::TimberTorch | Self::KnightlySword => MartialStyle::SwordplaySlash,
-        }
+        RelicLexicon::new(self).martial_style()
     }
 
     pub const fn figure(self, mold: BlockMold) -> RelicFigure {
@@ -243,17 +237,7 @@ impl HeldRelic {
     }
 
     pub const fn surface_find(self) -> SurfaceFind {
-        match self {
-            Self::EmptyPalm => SurfaceFind::EmptyHanded,
-            Self::DeadwoodBough => SurfaceFind::DeadwoodBough,
-            Self::FlintStone => SurfaceFind::FlintStone,
-            Self::TimberTorch => SurfaceFind::TimberTorch,
-            Self::WoodenMallet => SurfaceFind::WoodenMallet,
-            Self::WoodmanAxe => SurfaceFind::WoodmanAxe,
-            Self::KnightlySword => SurfaceFind::KnightlySword,
-            Self::IronSpade => SurfaceFind::IronSpade,
-            _ => SurfaceFind::LooseBlock(self.block_medium()),
-        }
+        RelicLexicon::new(self).surface_find()
     }
 
     pub const fn from_surface_find(find: SurfaceFind) -> Self {
@@ -266,6 +250,7 @@ impl HeldRelic {
             SurfaceFind::WoodmanAxe => Self::WoodmanAxe,
             SurfaceFind::KnightlySword => Self::KnightlySword,
             SurfaceFind::IronSpade => Self::IronSpade,
+            SurfaceFind::BoarMeat => Self::BoarMeat,
             SurfaceFind::LooseBlock(medium) => Self::from_medium(medium),
         }
     }

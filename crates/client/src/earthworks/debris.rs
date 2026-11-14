@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{BlockMedium, MeshTarget, PlanetaryWorld};
 use crate::attire::{FacetedSolid, HeldRelic, LimbFrame, StrideRhythm, TaperedPrism, YouthAttire};
-use crate::cardiac::{AcousticWave, CadencedWave};
+use acoustics::{AcousticWave, CadencedWave};
 use crate::grip::{DigGrip, DigStroke};
 
 const SUBTERRANEAN_ROOF_OFFSET: f32 = 0.5;

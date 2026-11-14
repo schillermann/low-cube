@@ -1,7 +1,6 @@
 use std::f32::consts::PI;
-#[cfg(not(test))]
 use std::sync::OnceLock;
-use super::AcousticWave;
+use super::{AcousticWave, SoundStage};
 
 /// Mechanical double-transient camera shutter click-clack acoustic waveform.
 #[derive(Clone, Copy, Debug)]
@@ -64,14 +63,11 @@ impl AcousticWave for ShutterClick {
     }
 
     fn thump(&self) {
-        #[cfg(not(test))]
-        {
+        if SoundStage::active() {
             static SHUTTER_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
             let bytes = SHUTTER_CACHE.get_or_init(|| self.riff_wave());
             self.play_cached_wav(bytes, "low_cube_shutter_mech_v2.wav");
-        }
-        #[cfg(test)]
-        {
+        } else {
             let _ = self.amplitude_at(0.01);
         }
     }

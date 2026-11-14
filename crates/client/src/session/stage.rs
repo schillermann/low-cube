@@ -1,11 +1,9 @@
+use fauna::WoodlandFauna;
 use world::PlanetaryWorld;
-use crate::attire::{PhotoShutter, SightMode};
 use crate::avatar::Avatar;
-use crate::companion::CompanionFigure;
 use crate::controls::{ControlAction, InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
 use crate::portal_config::{DialOutcome, PortalConfig, PortalDial};
-use crate::roe_deer::WoodlandFauna;
 use crate::server_scale::{PlanetaryScale, ServerScale};
 use crate::surface::PlatformSurface;
 use super::display::SessionDisplay;
@@ -53,7 +51,7 @@ impl SessionStage {
         Self { world, avatar, fauna, overlay }
     }
 
-    /// Secondary constructor initializing seeded woodland sparrows and Temperate roe deer alongside the stage.
+    /// Secondary constructor initializing seeded woodland wildlife alongside the stage.
     pub(super) fn new(
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
@@ -63,32 +61,36 @@ impl SessionStage {
         Self::with_fauna(world, avatar, WoodlandFauna::seeded(), StageOverlay::new(controls, modal))
     }
 
-    pub(super) fn world(&self) -> &dyn PlanetaryWorld { self.world.as_ref() }
-    pub(super) fn world_mut(&mut self) -> &mut dyn PlanetaryWorld { self.world.as_mut() }
-    pub(super) fn avatar(&self) -> &dyn Avatar { self.avatar.as_ref() }
-    pub(super) fn modal(&self) -> &dyn SessionModal { self.overlay.modal.as_ref() }
     pub(super) fn modal_open(&self) -> bool { self.overlay.modal.open() }
-
-    pub(super) fn emit_avatar(&self, target: &mut dyn world::MeshTarget) {
-        self.avatar.emit_appearance(target);
-        CompanionFigure::emit_all(self.world.as_ref(), target);
-        self.fauna.emit(target);
-    }
-
-    pub(super) fn emit_avatar_for_sight(&self, sight: SightMode, target: &mut dyn world::MeshTarget) {
-        self.avatar.emit_appearance_for_sight(sight, target);
-        CompanionFigure::emit_all(self.world.as_ref(), target);
-        self.fauna.emit(target);
-    }
-
-    pub(super) fn take_photo_shutter(&mut self) -> PhotoShutter { self.avatar.take_photo_shutter() }
-    pub(super) fn apply_polaroid_mosaic(&mut self, mosaic: Vec<glam::Vec3>) { self.avatar.apply_polaroid_mosaic(mosaic); }
     pub(super) fn move_cursor(&mut self, point: crate::menu::ScreenPoint) { self.overlay.modal.move_cursor(point); }
     pub(super) fn release_modal_mouse(&mut self) { self.overlay.modal.release_mouse(); }
     pub(super) fn rotate_avatar(&mut self, dx: f32, dy: f32) { self.avatar.rotate_view(dx, dy); }
-    pub(super) fn use_left(&mut self) -> bool { self.avatar.use_left_hand(self.world.as_mut()) }
-    pub(super) fn use_right(&mut self) -> bool { self.avatar.use_right_hand(self.world.as_mut()) }
+
+    pub(super) fn refresh_surface(&mut self, display: &mut SessionDisplay) {
+        display.refresh_modified_face(self.world.as_mut());
+        display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());
+    }
+
+    pub(super) fn toggle_tron(&self, display: &mut SessionDisplay) {
+        display.toggle_tron(self.world.as_ref(), self.avatar.as_ref());
+    }
+
+    pub(super) fn render_onto(&mut self, display: &SessionDisplay) {
+        display.render_scene(self.world.as_ref(), self.avatar.as_mut(), &self.fauna, self.overlay.modal.as_ref());
+    }
+
+    pub(super) fn use_left(&mut self) -> bool {
+        let (struck, dropped) = self.avatar.hunt_fauna(-1.0, &mut self.fauna, self.world.as_mut());
+        if struck { dropped } else { self.avatar.use_left_hand(self.world.as_mut()) }
+    }
+
+    pub(super) fn use_right(&mut self) -> bool {
+        let (struck, dropped) = self.avatar.hunt_fauna(1.0, &mut self.fauna, self.world.as_mut());
+        if struck { dropped } else { self.avatar.use_right_hand(self.world.as_mut()) }
+    }
+
     pub(super) fn release_hand(&mut self) -> bool { self.avatar.release_hand(self.world.as_mut()) }
+
     pub(super) fn matches_tron(&self, trigger: InputTrigger) -> bool {
         self.overlay.controls.matches_action(ControlAction::TronMode, trigger)
     }
@@ -194,8 +196,7 @@ impl SessionStage {
             }
             self.avatar.sync_world_presence(self.world.as_mut());
             if self.world.pump_portal(dt) {
-                display.refresh_modified_face(self.world.as_mut());
-                display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());
+                self.refresh_surface(display);
             }
         } else {
             let prev_anchor = self.avatar.meadow_anchor();

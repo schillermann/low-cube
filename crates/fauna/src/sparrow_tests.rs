@@ -1,7 +1,6 @@
 use glam::Vec3;
 use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad};
-use crate::allocation_audit::count_allocations;
-use crate::cardiac::{AcousticWave, SparrowChirp};
+use acoustics::{AcousticWave, SparrowChirp};
 use crate::sparrow::{SparrowActivity, SparrowFlock, TestSparrow as Sparrow};
 
 struct QuadCollector {
@@ -56,7 +55,7 @@ fn test_sparrow_flock_flies_pecks_ground_and_sits_on_trees_with_zero_allocations
         });
     }
 
-    let allocs = count_allocations(|| {
+    let allocs = crate::ALLOCATOR.measure(|| {
         for _ in 0..120 {
             let _ = flock.step_spatial(1.0 / 60.0, listener, Vec3::NEG_Z, &world);
         }

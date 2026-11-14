@@ -7,7 +7,6 @@ mod aurora_cadence;
 mod aurora_canopy;
 mod avatar;
 mod cadence;
-mod cardiac;
 mod celestial;
 mod clock;
 mod command_flags;
@@ -43,14 +42,12 @@ mod photo_plate;
 mod physics;
 mod portal_config;
 mod posture;
-mod roe_deer;
 mod server_aurora;
 mod server_celestial;
 mod server_physics;
 mod server_satchel;
 mod server_scale;
 mod session;
-mod sparrow;
 mod stride;
 mod surface;
 mod threshold;
@@ -89,11 +86,7 @@ mod physics_tests;
 #[cfg(test)]
 mod posture_tests;
 #[cfg(test)]
-mod roe_deer_tests;
-#[cfg(test)]
 mod seam_clearance_tests;
-#[cfg(test)]
-mod sparrow_tests;
 #[cfg(test)]
 mod threshold_tests;
 #[cfg(test)]
@@ -106,6 +99,8 @@ mod traversal_tests;
 mod troupe_tests;
 #[cfg(test)]
 mod visual_tests;
+#[cfg(test)]
+mod wild_boar_tests;
 
 use winit::event_loop::{ControlFlow, EventLoop};
 use app::LowCubeApp;
@@ -119,6 +114,7 @@ fn tron_active() -> bool {
 }
 
 fn main() {
+    acoustics::SoundStage::live().activate();
     let event_loop = EventLoop::new().expect("Failed to create EventLoop");
     event_loop.set_control_flow(ControlFlow::Poll);
 

@@ -1,6 +1,6 @@
 use glam::{Mat3, Quat, Vec3};
 use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
-use crate::cardiac::{AcousticWave, EngineRumble};
+use acoustics::{AcousticWave, EngineRumble};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 
 const MAX_DRIVE_SPEED: f32 = 14.0;

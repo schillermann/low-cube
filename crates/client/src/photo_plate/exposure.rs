@@ -150,7 +150,7 @@ impl CameraExposure {
             CameraMount::Unmounted => false,
             CameraMount::Handheld(sight) => {
                 self.trigger(sight);
-                use crate::cardiac::{AcousticWave, ShutterClick};
+                use acoustics::{AcousticWave, ShutterClick};
                 ShutterClick::mechanical().thump();
                 true
             }

@@ -1,6 +1,7 @@
 use glam::{Mat4, Quat, Vec3};
 use crate::attire::{BodyPose, SightMode, StrideRhythm};
 use crate::controls::KeyboardControls;
+use crate::earthworks::SurfaceReach;
 use crate::heading::SurfaceHeading;
 use crate::horizon::{CameraHorizon, HorizonTilt};
 use crate::lens::{PerspectiveLens, ProjectionLens};
@@ -71,7 +72,8 @@ impl AvatarSight {
     pub fn advance_lens(&mut self, order: &LocomotionOrder, posture: AvatarPosture, dt: f32) {
         self.lens = order.advance_lens(self.lens, dt);
         if posture.cardiac_constriction() > 0.0 {
-            self.lens = self.lens.transition_to(posture.cardiac_fov(), dt);
+            let rate = if posture.shock_active() { 18.0 } else { 8.0 };
+            self.lens = self.lens.transition_with_rate(posture.cardiac_fov(), rate, dt);
         }
     }
 
@@ -109,5 +111,18 @@ impl AvatarSight {
 
     pub fn project_lens_view(&self, aspect: f32, eye: Vec3, forward: Vec3, up: Vec3) -> Mat4 {
         self.lens.projection_matrix(aspect) * Mat4::look_to_rh(eye, forward, up)
+    }
+
+    pub fn surface_reach(&self, pose_eye: Vec3, pos: Vec3, standing: bool, driving: bool) -> SurfaceReach {
+        let (up, dir) = (self.surface_up(), self.view_direction());
+        let d_up = dir.dot(up);
+        let (eye, ray_dir) = if d_up > 0.975 {
+            (pos + up * (pose_eye - pos).dot(up), up)
+        } else if !standing && !driving && d_up < -0.815 {
+            (pos + up * (pose_eye - pos).dot(up), -up)
+        } else {
+            (pose_eye, dir)
+        };
+        SurfaceReach::new(eye, ray_dir, pos, standing)
     }
 }

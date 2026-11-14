@@ -1,7 +1,6 @@
 use std::f32::consts::PI;
-#[cfg(not(test))]
 use std::sync::OnceLock;
-use super::AcousticWave;
+use super::{AcousticWave, SoundStage};
 
 /// Earthy low-mid soil scrape and dull palm-thud waveform emitted when digging with bare hands.
 #[derive(Clone, Copy, Debug)]
@@ -45,14 +44,11 @@ impl AcousticWave for PalmScrape {
     }
 
     fn thump(&self) {
-        #[cfg(not(test))]
-        {
+        if SoundStage::active() {
             static PALM_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
             let bytes = PALM_CACHE.get_or_init(|| self.riff_wave());
             self.play_cached_wav(bytes, "low_cube_palm_dig.wav");
-        }
-        #[cfg(test)]
-        {
+        } else {
             let _ = self.amplitude_at(0.02);
         }
     }
@@ -103,14 +99,11 @@ impl AcousticWave for SpadeStrike {
     }
 
     fn thump(&self) {
-        #[cfg(not(test))]
-        {
+        if SoundStage::active() {
             static SPADE_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
             let bytes = SPADE_CACHE.get_or_init(|| self.riff_wave());
             self.play_cached_wav(bytes, "low_cube_spade_dig.wav");
-        }
-        #[cfg(test)]
-        {
+        } else {
             let _ = self.amplitude_at(0.02);
         }
     }
@@ -152,14 +145,11 @@ impl AcousticWave for EngineRumble {
     }
 
     fn thump(&self) {
-        #[cfg(not(test))]
-        {
+        if SoundStage::active() {
             static ENGINE_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
             let bytes = ENGINE_CACHE.get_or_init(|| self.riff_wave());
             self.play_cached_wav(bytes, "low_cube_car_drive.wav");
-        }
-        #[cfg(test)]
-        {
+        } else {
             let _ = self.amplitude_at(0.05);
         }
     }

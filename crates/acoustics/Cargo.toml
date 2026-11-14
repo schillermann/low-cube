@@ -1,0 +1,7 @@
+[package]
+name = "acoustics"
+version = "0.73.0"
+edition = "2021"
+
+[dependencies]
+glam = "0.29"

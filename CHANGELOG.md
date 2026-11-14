@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.73.0] - 2026-11-14
+
+### Added
+- Added huntable Temperate wild boar sounder (`BoarSounder`, `WildBoar`, `BoarActivity`, and `BoarFigure` in `crates/fauna/src/wild_boar/`) inhabiting `ClimateZone::Temperate` oak woods with sculpted 3D anatomy (humped shoulder crest, dorsal bristles, snout disc, curved ivory tusks, ears, tail, and cloven hooves), behavioral phases (`Rooting`, `BristledWarning`, `TuskCharge`, `Trotting`, `Fallen`), weapon-scaled melee reach (`HeldRelic::hunting_reach`), sounder threat alerting (`WildBoar::alert_to_threat`), tusk knockback, dark-crimson first-person shock vignette with FOV tunnel-vision and vertigo sway (`VitalStrain` in `crates/client/src/posture/vital.rs`), 3D spatialized guttural wild-boar vocalizations (`BoarSnort` in `crates/acoustics/src/boar_snort.rs`), and `SurfaceFind::BoarMeat` / `HeldRelic::BoarMeat` drops that heal bruises and grant a temporary sprint vigor boost when eaten (`HeartyBite` in `crates/acoustics/src/hearty_bite.rs`).
+- Added camera `SightCone` view-cone and distance culling (`crates/fauna/src/lib.rs`) for woodland sparrows, roe deer, and wild boars.
+
+### Changed
+- Extracted standalone `acoustics` (`crates/acoustics`) and `fauna` (`crates/fauna`) workspace crates out of `crates/client`, replacing `crate::cardiac` and scattered `#[cfg(test)]` blocks with `SoundStage` live-playback gating (`SoundStage::live().activate()`), centralizing 3D stereo distance/ITD RIFF encoding in `SpatialStage` (`crates/acoustics/src/spatial.rs`), caching Linux audio backends with non-zombie child reaping, eliminating `HeldRelic` / `SatchelTray` magic-number duplication via `HeldRelic::COUNT` and `HeldRelic::TRAY_ORDER`, refactoring `SessionStage` / `SessionDisplay` / `PortalInvite` to strict "Tell, Don't Ask", and extending `SourceFileAudit` (`crates/client/src/architecture_tests.rs`) across all 6 workspace crates.
+
 ## [0.72.0] - 2026-11-14
 
 ### Added

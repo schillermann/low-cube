@@ -1,8 +1,8 @@
 use glam::Vec3;
 use world::{BiomedCubeWorld, ClimateZone, GravityField, MeshTarget, PlanetaryWorld, Quad};
-use crate::allocation_audit::count_allocations;
-use crate::cardiac::{AcousticWave, RoeBark, RoeHoofbeats};
-use crate::roe_deer::{RoeActivity, RoeHerd, TestRoeDeer as RoeDeer, WoodlandFauna};
+use acoustics::{AcousticWave, RoeBark, RoeHoofbeats};
+use crate::WoodlandFauna;
+use crate::roe_deer::{RoeActivity, RoeHerd, TestRoeDeer as RoeDeer};
 
 struct FacetBatch {
     quads: Vec<Quad>,
@@ -64,7 +64,7 @@ fn test_roe_herd_anchors_on_temperate_zone_with_sculpted_mesh_and_zero_allocatio
     let temperate_listener = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let mut fauna = WoodlandFauna::seeded();
     fauna.step_spatial(1.0 / 60.0, temperate_listener, Vec3::NEG_Z, false, &world);
-    let allocs = count_allocations(|| {
+    let allocs = crate::ALLOCATOR.measure(|| {
         for _ in 0..90 {
             fauna.step_spatial(1.0 / 60.0, temperate_listener, Vec3::NEG_Z, false, &world);
         }

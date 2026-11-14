@@ -1,10 +1,12 @@
 use engine::{CompositeMesh, CpuMeshBatch, CpuTronBatch, GraphicPipeline, PlanetaryMesh, ShaderProgram};
-use world::PlanetaryWorld;
-use crate::attire::PhotoShutter;
+use fauna::WoodlandFauna;
+use world::{MeshTarget, PlanetaryWorld};
+use crate::attire::{PhotoShutter, SightMode};
 use crate::avatar::Avatar;
 use crate::clock::{MonotonicTime, SystemClock};
+use crate::companion::CompanionFigure;
+use crate::menu::SessionModal;
 use crate::surface::PlatformSurface;
-use super::stage::SessionStage;
 
 /// Encapsulated monotonic frame delta tracker decoupling redraw steps from static clock calls.
 pub(super) struct FramePace {
@@ -77,6 +79,24 @@ impl SessionDisplay {
         self.surface.capture_cursor();
     }
 
+    fn emit_actors(world: &dyn PlanetaryWorld, avatar: &dyn Avatar, fauna: &WoodlandFauna, target: &mut dyn MeshTarget) {
+        avatar.emit_appearance(target);
+        CompanionFigure::emit_all(world, target);
+        fauna.emit_visible(avatar.sight_cone(), target);
+    }
+
+    fn emit_actors_for_sight(
+        world: &dyn PlanetaryWorld,
+        avatar: &dyn Avatar,
+        fauna: &WoodlandFauna,
+        sight: SightMode,
+        target: &mut dyn MeshTarget,
+    ) {
+        avatar.emit_appearance_for_sight(sight, target);
+        CompanionFigure::emit_all(world, target);
+        fauna.emit_visible(avatar.sight_cone_for_mode(sight), target);
+    }
+
     pub(super) fn refresh_face_slice(&mut self, world: &dyn PlanetaryWorld, idx: usize) {
         if self.tron_active {
             let mut tron_buf = CpuTronBatch::empty();
@@ -120,11 +140,6 @@ impl SessionDisplay {
         }
     }
 
-    pub(super) fn refresh_modified_and_meadow(&mut self, stage: &mut SessionStage) {
-        self.refresh_modified_face(stage.world_mut());
-        self.refresh_meadow_slice(stage.world(), stage.avatar());
-    }
-
     pub(super) fn refresh_world_mesh(&mut self, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
         for idx in 0..(world.face_count() * 2) {
             self.refresh_face_slice(world, idx);
@@ -137,59 +152,65 @@ impl SessionDisplay {
         self.refresh_world_mesh(world, avatar);
     }
 
-    pub(super) fn render_stage(&self, stage: &mut SessionStage) {
-        let shutter = stage.take_photo_shutter();
+    pub(super) fn render_scene(
+        &self,
+        world: &dyn PlanetaryWorld,
+        avatar: &mut dyn Avatar,
+        fauna: &WoodlandFauna,
+        modal: &dyn SessionModal,
+    ) {
+        let shutter = avatar.take_photo_shutter();
         if self.tron_active {
             if let PhotoShutter::Triggered(sight) = shutter {
                 let mut shot_tron = CpuTronBatch::empty();
-                stage.emit_avatar_for_sight(sight, &mut shot_tron);
+                Self::emit_actors_for_sight(world, avatar, fauna, sight, &mut shot_tron);
                 let composed = CompositeMesh::new(&self.tron.mesh, &shot_tron);
                 let mosaic = self.surface.capture_sight_frame(
                     self.tron.pipeline.as_ref(),
                     self.tron.shader.as_ref(),
                     &composed,
-                    stage.avatar(),
+                    avatar,
                     sight,
                     sight.photo_label(),
                 );
-                stage.apply_polaroid_mosaic(mosaic);
+                avatar.apply_polaroid_mosaic(mosaic);
             }
             let mut avatar_tron = CpuTronBatch::empty();
-            stage.emit_avatar(&mut avatar_tron);
+            Self::emit_actors(world, avatar, fauna, &mut avatar_tron);
             let composed = CompositeMesh::new(&self.tron.mesh, &avatar_tron);
             self.surface.render_frame(
                 self.tron.pipeline.as_ref(),
                 self.tron.shader.as_ref(),
                 &composed,
-                stage.avatar(),
+                avatar,
                 self.primary.shader.as_ref(),
-                stage.modal(),
+                modal,
             );
         } else {
             if let PhotoShutter::Triggered(sight) = shutter {
                 let mut shot_batch = CpuMeshBatch::with_quad_capacity(4_096);
-                stage.emit_avatar_for_sight(sight, &mut shot_batch);
+                Self::emit_actors_for_sight(world, avatar, fauna, sight, &mut shot_batch);
                 let composed = CompositeMesh::new(&self.primary.mesh, &shot_batch);
                 let mosaic = self.surface.capture_sight_frame(
                     self.primary.pipeline.as_ref(),
                     self.primary.shader.as_ref(),
                     &composed,
-                    stage.avatar(),
+                    avatar,
                     sight,
                     sight.photo_label(),
                 );
-                stage.apply_polaroid_mosaic(mosaic);
+                avatar.apply_polaroid_mosaic(mosaic);
             }
             let mut avatar_batch = CpuMeshBatch::with_quad_capacity(4_096);
-            stage.emit_avatar(&mut avatar_batch);
+            Self::emit_actors(world, avatar, fauna, &mut avatar_batch);
             let composed = CompositeMesh::new(&self.primary.mesh, &avatar_batch);
             self.surface.render_frame(
                 self.primary.pipeline.as_ref(),
                 self.primary.shader.as_ref(),
                 &composed,
-                stage.avatar(),
+                avatar,
                 self.primary.shader.as_ref(),
-                stage.modal(),
+                modal,
             );
         }
     }

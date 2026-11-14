@@ -30,7 +30,7 @@ impl BeltSatchel {
     pub const fn empty() -> Self {
         Self::new(
             PalmStack::new(0, 0, BlockMold::cube(), BlockMold::cube()),
-            SatchelTray::new([0; 25], 1.0, 0, TrayState::Closed),
+            SatchelTray::new([0; HeldRelic::COUNT], 1.0, 0, TrayState::Closed),
             TripodMount::Unmounted,
         )
     }
@@ -192,6 +192,18 @@ impl BeltSatchel {
     pub fn take_cast_relic(mut self, relic: HeldRelic) -> (Self, bool) {
         let ok = relic.gripped() && self.tray.take_stowed(relic);
         (self, ok)
+    }
+
+    pub fn consume_provision(mut self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
+        let (hand, _) = attire.hand_pair(side);
+        if !hand.edible_provision() {
+            return (self, attire, false);
+        }
+        self.tray.close();
+        self.tray.focus_side(side);
+        let next_hand = if self.tray.take_stowed(hand) { hand } else { HeldRelic::EmptyPalm };
+        self.palms.assign_blocks(side, 0);
+        (self, attire.with_hand_relic(side, next_hand), true)
     }
 
     pub fn collect_felled_timber(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire) {

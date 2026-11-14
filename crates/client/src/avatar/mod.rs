@@ -1,5 +1,6 @@
-mod bearing_gear;
+mod bearing;
 mod body;
+mod gear;
 #[cfg(test)]
 mod gesture;
 mod planetary;
@@ -11,6 +12,7 @@ use winit::keyboard::KeyCode;
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{PhotoShutter, SightMode, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
+use fauna::{SightCone, WoodlandFauna};
 use crate::menu::ScreenPoint;
 
 #[cfg(test)]
@@ -42,7 +44,12 @@ pub trait Avatar {
         self.rotate_view(yaw_deg * px_per_deg, pitch_deg * px_per_deg);
     }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
-    fn step_fauna(&self, _dt: f32, _fauna: &mut crate::roe_deer::WoodlandFauna, _world: &dyn PlanetaryWorld) {}
+    fn step_fauna(&mut self, _dt: f32, _fauna: &mut WoodlandFauna, _world: &dyn PlanetaryWorld) {}
+    fn hunt_fauna(&mut self, _side: f32, _fauna: &mut WoodlandFauna, _world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+        (false, false)
+    }
+    fn sight_cone(&self) -> SightCone { SightCone::omnidirectional(Vec3::ZERO) }
+    fn sight_cone_for_mode(&self, _sight: SightMode) -> SightCone { self.sight_cone() }
     fn view_projection_matrix(&self, aspect: f32) -> Mat4;
     fn view_projection_for_sight(&self, aspect: f32, _sight: SightMode) -> Mat4 { self.view_projection_matrix(aspect) }
     fn surface_rotation(&self) -> Quat;

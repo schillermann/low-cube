@@ -55,7 +55,7 @@ fn test_repeated_head_bumps_against_crust_never_catapult_avatar_to_surface() {
 
 #[test]
 fn test_digging_down_through_crust_stops_at_indestructible_lethal_core_floor() {
-    use crate::cardiac::{AcousticWave, CardiacPulse, MonitoredPulse};
+    use acoustics::{AcousticWave, CardiacPulse, MonitoredPulse};
     let mut world = BiomedCubeWorld::beveled(64, 1.0);
     for _ in 0..40 {
         let fy = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;

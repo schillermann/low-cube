@@ -30,7 +30,11 @@ impl PerspectiveLens {
 
     /// Smoothly transitions field of view towards a target angle across elapsed time.
     pub fn transition_to(&self, target_fov_radians: f32, dt: f32) -> Self {
-        let rate = 8.0;
+        self.transition_with_rate(target_fov_radians, 8.0, dt)
+    }
+
+    /// Transitions field of view towards a target angle at a caller-specified convergence rate.
+    pub fn transition_with_rate(&self, target_fov_radians: f32, rate: f32, dt: f32) -> Self {
         let factor = (rate * dt).clamp(0.0, 1.0);
         let updated = self.fov_radians + (target_fov_radians - self.fov_radians) * factor;
         Self::new(updated, self.near_plane, self.far_plane)

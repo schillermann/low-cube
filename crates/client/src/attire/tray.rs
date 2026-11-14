@@ -21,7 +21,7 @@ pub enum TrayState {
 /// Encapsulates stowed satchel items, WASD inspection cursor, and waist-grid rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SatchelTray {
-    stowed: [u32; 25],
+    stowed: [u32; HeldRelic::COUNT],
     active_side: f32,
     cursor: usize,
     state: TrayState,
@@ -29,7 +29,7 @@ pub struct SatchelTray {
 
 impl SatchelTray {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(stowed: [u32; 25], active_side: f32, cursor: usize, state: TrayState) -> Self {
+    pub const fn new(stowed: [u32; HeldRelic::COUNT], active_side: f32, cursor: usize, state: TrayState) -> Self {
         Self { stowed, active_side, cursor, state }
     }
 
@@ -78,65 +78,18 @@ impl SatchelTray {
     }
 
     pub fn any_stowed_blocks(&self) -> bool {
-        [
-            HeldRelic::ExcavatedEarth,
-            HeldRelic::CrustBlock,
-            HeldRelic::QuarriedStone,
-            HeldRelic::TimberBlock,
-            HeldRelic::PlankBlock,
-            HeldRelic::SteeringWheel,
-            HeldRelic::AircraftEngine,
-            HeldRelic::RocketEngine,
-            HeldRelic::CabinSeat,
-            HeldRelic::CarWheel,
-            HeldRelic::PedalCluster,
-            HeldRelic::CrossAxle,
-            HeldRelic::CopperOre,
-            HeldRelic::IronOre,
-            HeldRelic::GoldOre,
-        ]
-        .iter()
-        .any(|&relic| self.count(relic) > 0)
+        HeldRelic::TRAY_ORDER.iter().any(|&relic| relic.stowed_block() && self.count(relic) > 0)
     }
 
     fn packed_slots(&self) -> ([HeldRelic; TRAY_SLOTS], usize) {
         let (mut slots, mut len) = ([HeldRelic::EmptyPalm; TRAY_SLOTS], 0usize);
-        let materials = [
-            HeldRelic::GoldOre,
-            HeldRelic::IronOre,
-            HeldRelic::CopperOre,
-            HeldRelic::CabinSeat,
-            HeldRelic::PedalCluster,
-            HeldRelic::CrossAxle,
-            HeldRelic::CarWheel,
-            HeldRelic::SteeringWheel,
-            HeldRelic::AircraftEngine,
-            HeldRelic::RocketEngine,
-            HeldRelic::ExcavatedEarth,
-            HeldRelic::CrustBlock,
-            HeldRelic::QuarriedStone,
-            HeldRelic::TimberBlock,
-            HeldRelic::PlankBlock,
-            HeldRelic::DeadwoodBough,
-            HeldRelic::FlintStone,
-        ];
-        for mat in materials {
-            if self.count(mat) > 0 && len < TRAY_SLOTS {
-                slots[len] = mat;
-                len += 1;
+        for relic in HeldRelic::TRAY_ORDER {
+            let qty = self.count(relic);
+            if qty == 0 {
+                continue;
             }
-        }
-        let tools = [
-            HeldRelic::FieldCamera,
-            HeldRelic::CantileverCrane,
-            HeldRelic::IronSpade,
-            HeldRelic::WoodmanAxe,
-            HeldRelic::KnightlySword,
-            HeldRelic::WoodenMallet,
-            HeldRelic::TimberTorch,
-        ];
-        for relic in tools {
-            for _ in 0..self.count(relic) {
+            let copies = if relic.stackable_in_tray() { 1 } else { qty };
+            for _ in 0..copies {
                 if len < TRAY_SLOTS {
                     slots[len] = relic;
                     len += 1;
@@ -244,13 +197,11 @@ impl SatchelTray {
 
 impl CarryLoad for SatchelTray {
     fn fold_burden(&self, mut acc: SatchelBurden) -> SatchelBurden {
-        let mut code = 1u8;
-        while code < 25 {
-            let qty = self.stowed[code as usize];
+        for relic in HeldRelic::TRAY_ORDER {
+            let qty = self.count(relic);
             if qty > 0 {
-                acc = SlotBurden::new(HeldRelic::from_code(code), qty).fold_burden(acc);
+                acc = SlotBurden::new(relic, qty).fold_burden(acc);
             }
-            code += 1;
         }
         acc
     }

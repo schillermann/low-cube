@@ -96,6 +96,36 @@ impl AvatarPosture {
         Self::with_components(self.elevation, LeapSpring::grounded(), self.vital.perish())
     }
 
+    pub fn gore(self, severity: f32) -> Self {
+        Self::with_components(self.elevation, self.leap, self.vital.gore(severity))
+    }
+
+    pub fn nourish(self) -> Self {
+        Self::with_components(self.elevation, self.leap, self.vital.nourish())
+    }
+
+    pub fn pace_boost(&self) -> f32 {
+        self.vital.pace_boost()
+    }
+
+    pub const fn shock_active(&self) -> bool {
+        self.vital.shock_active()
+    }
+
+    pub fn vertigo_sway(&self) -> f32 {
+        self.vital.vertigo_sway()
+    }
+
+    #[cfg(test)]
+    pub const fn bruised(&self) -> bool {
+        self.vital.bruised()
+    }
+
+    #[cfg(test)]
+    pub const fn invigorated(&self) -> bool {
+        self.vital.invigorated()
+    }
+
     pub const fn perished(&self) -> bool {
         self.vital.perished()
     }
@@ -132,6 +162,11 @@ impl AvatarPosture {
 
     pub fn advance_leap(self, previous: Vec3, next: Vec3, terrain_up: Vec3, dt: f32) -> Self {
         Self::with_components(self.elevation, self.leap.advance(previous, next, terrain_up, dt), self.vital)
+    }
+
+    pub fn step_vital_recovery(self, dt: f32) -> (Self, bool) {
+        let (next_vital, beat) = self.vital.step_recovery(dt);
+        (Self::with_components(self.elevation, self.leap, next_vital), beat)
     }
 
     pub fn view_matrix(&self, frame: &dyn ViewFrame, position: Vec3) -> Mat4 {

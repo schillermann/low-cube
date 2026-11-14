@@ -95,7 +95,8 @@ impl SlotBurden {
             | HeldRelic::ExcavatedEarth
             | HeldRelic::TimberBlock
             | HeldRelic::WoodenMallet
-            | HeldRelic::CabinSeat => WeightGrade::Moderate,
+            | HeldRelic::CabinSeat
+            | HeldRelic::BoarMeat => WeightGrade::Moderate,
             HeldRelic::QuarriedStone
             | HeldRelic::IronSpade
             | HeldRelic::WoodmanAxe

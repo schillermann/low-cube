@@ -3,7 +3,7 @@ use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
 use crate::attire::{BodyPose, SatchelBurden};
 use crate::controls::KeyboardControls;
 use crate::drive::{DrivenCar, VehiclePilot};
-use crate::envelope::BodyEnvelope;
+use crate::envelope::{BodyEnvelope, PhysicalEnvelope};
 use crate::flight::GravitationalFlight;
 use crate::order::LocomotionOrder;
 use crate::posture::AvatarPosture;
@@ -59,6 +59,27 @@ impl AvatarBody {
 
     pub fn relocate(&mut self, next_pos: Vec3) {
         self.position = next_pos;
+    }
+
+    pub fn gore(&mut self, impulse: Vec3, world: &dyn PlanetaryWorld) {
+        if self.perished() || self.driving() {
+            return;
+        }
+        let up = world.surface_up_at(self.position);
+        self.position = world.constrain_to_surface(self.position + impulse + up * 0.35, EYE_SUPPORT_HEIGHT);
+        self.posture = self.posture.gore(0.36);
+        if !self.perished() {
+            use acoustics::{AcousticWave, CardiacPulse};
+            CardiacPulse::studio().thump();
+        }
+    }
+
+    pub fn nourish(&mut self) {
+        self.posture = self.posture.nourish();
+    }
+
+    pub fn pace_boost(&self) -> f32 {
+        self.posture.pace_boost()
     }
 
     pub fn respawn(&mut self, world: &dyn PlanetaryWorld) {
@@ -187,6 +208,42 @@ impl AvatarBody {
     }
 
     pub fn advance_leap(&mut self, next_pos: Vec3, terrain_up: Vec3, dt: f32) {
-        self.posture = self.posture.advance_leap(self.position, next_pos, terrain_up, dt);
+        let leaped = self.posture.advance_leap(self.position, next_pos, terrain_up, dt);
+        let (recovered, beat) = leaped.step_vital_recovery(dt);
+        self.posture = recovered;
+        if beat {
+            use acoustics::{AcousticWave, CardiacPulse};
+            CardiacPulse::studio().thump();
+        }
+    }
+
+    /// Confines pedestrian flight against deep shafts and subterranean crust ceilings, returning `(final_pos, wedged, lethal_hit)`.
+    pub fn step_pedestrian(
+        &mut self,
+        order: &LocomotionOrder,
+        burden: SatchelBurden,
+        standing_env: BodyEnvelope,
+        facing: Vec3,
+        terrain_up: Vec3,
+        dt: f32,
+        world: &dyn PlanetaryWorld,
+    ) -> (Vec3, bool, bool) {
+        let _ = self.prepare_stride(order, burden, standing_env, terrain_up, dt, world);
+        let active_env = standing_env.with_crouch_and_facing(self.posture.crouch_drop(), facing);
+        let active_crust = active_env.crust(world);
+        let pace = burden.scale_pace(6.0 * self.pace_boost());
+        let raw_next = self.apply_flight(active_env, order, dt, terrain_up, pace, world);
+        if world.lethal_at(raw_next) {
+            self.position = raw_next;
+            return (raw_next, false, true);
+        }
+        let in_shaft = active_crust.in_deep_shaft(raw_next, terrain_up, EYE_SUPPORT_HEIGHT);
+        let pre_eye = self.eye_offset(terrain_up);
+        let next_pos = if in_shaft { world.confine_beneath_crust(raw_next + pre_eye) - pre_eye } else { active_crust.confine(raw_next, terrain_up) };
+        self.advance_leap(next_pos, terrain_up, dt);
+        let post_eye = self.eye_offset(terrain_up);
+        let final_pos = if in_shaft { world.confine_beneath_crust(next_pos + post_eye) - post_eye } else { active_crust.confine(next_pos, terrain_up) };
+        let wedged = active_env.wedged_in_shaft(final_pos, terrain_up, EYE_SUPPORT_HEIGHT, world);
+        (final_pos, wedged, false)
     }
 }

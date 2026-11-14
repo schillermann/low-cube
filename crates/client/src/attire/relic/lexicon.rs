@@ -1,14 +1,57 @@
-use super::HeldRelic;
+use world::{BlockMedium, SurfaceFind};
+use super::{HeldRelic, MartialStyle};
 
-/// Domain lexicon translating `HeldRelic` items to display titles and CLI/profile tokens.
+/// Domain lexicon and property catalog for `HeldRelic` items.
 pub struct RelicLexicon {
     relic: HeldRelic,
 }
 
 impl RelicLexicon {
+    pub const TRAY_ORDER: [HeldRelic; HeldRelic::COUNT - 1] = [
+        HeldRelic::GoldOre,
+        HeldRelic::IronOre,
+        HeldRelic::CopperOre,
+        HeldRelic::CabinSeat,
+        HeldRelic::PedalCluster,
+        HeldRelic::CrossAxle,
+        HeldRelic::CarWheel,
+        HeldRelic::SteeringWheel,
+        HeldRelic::AircraftEngine,
+        HeldRelic::RocketEngine,
+        HeldRelic::ExcavatedEarth,
+        HeldRelic::CrustBlock,
+        HeldRelic::QuarriedStone,
+        HeldRelic::TimberBlock,
+        HeldRelic::PlankBlock,
+        HeldRelic::BoarMeat,
+        HeldRelic::DeadwoodBough,
+        HeldRelic::FlintStone,
+        HeldRelic::FieldCamera,
+        HeldRelic::CantileverCrane,
+        HeldRelic::IronSpade,
+        HeldRelic::WoodmanAxe,
+        HeldRelic::KnightlySword,
+        HeldRelic::WoodenMallet,
+        HeldRelic::TimberTorch,
+    ];
+
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(relic: HeldRelic) -> Self {
         Self { relic }
+    }
+
+    pub const fn stackable_in_tray(&self) -> bool {
+        !matches!(
+            self.relic,
+            HeldRelic::EmptyPalm
+                | HeldRelic::FieldCamera
+                | HeldRelic::CantileverCrane
+                | HeldRelic::IronSpade
+                | HeldRelic::WoodmanAxe
+                | HeldRelic::KnightlySword
+                | HeldRelic::WoodenMallet
+                | HeldRelic::TimberTorch
+        )
     }
 
     pub const fn title(&self) -> &'static str {
@@ -38,6 +81,7 @@ impl RelicLexicon {
             HeldRelic::CopperOre => "COPPER ORE",
             HeldRelic::IronOre => "IRON ORE",
             HeldRelic::GoldOre => "GOLD ORE",
+            HeldRelic::BoarMeat => "BOAR MEAT",
         }
     }
 
@@ -73,7 +117,55 @@ impl RelicLexicon {
             "copperore" | "copper" | "kupfer" => Some(HeldRelic::CopperOre),
             "ironore" | "iron" | "eisen" => Some(HeldRelic::IronOre),
             "goldore" | "gold" => Some(HeldRelic::GoldOre),
+            "boarmeat" | "meat" | "venison" | "fleisch" | "wildschwein" => Some(HeldRelic::BoarMeat),
             _ => None,
+        }
+    }
+
+    pub const fn block_medium(&self) -> BlockMedium {
+        match self.relic {
+            HeldRelic::CrustBlock => BlockMedium::CrustRock,
+            HeldRelic::QuarriedStone => BlockMedium::QuarriedStone,
+            HeldRelic::TimberBlock => BlockMedium::RawTimber,
+            HeldRelic::PlankBlock => BlockMedium::PlanedPlanks,
+            HeldRelic::CantileverCrane => BlockMedium::CantileverRig,
+            HeldRelic::SteeringWheel => BlockMedium::SteeringWheel,
+            HeldRelic::AircraftEngine => BlockMedium::AircraftEngine,
+            HeldRelic::RocketEngine => BlockMedium::RocketEngine,
+            HeldRelic::CabinSeat => BlockMedium::CabinSeat,
+            HeldRelic::CarWheel => BlockMedium::CarWheel,
+            HeldRelic::FieldCamera => BlockMedium::FieldCamera,
+            HeldRelic::PedalCluster => BlockMedium::PedalCluster,
+            HeldRelic::CrossAxle => BlockMedium::CrossAxle,
+            HeldRelic::CopperOre => BlockMedium::CopperOre,
+            HeldRelic::IronOre => BlockMedium::IronOre,
+            HeldRelic::GoldOre => BlockMedium::GoldOre,
+            _ => BlockMedium::TurfEarth,
+        }
+    }
+
+    pub const fn martial_style(&self) -> MartialStyle {
+        match self.relic {
+            HeldRelic::EmptyPalm => MartialStyle::Unarmed,
+            HeldRelic::IronSpade => MartialStyle::SpadeDig,
+            HeldRelic::WoodenMallet | HeldRelic::WoodmanAxe => MartialStyle::LumberjackCleave,
+            HeldRelic::TimberTorch | HeldRelic::KnightlySword => MartialStyle::SwordplaySlash,
+            _ => MartialStyle::PalmCradle,
+        }
+    }
+
+    pub const fn surface_find(&self) -> SurfaceFind {
+        match self.relic {
+            HeldRelic::EmptyPalm => SurfaceFind::EmptyHanded,
+            HeldRelic::DeadwoodBough => SurfaceFind::DeadwoodBough,
+            HeldRelic::FlintStone => SurfaceFind::FlintStone,
+            HeldRelic::TimberTorch => SurfaceFind::TimberTorch,
+            HeldRelic::WoodenMallet => SurfaceFind::WoodenMallet,
+            HeldRelic::WoodmanAxe => SurfaceFind::WoodmanAxe,
+            HeldRelic::KnightlySword => SurfaceFind::KnightlySword,
+            HeldRelic::IronSpade => SurfaceFind::IronSpade,
+            HeldRelic::BoarMeat => SurfaceFind::BoarMeat,
+            _ => SurfaceFind::LooseBlock(self.block_medium()),
         }
     }
 }
