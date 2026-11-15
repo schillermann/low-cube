@@ -117,44 +117,21 @@ impl Face for FacetedReliefFace {
     fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
         let half = self.cache.half_blocks();
         let half_size = self.domain.frame.step_elevation(half);
-        if let Some((cu, cv, layer)) = SurfaceSightRay::new(eye, direction)
-            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)
-        {
-            let ((prev_u, prev_v), harvested) = self.domain.relief.harvest_layer(cu, cv, layer);
-            if harvested.is_some() {
-                if (prev_u, prev_v) != (cu, cv) {
-                    self.refresh_neighborhood(prev_u, prev_v, half, 0);
-                }
-                self.refresh_neighborhood(cu, cv, half, 4);
-            }
-            return harvested;
-        }
-        None
+        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)?;
+        let harvested = self.domain.relief.harvest_layer(cu, cv, layer)?;
+        self.refresh_neighborhood(cu, cv, half, 4);
+        Some(harvested)
     }
 
     fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
         let half = self.cache.half_blocks();
-        if stage == 0 {
-            let ((prev_u, prev_v), changed) = self.domain.relief.clear_dig_stage();
-            if changed {
-                self.refresh_neighborhood(prev_u, prev_v, half, 0);
-            }
-            return changed.then_some(BlockMedium::TurfEarth);
-        }
         let half_size = self.domain.frame.step_elevation(half);
-        if let Some((cu, cv, layer)) = SurfaceSightRay::new(eye, direction)
-            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)
-        {
-            let ((prev_u, prev_v), loosened) = self.domain.relief.mark_dig_layer(cu, cv, layer, stage);
-            if loosened.is_some() {
-                if (prev_u, prev_v) != (cu, cv) {
-                    self.refresh_neighborhood(prev_u, prev_v, half, 0);
-                }
-                self.refresh_neighborhood(cu, cv, half, 0);
-            }
-            return loosened;
-        }
-        None
+        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)?;
+        let loosened = self.domain.relief.mark_dig_layer(cu, cv, layer, stage)?;
+        self.refresh_neighborhood(cu, cv, half, 0);
+        Some(loosened)
     }
 
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {

@@ -2,11 +2,11 @@ use std::net::SocketAddr;
 use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, ExposedStratum, GravityField,
-    MeshTarget, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldFact,
+    MeshTarget, PlanetaryWorld, SurfaceFind, VehicleAssembly,
 };
 use crate::sanctuary_host::SanctuaryHost;
 
-/// Decorator turning any authoritative `PlanetaryWorld` into a live multiplayer host without duplicate logic.
+/// Decorator turning any authoritative `PlanetaryWorld` into a live multiplayer host via `ChronicledPlanet`.
 pub struct HostedPlanet {
     host: SanctuaryHost,
 }
@@ -42,63 +42,35 @@ impl PlanetaryWorld for HostedPlanet {
     }
 
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
-        let medium = self.host.world_mut().harvest_surface(eye, direction)?;
-        self.host.record_local_fact(WorldFact::Harvested { eye, direction });
-        Some(medium)
+        self.host.with_chronicled(|w| w.harvest_surface(eye, direction))
     }
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
-        let medium = self.host.world_mut().loosen_surface(eye, direction, stage)?;
-        self.host.record_local_fact(WorldFact::Loosened { eye, direction, stage });
-        Some(medium)
+        self.host.with_chronicled(|w| w.loosen_surface(eye, direction, stage))
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        let out = self.host.world_mut().strike_timber(eye, direction);
-        if out.struck() {
-            self.host.record_local_fact(WorldFact::TimberStruck { eye, direction });
-        }
-        out
+        self.host.with_chronicled(|w| w.strike_timber(eye, direction))
     }
 
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        let find = self.host.world_mut().forage_surface(eye, direction);
-        if find.gathered() {
-            self.host.record_local_fact(WorldFact::Foraged { eye, direction });
-        }
-        find
+        self.host.with_chronicled(|w| w.forage_surface(eye, direction))
     }
 
     fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
-        let ok = self.host.world_mut().cast_surface_find(eye, direction, find);
-        if ok {
-            self.host.record_local_fact(WorldFact::LitterCast { eye, direction, find });
-        }
-        ok
+        self.host.with_chronicled(|w| w.cast_surface_find(eye, direction, find))
     }
 
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        let ok = self.host.world_mut().place_molded_surface_block(eye, direction, avatar_pos, mold);
-        if ok {
-            self.host.record_local_fact(WorldFact::MoldPlaced { eye, direction, avatar_pos, mold });
-        }
-        ok
+        self.host.with_chronicled(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold))
     }
 
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
-        let ok = self.host.world_mut().adjust_rig(eye, direction, delta_steps, rotate_quarter);
-        if ok {
-            self.host.record_local_fact(WorldFact::RigAdjusted { eye, direction, delta_steps, rotate_quarter });
-        }
-        ok
+        self.host.with_chronicled(|w| w.adjust_rig(eye, direction, delta_steps, rotate_quarter))
     }
 
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        let ok = self.host.world_mut().lower_rig(eye, direction);
-        if ok {
-            self.host.record_local_fact(WorldFact::RigLowered { eye, direction });
-        }
-        ok
+        self.host.with_chronicled(|w| w.lower_rig(eye, direction))
     }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
@@ -116,7 +88,7 @@ impl PlanetaryWorld for HostedPlanet {
     fn step_surface(&mut self, dt: f32) -> bool {
         let regrown = self.host.world_mut().step_surface(dt);
         let net_changed = self.host.pump_network(dt);
-        regrown || net_changed || self.host.slices().pending()
+        regrown || net_changed || self.host.world().pending_slices()
     }
 
     fn lethal_at(&self, position: Vec3) -> bool {
@@ -136,12 +108,15 @@ impl PlanetaryWorld for HostedPlanet {
     }
 
     fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize {
-        if let Some(idx) = self.host.slices().pop_next() {
-            self.host.world().emit_face(idx, target);
-            idx
-        } else {
-            self.host.world().emit_modified_face(target)
-        }
+        self.host.world().emit_modified_face(target)
+    }
+
+    fn pending_slices(&self) -> bool {
+        self.host.world().pending_slices()
+    }
+
+    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.host.world_mut().drain_modified_slice(target)
     }
 
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
@@ -186,6 +161,6 @@ impl PlanetaryWorld for HostedPlanet {
     }
 
     fn pump_portal(&mut self, dt: f32) -> bool {
-        self.host.pump_network(dt) || self.host.slices().pending()
+        self.host.pump_network(dt) || self.host.world().pending_slices()
     }
 }

@@ -62,21 +62,17 @@ pub trait ReliefElevation: Send + Sync {
     /// Partial digging stage (0..=3) at a specific vertical layer within (u, v).
     fn layer_dig_stage_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> u8 { 0 }
 
-    /// Clears any active partial digging stage, returning the affected cell and whether a stage was active.
-    fn clear_dig_stage(&mut self) -> ((i32, i32), bool) { ((0, 0), false) }
-
-    /// Marks partial digging progress (0..=3) at a specific vertical layer within (u, v).
-    fn mark_dig_layer(&mut self, _u: i32, _v: i32, _layer_elev: f32, _stage: u8) -> ((i32, i32), Option<BlockMedium>) { ((0, 0), None) }
+    /// Marks or clears partial digging progress (0..=3) at a specific vertical layer within (u, v).
+    fn mark_dig_layer(&mut self, _u: i32, _v: i32, _layer_elev: f32, _stage: u8) -> Option<BlockMedium> { None }
 
     /// Excavates a specific vertical block layer within (u, v).
-    fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), bool) {
-        let (cell, dug) = self.harvest_layer(u, v, layer_elev);
-        (cell, dug.is_some())
+    fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> bool {
+        self.harvest_layer(u, v, layer_elev).is_some()
     }
 
     /// Excavates a specific vertical block layer within (u, v), returning the harvested block medium.
-    fn harvest_layer(&mut self, _u: i32, _v: i32, _layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
-        ((0, 0), None)
+    fn harvest_layer(&mut self, _u: i32, _v: i32, _layer_elev: f32) -> Option<BlockMedium> {
+        None
     }
 
     /// Stacks one molded voxel block layer at (u, v).

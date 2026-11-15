@@ -207,15 +207,18 @@ impl SessionStage {
             for _ in 0..steps {
                 self.avatar.step_motion(step, self.overlay.controls.as_ref(), self.world.as_ref());
                 self.avatar.step_fauna(step, &mut self.fauna, self.world.as_ref());
-                if self.avatar.step_digging(self.world.as_mut()) || self.world.step_surface(step) {
+                let dug = self.avatar.step_digging(self.world.as_mut());
+                let stepped = self.world.step_surface(step);
+                if dug || stepped {
                     changed = true;
                 }
             }
             self.avatar.sync_world_presence(self.world.as_mut());
-            if changed {
+            let dirty_slices = self.world.pending_slices();
+            if changed || dirty_slices {
                 display.refresh_modified_face(self.world.as_mut());
             }
-            if changed || self.avatar.meadow_anchor() != prev_anchor {
+            if changed || dirty_slices || self.avatar.meadow_anchor() != prev_anchor {
                 display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());
             }
         }

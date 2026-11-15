@@ -49,13 +49,11 @@ impl OverhangMolds {
     pub fn expose_dirt(&mut self, u: i32, v: i32) { self.scars.expose_dirt(u, v); }
 
     pub fn layer_dig_stage_at(&self, u: i32, v: i32, layer_elev: f32) -> u8 {
-        self.scars.layer_stage(u, v, layer_elev, self.scars.probes_occupied(|e| self.layer_occupied_at(u, v, e)))
+        self.scars.layer_stage(u, v, layer_elev, |e| self.layer_occupied_at(u, v, e))
     }
 
-    pub fn clear_stage(&mut self, u: i32, v: i32) -> (i32, i32) { self.scars.clear_stage(u, v) }
-    pub fn clear_if_at(&mut self, u: i32, v: i32) { self.scars.clear_if_at(u, v); }
-    pub fn reset_stage(&mut self) -> ((i32, i32), bool) { self.scars.reset_stage() }
-    pub fn record_stage(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
+    pub fn clear_stage(&mut self, u: i32, v: i32) -> bool { self.scars.clear_stage(u, v) }
+    pub fn record_stage(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> bool {
         self.scars.record_stage(u, v, layer_elev, stage)
     }
 
@@ -113,15 +111,17 @@ impl OverhangMolds {
         u: i32,
         v: i32,
         layer_elev: f32,
-    ) -> Option<((i32, i32), BlockMedium)> {
+    ) -> Option<BlockMedium> {
         if self.car_locked_at(u, v, layer_elev) {
             return None;
         }
         if let Some(med) = self.rigs.remove_craft_layer(u, v, layer_elev) {
-            return Some((self.clear_stage(u, v), med));
+            self.clear_stage(u, v);
+            return Some(med);
         }
         if self.rigs.pack_up(strata, shafts, u, v, layer_elev, &mut self.world_blocks, &mut self.scars) {
-            return Some((self.clear_stage(u, v), BlockMedium::CantileverRig));
+            self.clear_stage(u, v);
+            return Some(BlockMedium::CantileverRig);
         }
         let ground_top = (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP;
         self.world_blocks.remove_layer(u, v, layer_elev, ground_top, &mut self.scars)
@@ -135,14 +135,14 @@ impl OverhangMolds {
     pub fn stack_molded(&mut self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, shape: Box<dyn VoxelShape>) -> bool {
         if shape.block_medium() == BlockMedium::CantileverRig {
             self.rigs.deploy(u, v, ground_top);
-            self.clear_if_at(u, v);
+            self.clear_stage(u, v);
             return true;
         }
         match self.rigs.resolve_placement(u, v, ground_top, sub, raw_floor) {
             RigPlacement::BlockedMast => false,
             RigPlacement::MountFirst { mast, cell, floor_elev } => {
                 self.rigs.place_on_rig(mast, cell, floor_elev, shape);
-                self.clear_if_at(cell.0, cell.1);
+                self.clear_stage(cell.0, cell.1);
                 true
             }
             RigPlacement::AttachCraft { mast, cell, floor_elev } => {
@@ -150,7 +150,7 @@ impl OverhangMolds {
                     return false;
                 }
                 self.rigs.place_on_rig(mast, cell, floor_elev, shape);
-                self.scars.reset_stage();
+                self.clear_stage(cell.0, cell.1);
                 true
             }
             RigPlacement::WorldCube => {
@@ -162,7 +162,7 @@ impl OverhangMolds {
                     return false;
                 }
                 self.world_blocks.stack_bare(u, v, next_floor, ground_top, sub, shape, &mut self.scars);
-                self.scars.reset_stage();
+                self.clear_stage(u, v);
                 true
             }
         }

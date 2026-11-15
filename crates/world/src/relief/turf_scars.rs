@@ -7,98 +7,120 @@ use super::turf_habitat::{CanopyHabitat, NaturalHabitat, TurfHabitat};
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
+const CRACK_LEASE_SECS: f32 = 1.2;
 
-/// Active excavation crack focus on a specific grid cell, elevation layer, and stage (0..=3).
+/// Active excavation crack on a single discrete elevation step with self-healing idle lease.
 #[derive(Clone, Copy, Debug)]
-pub struct DigStageFocus {
-    cell: (i32, i32),
-    layer_elev: f32,
+pub struct LayerCrack {
+    layer_step: i32,
     stage: u8,
+    lease: f32,
 }
 
-impl DigStageFocus {
+impl LayerCrack {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(cell: (i32, i32), layer_elev: f32, stage: u8) -> Self {
-        Self {
-            cell,
-            layer_elev,
-            stage,
-        }
+    pub const fn new(layer_step: i32, stage: u8, lease: f32) -> Self {
+        Self { layer_step, stage, lease }
     }
 
-    /// Secondary constructor for an inactive excavation focus.
-    pub const fn idle() -> Self {
-        Self::new((0, 0), 0.0, 0)
+    fn quantize_step(layer_elev: f32) -> i32 {
+        ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32
     }
 
-    pub fn probes_occupied<F: FnOnce(f32) -> bool>(self, predicate: F) -> bool {
-        predicate(self.layer_elev)
+    fn fresh(layer_elev: f32, stage: u8) -> Self {
+        Self::new(Self::quantize_step(layer_elev), stage.min(3), CRACK_LEASE_SECS)
     }
 
-    pub fn layer_stage(self, u: i32, v: i32, layer_elev: f32, layer_occupied: bool) -> u8 {
-        let q = ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
-        let f = ((self.layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
-        if self.cell == (u, v) && !layer_occupied && q == f {
-            self.stage
-        } else {
-            0
-        }
+    fn matches_step(self, layer_elev: f32) -> bool {
+        Self::quantize_step(layer_elev) == self.layer_step
     }
 
-    pub fn block_stage(self, u: i32, v: i32, block: &ElevatedShape) -> u8 {
-        if self.cell == (u, v) && block.occupies_layer(self.layer_elev) {
-            self.stage
-        } else {
-            0
-        }
+    const fn elevation(self) -> f32 {
+        (self.layer_step as f32) * BLOCK_STEP + HALF_BLOCK_STEP
     }
 
-    pub fn clear_at(&mut self, u: i32, v: i32) -> (i32, i32) {
-        let prev = self.cell;
-        *self = Self::new((u, v), 0.0, 0);
-        prev
-    }
-
-    pub fn clear_if_at(&mut self, u: i32, v: i32) {
-        if self.cell == (u, v) {
-            *self = Self::new((u, v), 0.0, 0);
-        }
-    }
-
-    pub fn reset(&mut self) -> ((i32, i32), bool) {
-        let (prev, active) = (self.cell, self.stage > 0);
-        *self = Self::idle();
-        (prev, active)
-    }
-
-    pub fn record(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
-        if stage == 0 {
-            return self.reset();
-        }
-        let prev = self.cell;
-        *self = Self::new((u, v), layer_elev, stage.min(3));
-        (prev, true)
+    fn aged(self, dt: f32) -> Option<Self> {
+        let remaining = self.lease - dt;
+        (remaining > 0.0).then_some(Self::new(self.layer_step, self.stage, remaining))
     }
 }
 
-/// Bare-soil regrowth progress on the natural ground and active digging crack focus across cells.
+/// Multi-cell excavation crack map allowing independent simultaneous digging across companions.
+pub struct ExcavationCracks {
+    cells: HashMap<(i32, i32), LayerCrack>,
+}
+
+impl ExcavationCracks {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(cells: HashMap<(i32, i32), LayerCrack>) -> Self {
+        Self { cells }
+    }
+
+    /// Secondary constructor for uncracked terrain.
+    pub fn untouched() -> Self {
+        Self::new(HashMap::new())
+    }
+
+    pub fn layer_stage(&self, u: i32, v: i32, layer_elev: f32, occupied_at: impl FnOnce(f32) -> bool) -> u8 {
+        let Some(&crack) = self.cells.get(&(u, v)) else { return 0 };
+        if crack.matches_step(layer_elev) && !occupied_at(crack.elevation()) {
+            crack.stage
+        } else {
+            0
+        }
+    }
+
+    pub fn block_stage(&self, u: i32, v: i32, block: &ElevatedShape) -> u8 {
+        let Some(&crack) = self.cells.get(&(u, v)) else { return 0 };
+        if block.occupies_layer(crack.elevation()) { crack.stage } else { 0 }
+    }
+
+    pub fn clear_at(&mut self, u: i32, v: i32) -> bool {
+        self.cells.remove(&(u, v)).is_some()
+    }
+
+    pub fn record(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> bool {
+        if stage == 0 {
+            return self.clear_at(u, v);
+        }
+        self.cells.insert((u, v), LayerCrack::fresh(layer_elev, stage));
+        true
+    }
+
+    pub fn expire_step(&mut self, dt: f32) -> Vec<(i32, i32)> {
+        if self.cells.is_empty() {
+            return Vec::new();
+        }
+        let mut expired = Vec::new();
+        self.cells.retain(|&cell, crack| match crack.aged(dt) {
+            Some(next) => {
+                *crack = next;
+                true
+            }
+            None => {
+                expired.push(cell);
+                false
+            }
+        });
+        expired
+    }
+}
+
+/// Bare-soil regrowth progress on the natural ground and per-cell digging cracks.
 pub struct TurfScars {
     bare_dirt: HashMap<(i32, i32), TurfSod>,
-    dig_stage: DigStageFocus,
+    cracks: ExcavationCracks,
 }
 
 impl TurfScars {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(bare_dirt: HashMap<(i32, i32), TurfSod>, dig_stage: DigStageFocus) -> Self {
-        Self {
-            bare_dirt,
-            dig_stage,
-        }
+    pub const fn new(bare_dirt: HashMap<(i32, i32), TurfSod>, cracks: ExcavationCracks) -> Self {
+        Self { bare_dirt, cracks }
     }
 
     /// Secondary constructor for unscarred turf without bare dirt or digging cracks.
     pub fn untouched() -> Self {
-        Self::new(HashMap::new(), DigStageFocus::idle())
+        Self::new(HashMap::new(), ExcavationCracks::untouched())
     }
 
     pub fn bare_at(&self, u: i32, v: i32) -> bool {
@@ -109,32 +131,20 @@ impl TurfScars {
         self.bare_dirt.insert((u, v), TurfSod::bare());
     }
 
-    pub fn probes_occupied<F: FnOnce(f32) -> bool>(&self, predicate: F) -> bool {
-        self.dig_stage.probes_occupied(predicate)
-    }
-
-    pub fn layer_stage(&self, u: i32, v: i32, layer_elev: f32, occupied: bool) -> u8 {
-        self.dig_stage.layer_stage(u, v, layer_elev, occupied)
+    pub fn layer_stage(&self, u: i32, v: i32, layer_elev: f32, occupied_at: impl FnOnce(f32) -> bool) -> u8 {
+        self.cracks.layer_stage(u, v, layer_elev, occupied_at)
     }
 
     pub fn block_stage(&self, u: i32, v: i32, block: &ElevatedShape) -> u8 {
-        self.dig_stage.block_stage(u, v, block)
+        self.cracks.block_stage(u, v, block)
     }
 
-    pub fn clear_stage(&mut self, u: i32, v: i32) -> (i32, i32) {
-        self.dig_stage.clear_at(u, v)
+    pub fn clear_stage(&mut self, u: i32, v: i32) -> bool {
+        self.cracks.clear_at(u, v)
     }
 
-    pub fn clear_if_at(&mut self, u: i32, v: i32) {
-        self.dig_stage.clear_if_at(u, v);
-    }
-
-    pub fn reset_stage(&mut self) -> ((i32, i32), bool) {
-        self.dig_stage.reset()
-    }
-
-    pub fn record_stage(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), bool) {
-        self.dig_stage.record(u, v, layer_elev, stage)
+    pub fn record_stage(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> bool {
+        self.cracks.record(u, v, layer_elev, stage)
     }
 
     pub fn regrow_step(
@@ -144,8 +154,9 @@ impl TurfScars {
         blocks: &WorldBlocks,
         dt: f32,
     ) -> Vec<(i32, i32)> {
+        let mut refreshed = self.cracks.expire_step(dt);
         if self.bare_dirt.is_empty() {
-            return Vec::new();
+            return refreshed;
         }
         let active: Vec<((i32, i32), u32)> = {
             let natural = NaturalHabitat::new(strata, shafts, self);
@@ -164,18 +175,17 @@ impl TurfScars {
                 })
                 .collect()
         };
-        let mut regrown_cells = Vec::new();
         for ((u, v), neighbors) in active {
             if let Some(sod) = self.bare_dirt.get_mut(&(u, v)) {
                 let (next_sod, grown) = sod.colonized(GridCell::new(u, v), dt, neighbors);
                 if grown {
                     self.bare_dirt.remove(&(u, v));
-                    regrown_cells.push((u, v));
+                    refreshed.push((u, v));
                 } else {
                     *sod = next_sod;
                 }
             }
         }
-        regrown_cells
+        refreshed
     }
 }

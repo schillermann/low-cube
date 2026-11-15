@@ -130,11 +130,11 @@ impl ShaftExcavation {
         u: i32,
         v: i32,
         layer_elev: f32,
-    ) -> ((i32, i32), Option<BlockMedium>) {
+    ) -> Option<BlockMedium> {
         let (crust, elev, nat) = (self.crust_floor_at(strata, u, v), self.elevation_at(strata, u, v), strata.elevation_at(u, v));
         let step_at = ((layer_elev - HALF_BLOCK_STEP) / BLOCK_STEP).round() as i32;
         if step_at < crust || elev <= crust {
-            return ((u, v), None);
+            return None;
         }
         let dug_step = self.target_dug_step(strata, u, v, layer_elev);
         let base_medium = if strata.vault().crust_layer_at(u, v, dug_step) {
@@ -144,7 +144,7 @@ impl ShaftExcavation {
         };
         let next_elev = if step_at < elev - 1 { step_at.max(crust) } else { self.deepened_steps(strata, u, v) };
         if next_elev == elev {
-            return ((u, v), None);
+            return None;
         }
         if step_at < elev - 1 {
             molds.retain_overhang(strata, u, v, next_elev, elev);
@@ -153,6 +153,7 @@ impl ShaftExcavation {
         self.record_delta(u, v, next_elev - nat);
         let (medium, mut revealed) = self.veins.excavate_and_expose(strata, &self.deltas, (u, v, dug_step), base_medium);
         self.pending_disclosures.append(&mut revealed);
-        (molds.clear_stage(u, v), Some(medium))
+        molds.clear_stage(u, v);
+        Some(medium)
     }
 }

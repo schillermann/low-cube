@@ -74,30 +74,30 @@ fn test_deep_crust_excavation_and_indestructible_lethal_core_floor() {
     let mut deep = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 64);
     for step in 1..=15 {
         let layer = -((step as f32) * 0.5) + 0.25;
-        assert!(deep.excavate_layer(0, 0, layer).1, "Must excavate through mantle and first 3 crust layers (step {step})");
+        assert!(deep.excavate_layer(0, 0, layer), "Must excavate through mantle and first 3 crust layers (step {step})");
     }
     assert_eq!(deep.elevation_at(0, 0), -15);
     assert!(!deep.lethal_at(0.0, 0.0, -6.5), "4th crust layer at -15 (-7.5m) must shield avatar from lethal core floor");
-    assert!(deep.excavate_layer(0, 0, -7.75).1, "Excavating 4th crust layer must expose the indestructible core floor at -16 (-8.0m)");
+    assert!(deep.excavate_layer(0, 0, -7.75), "Excavating 4th crust layer must expose the indestructible core floor at -16 (-8.0m)");
     assert_eq!(deep.elevation_at(0, 0), -16, "Column floor must rest on the indestructible core floor at -16");
-    assert!(!deep.excavate_layer(0, 0, -7.75).1 && !deep.excavate_layer(0, 0, -8.25).1 && deep.mark_dig_layer(0, 0, -8.25, 1).1.is_none(), "Indestructible core floor at -16 must reject all further excavation");
+    assert!(!deep.excavate_layer(0, 0, -7.75) && !deep.excavate_layer(0, 0, -8.25) && deep.mark_dig_layer(0, 0, -8.25, 1).is_none(), "Indestructible core floor at -16 must reject all further excavation");
     assert!(deep.lethal_at(0.0, 0.0, -7.0) && !deep.lethal_at(0.0, 0.0, -6.5), "Contact with the exposed core floor at -8.0m (waist at -7.0m) must be lethal");
 
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     for step in 1..=12 {
         let layer = -((step as f32) * 0.5) + 0.25;
-        assert!(deep.excavate_layer(2, 2, layer).1);
+        assert!(deep.excavate_layer(2, 2, layer));
     }
     let up_eye = frame.point_at(1.25, 1.25, -5.5);
     let side_dir = (frame.tangent() + frame.normal() * 0.6).normalize();
     let (cu, cv, layer) = SurfaceSightRay::new(up_eye, side_dir).target_layer(&frame, &deep, 64, 32.0).expect("Must hit side cell from deep shaft");
     assert_eq!((cu, cv), (3, 2));
-    assert!(deep.excavate_layer(cu, cv, layer).1 && deep.hit_top_at(1.75, 1.25, layer).is_none() && deep.hit_top_at(1.75, 1.25, layer + 0.5).is_some() && deep.hit_top_at(1.75, 1.25, layer - 0.5).is_some(), "Digging sideways from shaft must excavate only that single block layer");
+    assert!(deep.excavate_layer(cu, cv, layer) && deep.hit_top_at(1.75, 1.25, layer).is_none() && deep.hit_top_at(1.75, 1.25, layer + 0.5).is_some() && deep.hit_top_at(1.75, 1.25, layer - 0.5).is_some(), "Digging sideways from shaft must excavate only that single block layer");
     let (_, _, confined_z) = deep.confine(1.65, 1.25, layer);
     assert!((confined_z - layer).abs() < 0.35, "Lateral niche must keep avatar at niche elevation, got {confined_z}");
     assert!(deep.support_height_at(1.65, 1.25, layer - 1.0, 1.0) > -8.0, "Lateral niche must provide solid floor support");
-    assert!(deep.excavate_layer(1, 0, -2.25).1 && deep.elevation_at(1, 0) == -5 && deep.hit_top_at(0.75, 0.25, -2.25).is_none());
-    assert!(deep.excavate_layer(1, 0, -1.75).1 && deep.hit_top_at(0.75, 0.25, -1.75).is_none(), "Mining next side block at -2.0..-1.5 must open only that layer");
+    assert!(deep.excavate_layer(1, 0, -2.25) && deep.elevation_at(1, 0) == -5 && deep.hit_top_at(0.75, 0.25, -2.25).is_none());
+    assert!(deep.excavate_layer(1, 0, -1.75) && deep.hit_top_at(0.75, 0.25, -1.75).is_none(), "Mining next side block at -2.0..-1.5 must open only that layer");
     for kept in [-1.25, -0.75, -0.25] { assert!(deep.hit_top_at(0.75, 0.25, kept).is_some(), "Block at {kept} above mined side blocks must remain intact"); }
 }
 

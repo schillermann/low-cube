@@ -3,7 +3,6 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::{Duration, Instant};
 use glam::{Quat, Vec3};
 use world::{CompanionPresence, PlanetaryWorld, PresenceKinematics, WorldFact};
-use crate::chronicle_log::DirtySlices;
 use crate::envelope::SanctuaryEnvelope;
 use crate::link_state::{LinkPhase, LinkSync};
 use crate::nat::NatAperture;
@@ -188,13 +187,7 @@ impl RemoteLink {
         }
     }
 
-    pub fn pump(
-        &mut self,
-        dt: f32,
-        world: &mut dyn PlanetaryWorld,
-        predicted: &mut VecDeque<WorldFact>,
-        slices: &DirtySlices,
-    ) -> bool {
+    pub fn pump(&mut self, dt: f32, world: &mut dyn PlanetaryWorld, predicted: &mut VecDeque<WorldFact>) -> bool {
         if !self.connected() {
             let _ = self.step_handshake(dt);
             return false;
@@ -212,7 +205,7 @@ impl RemoteLink {
                 None
             };
             if let Some(env) = decoded {
-                if self.sync.absorb_envelope(env, world, predicted, slices) {
+                if self.sync.absorb_envelope(env, world, predicted) {
                     changed = true;
                 }
             }

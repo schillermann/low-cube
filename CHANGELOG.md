@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.74.0] - 2026-11-15
+
+### Added
+- Added `WardedPlanet` (`crates/sanctuary/src/warded_planet.rs`) and `ChronicledPlanet` / `FactJournal` (`crates/sanctuary/src/chronicled_planet.rs`) `PlanetaryWorld` decorators, replacing procedural `match fact` anti-cheat branching in `SanctuaryHost` and duplicated `WorldFact` synthesis across `HostedPlanet` and `RemotePlanet` with composable runtime delegation.
+- Added `ModifiedSlices` (`crates/world/src/planet/slices.rs`), `PlanetaryWorld::pending_slices`, and `PlanetaryWorld::drain_modified_slice` so concurrent local and remote world mutations across multiple terrain and flora slices queue in a unified bitmask and upload together in `SessionDisplay::refresh_modified_face` (`crates/client/src/session/display.rs`).
+
+### Fixed
+- Fixed simultaneous P2P excavation across `HostedPlanet` and `RemotePlanet` by replacing the global single-cell `DigStageFocus` with per-cell `ExcavationCracks` and self-healing `LayerCrack` leases (`crates/world/src/relief/turf_scars.rs`), broadcasting concurrent per-author `PeerCrack` notices (`crates/sanctuary/src/cohort.rs` and `crates/sanctuary/src/envelope.rs`) without echoing a guest's own stale crack stages back onto itself, eliminating `||` short-circuit starvation of `PlanetaryWorld::step_surface` during active digging in `SessionStage::step_frame` (`crates/client/src/session/stage.rs`), and gating tripod instant-pickup probes on `PlanetaryWorld::placed_camera_tripod` (`crates/client/src/earthworks/reach.rs`).
+
+### Removed
+- Removed legacy single-cell `DigStageFocus`, `ReliefElevation::clear_dig_stage`, `(i32, i32)` previous-cell tuple plumbing across `ReliefElevation` / `TerracedRelief` / `OverhangMolds` / `ShaftExcavation`, half-born `CrackNotice::Quiet`, and duplicated `Cell<u16>` `DirtySlices` (`crates/sanctuary/src/chronicle_log.rs`).
+
 ## [0.73.0] - 2026-11-14
 
 ### Added

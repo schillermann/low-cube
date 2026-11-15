@@ -5,27 +5,60 @@ use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, ExposedStratum,
     GravityField, MeshTarget, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldFact,
 };
-use crate::chronicle_log::DirtySlices;
+use crate::chronicled_planet::{ChronicledPlanet, FactJournal};
 use crate::remote_link::RemoteLink;
 use crate::ticket::JoinTarget;
 
-/// Zero-knowledge P2P client decorator implementing `PlanetaryWorld` over `HollowVeins`.
-pub struct RemotePlanet {
-    world: Box<dyn PlanetaryWorld>,
+/// Optimistic guest petition journal pairing `RemoteLink` with a bounded prediction ring.
+pub struct GuestJournal {
     link: RemoteLink,
     predicted: VecDeque<WorldFact>,
-    slices: DirtySlices,
+}
+
+impl GuestJournal {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(link: RemoteLink, predicted: VecDeque<WorldFact>) -> Self {
+        Self { link, predicted }
+    }
+
+    pub fn connected(&self) -> bool { self.link.connected() }
+    pub fn sync_local_presence(&mut self, presence: CompanionPresence) { self.link.sync_local_presence(presence); }
+    pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.link.companions(out); }
+    pub fn ticket_string(&self) -> Option<String> { self.link.ticket_string() }
+    pub fn phrase_string(&self) -> Option<String> { self.link.phrase_string() }
+
+    pub fn pump(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) -> bool {
+        self.link.pump(dt, world, &mut self.predicted)
+    }
+}
+
+impl FactJournal for GuestJournal {
+    fn inscribe_fact(&mut self, fact: WorldFact) {
+        if fact.durable() {
+            if self.predicted.len() >= 64 {
+                let _ = self.predicted.pop_front();
+            }
+            self.predicted.push_back(fact);
+        }
+        self.link.send_petition(fact);
+    }
+}
+
+/// Zero-knowledge P2P client decorator implementing `PlanetaryWorld` over `HollowVeins` and `ChronicledPlanet`.
+pub struct RemotePlanet {
+    world: Box<dyn PlanetaryWorld>,
+    journal: GuestJournal,
 }
 
 impl RemotePlanet {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(
-        world: Box<dyn PlanetaryWorld>,
-        link: RemoteLink,
-        predicted: VecDeque<WorldFact>,
-        slices: DirtySlices,
-    ) -> Self {
-        Self { world, link, predicted, slices }
+    pub fn with_journal(world: Box<dyn PlanetaryWorld>, journal: GuestJournal) -> Self {
+        Self { world, journal }
+    }
+
+    /// Secondary constructor assembling `RemotePlanet` from an inner world, link, and prediction queue.
+    pub fn new(world: Box<dyn PlanetaryWorld>, link: RemoteLink, predicted: VecDeque<WorldFact>) -> Self {
+        Self::with_journal(world, GuestJournal::new(link, predicted))
     }
 
     pub fn from_link(link: RemoteLink, blocks: u32, tron: bool, bevel_margin: f32) -> Self {
@@ -34,7 +67,7 @@ impl RemotePlanet {
         } else {
             Box::new(BiomedCubeWorld::hollow_beveled(blocks, bevel_margin))
         };
-        Self::new(world, link, VecDeque::new(), DirtySlices::clean())
+        Self::new(world, link, VecDeque::new())
     }
 
     /// Connects to a `SanctuaryHost` via `PortalCode`, `PortalTicket`, or `host:port`.
@@ -71,15 +104,12 @@ impl RemotePlanet {
     }
 
     pub fn connected(&self) -> bool {
-        self.link.connected()
+        self.journal.connected()
     }
 
-    fn record_prediction(&mut self, fact: WorldFact) {
-        if self.predicted.len() >= 64 {
-            let _ = self.predicted.pop_front();
-        }
-        self.predicted.push_back(fact);
-        self.link.send_petition(fact);
+    fn with_chronicled<R>(&mut self, op: impl FnOnce(&mut ChronicledPlanet<'_>) -> R) -> R {
+        let mut decorated = ChronicledPlanet::new(self.world.as_mut(), &mut self.journal);
+        op(&mut decorated)
     }
 }
 
@@ -107,63 +137,35 @@ impl PlanetaryWorld for RemotePlanet {
     }
 
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
-        let medium = self.world.harvest_surface(eye, direction)?;
-        self.record_prediction(WorldFact::Harvested { eye, direction });
-        Some(medium)
+        self.with_chronicled(|w| w.harvest_surface(eye, direction))
     }
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
-        let medium = self.world.loosen_surface(eye, direction, stage)?;
-        self.link.send_petition(WorldFact::Loosened { eye, direction, stage });
-        Some(medium)
+        self.with_chronicled(|w| w.loosen_surface(eye, direction, stage))
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        let out = self.world.strike_timber(eye, direction);
-        if out.struck() {
-            self.record_prediction(WorldFact::TimberStruck { eye, direction });
-        }
-        out
+        self.with_chronicled(|w| w.strike_timber(eye, direction))
     }
 
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        let find = self.world.forage_surface(eye, direction);
-        if find.gathered() {
-            self.record_prediction(WorldFact::Foraged { eye, direction });
-        }
-        find
+        self.with_chronicled(|w| w.forage_surface(eye, direction))
     }
 
     fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
-        let ok = self.world.cast_surface_find(eye, direction, find);
-        if ok {
-            self.record_prediction(WorldFact::LitterCast { eye, direction, find });
-        }
-        ok
+        self.with_chronicled(|w| w.cast_surface_find(eye, direction, find))
     }
 
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        let ok = self.world.place_molded_surface_block(eye, direction, avatar_pos, mold);
-        if ok {
-            self.record_prediction(WorldFact::MoldPlaced { eye, direction, avatar_pos, mold });
-        }
-        ok
+        self.with_chronicled(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold))
     }
 
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
-        let ok = self.world.adjust_rig(eye, direction, delta_steps, rotate_quarter);
-        if ok {
-            self.record_prediction(WorldFact::RigAdjusted { eye, direction, delta_steps, rotate_quarter });
-        }
-        ok
+        self.with_chronicled(|w| w.adjust_rig(eye, direction, delta_steps, rotate_quarter))
     }
 
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        let ok = self.world.lower_rig(eye, direction);
-        if ok {
-            self.record_prediction(WorldFact::RigLowered { eye, direction });
-        }
-        ok
+        self.with_chronicled(|w| w.lower_rig(eye, direction))
     }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
@@ -180,8 +182,8 @@ impl PlanetaryWorld for RemotePlanet {
 
     fn step_surface(&mut self, dt: f32) -> bool {
         let regrown = self.world.step_surface(dt);
-        let net_changed = self.link.pump(dt, self.world.as_mut(), &mut self.predicted, &self.slices);
-        regrown || net_changed || self.slices.pending()
+        let net_changed = self.journal.pump(dt, self.world.as_mut());
+        regrown || net_changed || self.world.pending_slices()
     }
 
     fn lethal_at(&self, position: Vec3) -> bool {
@@ -201,12 +203,15 @@ impl PlanetaryWorld for RemotePlanet {
     }
 
     fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize {
-        if let Some(idx) = self.slices.pop_next() {
-            self.world.emit_face(idx, target);
-            idx
-        } else {
-            self.world.emit_modified_face(target)
-        }
+        self.world.emit_modified_face(target)
+    }
+
+    fn pending_slices(&self) -> bool {
+        self.world.pending_slices()
+    }
+
+    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.world.drain_modified_slice(target)
     }
 
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
@@ -230,22 +235,22 @@ impl PlanetaryWorld for RemotePlanet {
     }
 
     fn sync_presence(&mut self, presence: CompanionPresence) {
-        self.link.sync_local_presence(presence);
+        self.journal.sync_local_presence(presence);
     }
 
     fn active_companions(&self, out: &mut Vec<CompanionPresence>) {
-        self.link.companions(out);
+        self.journal.companions(out);
     }
 
     fn portal_ticket(&self) -> Option<String> {
-        self.link.ticket_string()
+        self.journal.ticket_string()
     }
 
     fn portal_phrase(&self) -> Option<String> {
-        self.link.phrase_string()
+        self.journal.phrase_string()
     }
 
     fn pump_portal(&mut self, dt: f32) -> bool {
-        self.link.pump(dt, self.world.as_mut(), &mut self.predicted, &self.slices) || self.slices.pending()
+        self.journal.pump(dt, self.world.as_mut()) || self.world.pending_slices()
     }
 }

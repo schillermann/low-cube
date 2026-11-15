@@ -113,30 +113,27 @@ impl ReliefElevation for TerracedRelief {
         self.molds.layer_dig_stage_at(u, v, layer_elev)
     }
 
-    fn clear_dig_stage(&mut self) -> ((i32, i32), bool) {
-        self.molds.reset_stage()
-    }
-
-    fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> ((i32, i32), Option<BlockMedium>) {
-        if stage > 0 && (!self.shafts.diggable_at(&self.strata, u, v, layer_elev) && !self.molds.present_at(u, v) || self.molds.car_locked_at(u, v, layer_elev)) {
-            return ((u, v), None);
+    fn mark_dig_layer(&mut self, u: i32, v: i32, layer_elev: f32, stage: u8) -> Option<BlockMedium> {
+        if stage > 0
+            && (!self.shafts.diggable_at(&self.strata, u, v, layer_elev) && !self.molds.present_at(u, v)
+                || self.molds.car_locked_at(u, v, layer_elev))
+        {
+            return None;
         }
         let medium = self.molds.layer_medium_at(&self.strata, &self.shafts, u, v, layer_elev);
         if medium.instant_pickup() {
-            return ((u, v), (stage > 0).then_some(medium));
+            return (stage > 0).then_some(medium);
         }
-        let (prev, changed) = self.molds.record_stage(u, v, layer_elev, stage);
-        (prev, changed.then_some(medium))
+        self.molds.record_stage(u, v, layer_elev, stage).then_some(medium)
     }
 
-    fn harvest_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> ((i32, i32), Option<BlockMedium>) {
+    fn harvest_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
         if self.molds.car_locked_at(u, v, layer_elev) {
-            return ((u, v), None);
+            return None;
         }
-        if let Some((prev_cell, medium)) = self.molds.remove_layer(&self.strata, &self.shafts, u, v, layer_elev) {
-            return (prev_cell, Some(medium));
-        }
-        self.shafts.excavate_layer(&self.strata, &mut self.molds, u, v, layer_elev)
+        self.molds
+            .remove_layer(&self.strata, &self.shafts, u, v, layer_elev)
+            .or_else(|| self.shafts.excavate_layer(&self.strata, &mut self.molds, u, v, layer_elev))
     }
 
     fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>) -> bool {

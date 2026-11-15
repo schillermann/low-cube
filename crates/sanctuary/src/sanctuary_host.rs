@@ -1,8 +1,8 @@
 use std::net::{SocketAddr, UdpSocket};
 use world::{CompanionPresence, ExposedStratum, PlanetaryWorld, WorldFact};
-use crate::chronicle_log::{ChronicleLog, DirtySlices};
-use crate::cohort::{GuestCohort, HostAura, HostIdentity, HostPresence, HostState};
-use crate::envelope::{CrackNotice, SanctuaryEnvelope};
+use crate::chronicle_log::ChronicleLog;
+use crate::chronicled_planet::ChronicledPlanet;
+use crate::cohort::{GuestCohort, HostAura, HostIdentity, HostState};
 use crate::nat::NatAperture;
 use crate::seal::HandshakeIdentity;
 use crate::ticket::PortalTicket;
@@ -71,16 +71,19 @@ impl SanctuaryHost {
     ) -> Self {
         let code = PortalCode::from_endpoint(endpoint, secret);
         let identity = HostIdentity::new(HandshakeIdentity::generate(), blocks_per_edge, tron_mode, endpoint);
-        let aura = HostAura::new(HostPresence::Headless, CrackNotice::Quiet);
-        let state = HostState::new(ChronicleLog::empty(), GuestCohort::empty(), aura, WormholeGate::with_code(code));
+        let state = HostState::new(
+            ChronicleLog::empty(),
+            GuestCohort::empty(),
+            HostAura::headless(),
+            WormholeGate::with_code(code),
+        );
         Self::new(socket, world, identity, state)
     }
 
     pub fn world(&self) -> &dyn PlanetaryWorld { self.world.as_ref() }
     pub fn world_mut(&mut self) -> &mut dyn PlanetaryWorld { self.world.as_mut() }
-    pub fn slices(&self) -> &DirtySlices { self.state.chronicle.slices() }
     pub fn local_addr(&self) -> std::io::Result<SocketAddr> { self.socket.local_addr() }
-    pub const fn code(&self) -> PortalCode { self.state.wormhole.code() }
+    pub const fn code(&self) -> PortalCode { self.state.code() }
 
     pub fn ticket(&self) -> PortalTicket {
         PortalTicket::new(self.identity.keys().public_bytes(), self.identity.endpoint())
@@ -88,37 +91,42 @@ impl SanctuaryHost {
 
     /// Punches an outbound UDP hole through the host's FRITZ!Box / NAT router toward `peer`.
     pub fn punch_nat_peer(&mut self, peer: SocketAddr) {
-        self.state.wormhole.punch_peer(&self.socket, peer);
+        self.state.punch_peer(&self.socket, peer);
     }
 
     pub fn sync_host_presence(&mut self, presence: CompanionPresence) {
-        self.state.aura.presence = HostPresence::Occupied(presence.with_slot(1));
+        self.state.occupy_host(presence);
     }
 
     pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) {
-        self.state.cohort.guest_companions(out);
+        self.state.guest_companions(out);
     }
 
     pub fn flush_disclosures(&mut self) {
         let mut revealed: Vec<(u8, ExposedStratum)> = Vec::new();
         self.world.drain_disclosures(&mut revealed);
-        let faces = self.world.face_count();
         for (face, stratum) in revealed {
-            self.state.chronicle.record(WorldFact::StratumDisclosed { face, stratum }, faces);
+            self.state.record_disclosure(face, stratum);
         }
     }
 
+    /// Executes an authoritative local host action through the `ChronicledPlanet` decorator and flushes newly exposed ores.
+    pub fn with_chronicled<R>(&mut self, op: impl FnOnce(&mut ChronicledPlanet<'_>) -> R) -> R {
+        let out = {
+            let mut decorated = ChronicledPlanet::new(self.world.as_mut(), &mut self.state);
+            op(&mut decorated)
+        };
+        self.flush_disclosures();
+        out
+    }
+
     pub fn record_local_fact(&mut self, fact: WorldFact) {
-        let faces = self.world.face_count();
-        if let WorldFact::Loosened { eye, direction, stage } = fact {
-            self.state.aura.crack = CrackNotice::Active { eye, direction, stage };
-        }
-        self.state.chronicle.record(fact, faces);
+        self.state.record_authored_fact(1, fact);
         self.flush_disclosures();
     }
 
     fn answer_knock(&mut self, peer: SocketAddr, guest_pub: [u8; 32]) {
-        let cid = self.state.cohort.admit_guest(&self.identity, self.world.as_ref(), peer, guest_pub);
+        let cid = self.state.admit_guest(&self.identity, self.world.as_ref(), peer, guest_pub);
         let mut reply = Vec::with_capacity(45);
         reply.extend_from_slice(b"LWEL");
         reply.extend_from_slice(&self.identity.keys().public_bytes());
@@ -128,90 +136,10 @@ impl SanctuaryHost {
         let _ = self.socket.send_to(&reply, peer);
     }
 
-    fn apply_guest_petition(&mut self, cid: u32, fact: WorldFact) -> bool {
-        let Some(ward) = self.state.cohort.ward_mut(cid) else { return false };
-        match fact {
-            WorldFact::Loosened { eye, direction, stage } => {
-                if !ward.eye_within_reach(eye, direction) { return false; }
-                if self.world.loosen_surface(eye, direction, stage.min(4)).is_some() {
-                    self.state.aura.crack = CrackNotice::Active { eye, direction, stage: stage.min(4) };
-                    self.state.chronicle.record(fact, self.world.face_count());
-                    return true;
-                }
-                false
-            }
-            WorldFact::Harvested { eye, direction } => {
-                if !ward.eye_within_reach(eye, direction) || !ward.consume_harvest_token() { return false; }
-                if self.world.harvest_surface(eye, direction).is_some() {
-                    ward.credit_blocks(1);
-                    self.record_local_fact(fact);
-                    return true;
-                }
-                false
-            }
-            WorldFact::MoldPlaced { eye, direction, avatar_pos, mold } => {
-                if !ward.eye_within_reach(eye, direction) || !ward.spend_block() { return false; }
-                if self.world.place_molded_surface_block(eye, direction, avatar_pos, mold) {
-                    self.record_local_fact(fact);
-                    return true;
-                }
-                ward.credit_blocks(1);
-                false
-            }
-            WorldFact::TimberStruck { eye, direction } => {
-                if !ward.eye_within_reach(eye, direction) { return false; }
-                let outcome = self.world.strike_timber(eye, direction);
-                if outcome.struck() {
-                    if outcome.felled() { ward.credit_blocks(8); }
-                    self.record_local_fact(fact);
-                    return true;
-                }
-                false
-            }
-            WorldFact::Foraged { eye, direction } => {
-                if !ward.eye_within_reach(eye, direction) { return false; }
-                if self.world.forage_surface(eye, direction).gathered() {
-                    ward.credit_blocks(4);
-                    self.record_local_fact(fact);
-                    return true;
-                }
-                false
-            }
-            WorldFact::RigAdjusted { eye, direction, delta_steps, rotate_quarter } => {
-                if !ward.eye_within_reach(eye, direction) { return false; }
-                if self.world.adjust_rig(eye, direction, delta_steps.clamp(-1, 1), rotate_quarter) {
-                    self.record_local_fact(fact);
-                    return true;
-                }
-                false
-            }
-            WorldFact::RigLowered { eye, direction } => {
-                if !ward.eye_within_reach(eye, direction) { return false; }
-                if self.world.lower_rig(eye, direction) {
-                    self.record_local_fact(fact);
-                    return true;
-                }
-                false
-            }
-            WorldFact::LitterCast { eye, direction, find } => {
-                if !find.gathered() || !ward.eye_within_reach(eye, direction) || !ward.spend_block() {
-                    return false;
-                }
-                if self.world.cast_surface_find(eye, direction, find) {
-                    self.record_local_fact(fact);
-                    return true;
-                }
-                ward.credit_blocks(1);
-                false
-            }
-            WorldFact::StratumDisclosed { .. } => false,
-        }
-    }
-
     fn process_datagram(&mut self, src: SocketAddr, pkt: &[u8]) -> bool {
         if pkt.len() == 37 && &pkt[0..4] == b"LPK1" {
             let ticket = self.ticket();
-            self.state.wormhole.answer_hello(&self.socket, src, pkt, ticket);
+            self.state.answer_wormhole(&self.socket, src, pkt, ticket);
             return false;
         }
         if pkt.len() >= 36 && &pkt[0..4] == b"LKNK" {
@@ -225,25 +153,16 @@ impl SanctuaryHost {
         }
         let Ok(cid_bytes) = pkt[2..6].try_into() else { return false };
         let cid = u32::from_le_bytes(cid_bytes);
-        let Some(body) = self.state.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else {
-            return false;
-        };
-        match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence }) => {
-                if let Some(ward) = self.state.cohort.ward_mut(cid) {
-                    ward.absorb_pulse(cid, ack_seq, presence, self.world.as_ref());
-                }
-                false
-            }
-            Some(SanctuaryEnvelope::GuestPetition { fact }) => self.apply_guest_petition(cid, fact),
-            _ => false,
+        let mutated = self.state.process_companion_datagram(cid, src, pkt, self.world.as_mut());
+        if mutated {
+            self.flush_disclosures();
         }
+        mutated
     }
 
     /// Advances P2P UDP sockets, NAT hole-punch pulses, and guest wards (`true` if geometry changed).
     pub fn pump_network(&mut self, dt: f32) -> bool {
-        self.state.wormhole.step(&self.socket, dt);
-        let pulse_ready = self.state.cohort.advance_wards(dt);
+        let pulse_ready = self.state.step_clocks(&self.socket, dt);
         let mut mutated = false;
         let mut buf = [0u8; 1500];
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
@@ -252,9 +171,7 @@ impl SanctuaryHost {
             }
         }
         if pulse_ready {
-            let crack = self.state.aura.crack;
-            self.state.aura.crack = CrackNotice::Quiet;
-            self.state.cohort.broadcast(&self.socket, &self.state.chronicle, self.state.aura.presence, crack);
+            self.state.broadcast(&self.socket);
         }
         mutated
     }

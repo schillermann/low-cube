@@ -57,6 +57,15 @@ impl DebrisSplash {
         }
     }
 
+    pub fn clear_aim(self, eye: Vec3, fallback_dir: Vec3) -> Vec3 {
+        let aimed = (self.site - eye).normalize_or_zero();
+        if aimed.length_squared() > 0.25 {
+            aimed
+        } else {
+            fallback_dir
+        }
+    }
+
     pub fn emit(self, view_dir: Vec3, surface_up: Vec3, rhythm: StrideRhythm, target: &mut dyn MeshTarget) {
         let t = rhythm.strike_progress();
         if !self.active || t <= 0.01 {
@@ -182,11 +191,13 @@ impl DigOperation {
     }
 
     pub fn clear_cracks(self, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.dig_progress > 0 {
-            world.loosen_surface(eye, view_dir, 0).is_some()
-        } else {
-            false
+        if self.dig_progress == 0 {
+            return false;
         }
+        if world.loosen_surface(eye, view_dir, 0).is_some() {
+            return true;
+        }
+        world.loosen_surface(eye, self.splash.clear_aim(eye, view_dir), 0).is_some()
     }
 
     pub fn resolve_site(self, eye: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> Vec3 {

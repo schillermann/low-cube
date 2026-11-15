@@ -100,7 +100,7 @@ impl SurfaceReach {
         }
         let (right, left) = attire.held_pair();
         let (active, other) = if side > 0.0 { (right, left) } else { (left, right) };
-        if dig.untouched() && !dig.grip().any_held() {
+        if dig.untouched() && !dig.grip().any_held() && world.placed_camera_tripod().is_some() {
             if let Some(med) = world.loosen_surface(self.eye, self.view_dir, 1) {
                 if med.instant_pickup() && world.harvest_surface(self.eye, self.view_dir) == Some(med) {
                     let (ns, na) = reconciled.collect_excavated_block(side, HeldRelic::from_medium(med), attire);

@@ -1,3 +1,4 @@
+mod simultaneous;
 mod wormhole;
 
 use std::net::UdpSocket;
@@ -94,13 +95,11 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
         Box::new(build_ore_test_planet(false)),
         crate::RemoteLink::bind(JoinTarget::Direct(addr)).expect("link"),
         std::collections::VecDeque::new(),
-        crate::DirtySlices::clean(),
     );
     let mut observer = RemotePlanet::new(
         Box::new(build_ore_test_planet(false)),
         crate::RemoteLink::bind(JoinTarget::Direct(addr)).expect("link2"),
         std::collections::VecDeque::new(),
-        crate::DirtySlices::clean(),
     );
     pump_pair(&mut host, &mut guest, &mut observer, 6);
 

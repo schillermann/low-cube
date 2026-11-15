@@ -130,6 +130,12 @@ pub trait PlanetaryWorld: GravityField {
         self.emit_surface(target);
         0
     }
+    fn pending_slices(&self) -> bool {
+        false
+    }
+    fn drain_modified_slice(&mut self, _target: &mut dyn MeshTarget) -> Option<usize> {
+        None
+    }
     fn emit_meadow_around(&self, _center: Vec3, _view_dir: Vec3, _target: &mut dyn MeshTarget) {}
     fn arboreal_perch_near(&self, _center: Vec3, _selector: usize) -> Option<Vec3> { None }
     fn visible_slice_mask(&self, _position: Vec3) -> u32 { u32::MAX }

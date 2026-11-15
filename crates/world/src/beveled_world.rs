@@ -148,6 +148,14 @@ impl PlanetaryWorld for BeveledWorld {
         self.world.emit_modified_face(target)
     }
 
+    fn pending_slices(&self) -> bool {
+        self.world.pending_slices()
+    }
+
+    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.world.drain_modified_slice(target)
+    }
+
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
         self.world.emit_meadow_around(center, view_dir, target);
     }

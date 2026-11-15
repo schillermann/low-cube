@@ -1,8 +1,7 @@
 use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use world::{CompanionPresence, PlanetaryWorld, WorldFact};
-use crate::chronicle_log::DirtySlices;
-use crate::envelope::{CrackNotice, SanctuaryEnvelope};
+use crate::envelope::SanctuaryEnvelope;
 use crate::seal::{HandshakeIdentity, SessionSeal};
 use crate::ticket::{JoinTarget, PortalTicket};
 use crate::wormhole::{PunchCode, WormholePledge};
@@ -110,9 +109,7 @@ impl LinkSync {
         env: SanctuaryEnvelope,
         world: &mut dyn PlanetaryWorld,
         predicted: &mut VecDeque<WorldFact>,
-        slices: &DirtySlices,
     ) -> bool {
-        let faces = world.face_count();
         match env {
             SanctuaryEnvelope::HostChronicle { base_seq, facts } => {
                 if base_seq > self.ack_seq {
@@ -125,21 +122,20 @@ impl LinkSync {
                     if let Some(pos) = predicted.iter().position(|p| *p == fact) {
                         let _ = predicted.remove(pos);
                     } else if fact.enact_on(world) {
-                        slices.mark_fact(&fact, faces);
                         changed = true;
                     }
                 }
                 changed
             }
-            SanctuaryEnvelope::HostPulse { crack, companions, .. } => {
+            SanctuaryEnvelope::HostPulse { cracks, companions, .. } => {
                 self.companions = companions;
-                if let CrackNotice::Active { eye, direction, stage } = crack {
-                    if world.loosen_surface(eye, direction, stage).is_some() {
-                        slices.mark_fact(&WorldFact::Loosened { eye, direction, stage }, faces);
-                        return true;
+                let mut changed = false;
+                for crack in cracks {
+                    if crack.enact_on(world) {
+                        changed = true;
                     }
                 }
-                false
+                changed
             }
             _ => false,
         }

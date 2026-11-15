@@ -92,18 +92,17 @@ fn test_full_cube_adjacent_to_ridge_corner_seals_wall() {
 
 #[test]
 fn test_lateral_ridge_corner_attachment_at_highest_pillar_block_without_ground_contact() {
-    use crate::block::{BlockMold, CardinalTurn, MoldArchetype};
+    use crate::block::{BlockMold, CardinalTurn, CuboidShape, MoldArchetype};
     use crate::Face;
     use super::FacetedReliefFace;
 
     let mut face = FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32);
     let avatar_pos = Vec3::new(0.25, 8.0, 0.25);
     let eye = Vec3::new(0.25, 8.92, 0.25);
-    let aim_pillar = Vec3::new(0.0, -0.75, -0.75).normalize();
 
     // Stack 4 full cubes on top of each other at cell (0, -2) -> height 2.0m
-    for _ in 0..4 {
-        assert!(face.place_molded_block(eye, aim_pillar, avatar_pos, BlockMold::cube()));
+    for step in 0..4 {
+        face = face.with_molded_block(0, -2, (step as f32) * 0.5, Box::new(CuboidShape::new(0.5)));
     }
     let pillar_top = face.constrain(Vec3::new(0.25, 12.0, -0.75), 0.0).y - 8.0;
     assert!((pillar_top - 2.0).abs() < 1e-4, "Four stacked blocks must reach 2.0m");
@@ -171,7 +170,7 @@ fn test_ridge_corner_stacked_on_ridge_corner_preserves_lower_block() {
     assert!(terraced.stack_molded_cell(2, 2, 0.0, Box::new(CuboidShape::new(0.5))));
     assert!(terraced.stack_molded_cell(2, 2, 0.5, Box::new(CuboidShape::new(0.5))));
     assert!(terraced.stack_molded_cell(2, 2, 1.0, Box::new(CuboidShape::new(0.5))));
-    assert!(terraced.excavate_layer(2, 2, 0.75).1, "Excavating the penultimate block at 0.5..1.0 must succeed");
+    assert!(terraced.excavate_layer(2, 2, 0.75), "Excavating the penultimate block at 0.5..1.0 must succeed");
     assert!((terraced.surface_height_at(1.25, 1.25) - 1.5).abs() < 1e-4, "Topmost block at 1.0..1.5 must remain after excavating penultimate block");
     assert_eq!(terraced.hit_top_at(1.25, 1.25, 0.75), None, "Excavated penultimate block slot 0.5..1.0 must now be empty air");
     assert_eq!(terraced.hit_top_at(1.25, 1.25, 1.25), Some(1.5), "Topmost block at 1.0..1.5 must still be hit by sight rays");
@@ -179,13 +178,15 @@ fn test_ridge_corner_stacked_on_ridge_corner_preserves_lower_block() {
 
 #[test]
 fn test_underside_block_attachment_and_doorframe_lintel_passage() {
-    use crate::block::BlockMold;
+    use crate::block::{BlockMold, CuboidShape};
     use crate::Face;
     use super::FacetedReliefFace;
 
     let mut face = FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32);
     let (avatar_pos, eye) = (Vec3::new(0.25, 8.0, 0.25), Vec3::new(0.25, 8.92, 0.25));
-    for _ in 0..5 { assert!(face.place_molded_block(eye, Vec3::new(0.0, -0.75, -0.75).normalize(), avatar_pos, BlockMold::cube())); }
+    for step in 0..5 {
+        face = face.with_molded_block(0, -2, (step as f32) * 0.5, Box::new(CuboidShape::new(0.5)));
+    }
     assert!(face.place_molded_block(eye, Vec3::new(0.0, 1.85, -1.0).normalize(), avatar_pos, BlockMold::cube()));
     let under_pos = Vec3::new(0.25, 8.0, -0.25);
     assert!((face.constrain(Vec3::new(0.25, 9.0, -0.25), 1.0).y - 9.0).abs() < 1e-4, "Avatar must walk freely under lintel at 5th block height (2.0m clearance)");

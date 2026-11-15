@@ -1,33 +1,32 @@
+mod slices;
+
 use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CleaveOutcome, ExposedStratum, Face, GravityField, MeshTarget,
     PlanetaryWorld, SurfaceFind, VehicleAssembly,
 };
+pub use self::slices::ModifiedSlices;
 
-/// A cubic planetary world composed of polymorphic Face instances with Dependency Injection.
+/// Cubic planetary world composed of polymorphic `Face` instances and encapsulated modified-slice bitmask.
 pub struct CubePlanet {
     faces: Vec<Box<dyn Face>>,
     fallback: Box<dyn Face>,
-    modified_face: usize,
+    slices: ModifiedSlices,
 }
 
 impl CubePlanet {
-    /// Primary constructor: code-free, assigns fields directly.
-    pub fn with_modified(
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_slices(
         faces: Vec<Box<dyn Face>>,
         fallback: Box<dyn Face>,
-        modified_face: usize,
+        slices: ModifiedSlices,
     ) -> Self {
-        Self {
-            faces,
-            fallback,
-            modified_face,
-        }
+        Self { faces, fallback, slices }
     }
 
-    /// Secondary constructor initializing with first face index.
+    /// Secondary constructor initializing with clean slice bitmask.
     pub fn new(faces: Vec<Box<dyn Face>>, fallback: Box<dyn Face>) -> Self {
-        Self::with_modified(faces, fallback, 0)
+        Self::with_slices(faces, fallback, ModifiedSlices::clean())
     }
 
     fn matching_index(&self, position: Vec3) -> usize {
@@ -66,7 +65,7 @@ impl CubePlanet {
         for idx in [primary, secondary] {
             if let Some(face) = self.faces.get_mut(idx) {
                 if let Some(out) = op(face.as_mut()) {
-                    self.modified_face = if flora_offset { len + idx } else { idx };
+                    self.slices.record(if flora_offset { len + idx } else { idx });
                     return Some(out);
                 }
             }
@@ -108,23 +107,7 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        if let Some(face) = self.faces.get_mut(primary) {
-            if let Some(medium) = face.loosen(eye, direction, stage) {
-                self.modified_face = primary;
-                return Some(medium);
-            }
-        }
-        let alt = if stage == 0 && self.modified_face < self.faces.len() { self.modified_face } else { secondary };
-        if alt != primary {
-            if let Some(face) = self.faces.get_mut(alt) {
-                if let Some(medium) = face.loosen(eye, direction, stage) {
-                    self.modified_face = alt;
-                    return Some(medium);
-                }
-            }
-        }
-        None
+        self.try_aimed_faces(eye, direction, false, |f| f.loosen(eye, direction, stage))
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
@@ -148,10 +131,12 @@ impl PlanetaryWorld for CubePlanet {
         let (primary, secondary) = self.aimed_indices(eye, direction);
         let order = if secondary != primary { [secondary, primary] } else { [primary, primary] };
         for (step, idx) in order.into_iter().enumerate() {
-            if step == 1 && secondary == primary { break; }
+            if step == 1 && secondary == primary {
+                break;
+            }
             if let Some(face) = self.faces.get_mut(idx) {
                 if face.cast_litter(eye, direction, find) {
-                    self.modified_face = len + idx;
+                    self.slices.record(len + idx);
                     return true;
                 }
             }
@@ -185,7 +170,7 @@ impl PlanetaryWorld for CubePlanet {
         let idx = self.matching_index(assembly.origin());
         if let Some(face) = self.faces.get_mut(idx) {
             if face.park_vehicle(assembly) {
-                self.modified_face = idx;
+                self.slices.record(idx);
                 return true;
             }
         }
@@ -201,10 +186,11 @@ impl PlanetaryWorld for CubePlanet {
         let mut regrown = false;
         for (idx, face) in self.faces.iter_mut().enumerate() {
             if face.step_surface(dt) {
-                self.modified_face = idx;
+                self.slices.record(idx);
                 regrown = true;
-            } else if !regrown && face.step_flora(dt) {
-                self.modified_face = len + idx;
+            }
+            if face.step_flora(dt) {
+                self.slices.record(len + idx);
                 regrown = true;
             }
         }
@@ -235,8 +221,19 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize {
-        self.emit_face(self.modified_face, target);
-        self.modified_face
+        let idx = self.slices.latest();
+        self.emit_face(idx, target);
+        idx
+    }
+
+    fn pending_slices(&self) -> bool {
+        self.slices.pending()
+    }
+
+    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> {
+        let idx = self.slices.pop_next()?;
+        self.emit_face(idx, target);
+        Some(idx)
     }
 
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
@@ -266,7 +263,7 @@ impl PlanetaryWorld for CubePlanet {
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
         if let Some(face) = self.faces.get_mut(face_index) {
             face.accept_disclosure(stratum);
-            self.modified_face = face_index;
+            self.slices.record(face_index);
         }
     }
 

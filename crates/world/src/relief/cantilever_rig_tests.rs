@@ -49,18 +49,18 @@ fn test_cantilever_rig_mounts_any_initial_block_hoists_rotates_and_packs_up() {
     let mut s0_count = CountedMeshTarget::new(&mut s0);
     ReliefStrata::new().emit_cell(GridCell::new(2, 1), &frame, &relief, &palette, 64, &mut s0_count);
     for stage in 1..=3 {
-        assert_eq!(relief.mark_dig_layer(2, 1, 1.75, stage).1, Some(BlockMedium::CarWheel));
+        assert_eq!(relief.mark_dig_layer(2, 1, 1.75, stage), Some(BlockMedium::CarWheel));
         let mut sd = NullTarget;
         let mut sd_count = CountedMeshTarget::new(&mut sd);
         ReliefStrata::new().emit_cell(GridCell::new(2, 1), &frame, &relief, &palette, 64, &mut sd_count);
         assert_eq!(sd_count.count(), s0_count.count());
     }
-    assert_eq!(relief.harvest_layer(2, 1, 1.75).1, Some(BlockMedium::CarWheel));
+    assert_eq!(relief.harvest_layer(2, 1, 1.75), Some(BlockMedium::CarWheel));
     assert!(!relief.layer_occupied_at(2, 1, 1.75));
     assert!(relief.adjust_rig_at(0, 0, 1, false).0);
     assert!(relief.layer_occupied_at(1, 0, 2.25) && relief.layer_occupied_at(2, 0, 2.25));
     assert!(relief.adjust_rig_at(2, 0, 0, true).0);
-    assert_eq!(relief.harvest_layer(0, 0, 0.25).1, Some(BlockMedium::CantileverRig));
+    assert_eq!(relief.harvest_layer(0, 0, 0.25), Some(BlockMedium::CantileverRig));
     assert!(!relief.layer_occupied_at(1, 0, 0.25));
     assert!(relief.layer_occupied_at(1, 1, 0.25));
 }
@@ -103,7 +103,7 @@ fn test_decorative_wheels_seat_and_helm_on_world_cube_house_remain_static_world(
     let ray = SurfaceSightRay::new(frame.point_at(2.75, 2.25, 1.5), frame.bitangent());
     assert!(house.board_vehicle_at(&frame, 5, 4, 0.25, ray, false).is_some(), "House seat must still allow sitting");
     assert!(house.board_vehicle_at(&frame, 5, 5, 0.25, ray, true).is_none(), "World-Cube house with decorative wheels must never become a car");
-    assert_eq!(house.harvest_layer(4, 5, 0.25).1, Some(BlockMedium::CarWheel), "Decorative wheel on house must remain freely removable");
+    assert_eq!(house.harvest_layer(4, 5, 0.25), Some(BlockMedium::CarWheel), "Decorative wheel on house must remain freely removable");
 
     let mut cam_relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
     for h in [0.0, 0.5, 1.0] {
@@ -177,13 +177,13 @@ fn test_crane_arm_advances_to_remaining_dirt_block_and_pedestal_fills_ground_cel
     let reach_at_one = max_arm_u(&relief);
     assert!(reach_at_one < reach_at_two - 0.4, "Placing a block in the claw slot must retract the crane arm by 1 block");
 
-    assert_eq!(relief.harvest_layer(1, 0, 1.75).1, Some(BlockMedium::TurfEarth));
+    assert_eq!(relief.harvest_layer(1, 0, 1.75), Some(BlockMedium::TurfEarth));
     assert!(!relief.layer_occupied_at(1, 0, 1.75) && relief.layer_occupied_at(2, 0, 1.75));
     assert!((max_arm_u(&relief) - reach_at_two).abs() < 1e-4, "Removing the block at the crane must advance the arm 1 block forward to (2,0)");
 
     assert!(relief.stack_molded_cell(3, 0, 1.5, Box::new(CuboidShape::new(0.5))));
     assert!(relief.layer_occupied_at(3, 0, 1.75));
-    assert_eq!(relief.harvest_layer(2, 0, 1.75).1, Some(BlockMedium::TurfEarth));
+    assert_eq!(relief.harvest_layer(2, 0, 1.75), Some(BlockMedium::TurfEarth));
     assert!(!relief.layer_occupied_at(2, 0, 1.75) && relief.layer_occupied_at(3, 0, 1.75));
     assert!((max_arm_u(&relief) - (reach_at_two + 0.5)).abs() < 1e-4, "Removing the first block at (2,0) must advance the arm 1 block forward to (3,0)");
 }
@@ -234,7 +234,7 @@ fn test_dirt_blocks_on_crane_and_parked_car_stay_bare_without_grass_blades() {
     assert!(!elevated_grass(&relief, 8, 8), "Placed dirt block on ground must start bare without grass");
     assert!(!relief.step_grass(120.0).is_empty() && !relief.bare_dirt_at(8, 8));
     assert!(elevated_grass(&relief, 8, 8), "Ground-connected dirt block regrows grass after neighbor contact");
-    assert_eq!(relief.harvest_layer(8, 8, 0.25).1, Some(BlockMedium::TurfEarth));
+    assert_eq!(relief.harvest_layer(8, 8, 0.25), Some(BlockMedium::TurfEarth));
     assert!(relief.stack_molded_cell(8, 8, 0.0, Box::new(CuboidShape::new(0.5))) && relief.bare_dirt_at(8, 8));
     assert!(!elevated_grass(&relief, 8, 8), "Harvested grass block must be placed bare without grass again");
 }
@@ -248,12 +248,12 @@ fn test_dismantled_crane_adopts_bare_dirt_and_smothered_meadow_renders_loam() {
     let rig_shape = Box::new(MediumShape::new(Box::new(CuboidShape::new(0.5)), BlockMedium::CantileverRig, true, false));
     assert!(relief.stack_molded_cell(0, 0, 0.0, rig_shape));
     assert!(relief.stack_molded_cell(0, 0, 0.0, Box::new(CuboidShape::new(0.5))));
-    assert_eq!(relief.harvest_layer(0, 0, 0.25).1, Some(BlockMedium::CantileverRig));
+    assert_eq!(relief.harvest_layer(0, 0, 0.25), Some(BlockMedium::CantileverRig));
     assert!(relief.bare_dirt_at(2, 0) && relief.ground_bare_at(2, 0), "Dismantled crane block must land bare and smother ground below");
     assert!(!relief.step_grass(120.0).is_empty() && !relief.bare_dirt_at(2, 0), "Dismantled dirt block on ground must regrow grass");
     assert!(relief.ground_bare_at(2, 0), "Ground beneath verdant block must stay bare");
 
-    assert_eq!(relief.harvest_layer(2, 0, 0.25).1, Some(BlockMedium::TurfEarth));
+    assert_eq!(relief.harvest_layer(2, 0, 0.25), Some(BlockMedium::TurfEarth));
     let mut col = QuadCollector { quads: Vec::new() };
     ReliefStrata::new().emit_cell(GridCell::new(2, 0), &frame, &relief, &palette, 64, &mut col);
     assert!(!col.quads.iter().any(|q| q.radiate(|g| g > 0.01)), "Vacated smothered meadow must render bare loam without grass glow");

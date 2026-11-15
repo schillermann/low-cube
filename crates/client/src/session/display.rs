@@ -127,16 +127,34 @@ impl SessionDisplay {
     }
 
     pub(super) fn refresh_modified_face(&mut self, world: &mut dyn PlanetaryWorld) {
-        if self.tron_active {
-            let mut tron_buf = CpuTronBatch::empty();
-            let idx = world.emit_modified_face(&mut tron_buf);
-            let next = self.surface.replace_tron_mesh(self.tron.mesh.slice_at(idx), &tron_buf);
-            self.tron.mesh.store_slice(idx, next);
-        } else {
-            let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
-            let idx = world.emit_modified_face(&mut cpu_buf);
-            let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
-            self.primary.mesh.store_slice(idx, next);
+        if !world.pending_slices() {
+            if self.tron_active {
+                let mut tron_buf = CpuTronBatch::empty();
+                let idx = world.emit_modified_face(&mut tron_buf);
+                let next = self.surface.replace_tron_mesh(self.tron.mesh.slice_at(idx), &tron_buf);
+                self.tron.mesh.store_slice(idx, next);
+            } else {
+                let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
+                let idx = world.emit_modified_face(&mut cpu_buf);
+                let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
+                self.primary.mesh.store_slice(idx, next);
+            }
+            return;
+        }
+        while world.pending_slices() {
+            if self.tron_active {
+                let mut tron_buf = CpuTronBatch::empty();
+                if let Some(idx) = world.drain_modified_slice(&mut tron_buf) {
+                    let next = self.surface.replace_tron_mesh(self.tron.mesh.slice_at(idx), &tron_buf);
+                    self.tron.mesh.store_slice(idx, next);
+                }
+            } else {
+                let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
+                if let Some(idx) = world.drain_modified_slice(&mut cpu_buf) {
+                    let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
+                    self.primary.mesh.store_slice(idx, next);
+                }
+            }
         }
     }
 

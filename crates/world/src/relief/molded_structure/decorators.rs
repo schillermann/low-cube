@@ -86,12 +86,13 @@ impl WorldBlocks {
         self.grid.confine_niche(u, v, ground_h, elev)
     }
 
-    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32, ground_top: f32, scars: &mut TurfScars) -> Option<((i32, i32), BlockMedium)> {
+    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32, ground_top: f32, scars: &mut TurfScars) -> Option<BlockMedium> {
         let (removed, column_vacated) = self.grid.remove_at(u, v, layer_elev)?;
         if column_vacated && removed.smothers_turf_below(ground_top) {
             scars.expose_dirt(u, v);
         }
-        Some((scars.clear_stage(u, v), removed.block_medium()))
+        scars.clear_stage(u, v);
+        Some(removed.block_medium())
     }
 
     pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32, ground_verdant: bool) {
