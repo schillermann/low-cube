@@ -68,6 +68,11 @@ impl SourceFileAudit {
                     "Receiver",
                     "Bootstrapper",
                     "Player",
+                    "Chronometer",
+                    "Timer",
+                    "Scheduler",
+                    "Accumulator",
+                    "Interpolator",
                 ] {
                     assert!(
                         !ident.ends_with(suffix),

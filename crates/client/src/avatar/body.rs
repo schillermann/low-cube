@@ -8,12 +8,13 @@ use crate::flight::GravitationalFlight;
 use crate::order::LocomotionOrder;
 use crate::posture::AvatarPosture;
 use super::sight::AvatarSight;
+use super::span::BodySpan;
 
 const EYE_SUPPORT_HEIGHT: f32 = 1.0;
 
-/// Encapsulated physical avatar body state: world position, gravitational flight, posture, and pilot state.
+/// Encapsulated physical avatar body state: interpolated position span, gravitational flight, posture, and pilot state.
 pub struct AvatarBody {
-    position: Vec3,
+    span: BodySpan,
     flight: Box<dyn GravitationalFlight>,
     posture: AvatarPosture,
     pilot: VehiclePilot,
@@ -21,16 +22,32 @@ pub struct AvatarBody {
 
 impl AvatarBody {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn with_pilot(position: Vec3, flight: Box<dyn GravitationalFlight>, posture: AvatarPosture, pilot: VehiclePilot) -> Self {
-        Self { position, flight, posture, pilot }
+    pub fn with_pilot(span: BodySpan, flight: Box<dyn GravitationalFlight>, posture: AvatarPosture, pilot: VehiclePilot) -> Self {
+        Self { span, flight, posture, pilot }
     }
 
     pub fn new(position: Vec3, flight: Box<dyn GravitationalFlight>, posture: AvatarPosture) -> Self {
-        Self::with_pilot(position, flight, posture, VehiclePilot::Pedestrian)
+        Self::with_pilot(BodySpan::anchored(position), flight, posture, VehiclePilot::Pedestrian)
     }
 
     pub const fn position(&self) -> Vec3 {
-        self.position
+        self.span.current()
+    }
+
+    pub fn visual_position(&self) -> Vec3 {
+        if self.pilot.standing() {
+            self.span.visual()
+        } else {
+            self.span.current()
+        }
+    }
+
+    pub fn blend_subtick(&mut self, alpha: f32) {
+        self.span = self.span.blended(alpha);
+    }
+
+    pub fn settle_span(&mut self) {
+        self.span = self.span.settled();
     }
 
     pub const fn posture(&self) -> AvatarPosture {
@@ -58,15 +75,16 @@ impl AvatarBody {
     }
 
     pub fn relocate(&mut self, next_pos: Vec3) {
-        self.position = next_pos;
+        self.span = self.span.advanced(next_pos);
     }
 
     pub fn gore(&mut self, impulse: Vec3, world: &dyn PlanetaryWorld) {
         if self.perished() || self.driving() {
             return;
         }
-        let up = world.surface_up_at(self.position);
-        self.position = world.constrain_to_surface(self.position + impulse + up * 0.35, EYE_SUPPORT_HEIGHT);
+        let pos = self.span.current();
+        let up = world.surface_up_at(pos);
+        self.span = BodySpan::anchored(world.constrain_to_surface(pos + impulse + up * 0.35, EYE_SUPPORT_HEIGHT));
         self.posture = self.posture.gore(0.36);
         if !self.perished() {
             use acoustics::{AcousticWave, CardiacPulse};
@@ -87,7 +105,7 @@ impl AvatarBody {
             .into_iter()
             .map(|(x, z)| world.constrain_to_surface(Vec3::new(x, 1024.0, z), 1.0))
             .fold(world.constrain_to_surface(Vec3::new(0.25, 1024.0, 0.25), 1.0), |acc, c| if c.y > acc.y + 1.5 { c } else { acc });
-        self.position = spawn;
+        self.span = BodySpan::anchored(spawn);
         self.posture = AvatarPosture::standing();
         self.pilot = VehiclePilot::Pedestrian;
         self.flight.ground();
@@ -98,7 +116,7 @@ impl AvatarBody {
     ) -> Option<bool> {
         if self.pilot.driving() {
             if let Some(perch_pos) = self.pilot.release_wheel(world) {
-                self.position = perch_pos;
+                self.span = BodySpan::anchored(perch_pos);
                 sight_line.constrain_shoulders(true, 1.42);
                 return Some(true);
             }
@@ -136,7 +154,7 @@ impl AvatarBody {
 
     pub fn sit_in_seat(&mut self, assembly: VehicleAssembly) {
         let car = DrivenCar::boarded(assembly);
-        self.position = car.perch_position();
+        self.span = BodySpan::anchored(car.perch_position());
         self.posture = AvatarPosture::crouching();
         self.flight.ground();
         self.pilot = VehiclePilot::Perch(car);
@@ -144,7 +162,7 @@ impl AvatarBody {
 
     pub fn board_vehicle(&mut self, assembly: VehicleAssembly, world: &dyn PlanetaryWorld) {
         let car = DrivenCar::boarded(assembly);
-        self.position = car.seat_position(world);
+        self.span = BodySpan::anchored(car.seat_position(world));
         self.posture = AvatarPosture::crouching();
         self.flight.ground();
         self.pilot = VehiclePilot::Driving(car);
@@ -160,7 +178,7 @@ impl AvatarBody {
         let Some((seat_pos, steer_px)) = self.pilot.step(dt, controls, world) else {
             return false;
         };
-        self.position = seat_pos;
+        self.span = BodySpan::anchored(seat_pos);
         if self.pilot.standing() {
             self.posture = AvatarPosture::standing();
             self.flight.ground();
@@ -172,7 +190,7 @@ impl AvatarBody {
                 sight_line.steer_vehicle(steer_px);
             }
         }
-        sight_line.reorient_surface(world.surface_up_at(self.position), dt);
+        sight_line.reorient_surface(world.surface_up_at(seat_pos), dt);
         true
     }
 
@@ -190,9 +208,10 @@ impl AvatarBody {
     }
 
     pub fn prepare_stride(&mut self, order: &LocomotionOrder, burden: SatchelBurden, standing_env: BodyEnvelope, terrain_up: Vec3, dt: f32, world: &dyn PlanetaryWorld) -> BodyEnvelope {
+        let pos = self.span.current();
         order.dispatch_jump(&mut *self.flight, burden);
         let next_posture = order.advance_posture(self.posture, dt);
-        self.posture = if standing_env.crust(world).overhead_obstructed(self.position, terrain_up, EYE_SUPPORT_HEIGHT) {
+        self.posture = if standing_env.crust(world).overhead_obstructed(pos, terrain_up, EYE_SUPPORT_HEIGHT) {
             self.posture.crouch_down(dt)
         } else {
             next_posture
@@ -204,11 +223,11 @@ impl AvatarBody {
 
     pub fn apply_flight(&mut self, active_env: BodyEnvelope, order: &LocomotionOrder, dt: f32, terrain_up: Vec3, pace: f32, world: &dyn PlanetaryWorld) -> Vec3 {
         self.flight.apply_envelope(active_env);
-        order.advance_flight(&mut *self.flight, dt, self.position, terrain_up, pace, world)
+        order.advance_flight(&mut *self.flight, dt, self.span.current(), terrain_up, pace, world)
     }
 
     pub fn advance_leap(&mut self, next_pos: Vec3, terrain_up: Vec3, dt: f32) {
-        let leaped = self.posture.advance_leap(self.position, next_pos, terrain_up, dt);
+        let leaped = self.posture.advance_leap(self.span.current(), next_pos, terrain_up, dt);
         let (recovered, beat) = leaped.step_vital_recovery(dt);
         self.posture = recovered;
         if beat {
@@ -234,7 +253,7 @@ impl AvatarBody {
         let pace = burden.scale_pace(6.0 * self.pace_boost());
         let raw_next = self.apply_flight(active_env, order, dt, terrain_up, pace, world);
         if world.lethal_at(raw_next) {
-            self.position = raw_next;
+            self.span = BodySpan::anchored(raw_next);
             return (raw_next, false, true);
         }
         let in_shaft = active_crust.in_deep_shaft(raw_next, terrain_up, EYE_SUPPORT_HEIGHT);

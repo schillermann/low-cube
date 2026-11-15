@@ -7,6 +7,7 @@ use crate::portal_config::{DialOutcome, PortalConfig, PortalDial};
 use crate::server_scale::{PlanetaryScale, ServerScale};
 use crate::surface::PlatformSurface;
 use super::display::SessionDisplay;
+use super::pulse::PulseBeat;
 
 /// Encapsulated keyboard control state, pause/studio modal overlay, shortcut state, and P2P NAT dial.
 pub(super) struct StageOverlay {
@@ -75,8 +76,14 @@ impl SessionStage {
         display.toggle_tron(self.world.as_ref(), self.avatar.as_ref());
     }
 
-    pub(super) fn render_onto(&mut self, display: &SessionDisplay) {
-        display.render_scene(self.world.as_ref(), self.avatar.as_mut(), &self.fauna, self.overlay.modal.as_ref());
+    pub(super) fn render_onto(&mut self, display: &mut SessionDisplay, sight_scale: f32) {
+        display.render_scene(
+            self.world.as_ref(),
+            self.avatar.as_mut(),
+            &self.fauna,
+            self.overlay.modal.as_ref(),
+            sight_scale,
+        );
     }
 
     pub(super) fn use_left(&mut self) -> bool {
@@ -185,26 +192,32 @@ impl SessionStage {
         }
     }
 
-    pub(super) fn step_frame(&mut self, dt: f32, display: &mut SessionDisplay) {
+    pub(super) fn step_frame(&mut self, beat: PulseBeat, display: &mut SessionDisplay) {
         if self.overlay.modal.open() {
-            self.overlay.modal.step(dt);
-            if !self.overlay.modal.dialing_active() {
+            let dt = beat.modal_seconds();
+            if dt > 0.0 {
+                self.overlay.modal.step(dt);
+                if !self.overlay.modal.dialing_active() {
+                    self.overlay.dial.cancel();
+                } else if let Some(remote) = self.overlay.dial.step(dt) {
+                    self.activate_remote_world(remote, display);
+                    return;
+                }
+                self.avatar.sync_world_presence(self.world.as_mut());
+                if self.world.pump_portal(dt) {
+                    self.refresh_surface(display);
+                }
+            } else if !self.overlay.modal.dialing_active() {
                 self.overlay.dial.cancel();
-            } else if let Some(remote) = self.overlay.dial.step(dt) {
-                self.activate_remote_world(remote, display);
-                return;
             }
-            self.avatar.sync_world_presence(self.world.as_mut());
-            if self.world.pump_portal(dt) {
-                self.refresh_surface(display);
-            }
-        } else {
+            return;
+        }
+        let ticks = beat.due_ticks();
+        if ticks > 0 {
             let prev_anchor = self.avatar.meadow_anchor();
-            let total_dt = dt.clamp(1.0 / 240.0, 0.10);
-            let steps = (total_dt * 45.0).ceil().max(1.0) as u32;
-            let step = total_dt / (steps as f32);
+            let step = beat.tick_seconds();
             let mut changed = false;
-            for _ in 0..steps {
+            for _ in 0..ticks {
                 self.avatar.step_motion(step, self.overlay.controls.as_ref(), self.world.as_ref());
                 self.avatar.step_fauna(step, &mut self.fauna, self.world.as_ref());
                 let dug = self.avatar.step_digging(self.world.as_mut());
@@ -222,5 +235,6 @@ impl SessionStage {
                 display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());
             }
         }
+        self.avatar.blend_subtick(beat.subtick_blend());
     }
 }

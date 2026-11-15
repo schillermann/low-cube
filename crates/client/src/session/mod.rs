@@ -1,4 +1,7 @@
 mod display;
+mod pulse;
+#[cfg(test)]
+mod pulse_tests;
 mod stage;
 
 use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent};
@@ -6,34 +9,36 @@ use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
 use world::PlanetaryWorld;
-use engine::{GraphicPipeline, PlanetaryMesh, ShaderProgram};
+use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, PlanetaryMesh, ShaderProgram};
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, SessionModal};
 use crate::surface::PlatformSurface;
-use self::display::{FramePace, RenderPass, SessionDisplay};
+use self::display::{RenderPass, SessionDisplay};
+use self::pulse::EpochPulse;
 use self::stage::SessionStage;
 
 /// Interface representing an active, interactive display session.
 pub trait Session {
     fn handle_window_event(&mut self, event_loop: &ActiveEventLoop, event: WindowEvent);
     fn handle_device_event(&mut self, event: DeviceEvent);
+    fn pace_event_loop(&mut self, event_loop: &ActiveEventLoop);
 }
 
 /// Fully initialized active game session with code-free primary constructor.
 pub struct GameSession {
     stage: SessionStage,
     display: SessionDisplay,
-    pace: FramePace,
+    pulse: EpochPulse,
 }
 
 impl GameSession {
     /// Primary constructor doing zero computation or I/O.
-    fn with_pace(stage: SessionStage, display: SessionDisplay, pace: FramePace) -> Self {
-        Self { stage, display, pace }
+    fn with_pulse(stage: SessionStage, display: SessionDisplay, pulse: EpochPulse) -> Self {
+        Self { stage, display, pulse }
     }
 
-    /// Secondary constructor assembling display and stage passes with real-time frame pacing.
+    /// Secondary constructor assembling display, stage, and unified monotonic epoch pulse.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         surface: Box<dyn PlatformSurface>,
@@ -49,15 +54,20 @@ impl GameSession {
         controls: Box<dyn KeyboardControls>,
         modal: Box<dyn SessionModal>,
     ) -> Self {
-        Self::with_pace(
+        Self::with_pulse(
             SessionStage::new(world, avatar, controls, modal),
             SessionDisplay::new(
                 surface,
-                RenderPass::new(primary_pipeline, primary_shader, primary_mesh),
-                RenderPass::new(tron_pipeline, tron_shader, tron_mesh),
+                RenderPass::new(
+                    primary_pipeline,
+                    primary_shader,
+                    primary_mesh,
+                    CpuMeshBatch::with_quad_capacity(4_096),
+                ),
+                RenderPass::new(tron_pipeline, tron_shader, tron_mesh, CpuTronBatch::empty()),
                 tron_active,
             ),
-            FramePace::realtime(),
+            EpochPulse::realtime(),
         )
     }
 
@@ -76,12 +86,19 @@ impl Session for GameSession {
     fn handle_window_event(&mut self, event_loop: &ActiveEventLoop, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
-            WindowEvent::Resized(size) => self.display.resize(size.width, size.height),
+            WindowEvent::Resized(size) => {
+                self.display.resize(size.width, size.height);
+                self.pulse.mark_urgent();
+            }
             WindowEvent::CursorMoved { position, .. } => {
                 let point = self.display.surface().normalize_cursor(position.x, position.y);
                 self.stage.move_cursor(point);
+                if self.stage.modal_open() {
+                    self.pulse.mark_urgent();
+                }
             }
             WindowEvent::MouseInput { state, button, .. } => {
+                self.pulse.mark_urgent();
                 let pressed = state == ElementState::Pressed;
                 if self.stage.modal_open() {
                     if pressed {
@@ -126,6 +143,7 @@ impl Session for GameSession {
                 if scroll.abs() <= 1e-5 {
                     return;
                 }
+                self.pulse.mark_urgent();
                 let trigger = if scroll > 0.0 { InputTrigger::WheelUp } else { InputTrigger::WheelDown };
                 if self.stage.modal_open() {
                     self.stage.handle_modal_trigger(trigger);
@@ -142,6 +160,7 @@ impl Session for GameSession {
                 event: KeyEvent { physical_key: PhysicalKey::Code(code), logical_key, state, text, .. },
                 ..
             } => {
+                self.pulse.mark_urgent();
                 let pressed = state == ElementState::Pressed;
                 if matches!(
                     code,
@@ -176,9 +195,10 @@ impl Session for GameSession {
                 self.dispatch_gameplay_trigger(InputTrigger::Key(code), pressed);
             }
             WindowEvent::RedrawRequested => {
-                let dt = self.pace.advance();
-                self.stage.step_frame(dt, &mut self.display);
-                self.stage.render_onto(&self.display);
+                let (work_started, beat) = self.pulse.begin_frame();
+                self.stage.step_frame(beat, &mut self.display);
+                self.stage.render_onto(&mut self.display, beat.sight_scale());
+                self.pulse.complete_frame(work_started, &self.display);
             }
             _ => {}
         }
@@ -188,7 +208,12 @@ impl Session for GameSession {
         if !self.stage.modal_open() {
             if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
                 self.stage.rotate_avatar(dx as f32, dy as f32);
+                self.pulse.mark_urgent();
             }
         }
+    }
+
+    fn pace_event_loop(&mut self, event_loop: &ActiveEventLoop) {
+        self.pulse.pace_event_loop(self.stage.modal_open(), &self.display, event_loop);
     }
 }

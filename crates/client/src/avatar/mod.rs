@@ -5,6 +5,7 @@ mod gear;
 mod gesture;
 mod planetary;
 mod sight;
+mod span;
 
 use glam::{Mat4, Quat, Vec3};
 #[cfg(test)]
@@ -44,6 +45,7 @@ pub trait Avatar {
         self.rotate_view(yaw_deg * px_per_deg, pitch_deg * px_per_deg);
     }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
+    fn blend_subtick(&mut self, _alpha: f32) {}
     fn step_fauna(&mut self, _dt: f32, _fauna: &mut WoodlandFauna, _world: &dyn PlanetaryWorld) {}
     fn hunt_fauna(&mut self, _side: f32, _fauna: &mut WoodlandFauna, _world: &mut dyn PlanetaryWorld) -> (bool, bool) {
         (false, false)

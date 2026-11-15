@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.75.0] - 2026-11-15
+
+### Added
+- Added quantized 120 Hz monotonic world heartbeat (`EpochPulse`, `PulseBeat`, `PulseCadence`, `ElasticHorizon`, and `WakeGate` in `crates/client/src/session/pulse/`), sub-tick pedestrian camera interpolation (`BodySpan` in `crates/client/src/avatar/span.rs`), elastic far-horizon wildlife visibility (`SightCone::scaled` in `crates/fauna/src/lib.rs`), reusable actor scratch batches (`CpuMeshBatch::clear`, `CpuLineBatch::clear`, `CpuTronBatch::clear` in `crates/engine/src/`), and kernel `ControlFlow::WaitUntil` + input-urgent waking (`Session::pace_event_loop` and `PlatformSurface::present_frame` / `request_redraw`) so office laptops and high-end GPUs share identical simulation speed with late-latched gaze and zero idle spin.
+
+### Fixed
+- Fixed supersonic wildlife flight, accelerated avatar physics, and P2P `GuestWard` anti-cheat/timeout drift on >240 FPS hardware by replacing frame-clamped floating-point delta summation with exact rational nanosecond ticks since `epoch`, measuring active pre-swap hardware work duration before `swap_buffers`, and configuring `SwapInterval::Wait(1)` on `GlPlatformSurface`.
+
+### Removed
+- Removed legacy `FramePace` (`crates/client/src/session/display.rs`), duplicate `dt.clamp(1.0 / 240.0, 0.10)` and procedural `(total_dt * 45.0).ceil()` substepping (`crates/client/src/session/stage.rs`), busy-spinning `ControlFlow::Poll` (`crates/client/src/main.rs`), unconditional `window.request_redraw()` inside `GlPlatformSurface::render_frame` (`crates/client/src/surface.rs`), per-frame actor `Vec` heap reallocations in `SessionDisplay::render_scene`, boolean `directional` branching in `SightCone`, and `-er`-suffixed `DiurnalChronometer` (`crates/client/src/diurnal_pipeline.rs`).
+
 ## [0.74.0] - 2026-11-15
 
 ### Added

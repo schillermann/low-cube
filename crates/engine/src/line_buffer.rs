@@ -61,6 +61,12 @@ impl CpuLineBatch {
         Self::new(Vec::new(), Vec::new())
     }
 
+    /// Retains allocated heap capacity while resetting line vertices and indices for reuse.
+    pub fn clear(&mut self) {
+        self.vertices.clear();
+        self.indices.clear();
+    }
+
     /// # Safety
     /// Requires a valid, current OpenGL context.
     pub unsafe fn upload(&self, gl: &glow::Context) -> Box<dyn Mesh> {
@@ -159,6 +165,12 @@ impl CpuTronBatch {
     /// Secondary constructor initializing empty solid and wireframe batches.
     pub fn empty() -> Self {
         Self::new(CpuMeshBatch::empty(), CpuLineBatch::empty())
+    }
+
+    /// Retains allocated heap capacity while resetting solid and wireframe batches for reuse.
+    pub fn clear(&mut self) {
+        self.solid_batch.clear();
+        self.line_batch.clear();
     }
 
     /// # Safety

@@ -83,6 +83,10 @@ impl HostEnvironment for GlHostEnvironment {
         let gl_context = not_current_gl_context
             .make_current(&gl_surface)
             .expect("Failed to make context current");
+        let _ = gl_surface.set_swap_interval(
+            &gl_context,
+            glutin::surface::SwapInterval::Wait(std::num::NonZeroU32::MIN),
+        );
 
         let gl = unsafe {
             glow::Context::from_loader_function_cstr(|s| {

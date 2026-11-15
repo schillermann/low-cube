@@ -215,3 +215,21 @@ fn test_sparrow_chirp_synthesizes_melodic_three_syllable_birdsong_waveform() {
     assert_eq!(&stereo_wav[0..4], b"RIFF");
     assert_eq!(u16::from_le_bytes([stereo_wav[22], stereo_wav[23]]), 2, "Spatial chirp WAV must be 2-channel stereo");
 }
+
+#[test]
+fn test_sight_cone_elastic_horizon_scales_far_reach_while_preserving_close_awareness() {
+    let base = crate::SightCone::from_view(Vec3::ZERO, Vec3::NEG_Z);
+    let dilated = base.scaled(1.45);
+    let contracted = base.scaled(0.65);
+
+    let far_bird = Vec3::new(0.0, 0.0, -55.0);
+    assert!(!base.reaches(far_bird, 42.0));
+    assert!(dilated.reaches(far_bird, 42.0), "High-headroom horizon must reveal distant sparrows");
+
+    let mid_bird = Vec3::new(0.0, 0.0, -34.0);
+    assert!(base.reaches(mid_bird, 42.0));
+    assert!(!contracted.reaches(mid_bird, 42.0), "Strained laptop horizon must cull distant sparrows early");
+
+    let close_behind = Vec3::new(0.0, 0.0, 3.2);
+    assert!(contracted.reaches(close_behind, 42.0), "Nearby wildlife within 4.2m must always remain visible");
+}

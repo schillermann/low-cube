@@ -50,6 +50,8 @@ pub trait PlatformSurface {
         overlay_shader: &dyn ShaderProgram,
         modal: &dyn SessionModal,
     );
+    fn present_frame(&self) {}
+    fn request_redraw(&self) {}
     fn capture_sight_frame(
         &self,
         _pipeline: &dyn GraphicPipeline,
@@ -174,7 +176,13 @@ impl PlatformSurface for GlPlatformSurface {
         let view_proj = avatar.view_projection_matrix(aspect);
         pipeline.render(&self.gl, shader, mesh, &view_proj, avatar.surface_rotation());
         modal.draw_layer(&self.gl, overlay_shader, avatar, aspect);
+    }
+
+    fn present_frame(&self) {
         self.gl_surface.swap_buffers(&self.gl_context).expect("Buffer swap failed");
+    }
+
+    fn request_redraw(&self) {
         self.window.request_redraw();
     }
 

@@ -69,14 +69,19 @@ impl PlanetaryAvatar {
         Self::with_flight(initial_position, Box::new(SurfaceFlight::terrestrial(1.0)))
     }
 
-    fn current_pose(&self) -> BodyPose {
-        self.body.shape_pose(self.sight_line.body_pose(self.body.position(), self.body.posture(), self.bearing.rhythm()))
+    fn pose_at(&self, pos: Vec3) -> BodyPose {
+        self.body.shape_pose(self.sight_line.body_pose(pos, self.body.posture(), self.bearing.rhythm()))
+    }
+
+    fn visual_pose(&self) -> BodyPose {
+        self.pose_at(self.body.visual_position())
     }
 
     fn surface_reach(&self) -> SurfaceReach {
+        let pos = self.body.position();
         self.sight_line.surface_reach(
-            self.current_pose().eye_origin(),
-            self.body.position(),
+            self.pose_at(pos).eye_origin(),
+            pos,
             self.body.standing(),
             self.body.driving(),
         )
@@ -157,6 +162,7 @@ impl Avatar for PlanetaryAvatar {
         self.gear.step_timers(dt);
         let pos = self.body.position();
         if self.gear.satchel_open() || self.body.perished() || world.lethal_at(pos) {
+            self.body.settle_span();
             if self.body.perished() || world.lethal_at(pos) { self.step_perish(dt, world); } else { self.bearing.calm(); }
             return;
         }
@@ -184,6 +190,10 @@ impl Avatar for PlanetaryAvatar {
         self.sight_line.constrain_shoulders(wedged, self.gear.shaft_yaw_play());
     }
 
+    fn blend_subtick(&mut self, alpha: f32) {
+        self.body.blend_subtick(alpha);
+    }
+
     fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) {
         let crouching = self.body.posture().crouch_drop() > 0.18;
         if let Some(shove) = fauna.step_spatial(dt, self.body.position(), self.sight_line.view_direction(), crouching, world) {
@@ -206,35 +216,38 @@ impl Avatar for PlanetaryAvatar {
         if let Some((eye, fwd, _)) = self.gear.placed_camera_lens() {
             return SightCone::from_view(eye, fwd);
         }
+        let vpos = self.body.visual_position();
         if matches!(sight, SightMode::FirstPersonSight) {
-            SightCone::from_view(self.current_pose().eye_origin(), self.sight_line.view_direction())
+            SightCone::from_view(self.pose_at(vpos).eye_origin(), self.sight_line.view_direction())
         } else {
-            SightCone::omnidirectional(self.body.position())
+            SightCone::omnidirectional(vpos)
         }
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
+        let vpos = self.body.visual_position();
         let tilt = self.bearing.tilt_radians() + self.body.posture().vertigo_sway();
-        self.sight_line.project_view(aspect, tilt, self.bearing.sight(), self.body.posture(), self.body.position(), &self.current_pose())
+        self.sight_line.project_view(aspect, tilt, self.bearing.sight(), self.body.posture(), vpos, &self.pose_at(vpos))
     }
 
     fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 {
         if let Some((eye, fwd, up)) = self.gear.placed_camera_lens() {
             return self.sight_line.project_lens_view(aspect, eye, fwd, up);
         }
+        let vpos = self.body.visual_position();
         let tilt = self.bearing.tilt_radians() + self.body.posture().vertigo_sway();
-        self.sight_line.project_view(aspect, tilt, sight, self.body.posture(), self.body.position(), &self.current_pose())
+        self.sight_line.project_view(aspect, tilt, sight, self.body.posture(), vpos, &self.pose_at(vpos))
     }
 
     fn surface_rotation(&self) -> Quat { self.sight_line.surface_rotation() }
     fn emit_appearance(&self, target: &mut dyn MeshTarget) {
         self.body.emit_vehicle(target);
-        self.gear.emit_appearance(&self.current_pose(), self.bearing.sight(), self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
+        self.gear.emit_appearance(&self.visual_pose(), self.bearing.sight(), self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
     }
     fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
         self.body.emit_vehicle(target);
         if !matches!(sight, SightMode::FirstPersonSight) {
-            self.gear.emit_appearance(&self.current_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
+            self.gear.emit_appearance(&self.visual_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
         }
     }
     fn emit_surroundings(&self, world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
@@ -256,8 +269,9 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) {
+        let pose = self.pose_at(self.body.position());
         let presence = world::CompanionPresence::new(
-            0, self.current_pose().capture_kinematics(), self.bearing.rhythm().wire_tuple(), self.gear.attire_wire(),
+            0, pose.capture_kinematics(), self.bearing.rhythm().wire_tuple(), self.gear.attire_wire(),
         );
         world.sync_presence(presence);
     }

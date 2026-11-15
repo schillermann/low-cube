@@ -83,6 +83,7 @@ impl SessionAssembly for SessionLaunch {
     fn assemble(&self, event_loop: &ActiveEventLoop) -> Box<dyn Session> {
         let surface = self.host_env.attach(event_loop);
         surface.capture_cursor();
+        surface.request_redraw();
 
         let planet: Box<dyn PlanetaryWorld> =
             PortalConfig::from_process().assemble_planet(self.cosmos.world_blocks, self.tron_active);

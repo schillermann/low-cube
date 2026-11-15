@@ -11,6 +11,7 @@ pub trait AppLifecycle {
     fn resume(self: Box<Self>, event_loop: &ActiveEventLoop) -> Box<dyn AppLifecycle>;
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent);
     fn device_event(&mut self, event: DeviceEvent);
+    fn pace_event_loop(&mut self, _event_loop: &ActiveEventLoop) {}
 }
 
 /// Initial pending state before display connection is available.
@@ -69,6 +70,10 @@ impl AppLifecycle for ActiveLifecycle {
     fn device_event(&mut self, event: DeviceEvent) {
         self.session.handle_device_event(event);
     }
+
+    fn pace_event_loop(&mut self, event_loop: &ActiveEventLoop) {
+        self.session.pace_event_loop(event_loop);
+    }
 }
 
 /// Clean outer application driver: zero enums, pure polymorphic state dispatch.
@@ -105,5 +110,9 @@ impl ApplicationHandler for LowCubeApp {
         event: DeviceEvent,
     ) {
         self.lifecycle.device_event(event);
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        self.lifecycle.pace_event_loop(event_loop);
     }
 }

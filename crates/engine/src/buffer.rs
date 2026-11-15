@@ -45,6 +45,12 @@ impl CpuMeshBatch {
         Self::new(Vec::with_capacity(quads * 4), Vec::with_capacity(quads * 6))
     }
 
+    /// Retains allocated heap capacity while resetting vertex and index counts for reuse.
+    pub fn clear(&mut self) {
+        self.vertices.clear();
+        self.indices.clear();
+    }
+
     /// # Safety
     /// Requires a valid, current OpenGL context.
     pub unsafe fn upload(&self, gl: &glow::Context) -> Box<dyn Mesh> {

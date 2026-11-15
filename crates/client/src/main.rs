@@ -102,7 +102,7 @@ mod visual_tests;
 #[cfg(test)]
 mod wild_boar_tests;
 
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event_loop::EventLoop;
 use app::LowCubeApp;
 use command_flags::CommandFlags;
 use launch::SessionLaunch;
@@ -116,7 +116,6 @@ fn tron_active() -> bool {
 fn main() {
     acoustics::SoundStage::live().activate();
     let event_loop = EventLoop::new().expect("Failed to create EventLoop");
-    event_loop.set_control_flow(ControlFlow::Poll);
 
     let tron = tron_active();
     let launch = SessionLaunch::with_tron(
