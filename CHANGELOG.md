@@ -8,6 +8,13 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.75.2] - 2026-11-16
+
+### Changed
+- Replaced passive `RenderPass` bags and repeated `tron_active: bool` branching in `SessionDisplay` (`crates/client/src/session/display/`) with the `ScenePass` trait, `ShadedScenePass` (`shaded.rs`), `TronScenePass` (`tron.rs`), and `PolaroidScenePass` shutter decorator (`pass.rs`), and simplified `GameSession::new` (`crates/client/src/session/mod.rs`) to accept `(SessionStage, SessionDisplay)` without `#[allow(clippy::too_many_arguments)]`.
+- Decomposed `PlanetaryAvatar` into the zero-allocation `PlanetaryAvatar(SatchelAvatar(EmbodiedAvatar))` `Avatar` decorator chain (`crates/client/src/avatar/planetary.rs`, `satchel_guard.rs`, `embodied.rs`, `condition.rs`), removing repeated procedural `perished` / `satchel_open` / `lethal_at` guard checks from core living avatar mechanics.
+- Extracted `ShaftLook` (`crates/client/src/orientation/mod.rs`) as a `ViewOrientation` decorator between `SensitivityLook` and a 2-field `MouseLook`.
+
 ## [0.75.1] - 2026-11-16
 
 ### Fixed

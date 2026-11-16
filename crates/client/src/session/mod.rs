@@ -8,15 +8,11 @@ use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, MouseScroll
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{KeyCode, PhysicalKey};
 
-use world::PlanetaryWorld;
-use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, PlanetaryMesh, ShaderProgram};
-use crate::avatar::Avatar;
-use crate::controls::{InputTrigger, KeyboardControls};
-use crate::menu::{ModalDirective, SessionModal};
-use crate::surface::PlatformSurface;
-use self::display::{RenderPass, SessionDisplay};
+use crate::controls::InputTrigger;
+use crate::menu::ModalDirective;
+pub use self::display::{PolaroidScenePass, SessionDisplay, ShadedScenePass, TronScenePass, VisualPass};
 use self::pulse::EpochPulse;
-use self::stage::SessionStage;
+pub use self::stage::SessionStage;
 
 /// Interface representing an active, interactive display session.
 pub trait Session {
@@ -38,37 +34,9 @@ impl GameSession {
         Self { stage, display, pulse }
     }
 
-    /// Secondary constructor assembling display, stage, and unified monotonic epoch pulse.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        surface: Box<dyn PlatformSurface>,
-        primary_pipeline: Box<dyn GraphicPipeline>,
-        primary_shader: Box<dyn ShaderProgram>,
-        primary_mesh: PlanetaryMesh,
-        tron_pipeline: Box<dyn GraphicPipeline>,
-        tron_shader: Box<dyn ShaderProgram>,
-        tron_mesh: PlanetaryMesh,
-        tron_active: bool,
-        world: Box<dyn PlanetaryWorld>,
-        avatar: Box<dyn Avatar>,
-        controls: Box<dyn KeyboardControls>,
-        modal: Box<dyn SessionModal>,
-    ) -> Self {
-        Self::with_pulse(
-            SessionStage::new(world, avatar, controls, modal),
-            SessionDisplay::new(
-                surface,
-                RenderPass::new(
-                    primary_pipeline,
-                    primary_shader,
-                    primary_mesh,
-                    CpuMeshBatch::with_quad_capacity(4_096),
-                ),
-                RenderPass::new(tron_pipeline, tron_shader, tron_mesh, CpuTronBatch::empty()),
-                tron_active,
-            ),
-            EpochPulse::realtime(),
-        )
+    /// Secondary constructor assembling stage, display, and unified monotonic epoch pulse.
+    pub fn new(stage: SessionStage, display: SessionDisplay) -> Self {
+        Self::with_pulse(stage, display, EpochPulse::realtime())
     }
 
     fn dispatch_gameplay_trigger(&mut self, trigger: InputTrigger, pressed: bool) {

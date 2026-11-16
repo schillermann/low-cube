@@ -20,7 +20,10 @@ use crate::server_aurora::ServerAurora;
 use crate::server_celestial::ServerCelestial;
 use crate::server_physics::ServerPhysics;
 use crate::server_satchel::ServerSatchel;
-use crate::session::{GameSession, Session};
+use crate::session::{
+    GameSession, PolaroidScenePass, Session, SessionDisplay, SessionStage, ShadedScenePass,
+    TronScenePass, VisualPass,
+};
 
 /// Interface for assembling an active display session.
 pub trait SessionAssembly {
@@ -145,26 +148,33 @@ impl SessionAssembly for SessionLaunch {
 
         let tron_mesh = PlanetaryMesh::with_mask(tron_faces, initial_mask);
         let tron_shader = surface.compile_shader(&TronShaderSource::embedded());
+        let tron_hud_shader = surface.compile_shader(&VoxelShaderSource::embedded());
         let tron_pipeline = Box::new(TronPipeline::void());
         let controls = Box::new(KeyMotion::with_bindings(bindings));
         let modal = Box::new(EscapeMenu::with_clipboard(
             initial_invite,
             surface.attach_clipboard(),
         ));
-
-        Box::new(GameSession::new(
-            surface,
+        let shaded_pass = PolaroidScenePass::new(ShadedScenePass::new(
             primary_pipeline,
             primary_shader,
             primary_mesh,
+            CpuMeshBatch::with_quad_capacity(4_096),
+        ));
+        let tron_pass = PolaroidScenePass::new(TronScenePass::new(
             tron_pipeline,
-            tron_shader,
+            (tron_shader, tron_hud_shader),
             tron_mesh,
-            self.tron_active,
-            planet,
-            avatar,
-            controls,
-            modal,
-        ))
+            CpuTronBatch::empty(),
+        ));
+        let display = SessionDisplay::new(
+            surface,
+            Box::new(shaded_pass),
+            Box::new(tron_pass),
+            VisualPass::from_flag(self.tron_active),
+        );
+        let stage = SessionStage::new(planet, avatar, controls, modal);
+
+        Box::new(GameSession::new(stage, display))
     }
 }

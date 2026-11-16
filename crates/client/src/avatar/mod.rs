@@ -1,9 +1,12 @@
 mod bearing;
 mod body;
+mod condition;
+mod embodied;
 mod gear;
 #[cfg(test)]
 mod gesture;
 mod planetary;
+mod satchel_guard;
 mod sight;
 mod span;
 

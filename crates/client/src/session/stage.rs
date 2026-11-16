@@ -34,7 +34,7 @@ impl StageOverlay {
 }
 
 /// Encapsulated planetary world, player avatar, woodland fauna, and modal/control overlay.
-pub(super) struct SessionStage {
+pub struct SessionStage {
     world: Box<dyn PlanetaryWorld>,
     avatar: Box<dyn Avatar>,
     fauna: WoodlandFauna,
@@ -53,7 +53,7 @@ impl SessionStage {
     }
 
     /// Secondary constructor initializing seeded woodland wildlife alongside the stage.
-    pub(super) fn new(
+    pub fn new(
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
         controls: Box<dyn KeyboardControls>,

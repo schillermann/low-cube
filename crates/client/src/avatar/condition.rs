@@ -1,0 +1,12 @@
+use world::PlanetaryWorld;
+
+/// Focused interface exposing vital and satchel state to outer `Avatar` guard decorators.
+pub(super) trait AvatarCondition {
+    fn perished(&self) -> bool;
+    fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool;
+    fn satchel_open(&self) -> bool;
+    fn driving(&self) -> bool;
+    fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool;
+    fn step_satchel_idle(&mut self, dt: f32);
+    fn step_blackout(&mut self, dt: f32, world: &dyn PlanetaryWorld);
+}
