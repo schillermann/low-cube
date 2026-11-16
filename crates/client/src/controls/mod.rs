@@ -32,6 +32,7 @@ pub trait KeyboardControls {
         self.register_trigger(InputTrigger::Key(code), pressed);
     }
     fn register_trigger(&mut self, _trigger: InputTrigger, _pressed: bool) {}
+    fn clear_triggers(&mut self) {}
     fn apply_bindings(&mut self, _bindings: ActionBindings) {}
     fn matches_action(&self, _action: ControlAction, _trigger: InputTrigger) -> bool { false }
     fn drive_locomotion(
@@ -104,10 +105,14 @@ impl KeyboardControls for KeyMotion {
         }
     }
 
-    fn apply_bindings(&mut self, bindings: ActionBindings) {
-        self.bindings = bindings;
+    fn clear_triggers(&mut self) {
         self.active_triggers.clear();
         self.cadence = Box::new(RestingCadence::brisk());
+    }
+
+    fn apply_bindings(&mut self, bindings: ActionBindings) {
+        self.bindings = bindings;
+        self.clear_triggers();
     }
 
     fn matches_action(&self, action: ControlAction, trigger: InputTrigger) -> bool {

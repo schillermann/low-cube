@@ -109,6 +109,7 @@ impl Session for GameSession {
                         }
                     } else {
                         self.stage.release_modal_mouse();
+                        let _ = self.stage.release_hand();
                     }
                 } else if button == MouseButton::Middle {
                     if pressed {
@@ -189,6 +190,8 @@ impl Session for GameSession {
                                 self.stage.handle_modal_text(chars);
                             }
                         }
+                    } else {
+                        self.stage.release_control_key(code);
                     }
                     return;
                 }

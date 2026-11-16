@@ -183,9 +183,17 @@ impl SessionStage {
         self.overlay.modal.handle_text(text);
     }
 
+    pub(super) fn release_control_key(&mut self, code: winit::keyboard::KeyCode) {
+        self.overlay.controls.register_trigger(InputTrigger::Key(code), false);
+    }
+
     pub(super) fn toggle_escape(&mut self, surface: &dyn PlatformSurface) {
         if self.overlay.modal.open() || !self.avatar.dispatch_trigger(InputTrigger::Key(winit::keyboard::KeyCode::Escape)) {
             self.overlay.modal.toggle_escape(surface);
+            if self.overlay.modal.open() {
+                self.overlay.controls.clear_triggers();
+                let _ = self.avatar.release_hand(self.world.as_mut());
+            }
             if !self.overlay.modal.dialing_active() {
                 self.overlay.dial.cancel();
             }

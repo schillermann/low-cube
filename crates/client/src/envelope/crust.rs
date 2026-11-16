@@ -134,7 +134,7 @@ impl<'a> CrustEnvelope<'a> {
         );
         d_pos <= SHAFT_MAX_SPAN
             && d_neg <= SHAFT_MAX_SPAN
-            && (d_pos + d_neg - SHAFT_WALL_STEP) < half_w * 2.0
+            && (d_pos + d_neg - SHAFT_WALL_STEP) < half_w.max(0.28) * 2.0
             && ((r_pos - r_neg).abs() < SHAFT_MAX_SPAN || r_pos.min(r_neg) > SHAFT_DEEP_WALL)
     }
 }

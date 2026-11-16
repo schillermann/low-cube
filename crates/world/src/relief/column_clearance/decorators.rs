@@ -66,10 +66,13 @@ impl<C: VerticalColumn> VerticalColumn for ShaftColumn<'_, C> {
     fn support_height(&self, u: f32, v: f32, foot_elev: f32, body_span: f32) -> f32 {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|cu, cv| (cu, cv));
         if self.shafts.reworked_at(cu, cv) {
-            let steps = if body_span > 0.0 && !self.molds_present {
-                self.shafts.body_elevation_at(self.strata, cu, cv)
+            let rim_steps = self.shafts.body_elevation_at(self.strata, cu, cv);
+            let floor_steps = self.shafts.elevation_at(self.strata, cu, cv);
+            let rim_h = (rim_steps as f32) * BLOCK_STEP;
+            let steps = if body_span > 0.0 && !self.molds_present && foot_elev >= rim_h - BLOCK_STEP {
+                rim_steps
             } else {
-                self.shafts.elevation_at(self.strata, cu, cv)
+                floor_steps
             };
             (steps as f32) * BLOCK_STEP
         } else {

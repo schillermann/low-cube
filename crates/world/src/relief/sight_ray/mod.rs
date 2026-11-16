@@ -1,9 +1,11 @@
+mod clearance;
 mod contact;
 
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use super::elevation::ReliefElevation;
-use self::contact::{ContactFace, SightContact};
+use self::clearance::StanceClearance;
+use self::contact::{PlacementTarget, SightContact, StepCrossing};
 
 #[derive(Clone, Copy, Debug)]
 struct RayProbe {
@@ -48,17 +50,14 @@ impl RayProbe {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn step_hit_top(
         &self,
         relief: &dyn ReliefElevation,
-        prev_cell: (i32, i32),
-        cell: (i32, i32),
-        prev_uv: (f32, f32),
-        uv: (f32, f32),
+        cells: ((i32, i32), (i32, i32)),
+        uv_pair: ((f32, f32), (f32, f32)),
         elevs: (f32, f32, f32, f32),
     ) -> Option<f32> {
-        let ((prev_cu, prev_cv), (cu, cv), (prev_u, prev_v), (u, v)) = (prev_cell, cell, prev_uv, uv);
+        let (((prev_cu, prev_cv), (cu, cv)), ((prev_u, prev_v), (u, v))) = (cells, uv_pair);
         let (prev_elev, ray_elev, wall_top, d_up) = elevs;
         if (cu, cv) != (prev_cu, prev_cv) {
             let alpha_u = if cu != prev_cu && (u - prev_u).abs() > 1e-6 {
@@ -173,7 +172,7 @@ impl SurfaceSightRay {
                 }
                 let wall_top = (relief.elevation_at(cu, cv) as f32) * Self::CELL_SPAN;
                 if let Some(hit_top) = probe.step_hit_top(
-                    relief, (prev_cu, prev_cv), (cu, cv), (prev_u, prev_v), (u, v), (prev_elev, ray_elev, wall_top, d_up),
+                    relief, ((prev_cu, prev_cv), (cu, cv)), ((prev_u, prev_v), (u, v)), (prev_elev, ray_elev, wall_top, d_up),
                 ) {
                     if start_occupied && (cu, cv) == (ecu, ecv) && (ecu, ecv) == (scu, scv) && (hit_top - start_layer_top).abs() < 0.05 {
                         (prev_cu, prev_cv, prev_u, prev_v, prev_elev) = (cu, cv, u, v, ray_elev);
@@ -188,8 +187,8 @@ impl SurfaceSightRay {
                         if close_wall { continue; }
                         return None;
                     }
-                    let face = ContactFace::classify((cu, cv), (prev_cu, prev_cv), prev_elev, hit_top, d_up, bounds, relief);
-                    return Some(SightContact::new((cu, cv), hit_top, face));
+                    let crossing = StepCrossing::new(((cu, cv), (prev_cu, prev_cv)), (prev_elev, hit_top), d_up, bounds);
+                    return Some(crossing.contact(relief));
                 }
             }
             (prev_cu, prev_cv, prev_u, prev_v, prev_elev) = (cu, cv, u, v, ray_elev);
@@ -197,8 +196,8 @@ impl SurfaceSightRay {
         if d_up < Self::NADIR_DOT && ecu >= min_c && ecu <= max_c && ecv >= min_c && ecv <= max_c {
             let floor_h = (eye_steps as f32) * Self::CELL_SPAN;
             if start_elev - floor_h <= Self::NADIR_MAX_REACH {
-                let face = ContactFace::classify((ecu, ecv), (ecu, ecv), floor_h + Self::CELL_SPAN, floor_h, d_up, bounds, relief);
-                return Some(SightContact::new((ecu, ecv), floor_h, face));
+                let crossing = StepCrossing::new(((ecu, ecv), (ecu, ecv)), (floor_h + Self::CELL_SPAN, floor_h), d_up, bounds);
+                return Some(crossing.contact(relief));
             }
         }
         None
@@ -209,7 +208,10 @@ impl SurfaceSightRay {
         &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32, avatar_pos: Vec3,
     ) -> Option<(i32, i32, f32)> {
         let contact = self.trace_contact(frame, relief, half_blocks, half_size)?;
-        let bounds = (-half_blocks + 1, half_blocks - 2);
-        Some(contact.resolve_placement(self.direction, frame, relief, bounds, avatar_pos))
+        let d_up = self.direction.normalize_or_zero().dot(frame.normal());
+        let guarded = StanceClearance::around_avatar(
+            contact, avatar_pos, d_up, frame, relief, (-half_blocks + 1, half_blocks - 2),
+        );
+        guarded.cell_and_base(relief)
     }
 }

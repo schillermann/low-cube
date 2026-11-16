@@ -1,7 +1,12 @@
+mod pilot;
+#[cfg(test)]
+mod tests;
+
 use glam::{Mat3, Quat, Vec3};
 use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
 use acoustics::{AcousticWave, EngineRumble};
 use crate::controls::{KeyboardControls, LocomotionTarget};
+pub use self::pilot::VehiclePilot;
 
 const MAX_DRIVE_SPEED: f32 = 14.0;
 const MAX_REVERSE_SPEED: f32 = 8.0;
@@ -10,23 +15,31 @@ const REVERSE_ACCEL: f32 = 11.0;
 const BRAKE_DECEL: f32 = 32.0;
 const COAST_DECEL: f32 = 3.5;
 const STEER_RATE: f32 = 2.2;
-const SEAT_EYE_SUPPORT: f32 = 1.0;
+pub(super) const SEAT_EYE_SUPPORT: f32 = 1.0;
 const REVERSE_ENGAGE_DWELL: f32 = 0.22;
 
-struct PedalInput {
-    throttle: f32,
-    steer: f32,
+pub(super) struct PedalInput {
+    pub(super) throttle: f32,
+    pub(super) steer: f32,
     handbrake: bool,
 }
 
 impl PedalInput {
-    const fn idle() -> Self { Self { throttle: 0.0, steer: 0.0, handbrake: false } }
+    pub(super) const fn idle() -> Self {
+        Self { throttle: 0.0, steer: 0.0, handbrake: false }
+    }
 }
 
 impl LocomotionTarget for PedalInput {
-    fn travel(&mut self, direction: Vec3) { (self.throttle, self.steer) = (direction.y, direction.x); }
-    fn jump(&mut self) { self.handbrake = true; }
-    fn sneak(&mut self) { self.handbrake = true; }
+    fn travel(&mut self, direction: Vec3) {
+        (self.throttle, self.steer) = (direction.y, direction.x);
+    }
+    fn jump(&mut self) {
+        self.handbrake = true;
+    }
+    fn sneak(&mut self) {
+        self.handbrake = true;
+    }
     fn sprint(&mut self) {}
 }
 
@@ -45,9 +58,15 @@ impl DriveKinematics {
         Self { speed, reverse_dwell, wheel_spin, steer_turn }
     }
 
-    pub const fn parked() -> Self { Self::new(0.0, 0.0, 0.0, 0.0) }
-    pub const fn steer_turn(self) -> f32 { self.steer_turn }
-    fn displacement(self, dt: f32) -> f32 { self.speed * dt }
+    pub const fn parked() -> Self {
+        Self::new(0.0, 0.0, 0.0, 0.0)
+    }
+    pub const fn steer_turn(self) -> f32 {
+        self.steer_turn
+    }
+    fn displacement(self, dt: f32) -> f32 {
+        self.speed * dt
+    }
     fn emit_assembly(self, assembly: &VehicleAssembly, target: &mut dyn MeshTarget) {
         assembly.emit_driven(self.wheel_spin, self.steer_turn, target);
     }
@@ -63,10 +82,18 @@ impl DriveKinematics {
     fn advance(&mut self, pedals: &PedalInput, wheel_radius: f32, dt: f32) -> f32 {
         if pedals.handbrake {
             self.reverse_dwell = 0.0;
-            self.speed = if self.speed > 0.0 { (self.speed - BRAKE_DECEL * dt).max(0.0) } else { (self.speed + BRAKE_DECEL * dt).min(0.0) };
+            self.speed = if self.speed > 0.0 {
+                (self.speed - BRAKE_DECEL * dt).max(0.0)
+            } else {
+                (self.speed + BRAKE_DECEL * dt).min(0.0)
+            };
         } else if pedals.throttle > 0.1 {
             self.reverse_dwell = 0.0;
-            self.speed = if self.speed < 0.0 { (self.speed + BRAKE_DECEL * dt).min(0.0) } else { (self.speed + THROTTLE_ACCEL * dt).min(MAX_DRIVE_SPEED) };
+            self.speed = if self.speed < 0.0 {
+                (self.speed + BRAKE_DECEL * dt).min(0.0)
+            } else {
+                (self.speed + THROTTLE_ACCEL * dt).min(MAX_DRIVE_SPEED)
+            };
         } else if pedals.throttle < -0.1 {
             if self.speed > 0.0 {
                 self.speed = (self.speed - BRAKE_DECEL * dt).max(0.0);
@@ -79,7 +106,11 @@ impl DriveKinematics {
             }
         } else {
             self.reverse_dwell = 0.0;
-            self.speed = if self.speed > 0.0 { (self.speed - COAST_DECEL * dt).max(0.0) } else { (self.speed + COAST_DECEL * dt).min(0.0) };
+            self.speed = if self.speed > 0.0 {
+                (self.speed - COAST_DECEL * dt).max(0.0)
+            } else {
+                (self.speed + COAST_DECEL * dt).min(0.0)
+            };
         }
         let target_steer = if pedals.steer.abs() > 0.1 { pedals.steer.signum() } else { 0.0 };
         self.steer_turn += (target_steer - self.steer_turn) * (14.0 * dt).clamp(0.0, 1.0);
@@ -104,8 +135,12 @@ impl DrivenCar {
         Self { assembly, kinematics }
     }
 
-    pub const fn boarded(assembly: VehicleAssembly) -> Self { Self::new(assembly, DriveKinematics::parked()) }
-    pub const fn steer_turn(&self) -> f32 { self.kinematics.steer_turn() }
+    pub const fn boarded(assembly: VehicleAssembly) -> Self {
+        Self::new(assembly, DriveKinematics::parked())
+    }
+    pub const fn steer_turn(&self) -> f32 {
+        self.kinematics.steer_turn()
+    }
 
     pub fn release_wheel(self, world: &mut dyn PlanetaryWorld) -> Self {
         let shell = self.assembly.perch_shell();
@@ -133,7 +168,8 @@ impl DrivenCar {
     pub fn seat_position(&self, world: &dyn PlanetaryWorld) -> Vec3 {
         let origin = self.assembly.origin();
         let up = world.surface_up_at(origin);
-        world.constrain_to_surface(origin + up * 4.0, SEAT_EYE_SUPPORT) + up * (0.12 + self.assembly.seat_floor_offset())
+        world.constrain_to_surface(origin + up * 4.0, SEAT_EYE_SUPPORT)
+            + up * (0.12 + self.assembly.seat_floor_offset())
     }
 
     pub fn dismount_in_direction(&self, throttle: f32, steer: f32, world: &dyn PlanetaryWorld) -> Vec3 {
@@ -183,67 +219,3 @@ impl DrivenCar {
         self.kinematics.emit_assembly(&self.assembly, target);
     }
 }
-
-/// Polymorphic avatar driving state avoiding `Option<DrivenCar>`.
-pub enum VehiclePilot {
-    Pedestrian,
-    Perch(DrivenCar),
-    Driving(DrivenCar),
-}
-
-impl VehiclePilot {
-    pub const fn standing(&self) -> bool { matches!(self, Self::Pedestrian) }
-    pub const fn seated(&self) -> bool { matches!(self, Self::Perch(_)) }
-    pub const fn driving(&self) -> bool { matches!(self, Self::Driving(_)) }
-
-    pub fn shape_pose(&self, pose: crate::attire::BodyPose) -> crate::attire::BodyPose {
-        match self {
-            Self::Pedestrian => pose,
-            Self::Perch(car) => pose.with_surface_rotation(car.body_rotation()).with_seated(1.0),
-            Self::Driving(car) => pose.with_surface_rotation(car.body_rotation()).with_seated_steer(car.steer_turn()),
-        }
-    }
-
-    pub fn release_wheel(&mut self, world: &mut dyn PlanetaryWorld) -> Option<Vec3> {
-        if let Self::Driving(car) = std::mem::replace(self, Self::Pedestrian) {
-            let perch_car = car.release_wheel(world);
-            let pos = perch_car.perch_position();
-            *self = Self::Perch(perch_car);
-            Some(pos)
-        } else {
-            None
-        }
-    }
-
-    pub fn step(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) -> Option<(Vec3, f32)> {
-        match self {
-            Self::Pedestrian => None,
-            Self::Perch(car) => {
-                if !car.seat_intact(world) {
-                    let pos = world.constrain_to_surface(car.perch_position(), SEAT_EYE_SUPPORT);
-                    *self = Self::Pedestrian;
-                    return Some((pos, 0.0));
-                }
-                let mut pedals = PedalInput::idle();
-                controls.drive_locomotion(Vec3::Y, Vec3::X, &mut pedals);
-                if pedals.throttle.abs() > 0.1 || pedals.steer.abs() > 0.1 {
-                    let exit = car.dismount_in_direction(pedals.throttle, pedals.steer, world);
-                    *self = Self::Pedestrian;
-                    Some((exit, 0.0))
-                } else {
-                    Some((car.perch_position(), 0.0))
-                }
-            }
-            Self::Driving(car) => Some(car.step(dt, controls, world)),
-        }
-    }
-
-    pub fn emit(&self, target: &mut dyn MeshTarget) {
-        if let Self::Driving(car) = self {
-            car.emit(target);
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests;

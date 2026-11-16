@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.75.1] - 2026-11-16
+
+### Fixed
+- Fixed getting trapped inside a newly placed block when looking down in a 1-block-wide vertical shaft, falling through the solid shaft floor into the lethal core / teleporting onto the highest rim or spawn block when digging out, and sluggish post-respawn movement in multiplayer by introducing the `PlacementTarget` decorator `StanceClearance` (`crates/world/src/relief/sight_ray/clearance.rs`) and `StepCrossing` (`crates/world/src/relief/sight_ray/contact.rs`) to reject underfoot or body-overlapping placements without stacking phantom blocks onto the shaft rim, clamping pitch immediately upon entering `ShoulderArc::Wedged` (`MouseLook::constrain_shoulders` in `crates/client/src/orientation/mod.rs` and `CrustEnvelope::axis_wedged` in `crates/client/src/envelope/crust.rs`), gating 1x1 rim bridging in `ShaftColumn::support_height` (`crates/world/src/relief/column_clearance/decorators.rs`) on `foot_elev >= rim_h - BLOCK_STEP`, and clearing held `DigOperation` / `KeyMotion` triggers across blackout respawns and modal transitions (`crates/client/src/avatar/planetary.rs`, `crates/client/src/session/stage.rs`, and `crates/client/src/session/mod.rs`).
+
+### Changed
+- Split `VehiclePilot` (`crates/client/src/drive/pilot.rs`) from `DrivenCar` (`crates/client/src/drive/mod.rs`) and `orientation` unit tests (`crates/client/src/orientation/tests.rs`) from `MouseLook` (`crates/client/src/orientation/mod.rs`), decoupled `[profile.dev]` (`opt-level = 1` for fast live terrain meshing) from `[profile.test]` (`opt-level = 0` for ~1s incremental test builds) in `Cargo.toml`, pre-sized 262k-quad terrain upload buffers in `SessionDisplay` (`crates/client/src/session/display.rs`), and documented the Reproduce-First `--offline` rule in `AGENTS.md`.
+
 ## [0.75.0] - 2026-11-15
 
 ### Added

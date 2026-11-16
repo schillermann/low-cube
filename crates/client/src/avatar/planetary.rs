@@ -101,12 +101,17 @@ impl PlanetaryAvatar {
         self.gear.act_with_hand(side, reach, &mut self.body, &mut self.bearing, world)
     }
 
+    fn reset_to_world(&mut self, world: &dyn PlanetaryWorld) {
+        self.body.respawn(world);
+        self.sight_line.reset_horizon();
+        self.bearing.reset();
+        self.gear.calm_hands();
+    }
+
     fn step_perish(&mut self, dt: f32, world: &dyn PlanetaryWorld) {
         let (respawn_now, beat) = self.body.advance_perish(dt);
         if respawn_now {
-            self.body.respawn(world);
-            self.sight_line.reset_horizon();
-            self.bearing.reset();
+            self.reset_to_world(world);
             return;
         }
         self.bearing.tilt_perish(dt);
@@ -129,8 +134,10 @@ impl Avatar for PlanetaryAvatar {
     fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(1.0, world) }
 
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.body.perished() || self.gear.satchel_open() { return false; }
         let reach = self.surface_reach();
+        if self.body.perished() || self.gear.satchel_open() {
+            return self.gear.abort_hands(reach, world);
+        }
         self.gear.release_hand(reach, &mut self.body, &mut self.sight_line, &mut self.bearing, world)
     }
 
@@ -213,15 +220,8 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone {
-        if let Some((eye, fwd, _)) = self.gear.placed_camera_lens() {
-            return SightCone::from_view(eye, fwd);
-        }
         let vpos = self.body.visual_position();
-        if matches!(sight, SightMode::FirstPersonSight) {
-            SightCone::from_view(self.pose_at(vpos).eye_origin(), self.sight_line.view_direction())
-        } else {
-            SightCone::omnidirectional(vpos)
-        }
+        self.sight_line.sight_cone_at(sight, vpos, &self.pose_at(vpos), self.gear.placed_camera_lens())
     }
 
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
@@ -254,8 +254,7 @@ impl Avatar for PlanetaryAvatar {
         world.emit_meadow_around(self.body.position(), self.sight_line.view_direction(), target);
     }
     fn meadow_anchor(&self) -> (i32, i32, i32) {
-        let p = self.body.position();
-        (((p.x * 0.25).floor() as i32) * 8, ((p.y * 0.25).floor() as i32) * 8, ((p.z * 0.25).floor() as i32) * 8)
+        self.body.meadow_anchor()
     }
     fn take_photo_shutter(&mut self) -> PhotoShutter { self.bearing.take_shutter() }
     fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.bearing.apply_polaroid_mosaic(mosaic); }
@@ -277,8 +276,6 @@ impl Avatar for PlanetaryAvatar {
     }
 
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) {
-        self.body.respawn(world);
-        self.sight_line.reset_horizon();
-        self.bearing.reset();
+        self.reset_to_world(world);
     }
 }

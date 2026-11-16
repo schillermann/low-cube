@@ -1,4 +1,5 @@
 use glam::{Mat4, Quat, Vec3};
+use fauna::SightCone;
 use crate::attire::{BodyPose, SightMode, StrideRhythm};
 use crate::controls::KeyboardControls;
 use crate::earthworks::SurfaceReach;
@@ -43,6 +44,7 @@ impl AvatarSight {
         self.surface_rot = Quat::IDENTITY;
         self.camera_rot = Quat::IDENTITY;
         self.lens = PerspectiveLens::human_eye();
+        self.look.level_pitch();
         self.look.constrain_shoulders(false, 0.0);
     }
 
@@ -111,6 +113,23 @@ impl AvatarSight {
 
     pub fn project_lens_view(&self, aspect: f32, eye: Vec3, forward: Vec3, up: Vec3) -> Mat4 {
         self.lens.projection_matrix(aspect) * Mat4::look_to_rh(eye, forward, up)
+    }
+
+    pub fn sight_cone_at(
+        &self,
+        sight: SightMode,
+        visual_pos: Vec3,
+        pose: &BodyPose,
+        placed_lens: Option<(Vec3, Vec3, Vec3)>,
+    ) -> SightCone {
+        if let Some((eye, fwd, _)) = placed_lens {
+            return SightCone::from_view(eye, fwd);
+        }
+        if matches!(sight, SightMode::FirstPersonSight) {
+            SightCone::from_view(pose.eye_origin(), self.view_direction())
+        } else {
+            SightCone::omnidirectional(visual_pos)
+        }
     }
 
     pub fn surface_reach(&self, pose_eye: Vec3, pos: Vec3, standing: bool, driving: bool) -> SurfaceReach {

@@ -2,7 +2,7 @@ use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
 use crate::attire::{BodyPose, SatchelBurden};
 use crate::controls::KeyboardControls;
-use crate::drive::{DrivenCar, VehiclePilot};
+use crate::drive::VehiclePilot;
 use crate::envelope::{BodyEnvelope, PhysicalEnvelope};
 use crate::flight::GravitationalFlight;
 use crate::order::LocomotionOrder;
@@ -78,6 +78,15 @@ impl AvatarBody {
         self.span = self.span.advanced(next_pos);
     }
 
+    pub fn meadow_anchor(&self) -> (i32, i32, i32) {
+        let p = self.span.current();
+        (
+            ((p.x * 0.25).floor() as i32) * 8,
+            ((p.y * 0.25).floor() as i32) * 8,
+            ((p.z * 0.25).floor() as i32) * 8,
+        )
+    }
+
     pub fn gore(&mut self, impulse: Vec3, world: &dyn PlanetaryWorld) {
         if self.perished() || self.driving() {
             return;
@@ -111,6 +120,14 @@ impl AvatarBody {
         self.flight.ground();
     }
 
+    fn mount_assembly(&mut self, assembly: VehicleAssembly, sight_line: &mut AvatarSight, world: &dyn PlanetaryWorld) {
+        let (pos, heading) = self.pilot.mount(assembly, world);
+        self.span = BodySpan::anchored(pos);
+        self.posture = AvatarPosture::crouching();
+        self.flight.ground();
+        sight_line.anchor_vehicle_heading(heading);
+    }
+
     pub fn interact_seated_vehicle(
         &mut self, eye: Vec3, view_dir: Vec3, sight_line: &mut AvatarSight, world: &mut dyn PlanetaryWorld,
     ) -> Option<bool> {
@@ -123,13 +140,7 @@ impl AvatarBody {
         }
         if self.pilot.seated() {
             if let Some(assembly) = world.board_vehicle(eye, view_dir, true) {
-                let heading = assembly.heading();
-                if assembly.drivable() {
-                    self.board_vehicle(assembly, world);
-                } else {
-                    self.sit_in_seat(assembly);
-                }
-                sight_line.anchor_vehicle_heading(heading);
+                self.mount_assembly(assembly, sight_line, world);
                 return Some(true);
             }
         }
@@ -139,33 +150,11 @@ impl AvatarBody {
     pub fn perch_vehicle(
         &mut self, eye: Vec3, view_dir: Vec3, sight_line: &mut AvatarSight, world: &mut dyn PlanetaryWorld,
     ) -> bool {
-        if let Some(perch) = world.board_vehicle(eye, view_dir, false) {
-            let heading = perch.heading();
-            if perch.drivable() {
-                self.board_vehicle(perch, world);
-            } else {
-                self.sit_in_seat(perch);
-            }
-            sight_line.anchor_vehicle_heading(heading);
-            return true;
-        }
-        false
-    }
-
-    pub fn sit_in_seat(&mut self, assembly: VehicleAssembly) {
-        let car = DrivenCar::boarded(assembly);
-        self.span = BodySpan::anchored(car.perch_position());
-        self.posture = AvatarPosture::crouching();
-        self.flight.ground();
-        self.pilot = VehiclePilot::Perch(car);
-    }
-
-    pub fn board_vehicle(&mut self, assembly: VehicleAssembly, world: &dyn PlanetaryWorld) {
-        let car = DrivenCar::boarded(assembly);
-        self.span = BodySpan::anchored(car.seat_position(world));
-        self.posture = AvatarPosture::crouching();
-        self.flight.ground();
-        self.pilot = VehiclePilot::Driving(car);
+        let Some(perch) = world.board_vehicle(eye, view_dir, false) else {
+            return false;
+        };
+        self.mount_assembly(perch, sight_line, world);
+        true
     }
 
     pub fn step_driving(

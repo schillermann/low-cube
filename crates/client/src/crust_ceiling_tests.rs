@@ -167,3 +167,126 @@ fn test_head_contact_beneath_subterranean_dirt_block_never_catapults_to_surface_
     shape.emit_terraced_shape(world::GridCell::new(0, 0), -7.0, &frame, Vec3::ONE, Vec3::ONE, true, &mut rock_span);
     assert!(rock_span.max_y < 25.6 && rock_span.min_y >= 24.9, "Subterranean CrustRock block at -7.0..6.5 (y=25.0..25.5) must emit all side flanks at its own layer, got y={}..{}", rock_span.min_y, rock_span.max_y);
 }
+
+#[test]
+fn test_multiplayer_narrow_shaft_looking_down_clamps_crosshair_and_rejects_underfoot_block() {
+    use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
+    use crate::attire::{HeldRelic, YouthAttire};
+
+    let host_inner: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(64, 1.0));
+    let host = SanctuaryHost::bind("127.0.0.1:0", host_inner, 64, false).expect("bind host");
+    let addr = host.local_addr().expect("addr");
+    let mut host_planet = HostedPlanet::new(host);
+    let mut guest_planet = RemotePlanet::dial(JoinTarget::Direct(addr), 64, false, 1.0).expect("dial guest");
+    for _ in 0..10 {
+        let _ = guest_planet.step_surface(0.02);
+        let _ = host_planet.step_surface(0.02);
+    }
+    assert!(guest_planet.connected());
+
+    let rim_y = host_planet.constrain_to_surface(Vec3::new(0.25, 40.0, 0.25), 1.0).y;
+    let wall_rim_y = host_planet.constrain_to_surface(Vec3::new(0.25, 40.0, -0.25), 0.0).y;
+    for _ in 0..8 {
+        let fy = host_planet.constrain_to_surface(Vec3::new(0.25, 40.0, 0.25), 0.0).y;
+        assert!(host_planet.excavate_surface(Vec3::new(0.25, fy + 1.0, 0.25), Vec3::NEG_Y));
+    }
+    let bottom_y = host_planet.constrain_to_surface(Vec3::new(0.25, 40.0, 0.25), 0.0).y;
+    assert!(host_planet.place_molded_surface_block(
+        Vec3::new(0.25, bottom_y + 1.0, 0.25),
+        Vec3::NEG_Y,
+        Vec3::new(5.0, rim_y, 5.0),
+        world::BlockMold::cube().in_medium(world::BlockMedium::TurfEarth),
+    ));
+    for _ in 0..12 {
+        let _ = host_planet.step_surface(0.06);
+        let _ = guest_planet.step_surface(0.06);
+    }
+
+    let shaft_pos = guest_planet.constrain_to_surface(Vec3::new(0.25, bottom_y + 1.5, 0.25), 1.0);
+    assert!((shaft_pos.y - (bottom_y + 1.5)).abs() < 0.05);
+    let mut avatar = PlanetaryAvatar::at(shaft_pos);
+    for _ in 0..15 {
+        avatar.step_motion(1.0 / 120.0, &KeyMotion::idle(), &guest_planet);
+    }
+    avatar.sync_world_presence(&mut guest_planet);
+    for _ in 0..4 {
+        let _ = guest_planet.step_surface(0.06);
+        let _ = host_planet.step_surface(0.06);
+    }
+
+    // Dragging crosshair all the way down must stop well before pointing under the player's feet, and placing a block must be rejected!
+    avatar.rotate_degrees(0.0, 88.0);
+    let inv = avatar.view_projection_matrix(1.0).inverse();
+    let eye_before = inv.project_point3(Vec3::ZERO);
+    let fwd_down = (inv.project_point3(Vec3::new(0.0, 0.0, 0.5)) - eye_before).normalize();
+    assert!(fwd_down.y > -0.84, "Crosshair in narrow shaft must stop before reaching under the player's feet, got dir={fwd_down:?}");
+
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::IronSpade));
+    let _ = avatar.use_right_hand(&mut guest_planet);
+    assert!(!avatar.release_hand(&mut guest_planet), "Looking down in 1-block shaft must never place a block beneath or inside the player");
+    assert!(
+        !guest_planet.place_molded_surface_block(
+            Vec3::new(0.25, bottom_y + 1.8, 0.25),
+            Vec3::NEG_Y,
+            shaft_pos,
+            world::BlockMold::cube(),
+        ),
+        "Direct downward block placement overlapping player stance must be rejected"
+    );
+    assert!(
+        (guest_planet.constrain_to_surface(Vec3::new(0.25, 40.0, -0.25), 0.0).y - wall_rim_y).abs() < 1e-4,
+        "Rejected shaft placement must never stack a phantom block onto the top shaft rim"
+    );
+
+    // Digging through the molded block in the 1-block shaft must stay on the shaft floor without falling to core or teleporting to rim!
+    let fy = guest_planet.constrain_to_surface(Vec3::new(0.25, 40.0, 0.25), 0.0).y;
+    assert!(guest_planet.excavate_surface(Vec3::new(0.25, fy + 0.8, 0.25), Vec3::NEG_Y));
+    let mut jump_walk = KeyMotion::idle();
+    jump_walk.register_key(KeyCode::Space, true);
+    jump_walk.register_key(KeyCode::KeyW, true);
+    for _ in 0..90 {
+        avatar.step_motion(1.0 / 60.0, &jump_walk, &guest_planet);
+        let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO).y;
+        assert!(
+            eye > bottom_y + 0.5 && eye < rim_y,
+            "Avatar in 1-block shaft after digging molded blocks must neither fall through solid floor nor teleport to rim (eye={eye}, bottom={bottom_y}, rim={rim_y})"
+        );
+    }
+}
+
+#[test]
+fn test_releasing_hand_while_perished_halts_digging_and_preserves_full_respawn_pace() {
+    use crate::attire::{HeldRelic, YouthAttire};
+
+    let mut world = BiomedCubeWorld::beveled(64, 1.0);
+    for _ in 0..40 {
+        let fy = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;
+        if !world.excavate_surface(Vec3::new(0.25, fy + 1.0, 0.25), Vec3::NEG_Y) {
+            break;
+        }
+    }
+    let core_y = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;
+    let mut avatar = PlanetaryAvatar::at(Vec3::new(0.25, core_y + 1.5, 0.25));
+    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    avatar.rotate_degrees(0.0, 82.0);
+    let _ = avatar.use_right_hand(&mut world);
+
+    // Touch lethal core while hand is held, then release hand during blackout!
+    let mut avatar_core = PlanetaryAvatar::at(Vec3::new(0.25, core_y + 1.0, 0.25));
+    avatar_core.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    avatar_core.rotate_degrees(0.0, 82.0);
+    avatar_core.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
+    let _ = avatar_core.release_hand(&mut world);
+    for _ in 0..180 {
+        avatar_core.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
+    }
+    assert!(!avatar_core.step_digging(&mut world), "Respawned avatar must not ghost-dig after releasing mouse during blackout");
+    let mut walk = KeyMotion::idle();
+    walk.register_key(KeyCode::KeyW, true);
+    let start = avatar_core.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    for _ in 0..30 {
+        avatar_core.step_motion(1.0 / 60.0, &walk, &world);
+    }
+    let end = avatar_core.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+    assert!((end - start).length() > 2.2, "Movement after respawn must run at full brisk walking speed, got {}", (end - start).length());
+}

@@ -65,6 +65,16 @@ impl AvatarGear {
         self.earthworks = self.earthworks.step_toss(dt);
     }
 
+    pub fn calm_hands(&mut self) {
+        self.earthworks = self.earthworks.halt_dig();
+    }
+
+    pub fn abort_hands(&mut self, reach: SurfaceReach, world: &mut dyn PlanetaryWorld) -> bool {
+        let (next_ew, cleared) = self.earthworks.abort_hand(reach, world);
+        self.earthworks = next_ew;
+        cleared
+    }
+
     pub fn dispatch_trigger(&mut self, trigger: InputTrigger, bearing: &mut AvatarBearing, perished: bool) -> bool {
         if trigger == InputTrigger::WheelClick
             && !self.satchel_open()

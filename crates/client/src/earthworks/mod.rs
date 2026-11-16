@@ -180,6 +180,15 @@ impl PalmEarthworks {
         self.dig.emit_debris(view_dir, surface_up, rhythm, target);
     }
 
+    pub const fn halt_dig(self) -> Self {
+        Self::with_state(self.satchel, self.tome, self.dig.halted(), TossCadence::Quiet)
+    }
+
+    pub fn abort_hand(self, reach: SurfaceReach, world: &mut dyn PlanetaryWorld) -> (Self, bool) {
+        let cleared = self.dig.clear_cracks(reach.eye(), reach.view_dir(), world);
+        (self.halt_dig(), cleared)
+    }
+
     pub fn release_hand(
         self, reach: SurfaceReach, attire: YouthAttire, world: &mut dyn PlanetaryWorld,
     ) -> (Self, YouthAttire, bool, bool) {

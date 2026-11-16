@@ -102,7 +102,7 @@ impl SessionDisplay {
             let next = self.surface.replace_tron_mesh(self.tron.mesh.slice_at(idx), &tron_buf);
             self.tron.mesh.store_slice(idx, next);
         } else {
-            let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
+            let mut cpu_buf = CpuMeshBatch::with_quad_capacity(262_144);
             world.emit_face(idx, &mut cpu_buf);
             let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
             self.primary.mesh.store_slice(idx, next);
@@ -132,7 +132,7 @@ impl SessionDisplay {
                 let next = self.surface.replace_tron_mesh(self.tron.mesh.slice_at(idx), &tron_buf);
                 self.tron.mesh.store_slice(idx, next);
             } else {
-                let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
+                let mut cpu_buf = CpuMeshBatch::with_quad_capacity(262_144);
                 let idx = world.emit_modified_face(&mut cpu_buf);
                 let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
                 self.primary.mesh.store_slice(idx, next);
@@ -147,7 +147,7 @@ impl SessionDisplay {
                     self.tron.mesh.store_slice(idx, next);
                 }
             } else {
-                let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
+                let mut cpu_buf = CpuMeshBatch::with_quad_capacity(262_144);
                 if let Some(idx) = world.drain_modified_slice(&mut cpu_buf) {
                     let next = self.surface.replace_mesh(self.primary.mesh.slice_at(idx), &cpu_buf);
                     self.primary.mesh.store_slice(idx, next);
