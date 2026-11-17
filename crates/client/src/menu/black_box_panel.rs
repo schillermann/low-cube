@@ -4,13 +4,14 @@ use crate::avatar::Avatar;
 use crate::black_box::{DiskDossier, FileBlackBox};
 use super::clipboard::TextClipboard;
 use super::glyph::PixelStamp;
+use super::view::{MenuView, TitledCard};
 use super::widget::{ScreenBounds, ScreenPoint};
 
 /// Directive returned when interacting with the Flight Blackbox diagnostics panel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BlackBoxDirective {
     StayInBlackBox,
-    ReturnToPauseMenu,
+    ReturnToSettings,
     ResumeWithPolaroid,
 }
 
@@ -22,6 +23,90 @@ pub enum BlackBoxNotice {
     Silenced,
     EmptyBuffer,
     ReportSaved,
+}
+
+/// Stateless screen bounds layout for the Flight Blackbox panel.
+pub struct BlackBoxLayout;
+
+impl BlackBoxLayout {
+    /// Primary constructor initializing the Flight Blackbox button layout.
+    pub const fn new() -> Self {
+        Self
+    }
+
+    pub fn toggle_button(&self) -> ScreenBounds {
+        ScreenBounds::new(-0.34, 0.04, 0.34, 0.16)
+    }
+
+    pub fn report_button(&self) -> ScreenBounds {
+        ScreenBounds::new(-0.34, -0.16, 0.34, -0.04)
+    }
+
+    pub fn back_button(&self) -> ScreenBounds {
+        ScreenBounds::new(-0.28, -0.44, 0.28, -0.32)
+    }
+}
+
+/// Inner content of the Flight Blackbox panel decorated by `TitledCard`.
+pub struct BlackBoxBody<'a> {
+    pointer: ScreenPoint,
+    notice: BlackBoxNotice,
+    avatar: &'a dyn Avatar,
+}
+
+impl<'a> BlackBoxBody<'a> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(pointer: ScreenPoint, notice: BlackBoxNotice, avatar: &'a dyn Avatar) -> Self {
+        Self { pointer, notice, avatar }
+    }
+}
+
+impl MenuView for BlackBoxBody<'_> {
+    fn emit(&self, target: &mut dyn MeshTarget) {
+        let layout = BlackBoxLayout::new();
+        let active = self.avatar.black_box_active();
+        let populated = self.avatar.black_box_populated();
+        let (ticks, anomalies) = self.avatar.black_box_summary();
+
+        let status_line = if active {
+            format!("RING BUFFER: {ticks} TICKS  ANOMALIES: {anomalies}")
+        } else {
+            "MODE: SILENT NULL OBJECT (NO OVERHEAD)".to_string()
+        };
+        let status_col = if anomalies > 0 {
+            Vec3::new(0.96, 0.46, 0.28)
+        } else if active {
+            Vec3::new(0.56, 0.88, 0.68)
+        } else {
+            Vec3::new(0.62, 0.68, 0.76)
+        };
+        PixelStamp::caption(status_col).emit_centered(&status_line, 0.0, 0.24, target);
+
+        let (toggle_label, toggle_col) = if active {
+            ("LOG: ON", Vec3::new(0.18, 0.48, 0.28))
+        } else {
+            ("LOG: OFF", Vec3::new(0.28, 0.30, 0.36))
+        };
+        layout.toggle_button().emit_button(toggle_label, self.pointer, toggle_col, active, target);
+
+        let report_col = if populated {
+            Vec3::new(0.58, 0.38, 0.14)
+        } else {
+            Vec3::new(0.22, 0.24, 0.28)
+        };
+        layout.report_button().emit_button("CREATE LOG REPORT", self.pointer, report_col, populated, target);
+
+        let (note_text, note_col) = match self.notice {
+            BlackBoxNotice::Idle => ("CAPTURES LAST 15S FOR REPLAY REPORTS", Vec3::new(0.58, 0.64, 0.74)),
+            BlackBoxNotice::Activated => ("RECORDING LIVE 120HZ RING BUFFER", Vec3::new(0.52, 0.90, 0.64)),
+            BlackBoxNotice::Silenced => ("RECORDING STOPPED AND BUFFER CLEARED", Vec3::new(0.86, 0.72, 0.44)),
+            BlackBoxNotice::EmptyBuffer => ("PLAY A FEW TICKS WITH LOG ON FIRST", Vec3::new(0.94, 0.46, 0.36)),
+            BlackBoxNotice::ReportSaved => ("SAVED TO REPORTS/ AND COPIED PATH", Vec3::new(0.52, 0.90, 0.64)),
+        };
+        PixelStamp::caption(note_col).emit_centered(note_text, 0.0, -0.24, target);
+
+        layout.back_button().emit_button("BACK", self.pointer, Vec3::new(0.24, 0.28, 0.38), false, target);
+    }
 }
 
 /// Encapsulated Flight Blackbox menu panel toggling `LiveTape`/`SilentTape` and exporting Polaroid bug reports.
@@ -62,20 +147,9 @@ impl BlackBoxPanel {
         )
     }
 
-    pub fn toggle_button() -> ScreenBounds {
-        ScreenBounds::new(-0.34, 0.04, 0.34, 0.16)
-    }
-
-    pub fn report_button() -> ScreenBounds {
-        ScreenBounds::new(-0.34, -0.16, 0.34, -0.04)
-    }
-
-    pub fn back_button() -> ScreenBounds {
-        ScreenBounds::new(-0.28, -0.44, 0.28, -0.32)
-    }
-
     pub fn press_pointer(&mut self, pointer: ScreenPoint, avatar: &mut dyn Avatar) -> BlackBoxDirective {
-        if Self::toggle_button().contains(pointer) {
+        let layout = BlackBoxLayout::new();
+        if layout.toggle_button().contains(pointer) {
             let now_active = avatar.toggle_black_box();
             self.profile.save_active(now_active);
             self.notice = if now_active {
@@ -84,7 +158,7 @@ impl BlackBoxPanel {
                 BlackBoxNotice::Silenced
             };
             BlackBoxDirective::StayInBlackBox
-        } else if Self::report_button().contains(pointer) {
+        } else if layout.report_button().contains(pointer) {
             let mut dossier = DiskDossier::in_folder(&self.report_folder);
             if avatar.export_incident_dossier(&mut dossier).is_some() {
                 let saved_path = dossier.commit_to_disk();
@@ -95,61 +169,19 @@ impl BlackBoxPanel {
                 self.notice = BlackBoxNotice::EmptyBuffer;
                 BlackBoxDirective::StayInBlackBox
             }
-        } else if Self::back_button().contains(pointer) {
-            BlackBoxDirective::ReturnToPauseMenu
+        } else if layout.back_button().contains(pointer) {
+            BlackBoxDirective::ReturnToSettings
         } else {
             BlackBoxDirective::StayInBlackBox
         }
     }
 
-    pub fn emit(&self, pointer: ScreenPoint, avatar: &dyn Avatar, target: &mut dyn MeshTarget) {
-        let bg = Vec3::new(0.08, 0.10, 0.15);
-        let rim = Vec3::new(0.32, 0.39, 0.50);
-        let gold = Vec3::new(0.96, 0.82, 0.34);
-        let active = avatar.black_box_active();
-        let populated = avatar.black_box_populated();
-        let (ticks, anomalies) = avatar.black_box_summary();
-
-        ScreenBounds::new(-0.44, -0.54, 0.44, 0.44).emit_framed(bg, rim, 0.008, target);
-        PixelStamp::title(gold).emit_centered("FLIGHT LOG", 0.0, 0.35, target);
-
-        let status_line = if active {
-            format!("RING BUFFER: {ticks} TICKS  ANOMALIES: {anomalies}")
-        } else {
-            "MODE: SILENT NULL OBJECT (NO OVERHEAD)".to_string()
-        };
-        let status_col = if anomalies > 0 {
-            Vec3::new(0.96, 0.46, 0.28)
-        } else if active {
-            Vec3::new(0.56, 0.88, 0.68)
-        } else {
-            Vec3::new(0.62, 0.68, 0.76)
-        };
-        PixelStamp::caption(status_col).emit_centered(&status_line, 0.0, 0.24, target);
-
-        let (toggle_label, toggle_col) = if active {
-            ("LOG: ON", Vec3::new(0.18, 0.48, 0.28))
-        } else {
-            ("LOG: OFF", Vec3::new(0.28, 0.30, 0.36))
-        };
-        Self::toggle_button().emit_button(toggle_label, pointer, toggle_col, active, target);
-
-        let report_col = if populated {
-            Vec3::new(0.58, 0.38, 0.14)
-        } else {
-            Vec3::new(0.22, 0.24, 0.28)
-        };
-        Self::report_button().emit_button("CREATE LOG REPORT", pointer, report_col, populated, target);
-
-        let (note_text, note_col) = match self.notice {
-            BlackBoxNotice::Idle => ("CAPTURES LAST 15S FOR REPLAY REPORTS", Vec3::new(0.58, 0.64, 0.74)),
-            BlackBoxNotice::Activated => ("RECORDING LIVE 120HZ RING BUFFER", Vec3::new(0.52, 0.90, 0.64)),
-            BlackBoxNotice::Silenced => ("RECORDING STOPPED AND BUFFER CLEARED", Vec3::new(0.86, 0.72, 0.44)),
-            BlackBoxNotice::EmptyBuffer => ("PLAY A FEW TICKS WITH LOG ON FIRST", Vec3::new(0.94, 0.46, 0.36)),
-            BlackBoxNotice::ReportSaved => ("SAVED TO REPORTS/ AND COPIED PATH", Vec3::new(0.52, 0.90, 0.64)),
-        };
-        PixelStamp::caption(note_col).emit_centered(note_text, 0.0, -0.24, target);
-
-        Self::back_button().emit_button("BACK TO MENU", pointer, Vec3::new(0.24, 0.28, 0.38), false, target);
+    pub fn view<'a>(&'a self, pointer: ScreenPoint, avatar: &'a dyn Avatar) -> TitledCard<'static, BlackBoxBody<'a>> {
+        TitledCard::new(
+            ScreenBounds::new(-0.44, -0.54, 0.44, 0.44),
+            "FLIGHT LOG",
+            0.35,
+            BlackBoxBody::new(pointer, self.notice, avatar),
+        )
     }
 }

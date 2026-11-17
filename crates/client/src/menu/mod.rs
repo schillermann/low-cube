@@ -15,17 +15,19 @@ mod glyph;
 mod pause_panel;
 mod portal;
 mod settings;
+mod settings_panel;
 mod stage;
 mod studio;
 #[cfg(test)]
 mod tests;
 mod version_stamp;
+mod view;
 mod widget;
 
 #[cfg(test)]
 pub use archetype::AvatarArchetype;
 #[cfg(test)]
-pub use black_box_panel::BlackBoxPanel;
+pub use black_box_panel::{BlackBoxLayout, BlackBoxPanel};
 #[cfg(test)]
 pub use clipboard::{MemoryClipboard, ScratchClipboard};
 pub use clipboard::{SystemClipboard, TextClipboard};
@@ -35,15 +37,19 @@ pub use glyph::PixelStamp;
 pub use pause_panel::PausePanel;
 pub use portal::PortalInvite;
 #[cfg(test)]
-pub use portal::{PortalNotice, PortalStudio};
+pub use portal::{PortalBounds, PortalNotice, PortalStudio};
 #[cfg(test)]
-pub use settings::ControlStudio;
+pub use settings::{ControlLayout, ControlPanel, ControlStudio, SavedControls};
+#[cfg(test)]
+pub use settings_panel::SettingsPanel;
 #[cfg(test)]
 pub use stage::{StudioAnimation, TurntableStage};
 #[cfg(test)]
-pub use studio::WardrobeStudio;
+pub use studio::{SavedWardrobe, WardrobePanel, WardrobeStudio};
 #[cfg(test)]
 pub use version_stamp::VersionStamp;
+#[cfg(test)]
+pub use view::{MenuView, VersionedView};
 pub use widget::ScreenPoint;
 
 /// Directive returned when interacting with the Escape menu, Character studio, Settings, or Portal panel.

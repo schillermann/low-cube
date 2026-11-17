@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.77.0] - 2026-11-17
+
+### Added
+- Added `SettingsPanel` (`crates/client/src/menu/settings_panel.rs`) and `ModalPhase::SettingsHub` (`crates/client/src/menu/escape_menu/panels.rs`) grouping `KEYBINDINGS` and `LOG` under a dedicated `SETTINGS` submenu with hierarchical `Escape` and `BACK` navigation.
+- Added composable `MenuView` decorators `TitledCard` and `VersionedView` (`crates/client/src/menu/view.rs`) alongside profile-persistence decorators `SavedControls` (`crates/client/src/menu/settings/saved.rs`) and `SavedWardrobe` (`crates/client/src/menu/studio/saved.rs`) over narrow Tell-Don't-Ask `BindingSink` / `AttireSink` interfaces.
+
+### Changed
+- Renamed Main Menu buttons `RESUME GAME` to `RESUME` and `QUIT GAME` to `QUIT` in `PausePanel` (`crates/client/src/menu/pause_panel.rs`), encapsulated all `StudioPanels` fields privately, replaced static layout helper functions with `ControlLayout`, `BlackBoxLayout`, `PortalBounds`, and `StudioBounds` instances, and renamed `-er`-suffixed `StudioPointer` to `StageGrip`.
+
+### Removed
+- Removed `ControlStudio::current_bindings` and `WardrobeStudio::current_attire` getters, `(SettingsDirective, bool)` change-flag tuples, hardcoded `FileBindings` / `FileAttire` disk writes inside UI studios, and seven duplicated `VersionStamp` / five duplicated dialog-frame emissions across menu panels.
+
 ## [0.76.0] - 2026-11-17
 
 ### Added

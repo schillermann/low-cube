@@ -7,7 +7,10 @@ use crate::black_box::{
     BlackBoxAvatar, IncidentReplay, LiveTape, MemoryDossier, PresenceProbe, SilentTape,
 };
 use crate::controls::{KeyMotion, KeyboardControls};
-use crate::menu::{BlackBoxPanel, EscapeMenu, MemoryClipboard, PausePanel, ScreenPoint};
+use crate::menu::{
+    BlackBoxLayout, BlackBoxPanel, EscapeMenu, MemoryClipboard, PausePanel, ScreenPoint,
+    SettingsPanel,
+};
 use crate::session::{HeadlessSession, HeadlessSurface};
 
 #[test]
@@ -85,22 +88,27 @@ fn test_headless_session_menu_creates_log_report_and_displays_tilted_log_sheet_a
 
     session.press_escape();
     assert!(session.modal_open());
-    let log_btn = PausePanel::new().log_button();
+    let settings_btn = PausePanel::new().settings_button();
+    session.move_cursor(ScreenPoint::new(settings_btn.center_x(), settings_btn.center_y()));
+    session.click_modal();
+    let log_btn = SettingsPanel::new().log_button();
     session.move_cursor(ScreenPoint::new(log_btn.center_x(), log_btn.center_y()));
     session.click_modal();
 
     // Toggle Log OFF and back ON in menu, verify empty-buffer guard before playing
-    let toggle_btn = BlackBoxPanel::toggle_button();
+    let bb_layout = BlackBoxLayout::new();
+    let toggle_btn = bb_layout.toggle_button();
     session.move_cursor(ScreenPoint::new(toggle_btn.center_x(), toggle_btn.center_y()));
     session.click_modal();
-    let report_btn = BlackBoxPanel::report_button();
+    let report_btn = bb_layout.report_button();
     session.move_cursor(ScreenPoint::new(report_btn.center_x(), report_btn.center_y()));
     session.click_modal();
     assert!(session.modal_open(), "Clicking CREATE LOG REPORT while OFF must stay in menu");
 
-    // Re-enable Log, resume, play 40 ticks, then export Log Report!
+    // Re-enable Log, resume via Escape (Flight Log -> Settings -> Main Menu -> Gameplay), play 40 ticks, then export Log Report!
     session.move_cursor(ScreenPoint::new(toggle_btn.center_x(), toggle_btn.center_y()));
     session.click_modal();
+    session.press_escape();
     session.press_escape();
     session.press_escape();
     assert!(!session.modal_open());
@@ -109,6 +117,8 @@ fn test_headless_session_menu_creates_log_report_and_displays_tilted_log_sheet_a
     session.advance_ticks(40);
 
     session.press_escape();
+    session.move_cursor(ScreenPoint::new(settings_btn.center_x(), settings_btn.center_y()));
+    session.click_modal();
     session.move_cursor(ScreenPoint::new(log_btn.center_x(), log_btn.center_y()));
     session.click_modal();
     session.move_cursor(ScreenPoint::new(report_btn.center_x(), report_btn.center_y()));

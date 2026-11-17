@@ -1,13 +1,20 @@
 mod layout;
+mod saved;
 
 use glam::Mat4;
 use winit::keyboard::KeyCode;
 use world::MeshTarget;
-use crate::attire::{AttireProfile, BodyRegion, ComplexionSwatch, FileAttire, HeldRelic, YouthAttire, YouthPhysique};
+use crate::attire::{
+    AttireProfile, BodyRegion, ComplexionSwatch, HeldRelic, YouthAttire, YouthPhysique,
+};
+use crate::avatar::Avatar;
 use super::archetype::AvatarArchetype;
 use super::stage::TurntableStage;
+use super::view::MenuView;
 use super::widget::ScreenPoint;
-use layout::StudioLayout;
+use layout::{StudioBounds, StudioLayout};
+
+pub use saved::SavedWardrobe;
 
 /// Outcome returned from interactive studio actions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -16,26 +23,55 @@ pub enum StudioDirective {
     ReturnToPauseMenu,
 }
 
+/// Narrow Tell-Don't-Ask recipient for updated avatar attire.
+pub trait AttireSink {
+    fn apply_attire(&mut self, attire: YouthAttire);
+}
+
+impl AttireSink for &mut dyn Avatar {
+    fn apply_attire(&mut self, attire: YouthAttire) {
+        Avatar::apply_attire(*self, attire);
+    }
+}
+
+/// Focused interface for 3D character wardrobe studios and persistence decorators.
+pub trait WardrobePanel {
+    fn step(&mut self, dt: f32);
+    fn stage_projection(&self, aspect: f32) -> Mat4;
+    fn emit_stage(&self, target: &mut dyn MeshTarget);
+    fn emit_overlay(&self, target: &mut dyn MeshTarget);
+    fn release_grip(&mut self);
+    fn move_pointer(&mut self, next: ScreenPoint);
+    fn handle_key(&mut self, code: KeyCode, sink: &mut dyn AttireSink) -> bool;
+    fn press_pointer(&mut self, sink: &mut dyn AttireSink) -> StudioDirective;
+}
+
+impl MenuView for &dyn WardrobePanel {
+    fn emit(&self, target: &mut dyn MeshTarget) {
+        self.emit_overlay(target);
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
-struct StudioPointer {
+struct StageGrip {
     point: ScreenPoint,
     dragging: bool,
 }
 
-impl StudioPointer {
+impl StageGrip {
     /// Primary constructor doing nothing except assigning arguments to fields.
     const fn new(point: ScreenPoint, dragging: bool) -> Self {
         Self { point, dragging }
     }
 }
 
-/// Interactive 3D character selection, turntable inspection, skin color, and body-part proportion studio.
+/// Pure in-memory 3D character selection, turntable inspection, skin color, and body-part proportion studio.
 #[derive(Clone, Copy, Debug)]
 pub struct WardrobeStudio {
     attire: YouthAttire,
     archetype: AvatarArchetype,
     stage: TurntableStage,
-    pointer: StudioPointer,
+    grip: StageGrip,
 }
 
 impl WardrobeStudio {
@@ -51,59 +87,67 @@ impl WardrobeStudio {
             attire,
             archetype,
             stage,
-            pointer: StudioPointer::new(point, dragging),
+            grip: StageGrip::new(point, dragging),
         }
     }
 
-    pub fn from_profile() -> Self {
-        let loaded = FileAttire::profile().load_or_squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm);
+    #[cfg(test)]
+    pub fn seeded() -> Self {
+        Self::new(
+            YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm),
+            AvatarArchetype::Knight,
+            TurntableStage::front_showcase(),
+            ScreenPoint::center(),
+            false,
+        )
+    }
+
+    pub fn from_profile(profile: &dyn AttireProfile) -> Self {
+        let loaded = profile.load_or_squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm);
         Self::new(loaded, AvatarArchetype::Knight, TurntableStage::front_showcase(), ScreenPoint::center(), false)
     }
 
-    pub fn step(&mut self, dt: f32) {
+    fn update_attire(&mut self, updated: YouthAttire, sink: &mut dyn AttireSink) {
+        self.attire = updated;
+        sink.apply_attire(self.attire);
+    }
+}
+
+impl WardrobePanel for WardrobeStudio {
+    fn step(&mut self, dt: f32) {
         self.stage = self.stage.step(dt);
     }
 
-    pub fn current_attire(&self) -> YouthAttire {
-        self.attire
-    }
-
-    pub(super) const fn pointer_point(&self) -> ScreenPoint {
-        self.pointer.point
-    }
-
-    pub(super) fn selected_archetype(&self, candidate: AvatarArchetype) -> bool {
-        self.archetype == candidate
-    }
-
-    pub(super) fn active_animation_title(&self) -> &'static str {
-        self.stage.active_animation().title()
-    }
-
-    pub fn stage_projection(&self, aspect: f32) -> Mat4 {
+    fn stage_projection(&self, aspect: f32) -> Mat4 {
         self.stage.view_projection(aspect)
     }
 
-    pub fn emit_stage(&self, target: &mut dyn MeshTarget) {
+    fn emit_stage(&self, target: &mut dyn MeshTarget) {
         self.stage.emit_stage(&self.attire, target);
     }
 
-    pub fn emit_overlay(&self, target: &mut dyn MeshTarget) {
-        StudioLayout::new(self).emit_overlay(target);
+    fn emit_overlay(&self, target: &mut dyn MeshTarget) {
+        StudioLayout::new(
+            &self.attire,
+            self.archetype,
+            self.stage.active_animation().title(),
+            self.grip.point,
+        )
+        .emit(target);
     }
 
-    pub fn release_pointer(&mut self) {
-        self.pointer.dragging = false;
+    fn release_grip(&mut self) {
+        self.grip.dragging = false;
     }
 
-    pub fn move_pointer(&mut self, next: ScreenPoint) {
-        if self.pointer.dragging {
-            self.stage = self.stage.rotated(next.horizontal_delta(self.pointer.point) * 3.8);
+    fn move_pointer(&mut self, next: ScreenPoint) {
+        if self.grip.dragging {
+            self.stage = self.stage.rotated(next.horizontal_delta(self.grip.point) * 3.8);
         }
-        self.pointer.point = next;
+        self.grip.point = next;
     }
 
-    pub fn handle_key(&mut self, code: KeyCode) -> bool {
+    fn handle_key(&mut self, code: KeyCode, sink: &mut dyn AttireSink) -> bool {
         match code {
             KeyCode::ArrowLeft => {
                 self.stage = self.stage.rotated(-0.22);
@@ -115,7 +159,7 @@ impl WardrobeStudio {
             }
             KeyCode::Digit1 | KeyCode::Digit2 | KeyCode::Digit3 | KeyCode::Digit4 | KeyCode::Digit5 | KeyCode::Digit6 | KeyCode::KeyF => {
                 if let Some(updated) = self.attire.cycled_by_key(code) {
-                    self.attire = updated;
+                    self.update_attire(updated, sink);
                     true
                 } else {
                     false
@@ -125,89 +169,88 @@ impl WardrobeStudio {
         }
     }
 
-    fn update_attire(&mut self, updated: YouthAttire) {
-        self.attire = updated;
-        FileAttire::profile().save(&self.attire);
-    }
-
-    pub fn press_pointer(&mut self) -> StudioDirective {
-        let pt = self.pointer.point;
-        if StudioLayout::rotate_left_button().contains(pt) {
+    fn press_pointer(&mut self, sink: &mut dyn AttireSink) -> StudioDirective {
+        let bounds = StudioBounds::new();
+        let pt = self.grip.point;
+        if bounds.rotate_left_button().contains(pt) {
             self.stage = self.stage.rotated(-0.35);
             return StudioDirective::StayInStudio;
         }
-        if StudioLayout::front_button().contains(pt) {
+        if bounds.front_button().contains(pt) {
             self.stage = self.stage.reset_angle();
             return StudioDirective::StayInStudio;
         }
-        if StudioLayout::rotate_right_button().contains(pt) {
+        if bounds.rotate_right_button().contains(pt) {
             self.stage = self.stage.rotated(0.35);
             return StudioDirective::StayInStudio;
         }
-        if StudioLayout::animation_button().contains(pt) {
+        if bounds.animation_button().contains(pt) {
             self.stage = self.stage.next_animation();
             return StudioDirective::StayInStudio;
         }
 
         let (held_r, held_l) = self.attire.held_pair();
         for (i, arch) in AvatarArchetype::all().iter().enumerate() {
-            if StudioLayout::archetype_slot(i).contains(pt) {
+            if bounds.archetype_slot(i).contains(pt) {
                 self.archetype = *arch;
-                self.update_attire(arch.attire_for(self.attire.feminine()).with_relics(held_r, held_l));
+                self.update_attire(arch.attire_for(self.attire.feminine()).with_relics(held_r, held_l), sink);
                 return StudioDirective::StayInStudio;
             }
         }
         for (i, swatch) in ComplexionSwatch::all().iter().enumerate() {
-            if StudioLayout::swatch_slot(i).contains(pt) {
-                self.update_attire(self.attire.with_complexion(*swatch));
+            if bounds.swatch_slot(i).contains(pt) {
+                self.update_attire(self.attire.with_complexion(*swatch), sink);
                 return StudioDirective::StayInStudio;
             }
         }
         let clothing_keys = [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, KeyCode::Digit6];
         for (i, key) in clothing_keys.iter().enumerate() {
-            if StudioLayout::clothing_slot(i).contains(pt) {
+            if bounds.clothing_slot(i).contains(pt) {
                 if let Some(next) = self.attire.with_wardrobe_key(*key) {
-                    self.update_attire(next);
+                    self.update_attire(next, sink);
                 }
                 return StudioDirective::StayInStudio;
             }
         }
-        if StudioLayout::male_button().contains(pt) {
-            self.update_attire(self.archetype.attire_for(false).with_relics(held_r, held_l));
+        if bounds.male_button().contains(pt) {
+            self.update_attire(self.archetype.attire_for(false).with_relics(held_r, held_l), sink);
             return StudioDirective::StayInStudio;
         }
-        if StudioLayout::female_button().contains(pt) {
-            self.update_attire(self.archetype.attire_for(true).with_relics(held_r, held_l));
+        if bounds.female_button().contains(pt) {
+            self.update_attire(self.archetype.attire_for(true).with_relics(held_r, held_l), sink);
             return StudioDirective::StayInStudio;
         }
         for (idx, region) in BodyRegion::all().iter().enumerate() {
-            let (_, s_dec, _, s_inc, g_dec, _, g_inc) = StudioLayout::region_rows(idx);
+            let (_, s_dec, _, s_inc, g_dec, _, g_inc) = bounds.region_rows(idx);
             if s_dec.contains(pt) {
-                self.update_attire(self.attire.with_adjusted_region(*region, -1, 0));
+                self.update_attire(self.attire.with_adjusted_region(*region, -1, 0), sink);
                 return StudioDirective::StayInStudio;
             }
             if s_inc.contains(pt) {
-                self.update_attire(self.attire.with_adjusted_region(*region, 1, 0));
+                self.update_attire(self.attire.with_adjusted_region(*region, 1, 0), sink);
                 return StudioDirective::StayInStudio;
             }
             if g_dec.contains(pt) {
-                self.update_attire(self.attire.with_adjusted_region(*region, 0, -1));
+                self.update_attire(self.attire.with_adjusted_region(*region, 0, -1), sink);
                 return StudioDirective::StayInStudio;
             }
             if g_inc.contains(pt) {
-                self.update_attire(self.attire.with_adjusted_region(*region, 0, 1));
+                self.update_attire(self.attire.with_adjusted_region(*region, 0, 1), sink);
                 return StudioDirective::StayInStudio;
             }
         }
-        if StudioLayout::reset_button().contains(pt) {
-            self.update_attire(self.attire.with_physique(YouthPhysique::SlenderSquire.as_feminine(self.attire.feminine())));
+        if bounds.reset_button().contains(pt) {
+            self.update_attire(
+                self.attire.with_physique(YouthPhysique::SlenderSquire.as_feminine(self.attire.feminine())),
+                sink,
+            );
             return StudioDirective::StayInStudio;
         }
-        if StudioLayout::back_button().contains(pt) {
+        if bounds.back_button().contains(pt) {
             return StudioDirective::ReturnToPauseMenu;
         }
-        if StudioLayout::turntable_viewport().contains(pt) {
-            self.pointer.dragging = true;
+        if bounds.turntable_viewport().contains(pt) {
+            self.grip.dragging = true;
         }
         StudioDirective::StayInStudio
     }

@@ -1,22 +1,49 @@
 use glam::Vec3;
 use world::MeshTarget;
-use super::glyph::PixelStamp;
-use super::portal::PortalStudio;
+use super::view::{MenuView, TitledCard};
 use super::widget::{ScreenBounds, ScreenPoint};
 
 /// Selection resolved from a mouse click on the Main Pause Menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PauseSelection {
     Unmatched,
-    ResumeGame,
+    Resume,
     OpenWardrobe,
     OpenSettings,
     OpenMultiplayer,
-    OpenBlackBox,
-    QuitGame,
+    Quit,
 }
 
-/// Encapsulated Main Pause Menu layout, hit-testing, and 2D quad emission.
+/// Button content of the Main Pause Menu decorated by `TitledCard`.
+pub struct PauseBody {
+    pointer: ScreenPoint,
+    hosted: bool,
+}
+
+impl PauseBody {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(pointer: ScreenPoint, hosted: bool) -> Self {
+        Self { pointer, hosted }
+    }
+}
+
+impl MenuView for PauseBody {
+    fn emit(&self, target: &mut dyn MeshTarget) {
+        let layout = PausePanel::new();
+        let mp_col = if self.hosted {
+            Vec3::new(0.22, 0.52, 0.32)
+        } else {
+            Vec3::new(0.18, 0.44, 0.46)
+        };
+        layout.resume_button().emit_button("RESUME", self.pointer, Vec3::new(0.18, 0.42, 0.24), false, target);
+        layout.character_button().emit_button("CHARACTER", self.pointer, Vec3::new(0.20, 0.32, 0.52), false, target);
+        layout.settings_button().emit_button("SETTINGS", self.pointer, Vec3::new(0.28, 0.26, 0.48), false, target);
+        layout.multiplayer_button().emit_button("MULTIPLAYER", self.pointer, mp_col, self.hosted, target);
+        layout.quit_button().emit_button("QUIT", self.pointer, Vec3::new(0.54, 0.18, 0.18), false, target);
+    }
+}
+
+/// Encapsulated Main Pause Menu layout, hit-testing, and decorated `MenuView` assembly.
 pub struct PausePanel;
 
 impl PausePanel {
@@ -29,11 +56,11 @@ impl PausePanel {
         ScreenBounds::new(-0.28, 0.14, 0.28, 0.26)
     }
 
-    fn character_button(&self) -> ScreenBounds {
+    pub fn character_button(&self) -> ScreenBounds {
         ScreenBounds::new(-0.28, -0.04, 0.28, 0.08)
     }
 
-    fn settings_button(&self) -> ScreenBounds {
+    pub fn settings_button(&self) -> ScreenBounds {
         ScreenBounds::new(-0.28, -0.22, 0.28, -0.10)
     }
 
@@ -41,46 +68,32 @@ impl PausePanel {
         ScreenBounds::new(-0.28, -0.40, 0.28, -0.28)
     }
 
-    pub fn log_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.28, -0.58, 0.28, -0.46)
-    }
-
     pub fn quit_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.28, -0.76, 0.28, -0.64)
+        ScreenBounds::new(-0.28, -0.58, 0.28, -0.46)
     }
 
     pub fn select(&self, pointer: ScreenPoint) -> PauseSelection {
         if self.resume_button().contains(pointer) {
-            PauseSelection::ResumeGame
+            PauseSelection::Resume
         } else if self.character_button().contains(pointer) {
             PauseSelection::OpenWardrobe
         } else if self.settings_button().contains(pointer) {
             PauseSelection::OpenSettings
         } else if self.multiplayer_button().contains(pointer) {
             PauseSelection::OpenMultiplayer
-        } else if self.log_button().contains(pointer) {
-            PauseSelection::OpenBlackBox
         } else if self.quit_button().contains(pointer) {
-            PauseSelection::QuitGame
+            PauseSelection::Quit
         } else {
             PauseSelection::Unmatched
         }
     }
 
-    pub fn emit(&self, pointer: ScreenPoint, portal: &PortalStudio, log_active: bool, target: &mut dyn MeshTarget) {
-        let bg = Vec3::new(0.08, 0.10, 0.15);
-        let rim = Vec3::new(0.32, 0.39, 0.50);
-        let gold = Vec3::new(0.96, 0.82, 0.34);
-        let hosted = portal.hosted_active();
-        let mp_col = if hosted { Vec3::new(0.22, 0.52, 0.32) } else { Vec3::new(0.18, 0.44, 0.46) };
-        let log_col = if log_active { Vec3::new(0.50, 0.34, 0.14) } else { Vec3::new(0.26, 0.28, 0.34) };
-        ScreenBounds::new(-0.36, -0.84, 0.36, 0.44).emit_framed(bg, rim, 0.008, target);
-        PixelStamp::title(gold).emit_centered("MAIN MENU", 0.0, 0.35, target);
-        self.resume_button().emit_button("RESUME GAME", pointer, Vec3::new(0.18, 0.42, 0.24), false, target);
-        self.character_button().emit_button("CHARACTER", pointer, Vec3::new(0.20, 0.32, 0.52), false, target);
-        self.settings_button().emit_button("KEYBINDINGS", pointer, Vec3::new(0.28, 0.26, 0.48), false, target);
-        self.multiplayer_button().emit_button("MULTIPLAYER", pointer, mp_col, hosted, target);
-        self.log_button().emit_button("LOG", pointer, log_col, log_active, target);
-        self.quit_button().emit_button("QUIT GAME", pointer, Vec3::new(0.54, 0.18, 0.18), false, target);
+    pub const fn view(&self, pointer: ScreenPoint, hosted: bool) -> TitledCard<'static, PauseBody> {
+        TitledCard::new(
+            ScreenBounds::new(-0.36, -0.66, 0.36, 0.44),
+            "MAIN MENU",
+            0.35,
+            PauseBody::new(pointer, hosted),
+        )
     }
 }

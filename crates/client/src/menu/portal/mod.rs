@@ -4,13 +4,13 @@ mod layout;
 
 use sanctuary::JoinTarget;
 use winit::keyboard::KeyCode;
-use world::MeshTarget;
 use super::clipboard::TextClipboard;
-use super::widget::{ScreenBounds, ScreenPoint};
+use super::view::TitledCard;
+use super::widget::ScreenPoint;
 
 pub use draft::PortalDraft;
 pub use invite::{PortalDirective, PortalInvite, PortalNotice};
-pub use layout::PortalLayout;
+pub use layout::{MultiplayerHubBody, PortalBounds, PortalLayout};
 
 /// Encapsulated 12-char P2P portal banner, FRITZ!Box NAT punch reply, and server join studio.
 pub struct PortalStudio {
@@ -55,34 +55,6 @@ impl PortalStudio {
     #[cfg(test)]
     pub fn formatted_draft(&self) -> String {
         self.draft.formatted()
-    }
-
-    pub fn portal_button() -> ScreenBounds {
-        PortalLayout::portal_button()
-    }
-
-    pub fn join_portal_button() -> ScreenBounds {
-        PortalLayout::join_portal_button()
-    }
-
-    pub fn hub_back_button() -> ScreenBounds {
-        PortalLayout::hub_back_button()
-    }
-
-    pub fn paste_button() -> ScreenBounds {
-        PortalLayout::paste_button()
-    }
-
-    pub fn clear_button() -> ScreenBounds {
-        PortalLayout::clear_button()
-    }
-
-    pub fn join_button() -> ScreenBounds {
-        PortalLayout::join_button()
-    }
-
-    pub fn back_button() -> ScreenBounds {
-        PortalLayout::back_button()
     }
 
     pub fn hosted_active(&self) -> bool {
@@ -193,16 +165,17 @@ impl PortalStudio {
     }
 
     pub fn press_hub_pointer(&mut self, pointer: ScreenPoint) -> PortalDirective {
-        if Self::portal_button().contains(pointer) {
+        let bounds = PortalBounds::new();
+        if bounds.portal_button().contains(pointer) {
             if self.hosted_active() {
                 self.copy_hosted_ticket();
                 PortalDirective::StayInPortal
             } else {
                 PortalDirective::OpenLivePortal
             }
-        } else if Self::join_portal_button().contains(pointer) {
+        } else if bounds.join_portal_button().contains(pointer) {
             PortalDirective::OpenJoinScreen
-        } else if Self::hub_back_button().contains(pointer) {
+        } else if bounds.hub_back_button().contains(pointer) {
             PortalDirective::ReturnToPauseMenu
         } else {
             PortalDirective::StayInPortal
@@ -210,17 +183,18 @@ impl PortalStudio {
     }
 
     pub fn press_pointer(&mut self, pointer: ScreenPoint) -> PortalDirective {
-        if Self::paste_button().contains(pointer) {
+        let bounds = PortalBounds::new();
+        if bounds.paste_button().contains(pointer) {
             self.paste_from_clipboard();
             PortalDirective::StayInPortal
-        } else if Self::clear_button().contains(pointer) {
+        } else if bounds.clear_button().contains(pointer) {
             self.draft.clear();
             self.clear_dial_state();
             self.notice = PortalNotice::Idle;
             PortalDirective::StayInPortal
-        } else if Self::join_button().contains(pointer) {
+        } else if bounds.join_button().contains(pointer) {
             self.submit_draft()
-        } else if Self::back_button().contains(pointer) {
+        } else if bounds.back_button().contains(pointer) {
             self.clear_dial_state();
             PortalDirective::ReturnToMultiplayer
         } else {
@@ -228,13 +202,11 @@ impl PortalStudio {
         }
     }
 
-    pub fn emit_multiplayer_hub(&self, pointer: ScreenPoint, target: &mut dyn MeshTarget) {
-        PortalLayout::new(&self.invite, &self.draft, self.notice, pointer)
-            .emit_multiplayer_hub(target);
+    pub fn hub_view(&self, pointer: ScreenPoint) -> TitledCard<'static, MultiplayerHubBody<'_>> {
+        PortalLayout::new(&self.invite, &self.draft, self.notice, pointer).hub_view()
     }
 
-    pub fn emit_overlay(&self, pointer: ScreenPoint, target: &mut dyn MeshTarget) {
-        PortalLayout::new(&self.invite, &self.draft, self.notice, pointer)
-            .emit_overlay(target);
+    pub fn join_view(&self, pointer: ScreenPoint) -> TitledCard<'static, PortalLayout<'_>> {
+        PortalLayout::new(&self.invite, &self.draft, self.notice, pointer).join_view()
     }
 }

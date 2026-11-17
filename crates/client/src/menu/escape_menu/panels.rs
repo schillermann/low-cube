@@ -1,15 +1,18 @@
 use glam::{Mat4, Vec3};
 use glow::HasContext;
+use winit::keyboard::KeyCode;
 use engine::{CpuMeshBatch, Mesh, ShaderProgram};
 use world::MeshTarget;
 use crate::avatar::Avatar;
+use crate::controls::{InputTrigger, KeyboardControls};
 use crate::menu::black_box_panel::{BlackBoxDirective, BlackBoxPanel};
 use crate::menu::clipboard::TextClipboard;
-use crate::menu::pause_panel::PausePanel;
+use crate::menu::pause_panel::{PausePanel, PauseSelection};
 use crate::menu::portal::{PortalDirective, PortalInvite, PortalStudio};
-use crate::menu::settings::{ControlStudio, SettingsDirective};
-use crate::menu::studio::{StudioDirective, WardrobeStudio};
-use crate::menu::version_stamp::VersionStamp;
+use crate::menu::settings::{ControlPanel, SavedControls, SettingsDirective};
+use crate::menu::settings_panel::{SettingsPanel, SettingsSelection};
+use crate::menu::studio::{SavedWardrobe, StudioDirective, WardrobePanel};
+use crate::menu::view::{MenuView, VersionedView};
 use crate::menu::widget::ScreenPoint;
 use crate::menu::ModalDirective;
 use crate::surface::PlatformSurface;
@@ -20,6 +23,7 @@ pub(super) enum ModalPhase {
     Gameplay,
     EscapePause,
     CharacterWardrobe,
+    SettingsHub,
     ControlSettings,
     MultiplayerHub,
     PortalJoin,
@@ -40,19 +44,19 @@ impl ModalPhase {
     }
 }
 
-/// Collaborator panels owned by `EscapeMenu` (wardrobe, controls, Co-op portal, and Flight Blackbox).
+/// Strictly encapsulated collaborator panels owned by `EscapeMenu` (no public fields, pure messaging).
 pub(super) struct StudioPanels {
-    pub(super) studio: WardrobeStudio,
-    pub(super) settings: ControlStudio,
-    pub(super) portal: PortalStudio,
-    pub(super) black_box: BlackBoxPanel,
+    studio: Box<dyn WardrobePanel>,
+    settings: Box<dyn ControlPanel>,
+    portal: PortalStudio,
+    black_box: BlackBoxPanel,
 }
 
 impl StudioPanels {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub(super) fn new(
-        studio: WardrobeStudio,
-        settings: ControlStudio,
+        studio: Box<dyn WardrobePanel>,
+        settings: Box<dyn ControlPanel>,
         portal: PortalStudio,
         black_box: BlackBoxPanel,
     ) -> Self {
@@ -65,11 +69,52 @@ impl StudioPanels {
         report_clipboard: Box<dyn TextClipboard>,
     ) -> Self {
         Self::new(
-            WardrobeStudio::from_profile(),
-            ControlStudio::from_profile(),
+            Box::new(SavedWardrobe::live()),
+            Box::new(SavedControls::live()),
             PortalStudio::with_invite(invite, portal_clipboard),
             BlackBoxPanel::with_clipboard(report_clipboard),
         )
+    }
+
+    pub(super) fn open_pause(&mut self) {
+        self.portal.refresh_startup_copy();
+    }
+
+    pub(super) fn cancel_join_dial(&mut self) {
+        self.portal.clear_dial_state();
+    }
+
+    pub(super) fn cancel_rebind_focus(&mut self) {
+        self.settings.cancel_focus();
+    }
+
+    pub(super) fn move_pointer(&mut self, phase: ModalPhase, point: ScreenPoint) {
+        match phase {
+            ModalPhase::CharacterWardrobe => self.studio.move_pointer(point),
+            ModalPhase::ControlSettings => self.settings.move_pointer(point),
+            _ => {}
+        }
+    }
+
+    pub(super) fn release_grip(&mut self) {
+        self.studio.release_grip();
+    }
+
+    pub(super) fn press_pause(&mut self, pointer: ScreenPoint, surface: &dyn PlatformSurface) -> (ModalPhase, ModalDirective) {
+        match PausePanel::new().select(pointer) {
+            PauseSelection::Resume => {
+                surface.capture_cursor();
+                (ModalPhase::Gameplay, ModalDirective::ContinueSession)
+            }
+            PauseSelection::OpenWardrobe => {
+                self.studio.move_pointer(pointer);
+                (ModalPhase::CharacterWardrobe, ModalDirective::ContinueSession)
+            }
+            PauseSelection::OpenSettings => (ModalPhase::SettingsHub, ModalDirective::ContinueSession),
+            PauseSelection::OpenMultiplayer => (ModalPhase::MultiplayerHub, ModalDirective::ContinueSession),
+            PauseSelection::Quit => (ModalPhase::EscapePause, ModalDirective::ExitGame),
+            PauseSelection::Unmatched => (ModalPhase::EscapePause, ModalDirective::ContinueSession),
+        }
     }
 
     pub(super) fn press_subpanel(
@@ -77,12 +122,11 @@ impl StudioPanels {
         phase: ModalPhase,
         pointer: ScreenPoint,
         surface: &dyn PlatformSurface,
-        avatar: &mut dyn Avatar,
+        mut avatar: &mut dyn Avatar,
     ) -> (ModalPhase, ModalDirective) {
         match phase {
             ModalPhase::CharacterWardrobe => {
-                let directive = self.studio.press_pointer();
-                avatar.apply_attire(self.studio.current_attire());
+                let directive = self.studio.press_pointer(&mut avatar);
                 let next = if matches!(directive, StudioDirective::ReturnToPauseMenu) {
                     ModalPhase::EscapePause
                 } else {
@@ -90,13 +134,22 @@ impl StudioPanels {
                 };
                 (next, ModalDirective::ContinueSession)
             }
+            ModalPhase::SettingsHub => {
+                let next = match SettingsPanel::new().select(pointer) {
+                    SettingsSelection::OpenKeybindings => {
+                        self.settings.move_pointer(pointer);
+                        ModalPhase::ControlSettings
+                    }
+                    SettingsSelection::OpenBlackBox => ModalPhase::FlightBlackBox,
+                    SettingsSelection::ReturnToPauseMenu => ModalPhase::EscapePause,
+                    SettingsSelection::Unmatched => phase,
+                };
+                (next, ModalDirective::ContinueSession)
+            }
             ModalPhase::ControlSettings => {
-                let (directive, changed) = self.settings.press_pointer();
-                if changed {
-                    avatar.apply_bindings(self.settings.current_bindings());
-                }
-                let next = if matches!(directive, SettingsDirective::ReturnToPauseMenu) {
-                    ModalPhase::EscapePause
+                let directive = self.settings.press_pointer(&mut avatar);
+                let next = if matches!(directive, SettingsDirective::ReturnToSettings) {
+                    ModalPhase::SettingsHub
                 } else {
                     phase
                 };
@@ -107,7 +160,7 @@ impl StudioPanels {
             ModalPhase::FlightBlackBox => {
                 let next = match self.black_box.press_pointer(pointer, avatar) {
                     BlackBoxDirective::StayInBlackBox => phase,
-                    BlackBoxDirective::ReturnToPauseMenu => ModalPhase::EscapePause,
+                    BlackBoxDirective::ReturnToSettings => ModalPhase::SettingsHub,
                     BlackBoxDirective::ResumeWithPolaroid => {
                         surface.capture_cursor();
                         ModalPhase::Gameplay
@@ -117,6 +170,63 @@ impl StudioPanels {
             }
             ModalPhase::Gameplay | ModalPhase::EscapePause => (phase, ModalDirective::ContinueSession),
         }
+    }
+
+    pub(super) fn handle_key(
+        &mut self,
+        phase: ModalPhase,
+        code: KeyCode,
+        ctrl_held: bool,
+        mut avatar: &mut dyn Avatar,
+    ) -> (ModalPhase, ModalDirective) {
+        match phase {
+            ModalPhase::CharacterWardrobe => {
+                let _ = self.studio.handle_key(code, &mut avatar);
+                (phase, ModalDirective::ContinueSession)
+            }
+            ModalPhase::ControlSettings => {
+                let _ = self.settings.handle_trigger(InputTrigger::Key(code), &mut avatar);
+                (phase, ModalDirective::ContinueSession)
+            }
+            ModalPhase::PortalJoin => phase.apply_portal(self.portal.handle_key(code, ctrl_held)),
+            ModalPhase::EscapePause | ModalPhase::MultiplayerHub if ctrl_held && code == KeyCode::KeyC => {
+                self.portal.copy_hosted_ticket();
+                (phase, ModalDirective::ContinueSession)
+            }
+            _ => (phase, ModalDirective::ContinueSession),
+        }
+    }
+
+    pub(super) fn append_join_text(&mut self, text: &str) {
+        self.portal.append_text(text);
+    }
+
+    pub(super) fn handle_trigger(&mut self, trigger: InputTrigger, mut avatar: &mut dyn Avatar) -> bool {
+        self.settings.handle_trigger(trigger, &mut avatar)
+    }
+
+    pub(super) fn sync_controls(&self, mut controls: &mut dyn KeyboardControls) {
+        self.settings.sync_controls(&mut controls);
+    }
+
+    pub(super) fn announce_portal(&mut self, invite: PortalInvite) {
+        self.portal.announce_hosted(invite);
+    }
+
+    pub(super) fn announce_punch_code(&mut self, punch_code: String) {
+        self.portal.announce_punch_reply(punch_code);
+    }
+
+    pub(super) fn report_join_failure(&mut self) {
+        self.portal.report_connection_failure();
+    }
+
+    pub(super) fn step_studio(&mut self, dt: f32) {
+        self.studio.step(dt);
+    }
+
+    pub(super) fn emit_studio(&self, target: &mut dyn MeshTarget) {
+        self.studio.emit_stage(target);
     }
 
     pub(super) fn emit_ui(
@@ -129,29 +239,16 @@ impl StudioPanels {
         match phase {
             ModalPhase::Gameplay => avatar.emit_reticle(target),
             ModalPhase::EscapePause => {
-                PausePanel::new().emit(pointer, &self.portal, avatar.black_box_active(), target);
-                VersionStamp::current().emit(target);
+                VersionedView::current(PausePanel::new().view(pointer, self.portal.hosted_active())).emit(target);
             }
-            ModalPhase::CharacterWardrobe => {
-                self.studio.emit_overlay(target);
-                VersionStamp::current().emit(target);
+            ModalPhase::CharacterWardrobe => VersionedView::current(&*self.studio).emit(target),
+            ModalPhase::SettingsHub => {
+                VersionedView::current(SettingsPanel::new().view(pointer, avatar.black_box_active())).emit(target);
             }
-            ModalPhase::ControlSettings => {
-                self.settings.emit_overlay(target);
-                VersionStamp::current().emit(target);
-            }
-            ModalPhase::MultiplayerHub => {
-                self.portal.emit_multiplayer_hub(pointer, target);
-                VersionStamp::current().emit(target);
-            }
-            ModalPhase::PortalJoin => {
-                self.portal.emit_overlay(pointer, target);
-                VersionStamp::current().emit(target);
-            }
-            ModalPhase::FlightBlackBox => {
-                self.black_box.emit(pointer, avatar, target);
-                VersionStamp::current().emit(target);
-            }
+            ModalPhase::ControlSettings => VersionedView::current(&*self.settings).emit(target),
+            ModalPhase::MultiplayerHub => VersionedView::current(self.portal.hub_view(pointer)).emit(target),
+            ModalPhase::PortalJoin => VersionedView::current(self.portal.join_view(pointer)).emit(target),
+            ModalPhase::FlightBlackBox => VersionedView::current(self.black_box.view(pointer, avatar)).emit(target),
         }
     }
 

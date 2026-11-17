@@ -1,4 +1,5 @@
 mod portal_tests;
+mod settings_tests;
 
 use std::cell::Cell;
 use glam::Vec3;
@@ -13,8 +14,9 @@ use crate::controls::ControlAction;
 use crate::posture::AvatarPosture;
 use crate::surface::PlatformSurface;
 use super::{
-    AvatarArchetype, ControlStudio, EscapeMenu, ModalDirective, PausePanel, ScreenPoint,
-    SessionModal, StudioAnimation, TurntableStage, VersionStamp, WardrobeStudio,
+    AvatarArchetype, ControlLayout, EscapeMenu, ModalDirective, PausePanel, ScreenPoint,
+    SessionModal, SettingsPanel, StudioAnimation, TurntableStage, VersionStamp, WardrobePanel,
+    WardrobeStudio,
 };
 
 pub(super) struct MockSurface { captured: Cell<bool> }
@@ -93,30 +95,38 @@ fn test_escape_key_opens_menu_character_stage_and_keybinding_settings() {
     menu.move_cursor(ScreenPoint::new(-0.83, -0.70));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
-    // Click BACK button in Character Studio to return to Main Menu, then click SETTINGS button
+    // Click BACK button in Character Studio to return to Main Menu, then open SETTINGS -> KEYBINDINGS
     menu.move_cursor(ScreenPoint::new(0.0, -0.89));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    menu.move_cursor(ScreenPoint::new(0.0, -0.16));
+    let settings_btn = PausePanel::new().settings_button();
+    menu.move_cursor(ScreenPoint::new(settings_btn.center_x(), settings_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    let settings_panel = SettingsPanel::new();
+    let keys_btn = settings_panel.keybindings_button();
+    menu.move_cursor(ScreenPoint::new(keys_btn.center_x(), keys_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
     let mut settings_ui = QuadCapture::empty();
     menu.emit_ui(&avatar, &mut settings_ui);
-    assert!(settings_ui.count() > 200, "Settings screen must render all 18 single-key action buttons");
+    assert!(settings_ui.count() > 200, "Keybindings screen must render all 18 single-key action buttons");
 
     // Click Satchel action button and rebind from Tab to KeyN
-    let satchel_btn = ControlStudio::action_bounds(ControlAction::Satchel);
+    let ctrl_layout = ControlLayout::new();
+    let satchel_btn = ctrl_layout.action_bounds(ControlAction::Satchel);
     menu.move_cursor(ScreenPoint::new(satchel_btn.center_x(), satchel_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
     assert_eq!(menu.handle_key(winit::keyboard::KeyCode::KeyN, false, &mut avatar), ModalDirective::ContinueSession);
     assert!(!avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyN));
 
-    // Reset keys, return to Main Menu, and click QUIT GAME
-    let (reset_btn, back_btn) = (ControlStudio::reset_button(), ControlStudio::back_button());
+    // Reset keys, return to Settings submenu -> Main Menu, and click QUIT
+    let (reset_btn, back_btn) = (ctrl_layout.reset_button(), ctrl_layout.back_button());
     menu.move_cursor(ScreenPoint::new(reset_btn.center_x(), reset_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    let _ = std::fs::remove_file("controls.toml");
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
     menu.move_cursor(ScreenPoint::new(back_btn.center_x(), back_btn.center_y()));
+    assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
+    let settings_back = settings_panel.back_button();
+    menu.move_cursor(ScreenPoint::new(settings_back.center_x(), settings_back.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
     let quit_btn = PausePanel::new().quit_button();
     menu.move_cursor(ScreenPoint::new(quit_btn.center_x(), quit_btn.center_y()));
@@ -194,21 +204,24 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
     assert_eq!(custom, loaded);
     assert!(loaded.feminine());
 
-    let (mut studio, mut male_stage, mut female_stage) = (WardrobeStudio::from_profile(), QuadCapture::empty(), QuadCapture::empty());
+    let mut raw_avatar = PlanetaryAvatar::at(Vec3::new(0.0, 9.0, 0.0));
+    let mut avatar: &mut dyn Avatar = &mut raw_avatar;
+    let (mut studio, mut male_stage, mut female_stage) = (WardrobeStudio::seeded(), QuadCapture::empty(), QuadCapture::empty());
     studio.emit_stage(&mut male_stage);
     studio.move_pointer(ScreenPoint::new(-0.59, -0.70));
-    studio.press_pointer();
-    assert!(studio.current_attire().feminine());
+    studio.press_pointer(&mut avatar);
     studio.emit_stage(&mut female_stage);
     assert_ne!(male_stage.positions(), female_stage.positions());
+    let mut restored_stage = QuadCapture::empty();
     studio.move_pointer(ScreenPoint::new(-0.83, -0.70));
-    studio.press_pointer();
-    assert!(!studio.current_attire().feminine());
+    studio.press_pointer(&mut avatar);
+    studio.emit_stage(&mut restored_stage);
+    assert_ne!(female_stage.positions(), restored_stage.positions());
     studio.move_pointer(ScreenPoint::new(0.0, 0.72));
-    studio.press_pointer();
+    studio.press_pointer(&mut avatar);
     let mut next_anim_stage = QuadCapture::empty();
     studio.emit_stage(&mut next_anim_stage);
-    assert_ne!(male_stage.positions(), next_anim_stage.positions(), "Clicking animation button in Character Studio must cycle stage animation");
+    assert_ne!(restored_stage.positions(), next_anim_stage.positions(), "Clicking animation button in Character Studio must cycle stage animation");
 }
 
 #[test]

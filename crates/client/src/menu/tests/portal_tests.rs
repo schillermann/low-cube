@@ -4,8 +4,8 @@ use sanctuary::{JoinTarget, PortalCode, PortalTicket};
 use winit::keyboard::KeyCode;
 use crate::avatar::PlanetaryAvatar;
 use crate::menu::{
-    EscapeMenu, MemoryClipboard, ModalDirective, PausePanel, PortalInvite, PortalNotice,
-    PortalStudio, ScratchClipboard, ScreenPoint, SessionModal,
+    EscapeMenu, MemoryClipboard, ModalDirective, PausePanel, PortalBounds, PortalInvite,
+    PortalNotice, PortalStudio, ScratchClipboard, ScreenPoint, SessionModal,
 };
 use super::{MockSurface, QuadCapture};
 
@@ -30,18 +30,19 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
     let quit_btn = pause.quit_button();
     assert!(
         mp_btn.center_y() > quit_btn.center_y(),
-        "MULTIPLAYER button must sit above QUIT GAME on the Main Menu"
+        "MULTIPLAYER button must sit above QUIT on the Main Menu"
     );
     menu.move_cursor(ScreenPoint::new(mp_btn.center_x(), mp_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
-    let host_btn = PortalStudio::portal_button();
+    let bounds = PortalBounds::new();
+    let host_btn = bounds.portal_button();
     menu.move_cursor(ScreenPoint::new(host_btn.center_x(), host_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::OpenPortal);
     menu.announce_portal(PortalInvite::hosted(host_code_str.clone(), encoded_ticket.clone()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
-    let join_btn = PortalStudio::join_portal_button();
+    let join_btn = bounds.join_portal_button();
     menu.move_cursor(ScreenPoint::new(join_btn.center_x(), join_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
     let mut join_ui = QuadCapture::empty();
@@ -58,10 +59,10 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
     );
 
     // 2) Paste LC1-... ticket and join!
-    let paste_btn = PortalStudio::paste_button();
+    let paste_btn = bounds.paste_button();
     menu.move_cursor(ScreenPoint::new(paste_btn.center_x(), paste_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    let connect_btn = PortalStudio::join_button();
+    let connect_btn = bounds.join_button();
     menu.move_cursor(ScreenPoint::new(connect_btn.center_x(), connect_btn.center_y()));
     assert_eq!(
         menu.press_mouse(&surface, &mut avatar),
@@ -69,7 +70,7 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
     );
 
     // 3) Type 12-char PortalCode without hyphens -> resolves to JoinTarget::Wormhole!
-    let clear_btn = PortalStudio::clear_button();
+    let clear_btn = bounds.clear_button();
     menu.move_cursor(ScreenPoint::new(clear_btn.center_x(), clear_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
     let remote_code = PortalCode::new(Ipv4Addr::new(79, 210, 14, 88), 27833, 205);
@@ -80,10 +81,10 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
     );
 
     // 4) Navigate BACK TO MULTIPLAYER -> BACK TO MAIN MENU, and test NAT-locked punch completion!
-    let back_to_mp = PortalStudio::back_button();
+    let back_to_mp = bounds.back_button();
     menu.move_cursor(ScreenPoint::new(back_to_mp.center_x(), back_to_mp.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
-    let back_to_main = PortalStudio::hub_back_button();
+    let back_to_main = bounds.hub_back_button();
     menu.move_cursor(ScreenPoint::new(back_to_main.center_x(), back_to_main.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 

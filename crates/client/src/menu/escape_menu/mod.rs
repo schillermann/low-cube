@@ -11,7 +11,6 @@ use super::black_box_panel::BlackBoxPanel;
 use super::clipboard::TextClipboard;
 #[cfg(test)]
 use super::clipboard::{MemoryClipboard, SystemClipboard};
-use super::pause_panel::{PausePanel, PauseSelection};
 use super::portal::PortalInvite;
 #[cfg(test)]
 use super::portal::PortalStudio;
@@ -23,7 +22,7 @@ use super::widget::ScreenPoint;
 use super::{ModalDirective, SessionModal};
 use panels::{ModalPhase, StudioPanels};
 
-/// Encapsulated Escape menu, 3D Character Studio, Keybinding Settings, Co-op Portal, and Flight Blackbox studio.
+/// Encapsulated Escape menu, 3D Character Studio, Settings submenu, Co-op Portal, and Flight Blackbox studio.
 pub struct EscapeMenu {
     phase: ModalPhase,
     pointer: ScreenPoint,
@@ -47,8 +46,8 @@ impl EscapeMenu {
             ModalPhase::Gameplay,
             ScreenPoint::center(),
             StudioPanels::new(
-                WardrobeStudio::from_profile(),
-                ControlStudio::from_profile(),
+                Box::new(WardrobeStudio::seeded()),
+                Box::new(ControlStudio::seeded()),
                 portal,
                 BlackBoxPanel::with_clipboard(Box::new(MemoryClipboard::seeded(""))),
             ),
@@ -61,8 +60,8 @@ impl EscapeMenu {
             ModalPhase::Gameplay,
             ScreenPoint::center(),
             StudioPanels::new(
-                WardrobeStudio::from_profile(),
-                ControlStudio::from_profile(),
+                Box::new(WardrobeStudio::seeded()),
+                Box::new(ControlStudio::seeded()),
                 PortalStudio::with_invite(PortalInvite::empty(), Box::new(MemoryClipboard::seeded(""))),
                 black_box,
             ),
@@ -71,7 +70,16 @@ impl EscapeMenu {
 
     #[cfg(test)]
     pub fn with_clipboard(invite: PortalInvite, clipboard: Box<dyn TextClipboard>) -> Self {
-        Self::with_clipboards(invite, clipboard, SystemClipboard::new().detached())
+        Self::new(
+            ModalPhase::Gameplay,
+            ScreenPoint::center(),
+            StudioPanels::new(
+                Box::new(WardrobeStudio::seeded()),
+                Box::new(ControlStudio::seeded()),
+                PortalStudio::with_invite(invite, clipboard),
+                BlackBoxPanel::with_clipboard(SystemClipboard::new().detached()),
+            ),
+        )
     }
 
     pub fn with_clipboards(
@@ -84,36 +92,6 @@ impl EscapeMenu {
             ScreenPoint::center(),
             StudioPanels::assembled(invite, portal_clipboard, report_clipboard),
         )
-    }
-
-    fn press_pause_panel(&mut self, surface: &dyn PlatformSurface) -> ModalDirective {
-        match PausePanel::new().select(self.pointer) {
-            PauseSelection::ResumeGame => {
-                self.phase = ModalPhase::Gameplay;
-                surface.capture_cursor();
-                ModalDirective::ContinueSession
-            }
-            PauseSelection::OpenWardrobe => {
-                self.phase = ModalPhase::CharacterWardrobe;
-                self.panels.studio.move_pointer(self.pointer);
-                ModalDirective::ContinueSession
-            }
-            PauseSelection::OpenSettings => {
-                self.phase = ModalPhase::ControlSettings;
-                self.panels.settings.move_pointer(self.pointer);
-                ModalDirective::ContinueSession
-            }
-            PauseSelection::OpenMultiplayer => {
-                self.phase = ModalPhase::MultiplayerHub;
-                ModalDirective::ContinueSession
-            }
-            PauseSelection::OpenBlackBox => {
-                self.phase = ModalPhase::FlightBlackBox;
-                ModalDirective::ContinueSession
-            }
-            PauseSelection::QuitGame => ModalDirective::ExitGame,
-            PauseSelection::Unmatched => ModalDirective::ContinueSession,
-        }
     }
 }
 
@@ -130,25 +108,29 @@ impl SessionModal for EscapeMenu {
         match self.phase {
             ModalPhase::Gameplay => {
                 self.phase = ModalPhase::EscapePause;
-                self.panels.portal.refresh_startup_copy();
+                self.panels.open_pause();
                 surface.release_cursor();
             }
             ModalPhase::EscapePause => {
                 self.phase = ModalPhase::Gameplay;
                 surface.capture_cursor();
             }
-            ModalPhase::CharacterWardrobe | ModalPhase::MultiplayerHub | ModalPhase::FlightBlackBox => {
+            ModalPhase::CharacterWardrobe | ModalPhase::SettingsHub | ModalPhase::MultiplayerHub => {
                 self.phase = ModalPhase::EscapePause;
                 surface.release_cursor();
             }
             ModalPhase::PortalJoin => {
-                self.panels.portal.clear_dial_state();
+                self.panels.cancel_join_dial();
                 self.phase = ModalPhase::MultiplayerHub;
                 surface.release_cursor();
             }
             ModalPhase::ControlSettings => {
-                self.panels.settings.cancel_focus();
-                self.phase = ModalPhase::EscapePause;
+                self.panels.cancel_rebind_focus();
+                self.phase = ModalPhase::SettingsHub;
+                surface.release_cursor();
+            }
+            ModalPhase::FlightBlackBox => {
+                self.phase = ModalPhase::SettingsHub;
                 surface.release_cursor();
             }
         }
@@ -156,17 +138,17 @@ impl SessionModal for EscapeMenu {
 
     fn move_cursor(&mut self, point: ScreenPoint) {
         self.pointer = point;
-        match self.phase {
-            ModalPhase::CharacterWardrobe => self.panels.studio.move_pointer(point),
-            ModalPhase::ControlSettings => self.panels.settings.move_pointer(point),
-            _ => {}
-        }
+        self.panels.move_pointer(self.phase, point);
     }
 
     fn press_mouse(&mut self, surface: &dyn PlatformSurface, avatar: &mut dyn Avatar) -> ModalDirective {
         match self.phase {
             ModalPhase::Gameplay => ModalDirective::ContinueSession,
-            ModalPhase::EscapePause => self.press_pause_panel(surface),
+            ModalPhase::EscapePause => {
+                let (next_phase, directive) = self.panels.press_pause(self.pointer, surface);
+                self.phase = next_phase;
+                directive
+            }
             other => {
                 let (next_phase, directive) = self.panels.press_subpanel(other, self.pointer, surface, avatar);
                 self.phase = next_phase;
@@ -176,71 +158,52 @@ impl SessionModal for EscapeMenu {
     }
 
     fn release_mouse(&mut self) {
-        self.panels.studio.release_pointer();
+        self.panels.release_grip();
     }
 
     fn handle_key(&mut self, code: KeyCode, ctrl_held: bool, avatar: &mut dyn Avatar) -> ModalDirective {
-        match self.phase {
-            ModalPhase::CharacterWardrobe if self.panels.studio.handle_key(code) => {
-                avatar.apply_attire(self.panels.studio.current_attire());
-            }
-            ModalPhase::ControlSettings => {
-                let _ = self.handle_trigger(InputTrigger::Key(code), avatar);
-            }
-            ModalPhase::PortalJoin => {
-                let (next, directive) = self.phase.apply_portal(self.panels.portal.handle_key(code, ctrl_held));
-                self.phase = next;
-                return directive;
-            }
-            ModalPhase::EscapePause | ModalPhase::MultiplayerHub if ctrl_held && code == KeyCode::KeyC => {
-                self.panels.portal.copy_hosted_ticket();
-            }
-            _ => {}
-        }
-        ModalDirective::ContinueSession
+        let (next_phase, directive) = self.panels.handle_key(self.phase, code, ctrl_held, avatar);
+        self.phase = next_phase;
+        directive
     }
 
     fn handle_text(&mut self, text: &str) {
         if matches!(self.phase, ModalPhase::PortalJoin) {
-            self.panels.portal.append_text(text);
+            self.panels.append_join_text(text);
         }
     }
 
     fn handle_trigger(&mut self, trigger: InputTrigger, avatar: &mut dyn Avatar) -> bool {
-        if matches!(self.phase, ModalPhase::ControlSettings) && self.panels.settings.handle_trigger(trigger) {
-            avatar.apply_bindings(self.panels.settings.current_bindings());
-            return true;
-        }
-        false
+        matches!(self.phase, ModalPhase::ControlSettings) && self.panels.handle_trigger(trigger, avatar)
     }
 
     fn sync_controls(&self, controls: &mut dyn KeyboardControls) {
-        controls.apply_bindings(self.panels.settings.current_bindings());
+        self.panels.sync_controls(controls);
     }
 
     fn announce_portal(&mut self, invite: PortalInvite) {
-        self.panels.portal.announce_hosted(invite);
+        self.panels.announce_portal(invite);
     }
 
     fn announce_punch_code(&mut self, punch_code: String) {
         self.phase = ModalPhase::PortalJoin;
-        self.panels.portal.announce_punch_reply(punch_code);
+        self.panels.announce_punch_code(punch_code);
     }
 
     fn complete_join(&mut self, surface: &dyn PlatformSurface) {
-        self.panels.portal.clear_dial_state();
+        self.panels.cancel_join_dial();
         self.phase = ModalPhase::Gameplay;
         surface.capture_cursor();
     }
 
     fn report_join_failure(&mut self) {
         self.phase = ModalPhase::PortalJoin;
-        self.panels.portal.report_connection_failure();
+        self.panels.report_join_failure();
     }
 
     fn step(&mut self, dt: f32) {
         if matches!(self.phase, ModalPhase::CharacterWardrobe) {
-            self.panels.studio.step(dt);
+            self.panels.step_studio(dt);
         }
     }
 
@@ -250,7 +213,7 @@ impl SessionModal for EscapeMenu {
 
     fn emit_studio(&self, target: &mut dyn MeshTarget) {
         if matches!(self.phase, ModalPhase::CharacterWardrobe) {
-            self.panels.studio.emit_stage(target);
+            self.panels.emit_studio(target);
         }
     }
 
