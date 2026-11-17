@@ -1,3 +1,4 @@
+mod beacon_tests;
 mod portal_tests;
 mod settings_tests;
 

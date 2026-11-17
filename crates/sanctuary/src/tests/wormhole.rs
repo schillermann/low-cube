@@ -207,3 +207,22 @@ fn test_dual_fritzbox_port_restricted_nat_connects_via_mutual_twelve_char_punch_
     }
     assert!(guest.connected(), "Mutual 12-char Ping-Pong Punch must pierce dual closed FRITZ!Box NATs without any server");
 }
+
+#[test]
+fn test_chat_excerpt_codec_decorator_extracts_verified_codes_from_chat_messages() {
+    let host_code = PortalCode::new(Ipv4Addr::new(84, 152, 20, 44), 27815, 91);
+    let guest_ep: SocketAddr = "91.45.77.19:54120".parse().expect("guest addr");
+    let punch_str = host_code.mint_punch(guest_ep).encode();
+
+    let discord_line = format!(
+        "[18:24] TwelveCharId: CO-OP REPLY CODE: {punch_str} (just copy this line!)"
+    );
+    assert_eq!(host_code.verify_punch(&discord_line), Some(guest_ep));
+
+    let spaced = punch_str.replace('-', " ");
+    let whatsapp_line = format!("Max: Bitte diesen Code kopieren ({spaced}) danke!");
+    assert_eq!(host_code.verify_punch(&whatsapp_line), Some(guest_ep));
+
+    let invite_chat = format!("Join my world! Portal Code: {}", host_code.encode());
+    assert_eq!(PortalCode::parse(&invite_chat), Some(host_code));
+}

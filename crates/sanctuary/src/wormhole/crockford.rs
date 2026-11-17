@@ -1,6 +1,12 @@
 const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const MASK_28: u32 = (1u32 << 28) - 1;
 
+/// Focused interface for 60-bit 12-character code encoding and decoding.
+pub trait CodeCodec {
+    fn encode60(&self, plain56: u64, tag4: u8) -> String;
+    fn decode60(&self, input: &str) -> Option<(u64, u8)>;
+}
+
 /// Domain-separated 12-character Crockford code (`XXXX-XXXX-XXXX`) with 56-bit Feistel scrambling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CrockfordStamp {
@@ -56,22 +62,7 @@ impl CrockfordStamp {
         ((left as u64) << 28) | (right as u64)
     }
 
-    pub fn encode60(&self, plain56: u64, tag4: u8) -> String {
-        let scrambled = self.seal56(plain56);
-        let word60 = (scrambled << 4) | ((tag4 & 0x0F) as u64);
-        let mut out = String::with_capacity(14);
-        for idx in 0..12u32 {
-            if idx == 4 || idx == 8 {
-                out.push('-');
-            }
-            let shift = 55 - idx * 5;
-            let val = ((word60 >> shift) & 0x1F) as usize;
-            out.push(ALPHABET[val] as char);
-        }
-        out
-    }
-
-    fn decode_symbol(ch: char) -> Option<u8> {
+    fn decode_symbol(&self, ch: char) -> Option<u8> {
         match ch.to_ascii_uppercase() {
             '0' | 'O' => Some(0),
             '1' | 'I' | 'L' => Some(1),
@@ -88,9 +79,16 @@ impl CrockfordStamp {
         }
     }
 
-    pub fn strip_code_prefix(input: &str) -> &str {
+    pub fn strip_code_prefix<'a>(&self, input: &'a str) -> &'a str {
         let trimmed = input.trim();
-        for prefix in ["portal code:", "punch code:", "code:"] {
+        for prefix in [
+            "co-op reply code:",
+            "reply code:",
+            "reply-code:",
+            "portal code:",
+            "punch code:",
+            "code:",
+        ] {
             if trimmed.len() >= prefix.len() && trimmed[..prefix.len()].eq_ignore_ascii_case(prefix) {
                 return trimmed[prefix.len()..].trim();
             }
@@ -98,14 +96,44 @@ impl CrockfordStamp {
         trimmed
     }
 
-    pub fn decode60(&self, input: &str) -> Option<(u64, u8)> {
+    /// Detects 12-symbol alphanumeric code candidates so typos never trigger blocking DNS lookups.
+    pub fn resembles_twelve_char_code(&self, input: &str) -> bool {
+        let trimmed = self.strip_code_prefix(input);
+        if trimmed.contains('.') || trimmed.contains(':') || trimmed.eq_ignore_ascii_case("localhost") {
+            return false;
+        }
+        let cleaned: usize = trimmed
+            .chars()
+            .filter(|ch| !matches!(*ch, '-' | '_') && !ch.is_ascii_whitespace())
+            .count();
+        cleaned == 12 && trimmed.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ' '))
+    }
+}
+
+impl CodeCodec for CrockfordStamp {
+    fn encode60(&self, plain56: u64, tag4: u8) -> String {
+        let scrambled = self.seal56(plain56);
+        let word60 = (scrambled << 4) | ((tag4 & 0x0F) as u64);
+        let mut out = String::with_capacity(14);
+        for idx in 0..12u32 {
+            if idx == 4 || idx == 8 {
+                out.push('-');
+            }
+            let shift = 55 - idx * 5;
+            let val = ((word60 >> shift) & 0x1F) as usize;
+            out.push(ALPHABET[val] as char);
+        }
+        out
+    }
+
+    fn decode60(&self, input: &str) -> Option<(u64, u8)> {
         let mut word60 = 0u64;
         let mut count = 0usize;
-        for ch in Self::strip_code_prefix(input).chars() {
+        for ch in self.strip_code_prefix(input).chars() {
             if ch == '-' || ch == '_' || ch.is_ascii_whitespace() {
                 continue;
             }
-            let sym = Self::decode_symbol(ch)?;
+            let sym = self.decode_symbol(ch)?;
             count += 1;
             if count > 12 {
                 return None;
@@ -119,17 +147,72 @@ impl CrockfordStamp {
         let plain56 = self.open56(word60 >> 4);
         Some((plain56, tag4))
     }
+}
 
-    /// Detects 12-symbol alphanumeric code candidates so typos never trigger blocking DNS lookups.
-    pub fn resembles_twelve_char_code(input: &str) -> bool {
-        let trimmed = Self::strip_code_prefix(input);
-        if trimmed.contains('.') || trimmed.contains(':') || trimmed.eq_ignore_ascii_case("localhost") {
-            return false;
+/// Decorator over any `CodeCodec` extracting checksum-verified 12-char codes from pasted chat messages.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ChatExcerptCodec<C> {
+    origin: C,
+}
+
+impl<C> ChatExcerptCodec<C> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(origin: C) -> Self {
+        Self { origin }
+    }
+}
+
+impl<C: CodeCodec> ChatExcerptCodec<C> {
+    pub fn decode_verified<T>(&self, input: &str, verify: impl Fn(u64, u8) -> Option<T>) -> Option<T> {
+        if let Some((plain56, tag4)) = self.origin.decode60(input) {
+            if let Some(found) = verify(plain56, tag4) {
+                return Some(found);
+            }
         }
-        let cleaned: usize = trimmed
-            .chars()
-            .filter(|ch| !matches!(*ch, '-' | '_') && !ch.is_ascii_whitespace())
-            .count();
-        cleaned == 12 && trimmed.chars().all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ' '))
+        let trimmed = input.trim();
+        if trimmed.len() >= 4 && trimmed[..4].eq_ignore_ascii_case("lc1-") {
+            return None;
+        }
+        let tokens: Vec<&str> = trimmed
+            .split(|ch: char| {
+                ch.is_ascii_whitespace()
+                    || matches!(ch, ':' | ';' | ',' | '(' | ')' | '[' | ']' | '<' | '>' | '"' | '\'')
+            })
+            .map(|tok| tok.trim_matches(|c: char| !c.is_ascii_alphanumeric()))
+            .filter(|tok| {
+                !tok.is_empty()
+                    && !tok.contains('.')
+                    && !tok.contains('/')
+                    && !(tok.len() >= 4 && tok[..4].eq_ignore_ascii_case("lc1-"))
+            })
+            .collect();
+        for &tok in &tokens {
+            if let Some((plain56, tag4)) = self.origin.decode60(tok) {
+                if let Some(found) = verify(plain56, tag4) {
+                    return Some(found);
+                }
+            }
+        }
+        for win in tokens.windows(3) {
+            if win.iter().all(|part| part.len() == 4) {
+                let candidate = format!("{}-{}-{}", win[0], win[1], win[2]);
+                if let Some((plain56, tag4)) = self.origin.decode60(&candidate) {
+                    if let Some(found) = verify(plain56, tag4) {
+                        return Some(found);
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+impl<C: CodeCodec> CodeCodec for ChatExcerptCodec<C> {
+    fn encode60(&self, plain56: u64, tag4: u8) -> String {
+        self.origin.encode60(plain56, tag4)
+    }
+
+    fn decode60(&self, input: &str) -> Option<(u64, u8)> {
+        self.decode_verified(input, |plain56, tag4| Some((plain56, tag4)))
     }
 }

@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.78.0] - 2026-11-17
+
+### Added
+- Added persistent background Co-op NAT counter-punching across menu closes (`PunchBeacon`, `PortalStatus`, `ReticleHud`, and `BeaconHud` `MenuView` decorator in `crates/client/src/menu/portal/beacon.rs`, plus `StageOverlay::advance_dial` in `crates/client/src/session/overlay.rs` and `stage.rs`) so guests closing the menu with `Escape` continue playing with a live top-screen signal banner until the host punches back.
+- Added dedicated Step 2/2 Waiting card `PunchWaitBody` (`crates/client/src/menu/portal/waiting.rs`) with self-explaining clipboard export (`CO-OP REPLY CODE: XXXX-XXXX-XXXX`), animated signal countdown, `PLAY WHILE WAITING (ESC)`, and explicit `CANCEL CONNECTION`.
+- Added `AutoPunchModal` `SessionModal` decorator (`crates/client/src/menu/portal/auto_punch.rs`), window-focus sensing (`WindowEvent::Focused(true)` in `crates/client/src/session/mod.rs`), one-click `PASTE GUEST REPLY (CTRL+V)` on `MultiplayerHubBody` (`crates/client/src/menu/portal/layout.rs`), and `ChatExcerptCodec` `CodeCodec` decorator (`crates/sanctuary/src/wormhole/crockford.rs`) extracting checksum-verified 12-char portal and counter-punch codes out of pasted chat messages.
+
+### Changed
+- Replaced static procedural helpers `PortalConfig::open_live_portal`, `CrockfordStamp::strip_code_prefix` / `resembles_twelve_char_code`, and `NatAperture::local_ipv4` with encapsulated `LivePortal` (`crates/client/src/portal_config.rs`), `CrockfordStamp` (`crates/sanctuary/src/wormhole/crockford.rs`), and `NatAperture` (`crates/sanctuary/src/nat/mod.rs`) instance methods, extracted `StageOverlay` (`crates/client/src/session/overlay.rs`) and `ModalPhase` (`crates/client/src/menu/escape_menu/phase.rs`), and replaced `PortalDraft::as_str` and `PortalInvite::punch_reply` getters with Tell-Don't-Ask methods.
+
 ## [0.77.0] - 2026-11-17
 
 ### Added

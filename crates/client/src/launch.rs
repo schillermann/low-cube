@@ -14,7 +14,7 @@ use crate::black_box::{BlackBoxAvatar, FileBlackBox};
 use crate::celestial::CelestialCadence;
 use crate::controls::{BindingProfile, FileBindings, KeyMotion};
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
-use crate::menu::{EscapeMenu, PortalInvite};
+use crate::menu::{AutoPunchModal, EscapeMenu, PortalInvite};
 use crate::physics::PlanetaryPhysics;
 use crate::portal_config::PortalConfig;
 use crate::server_aurora::ServerAurora;
@@ -154,9 +154,13 @@ impl SessionAssembly for SessionLaunch {
         let tron_hud_shader = surface.compile_shader(&VoxelShaderSource::embedded());
         let tron_pipeline = Box::new(TronPipeline::void());
         let controls = Box::new(KeyMotion::with_bindings(bindings));
-        let modal = Box::new(EscapeMenu::with_clipboards(
+        let modal = Box::new(AutoPunchModal::wrapping(
+            EscapeMenu::with_clipboards(
+                initial_invite.clone(),
+                surface.attach_clipboard(),
+                surface.attach_clipboard(),
+            ),
             initial_invite,
-            surface.attach_clipboard(),
             surface.attach_clipboard(),
         ));
         let shaded_pass = PolaroidScenePass::new(ShadedScenePass::new(

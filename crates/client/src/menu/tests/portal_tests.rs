@@ -24,7 +24,7 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
         Box::new(MemoryClipboard::seeded(&encoded_ticket)),
     ));
 
-    menu.toggle_escape(&surface);
+    let _ = menu.toggle_escape(&surface);
     let pause = PausePanel::new();
     let mp_btn = pause.multiplayer_button();
     let quit_btn = pause.quit_button();
@@ -39,7 +39,7 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
     let host_btn = bounds.portal_button();
     menu.move_cursor(ScreenPoint::new(host_btn.center_x(), host_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::OpenPortal);
-    menu.announce_portal(PortalInvite::hosted(host_code_str.clone(), encoded_ticket.clone()));
+    menu.announce_portal(PortalInvite::hosted(host_code_str, encoded_ticket.clone()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
     let join_btn = bounds.join_portal_button();
@@ -49,7 +49,6 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
     menu.emit_ui(&avatar, &mut join_ui);
     assert!(join_ui.count() > 50, "Portal Join panel must render input field and action buttons");
 
-    // 1) Host enters Guest's 12-char FRITZ!Box counter-punch code -> emits PunchGuest(guest_ep)!
     let guest_ep: SocketAddr = "91.45.77.19:54120".parse().expect("guest addr");
     let guest_punch = host_code.mint_punch(guest_ep).encode();
     menu.handle_text(&guest_punch.to_ascii_lowercase());
@@ -58,7 +57,6 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
         ModalDirective::PunchGuest(guest_ep)
     );
 
-    // 2) Paste LC1-... ticket and join!
     let paste_btn = bounds.paste_button();
     menu.move_cursor(ScreenPoint::new(paste_btn.center_x(), paste_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
@@ -69,7 +67,6 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
         ModalDirective::JoinPortal(JoinTarget::Ticket(sample_ticket))
     );
 
-    // 3) Type 12-char PortalCode without hyphens -> resolves to JoinTarget::Wormhole!
     let clear_btn = bounds.clear_button();
     menu.move_cursor(ScreenPoint::new(clear_btn.center_x(), clear_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
@@ -80,7 +77,6 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
         ModalDirective::JoinPortal(JoinTarget::Wormhole(remote_code))
     );
 
-    // 4) Navigate BACK TO MULTIPLAYER -> BACK TO MAIN MENU, and test NAT-locked punch completion!
     let back_to_mp = bounds.back_button();
     menu.move_cursor(ScreenPoint::new(back_to_mp.center_x(), back_to_mp.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
@@ -91,7 +87,7 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
     menu.announce_punch_code("ABCD-EFGH-JKMN".to_string());
     assert!(menu.dialing_active());
     menu.complete_join(&surface);
-    assert!(!menu.open() && surface.cursor_captured());
+    assert!(!menu.open() && !menu.dialing_active() && surface.cursor_captured());
 }
 
 #[test]
@@ -107,7 +103,7 @@ fn test_portal_studio_distinguishes_os_clipboard_copy_from_local_scratch_fallbac
         "LC1-FALLBACK-TEST".to_string(),
     ));
     assert_eq!(local_only.current_notice(), PortalNotice::ClipboardUnavailable);
-    local_only.paste_from_clipboard();
+    let _ = local_only.paste_from_clipboard();
     let _ = std::fs::remove_file(&scratch_path);
 
     let mut startup = PortalStudio::with_invite(

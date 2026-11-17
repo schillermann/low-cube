@@ -1,7 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use curve25519_dalek::scalar::Scalar;
 use sha2::{Digest, Sha256, Sha512};
-use super::crockford::CrockfordStamp;
+use super::crockford::{ChatExcerptCodec, CodeCodec, CrockfordStamp};
 
 /// Guest-to-host 12-character NAT hole-punch reply code (`XXXX-XXXX-XXXX`) bound to a `PortalCode`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -100,19 +100,20 @@ impl PortalCode {
         CrockfordStamp::host().encode60(core56, tag4)
     }
 
-    /// Parses a 12-character code (`K7M9-P2X4-R8W3` or `k7m9p2x4r8w3`) and verifies its 4-bit checksum.
+    /// Parses a 12-character code (`K7M9-P2X4-R8W3` or pasted chat excerpt) and verifies its 4-bit checksum.
     pub fn parse(input: &str) -> Option<Self> {
-        let (core56, tag4) = CrockfordStamp::host().decode60(input)?;
-        let ip = Ipv4Addr::from((core56 >> 24) as u32);
-        let port = ((core56 >> 8) & 0xFFFF) as u16;
-        let secret = (core56 & 0xFF) as u8;
-        if port == 0 || secret == 0 || ip.is_unspecified() {
-            return None;
-        }
-        if Self::compute_tag4(ip, port, secret) != tag4 {
-            return None;
-        }
-        Some(Self::new(ip, port, secret))
+        ChatExcerptCodec::new(CrockfordStamp::host()).decode_verified(input, |core56, tag4| {
+            let ip = Ipv4Addr::from((core56 >> 24) as u32);
+            let port = ((core56 >> 8) & 0xFFFF) as u16;
+            let secret = (core56 & 0xFF) as u8;
+            if port == 0 || secret == 0 || ip.is_unspecified() {
+                return None;
+            }
+            if Self::compute_tag4(ip, port, secret) != tag4 {
+                return None;
+            }
+            Some(Self::new(ip, port, secret))
+        })
     }
 
     /// Mints the guest's 12-character FRITZ!Box / NAT counter-punch reply code bound to this portal.
@@ -126,20 +127,21 @@ impl PortalCode {
         PunchCode::new(v4, port, tag12)
     }
 
-    /// Verifies a guest's 12-character punch code (`99.975%` typo rejection via 12-bit SHA-256 tag).
+    /// Verifies a guest's 12-character punch code (`99.975%` typo rejection via 12-bit SHA-256 tag), including chat lines.
     pub fn verify_punch(&self, input: &str) -> Option<SocketAddr> {
-        let (core56, lo4) = CrockfordStamp::punch().decode60(input)?;
-        let guest_ip = Ipv4Addr::from((core56 >> 24) as u32);
-        let guest_port = ((core56 >> 8) & 0xFFFF) as u16;
-        let hi8 = (core56 & 0xFF) as u16;
-        let tag12 = (hi8 << 4) | ((lo4 & 0x0F) as u16);
-        if guest_port == 0 || guest_ip.is_unspecified() {
-            return None;
-        }
-        if self.compute_punch_tag12(guest_ip, guest_port) != tag12 {
-            return None;
-        }
-        Some(SocketAddr::V4(SocketAddrV4::new(guest_ip, guest_port)))
+        ChatExcerptCodec::new(CrockfordStamp::punch()).decode_verified(input, |core56, lo4| {
+            let guest_ip = Ipv4Addr::from((core56 >> 24) as u32);
+            let guest_port = ((core56 >> 8) & 0xFFFF) as u16;
+            let hi8 = (core56 & 0xFF) as u16;
+            let tag12 = (hi8 << 4) | ((lo4 & 0x0F) as u16);
+            if guest_port == 0 || guest_ip.is_unspecified() {
+                return None;
+            }
+            if self.compute_punch_tag12(guest_ip, guest_port) != tag12 {
+                return None;
+            }
+            Some(SocketAddr::V4(SocketAddrV4::new(guest_ip, guest_port)))
+        })
     }
 
     /// Derives the Ristretto255 SPAKE2 password scalar `w` from this code's secret and endpoint.

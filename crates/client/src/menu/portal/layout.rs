@@ -1,13 +1,14 @@
 use glam::Vec3;
-use sanctuary::{JoinPreview, JoinTarget};
+use sanctuary::JoinPreview;
 use world::MeshTarget;
 use crate::menu::glyph::PixelStamp;
 use crate::menu::view::{MenuView, TitledCard};
 use crate::menu::widget::{ScreenBounds, ScreenPoint};
+use super::beacon::PortalStatus;
 use super::draft::PortalDraft;
 use super::invite::{PortalInvite, PortalNotice};
 
-/// Stateless screen bounds layout for the Multiplayer Hub and Co-op Join panels.
+/// Stateless screen bounds layout for the Multiplayer Hub and Step 1/2 Co-op Join panels.
 pub struct PortalBounds;
 
 impl PortalBounds {
@@ -17,15 +18,19 @@ impl PortalBounds {
     }
 
     pub fn portal_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.34, 0.12, 0.34, 0.24)
+        ScreenBounds::new(-0.38, 0.16, 0.38, 0.27)
     }
 
     pub fn join_portal_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.34, -0.06, 0.34, 0.06)
+        ScreenBounds::new(-0.38, 0.01, 0.38, 0.12)
+    }
+
+    pub fn hub_paste_button(&self) -> ScreenBounds {
+        ScreenBounds::new(-0.38, -0.35, 0.38, -0.24)
     }
 
     pub fn hub_back_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.34, -0.50, 0.34, -0.38)
+        ScreenBounds::new(-0.38, -0.52, 0.38, -0.41)
     }
 
     pub fn paste_button(&self) -> ScreenBounds {
@@ -48,14 +53,18 @@ impl PortalBounds {
 /// Inner content of the Multiplayer Hub panel decorated by `TitledCard`.
 pub struct MultiplayerHubBody<'a> {
     invite: &'a PortalInvite,
-    notice: PortalNotice,
+    status: &'a PortalStatus,
     pointer: ScreenPoint,
 }
 
 impl<'a> MultiplayerHubBody<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(invite: &'a PortalInvite, notice: PortalNotice, pointer: ScreenPoint) -> Self {
-        Self { invite, notice, pointer }
+    pub const fn new(
+        invite: &'a PortalInvite,
+        status: &'a PortalStatus,
+        pointer: ScreenPoint,
+    ) -> Self {
+        Self { invite, status, pointer }
     }
 }
 
@@ -66,31 +75,64 @@ impl MenuView for MultiplayerHubBody<'_> {
         let mint = Vec3::new(0.56, 0.86, 0.68);
         let silver = Vec3::new(0.76, 0.82, 0.90);
         let active = self.invite.active();
+        let waiting = self.status.listening();
         let host_label = if active { "COPY INVITE TICKET" } else { "OPEN CO-OP PORTAL" };
-        let join_label = if active { "PUNCH NAT / JOIN" } else { "JOIN CO-OP / SERVER" };
-        let host_col = if active { Vec3::new(0.22, 0.52, 0.32) } else { Vec3::new(0.18, 0.44, 0.46) };
-        bounds.portal_button().emit_button(host_label, self.pointer, host_col, active, target);
-        bounds.join_portal_button().emit_button(join_label, self.pointer, Vec3::new(0.20, 0.36, 0.56), false, target);
-        if active {
-            PixelStamp::title(gold).emit_centered(&self.invite.banner_headline(), 0.0, -0.17, target);
-            let sub = match self.notice {
-                PortalNotice::TicketCopied | PortalNotice::StartupTicketCopied => "SHARE 12-CHAR CODE OR PASTE TICKET",
-                _ => "SHARE 12-CHAR CODE WITH FRIEND",
-            };
-            PixelStamp::caption(mint).emit_centered(sub, 0.0, -0.27, target);
+        let join_label = if waiting {
+            "WAITING FOR HOST (OPEN)"
+        } else if active {
+            "TYPE GUEST CODE / JOIN"
         } else {
-            PixelStamp::caption(silver).emit_centered("HOST A 12-CHAR PORTAL OR JOIN A WORLD", 0.0, -0.22, target);
+            "JOIN CO-OP / SERVER"
+        };
+        let host_col = if active { Vec3::new(0.22, 0.52, 0.32) } else { Vec3::new(0.18, 0.44, 0.46) };
+        let join_col = if waiting { Vec3::new(0.22, 0.48, 0.36) } else { Vec3::new(0.20, 0.36, 0.56) };
+        bounds.portal_button().emit_button(host_label, self.pointer, host_col, active, target);
+        bounds.join_portal_button().emit_button(join_label, self.pointer, join_col, waiting, target);
+        if active {
+            PixelStamp::title(gold).emit_centered(&self.invite.banner_headline(), 0.0, -0.09, target);
+            let (sub, sub_col) = match self.status.notice() {
+                PortalNotice::AutoPunchSent | PortalNotice::NatPunchSent => (
+                    "GUEST REPLY ACCEPTED - NAT PUNCH SENT!",
+                    Vec3::new(0.38, 0.90, 0.54),
+                ),
+                PortalNotice::InvalidTarget => (
+                    "CLIPBOARD HAS NO VALID GUEST REPLY CODE",
+                    Vec3::new(0.96, 0.72, 0.28),
+                ),
+                PortalNotice::ClipboardEmpty => ("CLIPBOARD EMPTY", Vec3::new(0.96, 0.72, 0.28)),
+                PortalNotice::TicketCopied | PortalNotice::StartupTicketCopied => (
+                    "SHARE 12-CHAR CODE WITH FRIEND",
+                    mint,
+                ),
+                _ => ("SHARE 12-CHAR CODE WITH FRIEND", mint),
+            };
+            PixelStamp::caption(sub_col).emit_centered(sub, 0.0, -0.18, target);
+            bounds.hub_paste_button().emit_button(
+                "PASTE GUEST REPLY (CTRL+V)",
+                self.pointer,
+                Vec3::new(0.20, 0.46, 0.38),
+                matches!(self.status.notice(), PortalNotice::AutoPunchSent | PortalNotice::NatPunchSent),
+                target,
+            );
+        } else if !self.status.beacon().emit_hub_summary(target) {
+            PixelStamp::caption(silver).emit_centered("HOST A 12-CHAR PORTAL OR JOIN A WORLD", 0.0, -0.20, target);
         }
-        bounds.hub_back_button().emit_button("BACK TO MAIN MENU", self.pointer, Vec3::new(0.28, 0.32, 0.40), false, target);
+        bounds.hub_back_button().emit_button(
+            "BACK TO MAIN MENU",
+            self.pointer,
+            Vec3::new(0.28, 0.32, 0.40),
+            false,
+            target,
+        );
     }
 }
 
-/// Declarative screen layout and status presenter for the in-game Co-op / NAT Punch studio.
+/// Step 1/2 Join Form layout and status presenter for the in-game Co-op / NAT Punch studio.
 #[derive(Clone, Copy)]
 pub struct PortalLayout<'a> {
     invite: &'a PortalInvite,
     draft: &'a PortalDraft,
-    notice: PortalNotice,
+    status: &'a PortalStatus,
     pointer: ScreenPoint,
 }
 
@@ -99,10 +141,10 @@ impl<'a> PortalLayout<'a> {
     pub const fn new(
         invite: &'a PortalInvite,
         draft: &'a PortalDraft,
-        notice: PortalNotice,
+        status: &'a PortalStatus,
         pointer: ScreenPoint,
     ) -> Self {
-        Self { invite, draft, notice, pointer }
+        Self { invite, draft, status, pointer }
     }
 
     pub const fn hub_view(self) -> TitledCard<'static, MultiplayerHubBody<'a>> {
@@ -110,15 +152,15 @@ impl<'a> PortalLayout<'a> {
             ScreenBounds::new(-0.58, -0.60, 0.58, 0.44),
             "MULTIPLAYER",
             0.35,
-            MultiplayerHubBody::new(self.invite, self.notice, self.pointer),
+            MultiplayerHubBody::new(self.invite, self.status, self.pointer),
         )
     }
 
     pub fn join_view(self) -> TitledCard<'static, Self> {
         let title = if self.invite.active() {
-            "NAT PUNCH OR JOIN SERVER"
+            "PUNCH GUEST NAT OR JOIN"
         } else {
-            "JOIN CO-OP OR SERVER"
+            "STEP 1/2: JOIN CO-OP OR SERVER"
         };
         TitledCard::new(ScreenBounds::new(-0.72, -0.68, 0.72, 0.50), title, 0.39, self)
     }
@@ -127,32 +169,30 @@ impl<'a> PortalLayout<'a> {
         let green = Vec3::new(0.38, 0.88, 0.52);
         let amber = Vec3::new(0.96, 0.72, 0.28);
         let red = Vec3::new(0.94, 0.36, 0.34);
-        match self.notice {
-            PortalNotice::AwaitingHostPunch => (
-                format!("NAT LOCKED - TELL HOST: {}", self.invite.punch_reply()),
-                amber,
-            ),
-            PortalNotice::NatPunchSent => ("NAT PUNCH SENT - GUEST LINKING...".to_string(), green),
+        match self.status.notice() {
+            PortalNotice::NatPunchSent | PortalNotice::AutoPunchSent => {
+                ("NAT PUNCH SENT - GUEST LINKING...".to_string(), green)
+            }
             PortalNotice::ClipboardEmpty => ("CLIPBOARD EMPTY".to_string(), amber),
             PortalNotice::InvalidTarget => ("INVALID 12-CHAR CODE, TICKET, OR IP".to_string(), red),
-            PortalNotice::ConnectionFailed => ("CONNECTION FAILED - CHECK CODE OR IP".to_string(), red),
+            PortalNotice::ConnectionFailed => ("CONNECTION FAILED OR TIMED OUT".to_string(), red),
             PortalNotice::Idle
             | PortalNotice::StartupTicketCopied
             | PortalNotice::TicketCopied
+            | PortalNotice::ReplyCopied
             | PortalNotice::ClipboardUnavailable => {
-                let raw = self.draft.as_str();
-                if self.invite.verify_guest_punch(raw).is_some() {
+                if self.draft.verify_punch_for(self.invite).is_some() {
                     return ("READY: PUNCH GUEST NAT - PRESS ENTER".to_string(), green);
                 }
-                match JoinTarget::preview(raw) {
+                match self.draft.preview() {
                     JoinPreview::CodeReady(code) => (format!("READY: {} - PRESS ENTER", code.encode()), green),
                     JoinPreview::CodeTypo => ("TYPO IN 12-CHAR CODE - CHECK LETTERS".to_string(), amber),
                     JoinPreview::TicketOrAddressReady => ("READY TO CONNECT - PRESS ENTER".to_string(), green),
                     JoinPreview::Empty | JoinPreview::Malformed => {
                         let hint = if self.invite.active() {
-                            "HOSTING: TYPE 12 GUEST PUNCH CHARS OR SERVER"
+                            "HOSTING: PASTE GUEST REPLY CODE OR SERVER"
                         } else {
-                            "TYPE 12 CODE CHARS (AUTO-GROUPED) OR PASTE"
+                            "ENTER HOST'S 12-CHAR CODE OR PASTE"
                         };
                         (hint.to_string(), silver)
                     }
@@ -172,30 +212,8 @@ impl MenuView for PortalLayout<'_> {
             0.27,
             target,
         );
-
-        let box_bounds = ScreenBounds::new(-0.64, 0.06, 0.64, 0.20);
-        box_bounds.emit_framed(Vec3::new(0.04, 0.06, 0.10), Vec3::new(0.42, 0.58, 0.78), 0.006, target);
-        if self.draft.blank() {
-            PixelStamp::caption(Vec3::new(0.48, 0.55, 0.66))
-                .emit_centered("TYPE 12 CHARS OR CLICK PASTE|", 0.0, 0.13, target);
-        } else {
-            let formatted = self.draft.formatted();
-            let chars: Vec<char> = formatted.chars().collect();
-            let shown = if chars.len() > 44 {
-                let tail: String = chars[chars.len() - 41..].iter().collect();
-                format!("...{tail}|")
-            } else {
-                format!("{formatted}|")
-            };
-            let stamp = if chars.len() <= 20 {
-                PixelStamp::title(Vec3::new(0.94, 0.97, 1.0))
-            } else {
-                PixelStamp::caption(Vec3::new(0.94, 0.97, 1.0))
-            };
-            stamp.emit_centered(&shown, 0.0, 0.13, target);
-        }
-
-        let action_label = if self.invite.verify_guest_punch(self.draft.as_str()).is_some() {
+        self.draft.emit_box(ScreenBounds::new(-0.64, 0.06, 0.64, 0.20), target);
+        let action_label = if self.draft.verify_punch_for(self.invite).is_some() {
             "PUNCH GUEST NAT (ENTER)"
         } else {
             "JOIN WORLD (ENTER)"

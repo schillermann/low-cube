@@ -1,4 +1,5 @@
 mod panels;
+mod phase;
 
 use winit::keyboard::KeyCode;
 use engine::{CpuMeshBatch, ShaderProgram};
@@ -20,7 +21,8 @@ use super::settings::ControlStudio;
 use super::studio::WardrobeStudio;
 use super::widget::ScreenPoint;
 use super::{ModalDirective, SessionModal};
-use panels::{ModalPhase, StudioPanels};
+use panels::StudioPanels;
+use phase::ModalPhase;
 
 /// Encapsulated Escape menu, 3D Character Studio, Settings submenu, Co-op Portal, and Flight Blackbox studio.
 pub struct EscapeMenu {
@@ -100,11 +102,12 @@ impl SessionModal for EscapeMenu {
         !matches!(self.phase, ModalPhase::Gameplay)
     }
 
+    #[cfg(test)]
     fn dialing_active(&self) -> bool {
-        matches!(self.phase, ModalPhase::PortalJoin)
+        self.panels.dialing_active()
     }
 
-    fn toggle_escape(&mut self, surface: &dyn PlatformSurface) {
+    fn toggle_escape(&mut self, surface: &dyn PlatformSurface) -> ModalDirective {
         match self.phase {
             ModalPhase::Gameplay => {
                 self.phase = ModalPhase::EscapePause;
@@ -120,9 +123,13 @@ impl SessionModal for EscapeMenu {
                 surface.release_cursor();
             }
             ModalPhase::PortalJoin => {
-                self.panels.cancel_join_dial();
-                self.phase = ModalPhase::MultiplayerHub;
-                surface.release_cursor();
+                if self.panels.dialing_active() {
+                    self.phase = ModalPhase::Gameplay;
+                    surface.capture_cursor();
+                } else {
+                    self.phase = ModalPhase::MultiplayerHub;
+                    surface.release_cursor();
+                }
             }
             ModalPhase::ControlSettings => {
                 self.panels.cancel_rebind_focus();
@@ -134,6 +141,7 @@ impl SessionModal for EscapeMenu {
                 surface.release_cursor();
             }
         }
+        ModalDirective::ContinueSession
     }
 
     fn move_cursor(&mut self, point: ScreenPoint) {
@@ -185,6 +193,10 @@ impl SessionModal for EscapeMenu {
         self.panels.announce_portal(invite);
     }
 
+    fn announce_auto_punch(&mut self) {
+        self.panels.announce_auto_punch();
+    }
+
     fn announce_punch_code(&mut self, punch_code: String) {
         self.phase = ModalPhase::PortalJoin;
         self.panels.announce_punch_code(punch_code);
@@ -202,9 +214,7 @@ impl SessionModal for EscapeMenu {
     }
 
     fn step(&mut self, dt: f32) {
-        if matches!(self.phase, ModalPhase::CharacterWardrobe) {
-            self.panels.step_studio(dt);
-        }
+        self.panels.step_overlays(self.phase, dt);
     }
 
     fn emit_ui(&self, avatar: &dyn Avatar, target: &mut dyn MeshTarget) {

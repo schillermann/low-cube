@@ -35,9 +35,9 @@ pub use escape_menu::EscapeMenu;
 pub use glyph::PixelStamp;
 #[cfg(test)]
 pub use pause_panel::PausePanel;
-pub use portal::PortalInvite;
+pub use portal::{AutoPunchModal, PortalInvite};
 #[cfg(test)]
-pub use portal::{PortalBounds, PortalNotice, PortalStudio};
+pub use portal::{PortalBounds, PortalNotice, PortalStudio, WaitingBounds};
 #[cfg(test)]
 pub use settings::{ControlLayout, ControlPanel, ControlStudio, SavedControls};
 #[cfg(test)]
@@ -58,6 +58,7 @@ pub enum ModalDirective {
     ContinueSession,
     OpenPortal,
     JoinPortal(JoinTarget),
+    CancelJoin,
     PunchGuest(SocketAddr),
     ExitGame,
 }
@@ -65,8 +66,10 @@ pub enum ModalDirective {
 /// Interface for session modal overlay interaction and rendering.
 pub trait SessionModal {
     fn open(&self) -> bool;
+    #[cfg(test)]
     fn dialing_active(&self) -> bool { false }
-    fn toggle_escape(&mut self, surface: &dyn PlatformSurface);
+    fn toggle_escape(&mut self, surface: &dyn PlatformSurface) -> ModalDirective;
+    fn focus_regained(&mut self) -> ModalDirective { ModalDirective::ContinueSession }
     fn move_cursor(&mut self, point: ScreenPoint);
     fn press_mouse(&mut self, surface: &dyn PlatformSurface, avatar: &mut dyn Avatar) -> ModalDirective;
     fn release_mouse(&mut self);
@@ -77,6 +80,7 @@ pub trait SessionModal {
     }
     fn sync_controls(&self, _controls: &mut dyn KeyboardControls) {}
     fn announce_portal(&mut self, _invite: PortalInvite) {}
+    fn announce_auto_punch(&mut self) {}
     fn announce_punch_code(&mut self, _punch_code: String) {}
     fn complete_join(&mut self, _surface: &dyn PlatformSurface) {}
     fn report_join_failure(&mut self) {}

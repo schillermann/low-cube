@@ -32,4 +32,4 @@ pub use seal::{HandshakeIdentity, SessionSeal};
 pub use ticket::{JoinPreview, JoinTarget, PortalTicket};
 pub use ward::{GuestWard, WardVitals};
 pub use warded_planet::WardedPlanet;
-pub use wormhole::{CrockfordStamp, PortalCode, PunchCode, WormholeGate, WormholePledge};
+pub use wormhole::{ChatExcerptCodec, CodeCodec, CrockfordStamp, PortalCode, PunchCode, WormholeGate, WormholePledge};

@@ -1,6 +1,7 @@
 mod display;
 #[cfg(test)]
 mod headless;
+mod overlay;
 mod pulse;
 #[cfg(test)]
 mod pulse_tests;
@@ -58,6 +59,10 @@ impl Session for GameSession {
     fn handle_window_event(&mut self, event_loop: &ActiveEventLoop, event: WindowEvent) {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
+            WindowEvent::Focused(true) => {
+                self.stage.focus_regained();
+                self.pulse.mark_urgent();
+            }
             WindowEvent::Resized(size) => {
                 self.display.resize(size.width, size.height);
                 self.pulse.mark_urgent();

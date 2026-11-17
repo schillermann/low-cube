@@ -138,7 +138,7 @@ impl JoinTarget {
         if let Some(code) = PortalCode::parse(trimmed) {
             return JoinPreview::CodeReady(code);
         }
-        if CrockfordStamp::resembles_twelve_char_code(trimmed) {
+        if CrockfordStamp::host().resembles_twelve_char_code(trimmed) {
             return JoinPreview::CodeTypo;
         }
         let plausible_host = trimmed.eq_ignore_ascii_case("localhost")
@@ -162,7 +162,7 @@ impl JoinTarget {
         if let Some(code) = PortalCode::parse(body) {
             return Some(Self::Wormhole(code));
         }
-        if CrockfordStamp::resembles_twelve_char_code(body) {
+        if CrockfordStamp::host().resembles_twelve_char_code(body) {
             return None;
         }
         let token = body.split_whitespace().last()?;

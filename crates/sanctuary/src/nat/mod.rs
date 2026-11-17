@@ -25,7 +25,7 @@ impl NatAperture {
     }
 
     /// Resolves the outbound local IPv4 address for sockets bound to `0.0.0.0`.
-    pub fn local_ipv4(bound: SocketAddr) -> Ipv4Addr {
+    pub fn local_ipv4(&self, bound: SocketAddr) -> Ipv4Addr {
         if let IpAddr::V4(v4) = bound.ip() {
             if !v4.is_unspecified() {
                 return v4;
@@ -48,7 +48,7 @@ impl NatAperture {
     pub fn open_host(&self, socket: &UdpSocket) -> SocketAddr {
         let bound = socket.local_addr().expect("host UDP socket bound");
         let port = bound.port();
-        let lan_ip = Self::local_ipv4(bound);
+        let lan_ip = self.local_ipv4(bound);
         if lan_ip.is_loopback() {
             return SocketAddr::V4(SocketAddrV4::new(lan_ip, port));
         }
@@ -73,7 +73,7 @@ impl NatAperture {
         if remote_hint.ip().is_loopback() {
             return SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port));
         }
-        let lan_ip = Self::local_ipv4(bound);
+        let lan_ip = self.local_ipv4(bound);
         if lan_ip.is_loopback() {
             return SocketAddr::V4(SocketAddrV4::new(lan_ip, port));
         }

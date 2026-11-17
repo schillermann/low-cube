@@ -8,7 +8,7 @@ use crate::controls::{InputTrigger, KeyboardControls};
 use crate::menu::black_box_panel::{BlackBoxDirective, BlackBoxPanel};
 use crate::menu::clipboard::TextClipboard;
 use crate::menu::pause_panel::{PausePanel, PauseSelection};
-use crate::menu::portal::{PortalDirective, PortalInvite, PortalStudio};
+use crate::menu::portal::{BeaconHud, PortalInvite, PortalStudio, ReticleHud};
 use crate::menu::settings::{ControlPanel, SavedControls, SettingsDirective};
 use crate::menu::settings_panel::{SettingsPanel, SettingsSelection};
 use crate::menu::studio::{SavedWardrobe, StudioDirective, WardrobePanel};
@@ -16,33 +16,7 @@ use crate::menu::view::{MenuView, VersionedView};
 use crate::menu::widget::ScreenPoint;
 use crate::menu::ModalDirective;
 use crate::surface::PlatformSurface;
-
-/// Polymorphic modal state machine for gameplay, Escape pause menu, Character studio, Settings, Multiplayer, and Blackbox.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum ModalPhase {
-    Gameplay,
-    EscapePause,
-    CharacterWardrobe,
-    SettingsHub,
-    ControlSettings,
-    MultiplayerHub,
-    PortalJoin,
-    FlightBlackBox,
-}
-
-impl ModalPhase {
-    pub(super) fn apply_portal(self, directive: PortalDirective) -> (Self, ModalDirective) {
-        match directive {
-            PortalDirective::StayInPortal => (self, ModalDirective::ContinueSession),
-            PortalDirective::OpenLivePortal => (self, ModalDirective::OpenPortal),
-            PortalDirective::OpenJoinScreen => (Self::PortalJoin, ModalDirective::ContinueSession),
-            PortalDirective::ReturnToMultiplayer => (Self::MultiplayerHub, ModalDirective::ContinueSession),
-            PortalDirective::ReturnToPauseMenu => (Self::EscapePause, ModalDirective::ContinueSession),
-            PortalDirective::ConnectToWorld(target) => (self, ModalDirective::JoinPortal(target)),
-            PortalDirective::PunchGuest(peer) => (self, ModalDirective::PunchGuest(peer)),
-        }
-    }
-}
+use super::phase::ModalPhase;
 
 /// Strictly encapsulated collaborator panels owned by `EscapeMenu` (no public fields, pure messaging).
 pub(super) struct StudioPanels {
@@ -74,6 +48,10 @@ impl StudioPanels {
             PortalStudio::with_invite(invite, portal_clipboard),
             BlackBoxPanel::with_clipboard(report_clipboard),
         )
+    }
+
+    pub(super) fn dialing_active(&self) -> bool {
+        self.portal.awaiting_host_punch()
     }
 
     pub(super) fn open_pause(&mut self) {
@@ -156,7 +134,13 @@ impl StudioPanels {
                 (next, ModalDirective::ContinueSession)
             }
             ModalPhase::MultiplayerHub => phase.apply_portal(self.portal.press_hub_pointer(pointer)),
-            ModalPhase::PortalJoin => phase.apply_portal(self.portal.press_pointer(pointer)),
+            ModalPhase::PortalJoin => {
+                let (next, directive) = phase.apply_portal(self.portal.press_pointer(pointer));
+                if matches!(next, ModalPhase::Gameplay) {
+                    surface.capture_cursor();
+                }
+                (next, directive)
+            }
             ModalPhase::FlightBlackBox => {
                 let next = match self.black_box.press_pointer(pointer, avatar) {
                     BlackBoxDirective::StayInBlackBox => phase,
@@ -193,6 +177,9 @@ impl StudioPanels {
                 self.portal.copy_hosted_ticket();
                 (phase, ModalDirective::ContinueSession)
             }
+            ModalPhase::EscapePause | ModalPhase::MultiplayerHub if ctrl_held && code == KeyCode::KeyV => {
+                phase.apply_portal(self.portal.paste_guest_reply())
+            }
             _ => (phase, ModalDirective::ContinueSession),
         }
     }
@@ -213,6 +200,10 @@ impl StudioPanels {
         self.portal.announce_hosted(invite);
     }
 
+    pub(super) fn announce_auto_punch(&mut self) {
+        self.portal.announce_auto_punch();
+    }
+
     pub(super) fn announce_punch_code(&mut self, punch_code: String) {
         self.portal.announce_punch_reply(punch_code);
     }
@@ -221,8 +212,11 @@ impl StudioPanels {
         self.portal.report_connection_failure();
     }
 
-    pub(super) fn step_studio(&mut self, dt: f32) {
-        self.studio.step(dt);
+    pub(super) fn step_overlays(&mut self, phase: ModalPhase, dt: f32) {
+        self.portal.step(dt);
+        if matches!(phase, ModalPhase::CharacterWardrobe) {
+            self.studio.step(dt);
+        }
     }
 
     pub(super) fn emit_studio(&self, target: &mut dyn MeshTarget) {
@@ -237,9 +231,12 @@ impl StudioPanels {
         target: &mut dyn MeshTarget,
     ) {
         match phase {
-            ModalPhase::Gameplay => avatar.emit_reticle(target),
+            ModalPhase::Gameplay => {
+                BeaconHud::new(self.portal.beacon(), ReticleHud::new(avatar)).emit(target);
+            }
             ModalPhase::EscapePause => {
-                VersionedView::current(PausePanel::new().view(pointer, self.portal.hosted_active())).emit(target);
+                let pause = PausePanel::new().view(pointer, self.portal.hosted_active());
+                VersionedView::current(BeaconHud::new(self.portal.beacon(), pause)).emit(target);
             }
             ModalPhase::CharacterWardrobe => VersionedView::current(&*self.studio).emit(target),
             ModalPhase::SettingsHub => {
@@ -247,7 +244,7 @@ impl StudioPanels {
             }
             ModalPhase::ControlSettings => VersionedView::current(&*self.settings).emit(target),
             ModalPhase::MultiplayerHub => VersionedView::current(self.portal.hub_view(pointer)).emit(target),
-            ModalPhase::PortalJoin => VersionedView::current(self.portal.join_view(pointer)).emit(target),
+            ModalPhase::PortalJoin => self.portal.emit_join_screen(pointer, target),
             ModalPhase::FlightBlackBox => VersionedView::current(self.black_box.view(pointer, avatar)).emit(target),
         }
     }

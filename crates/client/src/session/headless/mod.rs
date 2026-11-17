@@ -86,6 +86,12 @@ impl HeadlessSession {
     }
 
     pub fn modal_open(&self) -> bool { self.stage.modal_open() }
+    pub fn dialing_active(&self) -> bool { self.stage.dialing_active() }
+    pub fn companion_count(&self) -> usize { self.stage.companion_count() }
+    pub fn begin_bound_dial(&mut self, link: sanctuary::RemoteLink) -> String {
+        self.stage.begin_bound_dial(link)
+    }
+    pub fn focus_window(&mut self) { self.stage.focus_regained(); }
     pub fn press_escape(&mut self) { self.stage.toggle_escape(self.display.surface()); }
     pub fn move_cursor(&mut self, point: ScreenPoint) { self.stage.move_cursor(point); }
     pub fn click_modal(&mut self) { let _ = self.stage.press_modal_mouse(&mut self.display); }
