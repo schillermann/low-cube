@@ -1,0 +1,237 @@
+use glam::{Mat4, Quat, Vec3};
+use fauna::{SightCone, WoodlandFauna};
+use world::{CompanionPresence, MeshTarget, PlanetaryWorld, PresenceKinematics};
+use crate::attire::{PhotoShutter, SightMode, YouthAttire};
+use crate::avatar::Avatar;
+use crate::controls::{ActionBindings, InputTrigger, KeyboardControls, LocomotionTarget};
+use super::{AnomalyKind, FlightEvent, FlightTape, IncidentMedium, PresenceSink, TickTrace};
+
+/// Stack-allocated `PresenceSink` capturing an avatar's exact 3D foot position and orientation without getters.
+#[derive(Clone, Copy, Debug)]
+pub struct PresenceProbe {
+    captured: CompanionPresence,
+}
+
+impl PresenceProbe {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(captured: CompanionPresence) -> Self {
+        Self { captured }
+    }
+
+    pub const fn at_origin() -> Self {
+        let kin = PresenceKinematics::new(Vec3::ZERO, Quat::IDENTITY, Quat::IDENTITY, (0.8, 0.0));
+        Self::new(CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4])))
+    }
+
+    pub fn position(&self) -> Vec3 {
+        self.captured.transfer(|_, kin, _, _, _| kin.transfer(|pos, _, _, _, _| pos))
+    }
+
+    pub fn view_direction(&self) -> Vec3 {
+        self.captured.transfer(|_, kin, _, _, _| {
+            kin.transfer(|_, _, view_rot, _, _| (view_rot * Vec3::NEG_Z).normalize_or_zero())
+        })
+    }
+
+    #[cfg(test)]
+    pub const fn presence(&self) -> CompanionPresence {
+        self.captured
+    }
+}
+
+impl PresenceSink for PresenceProbe {
+    fn receive_presence(&mut self, presence: CompanionPresence) {
+        self.captured = presence;
+    }
+}
+
+struct OrderSample {
+    intent: (f32, f32),
+    flags: u8,
+}
+
+impl OrderSample {
+    const fn idle() -> Self {
+        Self { intent: (0.0, 0.0), flags: 0 }
+    }
+}
+
+impl LocomotionTarget for OrderSample {
+    fn travel(&mut self, direction: Vec3) {
+        self.intent = (direction.z, direction.x);
+    }
+
+    fn jump(&mut self) {
+        self.flags |= 1;
+    }
+
+    fn sprint(&mut self) {
+        self.flags |= 2;
+    }
+
+    fn sneak(&mut self) {
+        self.flags |= 4;
+    }
+}
+
+/// Pure-OOP `Avatar` decorator recording a rolling 120 Hz flight black-box ring without touching domain classes.
+pub struct BlackBoxAvatar {
+    origin: Box<dyn Avatar>,
+    tape: Box<dyn FlightTape>,
+    world_blocks: u32,
+}
+
+impl BlackBoxAvatar {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(origin: Box<dyn Avatar>, tape: Box<dyn FlightTape>, world_blocks: u32) -> Self {
+        Self { origin, tape, world_blocks }
+    }
+
+    pub fn wrapping(origin: Box<dyn Avatar>, tape: Box<dyn FlightTape>) -> Self {
+        Self::new(origin, tape, 0)
+    }
+
+    fn calibrate_scale(&mut self, world: &dyn PlanetaryWorld) -> u32 {
+        if self.world_blocks == 0 {
+            let probe = world.constrain_to_surface(Vec3::new(0.25, 4_096.0, 0.25), 0.0);
+            let approx_half = probe.y.max(4.0).round() as u32;
+            self.world_blocks = (approx_half * 2).max(8);
+        }
+        self.world_blocks
+    }
+
+    fn classify_anomaly(pos: Vec3, view: Vec3, up: Vec3, half: f32, world: &dyn PlanetaryWorld) -> u8 {
+        if !pos.is_finite() || !view.is_finite() {
+            return AnomalyKind::NonFiniteKinematics.code();
+        }
+        if world.lethal_at(pos) {
+            return AnomalyKind::LethalCoreContact.code();
+        }
+        let surf = world.constrain_to_surface(pos, 1.0);
+        let depth = (surf - pos).dot(up);
+        if depth > 0.45 && depth < 2.4 && pos.abs().max_element() < half - 0.15 {
+            let head = pos + up * 0.72;
+            let confined = world.confine_beneath_crust(head);
+            if (confined - head).length_squared() < 1e-5 {
+                return AnomalyKind::CrustPenetration.code();
+            }
+        }
+        0
+    }
+}
+
+impl Avatar for BlackBoxAvatar {
+    fn rotate_view(&mut self, dx: f32, dy: f32) { self.origin.rotate_view(dx, dy); }
+
+    fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let acted = self.origin.use_left_hand(world);
+        if acted {
+            self.tape.record_event(FlightEvent::LeftHandUsed);
+        }
+        acted
+    }
+
+    fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let acted = self.origin.use_right_hand(world);
+        if acted {
+            self.tape.record_event(FlightEvent::RightHandUsed);
+        }
+        acted
+    }
+
+    fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let acted = self.origin.release_hand(world);
+        if acted {
+            self.tape.record_event(FlightEvent::HandReleased);
+        }
+        acted
+    }
+
+    fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.step_digging(world) }
+    fn apply_attire(&mut self, attire: YouthAttire) { self.origin.apply_attire(attire); }
+    fn apply_bindings(&mut self, bindings: ActionBindings) { self.origin.apply_bindings(bindings); }
+    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool { self.origin.dispatch_trigger(trigger) }
+
+    fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
+        let acted = self.origin.adjust_aimed_rig(trigger, world);
+        if acted {
+            self.tape.record_event(FlightEvent::RigAdjusted);
+        }
+        acted
+    }
+
+    fn cast_triggered_relic(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
+        let acted = self.origin.cast_triggered_relic(trigger, world);
+        if acted {
+            self.tape.record_event(FlightEvent::RelicCast);
+        }
+        acted
+    }
+
+    fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
+        if !self.tape.active() {
+            self.origin.step_motion(dt, controls, world);
+            return;
+        }
+        let blocks = self.calibrate_scale(world);
+        let mut order = OrderSample::idle();
+        controls.drive_locomotion(Vec3::Z, Vec3::X, &mut order);
+        self.origin.step_motion(dt, controls, world);
+        let mut probe = PresenceProbe::at_origin();
+        self.origin.report_presence(&mut probe);
+        let pos = probe.position();
+        let view = probe.view_direction();
+        let up = world.surface_up_at(pos);
+        let anomaly = Self::classify_anomaly(pos, view, up, (blocks as f32) * 0.5, world);
+        let packed_flags = (order.flags & 0x0F) | (anomaly << 4);
+        let trace = TickTrace::new(pos, (view, dt), (up, packed_flags), order.intent);
+        self.tape.record_tick(blocks, trace);
+    }
+
+    fn blend_subtick(&mut self, alpha: f32) { self.origin.blend_subtick(alpha); }
+    fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) { self.origin.step_fauna(dt, fauna, world); }
+    fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) { self.origin.hunt_fauna(side, fauna, world) }
+    fn sight_cone(&self) -> SightCone { self.origin.sight_cone() }
+    fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone { self.origin.sight_cone_for_mode(sight) }
+    fn view_projection_matrix(&self, aspect: f32) -> Mat4 { self.origin.view_projection_matrix(aspect) }
+    fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 { self.origin.view_projection_for_sight(aspect, sight) }
+    fn surface_rotation(&self) -> Quat { self.origin.surface_rotation() }
+    fn emit_appearance(&self, target: &mut dyn MeshTarget) { self.origin.emit_appearance(target); }
+    fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) { self.origin.emit_appearance_for_sight(sight, target); }
+    fn emit_surroundings(&self, world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) { self.origin.emit_surroundings(world, target); }
+    fn meadow_anchor(&self) -> (i32, i32, i32) { self.origin.meadow_anchor() }
+    fn take_photo_shutter(&mut self) -> PhotoShutter { self.origin.take_photo_shutter() }
+    fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.origin.apply_polaroid_mosaic(mosaic); }
+    #[cfg(test)]
+    fn polaroid_tilt(&self) -> f32 { self.origin.polaroid_tilt() }
+    fn emit_reticle(&self, target: &mut dyn MeshTarget) { self.origin.emit_reticle(target); }
+    fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) { self.origin.sync_world_presence(world); }
+    fn report_presence(&self, sink: &mut dyn PresenceSink) { self.origin.report_presence(sink); }
+
+    fn land_on_world(&mut self, world: &dyn PlanetaryWorld) {
+        self.world_blocks = 0;
+        let blocks = self.calibrate_scale(world);
+        self.tape.record_event(FlightEvent::WorldLanded { blocks });
+        self.origin.land_on_world(world);
+    }
+
+    fn trigger_log_sheet(&mut self, ticks: u16, anomalies: u8) {
+        self.origin.trigger_log_sheet(ticks, anomalies);
+    }
+
+    fn black_box_active(&self) -> bool { self.tape.active() }
+    fn black_box_populated(&self) -> bool { self.tape.populated() }
+    fn black_box_summary(&self) -> (usize, u8) { self.tape.summary_counts() }
+
+    fn toggle_black_box(&mut self) -> bool {
+        self.tape = self.tape.toggled();
+        self.tape.active()
+    }
+
+    fn export_incident_dossier(&mut self, medium: &mut dyn IncidentMedium) -> Option<u8> {
+        let (ticks, _) = self.tape.summary_counts();
+        let anomalies = self.tape.inscribe_dossier(medium)?;
+        self.origin.trigger_log_sheet(ticks.min(u16::MAX as usize) as u16, anomalies);
+        Some(anomalies)
+    }
+}

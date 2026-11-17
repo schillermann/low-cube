@@ -1,4 +1,6 @@
 mod display;
+#[cfg(test)]
+mod headless;
 mod pulse;
 #[cfg(test)]
 mod pulse_tests;
@@ -11,6 +13,8 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 use crate::controls::InputTrigger;
 use crate::menu::ModalDirective;
 pub use self::display::{PolaroidScenePass, SessionDisplay, ShadedScenePass, TronScenePass, VisualPass};
+#[cfg(test)]
+pub use self::headless::{HeadlessSession, HeadlessSurface};
 use self::pulse::EpochPulse;
 pub use self::stage::SessionStage;
 

@@ -15,6 +15,7 @@ use glam::{Mat4, Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{PhotoShutter, SightMode, YouthAttire};
+use crate::black_box::{IncidentMedium, PresenceSink};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use fauna::{SightCone, WoodlandFauna};
 use crate::menu::ScreenPoint;
@@ -68,5 +69,12 @@ pub trait Avatar {
     fn polaroid_tilt(&self) -> f32 { 0.0 }
     fn emit_reticle(&self, target: &mut dyn MeshTarget) { ScreenPoint::center().emit_crosshair(target); }
     fn sync_world_presence(&self, _world: &mut dyn PlanetaryWorld) {}
+    fn report_presence(&self, _sink: &mut dyn PresenceSink) {}
     fn land_on_world(&mut self, _world: &dyn PlanetaryWorld) {}
+    fn trigger_log_sheet(&mut self, _ticks: u16, _anomalies: u8) {}
+    fn black_box_active(&self) -> bool { false }
+    fn black_box_populated(&self) -> bool { false }
+    fn black_box_summary(&self) -> (usize, u8) { (0, 0) }
+    fn toggle_black_box(&mut self) -> bool { false }
+    fn export_incident_dossier(&mut self, _medium: &mut dyn IncidentMedium) -> Option<u8> { None }
 }

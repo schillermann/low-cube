@@ -90,11 +90,23 @@ Launch directly from the repository root using `cargo`:
 
 ## Running Tests
 
-Run the test suite across all workspace crates (`crates/world`, `crates/engine`, `crates/client`):
+Run the test suite across all workspace crates (`crates/world`, `crates/engine`, `crates/sanctuary`, `crates/acoustics`, `crates/fauna`, `crates/client`):
 
 ```bash
 cargo test
 ```
+
+### Flight Log (`Flugschreiber`) & Headless Simulation
+
+Low-Cube ships a built-in, zero-allocation **Flight Log** (`crates/client/src/black_box/`) alongside a windowless **Headless Session** harness (`crates/client/src/session/headless/`) following Pure OOP (Elegant Objects):
+
+1. **In-Game Toggle & Tilted Log-Sheet Overlay**:
+   - Press **`Esc`** $\rightarrow$ **`LOG`** to switch recording **`ON`** (`LiveTape`, rolling 15-second / 1,800-tick ring buffer at 120 Hz with zero runtime heap allocations) or **`OFF`** (`SilentTape` Null Object, persisted in `blackbox.toml`).
+   - Since opening **`Esc`** pauses physics ticks immediately, the buffer stays frozen at the exact moment of an anomaly. Clicking **`CREATE LOG REPORT`** writes `reports/incident_<millis>.toml`, copies the report path to the clipboard, closes the menu, and snaps a tilted **ruled Log-Report clipboard sheet** (`IncidentSheet`) onto the screen center with the same entrance/fade cadence as the field-camera Polaroid animation.
+2. **Deterministic Replay & Windowless Agent Testing**:
+   - Any `reports/incident_*.toml` dossier can be loaded in tests via `IncidentReplay::from_toml` to replay the recorded input and `dt` stream deterministically against `BiomedCubeWorld::barren_beveled`.
+   - `HeadlessSession` + `HeadlessSurface` execute `SessionStage`, `SessionDisplay`, `EscapeMenu`, and localhost UDP `HostedPlanet`/`RemotePlanet` co-op without an X11/Wayland display or GPU (`cargo test --offline -p client --bin client black_box_tests`).
+   - Use `BiomedCubeWorld::barren_beveled(blocks, margin)` for `< 1 ms` flora-free physics worlds and `PresenceProbe` (`avatar.report_presence(&mut probe)`) to inspect exact 3D foot positions without getters or matrix inversion.
 
 ---
 
@@ -106,7 +118,7 @@ cargo test
 | `Mouse` | Look / orient camera |
 | `I` | Toggle inverted vertical mouse look (pitch) |
 | `O` | Toggle inverted horizontal mouse look (yaw) |
-| `Esc` | Open Main Menu (Character Studio, Keybindings, Co-op Portal & Join) |
+| `Esc` | Open Main Menu (Character Studio, Keybindings, Co-op Portal & Flight Blackbox) |
 
 ---
 

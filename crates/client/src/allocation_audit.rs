@@ -94,6 +94,19 @@ fn test_hot_simulation_loop_zero_runtime_allocations() {
     });
     assert_eq!(sprint_allocs, 0, "Sprinting/jumping must have zero runtime allocations in hot simulation loop");
 
+    // Audit 600 frames through BlackBoxAvatar with active LiveTape and SilentTape Null Object
+    let mut recorded = crate::black_box::BlackBoxAvatar::wrapping(
+        Box::new(PlanetaryAvatar::at(spawn)),
+        Box::new(crate::black_box::LiveTape::fresh()),
+    );
+    recorded.step_motion(dt, &sprint_ctrl, &world);
+    let live_tape_allocs = count_allocations(|| {
+        for _ in 0..600 {
+            recorded.step_motion(dt, &sprint_ctrl, &world);
+        }
+    });
+    assert_eq!(live_tape_allocs, 0, "Active LiveTape flight blackbox must perform zero runtime heap allocations");
+
     struct NullTarget;
     impl world::MeshTarget for NullTarget {
         fn push_quad(&mut self, _quad: world::Quad) {}

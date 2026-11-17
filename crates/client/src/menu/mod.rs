@@ -8,6 +8,7 @@ use crate::controls::{InputTrigger, KeyboardControls};
 use crate::surface::PlatformSurface;
 
 mod archetype;
+mod black_box_panel;
 mod clipboard;
 mod escape_menu;
 mod glyph;
@@ -23,6 +24,8 @@ mod widget;
 
 #[cfg(test)]
 pub use archetype::AvatarArchetype;
+#[cfg(test)]
+pub use black_box_panel::BlackBoxPanel;
 #[cfg(test)]
 pub use clipboard::{MemoryClipboard, ScratchClipboard};
 pub use clipboard::{SystemClipboard, TextClipboard};

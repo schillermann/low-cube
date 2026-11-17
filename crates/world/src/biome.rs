@@ -37,6 +37,26 @@ impl BiomedCubeWorld {
         CubePlanet::new(faces, Box::new(NullFace))
     }
 
+    /// Factory method assembling barren multi-biome planetary terrain without woodland flora for fast simulation.
+    pub fn barren(size_blocks: u32) -> CubePlanet {
+        let half = (size_blocks as f32) * 0.5;
+        let divs = size_blocks * 2;
+        let faces: Vec<Box<dyn Face>> = ClimateZone::all()
+            .into_iter()
+            .map(|zone| -> Box<dyn Face> {
+                let relief = Box::new(FacetedReliefFace::in_zone(zone, half, divs));
+                Box::new(FoldedFace::in_zone(relief, zone, half))
+            })
+            .collect();
+        CubePlanet::new(faces, Box::new(NullFace))
+    }
+
+    /// Factory method decorating barren multi-biome terrain with continuous seam normal transitions.
+    pub fn barren_beveled(size_blocks: u32, margin: f32) -> crate::BeveledWorld {
+        let half = (size_blocks as f32) * 0.5;
+        crate::BeveledWorld::decorating(Box::new(Self::barren(size_blocks)), half, margin)
+    }
+
     /// Factory method assembling planetary terrain in Tron wireframe visualization mode.
     pub fn tron(size_blocks: u32) -> CubePlanet {
         let half = (size_blocks as f32) * 0.5;

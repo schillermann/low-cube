@@ -2,6 +2,7 @@ use glam::Vec3;
 use world::{MeshTarget, Quad};
 use crate::attire::{CameraMount, LimbFrame, PhotoShutter, SightMode};
 use crate::menu::PixelStamp;
+use super::log_sheet::IncidentSheet;
 use super::{MOSAIC_COLS, MOSAIC_ROWS};
 
 const POLAROID_DURATION_SEC: f32 = 2.8;
@@ -22,10 +23,17 @@ impl<'a> MeshTarget for SquareScreenTarget<'a> {
     }
 }
 
-/// Instant Polaroid print displayed tilted at the center of the screen after taking a screenshot.
+/// Subject printed onto the tilted center-screen overlay card.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PrintSubject {
+    Photo(SightMode),
+    LogSheet(IncidentSheet),
+}
+
+/// Instant Polaroid photo or tilted Log-Report sheet displayed at the center of the screen.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PolaroidPrint {
-    sight: SightMode,
+    subject: PrintSubject,
     remaining_sec: f32,
     tilt_step: u8,
     mosaic: Vec<Vec3>,
@@ -33,12 +41,12 @@ pub struct PolaroidPrint {
 
 impl PolaroidPrint {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(sight: SightMode, remaining_sec: f32, tilt_step: u8, mosaic: Vec<Vec3>) -> Self {
-        Self { sight, remaining_sec, tilt_step, mosaic }
+    pub const fn new(subject: PrintSubject, remaining_sec: f32, tilt_step: u8, mosaic: Vec<Vec3>) -> Self {
+        Self { subject, remaining_sec, tilt_step, mosaic }
     }
 
     pub const fn hidden() -> Self {
-        Self::new(SightMode::FirstPersonSight, 0.0, 0, Vec::new())
+        Self::new(PrintSubject::Photo(SightMode::FirstPersonSight), 0.0, 0, Vec::new())
     }
 
     pub fn snapped(sight: SightMode, tilt_step: u8) -> Self {
@@ -56,7 +64,16 @@ impl PolaroidPrint {
                 preview.push(col);
             }
         }
-        Self::new(sight, POLAROID_DURATION_SEC, tilt_step, preview)
+        Self::new(PrintSubject::Photo(sight), POLAROID_DURATION_SEC, tilt_step, preview)
+    }
+
+    pub const fn log_reported(ticks: u16, anomalies: u8, tilt_step: u8) -> Self {
+        Self::new(
+            PrintSubject::LogSheet(IncidentSheet::new(ticks, anomalies)),
+            POLAROID_DURATION_SEC + 0.6,
+            tilt_step,
+            Vec::new(),
+        )
     }
 
     pub const fn visible(&self) -> bool {
@@ -103,6 +120,14 @@ impl PolaroidPrint {
         let frame = LimbFrame::new(Vec3::new(0.0, 0.02, 0.0), Vec3::new(c, s, 0.0), Vec3::new(-s, c, 0.0), Vec3::NEG_Z);
         let mut screen = SquareScreenTarget { x_scale: 9.0 / 16.0, inner: target };
 
+        let sight = match self.subject {
+            PrintSubject::LogSheet(sheet) => {
+                sheet.emit(&frame, &mut screen);
+                return;
+            }
+            PrintSubject::Photo(sight) => sight,
+        };
+
         Self::emit_rect(&frame, -0.34, -0.45, 0.38, 0.39, Vec3::new(0.04, 0.05, 0.08), &mut screen);
         Self::emit_rect(&frame, -0.365, -0.435, 0.365, 0.405, Vec3::new(0.75, 0.73, 0.68), &mut screen);
         Self::emit_rect(&frame, -0.356, -0.426, 0.356, 0.396, Vec3::new(0.96, 0.95, 0.91), &mut screen);
@@ -118,7 +143,7 @@ impl PolaroidPrint {
             }
         }
 
-        let file_line = format!("SAVED: SCREENSHOT {}.PNG", self.sight.photo_label().to_ascii_uppercase());
+        let file_line = format!("SAVED: SCREENSHOT {}.PNG", sight.photo_label().to_ascii_uppercase());
         PixelStamp::new(0.0052, 0.0074, Vec3::new(0.12, 0.15, 0.22))
             .emit_on_frame(&file_line, 0.0, -0.260, 0.0, &frame, &mut screen);
         PixelStamp::new(0.0044, 0.0062, Vec3::new(0.28, 0.32, 0.40))
@@ -126,7 +151,7 @@ impl PolaroidPrint {
     }
 }
 
-/// Encapsulated camera shutter state, 6-second self-timer countdown, and instant Polaroid print overlay.
+/// Encapsulated camera shutter state, 6-second self-timer countdown, and center-screen overlay card.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CameraExposure {
     shutter: PhotoShutter,
@@ -188,6 +213,14 @@ impl CameraExposure {
         self.shot_counter = self.shot_counter.wrapping_add(1);
         self.shutter = PhotoShutter::Triggered(sight);
         self.polaroid = PolaroidPrint::snapped(sight, next_step);
+    }
+
+    pub fn trigger_log_sheet(&mut self, ticks: u16, anomalies: u8) {
+        self.countdown.1 = 0.0;
+        let next_step = self.shot_counter;
+        self.shot_counter = self.shot_counter.wrapping_add(1);
+        self.shutter = PhotoShutter::Idle;
+        self.polaroid = PolaroidPrint::log_reported(ticks, anomalies, next_step);
     }
 
     pub fn take_shutter(&mut self) -> PhotoShutter {

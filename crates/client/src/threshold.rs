@@ -38,13 +38,13 @@ impl StepThreshold {
     }
 }
 
-use world::PlanetaryWorld;
+use world::{ClimateZone, PlanetaryWorld};
 
 /// Polymorphic clearance between a 3D spatial position and the planetary surface.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SurfaceClearance {
     Planar(f32),
-    FoldedSeam,
+    FoldedSeam(f32),
 }
 
 impl SurfaceClearance {
@@ -57,10 +57,12 @@ impl SurfaceClearance {
         world: &dyn PlanetaryWorld,
     ) -> Self {
         let dest_up = world.surface_up_at(surface_pos);
-        if surface_up.dot(dest_up) < 0.7 {
+        let cardinal_src = ClimateZone::dominant(origin).normal();
+        let cardinal_dst = ClimateZone::dominant(surface_pos).normal();
+        if surface_up.dot(dest_up) < 0.7 || cardinal_src.dot(cardinal_dst) < 0.7 {
             let chord_distance = (surface_pos - origin).length();
-            if chord_distance < 3.5 {
-                return Self::FoldedSeam;
+            if chord_distance < 6.5 {
+                return Self::FoldedSeam((candidate - surface_pos).dot(dest_up));
             }
         }
         Self::Planar((candidate - surface_pos).dot(surface_up))
@@ -70,7 +72,7 @@ impl SurfaceClearance {
     pub fn passable_with(&self, seam_allowed: bool) -> bool {
         match self {
             Self::Planar(altitude) => *altitude <= 1e-4,
-            Self::FoldedSeam => seam_allowed,
+            Self::FoldedSeam(_) => seam_allowed,
         }
     }
 
@@ -78,7 +80,7 @@ impl SurfaceClearance {
     pub fn floor_contact(&self, threshold: StepThreshold) -> bool {
         match self {
             Self::Planar(altitude) => threshold.permits_floor_contact(*altitude),
-            Self::FoldedSeam => true,
+            Self::FoldedSeam(dest_altitude) => *dest_altitude <= 1e-4,
         }
     }
 
@@ -86,7 +88,7 @@ impl SurfaceClearance {
     pub fn cliff_impact(&self, threshold: StepThreshold) -> bool {
         match self {
             Self::Planar(altitude) => threshold.cliff_impact(*altitude),
-            Self::FoldedSeam => false,
+            Self::FoldedSeam(_) => false,
         }
     }
 }

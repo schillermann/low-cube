@@ -6,6 +6,7 @@ mod attire;
 mod aurora_cadence;
 mod aurora_canopy;
 mod avatar;
+mod black_box;
 mod cadence;
 mod celestial;
 mod clock;
@@ -65,6 +66,8 @@ mod architecture_tests;
 mod aurora_tests;
 #[cfg(test)]
 mod ballistic_tests;
+#[cfg(test)]
+mod black_box_tests;
 #[cfg(test)]
 mod cadence_tests;
 #[cfg(test)]

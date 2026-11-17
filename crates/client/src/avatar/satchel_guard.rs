@@ -190,7 +190,15 @@ impl<A: Avatar + AvatarCondition> Avatar for SatchelAvatar<A> {
         self.origin.sync_world_presence(world);
     }
 
+    fn report_presence(&self, sink: &mut dyn crate::black_box::PresenceSink) {
+        self.origin.report_presence(sink);
+    }
+
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) {
         self.origin.land_on_world(world);
+    }
+
+    fn trigger_log_sheet(&mut self, ticks: u16, anomalies: u8) {
+        self.origin.trigger_log_sheet(ticks, anomalies);
     }
 }

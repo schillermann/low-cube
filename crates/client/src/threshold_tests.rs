@@ -37,11 +37,14 @@ fn test_clearance_semantics() {
     assert!(!drop.passable_with(true));
     assert!(!drop.passable_with(false));
 
-    let seam = SurfaceClearance::FoldedSeam;
+    let seam = SurfaceClearance::FoldedSeam(0.0);
     assert!(seam.passable_with(true));
     assert!(!seam.passable_with(false));
     assert!(seam.floor_contact(threshold));
     assert!(!seam.cliff_impact(threshold));
+
+    let aerial_seam = SurfaceClearance::FoldedSeam(0.5);
+    assert!(!aerial_seam.floor_contact(threshold));
 }
 
 #[test]

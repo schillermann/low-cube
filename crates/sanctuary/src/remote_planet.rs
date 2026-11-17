@@ -83,10 +83,10 @@ impl RemotePlanet {
             JoinTarget::Ticket(_) | JoinTarget::Direct(_) => Duration::from_millis(450),
         };
         let (blocks, tron) = link.await_welcome(wait, fallback_blocks, fallback_tron);
-        if link.unresolved_wormhole() {
+        if !link.connected() || link.unresolved_wormhole() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::TimedOut,
-                "Portal code did not match an active reachable sanctuary",
+                "Sanctuary handshake did not complete within welcome window",
             ));
         }
         Ok(Self::from_link(link, blocks, tron, bevel_margin))

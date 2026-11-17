@@ -10,6 +10,7 @@ use crate::attire::{AttireProfile, FileAttire, HeldRelic};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::CalibratedCanopy;
 use crate::avatar::PlanetaryAvatar;
+use crate::black_box::{BlackBoxAvatar, FileBlackBox};
 use crate::celestial::CelestialCadence;
 use crate::controls::{BindingProfile, FileBindings, KeyMotion};
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
@@ -102,15 +103,17 @@ impl SessionAssembly for SessionLaunch {
             .load_or_squire()
             .with_hand_relic(1.0, HeldRelic::CantileverCrane);
         let bindings = FileBindings::profile().load_or_seeded();
-        let avatar = Box::new(
-            PlanetaryAvatar::with_attire_and_bindings(
-                spawn_position,
-                flight,
-                attire,
-                bindings,
-            )
-            .with_starting_satchel(&ServerSatchel::assembled()),
-        );
+        let embodied = PlanetaryAvatar::with_attire_and_bindings(
+            spawn_position,
+            flight,
+            attire,
+            bindings,
+        )
+        .with_starting_satchel(&ServerSatchel::assembled());
+        let avatar = Box::new(BlackBoxAvatar::wrapping(
+            Box::new(embodied),
+            FileBlackBox::profile().load_tape(),
+        ));
 
         let slice_count = planet.face_count() * 2;
         let mut primary_faces = Vec::with_capacity(slice_count + 1);
@@ -151,8 +154,9 @@ impl SessionAssembly for SessionLaunch {
         let tron_hud_shader = surface.compile_shader(&VoxelShaderSource::embedded());
         let tron_pipeline = Box::new(TronPipeline::void());
         let controls = Box::new(KeyMotion::with_bindings(bindings));
-        let modal = Box::new(EscapeMenu::with_clipboard(
+        let modal = Box::new(EscapeMenu::with_clipboards(
             initial_invite,
+            surface.attach_clipboard(),
             surface.attach_clipboard(),
         ));
         let shaded_pass = PolaroidScenePass::new(ShadedScenePass::new(

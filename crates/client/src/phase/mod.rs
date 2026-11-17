@@ -100,25 +100,32 @@ pub struct AirborneFlight {
     vertical_speed: f32,
     momentum: Vec3,
     threshold: StepThreshold,
+    reference_up: Vec3,
 }
 
 impl AirborneFlight {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_up(vertical_speed: f32, momentum: Vec3, threshold: StepThreshold, reference_up: Vec3) -> Self {
+        Self {
+            vertical_speed,
+            momentum,
+            threshold,
+            reference_up,
+        }
+    }
+
+    /// Secondary constructor initializing with zero horizontal momentum.
     pub fn new(vertical_speed: f32, threshold: StepThreshold) -> Self {
         Self::with_momentum(vertical_speed, Vec3::ZERO, threshold)
     }
 
     /// Secondary constructor initializing with carried horizontal momentum.
     pub fn with_momentum(vertical_speed: f32, momentum: Vec3, threshold: StepThreshold) -> Self {
-        Self {
-            vertical_speed,
-            momentum,
-            threshold,
-        }
+        Self::with_up(vertical_speed, momentum, threshold, Vec3::ZERO)
     }
 
-    pub(super) const fn inspect_state(&self) -> (f32, Vec3, StepThreshold) {
-        (self.vertical_speed, self.momentum, self.threshold)
+    pub(super) const fn inspect_state(&self) -> (f32, Vec3, StepThreshold, Vec3) {
+        (self.vertical_speed, self.momentum, self.threshold, self.reference_up)
     }
 
     pub fn launch(&self, _strength: f32, _momentum: Vec3) -> FlightPhase {

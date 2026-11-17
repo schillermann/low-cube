@@ -1,4 +1,5 @@
 mod exposure;
+mod log_sheet;
 
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};

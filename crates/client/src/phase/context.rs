@@ -170,16 +170,17 @@ impl<'a> FlightContext<'a> {
         )
     }
 
-    pub fn reorient_edge_flight(&self, vertical_speed: f32) -> (Vec3, f32, Vec3) {
+    pub fn reorient_edge_flight(&self, vertical_speed: f32, reference_up: Vec3) -> (Vec3, f32, Vec3) {
         let current_up = self.current_surface_up();
-        if self.step.surface_up.dot(current_up) < 0.99 {
-            let v_3d = self.step.surface_up * vertical_speed + self.commanded_velocity();
+        let prior_up = if reference_up.length_squared() > 0.5 { reference_up } else { self.step.surface_up };
+        if prior_up.dot(current_up) < 0.9995 {
+            let v_3d = prior_up * vertical_speed + self.commanded_velocity();
             let new_vertical_speed = v_3d.dot(current_up);
             let new_tangent_v = v_3d - current_up * new_vertical_speed;
             let effective_stride = new_tangent_v * self.step.dt;
             (current_up, new_vertical_speed, effective_stride)
         } else {
-            (self.step.surface_up, vertical_speed, self.step.stride)
+            (current_up, vertical_speed, self.step.stride)
         }
     }
 

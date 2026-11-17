@@ -55,7 +55,7 @@ impl InclinePace {
                 };
                 stride * factor
             }
-            SurfaceClearance::FoldedSeam => stride,
+            SurfaceClearance::FoldedSeam(_) => stride,
         }
     }
 }

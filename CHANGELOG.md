@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.76.0] - 2026-11-17
+
+### Added
+- Added zero-allocation Flight Log (`BlackBoxAvatar`, `FlightTape`, `LiveTape`, `SilentTape`, `IncidentMedium`, `DiskDossier`, `MemoryDossier`, `FileBlackBox`, and `IncidentReplay` in `crates/client/src/black_box/`), in-game `LOG` menu (`PausePanel::log_button` and `BlackBoxPanel` in `crates/client/src/menu/black_box_panel.rs`) switching polymorphically between a 15-second (1,800-tick @ 120 Hz) ring buffer and a zero-overhead `SilentTape` Null Object, TOML bug-report export (`reports/incident_<millis>.toml` + clipboard path copy), and tilted ruled clipboard `IncidentSheet` HUD overlay (`PrintSubject::LogSheet` in `crates/client/src/photo_plate/exposure.rs` and `log_sheet.rs`).
+- Added windowless `HeadlessSession` and `HeadlessSurface` Fake-Object harness (`crates/client/src/session/headless/`), flora-free `BiomedCubeWorld::barren` / `barren_beveled` terrain factories (`crates/world/src/biome.rs`), and getter-free `PresenceProbe` / `Avatar::report_presence` kinematics inspection (`crates/client/src/black_box/avatar.rs`), documented in `AGENTS.md` and `docs/DEVELOPMENT.md`.
+
+### Fixed
+- Fixed falling through the planetary surface into the solid corner wedge when sprinting and jumping at shallow grazing angles across `ClimateZone` seams by checking cardinal zone normals alongside smoothed `SeamBevel` normals in `SurfaceClearance::between` (`crates/client/src/threshold.rs`), carrying destination-normal clearance in `SurfaceClearance::FoldedSeam`, encapsulating `reference_up` inside `AirborneFlight` (`crates/client/src/phase/mod.rs`, `aerial.rs`, `context.rs`) so `FlightContext::reorient_edge_flight` projects 3D velocity across seam bevels, and enforcing fail-fast handshake completion in `RemotePlanet::connect` (`crates/sanctuary/src/remote_planet.rs`).
+
 ## [0.75.2] - 2026-11-16
 
 ### Changed

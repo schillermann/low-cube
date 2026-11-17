@@ -115,3 +115,34 @@ fn test_sneak_at_seam_diagonal_slides_along_edge() {
     assert!(next_pos.z > start_pos.z);
     assert_eq!(next_pos.y, start_pos.y);
 }
+
+#[test]
+fn test_grazing_sprint_jump_along_climate_seam_never_falls_through_surface() {
+    use winit::keyboard::KeyCode;
+    use crate::controls::KeyMotion;
+
+    let world = BiomedCubeWorld::barren_beveled(16, 1.0);
+    for yaw_px in [-12.0f32, -35.0, -90.0, -240.0] {
+        for start_x in [7.75f32, 7.80, 7.85, 7.92] {
+            let start_pos = world.constrain_to_surface(Vec3::new(start_x, 10.0, 0.25), 1.0);
+            let mut avatar = PlanetaryAvatar::at(start_pos);
+            avatar.rotate_view(yaw_px, 0.0);
+            let mut controls = KeyMotion::idle();
+            controls.register_key(KeyCode::KeyW, true);
+            controls.register_key(KeyCode::ShiftLeft, true);
+            controls.register_key(KeyCode::Space, true);
+            for tick in 0..100 {
+                if tick == 1 {
+                    controls.register_key(KeyCode::Space, false);
+                }
+                avatar.step_motion(1.0 / 60.0, &controls, &world);
+                let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
+                let max_c = eye.x.abs().max(eye.y.abs()).max(eye.z.abs());
+                assert!(
+                    max_c >= 8.5,
+                    "Grazing sprint-jump at yaw_px={yaw_px}, start_x={start_x}, tick={tick} must never sink into planet seam, got eye={eye:?} (max_c={max_c})"
+                );
+            }
+        }
+    }
+}

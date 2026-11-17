@@ -8,4 +8,6 @@ low-cube-linux
 low-cube-windows.exe
 character.toml
 controls.toml
+blackbox.toml
 screenshots/
+reports/

@@ -37,6 +37,12 @@ impl AvatarBearing {
         self.exposure.press_shutter(mount)
     }
 
+    pub fn trigger_log_sheet(&mut self, ticks: u16, anomalies: u8) {
+        self.exposure.trigger_log_sheet(ticks, anomalies);
+        use acoustics::{AcousticWave, ShutterClick};
+        ShutterClick::mechanical().thump();
+    }
+
     pub fn reconcile_mount(&mut self, mount: CameraMount) {
         self.exposure.reconcile_mount(mount);
     }

@@ -27,8 +27,8 @@ impl AerialKinematics {
     }
 
     pub fn from_flight(flight: &AirborneFlight, ctx: &FlightContext) -> Self {
-        let (v_speed, momentum, _) = flight.inspect_state();
-        let (surface_up, vertical_speed, effective_stride) = ctx.reorient_edge_flight(v_speed);
+        let (v_speed, momentum, _, ref_up) = flight.inspect_state();
+        let (surface_up, vertical_speed, effective_stride) = ctx.reorient_edge_flight(v_speed, ref_up);
         let gravity_delta = ctx.gravitational_acceleration(vertical_speed);
         let next_speed = ctx.brake_canopy(vertical_speed - gravity_delta);
         let airborne_stride = if momentum.length_squared() > 1e-4 {
@@ -71,7 +71,7 @@ impl ParabolicTrajectory {
 
 impl AerialTrajectory for ParabolicTrajectory {
     fn resolve(&self, ctx: &FlightContext, step: AerialKinematics) -> FlightProgress {
-        let (_, momentum, threshold) = self.flight.inspect_state();
+        let (_, momentum, threshold, _) = self.flight.inspect_state();
         let (rebound, ceiling_bonk, next_speed) = step.rebound_point(ctx, threshold);
         let supported = ctx.constrain_surface(rebound);
         let clearance = ctx.clearance(rebound, supported);
@@ -99,7 +99,7 @@ impl AerialTrajectory for ParabolicTrajectory {
         } else {
             let next_momentum = ctx.damp_aerial_momentum(momentum);
             FlightProgress::new(
-                FlightPhase::Airborne(AirborneFlight::with_momentum(next_speed, next_momentum, threshold)),
+                FlightPhase::Airborne(AirborneFlight::with_up(next_speed, next_momentum, threshold, step.surface_up)),
                 safe_rebound,
             )
         }
@@ -121,7 +121,7 @@ impl<T: AerialTrajectory> CliffReboundTrajectory<T> {
 
 impl<T: AerialTrajectory> AerialTrajectory for CliffReboundTrajectory<T> {
     fn resolve(&self, ctx: &FlightContext, step: AerialKinematics) -> FlightProgress {
-        let (_, momentum, threshold) = self.flight.inspect_state();
+        let (_, momentum, threshold, _) = self.flight.inspect_state();
         let (rebound, _, next_speed) = step.rebound_point(ctx, threshold);
         let supported = ctx.constrain_surface(rebound);
         let clearance = ctx.clearance(rebound, supported);
@@ -139,7 +139,7 @@ impl<T: AerialTrajectory> AerialTrajectory for CliffReboundTrajectory<T> {
             };
             let next_momentum = ctx.damp_aerial_momentum(momentum);
             FlightProgress::new(
-                FlightPhase::Airborne(AirborneFlight::with_momentum(next_speed.min(0.0), next_momentum, threshold)),
+                FlightPhase::Airborne(AirborneFlight::with_up(next_speed.min(0.0), next_momentum, threshold, step.surface_up)),
                 bonked,
             )
         } else {
