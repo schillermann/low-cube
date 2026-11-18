@@ -1,4 +1,6 @@
 mod cache;
+mod meadow_ring;
+mod patch_grid;
 
 use glam::Vec3;
 use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape};
@@ -13,6 +15,7 @@ use super::strata::ReliefStrata;
 use super::terraced::TerracedRelief;
 use super::vehicle_assembly::VehicleAssembly;
 use self::cache::ReliefCellCache;
+pub use self::meadow_ring::{MeadowRing, MeadowStamp, MEADOW_RING_SLOTS};
 
 struct ReliefDomain {
     frame: SurfaceFrame,
@@ -108,6 +111,34 @@ impl Face for FacetedReliefFace {
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         self.cache.emit_surface(&self.domain.frame, self.domain.relief.as_ref(), &self.palette, target);
+    }
+
+    fn terrain_patch_count(&self) -> usize {
+        self.cache.sector_count()
+    }
+
+    fn emit_terrain_patch(&self, patch_slot: usize, target: &mut dyn MeshTarget) {
+        self.cache.emit_sector(patch_slot, &self.domain.frame, self.domain.relief.as_ref(), &self.palette, target);
+    }
+
+    fn pending_terrain_patches(&self) -> bool {
+        self.cache.pending_sectors()
+    }
+
+    fn drain_terrain_patch(&mut self, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.cache.drain_dirty_sector(&self.domain.frame, self.domain.relief.as_ref(), &self.palette, target)
+    }
+
+    fn meadow_center_sector(&self, center: Vec3) -> (i32, i32) {
+        self.cache.center_sector(center, &self.domain.frame)
+    }
+
+    fn meadow_sector_revision(&self, gsu: i32, gsv: i32) -> u32 {
+        self.cache.sector_revision(gsu, gsv)
+    }
+
+    fn emit_meadow_sector(&self, gsu: i32, gsv: i32, lod: u8, target: &mut dyn MeshTarget) {
+        self.cache.emit_meadow_sector(gsu, gsv, lod, &self.domain.frame, target);
     }
 
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {

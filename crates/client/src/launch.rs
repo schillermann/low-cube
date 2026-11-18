@@ -116,14 +116,26 @@ impl SessionAssembly for SessionLaunch {
         ));
 
         let slice_count = planet.face_count() * 2;
-        let mut primary_faces = Vec::with_capacity(slice_count + 1);
+        let mut primary_faces: Vec<Box<dyn engine::Mesh>> = Vec::with_capacity(slice_count + 1);
         let mut tron_faces = Vec::with_capacity(slice_count + 1);
+        let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
         for idx in 0..slice_count {
-            let mut cpu_buf = CpuMeshBatch::empty();
-            if !self.tron_active {
-                planet.emit_face(idx, &mut cpu_buf);
+            let patch_count = planet.face_patch_count(idx);
+            if !self.tron_active && patch_count > 0 {
+                let mut patches = Vec::with_capacity(patch_count);
+                for slot in 0..patch_count {
+                    patch_buf.clear();
+                    planet.emit_face_patch(idx, slot, &mut patch_buf);
+                    patches.push(surface.upload_mesh(&patch_buf));
+                }
+                primary_faces.push(Box::new(engine::SectorGridMesh::new(patches)));
+            } else {
+                let mut cpu_buf = CpuMeshBatch::empty();
+                if !self.tron_active {
+                    planet.emit_face(idx, &mut cpu_buf);
+                }
+                primary_faces.push(surface.upload_mesh(&cpu_buf));
             }
-            primary_faces.push(surface.upload_mesh(&cpu_buf));
 
             let mut tron_buf = CpuTronBatch::empty();
             if self.tron_active {
@@ -131,12 +143,19 @@ impl SessionAssembly for SessionLaunch {
             }
             tron_faces.push(surface.upload_tron_mesh(&tron_buf));
         }
-        let mut meadow_buf = CpuMeshBatch::empty();
+        let mut initial_ring = world::MeadowRing::cold();
         if !self.tron_active {
-            use crate::avatar::Avatar;
-            avatar.emit_surroundings(planet.as_ref(), &mut meadow_buf);
+            let empty_cpu = CpuMeshBatch::empty();
+            let mut meadow_patches: Vec<Box<dyn engine::Mesh>> =
+                (0..world::MEADOW_RING_SLOTS).map(|_| surface.upload_mesh(&empty_cpu)).collect();
+            while let Some(slot) = planet.drain_stale_meadow_patch(spawn_position, &mut initial_ring, &mut patch_buf) {
+                meadow_patches[slot] = surface.upload_mesh(&patch_buf);
+                patch_buf.clear();
+            }
+            primary_faces.push(Box::new(engine::SectorGridMesh::new(meadow_patches)));
+        } else {
+            primary_faces.push(surface.upload_mesh(&CpuMeshBatch::empty()));
         }
-        primary_faces.push(surface.upload_mesh(&meadow_buf));
         tron_faces.push(surface.upload_tron_mesh(&CpuTronBatch::empty()));
 
         let initial_mask = planet.visible_slice_mask(spawn_position);
@@ -164,10 +183,10 @@ impl SessionAssembly for SessionLaunch {
             surface.attach_clipboard(),
         ));
         let shaded_pass = PolaroidScenePass::new(ShadedScenePass::new(
-            primary_pipeline,
-            primary_shader,
+            (primary_pipeline, primary_shader),
             primary_mesh,
-            CpuMeshBatch::with_quad_capacity(4_096),
+            engine::StreamingMesh::with_quad_capacity(4_096),
+            initial_ring,
         ));
         let tron_pass = PolaroidScenePass::new(TronScenePass::new(
             tron_pipeline,

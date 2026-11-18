@@ -210,6 +210,10 @@ impl VoxelShape for ElevatedShape {
         self.shape.shape_color()
     }
 
+    fn shape_stamp(&self) -> [u8; 3] {
+        self.shape.shape_stamp()
+    }
+
     fn emit_shape(
         &self,
         cell: GridCell,

@@ -41,22 +41,28 @@ impl HeadlessSession {
         let ui_quads = Rc::new(RefCell::new(Vec::new()));
         let surface = Box::new(HeadlessSurface::hd(Rc::clone(&ui_quads)));
         let slice_count = world.face_count() * 2 + 1;
-        let mut primary_slices = Vec::with_capacity(slice_count);
+        let mut primary_slices: Vec<Box<dyn engine::Mesh>> = Vec::with_capacity(slice_count);
         let mut tron_slices = Vec::with_capacity(slice_count);
         let empty_cpu = CpuMeshBatch::empty();
         let empty_tron = CpuTronBatch::empty();
-        for _ in 0..slice_count {
-            primary_slices.push(surface.upload_mesh(&empty_cpu));
+        for idx in 0..slice_count {
+            let patch_count = world.face_patch_count(idx);
+            if patch_count > 0 {
+                let patches = (0..patch_count).map(|_| surface.upload_mesh(&empty_cpu)).collect();
+                primary_slices.push(Box::new(engine::SectorGridMesh::new(patches)));
+            } else {
+                primary_slices.push(surface.upload_mesh(&empty_cpu));
+            }
             tron_slices.push(surface.upload_tron_mesh(&empty_tron));
         }
         let sh = surface.compile_shader(&VoxelShaderSource::embedded());
         let tr_sh = surface.compile_shader(&TronShaderSource::embedded());
         let hud_sh = surface.compile_shader(&VoxelShaderSource::embedded());
         let shaded = PolaroidScenePass::new(ShadedScenePass::new(
-            Box::new(HeadlessPipeline),
-            sh,
+            (Box::new(HeadlessPipeline), sh),
             PlanetaryMesh::with_mask(primary_slices, u32::MAX),
-            CpuMeshBatch::empty(),
+            engine::StreamingMesh::empty(),
+            world::MeadowRing::cold(),
         ));
         let tron = PolaroidScenePass::new(TronScenePass::new(
             Box::new(HeadlessPipeline),

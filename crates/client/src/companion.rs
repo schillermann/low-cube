@@ -31,6 +31,7 @@ impl CompanionFigure {
     }
 
     pub fn emit_all(world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
+        world.emit_active_crafts(target);
         let mut roster = Vec::new();
         world.active_companions(&mut roster);
         for companion in roster {

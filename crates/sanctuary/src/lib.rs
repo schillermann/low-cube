@@ -1,10 +1,15 @@
+mod aura;
 mod chronicle_log;
 mod chronicled_planet;
 mod cohort;
+mod conduit_planet;
 mod config;
 mod envelope;
+mod fleet_ledger;
+mod glide;
 mod hosted_planet;
 mod link_state;
+mod mailbox;
 mod nat;
 mod remote_link;
 mod remote_planet;
@@ -18,12 +23,17 @@ mod wormhole;
 #[cfg(test)]
 mod tests;
 
+pub use aura::{HostAura, HostIdentity, HostPresence, PeerCrack};
 pub use chronicle_log::ChronicleLog;
 pub use chronicled_planet::{ChronicledPlanet, FactJournal};
-pub use cohort::{GuestCohort, HostAura, HostIdentity, HostPresence, HostState, PeerCrack};
+pub use cohort::{GuestCohort, HostState};
+pub use conduit_planet::ConduitPlanet;
 pub use config::{SanctuaryEndpoint, SanctuaryPlan, SanctuaryToml};
 pub use envelope::{CrackNotice, SanctuaryEnvelope};
+pub use fleet_ledger::FleetLedger;
+pub use glide::{CompanionGlide, GlideClock, SmoothRoster};
 pub use hosted_planet::HostedPlanet;
+pub use mailbox::{PortalMailbox, SocketLoop};
 pub use nat::{GatewayLease, NatAperture, StunProbe};
 pub use remote_link::RemoteLink;
 pub use remote_planet::{GuestJournal, RemotePlanet};

@@ -80,6 +80,14 @@ impl Face for ForestedFace {
         self.origin.emit_meadow_around(center, view_dir, target);
     }
 
+    fn terrain_patch_count(&self) -> usize { self.origin.terrain_patch_count() }
+    fn emit_terrain_patch(&self, patch_slot: usize, target: &mut dyn MeshTarget) { self.origin.emit_terrain_patch(patch_slot, target); }
+    fn pending_terrain_patches(&self) -> bool { self.origin.pending_terrain_patches() }
+    fn drain_terrain_patch(&mut self, target: &mut dyn MeshTarget) -> Option<usize> { self.origin.drain_terrain_patch(target) }
+    fn meadow_center_sector(&self, center: Vec3) -> (i32, i32) { self.origin.meadow_center_sector(center) }
+    fn meadow_sector_revision(&self, gsu: i32, gsv: i32) -> u32 { self.origin.meadow_sector_revision(gsu, gsv) }
+    fn emit_meadow_sector(&self, gsu: i32, gsv: i32, lod: u8, target: &mut dyn MeshTarget) { self.origin.emit_meadow_sector(gsu, gsv, lod, target); }
+
     fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
         let variant = selector as u32;
         let near_count = self

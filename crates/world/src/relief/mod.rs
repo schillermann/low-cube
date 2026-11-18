@@ -2,6 +2,7 @@ mod cantilever_rig;
 mod column_clearance;
 mod corner;
 mod craft_cluster;
+mod craft_entity;
 mod crust_vault;
 mod elevation;
 mod face;
@@ -37,9 +38,13 @@ mod watertight_tests;
 #[cfg(test)]
 mod wedge_seam_tests;
 
+pub use craft_entity::{
+    BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, HelmLocks, SeatOccupancy,
+    WorldCraft,
+};
 pub use crust_vault::CrustVault;
 pub use elevation::ReliefElevation;
-pub use face::FacetedReliefFace;
+pub use face::{FacetedReliefFace, MeadowRing, MeadowStamp, MEADOW_RING_SLOTS};
 pub use facet::ReliefFacet;
 pub use mineral_vein::{ExposedStratum, HollowVeins, LivingVeins, SubterraneanVeins};
 pub use palette::ReliefPalette;

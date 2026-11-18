@@ -47,6 +47,10 @@ impl<S: VoxelShape> VoxelShape for TurfCoat<S> {
         self.inner.block_heading()
     }
 
+    fn shape_stamp(&self) -> [u8; 3] {
+        self.inner.shape_stamp()
+    }
+
     fn wheel_radius(&self) -> f32 {
         self.inner.wheel_radius()
     }

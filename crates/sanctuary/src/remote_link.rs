@@ -2,8 +2,10 @@ use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::{Duration, Instant};
 use glam::{Quat, Vec3};
-use world::{CompanionPresence, PlanetaryWorld, PresenceKinematics, WorldFact};
+use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceKinematics, WorldFact};
 use crate::envelope::SanctuaryEnvelope;
+use crate::fleet_ledger::FleetLedger;
+use crate::glide::SmoothRoster;
 use crate::link_state::{LinkPhase, LinkSync};
 use crate::nat::NatAperture;
 use crate::seal::HandshakeIdentity;
@@ -53,12 +55,19 @@ impl RemoteLink {
                 LinkPhase::Knocking { keys, retry_clock: 0.0 }
             }
         };
-        let sync = LinkSync::new(0, 1.0, Vec::new(), initial_pres);
+        let sync = LinkSync::new(0, 1.0, SmoothRoster::empty(), (initial_pres, PilotCraft::Pedestrian));
         Self::new(socket, target, phase, sync)
     }
 
     pub fn connected(&self) -> bool {
         matches!(self.phase, LinkPhase::Sealed { .. })
+    }
+
+    pub const fn companion_slot(&self) -> u32 {
+        match self.phase {
+            LinkPhase::SeekingWormhole { .. } | LinkPhase::Knocking { .. } => 0,
+            LinkPhase::Sealed { companion_id, .. } => companion_id,
+        }
     }
 
     pub fn unresolved_wormhole(&self) -> bool {
@@ -77,8 +86,24 @@ impl RemoteLink {
         self.sync.update_presence(presence, cid);
     }
 
+    pub fn sync_local_craft(&mut self, craft: PilotCraft) {
+        let cid = match self.phase {
+            LinkPhase::SeekingWormhole { .. } | LinkPhase::Knocking { .. } => 0,
+            LinkPhase::Sealed { companion_id, .. } => companion_id,
+        };
+        self.sync.update_craft(craft, cid);
+    }
+
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) {
         self.sync.copy_companions(out);
+    }
+
+    pub fn crafts(&self, out: &mut Vec<DrivenCraft>) {
+        self.sync.copy_crafts(out);
+    }
+
+    pub fn blend_subtick(&mut self, subtick_secs: f32) {
+        self.sync.blend_subtick(subtick_secs);
     }
 
     pub fn ticket_string(&self) -> Option<String> {
@@ -180,6 +205,14 @@ impl RemoteLink {
 
     pub fn send_petition(&mut self, fact: WorldFact) {
         if let LinkPhase::Sealed { companion_id, ref mut seal, peer } = self.phase {
+            if matches!(
+                fact,
+                WorldFact::CraftCommissioned { .. }
+                    | WorldFact::HelmClaimed { .. }
+                    | WorldFact::HelmReleased { .. }
+            ) {
+                self.sync.flush_pulse(companion_id, seal, peer, &self.socket);
+            }
             let (mut payload, mut frame) = (Vec::new(), Vec::new());
             SanctuaryEnvelope::GuestPetition { fact }.inscribe(&mut payload);
             seal.seal(companion_id, &payload, &mut frame);
@@ -187,7 +220,13 @@ impl RemoteLink {
         }
     }
 
-    pub fn pump(&mut self, dt: f32, world: &mut dyn PlanetaryWorld, predicted: &mut VecDeque<WorldFact>) -> bool {
+    pub fn pump(
+        &mut self,
+        dt: f32,
+        world: &mut dyn PlanetaryWorld,
+        fleet: &mut FleetLedger,
+        predicted: &mut VecDeque<WorldFact>,
+    ) -> bool {
         if !self.connected() {
             let _ = self.step_handshake(dt);
             return false;
@@ -205,7 +244,7 @@ impl RemoteLink {
                 None
             };
             if let Some(env) = decoded {
-                if self.sync.absorb_envelope(env, world, predicted) {
+                if self.sync.absorb_envelope(env, world, fleet, predicted) {
                     changed = true;
                 }
             }

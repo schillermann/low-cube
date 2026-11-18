@@ -4,6 +4,7 @@ use glam::Vec3;
 use crate::MeshTarget;
 use crate::block::{BlockMedium, ElevatedShape, GridCell, VoxelShape, WedgeHeading};
 use crate::frame::SurfaceFrame;
+use super::craft_entity::CraftIdentity;
 use super::molded_structure::{MoldedStructure, VoxelCells, WorldBlocks};
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
@@ -202,6 +203,16 @@ impl CraftCluster {
         ray: SurfaceSightRay,
         frame: &SurfaceFrame,
     ) -> Result<VehicleAssembly, Self> {
+        self.into_vehicle_with_id(CraftIdentity::unassigned(), ground_fn, ray, frame)
+    }
+
+    pub fn into_vehicle_with_id(
+        self,
+        identity: CraftIdentity,
+        ground_fn: impl Fn(i32, i32) -> f32,
+        ray: SurfaceSightRay,
+        frame: &SurfaceFrame,
+    ) -> Result<VehicleAssembly, Self> {
         if !self.drivable() {
             return Err(self);
         }
@@ -214,17 +225,18 @@ impl CraftCluster {
                 floor_min = floor_min.min(b.floor());
             }
         });
-        let parts: Vec<VehiclePart> = self
+        let mut parts: Vec<VehiclePart> = self
             .grid
             .into_entries()
             .map(|((cu, cv), b): ((i32, i32), ElevatedShape)| {
                 VehiclePart::new((cu - seat_u, cv - seat_v), (b.floor() - floor_min).max(0.0), b.into_shape())
             })
             .collect();
+        parts.sort_by_key(VehiclePart::canonical_key);
         let axes = VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal());
         let heading = parts.iter().find_map(|p| p.steering_heading(frame)).unwrap_or_else(|| ray.align_heading(frame));
         let (cx, cy) = GridCell::new(seat_u, seat_v).center();
-        Ok(VehicleAssembly::new(frame.point_at(cx, cy, ground_top), axes, heading, parts))
+        Ok(VehicleAssembly::with_identity(identity, frame.point_at(cx, cy, ground_top), axes, heading, parts))
     }
 }
 

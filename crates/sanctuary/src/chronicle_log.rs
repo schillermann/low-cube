@@ -26,13 +26,25 @@ impl ChronicleLog {
         }
     }
 
-    /// Collects an MTU-safe batch of durable facts starting at `ack_seq` (`<= 24` facts per datagram).
+    /// Collects an MTU-safe batch of durable facts starting at `ack_seq` (`<= 24` facts, `<= 1_100` bytes).
     pub fn batch_from(&self, ack_seq: u32) -> Option<(u32, Vec<WorldFact>)> {
         let start = ack_seq as usize;
         if start >= self.facts.len() {
             return None;
         }
-        let end = (start + 24).min(self.facts.len());
-        Some((ack_seq, self.facts[start..end].to_vec()))
+        let limit = (start + 24).min(self.facts.len());
+        let mut scratch = Vec::with_capacity(128);
+        let mut used_bytes = 0usize;
+        let mut batch = Vec::with_capacity(limit - start);
+        for fact in &self.facts[start..limit] {
+            scratch.clear();
+            fact.inscribe(&mut scratch);
+            if !batch.is_empty() && used_bytes + scratch.len() > 1_100 {
+                break;
+            }
+            used_bytes += scratch.len();
+            batch.push(fact.clone());
+        }
+        Some((ack_seq, batch))
     }
 }

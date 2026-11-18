@@ -1,8 +1,9 @@
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CleaveOutcome, ClimateZone, CompanionPresence, ExposedStratum,
-    GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology, PlanetaryWorld, SeamBevel,
-    SurfaceFind, VehicleAssembly,
+    BlockMedium, BlockMold, CleaveOutcome, ClimateZone, CompanionPresence, CraftBlueprint,
+    CraftIdentity, CraftPose, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
+    PerimeterEdge, PilotCraft, PlanetaryTopology, PlanetaryWorld, SeamBevel, SurfaceFind,
+    VehicleAssembly,
 };
 
 /// Decorator enabling smooth, continuous surface normal transitions in bevel zones across planetary seams.
@@ -120,12 +121,60 @@ impl PlanetaryWorld for BeveledWorld {
         self.world.park_vehicle(assembly)
     }
 
+    fn register_craft_blueprint(&mut self, blueprint: CraftBlueprint) -> bool {
+        self.world.register_craft_blueprint(blueprint)
+    }
+
+    fn claim_vehicle_helm(&mut self, craft: CraftIdentity, pilot_slot: u32, eye: Vec3, direction: Vec3) -> bool {
+        self.world.claim_vehicle_helm(craft, pilot_slot, eye, direction)
+    }
+
+    fn park_craft_by_id(&mut self, craft: CraftIdentity, pose: CraftPose) -> bool {
+        self.world.park_craft_by_id(craft, pose)
+    }
+
+    fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
+        self.world.board_passenger_seat(eye, direction)
+    }
+
+    fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
+        self.world.passenger_seat_frame(craft, local_seat)
+    }
+
+    fn helm_revoked(&mut self, craft: CraftIdentity) -> bool {
+        self.world.helm_revoked(craft)
+    }
+
+    fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {
+        self.world.emit_active_crafts(target);
+    }
+
+    fn face_patch_count(&self, slice: usize) -> usize {
+        self.world.face_patch_count(slice)
+    }
+
+    fn emit_face_patch(&self, slice: usize, patch_slot: usize, target: &mut dyn MeshTarget) {
+        self.world.emit_face_patch(slice, patch_slot, target);
+    }
+
+    fn drain_modified_patch(&mut self, target: &mut dyn MeshTarget) -> Option<(usize, usize)> {
+        self.world.drain_modified_patch(target)
+    }
+
+    fn drain_stale_meadow_patch(&self, center: Vec3, ring: &mut MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.world.drain_stale_meadow_patch(center, ring, target)
+    }
+
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
         self.world.placed_camera_tripod()
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
         self.world.step_surface(dt)
+    }
+
+    fn step_local_flora(&mut self, dt: f32) -> bool {
+        self.world.step_local_flora(dt)
     }
 
     fn lethal_at(&self, position: Vec3) -> bool {
@@ -180,8 +229,20 @@ impl PlanetaryWorld for BeveledWorld {
         self.world.sync_presence(presence);
     }
 
+    fn sync_pilot_craft(&mut self, craft: PilotCraft) {
+        self.world.sync_pilot_craft(craft);
+    }
+
     fn active_companions(&self, out: &mut Vec<CompanionPresence>) {
         self.world.active_companions(out);
+    }
+
+    fn active_crafts(&self, out: &mut Vec<DrivenCraft>) {
+        self.world.active_crafts(out);
+    }
+
+    fn blend_companions(&mut self, subtick_secs: f32) {
+        self.world.blend_companions(subtick_secs);
     }
 
     fn portal_ticket(&self) -> Option<String> {

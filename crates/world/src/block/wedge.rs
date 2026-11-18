@@ -14,6 +14,24 @@ pub enum WedgeHeading {
 }
 
 impl WedgeHeading {
+    pub const fn code(self) -> u8 {
+        match self {
+            Self::North => 0,
+            Self::South => 1,
+            Self::East => 2,
+            Self::West => 3,
+        }
+    }
+
+    pub const fn from_code(code: u8) -> Self {
+        match code % 4 {
+            0 => Self::North,
+            1 => Self::South,
+            2 => Self::East,
+            _ => Self::West,
+        }
+    }
+
     pub const fn rotated_ccw(self) -> Self {
         match self {
             Self::East => Self::North,

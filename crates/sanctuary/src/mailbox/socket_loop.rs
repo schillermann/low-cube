@@ -1,0 +1,70 @@
+use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
+use world::PlanetaryWorld;
+use super::PortalMailbox;
+
+const BEAT_NANOS: u64 = 8_333_333;
+const BEAT_SECS: f32 = 1.0 / 120.0;
+
+/// Polymorphic thread handle state avoiding `Option<JoinHandle<()>>`.
+enum SocketThread {
+    Detached,
+    Running(JoinHandle<()>),
+}
+
+/// Autonomous 120 Hz P2P socket heartbeat decoupled from `winit` and OpenGL frame pacing.
+pub struct SocketLoop {
+    mailbox: Arc<PortalMailbox>,
+    thread_state: SocketThread,
+}
+
+impl SocketLoop {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    fn new(mailbox: Arc<PortalMailbox>, thread_state: SocketThread) -> Self {
+        Self { mailbox, thread_state }
+    }
+
+    pub fn spawn(
+        shared: Arc<Mutex<Box<dyn PlanetaryWorld>>>,
+        mailbox: Arc<PortalMailbox>,
+    ) -> Self {
+        let loop_box = Arc::clone(&mailbox);
+        let handle = std::thread::Builder::new()
+            .name("low-cube-sanctuary".to_owned())
+            .spawn(move || Self::drive_cadence(shared, loop_box))
+            .map_or(SocketThread::Detached, SocketThread::Running);
+        Self::new(mailbox, handle)
+    }
+
+    fn drive_cadence(shared: Arc<Mutex<Box<dyn PlanetaryWorld>>>, mailbox: Arc<PortalMailbox>) {
+        let step_dur = Duration::from_nanos(BEAT_NANOS);
+        let mut next_wake = Instant::now() + step_dur;
+        while mailbox.running() {
+            let changed = shared
+                .lock()
+                .ok()
+                .is_some_and(|mut w| w.pump_portal(BEAT_SECS));
+            if changed {
+                mailbox.note_surface_change();
+            }
+            let now = Instant::now();
+            if next_wake > now {
+                std::thread::park_timeout(next_wake - now);
+                next_wake += step_dur;
+            } else {
+                next_wake = now + step_dur;
+            }
+        }
+    }
+}
+
+impl Drop for SocketLoop {
+    fn drop(&mut self) {
+        self.mailbox.halt();
+        if let SocketThread::Running(handle) = std::mem::replace(&mut self.thread_state, SocketThread::Detached) {
+            handle.thread().unpark();
+            let _ = handle.join();
+        }
+    }
+}

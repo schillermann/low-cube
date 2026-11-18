@@ -113,6 +113,15 @@ impl BlockMold {
         self.archetype.code().wrapping_add(turn_step) % 4
     }
 
+    fn corner_for(wedge: WedgeHeading) -> CornerHeading {
+        match wedge {
+            WedgeHeading::North => CornerHeading::NorthEast,
+            WedgeHeading::East => CornerHeading::SouthEast,
+            WedgeHeading::South => CornerHeading::SouthWest,
+            WedgeHeading::West => CornerHeading::NorthWest,
+        }
+    }
+
     fn resolve_orientation(self, direction: Vec3, frame: &SurfaceFrame) -> (MoldArchetype, WedgeHeading, CornerHeading) {
         let effective = if matches!(self.medium, BlockMedium::CabinSeat) && !self.archetype.flat_square_top() {
             MoldArchetype::FullCube
@@ -123,30 +132,23 @@ impl BlockMold {
         let wedge = if dv.abs() >= du.abs() {
             if dv >= 0.0 { WedgeHeading::North } else { WedgeHeading::South }
         } else if du >= 0.0 { WedgeHeading::East } else { WedgeHeading::West };
-        let corner = match wedge {
-            WedgeHeading::North => CornerHeading::NorthEast,
-            WedgeHeading::East => CornerHeading::SouthEast,
-            WedgeHeading::South => CornerHeading::SouthWest,
-            WedgeHeading::West => CornerHeading::NorthWest,
-        };
-        (effective, wedge, corner)
+        (effective, wedge, Self::corner_for(wedge))
     }
 
-    /// Resolves the concrete VoxelShape oriented along the placement direction and current turn.
-    pub fn shape_for(self, direction: Vec3, frame: &SurfaceFrame) -> Box<dyn VoxelShape> {
-        let (arch, wedge, corner) = self.resolve_orientation(direction, frame);
+    fn build_shape(arch: MoldArchetype, wedge: WedgeHeading, medium: BlockMedium) -> Box<dyn VoxelShape> {
+        let corner = Self::corner_for(wedge);
         let wrap = |s: Box<dyn VoxelShape>| -> Box<dyn VoxelShape> {
-            Box::new(MediumShape::with_archetype(s, self.medium, arch, wedge))
+            Box::new(MediumShape::with_archetype(s, medium, arch, wedge))
         };
         match arch {
-            MoldArchetype::FullCube => Box::new(MediumShape::with_archetype(CuboidShape::full_cube(), self.medium, arch, wedge)),
-            MoldArchetype::HalfSlab => Box::new(MediumShape::with_archetype(CuboidShape::half_slab(), self.medium, arch, wedge)),
-            MoldArchetype::RampWedge => Box::new(MediumShape::with_archetype(RampWedge::new(wedge), self.medium, arch, wedge)),
-            MoldArchetype::SteppedStair => Box::new(MediumShape::with_archetype(StairFlight::new(wedge), self.medium, arch, wedge)),
-            MoldArchetype::PyramidApex => Box::new(MediumShape::with_archetype(PyramidPeak::slope_aligned(), self.medium, arch, wedge)),
-            MoldArchetype::ConvexRidge => Box::new(MediumShape::with_archetype(RidgeCorner::new(corner), self.medium, arch, wedge)),
-            MoldArchetype::ConcaveValley => Box::new(MediumShape::with_archetype(ValleyCorner::new(corner), self.medium, arch, wedge)),
-            MoldArchetype::DiagonalRamp => Box::new(MediumShape::with_archetype(DiagonalSlope::new(corner), self.medium, arch, wedge)),
+            MoldArchetype::FullCube => Box::new(MediumShape::with_archetype(CuboidShape::full_cube(), medium, arch, wedge)),
+            MoldArchetype::HalfSlab => Box::new(MediumShape::with_archetype(CuboidShape::half_slab(), medium, arch, wedge)),
+            MoldArchetype::RampWedge => Box::new(MediumShape::with_archetype(RampWedge::new(wedge), medium, arch, wedge)),
+            MoldArchetype::SteppedStair => Box::new(MediumShape::with_archetype(StairFlight::new(wedge), medium, arch, wedge)),
+            MoldArchetype::PyramidApex => Box::new(MediumShape::with_archetype(PyramidPeak::slope_aligned(), medium, arch, wedge)),
+            MoldArchetype::ConvexRidge => Box::new(MediumShape::with_archetype(RidgeCorner::new(corner), medium, arch, wedge)),
+            MoldArchetype::ConcaveValley => Box::new(MediumShape::with_archetype(ValleyCorner::new(corner), medium, arch, wedge)),
+            MoldArchetype::DiagonalRamp => Box::new(MediumShape::with_archetype(DiagonalSlope::new(corner), medium, arch, wedge)),
             MoldArchetype::GentleLowerWedge => wrap(Box::new(GentleWedge::lower(wedge))),
             MoldArchetype::GentleUpperWedge => wrap(Box::new(GentleWedge::upper(wedge))),
             MoldArchetype::GentleLowerRidge => wrap(Box::new(GentleRidge::lower(corner))),
@@ -156,6 +158,21 @@ impl BlockMold {
             MoldArchetype::ConvexStairCorner => wrap(Box::new(StairCorner::convex(corner))),
             MoldArchetype::ConcaveStairCorner => wrap(Box::new(StairCorner::concave(corner))),
         }
+    }
+
+    /// Reconstructs an exact oriented `VoxelShape` from its 3-byte `[archetype, wedge, medium]` stamp.
+    pub fn shape_from_stamp(stamp: [u8; 3]) -> Box<dyn VoxelShape> {
+        Self::build_shape(
+            MoldArchetype::from_code(stamp[0]),
+            WedgeHeading::from_code(stamp[1]),
+            BlockMedium::from_code(stamp[2]),
+        )
+    }
+
+    /// Resolves the concrete VoxelShape oriented along the placement direction and current turn.
+    pub fn shape_for(self, direction: Vec3, frame: &SurfaceFrame) -> Box<dyn VoxelShape> {
+        let (arch, wedge, _) = self.resolve_orientation(direction, frame);
+        Self::build_shape(arch, wedge, self.medium)
     }
 
     /// Emits a miniature 3D preview of this molded block oriented inside a hand basis without heap allocations.

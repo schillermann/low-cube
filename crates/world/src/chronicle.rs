@@ -1,11 +1,11 @@
 use glam::Vec3;
 use crate::block::{BlockMedium, BlockMold};
-use crate::relief::ExposedStratum;
+use crate::relief::{CraftBlueprint, CraftIdentity, CraftPose, ExposedStratum};
 use crate::tree::SurfaceFind;
 use crate::PlanetaryWorld;
 
-/// Authoritative planetary mutation or newly air-exposed subterranean stratum fact.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// Authoritative planetary mutation, vehicle ownership event, or newly air-exposed subterranean stratum fact.
+#[derive(Clone, Debug, PartialEq)]
 pub enum WorldFact {
     Loosened { eye: Vec3, direction: Vec3, stage: u8 },
     Harvested { eye: Vec3, direction: Vec3 },
@@ -16,6 +16,9 @@ pub enum WorldFact {
     RigAdjusted { eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool },
     RigLowered { eye: Vec3, direction: Vec3 },
     LitterCast { eye: Vec3, direction: Vec3, find: SurfaceFind },
+    CraftCommissioned { blueprint: CraftBlueprint },
+    HelmClaimed { craft: CraftIdentity, pilot_slot: u32, eye: Vec3, direction: Vec3 },
+    HelmReleased { craft: CraftIdentity, pose: CraftPose },
 }
 
 impl WorldFact {
@@ -38,6 +41,11 @@ impl WorldFact {
             }
             Self::RigLowered { eye, direction } => world.lower_rig(eye, direction),
             Self::LitterCast { eye, direction, find } => world.cast_surface_find(eye, direction, find),
+            Self::CraftCommissioned { ref blueprint } => world.register_craft_blueprint(blueprint.clone()),
+            Self::HelmClaimed { craft, pilot_slot, eye, direction } => {
+                world.claim_vehicle_helm(craft, pilot_slot, eye, direction)
+            }
+            Self::HelmReleased { craft, pose } => world.park_craft_by_id(craft, pose),
         }
     }
 
@@ -120,6 +128,22 @@ impl WorldFact {
                 Self::push_vec3(direction, out);
                 out.push(find.code());
             }
+            Self::CraftCommissioned { ref blueprint } => {
+                out.push(10);
+                blueprint.inscribe(out);
+            }
+            Self::HelmClaimed { craft, pilot_slot, eye, direction } => {
+                out.push(11);
+                craft.inscribe(out);
+                out.extend_from_slice(&pilot_slot.to_le_bytes());
+                Self::push_vec3(eye, out);
+                Self::push_vec3(direction, out);
+            }
+            Self::HelmReleased { craft, pose } => {
+                out.push(12);
+                craft.inscribe(out);
+                pose.inscribe(out);
+            }
         }
     }
 
@@ -198,6 +222,22 @@ impl WorldFact {
                     },
                     26,
                 ))
+            }
+            10 if bytes.len() >= 11 => {
+                let (blueprint, used) = CraftBlueprint::decode(&bytes[1..])?;
+                Some((Self::CraftCommissioned { blueprint }, 1 + used))
+            }
+            11 if bytes.len() >= 37 => {
+                let (craft, _) = CraftIdentity::decode(&bytes[1..9])?;
+                let pilot_slot = u32::from_le_bytes(bytes[9..13].try_into().ok()?);
+                let eye = Self::read_vec3(&bytes[13..25])?;
+                let direction = Self::read_vec3(&bytes[25..37])?;
+                Some((Self::HelmClaimed { craft, pilot_slot, eye, direction }, 37))
+            }
+            12 if bytes.len() >= 77 => {
+                let (craft, _) = CraftIdentity::decode(&bytes[1..9])?;
+                let (pose, _) = CraftPose::decode(&bytes[9..77])?;
+                Some((Self::HelmReleased { craft, pose }, 77))
             }
             _ => None,
         }

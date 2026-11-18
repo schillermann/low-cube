@@ -1,8 +1,13 @@
 use std::net::{SocketAddr, UdpSocket};
-use world::{CompanionPresence, ExposedStratum, PlanetaryWorld, WorldFact};
+use glam::Vec3;
+use world::{
+    CompanionPresence, CraftIdentity, DrivenCraft, ExposedStratum, MeshTarget, PilotCraft,
+    PlanetaryWorld, WorldFact,
+};
+use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_log::ChronicleLog;
 use crate::chronicled_planet::ChronicledPlanet;
-use crate::cohort::{GuestCohort, HostAura, HostIdentity, HostState};
+use crate::cohort::{GuestCohort, HostState};
 use crate::nat::NatAperture;
 use crate::seal::HandshakeIdentity;
 use crate::ticket::PortalTicket;
@@ -98,8 +103,47 @@ impl SanctuaryHost {
         self.state.occupy_host(presence);
     }
 
+    pub fn sync_host_craft(&mut self, craft: PilotCraft) {
+        self.state.pilot_host(craft);
+    }
+
     pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) {
         self.state.guest_companions(out);
+    }
+
+    pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) {
+        self.state.guest_crafts(out);
+    }
+
+    pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) {
+        self.state.emit_guest_crafts(target);
+    }
+
+    pub fn constrain_with_crafts(&self, position: Vec3, player_height: f32) -> Vec3 {
+        let ground = self.world.constrain_to_surface(position, player_height);
+        let mut crafts = Vec::new();
+        self.state.guest_crafts(&mut crafts);
+        let Some(craft_top) = self.state.fleet().constrain_crafts(&crafts, position, player_height) else {
+            return ground;
+        };
+        let up = self.world.surface_up_at(position);
+        if craft_top.dot(up) > ground.dot(up) { craft_top } else { ground }
+    }
+
+    pub fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
+        let mut crafts = Vec::new();
+        self.state.guest_crafts(&mut crafts);
+        self.state.fleet().find_passenger_seat(&crafts, eye, direction)
+    }
+
+    pub fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
+        let mut crafts = Vec::new();
+        self.state.guest_crafts(&mut crafts);
+        crafts.into_iter().find(|c| c.identity() == craft).map(|c| c.pose().world_seat_at(local_seat))
+    }
+
+    pub fn blend_companions(&mut self, subtick_secs: f32) {
+        self.state.blend_subtick(subtick_secs);
     }
 
     pub fn flush_disclosures(&mut self) {
@@ -162,8 +206,7 @@ impl SanctuaryHost {
 
     /// Advances P2P UDP sockets, NAT hole-punch pulses, and guest wards (`true` if geometry changed).
     pub fn pump_network(&mut self, dt: f32) -> bool {
-        let pulse_ready = self.state.step_clocks(&self.socket, dt);
-        let mut mutated = false;
+        let (pulse_ready, mut mutated) = self.state.step_clocks(&self.socket, dt, self.world.as_mut());
         let mut buf = [0u8; 1500];
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
             if self.process_datagram(src, &buf[..len]) {

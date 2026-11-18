@@ -1,5 +1,5 @@
 use std::time::Duration;
-use sanctuary::{HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
+use sanctuary::{ConduitPlanet, HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
 use world::{BiomedCubeWorld, PlanetaryWorld};
 use crate::command_flags::CommandFlags;
 use crate::menu::PortalInvite;
@@ -45,7 +45,7 @@ impl PortalDial {
         if let Some((blocks, tron)) = link.try_welcome_within(Duration::from_millis(240)) {
             println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
             let remote = RemotePlanet::from_link(link, blocks, tron, 1.0);
-            return (Self::Idle, DialOutcome::Connected(Box::new(remote)));
+            return (Self::Idle, DialOutcome::Connected(Box::new(ConduitPlanet::spawning(Box::new(remote)))));
         }
         if let Some(punch) = link.punch_code() {
             let reply_code = punch.encode();
@@ -55,7 +55,7 @@ impl PortalDial {
         if let Some((blocks, tron)) = link.try_welcome_within(Duration::from_millis(210)) {
             println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
             let remote = RemotePlanet::from_link(link, blocks, tron, 1.0);
-            return (Self::Idle, DialOutcome::Connected(Box::new(remote)));
+            return (Self::Idle, DialOutcome::Connected(Box::new(ConduitPlanet::spawning(Box::new(remote)))));
         }
         (Self::Idle, DialOutcome::Failed)
     }
@@ -75,7 +75,8 @@ impl PortalDial {
         if let Some((blocks, tron)) = ready_cfg {
             if let Self::Punching { link, .. } = std::mem::replace(self, Self::Idle) {
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-                return DialStep::Connected(Box::new(RemotePlanet::from_link(link, blocks, tron, 1.0)));
+                let remote = RemotePlanet::from_link(link, blocks, tron, 1.0);
+                return DialStep::Connected(Box::new(ConduitPlanet::spawning(Box::new(remote))));
             }
         }
         if let Self::Punching { elapsed, .. } = *self {
@@ -119,7 +120,8 @@ impl LivePortal {
         println!("Portal Code:    {code}");
         println!("Direct Address: {}", host.ticket().direct());
         println!("Invite Ticket:  {ticket}");
-        (Box::new(HostedPlanet::new(host)), PortalInvite::hosted(code, ticket))
+        let hosted = Box::new(HostedPlanet::new(host));
+        (Box::new(ConduitPlanet::spawning(hosted)), PortalInvite::hosted(code, ticket))
     }
 }
 
@@ -169,13 +171,13 @@ impl PortalConfig {
                 println!("Portal Code:    {code}");
                 println!("Direct Address: {}", host.ticket().direct());
                 println!("Invite Ticket:  {ticket}");
-                Box::new(HostedPlanet::new(host))
+                Box::new(ConduitPlanet::spawning(Box::new(HostedPlanet::new(host))))
             }
             Self::JoinRemote { target } => {
                 let remote = RemotePlanet::connect(target, blocks, tron_active, 1.0)
                     .expect("Failed to connect multiplayer RemotePlanet UDP socket");
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-                Box::new(remote)
+                Box::new(ConduitPlanet::spawning(Box::new(remote)))
             }
         }
     }

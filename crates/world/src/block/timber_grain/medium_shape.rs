@@ -63,6 +63,9 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
     fn shape_color(&self) -> Vec3 { self.inner.shape_color() }
     fn block_medium(&self) -> BlockMedium { self.medium }
     fn block_heading(&self) -> WedgeHeading { self.heading }
+    fn shape_stamp(&self) -> [u8; 3] {
+        [self.archetype.code(), self.heading.code(), self.medium.code()]
+    }
     fn wheel_radius(&self) -> f32 { WheelProfile::from_archetype(self.archetype).radius() }
     fn full_cube_envelope(&self) -> bool {
         self.archetype.full_height_flat() && !self.medium.mechanical_part() && !matches!(self.medium, BlockMedium::FieldCamera)
@@ -79,7 +82,10 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
         (self.medium == BlockMedium::FieldCamera)
             .then(|| FieldCameraTripod::new(self.heading, self.archetype).tripod_hub(cell, floor_elevation, frame))
     }
-    fn rotate_quarter(&mut self) { self.heading = self.heading.rotated_ccw(); }
+    fn rotate_quarter(&mut self) {
+        self.inner.rotate_quarter();
+        self.heading = self.heading.rotated_ccw();
+    }
 
     fn emit_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, color: Vec3, target: &mut dyn MeshTarget) {
         self.emit_terraced_shape(cell, floor_elevation, frame, color, color, true, target);

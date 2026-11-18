@@ -61,7 +61,6 @@ pub trait Avatar {
     fn surface_rotation(&self) -> Quat;
     fn emit_appearance(&self, target: &mut dyn MeshTarget);
     fn emit_appearance_for_sight(&self, _sight: SightMode, target: &mut dyn MeshTarget) { self.emit_appearance(target); }
-    fn emit_surroundings(&self, _world: &dyn PlanetaryWorld, _target: &mut dyn MeshTarget) {}
     fn meadow_anchor(&self) -> (i32, i32, i32) { (0, 0, 0) }
     fn take_photo_shutter(&mut self) -> PhotoShutter { PhotoShutter::Idle }
     fn apply_polaroid_mosaic(&mut self, _mosaic: Vec<Vec3>) {}

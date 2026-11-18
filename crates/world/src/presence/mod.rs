@@ -1,4 +1,7 @@
+mod craft;
+
 use glam::{Quat, Vec3};
+pub use self::craft::{DrivenCraft, PilotCraft};
 
 /// Encapsulated 3D stance and orientation of a companion avatar on the World-Cube.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -13,6 +16,20 @@ impl PresenceKinematics {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(position: Vec3, surface_rot: Quat, view_rot: Quat, eye_and_leap: (f32, f32)) -> Self {
         Self { position, surface_rot, view_rot, eye_and_leap }
+    }
+
+    pub fn interpolated(self, target: Self, alpha: f32) -> Self {
+        let t = alpha.clamp(0.0, 1.0);
+        let pos = if (target.position - self.position).length_squared() > 64.0 {
+            target.position
+        } else {
+            self.position.lerp(target.position, t)
+        };
+        let s_rot = self.surface_rot.normalize().slerp(target.surface_rot.normalize(), t);
+        let v_rot = self.view_rot.normalize().slerp(target.view_rot.normalize(), t);
+        let eye = self.eye_and_leap.0 + (target.eye_and_leap.0 - self.eye_and_leap.0) * t;
+        let leap = self.eye_and_leap.1 + (target.eye_and_leap.1 - self.eye_and_leap.1) * t;
+        Self::new(pos, s_rot, v_rot, (eye, leap))
     }
 
     pub fn transfer<T>(self, f: impl FnOnce(Vec3, Quat, Quat, f32, f32) -> T) -> T {
@@ -40,6 +57,10 @@ impl CompanionPresence {
         Self { slot, kinematics, rhythm, attire }
     }
 
+    pub const fn slot(&self) -> u32 {
+        self.slot
+    }
+
     pub const fn same_slot(&self, slot: u32) -> bool {
         self.slot == slot
     }
@@ -61,6 +82,22 @@ impl CompanionPresence {
                 self.with_slot(slot)
             }
         })
+    }
+
+    pub fn interpolated(self, target: Self, alpha: f32) -> Self {
+        let t = alpha.clamp(0.0, 1.0);
+        let r0 = if (target.rhythm.0 - self.rhythm.0).abs() < 6.0 {
+            self.rhythm.0 + (target.rhythm.0 - self.rhythm.0) * t
+        } else {
+            target.rhythm.0
+        };
+        let rhythm = (
+            r0,
+            self.rhythm.1 + (target.rhythm.1 - self.rhythm.1) * t,
+            self.rhythm.2 + (target.rhythm.2 - self.rhythm.2) * t,
+            self.rhythm.3 + (target.rhythm.3 - self.rhythm.3) * t,
+        );
+        Self::new(target.slot, self.kinematics.interpolated(target.kinematics, t), rhythm, target.attire)
     }
 
     pub fn transfer<T>(

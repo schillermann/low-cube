@@ -227,5 +227,6 @@ impl SessionStage {
             }
         }
         self.avatar.blend_subtick(beat.subtick_blend());
+        self.world.blend_companions(beat.subtick_blend() * beat.tick_seconds());
     }
 }

@@ -215,8 +215,8 @@ impl OverhangMolds {
     }
 
     pub fn park_vehicle(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {
-        let (craft, seat) = assembly.park_into_cluster(strata, shafts, frame);
-        self.fleet.park(craft);
+        let (id, craft, seat) = assembly.park_into_cluster(strata, shafts, frame);
+        self.fleet.park_identified(id, craft);
         seat
     }
 

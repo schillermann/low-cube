@@ -1,20 +1,29 @@
 use glam::Vec3;
 use world::{
-    BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, ExposedStratum, GravityField,
-    MeshTarget, PlanetaryWorld, SurfaceFind, VehicleAssembly,
+    BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
+    CraftPose, DrivenCraft, ExposedStratum, GravityField, MeshTarget, PilotCraft, PlanetaryWorld,
+    SurfaceFind,
 };
+use crate::fleet_ledger::FleetLedger;
 use crate::ward::GuestWard;
 
-/// Authoritative `PlanetaryWorld` decorator enforcing per-companion reach, cadence tokens, and block credits.
+/// Authoritative `PlanetaryWorld` decorator enforcing per-companion reach, cadence tokens, block credits, and helm locks.
 pub struct WardedPlanet<'a> {
     origin: &'a mut dyn PlanetaryWorld,
     ward: &'a mut GuestWard,
+    fleet: &'a mut FleetLedger,
+    slot: u32,
 }
 
 impl<'a> WardedPlanet<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(origin: &'a mut dyn PlanetaryWorld, ward: &'a mut GuestWard) -> Self {
-        Self { origin, ward }
+    pub fn new(
+        origin: &'a mut dyn PlanetaryWorld,
+        ward: &'a mut GuestWard,
+        fleet: &'a mut FleetLedger,
+        slot: u32,
+    ) -> Self {
+        Self { origin, ward, fleet, slot }
     }
 }
 
@@ -110,73 +119,53 @@ impl PlanetaryWorld for WardedPlanet<'_> {
         self.ward.eye_within_reach(eye, direction) && self.origin.lower_rig(eye, direction)
     }
 
-    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
-        self.origin.board_vehicle(eye, direction, holding_block)
+    fn register_craft_blueprint(&mut self, blueprint: CraftBlueprint) -> bool {
+        blueprint.drivable() && self.fleet.register_blueprint(blueprint)
     }
 
-    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
-        self.origin.park_vehicle(assembly)
+    fn claim_vehicle_helm(&mut self, craft: CraftIdentity, _pilot_slot: u32, eye: Vec3, direction: Vec3) -> bool {
+        if !self.ward.eye_within_reach(eye, direction) {
+            return false;
+        }
+        if craft.assigned() && !self.fleet.claim_helm(craft, self.slot) {
+            return false;
+        }
+        let Some(assembly) = self.origin.board_vehicle(eye, direction, true) else {
+            if craft.assigned() {
+                let _ = self.fleet.release_helm(craft, self.slot);
+            }
+            return false;
+        };
+        if assembly.identity().assigned() {
+            let _ = self.fleet.register_blueprint(assembly.blueprint().clone());
+        }
+        true
     }
 
-    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
-        self.origin.placed_camera_tripod()
+    fn park_craft_by_id(&mut self, craft: CraftIdentity, pose: CraftPose) -> bool {
+        if !self.ward.pose_within_reach(pose) || !self.fleet.helmed_by(craft, self.slot) {
+            return false;
+        }
+        self.fleet.park_by_id(craft, pose, self.origin)
     }
 
-    fn step_surface(&mut self, dt: f32) -> bool {
-        self.origin.step_surface(dt)
-    }
-
-    fn lethal_at(&self, position: Vec3) -> bool {
-        self.origin.lethal_at(position)
-    }
-
-    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 {
-        self.origin.confine_beneath_crust(position)
-    }
-
-    fn face_count(&self) -> usize {
-        self.origin.face_count()
-    }
-
-    fn emit_face(&self, index: usize, target: &mut dyn MeshTarget) {
-        self.origin.emit_face(index, target);
-    }
-
-    fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize {
-        self.origin.emit_modified_face(target)
-    }
-
-    fn pending_slices(&self) -> bool {
-        self.origin.pending_slices()
-    }
-
-    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> {
-        self.origin.drain_modified_slice(target)
-    }
-
-    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
-        self.origin.emit_meadow_around(center, view_dir, target);
-    }
-
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
-        self.origin.arboreal_perch_near(center, selector)
-    }
-
-    fn visible_slice_mask(&self, position: Vec3) -> u32 {
-        self.origin.visible_slice_mask(position)
-    }
-
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.origin.placed_camera_tripod() }
+    fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
+    fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position) }
+    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.origin.confine_beneath_crust(position) }
+    fn face_count(&self) -> usize { self.origin.face_count() }
+    fn emit_face(&self, index: usize, target: &mut dyn MeshTarget) { self.origin.emit_face(index, target); }
+    fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize { self.origin.emit_modified_face(target) }
+    fn pending_slices(&self) -> bool { self.origin.pending_slices() }
+    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> { self.origin.drain_modified_slice(target) }
+    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.origin.emit_meadow_around(center, view_dir, target); }
+    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.origin.arboreal_perch_near(center, selector) }
+    fn visible_slice_mask(&self, position: Vec3) -> u32 { self.origin.visible_slice_mask(position) }
     fn disclose_stratum(&mut self, _face_index: usize, _stratum: ExposedStratum) {}
-
-    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {
-        self.origin.drain_disclosures(out);
-    }
-
-    fn sync_presence(&mut self, presence: CompanionPresence) {
-        self.origin.sync_presence(presence);
-    }
-
-    fn active_companions(&self, out: &mut Vec<CompanionPresence>) {
-        self.origin.active_companions(out);
-    }
+    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.origin.drain_disclosures(out); }
+    fn sync_presence(&mut self, presence: CompanionPresence) { self.origin.sync_presence(presence); }
+    fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.origin.sync_pilot_craft(craft); }
+    fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.origin.active_companions(out); }
+    fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.origin.active_crafts(out); }
+    fn blend_companions(&mut self, subtick_secs: f32) { self.origin.blend_companions(subtick_secs); }
 }

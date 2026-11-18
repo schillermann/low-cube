@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{CompanionPresence, PlanetaryWorld, WorldFact};
+use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, WorldFact};
 
 /// Transient block-loosening crack stage broadcast across P2P companions.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -43,6 +43,7 @@ pub enum SanctuaryEnvelope {
     GuestPulse {
         ack_seq: u32,
         presence: CompanionPresence,
+        craft: PilotCraft,
     },
     GuestPetition {
         fact: WorldFact,
@@ -55,6 +56,7 @@ pub enum SanctuaryEnvelope {
         total_facts: u32,
         cracks: Vec<CrackNotice>,
         companions: Vec<CompanionPresence>,
+        crafts: Vec<DrivenCraft>,
     },
 }
 
@@ -62,10 +64,11 @@ impl SanctuaryEnvelope {
     pub fn inscribe(&self, out: &mut Vec<u8>) {
         out.clear();
         match self {
-            Self::GuestPulse { ack_seq, presence } => {
+            Self::GuestPulse { ack_seq, presence, craft } => {
                 out.push(1);
                 out.extend_from_slice(&ack_seq.to_le_bytes());
                 presence.inscribe(out);
+                craft.inscribe(out);
             }
             Self::GuestPetition { fact } => {
                 out.push(2);
@@ -79,7 +82,7 @@ impl SanctuaryEnvelope {
                     fact.inscribe(out);
                 }
             }
-            Self::HostPulse { total_facts, cracks, companions } => {
+            Self::HostPulse { total_facts, cracks, companions, crafts } => {
                 out.push(4);
                 out.extend_from_slice(&total_facts.to_le_bytes());
                 out.push(cracks.len().min(16) as u8);
@@ -90,6 +93,20 @@ impl SanctuaryEnvelope {
                 for comp in companions.iter().take(64) {
                     comp.inscribe(out);
                 }
+                let count_idx = out.len();
+                out.push(0);
+                let mut written = 0u8;
+                let mut scratch = Vec::new();
+                for craft in crafts.iter().take(16) {
+                    scratch.clear();
+                    craft.inscribe(&mut scratch);
+                    if out.len() + scratch.len() > 1_350 {
+                        break;
+                    }
+                    out.extend_from_slice(&scratch);
+                    written += 1;
+                }
+                out[count_idx] = written;
             }
         }
     }
@@ -99,8 +116,14 @@ impl SanctuaryEnvelope {
         match tag {
             1 if bytes.len() >= 5 => {
                 let ack_seq = u32::from_le_bytes(bytes[1..5].try_into().ok()?);
-                let (presence, _) = CompanionPresence::decode(&bytes[5..])?;
-                Some(Self::GuestPulse { ack_seq, presence })
+                let (presence, used) = CompanionPresence::decode(&bytes[5..])?;
+                let tail = &bytes[5 + used..];
+                let craft = if tail.is_empty() {
+                    PilotCraft::Pedestrian
+                } else {
+                    PilotCraft::decode(tail)?.0
+                };
+                Some(Self::GuestPulse { ack_seq, presence, craft })
             }
             2 if bytes.len() >= 2 => {
                 let (fact, _) = WorldFact::decode(&bytes[1..])?;
@@ -136,7 +159,18 @@ impl SanctuaryEnvelope {
                     companions.push(comp);
                     cursor += used;
                 }
-                Some(Self::HostPulse { total_facts, cracks, companions })
+                let mut crafts = Vec::new();
+                if cursor < bytes.len() {
+                    let craft_count = *bytes.get(cursor)? as usize;
+                    cursor += 1;
+                    crafts.reserve(craft_count.min(16));
+                    for _ in 0..craft_count {
+                        let (craft, used) = DrivenCraft::decode(&bytes[cursor..])?;
+                        crafts.push(craft);
+                        cursor += used;
+                    }
+                }
+                Some(Self::HostPulse { total_facts, cracks, companions, crafts })
             }
             _ => None,
         }

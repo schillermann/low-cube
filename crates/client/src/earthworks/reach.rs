@@ -115,7 +115,14 @@ impl SurfaceReach {
         if dig.untouched() && !dig.grip().any_held() && active != HeldRelic::WoodenMallet && world.lower_rig(self.eye, self.view_dir) {
             return (reconciled, attire, dig.with_grip(DigGrip::idle()), Self::swing_rhythm(attire, rhythm, side), true);
         }
-        if self.perch_eligible && !active.blocks_perch() && !dig.grip().held_on(side) && !dig.grip().pending_click_any() && dig.untouched() && world.board_vehicle(self.eye, self.view_dir, false).is_some() {
+        if self.perch_eligible
+            && !active.blocks_perch()
+            && !dig.grip().held_on(side)
+            && !dig.grip().pending_click_any()
+            && dig.untouched()
+            && (world.board_vehicle(self.eye, self.view_dir, false).is_some()
+                || world.board_passenger_seat(self.eye, self.view_dir).is_some())
+        {
             let nr = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
             return (reconciled, attire, dig.with_grip(DigGrip::with_pending_perch(side)), nr, false);
         }

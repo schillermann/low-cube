@@ -15,6 +15,9 @@ pub trait VoxelShape: Send + Sync {
     fn block_heading(&self) -> WedgeHeading {
         WedgeHeading::South
     }
+    fn shape_stamp(&self) -> [u8; 3] {
+        [0, self.block_heading().code(), self.block_medium().code()]
+    }
     fn wheel_radius(&self) -> f32 {
         0.25
     }
@@ -97,6 +100,7 @@ impl<S: VoxelShape + ?Sized> VoxelShape for Box<S> {
     fn shape_color(&self) -> Vec3 { (**self).shape_color() }
     fn block_medium(&self) -> BlockMedium { (**self).block_medium() }
     fn block_heading(&self) -> WedgeHeading { (**self).block_heading() }
+    fn shape_stamp(&self) -> [u8; 3] { (**self).shape_stamp() }
     fn wheel_radius(&self) -> f32 { (**self).wheel_radius() }
     fn wheel_tread_drop(&self) -> Option<f32> {
         (**self).wheel_tread_drop()

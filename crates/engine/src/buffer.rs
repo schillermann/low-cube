@@ -51,6 +51,24 @@ impl CpuMeshBatch {
         self.indices.clear();
     }
 
+    pub(crate) fn raw_slices(&self) -> (&[u8], &[u8], i32) {
+        unsafe {
+            let v_bytes = core::slice::from_raw_parts(
+                self.vertices.as_ptr() as *const u8,
+                self.vertices.len() * core::mem::size_of::<Vertex>(),
+            );
+            let i_bytes = core::slice::from_raw_parts(
+                self.indices.as_ptr() as *const u8,
+                self.indices.len() * core::mem::size_of::<u32>(),
+            );
+            (v_bytes, i_bytes, self.indices.len() as i32)
+        }
+    }
+
+    pub(crate) const fn vertex_stride() -> i32 {
+        core::mem::size_of::<Vertex>() as i32
+    }
+
     /// # Safety
     /// Requires a valid, current OpenGL context.
     pub unsafe fn upload(&self, gl: &glow::Context) -> Box<dyn Mesh> {

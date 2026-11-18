@@ -139,6 +139,7 @@ impl Avatar for EmbodiedAvatar {
     }
 
     fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        self.body.reconcile_helm(&mut self.sight_line, world);
         let (next_rhythm, changed) = self.gear.continue_digging(self.surface_reach(), self.bearing.rhythm(), world);
         self.bearing.apply_rhythm(next_rhythm);
         changed
@@ -244,10 +245,6 @@ impl Avatar for EmbodiedAvatar {
         }
     }
 
-    fn emit_surroundings(&self, world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
-        world.emit_meadow_around(self.body.position(), self.sight_line.view_direction(), target);
-    }
-
     fn meadow_anchor(&self) -> (i32, i32, i32) {
         self.body.meadow_anchor()
     }
@@ -275,6 +272,7 @@ impl Avatar for EmbodiedAvatar {
         world.sync_presence(world::CompanionPresence::new(
             0, pose.capture_kinematics(), self.bearing.rhythm().wire_tuple(), self.gear.attire_wire(),
         ));
+        world.sync_pilot_craft(self.body.pilot_craft());
     }
 
     fn report_presence(&self, sink: &mut dyn crate::black_box::PresenceSink) {

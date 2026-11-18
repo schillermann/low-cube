@@ -1,6 +1,9 @@
-use engine::{CompositeMesh, CpuMeshBatch, GraphicPipeline, PlanetaryMesh, ShaderProgram};
+use engine::{
+    CompositeMesh, CpuMeshBatch, GraphicPipeline, PlanetaryMesh, SectorGridMesh, ShaderProgram,
+    StreamingMesh,
+};
 use fauna::WoodlandFauna;
-use world::PlanetaryWorld;
+use world::{MeadowRing, PlanetaryWorld, MEADOW_RING_SLOTS};
 use crate::attire::SightMode;
 use crate::avatar::Avatar;
 use crate::companion::CompanionFigure;
@@ -8,23 +11,33 @@ use crate::menu::SessionModal;
 use crate::surface::PlatformSurface;
 use super::pass::ScenePass;
 
-/// Primary diurnal voxel rendering pass encapsulating its pipeline, shader, planetary mesh, and actor batch.
+/// Primary diurnal voxel rendering pass using `16×16` sector grids, toroidal `MeadowRing`, and `StreamingMesh`.
 pub struct ShadedScenePass {
-    pipeline: Box<dyn GraphicPipeline>,
-    shader: Box<dyn ShaderProgram>,
+    program: (Box<dyn GraphicPipeline>, Box<dyn ShaderProgram>),
     mesh: PlanetaryMesh,
-    actors: CpuMeshBatch,
+    actors: StreamingMesh,
+    meadow_ring: MeadowRing,
 }
 
 impl ShadedScenePass {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
-        pipeline: Box<dyn GraphicPipeline>,
-        shader: Box<dyn ShaderProgram>,
+        program: (Box<dyn GraphicPipeline>, Box<dyn ShaderProgram>),
         mesh: PlanetaryMesh,
-        actors: CpuMeshBatch,
+        actors: StreamingMesh,
+        meadow_ring: MeadowRing,
     ) -> Self {
-        Self { pipeline, shader, mesh, actors }
+        Self { program, mesh, actors, meadow_ring }
+    }
+
+    fn ensure_meadow_grid(&mut self, surface: &dyn PlatformSurface, meadow_idx: usize) {
+        if self.mesh.patch_at(meadow_idx, 0).is_some() {
+            return;
+        }
+        let empty = CpuMeshBatch::empty();
+        let patches = (0..MEADOW_RING_SLOTS).map(|_| surface.upload_mesh(&empty)).collect();
+        self.mesh.store_slice(meadow_idx, Box::new(SectorGridMesh::new(patches)));
+        self.meadow_ring.invalidate_all();
     }
 
     fn populate_actors(&mut self, world: &dyn PlanetaryWorld, avatar: &dyn Avatar, fauna: &WoodlandFauna, sight_scale: f32) {
@@ -55,7 +68,24 @@ impl ScenePass for ShadedScenePass {
     }
 
     fn refresh_face_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, idx: usize) {
-        let mut cpu_buf = CpuMeshBatch::with_quad_capacity(262_144);
+        let patch_count = world.face_patch_count(idx);
+        if patch_count > 0 {
+            if idx == 0 {
+                self.meadow_ring.invalidate_all();
+            }
+            let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
+            let mut patches = Vec::with_capacity(patch_count);
+            for slot in 0..patch_count {
+                patch_buf.clear();
+                world.emit_face_patch(idx, slot, &mut patch_buf);
+                patches.push(surface.upload_mesh(&patch_buf));
+            }
+            let prev = self.mesh.slice_at(idx);
+            let _ = surface.replace_mesh(prev, &CpuMeshBatch::empty());
+            self.mesh.store_slice(idx, Box::new(SectorGridMesh::new(patches)));
+            return;
+        }
+        let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
         world.emit_face(idx, &mut cpu_buf);
         let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);
         self.mesh.store_slice(idx, next);
@@ -63,22 +93,41 @@ impl ScenePass for ShadedScenePass {
 
     fn refresh_meadow_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
         let meadow_idx = world.face_count() * 2;
-        let mut meadow_buf = CpuMeshBatch::with_quad_capacity(32_768);
-        avatar.emit_surroundings(world, &mut meadow_buf);
-        let next = surface.replace_mesh(self.mesh.slice_at(meadow_idx), &meadow_buf);
-        self.mesh.store_slice(meadow_idx, next);
+        self.ensure_meadow_grid(surface, meadow_idx);
+        let (ax, ay, az) = avatar.meadow_anchor();
+        let center = glam::Vec3::new((ax as f32) * 0.5 + 0.25, (ay as f32) * 0.5 + 0.25, (az as f32) * 0.5 + 0.25);
+        let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
+        while let Some(slot) = world.drain_stale_meadow_patch(center, &mut self.meadow_ring, &mut patch_buf) {
+            if let Some(prev) = self.mesh.patch_at(meadow_idx, slot) {
+                let next = surface.replace_mesh(prev, &patch_buf);
+                self.mesh.store_patch(meadow_idx, slot, next);
+            }
+            patch_buf.clear();
+        }
     }
 
     fn refresh_modified_face(&mut self, surface: &dyn PlatformSurface, world: &mut dyn PlanetaryWorld) {
+        let mut updated_patch = false;
+        let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
+        while let Some((slice_idx, patch_slot)) = world.drain_modified_patch(&mut patch_buf) {
+            if let Some(prev) = self.mesh.patch_at(slice_idx, patch_slot) {
+                let next = surface.replace_mesh(prev, &patch_buf);
+                self.mesh.store_patch(slice_idx, patch_slot, next);
+                updated_patch = true;
+            }
+            patch_buf.clear();
+        }
         if !world.pending_slices() {
-            let mut cpu_buf = CpuMeshBatch::with_quad_capacity(262_144);
-            let idx = world.emit_modified_face(&mut cpu_buf);
-            let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);
-            self.mesh.store_slice(idx, next);
+            if !updated_patch {
+                let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
+                let idx = world.emit_modified_face(&mut cpu_buf);
+                let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);
+                self.mesh.store_slice(idx, next);
+            }
             return;
         }
         while world.pending_slices() {
-            let mut cpu_buf = CpuMeshBatch::with_quad_capacity(262_144);
+            let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
             if let Some(idx) = world.drain_modified_slice(&mut cpu_buf) {
                 let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);
                 self.mesh.store_slice(idx, next);
@@ -96,8 +145,8 @@ impl ScenePass for ShadedScenePass {
         self.populate_sight_actors(world, avatar, fauna, sight, sight_scale);
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
         surface.capture_sight_frame(
-            self.pipeline.as_ref(),
-            self.shader.as_ref(),
+            self.program.0.as_ref(),
+            self.program.1.as_ref(),
             &composed,
             avatar,
             sight,
@@ -114,7 +163,7 @@ impl ScenePass for ShadedScenePass {
     ) {
         self.populate_actors(world, avatar, fauna, sight_scale);
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
-        let shader = self.shader.as_ref();
-        surface.render_frame(self.pipeline.as_ref(), shader, &composed, avatar, shader, modal);
+        let shader = self.program.1.as_ref();
+        surface.render_frame(self.program.0.as_ref(), shader, &composed, avatar, shader, modal);
     }
 }

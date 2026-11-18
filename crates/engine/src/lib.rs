@@ -4,7 +4,9 @@ mod buffer;
 mod composite_mesh;
 mod line_buffer;
 mod pipeline;
+mod sector_mesh;
 mod shader;
+mod streaming_mesh;
 mod tron_pipeline;
 mod tron_shader;
 
@@ -15,7 +17,9 @@ pub use buffer::{CpuMeshBatch, GlMesh};
 pub use composite_mesh::{CompositeMesh, PlanetaryMesh, TronMesh};
 pub use line_buffer::{CpuLineBatch, CpuTronBatch, GlLineMesh};
 pub use pipeline::ForwardPipeline;
+pub use sector_mesh::SectorGridMesh;
 pub use shader::{VoxelProgram, VoxelShaderSource};
+pub use streaming_mesh::StreamingMesh;
 pub use tron_pipeline::TronPipeline;
 pub use tron_shader::{TronProgram, TronShaderSource};
 
@@ -23,6 +27,8 @@ pub use tron_shader::{TronProgram, TronShaderSource};
 pub trait Mesh {
     fn draw(&self, gl: &glow::Context);
     fn release(&self, _gl: &glow::Context) {}
+    fn patch_at(&self, _slot: usize) -> Option<&dyn Mesh> { None }
+    fn store_patch(&mut self, _slot: usize, _patch: Box<dyn Mesh>) {}
 }
 
 /// Interface for compiling shader sources into GPU shader programs.

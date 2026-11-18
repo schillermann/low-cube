@@ -3,6 +3,7 @@ mod boar_snort;
 mod dig_decorators;
 mod hearty_bite;
 mod hoofbeats;
+mod outbox;
 mod roe_bark;
 mod shutter;
 mod spatial;
@@ -16,18 +17,13 @@ pub use self::boar_snort::BoarSnort;
 pub use self::dig_decorators::{CadencedWave, CrumbledWave, DigWaveTrace, InflectedWave};
 pub use self::hearty_bite::HeartyBite;
 pub use self::hoofbeats::RoeHoofbeats;
+use self::outbox::SoundOutbox;
 pub use self::roe_bark::RoeBark;
 pub use self::shutter::ShutterClick;
 pub use self::spatial::{MonoSource, SpatialStage};
 pub use self::work_waves::{EngineRumble, PalmScrape, SpadeStrike};
 
 static LIVE_AUDIO: AtomicBool = AtomicBool::new(false);
-
-#[cfg(target_os = "windows")]
-#[link(name = "winmm")]
-extern "system" {
-    fn PlaySoundA(psz_sound: *const u8, hmod: *mut core::ffi::c_void, fdw_sound: u32) -> i32;
-}
 
 /// Hardware acoustic output gate keeping automated test suites silent across all workspace crates.
 #[derive(Clone, Copy, Debug)]
@@ -93,63 +89,7 @@ pub trait AcousticWave: Send + Sync {
     }
 
     fn play_wav(&self, bytes: &[u8], filename: &str, overwrite: bool) {
-        if !SoundStage::active() {
-            let _ = (bytes.len(), filename.len(), overwrite);
-            return;
-        }
-        #[cfg(target_os = "windows")]
-        unsafe {
-            use std::sync::Mutex;
-            static LIVE_WAV: Mutex<Vec<u8>> = Mutex::new(Vec::new());
-            let _ = (filename, overwrite);
-            if let Ok(mut buf) = LIVE_WAV.lock() {
-                let _ = PlaySoundA(core::ptr::null(), core::ptr::null_mut(), 0);
-                buf.clear();
-                buf.extend_from_slice(bytes);
-                let _ = PlaySoundA(buf.as_ptr(), core::ptr::null_mut(), 0x0001 | 0x0002 | 0x0004);
-            }
-        }
-        #[cfg(target_os = "linux")]
-        {
-            use std::process::{Child, Command, Stdio};
-            use std::sync::atomic::AtomicU8;
-            use std::sync::Mutex;
-            static BACKEND: AtomicU8 = AtomicU8::new(0);
-            static LIVE_PROCS: Mutex<Vec<Child>> = Mutex::new(Vec::new());
-            let path = std::env::temp_dir().join(filename);
-            if overwrite || !path.exists() {
-                let _ = std::fs::write(&path, bytes);
-            }
-            let spawn_kind = |k: u8| -> std::io::Result<Child> {
-                let mut cmd = match k {
-                    1 => Command::new("paplay"),
-                    2 => Command::new("pw-play"),
-                    _ => {
-                        let mut c = Command::new("aplay");
-                        c.arg("-q");
-                        c
-                    }
-                };
-                cmd.arg(&path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()
-            };
-            let child = match BACKEND.load(Ordering::Relaxed) {
-                k @ 1..=3 => spawn_kind(k).ok(),
-                4 => None,
-                _ => [1u8, 2, 3]
-                    .into_iter()
-                    .find_map(|k| spawn_kind(k).ok().inspect(|_| BACKEND.store(k, Ordering::Relaxed)))
-                    .or_else(|| {
-                        BACKEND.store(4, Ordering::Relaxed);
-                        None
-                    }),
-            };
-            if let Ok(mut procs) = LIVE_PROCS.lock() {
-                procs.retain_mut(|p| p.try_wait().ok().flatten().is_none());
-                if let Some(c) = child {
-                    procs.push(c);
-                }
-            }
-        }
+        SoundOutbox::new(SoundStage::active()).submit(bytes, filename, overwrite);
     }
 }
 

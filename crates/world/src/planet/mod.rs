@@ -1,10 +1,12 @@
+mod patches;
 mod slices;
 
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CleaveOutcome, ExposedStratum, Face, GravityField, MeshTarget,
-    PlanetaryWorld, SurfaceFind, VehicleAssembly,
+    BlockMedium, BlockMold, CleaveOutcome, ExposedStratum, Face, GravityField, MeadowRing,
+    MeshTarget, PlanetaryWorld, SurfaceFind, VehicleAssembly,
 };
+pub use self::patches::{MeadowScan, PatchCoord};
 pub use self::slices::ModifiedSlices;
 
 /// Cubic planetary world composed of polymorphic `Face` instances and encapsulated modified-slice bitmask.
@@ -232,8 +234,30 @@ impl PlanetaryWorld for CubePlanet {
 
     fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> {
         let idx = self.slices.pop_next()?;
+        if let Some(face) = self.faces.get_mut(idx) {
+            face.clear_terrain_patches();
+        }
         self.emit_face(idx, target);
         Some(idx)
+    }
+
+    fn face_patch_count(&self, slice: usize) -> usize {
+        self.faces.get(slice).map_or(0, |f| f.terrain_patch_count())
+    }
+
+    fn emit_face_patch(&self, slice: usize, patch_slot: usize, target: &mut dyn MeshTarget) {
+        if let Some(face) = self.faces.get(slice) {
+            face.emit_terrain_patch(patch_slot, target);
+        }
+    }
+
+    fn drain_modified_patch(&mut self, target: &mut dyn MeshTarget) -> Option<(usize, usize)> {
+        self.slices.drain_face_patch(&mut self.faces, target)
+    }
+
+    fn drain_stale_meadow_patch(&self, center: Vec3, ring: &mut MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
+        let idx = self.matching_index(center);
+        MeadowScan::new(idx, self.faces.get(idx)?.as_ref(), center).drain_one(ring, target)
     }
 
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
@@ -245,19 +269,7 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
-        let len = self.faces.len();
-        let up = self.surface_up_at(position);
-        let mut mask = 1u32 << (len * 2).min(31);
-        for (idx, face) in self.faces.iter().enumerate() {
-            let f_up = face.surface_up();
-            if f_up.dot(up) > -0.5 {
-                mask |= 1u32 << idx.min(31);
-                if f_up.dot(up) > 0.2 || position.dot(f_up) >= -4.0 {
-                    mask |= 1u32 << (len + idx).min(31);
-                }
-            }
-        }
-        mask
+        ModifiedSlices::horizon_mask(&self.faces, position, self.surface_up_at(position))
     }
 
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {

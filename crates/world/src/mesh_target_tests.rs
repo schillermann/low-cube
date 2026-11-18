@@ -101,3 +101,48 @@ fn test_local_camera_meadow_is_constant_o1_across_world_cube_scales() {
         large_meadow.quads.len()
     );
 }
+
+#[test]
+fn test_sector_patch_grid_and_toroidal_meadow_ring_update_o1_subpatches() {
+    use crate::{BiomedCubeWorld, MeadowRing, PlanetaryWorld, MEADOW_RING_SLOTS};
+
+    let mut world = BiomedCubeWorld::barren_beveled(64, 1.0);
+    assert_eq!(world.face_patch_count(0), 64, "64-block face (128 half-meter cells) must partition into 8x8 = 64 sectors");
+    let mut init_buf = QuadLedger::empty();
+    world.emit_face_patch(0, 0, &mut init_buf);
+    assert!(!init_buf.quads.is_empty());
+
+    let mut ring = MeadowRing::cold();
+    let center0 = Vec3::new(0.25, 34.0, 0.25);
+    let mut warm_count = 0usize;
+    while world.drain_stale_meadow_patch(center0, &mut ring, &mut QuadLedger::empty()).is_some() {
+        warm_count += 1;
+    }
+    assert_eq!(warm_count, MEADOW_RING_SLOTS);
+    assert!(world.drain_stale_meadow_patch(center0, &mut ring, &mut QuadLedger::empty()).is_none());
+
+    let g = world.constrain_to_surface(Vec3::new(0.25, 50.0, 0.25), 0.0).y;
+    assert!(world.loosen_surface(Vec3::new(0.25, g + 1.5, 0.25), Vec3::NEG_Y, 2).is_some());
+    let mut dirty_terrain = 0usize;
+    while world.drain_modified_patch(&mut QuadLedger::empty()).is_some() {
+        dirty_terrain += 1;
+    }
+    assert_eq!(dirty_terrain, 1, "Single dig crack must invalidate only 1 of 64 sectors");
+    assert!(!world.pending_slices(), "Draining sector patches must clear terrain slice bit");
+
+    let mut dig_meadow = 0usize;
+    while world.drain_stale_meadow_patch(center0, &mut ring, &mut QuadLedger::empty()).is_some() {
+        dig_meadow += 1;
+    }
+    assert_eq!(dig_meadow, 1, "Single dig crack must refresh only 1 of 81 toroidal meadow slots");
+
+    let center1 = Vec3::new(8.25, 34.0, 0.25);
+    let mut step_meadow = 0usize;
+    while world.drain_stale_meadow_patch(center1, &mut ring, &mut QuadLedger::empty()).is_some() {
+        step_meadow += 1;
+    }
+    assert!(
+        step_meadow > 0 && step_meadow <= 30,
+        "Crossing one 8m sector while driving must keep >= 51 of 81 grass patches in VRAM (updated {step_meadow})"
+    );
+}

@@ -2,33 +2,45 @@ use std::collections::VecDeque;
 use std::time::Duration;
 use glam::Vec3;
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, ExposedStratum,
-    GravityField, MeshTarget, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldFact,
+    BiomedCubeWorld, BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint,
+    CraftIdentity, CraftPose, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
+    PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldFact,
 };
 use crate::chronicled_planet::{ChronicledPlanet, FactJournal};
+use crate::fleet_ledger::FleetLedger;
 use crate::remote_link::RemoteLink;
 use crate::ticket::JoinTarget;
 
-/// Optimistic guest petition journal pairing `RemoteLink` with a bounded prediction ring.
+/// Optimistic guest petition journal pairing `RemoteLink`, bounded prediction ring, and `FleetLedger`.
 pub struct GuestJournal {
     link: RemoteLink,
     predicted: VecDeque<WorldFact>,
+    fleet: FleetLedger,
 }
 
 impl GuestJournal {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_fleet(link: RemoteLink, predicted: VecDeque<WorldFact>, fleet: FleetLedger) -> Self {
+        Self { link, predicted, fleet }
+    }
+
     pub fn new(link: RemoteLink, predicted: VecDeque<WorldFact>) -> Self {
-        Self { link, predicted }
+        Self::with_fleet(link, predicted, FleetLedger::empty())
     }
 
     pub fn connected(&self) -> bool { self.link.connected() }
+    pub const fn fleet(&self) -> &FleetLedger { &self.fleet }
+    pub fn fleet_mut(&mut self) -> &mut FleetLedger { &mut self.fleet }
     pub fn sync_local_presence(&mut self, presence: CompanionPresence) { self.link.sync_local_presence(presence); }
+    pub fn sync_local_craft(&mut self, craft: PilotCraft) { self.link.sync_local_craft(craft); }
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.link.companions(out); }
+    pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.link.crafts(out); }
+    pub fn blend_subtick(&mut self, subtick_secs: f32) { self.link.blend_subtick(subtick_secs); }
     pub fn ticket_string(&self) -> Option<String> { self.link.ticket_string() }
     pub fn phrase_string(&self) -> Option<String> { self.link.phrase_string() }
 
     pub fn pump(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) -> bool {
-        self.link.pump(dt, world, &mut self.predicted)
+        self.link.pump(dt, world, &mut self.fleet, &mut self.predicted)
     }
 }
 
@@ -38,9 +50,25 @@ impl FactJournal for GuestJournal {
             if self.predicted.len() >= 64 {
                 let _ = self.predicted.pop_front();
             }
-            self.predicted.push_back(fact);
+            self.predicted.push_back(fact.clone());
         }
         self.link.send_petition(fact);
+    }
+
+    fn local_slot(&self) -> u32 {
+        self.link.companion_slot()
+    }
+
+    fn register_local_blueprint(&mut self, blueprint: CraftBlueprint) -> bool {
+        self.fleet.register_blueprint(blueprint)
+    }
+
+    fn claim_local_helm(&mut self, craft: CraftIdentity, pilot_slot: u32) -> bool {
+        self.fleet.claim_helm(craft, pilot_slot)
+    }
+
+    fn release_local_helm(&mut self, craft: CraftIdentity) {
+        self.fleet.force_release(craft);
     }
 }
 
@@ -103,9 +131,7 @@ impl RemotePlanet {
         Ok(Self::from_link(link, blocks_per_edge, tron_mode, bevel_margin))
     }
 
-    pub fn connected(&self) -> bool {
-        self.journal.connected()
-    }
+    pub fn connected(&self) -> bool { self.journal.connected() }
 
     fn with_chronicled<R>(&mut self, op: impl FnOnce(&mut ChronicledPlanet<'_>) -> R) -> R {
         let mut decorated = ChronicledPlanet::new(self.world.as_mut(), &mut self.journal);
@@ -114,71 +140,73 @@ impl RemotePlanet {
 }
 
 impl GravityField for RemotePlanet {
-    fn pull_direction_at(&self, position: Vec3) -> Vec3 {
-        self.world.pull_direction_at(position)
-    }
-
-    fn surface_up_at(&self, position: Vec3) -> Vec3 {
-        self.world.surface_up_at(position)
-    }
+    fn pull_direction_at(&self, position: Vec3) -> Vec3 { self.world.pull_direction_at(position) }
+    fn surface_up_at(&self, position: Vec3) -> Vec3 { self.world.surface_up_at(position) }
 }
 
 impl PlanetaryWorld for RemotePlanet {
-    fn emit_surface(&self, target: &mut dyn MeshTarget) {
-        self.world.emit_surface(target);
-    }
+    fn emit_surface(&self, target: &mut dyn MeshTarget) { self.world.emit_surface(target); }
 
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
-        self.world.constrain_to_surface(position, player_height)
+        let ground = self.world.constrain_to_surface(position, player_height);
+        let mut crafts = Vec::new();
+        self.journal.crafts(&mut crafts);
+        let Some(craft_top) = self.journal.fleet().constrain_crafts(&crafts, position, player_height) else {
+            return ground;
+        };
+        let up = self.world.surface_up_at(position);
+        if craft_top.dot(up) > ground.dot(up) { craft_top } else { ground }
     }
 
-    fn canopy_drag(&self, position: Vec3) -> f32 {
-        self.world.canopy_drag(position)
-    }
-
-    fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
-        self.with_chronicled(|w| w.harvest_surface(eye, direction))
-    }
-
-    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
-        self.with_chronicled(|w| w.loosen_surface(eye, direction, stage))
-    }
-
-    fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        self.with_chronicled(|w| w.strike_timber(eye, direction))
-    }
-
-    fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        self.with_chronicled(|w| w.forage_surface(eye, direction))
-    }
-
-    fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
-        self.with_chronicled(|w| w.cast_surface_find(eye, direction, find))
-    }
-
-    fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        self.with_chronicled(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold))
-    }
-
-    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
-        self.with_chronicled(|w| w.adjust_rig(eye, direction, delta_steps, rotate_quarter))
-    }
-
-    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        self.with_chronicled(|w| w.lower_rig(eye, direction))
-    }
+    fn canopy_drag(&self, position: Vec3) -> f32 { self.world.canopy_drag(position) }
+    fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.with_chronicled(|w| w.harvest_surface(eye, direction)) }
+    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.with_chronicled(|w| w.loosen_surface(eye, direction, stage)) }
+    fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.with_chronicled(|w| w.strike_timber(eye, direction)) }
+    fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind { self.with_chronicled(|w| w.forage_surface(eye, direction)) }
+    fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool { self.with_chronicled(|w| w.cast_surface_find(eye, direction, find)) }
+    fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool { self.with_chronicled(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold)) }
+    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool { self.with_chronicled(|w| w.adjust_rig(eye, direction, delta_steps, rotate_quarter)) }
+    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool { self.with_chronicled(|w| w.lower_rig(eye, direction)) }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
-        self.world.board_vehicle(eye, direction, holding_block)
+        if holding_block {
+            self.with_chronicled(|w| w.board_vehicle(eye, direction, true))
+        } else {
+            self.world.board_vehicle(eye, direction, false)
+        }
     }
 
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
-        self.world.park_vehicle(assembly)
+        self.with_chronicled(|w| w.park_vehicle(assembly))
     }
 
-    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
-        self.world.placed_camera_tripod()
+    fn park_craft_by_id(&mut self, craft: CraftIdentity, pose: CraftPose) -> bool {
+        self.journal.fleet_mut().park_by_id(craft, pose, self.world.as_mut())
     }
+
+    fn helm_revoked(&mut self, craft: CraftIdentity) -> bool {
+        self.journal.fleet_mut().take_revoked(craft)
+    }
+
+    fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
+        let mut crafts = Vec::new();
+        self.journal.crafts(&mut crafts);
+        self.journal.fleet().find_passenger_seat(&crafts, eye, direction)
+    }
+
+    fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
+        let mut crafts = Vec::new();
+        self.journal.crafts(&mut crafts);
+        crafts.into_iter().find(|c| c.identity() == craft).map(|c| c.pose().world_seat_at(local_seat))
+    }
+
+    fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {
+        let mut crafts = Vec::new();
+        self.journal.crafts(&mut crafts);
+        self.journal.fleet().emit_crafts(&crafts, target);
+    }
+
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.world.placed_camera_tripod() }
 
     fn step_surface(&mut self, dt: f32) -> bool {
         let regrown = self.world.step_surface(dt);
@@ -186,71 +214,34 @@ impl PlanetaryWorld for RemotePlanet {
         regrown || net_changed || self.world.pending_slices()
     }
 
-    fn lethal_at(&self, position: Vec3) -> bool {
-        self.world.lethal_at(position)
+    fn step_local_flora(&mut self, dt: f32) -> bool {
+        self.world.step_surface(dt)
     }
 
-    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 {
-        self.world.confine_beneath_crust(position)
+    fn lethal_at(&self, position: Vec3) -> bool { self.world.lethal_at(position) }
+    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.world.confine_beneath_crust(position) }
+    fn face_count(&self) -> usize { self.world.face_count() }
+    fn emit_face(&self, index: usize, target: &mut dyn MeshTarget) { self.world.emit_face(index, target); }
+    fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize { self.world.emit_modified_face(target) }
+    fn pending_slices(&self) -> bool { self.world.pending_slices() }
+    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> { self.world.drain_modified_slice(target) }
+    fn face_patch_count(&self, slice: usize) -> usize { self.world.face_patch_count(slice) }
+    fn emit_face_patch(&self, slice: usize, patch_slot: usize, target: &mut dyn MeshTarget) { self.world.emit_face_patch(slice, patch_slot, target); }
+    fn drain_modified_patch(&mut self, target: &mut dyn MeshTarget) -> Option<(usize, usize)> { self.world.drain_modified_patch(target) }
+    fn drain_stale_meadow_patch(&self, center: Vec3, ring: &mut MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.world.drain_stale_meadow_patch(center, ring, target)
     }
-
-    fn face_count(&self) -> usize {
-        self.world.face_count()
-    }
-
-    fn emit_face(&self, index: usize, target: &mut dyn MeshTarget) {
-        self.world.emit_face(index, target);
-    }
-
-    fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize {
-        self.world.emit_modified_face(target)
-    }
-
-    fn pending_slices(&self) -> bool {
-        self.world.pending_slices()
-    }
-
-    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> {
-        self.world.drain_modified_slice(target)
-    }
-
-    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
-        self.world.emit_meadow_around(center, view_dir, target);
-    }
-
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
-        self.world.arboreal_perch_near(center, selector)
-    }
-
-    fn visible_slice_mask(&self, position: Vec3) -> u32 {
-        self.world.visible_slice_mask(position)
-    }
-
-    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
-        self.world.disclose_stratum(face_index, stratum);
-    }
-
-    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {
-        self.world.drain_disclosures(out);
-    }
-
-    fn sync_presence(&mut self, presence: CompanionPresence) {
-        self.journal.sync_local_presence(presence);
-    }
-
-    fn active_companions(&self, out: &mut Vec<CompanionPresence>) {
-        self.journal.companions(out);
-    }
-
-    fn portal_ticket(&self) -> Option<String> {
-        self.journal.ticket_string()
-    }
-
-    fn portal_phrase(&self) -> Option<String> {
-        self.journal.phrase_string()
-    }
-
-    fn pump_portal(&mut self, dt: f32) -> bool {
-        self.journal.pump(dt, self.world.as_mut()) || self.world.pending_slices()
-    }
+    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.world.emit_meadow_around(center, view_dir, target); }
+    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.world.arboreal_perch_near(center, selector) }
+    fn visible_slice_mask(&self, position: Vec3) -> u32 { self.world.visible_slice_mask(position) }
+    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.world.disclose_stratum(face_index, stratum); }
+    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.world.drain_disclosures(out); }
+    fn sync_presence(&mut self, presence: CompanionPresence) { self.journal.sync_local_presence(presence); }
+    fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.journal.sync_local_craft(craft); }
+    fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.journal.companions(out); }
+    fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.journal.crafts(out); }
+    fn blend_companions(&mut self, subtick_secs: f32) { self.journal.blend_subtick(subtick_secs); }
+    fn portal_ticket(&self) -> Option<String> { self.journal.ticket_string() }
+    fn portal_phrase(&self) -> Option<String> { self.journal.phrase_string() }
+    fn pump_portal(&mut self, dt: f32) -> bool { self.journal.pump(dt, self.world.as_mut()) || self.world.pending_slices() }
 }

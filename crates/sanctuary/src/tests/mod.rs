@@ -1,3 +1,5 @@
+mod conduit;
+mod driving;
 mod simultaneous;
 mod wormhole;
 
@@ -154,6 +156,7 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
     let pulse = SanctuaryEnvelope::GuestPulse {
         ack_seq: 0,
         presence: CompanionPresence::new(cid, PresenceKinematics::new(stand, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)), (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4])),
+        craft: world::PilotCraft::Pedestrian,
     };
     pulse.inscribe(&mut payload);
     seal.seal(cid, &payload, &mut frame);

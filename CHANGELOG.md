@@ -8,6 +8,21 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.79.0] - 2026-11-18
+
+### Added
+- Added entity-identified multiplayer vehicles (`CraftIdentity`, `CraftBlueprint`, `CraftPose`, `SeatOccupancy`, `WorldCraft`, `BlueprintCatalog`, and `HelmLocks` in `crates/world/src/relief/craft_entity/`, `DrivenCraft` and `PilotCraft` in `crates/world/src/presence/craft.rs`, `WorldFact::CraftCommissioned` / `HelmClaimed` / `HelmReleased` in `crates/world/src/chronicle.rs`, and `FleetLedger` in `crates/sanctuary/src/fleet_ledger.rs`) with atomic host helm ownership locks, automatic guest race revocation (`VehiclePilot::reconcile_helm`), 80-byte zero-allocation pose pulses, moving-vehicle surface collision, passenger riding on secondary `CabinSeat`s (`VehiclePilot::Passenger`), and automatic parking on companion disconnect.
+- Added phase-locked 40 Hz P2P snapshot interpolation (`CompanionGlide`, `GlideClock`, and `SmoothRoster` in `crates/sanctuary/src/glide.rs`) with sub-tick frame blending (`PlanetaryWorld::blend_companions`) so remote companions and driven vehicles move continuously without teleporting.
+- Added `16x16`-cell sector GPU terrain updates (`SectorGridMesh` in `crates/engine/src/sector_mesh.rs`, `DirtySectors` in `crates/world/src/relief/face/patch_grid.rs`, and `PatchCoord` in `crates/world/src/planet/patches.rs`), toroidal `9x9` grass sector caching (`MeadowRing` and `MeadowStamp` in `crates/world/src/relief/face/meadow_ring.rs`), and persistent `STREAM_DRAW` actor buffer reuse (`StreamingMesh` in `crates/engine/src/streaming_mesh.rs`).
+- Added autonomous 120 Hz network heartbeat decoupling (`PortalMailbox` and `SocketLoop` in `crates/sanctuary/src/mailbox/`, decorated onto live sessions via `ConduitPlanet` in `crates/sanctuary/src/conduit_planet.rs` and `crates/client/src/portal_config.rs`) so window drags or VSync stalls never pause P2P packet relay.
+- Added `YEGOR_MULTIPLAYER_CHECKLIST.md` documenting the three-phase Elegant Objects multiplayer architecture refactoring.
+
+### Fixed
+- Fixed ~5 FPS frame-time collapse while driving by offloading OS audio syscalls onto a non-blocking background queue (`SoundOutbox` in `crates/acoustics/src/outbox.rs`), pacing `EngineRumble` triggers to match its combustion cycle (`crates/client/src/drive/mod.rs`), interpolating `DrivenCar` across sub-ticks, and replacing whole-face / whole-meadow VBO rebuilds with `O(1)` sector updates in `ShadedScenePass` (`crates/client/src/session/display/shaded.rs`).
+
+### Removed
+- Removed obsolete `Avatar::emit_surroundings` delegation chain across `crates/client/src/avatar/` and `crates/client/src/black_box/avatar.rs` in favor of toroidal `MeadowRing` sector updates.
+
 ## [0.78.2] - 2026-11-18
 
 ### Changed

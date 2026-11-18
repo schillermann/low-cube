@@ -51,6 +51,16 @@ impl PlanetaryMesh {
             self.faces[index] = mesh;
         }
     }
+
+    pub fn patch_at(&self, slice: usize, slot: usize) -> Option<&dyn Mesh> {
+        self.faces.get(slice).and_then(|m| m.patch_at(slot))
+    }
+
+    pub fn store_patch(&mut self, slice: usize, slot: usize, patch: Box<dyn Mesh>) {
+        if let Some(face) = self.faces.get_mut(slice) {
+            face.store_patch(slot, patch);
+        }
+    }
 }
 
 impl Mesh for PlanetaryMesh {

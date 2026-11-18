@@ -1,5 +1,7 @@
 mod pilot;
 #[cfg(test)]
+mod multiplayer_tests;
+#[cfg(test)]
 mod tests;
 
 use glam::{Mat3, Quat, Vec3};
@@ -61,14 +63,14 @@ impl DriveKinematics {
     pub const fn parked() -> Self {
         Self::new(0.0, 0.0, 0.0, 0.0)
     }
+    pub const fn wheel_spin(self) -> f32 {
+        self.wheel_spin
+    }
     pub const fn steer_turn(self) -> f32 {
         self.steer_turn
     }
     fn displacement(self, dt: f32) -> f32 {
         self.speed * dt
-    }
-    fn emit_assembly(self, assembly: &VehicleAssembly, target: &mut dyn MeshTarget) {
-        assembly.emit_driven(self.wheel_spin, self.steer_turn, target);
     }
 
     fn yaw_step(self, sign: f32, dt: f32) -> f32 {
@@ -116,30 +118,47 @@ impl DriveKinematics {
         self.steer_turn += (target_steer - self.steer_turn) * (14.0 * dt).clamp(0.0, 1.0);
         let prev_spin = self.wheel_spin;
         self.wheel_spin += (self.speed * dt) / wheel_radius.max(0.12);
-        if self.speed.abs() > 0.25 && (prev_spin * 1.5).floor() != (self.wheel_spin * 1.5).floor() {
+        if self.speed.abs() > 0.25 && (prev_spin * 0.06).floor() != (self.wheel_spin * 0.06).floor() {
             EngineRumble::combustion().thump();
         }
         target_steer
     }
 }
 
-/// Active driven vehicle state encapsulating the multi-block car assembly and kinematics.
+/// Active driven vehicle state encapsulating the multi-block car assembly, kinematics, and sub-tick origin span.
 pub struct DrivenCar {
     assembly: VehicleAssembly,
     kinematics: DriveKinematics,
+    origin_span: (Vec3, f32),
 }
 
 impl DrivenCar {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(assembly: VehicleAssembly, kinematics: DriveKinematics) -> Self {
-        Self { assembly, kinematics }
+    pub const fn new(assembly: VehicleAssembly, kinematics: DriveKinematics, origin_span: (Vec3, f32)) -> Self {
+        Self { assembly, kinematics, origin_span }
     }
 
     pub const fn boarded(assembly: VehicleAssembly) -> Self {
-        Self::new(assembly, DriveKinematics::parked())
+        let origin = assembly.origin();
+        Self::new(assembly, DriveKinematics::parked(), (origin, 1.0))
+    }
+    pub const fn identity(&self) -> world::CraftIdentity {
+        self.assembly.identity()
     }
     pub const fn steer_turn(&self) -> f32 {
         self.kinematics.steer_turn()
+    }
+    pub fn blend_subtick(&mut self, alpha: f32) {
+        self.origin_span.1 = alpha.clamp(0.0, 1.0);
+    }
+    pub const fn pilot_craft(&self) -> world::PilotCraft {
+        world::PilotCraft::Driving(world::DrivenCraft::new(
+            0,
+            self.assembly.identity(),
+            self.assembly
+                .pose()
+                .with_motion(self.kinematics.wheel_spin(), self.kinematics.steer_turn()),
+        ))
     }
 
     pub fn release_wheel(self, world: &mut dyn PlanetaryWorld) -> Self {
@@ -208,14 +227,24 @@ impl DrivenCar {
         if yaw_delta.abs() > 0.0 {
             self.assembly.steer(-yaw_delta);
         }
-        let next_raw = self.assembly.origin() + self.assembly.heading() * self.kinematics.displacement(dt);
+        let prev_origin = self.assembly.origin();
+        let next_raw = prev_origin + self.assembly.heading() * self.kinematics.displacement(dt);
         let up = world.surface_up_at(next_raw);
         let next_ground = world.constrain_to_surface(next_raw + up * 4.0, 0.0);
         self.assembly.relocate(next_ground, up);
+        self.origin_span = (prev_origin, 1.0);
         (next_ground + up * (SEAT_EYE_SUPPORT + 0.12 + self.assembly.seat_floor_offset()), yaw_delta / 0.003)
     }
 
     pub fn emit(&self, target: &mut dyn MeshTarget) {
-        self.kinematics.emit_assembly(&self.assembly, target);
+        let (prev, alpha) = self.origin_span;
+        let cur = self.assembly.origin();
+        let visual_origin = if (cur - prev).length_squared() > 64.0 { cur } else { prev.lerp(cur, alpha) };
+        self.assembly.emit_driven_at(
+            visual_origin,
+            self.kinematics.wheel_spin(),
+            self.kinematics.steer_turn(),
+            target,
+        );
     }
 }

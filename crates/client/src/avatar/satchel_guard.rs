@@ -159,10 +159,6 @@ impl<A: Avatar + AvatarCondition> Avatar for SatchelAvatar<A> {
         self.origin.emit_appearance_for_sight(sight, target);
     }
 
-    fn emit_surroundings(&self, world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
-        self.origin.emit_surroundings(world, target);
-    }
-
     fn meadow_anchor(&self) -> (i32, i32, i32) {
         self.origin.meadow_anchor()
     }

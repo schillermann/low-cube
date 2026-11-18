@@ -1,79 +1,105 @@
 mod part;
 
-use glam::{Quat, Vec3};
+use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::craft_cluster::CraftCluster;
+use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose};
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
 pub use self::part::{VehicleAxes, VehiclePart};
-use self::part::ShiftedMeshTarget;
+pub(in crate::relief) use self::part::{push_vec3, read_vec3, ShiftedMeshTarget};
 
-/// Drivable multi-block vehicle assembly centered on its cabin seat.
+/// Drivable multi-block vehicle assembly uniting its immutable `CraftBlueprint` and live `CraftPose`.
+#[derive(Clone, Debug, PartialEq)]
 pub struct VehicleAssembly {
-    origin: Vec3,
-    axes: VehicleAxes,
-    heading: Vec3,
-    parts: Vec<VehiclePart>,
+    blueprint: CraftBlueprint,
+    pose: CraftPose,
 }
 
 impl VehicleAssembly {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(origin: Vec3, axes: VehicleAxes, heading: Vec3, parts: Vec<VehiclePart>) -> Self {
-        Self { origin, axes, heading, parts }
+    pub const fn from_blueprint(blueprint: CraftBlueprint, pose: CraftPose) -> Self {
+        Self { blueprint, pose }
     }
 
-    pub const fn origin(&self) -> Vec3 { self.origin }
-    pub const fn heading(&self) -> Vec3 { self.heading }
-    pub const fn normal(&self) -> Vec3 { self.axes.normal() }
-    pub fn drivable(&self) -> bool { !self.parts.is_empty() }
-
-    pub fn seat_floor_offset(&self) -> f32 {
-        let seat_off = self.parts.iter().find_map(VehiclePart::origin_seat_floor).unwrap_or(0.0);
-        seat_off + self.wheel_ground_lift()
+    /// Secondary constructor commissioning a vehicle assembly from components and initial orientation.
+    pub fn new(origin: Vec3, axes: VehicleAxes, heading: Vec3, parts: Vec<VehiclePart>) -> Self {
+        Self::from_blueprint(CraftBlueprint::commission(origin, parts), CraftPose::parked(origin, axes, heading))
     }
+
+    /// Secondary constructor preserving an existing `CraftIdentity` when re-boarding a parked vehicle.
+    pub fn with_identity(
+        identity: CraftIdentity,
+        origin: Vec3,
+        axes: VehicleAxes,
+        heading: Vec3,
+        parts: Vec<VehiclePart>,
+    ) -> Self {
+        let bp = if identity.assigned() {
+            CraftBlueprint::new(identity, parts)
+        } else {
+            CraftBlueprint::commission(origin, parts)
+        };
+        Self::from_blueprint(bp, CraftPose::parked(origin, axes, heading))
+    }
+
+    pub const fn identity(&self) -> CraftIdentity { self.blueprint.identity() }
+    pub const fn blueprint(&self) -> &CraftBlueprint { &self.blueprint }
+    pub const fn pose(&self) -> CraftPose { self.pose }
+    pub const fn origin(&self) -> Vec3 { self.pose.origin() }
+    pub const fn heading(&self) -> Vec3 { self.pose.heading() }
+    pub const fn normal(&self) -> Vec3 { self.pose.normal() }
+    pub fn drivable(&self) -> bool { self.blueprint.drivable() }
+    pub fn seat_floor_offset(&self) -> f32 { self.blueprint.seat_floor_offset() }
+    pub fn wheel_radius(&self) -> f32 { self.blueprint.wheel_radius() }
 
     pub fn perch_shell(&self) -> Self {
         let seat_off = self.seat_floor_offset();
-        Self::new(self.origin + self.axes.normal() * seat_off, self.axes, self.heading, Vec::new())
-    }
-
-    pub fn wheel_radius(&self) -> f32 {
-        self.parts.iter().filter_map(VehiclePart::wheel_radius).fold(0.0f32, f32::max).max(0.16)
-    }
-
-    fn wheel_ground_lift(&self) -> f32 {
-        self.parts.iter().filter_map(VehiclePart::wheel_floor_drop).fold(0.0f32, f32::max)
+        Self::new(
+            self.pose.origin() + self.pose.normal() * seat_off,
+            self.pose.axes(),
+            self.pose.heading(),
+            Vec::new(),
+        )
     }
 
     pub fn steer(&mut self, delta_yaw: f32) {
-        let rot = Quat::from_axis_angle(self.axes.normal(), delta_yaw);
-        self.axes = self.axes.rotated(rot);
-        self.heading = (rot * self.heading).normalize_or_zero();
+        self.pose = self.pose.steered(delta_yaw);
     }
 
     pub fn relocate(&mut self, next_origin: Vec3, next_up: Vec3) {
-        self.origin = next_origin;
-        if self.axes.normal().dot(next_up) < 0.99999 {
-            let rot = Quat::from_rotation_arc(self.axes.normal(), next_up);
-            self.axes = self.axes.rotated(rot);
-            self.heading = (rot * self.heading).normalize_or_zero();
-        }
+        self.pose = self.pose.relocated(next_origin, next_up);
+    }
+
+    pub fn interpolated(&self, target: &Self, alpha: f32) -> Self {
+        Self::from_blueprint(target.blueprint.clone(), self.pose.interpolated(target.pose, alpha))
     }
 
     pub fn emit(&self, target: &mut dyn MeshTarget) {
-        self.emit_driven(0.0, 0.0, target);
+        self.blueprint.emit_at(self.pose.with_motion(0.0, 0.0), target);
     }
 
     pub fn emit_driven(&self, wheel_spin: f32, steer_turn: f32, target: &mut dyn MeshTarget) {
-        let car_frame = self.axes.surface_frame();
-        let shift = self.origin - car_frame.point_at(0.25, 0.25, 0.0);
-        let mut shifted = ShiftedMeshTarget::new(shift, target);
-        let (top_col, wall_col) = (Vec3::new(0.45, 0.30, 0.17), Vec3::new(0.41, 0.27, 0.15));
-        let lift = self.wheel_ground_lift();
-        for part in &self.parts {
-            part.emit_driven(lift, wheel_spin, steer_turn, &car_frame, top_col, wall_col, &mut shifted);
-        }
+        self.blueprint.emit_at(self.pose.with_motion(wheel_spin, steer_turn), target);
+    }
+
+    pub fn emit_driven_at(&self, render_origin: Vec3, wheel_spin: f32, steer_turn: f32, target: &mut dyn MeshTarget) {
+        self.blueprint.emit_at(
+            self.pose.with_origin(render_origin).with_motion(wheel_spin, steer_turn),
+            target,
+        );
+    }
+
+    pub fn inscribe(&self, out: &mut Vec<u8>) {
+        self.blueprint.inscribe(out);
+        self.pose.inscribe(out);
+    }
+
+    pub fn decode(bytes: &[u8]) -> Option<(Self, usize)> {
+        let (blueprint, bp_used) = CraftBlueprint::decode(bytes)?;
+        let (pose, pose_used) = CraftPose::decode(&bytes[bp_used..])?;
+        Some((Self::from_blueprint(blueprint, pose), bp_used + pose_used))
     }
 
     pub(super) fn park_into_cluster(
@@ -81,14 +107,15 @@ impl VehicleAssembly {
         strata: &NaturalStrata,
         shafts: &ShaftExcavation,
         frame: &SurfaceFrame,
-    ) -> (CraftCluster, (i32, i32)) {
-        let lift = self.wheel_ground_lift();
-        let seat = frame.cell_at(self.origin).feed_coordinates(|cu, cv| (cu, cv));
-        let turn = self.axes.cardinal_turn(frame);
+    ) -> (CraftIdentity, CraftCluster, (i32, i32)) {
+        let id = self.blueprint.identity();
+        let lift = self.blueprint.wheel_ground_lift();
+        let seat = frame.cell_at(self.pose.origin()).feed_coordinates(|cu, cv| (cu, cv));
+        let turn = self.pose.axes().cardinal_turn(frame);
         let mut craft = CraftCluster::untouched();
-        for part in self.parts {
+        for part in self.blueprint.into_parts() {
             part.park_into(seat, turn, lift, &mut craft, strata, shafts);
         }
-        (craft, seat)
+        (id, craft, seat)
     }
 }

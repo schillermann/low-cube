@@ -35,7 +35,7 @@ impl AvatarBody {
     }
 
     pub fn visual_position(&self) -> Vec3 {
-        if self.pilot.standing() {
+        if self.pilot.standing() || self.pilot.driving() {
             self.span.visual()
         } else {
             self.span.current()
@@ -44,6 +44,7 @@ impl AvatarBody {
 
     pub fn blend_subtick(&mut self, alpha: f32) {
         self.span = self.span.blended(alpha);
+        self.pilot.blend_subtick(alpha);
     }
 
     pub fn settle_span(&mut self) {
@@ -81,10 +82,14 @@ impl AvatarBody {
     pub fn meadow_anchor(&self) -> (i32, i32, i32) {
         let p = self.span.current();
         (
-            ((p.x * 0.25).floor() as i32) * 8,
-            ((p.y * 0.25).floor() as i32) * 8,
-            ((p.z * 0.25).floor() as i32) * 8,
+            ((p.x * 0.125).floor() as i32) * 16,
+            ((p.y * 0.125).floor() as i32) * 16,
+            ((p.z * 0.125).floor() as i32) * 16,
         )
+    }
+
+    pub fn pilot_craft(&self) -> world::PilotCraft {
+        self.pilot.pilot_craft()
     }
 
     pub fn gore(&mut self, impulse: Vec3, world: &dyn PlanetaryWorld) {
@@ -150,11 +155,28 @@ impl AvatarBody {
     pub fn perch_vehicle(
         &mut self, eye: Vec3, view_dir: Vec3, sight_line: &mut AvatarSight, world: &mut dyn PlanetaryWorld,
     ) -> bool {
-        let Some(perch) = world.board_vehicle(eye, view_dir, false) else {
+        if let Some(perch) = world.board_vehicle(eye, view_dir, false) {
+            self.mount_assembly(perch, sight_line, world);
+            return true;
+        }
+        let Some((craft, local_seat, frame)) = world.board_passenger_seat(eye, view_dir) else {
             return false;
         };
-        self.mount_assembly(perch, sight_line, world);
+        let (pos, heading) = self.pilot.mount_passenger(craft, local_seat, frame);
+        self.span = BodySpan::anchored(pos);
+        self.posture = AvatarPosture::crouching();
+        self.flight.ground();
+        sight_line.anchor_vehicle_heading(heading);
         true
+    }
+
+    pub fn reconcile_helm(&mut self, sight_line: &mut AvatarSight, world: &mut dyn PlanetaryWorld) {
+        if let Some(fallback) = self.pilot.reconcile_helm(world) {
+            self.span = BodySpan::anchored(fallback);
+            self.posture = AvatarPosture::standing();
+            self.flight.ground();
+            sight_line.constrain_shoulders(false, 0.0);
+        }
     }
 
     pub fn step_driving(
@@ -164,10 +186,15 @@ impl AvatarBody {
         sight_line: &mut AvatarSight,
         world: &dyn PlanetaryWorld,
     ) -> bool {
+        let was_driving = self.pilot.driving();
         let Some((seat_pos, steer_px)) = self.pilot.step(dt, controls, world) else {
             return false;
         };
-        self.span = BodySpan::anchored(seat_pos);
+        self.span = if was_driving && self.pilot.driving() {
+            self.span.advanced(seat_pos)
+        } else {
+            BodySpan::anchored(seat_pos)
+        };
         if self.pilot.standing() {
             self.posture = AvatarPosture::standing();
             self.flight.ground();
