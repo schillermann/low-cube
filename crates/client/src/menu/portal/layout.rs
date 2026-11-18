@@ -24,10 +24,6 @@ impl PortalBounds {
         Self::new(false)
     }
 
-    pub const fn expanded() -> Self {
-        Self::new(true)
-    }
-
     pub const fn hub_card(&self) -> ScreenBounds {
         if self.expanded {
             ScreenBounds::new(-0.58, -0.66, 0.58, 0.44)
@@ -247,12 +243,12 @@ impl MenuView for PortalLayout<'_> {
         let action_label = if self.draft.verify_punch_for(self.invite).is_some() {
             "PUNCH GUEST NAT (ENTER)"
         } else {
-            "JOIN WORLD (ENTER)"
+            "JOIN HOST"
         };
-        bounds.paste_button().emit_button("PASTE (CTRL+V)", self.pointer, Vec3::new(0.22, 0.38, 0.56), false, target);
+        bounds.paste_button().emit_button("PASTE", self.pointer, Vec3::new(0.22, 0.38, 0.56), false, target);
         bounds.clear_button().emit_button("CLEAR", self.pointer, Vec3::new(0.36, 0.26, 0.32), false, target);
         bounds.join_button().emit_button(action_label, self.pointer, Vec3::new(0.18, 0.48, 0.28), false, target);
-        bounds.back_button().emit_button("BACK TO MULTIPLAYER", self.pointer, Vec3::new(0.28, 0.32, 0.40), false, target);
+        bounds.back_button().emit_button("BACK", self.pointer, Vec3::new(0.28, 0.32, 0.40), false, target);
 
         let (status_text, status_col) = self.status_line(silver);
         PixelStamp::caption(status_col).emit_centered(&status_text, 0.0, -0.41, target);

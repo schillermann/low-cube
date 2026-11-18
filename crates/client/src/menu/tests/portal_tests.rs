@@ -40,7 +40,7 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
     menu.move_cursor(ScreenPoint::new(host_btn.center_x(), host_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::OpenPortal);
     menu.announce_portal(PortalInvite::hosted(host_code_str, encoded_ticket.clone()));
-    let bounds = PortalBounds::expanded();
+    let bounds = PortalBounds::new(true);
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
     let join_btn = bounds.join_portal_button();
@@ -208,6 +208,23 @@ fn test_multiplayer_hub_renders_open_join_and_back_button_labels() {
         assert!(
             hub_positions.windows(label_positions.len()).any(|win| win == label_positions.as_slice()),
             "Multiplayer hub button must emit exact glyph geometry for '{label}'"
+        );
+    }
+
+    let mut join_capture = QuadCapture::empty();
+    studio.emit_join_screen(pointer, &mut join_capture);
+    let join_positions = join_capture.positions();
+    for (btn, label) in [
+        (bounds.paste_button(), "PASTE"),
+        (bounds.join_button(), "JOIN HOST"),
+        (bounds.back_button(), "BACK"),
+    ] {
+        let mut label_capture = QuadCapture::empty();
+        PixelStamp::caption(Vec3::ONE).emit_centered(label, btn.center_x(), btn.center_y(), &mut label_capture);
+        let label_positions = label_capture.positions();
+        assert!(
+            join_positions.windows(label_positions.len()).any(|win| win == label_positions.as_slice()),
+            "Join screen button must emit exact glyph geometry for '{label}'"
         );
     }
 }

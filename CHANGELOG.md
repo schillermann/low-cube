@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.78.2] - 2026-11-18
+
+### Changed
+- Renamed Step 1/2 Join screen buttons (`JOIN WORLD (ENTER)` to `JOIN HOST`, `PASTE (CTRL+V)` to `PASTE`, and `BACK TO MULTIPLAYER` to `BACK`) in `PortalLayout::emit` (`crates/client/src/menu/portal/layout.rs`).
+
+### Removed
+- Removed unused `PortalBounds::expanded` constructor from `crates/client/src/menu/portal/layout.rs` to eliminate the `dead_code` compiler warning on binary builds.
+
 ## [0.78.1] - 2026-11-18
 
 ### Changed
