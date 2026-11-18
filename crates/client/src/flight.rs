@@ -1,6 +1,5 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
-use crate::attire::SatchelBurden;
 use crate::envelope::BodyEnvelope;
 use crate::gait::LocomotionGait;
 use crate::phase::{
@@ -12,10 +11,6 @@ use crate::threshold::StepThreshold;
 /// Interface representing vertical flight and gravitational physics on a planetary surface.
 pub trait GravitationalFlight: Send + Sync {
     fn jump(&mut self);
-    fn jump_burdened(&mut self, burden: SatchelBurden) {
-        let _ = burden;
-        self.jump();
-    }
     fn ground(&mut self) {}
     fn apply_envelope(&mut self, _envelope: BodyEnvelope) {}
     fn advance(
@@ -29,17 +24,11 @@ pub trait GravitationalFlight: Send + Sync {
     ) -> Vec3;
 }
 
-#[derive(Clone, Copy)]
-enum PendingLeap {
-    Idle,
-    Queued(f32),
-}
-
 struct FlightState {
     phase: FlightPhase,
     jump_strength: f32,
     eye_height: f32,
-    leap: PendingLeap,
+    jump_queued: bool,
 }
 
 struct FlightAerodynamics {
@@ -80,7 +69,7 @@ impl SurfaceFlight {
                 phase,
                 jump_strength,
                 eye_height,
-                leap: PendingLeap::Idle,
+                jump_queued: false,
             },
             aero: FlightAerodynamics {
                 gravity,
@@ -143,16 +132,12 @@ impl SurfaceFlight {
 
 impl GravitationalFlight for SurfaceFlight {
     fn jump(&mut self) {
-        self.state.leap = PendingLeap::Queued(1.0);
-    }
-
-    fn jump_burdened(&mut self, burden: SatchelBurden) {
-        self.state.leap = PendingLeap::Queued(burden.scale_leap(1.0));
+        self.state.jump_queued = true;
     }
 
     fn ground(&mut self) {
         self.state.phase = FlightPhase::Grounded(GroundedFlight::human());
-        self.state.leap = PendingLeap::Idle;
+        self.state.jump_queued = false;
     }
 
     fn apply_envelope(&mut self, envelope: BodyEnvelope) {
@@ -170,8 +155,8 @@ impl GravitationalFlight for SurfaceFlight {
     ) -> Vec3 {
         let crust = self.aero.envelope.crust(world);
         let in_shaft = crust.in_deep_shaft(position, surface_up, self.state.eye_height);
-        if let PendingLeap::Queued(leap_scale) = std::mem::replace(&mut self.state.leap, PendingLeap::Idle) {
-            let leap_speed = self.state.jump_strength * leap_scale;
+        if std::mem::take(&mut self.state.jump_queued) {
+            let leap_speed = gait.pace_leap(self.state.jump_strength);
             if in_shaft {
                 self.state.phase = FlightPhase::Airborne(AirborneFlight::new(
                     leap_speed,

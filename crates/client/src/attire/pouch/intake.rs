@@ -36,7 +36,7 @@ impl SatchelIntake {
                 (HeldRelic::PedalCluster, 2),
             ] {
                 if self.resource_tally(part, attire) == 0 {
-                    self.tray.stow_relic(part, qty);
+                    self.tray = self.tray.stowed_with(part, qty);
                 }
             }
         }
@@ -49,21 +49,18 @@ impl SatchelIntake {
                 self.palms.reset_mold(target);
             }
             self.palms.assign_blocks(target, 1);
-            self.tray.focus_side(target);
-            return (self.palms, self.tray, attire.with_hand_relic(target, relic));
+            return (self.palms, self.tray.focused_on(target), attire.with_hand_relic(target, relic));
         }
         let target = if hand.placeable_block() { side } else if other.placeable_block() { -side } else { 0.0 };
         let held = if target > 0.0 { attire.held_pair().0 } else { attire.held_pair().1 };
         if target != 0.0 && held != relic {
-            self.tray.stow_relic(held, self.palms.blocks_on(target));
+            let next_tray = self.tray.stowed_with(held, self.palms.blocks_on(target)).focused_on(target);
             self.palms.assign_blocks(target, 1);
             self.palms.reset_mold(target);
-            self.tray.focus_side(target);
-            return (self.palms, self.tray, attire.with_hand_relic(target, relic));
+            return (self.palms, next_tray, attire.with_hand_relic(target, relic));
         }
-        self.tray.focus_side(if target != 0.0 { target } else { side });
-        self.tray.stow_relic(relic, 1);
-        (self.palms, self.tray, attire)
+        let focus = if target != 0.0 { target } else { side };
+        (self.palms, self.tray.focused_on(focus).stowed_with(relic, 1), attire)
     }
 
     pub(super) fn foraged(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (PalmStack, SatchelTray, YouthAttire) {
@@ -71,7 +68,7 @@ impl SatchelIntake {
             self.palms.clear_placed_cameras();
         }
         let (r, l) = attire.held_pair();
-        self.tray.focus_side(side);
+        self.tray = self.tray.focused_on(side);
         let next_attire = if (side > 0.0 && r.free_palm()) || (r.free_palm() && !l.free_palm()) {
             if !l.placeable_block() || relic.field_camera() || l.field_camera() {
                 self.palms.reset_mold(1.0);
@@ -83,7 +80,7 @@ impl SatchelIntake {
             }
             attire.with_relics(r, relic)
         } else {
-            self.tray.stow_relic(relic, 1);
+            self.tray = self.tray.stowed_with(relic, 1);
             attire
         };
         self.palms.reconcile_attire(next_attire);
@@ -94,19 +91,18 @@ impl SatchelIntake {
         let (r, l) = attire.held_pair();
         let next_attire = if r.free_palm() {
             self.palms.assign_blocks(1.0, 1);
-            self.tray.stow_relic(HeldRelic::TimberBlock, 2);
+            self.tray = self.tray.stowed_with(HeldRelic::TimberBlock, 2);
             attire.with_relics(HeldRelic::TimberBlock, l)
         } else if l.free_palm() {
             self.palms.assign_blocks(-1.0, 1);
-            self.tray.stow_relic(HeldRelic::TimberBlock, 2);
+            self.tray = self.tray.stowed_with(HeldRelic::TimberBlock, 2);
             attire.with_relics(r, HeldRelic::TimberBlock)
         } else {
-            self.tray.stow_relic(HeldRelic::TimberBlock, 3);
+            self.tray = self.tray.stowed_with(HeldRelic::TimberBlock, 3);
             attire
         };
-        self.tray.focus_side(side);
         self.palms.reconcile_attire(next_attire);
-        (self.palms, self.tray, next_attire)
+        (self.palms, self.tray.focused_on(side), next_attire)
     }
 
     pub(super) fn crafted_batch(
@@ -115,7 +111,9 @@ impl SatchelIntake {
         for (ing, mut rem) in ingredients {
             while rem > 0 {
                 let (r, l) = attire.held_pair();
-                if !self.tray.take_stowed(ing) {
+                let (next_tray, taken) = self.tray.taken_stowed(ing);
+                self.tray = next_tray;
+                if !taken {
                     if r == ing {
                         self.palms.assign_blocks(1.0, 0);
                         attire = attire.with_relics(HeldRelic::EmptyPalm, l);
@@ -129,13 +127,13 @@ impl SatchelIntake {
         }
         let (hand, other) = attire.hand_pair(side);
         if hand.gripped() && !other.free_palm() {
-            self.tray.stow_relic(hand, self.palms.blocks_on(side));
+            self.tray = self.tray.stowed_with(hand, self.palms.blocks_on(side));
             self.palms.assign_blocks(side, 0);
             attire = attire.with_hand_relic(side, HeldRelic::EmptyPalm);
         }
         let (mut palms, mut tray, next_attire) = self.foraged(side, product, attire);
         if batch_yield > 1 {
-            tray.stow_relic(product, batch_yield - 1);
+            tray = tray.stowed_with(product, batch_yield - 1);
         }
         palms.reconcile_attire(next_attire);
         (palms, tray, next_attire)

@@ -8,6 +8,20 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.80.0] - 2026-11-18
+
+### Added
+- Added stack-allocated `BurdenedGait<G>` decorator (`crates/client/src/gait/burdened.rs`) and `LocomotionGait::pace_leap` (`crates/client/src/gait/mod.rs`) scaling horizontal stride distance and vertical leap velocity polymorphically without heap allocations in the 120 Hz simulation loop.
+- Added `CockpitBerth` (`crates/client/src/avatar/berth.rs`) encapsulating cockpit boarding, passenger perching, steering release, helm reconciliation, and vehicle mesh emission for `AvatarBody` (`crates/client/src/avatar/body.rs`).
+
+### Changed
+- Decoupled `SurfaceFlight` (`crates/client/src/flight.rs`), `LeapIntent`, `LocomotionOrder` (`crates/client/src/order.rs`), and `AvatarBody::prepare_stride` / `step_pedestrian` (`crates/client/src/avatar/body.rs`) from `SatchelBurden`, and replaced `carried_burden()` pass-through getters on `PalmEarthworks` (`crates/client/src/earthworks/mod.rs`) and `AvatarGear` (`crates/client/src/avatar/gear.rs`) with Tell-Don't-Ask `encumber_order`.
+- Converted `SatchelTray` (`crates/client/src/attire/tray.rs`) into a pure immutable value object (`closed`, `focused_on`, `opened_if_populated`, `stowed_with`, `taken_stowed`, `toggled_open`, `navigated`) across `BeltSatchel` (`crates/client/src/attire/pouch/mod.rs`) and `SatchelIntake` (`crates/client/src/attire/pouch/intake.rs`).
+- Split `crates/client/src/attire/burden/` into `mod.rs` and `slot.rs`, privately encapsulating `WeightGrade`, `SlotBurden::unit_grade`, `summed_grade`, and `corner_pigment` while testing `SlotBurden` exclusively through `Display`, `CarryLoad`, and `SlotPlaque` (`crates/client/src/attire/tests/burden.rs` and `encumbrance.rs`).
+
+### Removed
+- Removed `GravitationalFlight::jump_burdened`, `PendingLeap` (`crates/client/src/flight.rs`), and completed root refactoring checklists (`YEGOR_CHECKLIST.md` and `YEGOR_MULTIPLAYER_CHECKLIST.md`).
+
 ## [0.79.0] - 2026-11-18
 
 ### Added

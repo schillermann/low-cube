@@ -5,11 +5,12 @@ mod toss;
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, PlanetaryWorld};
 use crate::attire::{
-    ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, SatchelBurden, SatchelWardrobe,
-    SightMode, StrideRhythm, Wardrobe, YouthAttire,
+    ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, SatchelWardrobe, SightMode,
+    StrideRhythm, Wardrobe, YouthAttire,
 };
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 pub use crate::grip::DigGrip;
+use crate::order::LocomotionOrder;
 use self::debris::DigOperation;
 pub use self::reach::SurfaceReach;
 use self::toss::TossCadence;
@@ -48,8 +49,8 @@ impl PalmEarthworks {
     pub fn placed_camera_lens(&self, attire: YouthAttire) -> Option<(Vec3, Vec3, Vec3)> {
         self.satchel.placed_camera_lens(attire)
     }
-    pub fn carried_burden(&self, attire: YouthAttire) -> SatchelBurden {
-        self.satchel.carried_burden(attire)
+    pub fn encumber_order(&self, attire: YouthAttire, order: LocomotionOrder) -> LocomotionOrder {
+        order.with_burden(self.satchel.carried_burden(attire))
     }
     pub fn step_toss(self, dt: f32) -> Self { Self { toss: self.toss.advance(dt), ..self } }
     fn with_satchel(self, satchel: BeltSatchel) -> Self { Self { satchel, ..self } }

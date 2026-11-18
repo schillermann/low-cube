@@ -94,6 +94,23 @@ fn test_hot_simulation_loop_zero_runtime_allocations() {
     });
     assert_eq!(sprint_allocs, 0, "Sprinting/jumping must have zero runtime allocations in hot simulation loop");
 
+    // Audit 600 frames of walking, sprinting, and jumping with active BurdenedGait load
+    struct HeavySatchel;
+    impl crate::server_satchel::StartingSatchel for HeavySatchel {
+        fn provision(&self, satchel: crate::attire::BeltSatchel) -> crate::attire::BeltSatchel {
+            satchel.with_stowed_relic(crate::attire::HeldRelic::QuarriedStone, 12)
+        }
+    }
+    let mut burdened = PlanetaryAvatar::at(spawn).with_starting_satchel(&HeavySatchel);
+    burdened.step_motion(dt, &walk_ctrl, &world);
+    let burdened_allocs = count_allocations(|| {
+        for frame in 0..600 {
+            let ctrl: &dyn KeyboardControls = if frame % 2 == 0 { &walk_ctrl } else { &sprint_ctrl };
+            burdened.step_motion(dt, ctrl, &world);
+        }
+    });
+    assert_eq!(burdened_allocs, 0, "BurdenedGait walking/sprinting/jumping must perform zero runtime heap allocations");
+
     // Audit 600 frames through BlackBoxAvatar with active LiveTape and SilentTape Null Object
     let mut recorded = crate::black_box::BlackBoxAvatar::wrapping(
         Box::new(PlanetaryAvatar::at(spawn)),

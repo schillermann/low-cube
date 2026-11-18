@@ -115,6 +115,23 @@ impl AvatarSight {
         self.lens.projection_matrix(aspect) * Mat4::look_to_rh(eye, forward, up)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    pub fn project_placed_or_sight(
+        &self,
+        aspect: f32,
+        tilt_radians: f32,
+        sight: SightMode,
+        posture: AvatarPosture,
+        position: Vec3,
+        pose: &BodyPose,
+        placed_lens: Option<(Vec3, Vec3, Vec3)>,
+    ) -> Mat4 {
+        if let Some((eye, fwd, up)) = placed_lens {
+            return self.project_lens_view(aspect, eye, fwd, up);
+        }
+        self.project_view(aspect, tilt_radians, sight, posture, position, pose)
+    }
+
     pub fn sight_cone_at(
         &self,
         sight: SightMode,

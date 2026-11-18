@@ -1,8 +1,12 @@
+mod burdened;
+
 use glam::Vec3;
 use crate::lens::PerspectiveLens;
 use crate::phase::{AirborneFlight, FlightContext, FlightPhase, FlightProgress, GroundedFlight};
 use crate::posture::AvatarPosture;
 use crate::threshold::StepThreshold;
+
+pub use self::burdened::BurdenedGait;
 
 const UPRIGHT_EYE_OFFSET: f32 = 0.80;
 const CROUCH_EYE_OFFSET: f32 = 0.36;
@@ -11,9 +15,10 @@ const SPRINT_FOV_DEGREES: f32 = 78.0;
 const SNEAK_PACE_FACTOR: f32 = 0.35;
 const SPRINT_PACE_FACTOR: f32 = 1.60;
 
-/// Locomotion gait determining pacing scale, posture shaping, and precipice crossing behavior.
+/// Locomotion gait determining pacing scale, leap velocity, posture shaping, and precipice crossing behavior.
 pub trait LocomotionGait: Send + Sync {
     fn pace_distance(&self, distance: f32) -> f32;
+    fn pace_leap(&self, leap_speed: f32) -> f32;
     fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture;
     fn shape_lens(&self, lens: PerspectiveLens, dt: f32) -> PerspectiveLens;
     fn permits_seam_fold(&self) -> bool;
@@ -45,6 +50,10 @@ impl WalkGait {
 impl LocomotionGait for WalkGait {
     fn pace_distance(&self, distance: f32) -> f32 {
         distance
+    }
+
+    fn pace_leap(&self, leap_speed: f32) -> f32 {
+        leap_speed
     }
 
     fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {
@@ -98,6 +107,10 @@ impl SneakGait<WalkGait> {
 impl<G: LocomotionGait> LocomotionGait for SneakGait<G> {
     fn pace_distance(&self, distance: f32) -> f32 {
         self.origin.pace_distance(distance) * self.pace_factor
+    }
+
+    fn pace_leap(&self, leap_speed: f32) -> f32 {
+        self.origin.pace_leap(leap_speed)
     }
 
     fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {
@@ -155,6 +168,10 @@ impl SprintGait<WalkGait> {
 impl<G: LocomotionGait> LocomotionGait for SprintGait<G> {
     fn pace_distance(&self, distance: f32) -> f32 {
         self.origin.pace_distance(distance) * self.pace_factor
+    }
+
+    fn pace_leap(&self, leap_speed: f32) -> f32 {
+        self.origin.pace_leap(leap_speed)
     }
 
     fn shape_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {

@@ -35,15 +35,15 @@ impl BeltSatchel {
         )
     }
 
-    pub fn with_stowed_relic(mut self, relic: HeldRelic, count: u32) -> Self {
-        if count > 0 {
-            self.tray.stow_relic(relic, count);
+    pub fn with_stowed_relic(self, relic: HeldRelic, count: u32) -> Self {
+        if count == 0 {
+            return self;
         }
-        self
+        Self::new(self.palms, self.tray.stowed_with(relic, count), self.tripod)
     }
 
     pub const fn open(&self) -> bool { self.tray.open() }
-    pub const fn with_open(mut self, open: bool) -> Self { self.tray = self.tray.with_open(open); self }
+    pub const fn with_open(self, open: bool) -> Self { Self::new(self.palms, self.tray.with_open(open), self.tripod) }
 
     pub const fn camera_mount(&self, attire: YouthAttire) -> CameraMount {
         let mount = self.palms.camera_mount(attire);
@@ -105,14 +105,13 @@ impl BeltSatchel {
         self
     }
 
-    pub fn toggle_open(mut self) -> (Self, bool) {
-        self.tray.toggle_open();
-        (self, true)
+    pub fn toggle_open(self) -> (Self, bool) {
+        (Self::new(self.palms, self.tray.toggled_open(), self.tripod), true)
     }
 
-    pub fn navigate(mut self, dx: i32, dy: i32) -> (Self, bool) {
-        let ok = self.tray.navigate(dx, dy);
-        (self, ok)
+    pub const fn navigate(self, dx: i32, dy: i32) -> (Self, bool) {
+        let (next_tray, ok) = self.tray.navigated(dx, dy);
+        (Self::new(self.palms, next_tray, self.tripod), ok)
     }
 
     pub fn transfer_hand(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
@@ -120,33 +119,34 @@ impl BeltSatchel {
         if state.tray.open() {
             let chosen = state.tray.selected_relic();
             if chosen.gripped() {
-                let _ = state.tray.take_stowed(chosen);
-                if hand.gripped() { state.tray.stow_relic(hand, state.palms.blocks_on(side)); }
+                let (mut next_tray, _) = state.tray.taken_stowed(chosen);
+                if hand.gripped() {
+                    next_tray = next_tray.stowed_with(hand, state.palms.blocks_on(side));
+                }
                 if chosen.placeable_block() && other.placeable_block() && !chosen.field_camera() && !other.field_camera() {
                     state.palms.sync_mold_from_opposite(side);
                 } else if !chosen.placeable_block() || chosen.field_camera() || state.palms.mold_on(side).placed_camera() {
                     state.palms.reset_mold(side);
                 }
                 state.palms.assign_blocks(side, u32::from(chosen.placeable_block()));
-                state.tray.focus_side(side);
-                state.tray.close();
+                state.tray = next_tray.focused_on(side).closed();
                 return (state, attire.with_hand_relic(side, chosen), true);
             }
         }
         if hand.gripped() {
-            state.tray.close();
-            state.tray.stow_relic(hand, state.palms.blocks_on(side));
+            state.tray = state.tray.closed().stowed_with(hand, state.palms.blocks_on(side)).focused_on(side);
             state.palms.assign_blocks(side, 0);
-            if hand.field_camera() { state.palms.reset_mold(side); }
-            state.tray.focus_side(side);
+            if hand.field_camera() {
+                state.palms.reset_mold(side);
+            }
             (state, attire.with_hand_relic(side, HeldRelic::EmptyPalm), true)
         } else if state.tray.open() {
-            state.tray.close();
-            (state, attire, true)
-        } else if state.tray.open_if_populated(side) {
+            state.tray = state.tray.closed();
             (state, attire, true)
         } else {
-            (state, attire, false)
+            let (next_tray, opened) = state.tray.opened_if_populated(side);
+            state.tray = next_tray;
+            (state, attire, opened)
         }
     }
 
@@ -158,7 +158,6 @@ impl BeltSatchel {
         if !world.place_molded_surface_block(eye, view_dir, avatar_pos, placed_mold) {
             return (self, attire, false);
         }
-        self.tray.close();
         if hand.field_camera() {
             self.tripod = world.placed_camera_tripod().map_or(
                 TripodMount::Unmounted,
@@ -166,8 +165,9 @@ impl BeltSatchel {
             );
         }
         self.palms.assign_mold(side, placed_mold);
-        self.tray.focus_side(side);
-        let refilled = !hand.field_camera() && self.tray.take_stowed(hand);
+        let focused = self.tray.closed().focused_on(side);
+        let (next_tray, refilled) = if hand.field_camera() { (focused, false) } else { focused.taken_stowed(hand) };
+        self.tray = next_tray;
         let next_hand = if refilled { hand } else { HeldRelic::EmptyPalm };
         self.palms.assign_blocks(side, u32::from(refilled));
         (self, attire.with_hand_relic(side, next_hand), true)
@@ -189,9 +189,12 @@ impl BeltSatchel {
         (Self::new(palms, tray, self.tripod), next_attire)
     }
 
-    pub fn take_cast_relic(mut self, relic: HeldRelic) -> (Self, bool) {
-        let ok = relic.gripped() && self.tray.take_stowed(relic);
-        (self, ok)
+    pub const fn take_cast_relic(self, relic: HeldRelic) -> (Self, bool) {
+        if !relic.gripped() {
+            return (self, false);
+        }
+        let (next_tray, ok) = self.tray.taken_stowed(relic);
+        (Self::new(self.palms, next_tray, self.tripod), ok)
     }
 
     pub fn consume_provision(mut self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
@@ -199,9 +202,9 @@ impl BeltSatchel {
         if !hand.edible_provision() {
             return (self, attire, false);
         }
-        self.tray.close();
-        self.tray.focus_side(side);
-        let next_hand = if self.tray.take_stowed(hand) { hand } else { HeldRelic::EmptyPalm };
+        let (next_tray, refilled) = self.tray.closed().focused_on(side).taken_stowed(hand);
+        self.tray = next_tray;
+        let next_hand = if refilled { hand } else { HeldRelic::EmptyPalm };
         self.palms.assign_blocks(side, 0);
         (self, attire.with_hand_relic(side, next_hand), true)
     }

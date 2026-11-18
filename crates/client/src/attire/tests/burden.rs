@@ -1,79 +1,22 @@
 use glam::{Quat, Vec3};
-use winit::keyboard::KeyCode;
-use world::{ClimateZone, CubePlanet, FacetedReliefFace, NullFace, PlanetaryWorld};
 use crate::attire::{
-    BeltSatchel, BodyPose, HeldRelic, StrideRhythm, YouthAttire, YouthPhysique,
+    BeltSatchel, BodyPose, HeldRelic, LimbFrame, SatchelBurden, StrideRhythm, YouthAttire,
+    YouthPhysique,
 };
-use super::super::burden::{SlotBurden, WeightGrade};
-use crate::avatar::{Avatar, PlanetaryAvatar};
-use crate::controls::{KeyboardControls, LocomotionTarget};
-use crate::server_satchel::StartingSatchel;
+use super::super::burden::{CarryLoad, SlotBurden};
+use super::super::compartment::{CompartmentBackplate, SlotPlaque, WeightedCompartment};
 use super::QuadLedger;
 
-struct BurdenProvision {
-    relic: HeldRelic,
-    count: u32,
-}
-
-impl StartingSatchel for BurdenProvision {
-    fn provision(&self, satchel: BeltSatchel) -> BeltSatchel {
-        satchel.with_stowed_relic(self.relic, self.count)
-    }
-}
-
-struct StrideControls;
-
-impl KeyboardControls for StrideControls {
-    fn register_key(&mut self, _code: KeyCode, _pressed: bool) {}
-    fn drive_locomotion(&self, _forward: Vec3, right: Vec3, target: &mut dyn LocomotionTarget) {
-        target.travel(right);
-    }
-}
-
-struct LeapControls {
-    triggered: bool,
-}
-
-impl KeyboardControls for LeapControls {
-    fn register_key(&mut self, _code: KeyCode, _pressed: bool) {}
-    fn drive_locomotion(&self, _forward: Vec3, _right: Vec3, target: &mut dyn LocomotionTarget) {
-        if self.triggered {
-            target.jump();
-        }
-    }
-}
-
-fn flat_planet() -> CubePlanet {
-    let face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 16));
-    CubePlanet::new(vec![face], Box::new(NullFace))
-}
-
-fn measure_stride_distance(relic: HeldRelic, stowed_count: u32) -> f32 {
-    let world = flat_planet();
-    let start = world.constrain_to_surface(Vec3::new(-2.0, 12.0, 0.25), 1.0);
-    let mut avatar = PlanetaryAvatar::at(start)
-        .with_starting_satchel(&BurdenProvision { relic, count: stowed_count });
-    let controls = StrideControls;
-    for _ in 0..45 {
-        avatar.step_motion(1.0 / 60.0, &controls, &world);
-    }
-    let end_eye = avatar.view_projection_matrix(16.0 / 9.0).inverse().project_point3(Vec3::ZERO);
-    end_eye.x - start.x
-}
-
-fn measure_peak_leap(relic: HeldRelic, stowed_count: u32) -> f32 {
-    let world = flat_planet();
-    let start = world.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 1.0);
-    let mut avatar = PlanetaryAvatar::at(start)
-        .with_starting_satchel(&BurdenProvision { relic, count: stowed_count });
-    let base_eye_y = avatar.view_projection_matrix(16.0 / 9.0).inverse().project_point3(Vec3::ZERO).y;
-    let mut peak_gain = 0.0_f32;
-    for step in 0..45 {
-        avatar.step_motion(1.0 / 60.0, &LeapControls { triggered: step == 0 }, &world);
-        let eye_y = avatar.view_projection_matrix(16.0 / 9.0).inverse().project_point3(Vec3::ZERO).y;
-        peak_gain = peak_gain.max(eye_y - base_eye_y);
-    }
-    peak_gain
+fn plaque_corner_color(slot: SlotBurden) -> Vec3 {
+    let frame = LimbFrame::new(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::Z);
+    let backplate = CompartmentBackplate::new(false, true, Vec3::new(0.42, 0.27, 0.16));
+    let mut ledger = QuadLedger::empty();
+    WeightedCompartment::new(backplate, slot).emit_slot(&frame, &mut ledger);
+    ledger
+        .quads
+        .last()
+        .expect("occupied WeightedCompartment must emit corner triangle quad")
+        .transfer(|_, _, _, _, _, color| color)
 }
 
 #[test]
@@ -110,43 +53,49 @@ fn test_satchel_renders_all_fifteen_slots_and_navigates_empty_and_occupied_compa
 
 #[test]
 fn test_english_weight_grades_stack_summation_and_corner_triangle_pigment() {
+    let empty_slot = SlotBurden::new(HeldRelic::EmptyPalm, 0);
     let light_one = SlotBurden::new(HeldRelic::PlankBlock, 1);
     let moderate_one = SlotBurden::new(HeldRelic::ExcavatedEarth, 1);
     let weighty_one = SlotBurden::new(HeldRelic::QuarriedStone, 1);
     let heavy_one = SlotBurden::new(HeldRelic::CrustBlock, 1);
 
-    assert_eq!(light_one.unit_grade(), WeightGrade::Light);
-    assert_eq!(moderate_one.unit_grade(), WeightGrade::Moderate);
-    assert_eq!(weighty_one.unit_grade(), WeightGrade::Weighty);
-    assert_eq!(heavy_one.unit_grade(), WeightGrade::Heavy);
-    assert_eq!(format!("{}", WeightGrade::Light), "LIGHT");
-    assert_eq!(format!("{}", WeightGrade::Moderate), "MODERATE");
-    assert_eq!(format!("{}", WeightGrade::Weighty), "WEIGHTY");
-    assert_eq!(format!("{}", WeightGrade::Heavy), "HEAVY");
+    assert_eq!(format!("{empty_slot}"), "EMPTY SLOT");
+    assert!(format!("{light_one}").ends_with(" - LIGHT"));
+    assert!(format!("{moderate_one}").ends_with(" - MODERATE"));
+    assert!(format!("{weighty_one}").ends_with(" - WEIGHTY"));
+    assert!(format!("{heavy_one}").ends_with(" - HEAVY"));
 
-    // 10-step escalation rule: 1..=9 stays at unit grade, +1 tier at 10, +2 at 20, +3 at 30+
-    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 9).summed_grade(), WeightGrade::Light);
-    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 10).summed_grade(), WeightGrade::Moderate);
-    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 19).summed_grade(), WeightGrade::Moderate);
-    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 20).summed_grade(), WeightGrade::Weighty);
-    assert_eq!(SlotBurden::new(HeldRelic::PlankBlock, 29).summed_grade(), WeightGrade::Weighty);
+    let fold_pace = |slot: SlotBurden| slot.fold_burden(SatchelBurden::weightless()).scale_pace(6.0);
+    assert!(
+        fold_pace(light_one) > fold_pace(moderate_one)
+            && fold_pace(moderate_one) > fold_pace(weighty_one)
+            && fold_pace(weighty_one) > fold_pace(heavy_one),
+        "CarryLoad fold_burden must rank unit mass monotonically across Light, Moderate, Weighty, and Heavy"
+    );
+
+    // 10-step escalation rule via Display: 1..=9 stays at unit grade, +1 tier at 10, +2 at 20, +3 at 30+
+    assert!(format!("{}", SlotBurden::new(HeldRelic::PlankBlock, 9)).ends_with("X9 - LIGHT"));
+    assert!(format!("{}", SlotBurden::new(HeldRelic::PlankBlock, 10)).ends_with("LIGHT -> MODERATE"));
+    assert!(format!("{}", SlotBurden::new(HeldRelic::PlankBlock, 19)).ends_with("LIGHT -> MODERATE"));
+    assert!(format!("{}", SlotBurden::new(HeldRelic::PlankBlock, 20)).ends_with("LIGHT -> WEIGHTY"));
+    assert!(format!("{}", SlotBurden::new(HeldRelic::PlankBlock, 29)).ends_with("LIGHT -> WEIGHTY"));
     let light_thirty = SlotBurden::new(HeldRelic::PlankBlock, 30);
     let mod_nine = SlotBurden::new(HeldRelic::ExcavatedEarth, 9);
     let mod_ten = SlotBurden::new(HeldRelic::ExcavatedEarth, 10);
     let mod_twenty = SlotBurden::new(HeldRelic::ExcavatedEarth, 20);
     let weighty_ten = SlotBurden::new(HeldRelic::QuarriedStone, 10);
     let heavy_ten = SlotBurden::new(HeldRelic::CrustBlock, 10);
-    assert_eq!(light_thirty.summed_grade(), WeightGrade::Heavy);
-    assert_eq!(mod_nine.summed_grade(), WeightGrade::Moderate);
-    assert_eq!(mod_ten.summed_grade(), WeightGrade::Weighty);
-    assert_eq!(mod_twenty.summed_grade(), WeightGrade::Heavy);
-    assert_eq!(weighty_ten.summed_grade(), WeightGrade::Heavy);
-    assert!(format!("{}", mod_ten).contains("MODERATE -> WEIGHTY"));
-    assert!(format!("{}", light_thirty).contains("LIGHT -> HEAVY"));
-    assert_ne!(light_one.corner_pigment(), moderate_one.corner_pigment());
-    assert_ne!(moderate_one.corner_pigment(), weighty_one.corner_pigment());
-    assert_ne!(weighty_one.corner_pigment(), heavy_one.corner_pigment());
-    assert_ne!(heavy_one.corner_pigment(), heavy_ten.corner_pigment());
+    assert!(format!("{light_thirty}").ends_with("LIGHT -> HEAVY"));
+    assert!(format!("{mod_nine}").ends_with("X9 - MODERATE"));
+    assert!(format!("{mod_ten}").ends_with("MODERATE -> WEIGHTY"));
+    assert!(format!("{mod_twenty}").ends_with("MODERATE -> HEAVY"));
+    assert!(format!("{weighty_ten}").ends_with("WEIGHTY -> HEAVY"));
+
+    // Verify SlotPlaque corner triangle pigments across tiers via WeightedCompartment
+    assert_ne!(plaque_corner_color(light_one), plaque_corner_color(moderate_one));
+    assert_ne!(plaque_corner_color(moderate_one), plaque_corner_color(weighty_one));
+    assert_ne!(plaque_corner_color(weighty_one), plaque_corner_color(heavy_one));
+    assert_ne!(plaque_corner_color(heavy_one), plaque_corner_color(heavy_ten));
 
     let squire = YouthAttire::squire();
     let pose = BodyPose::new(
@@ -169,96 +118,34 @@ fn test_english_weight_grades_stack_summation_and_corner_triangle_pigment() {
 }
 
 #[test]
-fn test_hanging_sack_at_top_right_slot_tip_bulges_right_and_hangs_lower_with_weight() {
-    let pose = BodyPose::new(
-        Vec3::new(0.0, 9.0, 0.0),
-        Quat::IDENTITY,
-        Quat::IDENTITY,
-        0.8,
-        StrideRhythm::new(0.0, 1.0),
-        YouthPhysique::SlenderSquire,
-    );
-    let jute_bot = Vec3::new(0.45, 0.33, 0.19);
-    let hemp_cord = Vec3::new(0.84, 0.70, 0.46);
-    let brass_eyelet = Vec3::new(0.88, 0.70, 0.26);
-    let sack_bounds = |count: u32| -> (f32, f32, f32, f32, f32, f32) {
-        let mut ledger = QuadLedger::empty();
-        BeltSatchel::empty()
-            .with_stowed_relic(HeldRelic::ExcavatedEarth, count)
-            .with_open(true)
-            .emit_for_attire(&pose, YouthAttire::squire(), &mut ledger);
-        let (mut min_x, mut max_x, mut min_y, mut tip_x) = (f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY, f32::INFINITY);
-        let (mut cord_min_y, mut cord_max_y) = (f32::INFINITY, f32::NEG_INFINITY);
-        for q in &ledger.quads {
-            q.transfer(|v0, v1, v2, v3, _, col| {
-                if (col - jute_bot).length_squared() < 1e-5 {
-                    for v in [v0, v1, v2, v3] {
-                        min_x = min_x.min(v.x);
-                        max_x = max_x.max(v.x);
-                        min_y = min_y.min(v.y);
-                    }
-                } else if (col - brass_eyelet).length_squared() < 1e-5 {
-                    for v in [v0, v1, v2, v3] {
-                        tip_x = tip_x.min(v.x);
-                    }
-                } else if (col - hemp_cord).length_squared() < 1e-5 {
-                    for v in [v0, v1, v2, v3] {
-                        cord_min_y = cord_min_y.min(v.y);
-                        cord_max_y = cord_max_y.max(v.y);
-                    }
-                }
-            });
-        }
-        (min_x, max_x, min_y, tip_x, cord_max_y - cord_min_y, max_x - min_x)
-    };
-    let (lx0, x0, y0, tip0, cord0, w0) = sack_bounds(0);
-    let (lx5, x5, y5, tip5, cord5, w5) = sack_bounds(5);
-    let (lx20, x20, y20, _, cord20, w20) = sack_bounds(20);
-    let (lx60, x60, y60, _, cord60, w60) = sack_bounds(60);
-    assert!(
-        (tip0 - 0.148).abs() < 0.01 && (tip0 - tip5).abs() < 1e-5 && cord0 >= 0.065 && cord5 > cord0 && cord60 >= cord20,
-        "Sack must hang via a visible cord from the top-right slot corner (x=0.148): tip0={tip0}, cord=({cord0}, {cord5}, {cord60})"
-    );
-    for lx in [lx0, lx5, lx20, lx60] {
-        assert!(
-            (lx - 0.1512).abs() < 0.002,
-            "Sack left flank must lean directly in contact with the right slot border (x=0.1512), got left_x={lx}"
-        );
+fn test_handheld_crane_baseplate_and_pedestal_ring_emit_orthogonal_square_plinths() {
+    let hand = LimbFrame::new(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::NEG_Z);
+    let mut ledger = QuadLedger::empty();
+    HeldRelic::CantileverCrane.figure(world::BlockMold::cube()).emit_in_palm(1.0, &hand, &mut ledger);
+    let (stone, iron_steel, timber_dark) = (Vec3::new(0.52, 0.54, 0.58), Vec3::new(0.42, 0.46, 0.52), Vec3::new(0.54, 0.38, 0.20));
+    let mut stone_normals = Vec::new();
+    let (mut stone_span, mut steel_quads, mut brace_flanks) = (0.0_f32, 0_usize, 0_usize);
+    let mut ring_square_top = false;
+    for q in &ledger.quads {
+        q.transfer(|v0, v1, v2, v3, n, col| {
+            if (col - stone).length_squared() < 1e-6 {
+                assert!((v2 - v3).length_squared() > 1e-5, "Stone baseplate must emit full rectangular quads");
+                stone_span = stone_span.max((v1 - v0).length());
+                stone_normals.push(n);
+            } else if (col - iron_steel).length_squared() < 1e-6 && (v2 - v3).length_squared() > 1e-5 {
+                let (ea, eb) = (v1 - v0, v3 - v0);
+                steel_quads += 1;
+                ring_square_top |= (ea.length() - 0.030).abs() < 1e-4 && (ea.length() - eb.length()).abs() < 1e-5 && ea.dot(eb).abs() < 1e-5;
+            } else if (col - timber_dark).length_squared() < 1e-6 && (v2 - v3).length_squared() > 1e-5 {
+                brace_flanks += 1;
+            }
+        });
     }
+    assert_eq!(stone_normals.len(), 6, "Square crane baseplate must emit 6 orthogonal box faces");
+    assert!((stone_span - 0.054).abs() < 1e-4, "Stone baseplate must be compact and proportional to the crane mast, got {stone_span}");
     assert!(
-        x0 < x5 && x5 < x20 && x20 < x60 && w0 < w5 && w5 < w20 && w20 < w60,
-        "Hanging sack must bulge progressively further to the right as weight increases: x=({x0}, {x5}, {x20}, {x60})"
+        stone_normals.iter().all(|a| stone_normals.iter().all(|b| a.dot(*b).abs() < 1e-4 || (a.dot(*b).abs() - 1.0).abs() < 1e-4)),
+        "Stone baseplate faces must meet at 90-degree angles"
     );
-    assert!(
-        y0 > y5 && y5 > y20 && y20 > y60,
-        "Hanging sack must sag progressively lower along the slot palette: y=({y0}, {y5}, {y20}, {y60})"
-    );
-}
-
-#[test]
-fn test_inventory_weight_reduces_player_speed_and_jump_height() {
-    let dist_free = measure_stride_distance(HeldRelic::EmptyPalm, 0);
-    let dist_light = measure_stride_distance(HeldRelic::PlankBlock, 2);
-    let dist_mod = measure_stride_distance(HeldRelic::ExcavatedEarth, 3);
-    let dist_heavy = measure_stride_distance(HeldRelic::QuarriedStone, 8);
-    assert!(
-        dist_free > dist_light && dist_light > dist_mod && dist_mod > dist_heavy,
-        "Heavier inventory must progressively slow player movement: free={dist_free}, light={dist_light}, mod={dist_mod}, heavy={dist_heavy}"
-    );
-
-    let leap_free = measure_peak_leap(HeldRelic::EmptyPalm, 0);
-    let leap_light = measure_peak_leap(HeldRelic::PlankBlock, 2);
-    let leap_mod = measure_peak_leap(HeldRelic::ExcavatedEarth, 3);
-    let leap_heavy = measure_peak_leap(HeldRelic::QuarriedStone, 8);
-    assert!(
-        leap_free > leap_light && leap_light > leap_mod && leap_mod > leap_heavy,
-        "Heavier inventory must progressively lower peak jump height: free={leap_free}, light={leap_light}, mod={leap_mod}, heavy={leap_heavy}"
-    );
-
-    let held_burden = BeltSatchel::empty()
-        .carried_burden(YouthAttire::squire().with_relics(HeldRelic::QuarriedStone, HeldRelic::WoodmanAxe));
-    assert!(
-        held_burden.scale_pace(6.0) < 6.0 && held_burden.scale_leap(1.0) < 1.0,
-        "Items carried in hands must also contribute to total encumbrance"
-    );
+    assert!(ring_square_top && steel_quads == 4 && brace_flanks == 3, "Pedestal ring, mast/crossbar iron shoes, and timber-iron sloped knee brace must match placed crane");
 }

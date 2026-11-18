@@ -98,4 +98,21 @@ impl AvatarBearing {
     pub fn advance_stride(&mut self, prev_pos: Vec3, next_pos: Vec3, terrain_up: Vec3, dt: f32) {
         self.rhythm = self.rhythm.advance(prev_pos, next_pos, terrain_up, dt);
     }
+
+    pub fn step_vehicle_stride(&mut self, driving: bool, pos: Vec3, terrain_up: Vec3, dt: f32) {
+        if driving {
+            self.calm();
+        } else {
+            self.advance_stride(pos, pos, terrain_up, dt);
+        }
+        self.decay_tilt(dt);
+    }
+
+    pub fn step_perish_pulse(&mut self, dt: f32, beat: bool) {
+        self.tilt_perish(dt);
+        if beat {
+            use acoustics::AcousticWave;
+            acoustics::MonitoredPulse::clinical().thump();
+        }
+    }
 }

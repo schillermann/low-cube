@@ -18,7 +18,7 @@ pub enum TrayState {
     Open,
 }
 
-/// Encapsulates stowed satchel items, WASD inspection cursor, and waist-grid rendering.
+/// Immutable waist satchel tray encapsulating stowed items, WASD inspection cursor, and waist-grid rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SatchelTray {
     stowed: [u32; HeldRelic::COUNT],
@@ -41,31 +41,29 @@ impl SatchelTray {
         (self.active_side > 0.0, self.active_side < 0.0)
     }
 
-    pub const fn with_open(mut self, open: bool) -> Self {
-        self.state = if open { TrayState::Open } else { TrayState::Closed };
-        self
+    pub const fn with_open(self, open: bool) -> Self {
+        let next_state = if open { TrayState::Open } else { TrayState::Closed };
+        Self::new(self.stowed, self.active_side, self.cursor, next_state)
     }
 
-    pub fn close(&mut self) {
-        self.state = TrayState::Closed;
+    pub const fn closed(self) -> Self {
+        self.with_open(false)
     }
 
-    pub fn focus_side(&mut self, side: f32) {
-        self.active_side = if side > 0.0 { 1.0 } else { -1.0 };
+    pub fn focused_on(self, side: f32) -> Self {
+        let next_side = if side > 0.0 { 1.0 } else { -1.0 };
+        Self::new(self.stowed, next_side, self.cursor, self.state)
     }
 
-    pub fn open_if_populated(&mut self, side: f32) -> bool {
+    pub fn opened_if_populated(self, side: f32) -> (Self, bool) {
         let (slots, len) = self.packed_slots();
         if len == 0 {
-            return false;
+            return (self, false);
         }
-        self.state = TrayState::Open;
-        self.cursor = self.cursor.min(TRAY_SLOTS - 1);
-        if slots[self.cursor].free_palm() {
-            self.cursor = 0;
-        }
-        self.focus_side(side);
-        true
+        let clamped = self.cursor.min(TRAY_SLOTS - 1);
+        let next_cursor = if slots[clamped].free_palm() { 0 } else { clamped };
+        let opened = Self::new(self.stowed, self.active_side, next_cursor, TrayState::Open).focused_on(side);
+        (opened, true)
     }
 
     pub fn selected_relic(&self) -> HeldRelic {
@@ -99,54 +97,55 @@ impl SatchelTray {
         (slots, len)
     }
 
-    pub fn stow_relic(&mut self, relic: HeldRelic, count: u32) {
-        if relic.gripped() {
-            let idx_code = relic.code() as usize;
-            self.stowed[idx_code] = self.stowed[idx_code].saturating_add(count.max(1));
-            let (slots, len) = self.packed_slots();
-            if let Some(idx) = slots[..len].iter().position(|&r| r == relic) {
-                self.cursor = idx;
-            }
+    pub fn stowed_with(mut self, relic: HeldRelic, count: u32) -> Self {
+        if !relic.gripped() {
+            return self;
         }
-    }
-
-    pub fn take_stowed(&mut self, relic: HeldRelic) -> bool {
-        let slot = &mut self.stowed[relic.code() as usize];
-        if *slot > 0 {
-            *slot -= 1;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn toggle_open(&mut self) {
+        let idx_code = relic.code() as usize;
+        self.stowed[idx_code] = self.stowed[idx_code].saturating_add(count.max(1));
         let (slots, len) = self.packed_slots();
-        self.state = if self.open() { TrayState::Closed } else { TrayState::Open };
-        if self.open() {
-            self.cursor = self.cursor.min(TRAY_SLOTS - 1);
-            if slots[self.cursor].free_palm() && len > 0 {
-                self.cursor = 0;
-            }
+        let next_cursor = slots[..len].iter().position(|&r| r == relic).unwrap_or(self.cursor);
+        Self::new(self.stowed, self.active_side, next_cursor, self.state)
+    }
+
+    pub const fn taken_stowed(mut self, relic: HeldRelic) -> (Self, bool) {
+        let idx = relic.code() as usize;
+        if self.stowed[idx] > 0 {
+            self.stowed[idx] -= 1;
+            (self, true)
+        } else {
+            (self, false)
         }
     }
 
-    pub fn navigate(&mut self, dx: i32, dy: i32) -> bool {
+    pub fn toggled_open(self) -> Self {
+        if self.open() {
+            return self.closed();
+        }
+        let (slots, len) = self.packed_slots();
+        let clamped = self.cursor.min(TRAY_SLOTS - 1);
+        let next_cursor = if slots[clamped].free_palm() && len > 0 { 0 } else { clamped };
+        Self::new(self.stowed, self.active_side, next_cursor, TrayState::Open)
+    }
+
+    pub const fn navigated(self, dx: i32, dy: i32) -> (Self, bool) {
         if !self.open() {
-            return false;
+            return (self, false);
         }
-        let cur = self.cursor.min(TRAY_SLOTS - 1);
+        let cur = if self.cursor < TRAY_SLOTS { self.cursor } else { TRAY_SLOTS - 1 };
         let (col, row) = (cur % 3, cur / 3);
-        if dy > 0 {
-            self.cursor = ((row + 1) % 5) * 3 + col;
+        let next_cursor = if dy > 0 {
+            ((row + 1) % 5) * 3 + col
         } else if dy < 0 {
-            self.cursor = ((row + 4) % 5) * 3 + col;
+            ((row + 4) % 5) * 3 + col
         } else if dx > 0 {
-            self.cursor = (cur + 1) % TRAY_SLOTS;
+            (cur + 1) % TRAY_SLOTS
         } else if dx < 0 {
-            self.cursor = (cur + TRAY_SLOTS - 1) % TRAY_SLOTS;
-        }
-        true
+            (cur + TRAY_SLOTS - 1) % TRAY_SLOTS
+        } else {
+            cur
+        };
+        (Self::new(self.stowed, self.active_side, next_cursor, self.state), true)
     }
 
     pub fn emit_with_burden(&self, pose: &BodyPose, burden: SatchelBurden, target: &mut dyn MeshTarget) {

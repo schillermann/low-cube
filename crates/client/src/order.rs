@@ -3,7 +3,7 @@ use world::PlanetaryWorld;
 use crate::attire::SatchelBurden;
 use crate::controls::LocomotionTarget;
 use crate::flight::GravitationalFlight;
-use crate::gait::{LocomotionGait, SneakGait, SprintGait, WalkGait};
+use crate::gait::{BurdenedGait, LocomotionGait, SneakGait, SprintGait, WalkGait};
 use crate::lens::PerspectiveLens;
 use crate::phase::{FlightContext, FlightProgress};
 use crate::posture::AvatarPosture;
@@ -17,10 +17,10 @@ pub enum LeapIntent {
 }
 
 impl LeapIntent {
-    pub fn apply(&self, flight: &mut dyn GravitationalFlight, burden: SatchelBurden) {
+    pub fn apply(&self, flight: &mut dyn GravitationalFlight) {
         match self {
             Self::Resting => {}
-            Self::Active => flight.jump_burdened(burden),
+            Self::Active => flight.jump(),
         }
     }
 }
@@ -39,6 +39,14 @@ impl LocomotionGait for ActiveGait {
             Self::Walk(g) => g.pace_distance(distance),
             Self::Sneak(g) => g.pace_distance(distance),
             Self::Sprint(g) => g.pace_distance(distance),
+        }
+    }
+
+    fn pace_leap(&self, leap_speed: f32) -> f32 {
+        match self {
+            Self::Walk(g) => g.pace_leap(leap_speed),
+            Self::Sneak(g) => g.pace_leap(leap_speed),
+            Self::Sprint(g) => g.pace_leap(leap_speed),
         }
     }
 
@@ -84,12 +92,12 @@ impl LocomotionGait for ActiveGait {
 pub struct LocomotionOrder {
     direction: Vec3,
     leap: LeapIntent,
-    gait: ActiveGait,
+    gait: BurdenedGait<ActiveGait>,
 }
 
 impl LocomotionOrder {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(direction: Vec3, leap: LeapIntent, gait: ActiveGait) -> Self {
+    pub const fn new(direction: Vec3, leap: LeapIntent, gait: BurdenedGait<ActiveGait>) -> Self {
         Self {
             direction,
             leap,
@@ -97,9 +105,18 @@ impl LocomotionOrder {
         }
     }
 
-    /// Secondary constructor initializing with idle state and walking gait.
+    /// Secondary constructor initializing with idle state and weightless walking gait.
     pub fn idle() -> Self {
-        Self::new(Vec3::ZERO, LeapIntent::Resting, ActiveGait::Walk(WalkGait::upright()))
+        Self::new(
+            Vec3::ZERO,
+            LeapIntent::Resting,
+            BurdenedGait::new(ActiveGait::Walk(WalkGait::upright()), SatchelBurden::weightless()),
+        )
+    }
+
+    /// Decorates this order's gait with the given carried satchel burden.
+    pub fn with_burden(self, burden: SatchelBurden) -> Self {
+        Self::new(self.direction, self.leap, self.gait.with_burden(burden))
     }
 
     /// Computes the horizontal stride aligned with a surface normal for a given distance scaled by gait pace.
@@ -113,9 +130,9 @@ impl LocomotionOrder {
         }
     }
 
-    /// Dispatches leap command scaled by carried burden to flight entity.
-    pub fn dispatch_jump(&self, flight: &mut dyn GravitationalFlight, burden: SatchelBurden) {
-        self.leap.apply(flight, burden);
+    /// Dispatches leap command to flight entity.
+    pub fn dispatch_jump(&self, flight: &mut dyn GravitationalFlight) {
+        self.leap.apply(flight);
     }
 
     /// Advances avatar posture towards this order's active gait across elapsed time.
@@ -153,10 +170,10 @@ impl LocomotionTarget for LocomotionOrder {
     }
 
     fn sneak(&mut self) {
-        self.gait = ActiveGait::Sneak(SneakGait::crouching());
+        self.gait = self.gait.with_origin(ActiveGait::Sneak(SneakGait::crouching()));
     }
 
     fn sprint(&mut self) {
-        self.gait = ActiveGait::Sprint(SprintGait::swift());
+        self.gait = self.gait.with_origin(ActiveGait::Sprint(SprintGait::swift()));
     }
 }

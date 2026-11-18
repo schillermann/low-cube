@@ -1,9 +1,10 @@
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, CameraMount, SatchelBurden, SightMode, StrideRhythm, YouthAttire};
+use crate::attire::{BodyPose, CameraMount, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
 use crate::envelope::BodyEnvelope;
+use crate::order::LocomotionOrder;
 use fauna::WoodlandFauna;
 use crate::server_satchel::StartingSatchel;
 use super::bearing::AvatarBearing;
@@ -35,8 +36,8 @@ impl AvatarGear {
         self.attire.body_envelope().with_crouch_and_facing(0.0, facing)
     }
 
-    pub fn carried_burden(&self) -> SatchelBurden {
-        self.earthworks.carried_burden(self.attire)
+    pub fn encumber_order(&self, order: LocomotionOrder) -> LocomotionOrder {
+        self.earthworks.encumber_order(self.attire, order)
     }
 
     pub fn shaft_yaw_play(&self) -> f32 {
