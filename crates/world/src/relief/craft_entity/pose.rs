@@ -1,6 +1,7 @@
 use glam::{Quat, Vec3};
 use crate::frame::SurfaceFrame;
-use super::super::vehicle_assembly::{push_vec3, read_vec3, VehicleAxes};
+use crate::wire_vector::{WireSlice, WireVector};
+use super::super::vehicle_assembly::VehicleAxes;
 
 /// Compact 68-byte pose and wheel state of a living vehicle on the World-Cube.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -91,9 +92,9 @@ impl CraftPose {
     }
 
     pub fn inscribe(&self, out: &mut Vec<u8>) {
-        push_vec3(self.origin, out);
+        WireVector::new(self.origin).inscribe(out);
         self.axes.inscribe(out);
-        push_vec3(self.heading, out);
+        WireVector::new(self.heading).inscribe(out);
         out.extend_from_slice(&self.wheel_motion.0.to_le_bytes());
         out.extend_from_slice(&self.wheel_motion.1.to_le_bytes());
     }
@@ -102,9 +103,9 @@ impl CraftPose {
         if bytes.len() < 68 {
             return None;
         }
-        let origin = read_vec3(&bytes[0..12])?;
+        let origin = WireSlice::new(&bytes[0..12]).vec3()?;
         let (axes, _) = VehicleAxes::decode(&bytes[12..48])?;
-        let heading = read_vec3(&bytes[48..60])?;
+        let heading = WireSlice::new(&bytes[48..60]).vec3()?;
         if heading.length_squared() < 0.25 {
             return None;
         }

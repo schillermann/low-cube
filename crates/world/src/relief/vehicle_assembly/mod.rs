@@ -1,3 +1,4 @@
+mod axes;
 mod part;
 
 use glam::Vec3;
@@ -7,8 +8,8 @@ use super::craft_cluster::CraftCluster;
 use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose};
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
-pub use self::part::{VehicleAxes, VehiclePart};
-pub(in crate::relief) use self::part::{push_vec3, read_vec3, ShiftedMeshTarget};
+pub use self::axes::VehicleAxes;
+pub use self::part::VehiclePart;
 
 /// Drivable multi-block vehicle assembly uniting its immutable `CraftBlueprint` and live `CraftPose`.
 #[derive(Clone, Debug, PartialEq)]
@@ -110,11 +111,13 @@ impl VehicleAssembly {
     ) -> (CraftIdentity, CraftCluster, (i32, i32)) {
         let id = self.blueprint.identity();
         let lift = self.blueprint.wheel_ground_lift();
-        let seat = frame.cell_at(self.pose.origin()).feed_coordinates(|cu, cv| (cu, cv));
-        let turn = self.pose.axes().cardinal_turn(frame);
+        let raw_seat = frame.cell_at(self.pose.origin()).feed_coordinates(|cu, cv| (cu, cv));
+        let basis = self.pose.axes().grid_basis(frame);
+        let half_cells = (frame.height_of(frame.point_at(0.0, 0.0, 0.0)) * 2.0).round() as i32;
+        let seat = self.blueprint.clamped_seat(raw_seat, basis, half_cells);
         let mut craft = CraftCluster::untouched();
         for part in self.blueprint.into_parts() {
-            part.park_into(seat, turn, lift, &mut craft, strata, shafts);
+            part.park_into(seat, basis, lift, &mut craft, strata, shafts);
         }
         (id, craft, seat)
     }

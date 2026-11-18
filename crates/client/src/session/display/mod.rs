@@ -96,9 +96,7 @@ impl SessionDisplay {
     }
 
     pub(super) fn refresh_meadow_slice(&mut self, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
-        let (ax, ay, az) = avatar.meadow_anchor();
-        let pos = glam::Vec3::new((ax as f32) * 0.5, (ay as f32) * 0.5, (az as f32) * 0.5);
-        let mask = world.visible_slice_mask(pos);
+        let mask = avatar.visible_slices(world);
         self.shaded.select_visible(mask);
         self.tron.select_visible(mask);
         let (pass, surface) = self.active_pass_and_surface();

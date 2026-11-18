@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.81.0] - 2026-11-18
+
+### Added
+- Added seamless 90-degree planetary cube-seam traversal for land vehicles via the zero-allocation `SlidingRoad(BumperRoad(GradedRoad(SeamRoad)))` `RoadProbe` decorator chain (`crates/client/src/drive/road.rs`), `WheelTrack` and `FaceContact` (`crates/client/src/drive/track.rs`), `PassengerBerth` (`crates/client/src/drive/passenger.rs`), and `AvatarSight::reorient_cockpit` / `HorizonPacing` (`crates/client/src/avatar/sight.rs`), enabling continuous 360-degree circumnavigation, `0.5m` step climbs, `1.0m` wall arrest, and multiplayer driver + passenger seam crossings.
+- Added handedness-aware 2x2 grid basis projection (`VehicleAxes::grid_basis` in `crates/world/src/relief/vehicle_assembly/axes.rs`, `VehiclePart::park_into` in `crates/world/src/relief/vehicle_assembly/part.rs`, `CraftBlueprint::clamped_seat` in `crates/world/src/relief/craft_entity/blueprint.rs`, and canonical orientation normalization in `CraftCluster::into_vehicle_with_id` in `crates/world/src/relief/craft_cluster/mod.rs`) so vehicles park within face bounds and re-board without left/right mirroring across all six cube faces.
+
+### Changed
+- Converted `DriveKinematics` (`crates/client/src/drive/mod.rs`) into an immutable value object, encapsulated `PedalInput` fields privately with Tell-Don't-Ask dismount methods, replaced quantized `meadow_anchor` with face-aware `sector_stamp`, `visible_slices`, and `drain_meadow` (`crates/client/src/avatar/body.rs`), and unified 12-byte finite vector wire serialization in `WireVector` / `WireSlice` (`crates/world/src/wire_vector.rs`) eliminating duplicate procedural `push_vec3` / `read_vec3` functions.
+
 ## [0.80.0] - 2026-11-18
 
 ### Added

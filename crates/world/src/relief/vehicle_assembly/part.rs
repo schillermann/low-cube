@@ -1,50 +1,12 @@
-use glam::{Quat, Vec3};
-use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape};
+use glam::Vec3;
+use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape, WedgeHeading};
 use crate::frame::SurfaceFrame;
-use crate::{MeshTarget, Quad};
+use crate::MeshTarget;
 use super::super::craft_cluster::CraftCluster;
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
 
 pub(in crate::relief) const BLOCK_STEP: f32 = GridCell::SPAN;
-
-pub(in crate::relief) fn push_vec3(v: Vec3, out: &mut Vec<u8>) {
-    out.extend_from_slice(&v.x.to_le_bytes());
-    out.extend_from_slice(&v.y.to_le_bytes());
-    out.extend_from_slice(&v.z.to_le_bytes());
-}
-
-pub(in crate::relief) fn read_vec3(bytes: &[u8]) -> Option<Vec3> {
-    if bytes.len() < 12 {
-        return None;
-    }
-    let v = Vec3::new(
-        f32::from_le_bytes(bytes[0..4].try_into().ok()?),
-        f32::from_le_bytes(bytes[4..8].try_into().ok()?),
-        f32::from_le_bytes(bytes[8..12].try_into().ok()?),
-    );
-    v.is_finite().then_some(v)
-}
-
-pub(in crate::relief) struct ShiftedMeshTarget<'a> {
-    shift: Vec3,
-    inner: &'a mut dyn MeshTarget,
-}
-
-impl<'a> ShiftedMeshTarget<'a> {
-    pub(in crate::relief) fn new(shift: Vec3, inner: &'a mut dyn MeshTarget) -> Self {
-        Self { shift, inner }
-    }
-}
-
-impl<'a> MeshTarget for ShiftedMeshTarget<'a> {
-    fn push_quad(&mut self, quad: Quad) {
-        let (s, glow) = (self.shift, quad.radiate(|g| g));
-        self.inner.push_quad(quad.transfer(|v0, v1, v2, v3, norm, col| {
-            Quad::glowing(v0 + s, v1 + s, v2 + s, v3 + s, norm, col, glow)
-        }));
-    }
-}
 
 /// Single block component inside a drivable vehicle assembly relative to the cabin seat.
 pub struct VehiclePart {
@@ -81,6 +43,19 @@ impl VehiclePart {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(offset: (i32, i32), floor_offset: f32, shape: Box<dyn VoxelShape>) -> Self {
         Self { offset, floor_offset, shape }
+    }
+
+    pub(in crate::relief) fn expand_span(
+        &self,
+        basis: (i32, i32, i32, i32),
+        bounds: &mut (i32, i32, i32, i32),
+    ) {
+        let ((rxx, rxy, ryx, ryy), (ox, oy)) = (basis, self.offset);
+        let (du, dv) = (ox * rxx + oy * ryx, ox * rxy + oy * ryy);
+        bounds.0 = bounds.0.min(du);
+        bounds.1 = bounds.1.max(du);
+        bounds.2 = bounds.2.min(dv);
+        bounds.3 = bounds.3.max(dv);
     }
 
     pub(in crate::relief) fn inscribe(&self, out: &mut Vec<u8>) {
@@ -163,87 +138,33 @@ impl VehiclePart {
     pub(in crate::relief) fn park_into(
         mut self,
         seat: (i32, i32),
-        turn: (i32, i32, u8),
+        basis: (i32, i32, i32, i32),
         lift: f32,
         craft: &mut CraftCluster,
         strata: &NaturalStrata,
         shafts: &ShaftExcavation,
     ) {
-        let ((rxx, rxy, quarter_turns), (ox, oy)) = (turn, self.offset);
-        let (ryx, ryy) = (-rxy, rxx);
-        for _ in 0..quarter_turns {
+        let ((rxx, rxy, ryx, ryy), (ox, oy)) = (basis, self.offset);
+        let (hx, hy) = match self.shape.block_heading() {
+            WedgeHeading::East => (1, 0),
+            WedgeHeading::North => (0, 1),
+            WedgeHeading::West => (-1, 0),
+            WedgeHeading::South => (0, -1),
+        };
+        let target = match (hx * rxx + hy * ryx, hx * rxy + hy * ryy) {
+            (1, 0) => WedgeHeading::East,
+            (0, 1) => WedgeHeading::North,
+            (-1, 0) => WedgeHeading::West,
+            _ => WedgeHeading::South,
+        };
+        for _ in 0..4 {
+            if self.shape.block_heading() == target {
+                break;
+            }
             self.shape.rotate_quarter();
         }
         let (bu, bv) = (seat.0 + ox * rxx + oy * ryx, seat.1 + ox * rxy + oy * ryy);
         let ground_top = (shafts.elevation_at(strata, bu, bv) as f32) * BLOCK_STEP;
         craft.insert(bu, bv, ground_top + lift + self.floor_offset, self.shape);
-    }
-}
-
-/// Orthonormal coordinate axes of a drivable vehicle assembly on a planetary surface.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct VehicleAxes {
-    tangent: Vec3,
-    bitangent: Vec3,
-    normal: Vec3,
-}
-
-impl VehicleAxes {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(tangent: Vec3, bitangent: Vec3, normal: Vec3) -> Self {
-        Self { tangent, bitangent, normal }
-    }
-
-    pub const fn normal(self) -> Vec3 { self.normal }
-    pub(in crate::relief) fn surface_frame(self) -> SurfaceFrame { SurfaceFrame::new(self.tangent, self.bitangent, self.normal, 0.0) }
-
-    pub(in crate::relief) fn interpolated(self, target: Self, alpha: f32) -> Self {
-        let raw_n = self.normal.lerp(target.normal, alpha);
-        let n = if raw_n.length_squared() > 1e-6 { raw_n.normalize() } else { target.normal };
-        let raw_t = self.tangent.lerp(target.tangent, alpha);
-        let t_ortho = raw_t - n * raw_t.dot(n);
-        let t = if t_ortho.length_squared() > 1e-6 { t_ortho.normalize() } else { target.tangent };
-        let raw_b = self.bitangent.lerp(target.bitangent, alpha);
-        let b_ortho = raw_b - n * raw_b.dot(n) - t * raw_b.dot(t);
-        let b = if b_ortho.length_squared() > 1e-6 { b_ortho.normalize() } else { target.bitangent };
-        Self::new(t, b, n)
-    }
-
-    pub(in crate::relief) fn inscribe(self, out: &mut Vec<u8>) {
-        push_vec3(self.tangent, out);
-        push_vec3(self.bitangent, out);
-        push_vec3(self.normal, out);
-    }
-
-    pub(in crate::relief) fn decode(bytes: &[u8]) -> Option<(Self, usize)> {
-        if bytes.len() < 36 {
-            return None;
-        }
-        let t = read_vec3(&bytes[0..12])?;
-        let b = read_vec3(&bytes[12..24])?;
-        let n = read_vec3(&bytes[24..36])?;
-        if t.length_squared() < 0.25 || b.length_squared() < 0.25 || n.length_squared() < 0.25 {
-            return None;
-        }
-        Some((Self::new(t.normalize(), b.normalize(), n.normalize()), 36))
-    }
-
-    pub(in crate::relief) fn cardinal_turn(self, frame: &SurfaceFrame) -> (i32, i32, u8) {
-        let (du, dv) = (self.tangent.dot(frame.tangent()), self.tangent.dot(frame.bitangent()));
-        if du.abs() >= dv.abs() {
-            if du >= 0.0 { (1, 0, 0) } else { (-1, 0, 2) }
-        } else if dv >= 0.0 {
-            (0, 1, 1)
-        } else {
-            (0, -1, 3)
-        }
-    }
-
-    pub(in crate::relief) fn rotated(self, rot: Quat) -> Self {
-        Self::new(
-            (rot * self.tangent).normalize_or_zero(),
-            (rot * self.bitangent).normalize_or_zero(),
-            (rot * self.normal).normalize_or_zero(),
-        )
     }
 }

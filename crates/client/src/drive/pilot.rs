@@ -1,30 +1,23 @@
-use glam::{Mat3, Quat, Vec3};
+use glam::Vec3;
 use world::{CraftIdentity, MeshTarget, PilotCraft, PlanetaryWorld, VehicleAssembly};
 use crate::controls::KeyboardControls;
+use super::passenger::PassengerBerth;
+use super::track::FaceContact;
 use super::{DrivenCar, PedalInput, SEAT_EYE_SUPPORT};
 
 /// Polymorphic avatar driving and passenger state avoiding `Option<DrivenCar>`.
 pub enum VehiclePilot {
     Pedestrian,
     Perch(DrivenCar),
-    Passenger {
-        craft: CraftIdentity,
-        local_seat: Vec3,
-        seat_frame: (Vec3, Vec3, Vec3),
-    },
+    Passenger(PassengerBerth),
     Driving(DrivenCar),
 }
 
 impl VehiclePilot {
-    pub const fn standing(&self) -> bool {
-        matches!(self, Self::Pedestrian)
-    }
-    pub const fn seated(&self) -> bool {
-        matches!(self, Self::Perch(_) | Self::Passenger { .. })
-    }
-    pub const fn driving(&self) -> bool {
-        matches!(self, Self::Driving(_))
-    }
+    pub const fn standing(&self) -> bool { matches!(self, Self::Pedestrian) }
+    pub const fn seated(&self) -> bool { matches!(self, Self::Perch(_) | Self::Passenger(_)) }
+    pub const fn driving(&self) -> bool { matches!(self, Self::Driving(_)) }
+    pub const fn riding(&self) -> bool { matches!(self, Self::Driving(_) | Self::Passenger(_)) }
 
     pub fn mount(&mut self, assembly: VehicleAssembly, world: &dyn PlanetaryWorld) -> (Vec3, Vec3) {
         let heading = assembly.heading();
@@ -41,9 +34,8 @@ impl VehiclePilot {
         local_seat: Vec3,
         frame: (Vec3, Vec3, Vec3),
     ) -> (Vec3, Vec3) {
-        let (seat, heading, up) = frame;
-        let eye_pos = seat + up.normalize_or_zero() * (SEAT_EYE_SUPPORT + 0.12);
-        *self = Self::Passenger { craft, local_seat, seat_frame: frame };
+        let (berth, eye_pos, heading) = PassengerBerth::mounted(craft, local_seat, frame);
+        *self = Self::Passenger(berth);
         (eye_pos, heading)
     }
 
@@ -56,7 +48,7 @@ impl VehiclePilot {
             return None;
         }
         let fallback = match std::mem::replace(self, Self::Pedestrian) {
-            Self::Driving(car) => world.constrain_to_surface(car.perch_position(), SEAT_EYE_SUPPORT),
+            Self::Driving(car) => FaceContact::new(car.perch_position()).ground(SEAT_EYE_SUPPORT, world),
             _ => Vec3::ZERO,
         };
         Some(fallback)
@@ -66,16 +58,8 @@ impl VehiclePilot {
         match self {
             Self::Pedestrian => pose,
             Self::Perch(car) => pose.with_surface_rotation(car.body_rotation()).with_seated(1.0),
-            Self::Passenger { seat_frame: (_, raw_fwd, raw_up), .. } => {
-                let up = raw_up.normalize_or_zero();
-                let fwd = (*raw_fwd - up * raw_fwd.dot(up)).normalize_or_zero();
-                let right = fwd.cross(up).normalize_or_zero();
-                let rot = Quat::from_mat3(&Mat3::from_cols(right, up, -fwd)).normalize();
-                pose.with_surface_rotation(rot).with_seated(1.0)
-            }
-            Self::Driving(car) => {
-                pose.with_surface_rotation(car.body_rotation()).with_seated_steer(car.steer_turn())
-            }
+            Self::Passenger(berth) => berth.shape_pose(pose),
+            Self::Driving(car) => pose.with_surface_rotation(car.body_rotation()).with_seated_steer(car.steer_turn()),
         }
     }
 
@@ -95,45 +79,36 @@ impl VehiclePilot {
         dt: f32,
         controls: &dyn KeyboardControls,
         world: &dyn PlanetaryWorld,
-    ) -> Option<(Vec3, f32)> {
+    ) -> Option<(Vec3, Vec3, f32)> {
         match self {
             Self::Pedestrian => None,
             Self::Perch(car) => {
                 if !car.seat_intact(world) {
-                    let pos = world.constrain_to_surface(car.perch_position(), SEAT_EYE_SUPPORT);
+                    let pos = FaceContact::new(car.perch_position()).ground(SEAT_EYE_SUPPORT, world);
+                    let up = world.surface_up_at(pos);
                     *self = Self::Pedestrian;
-                    return Some((pos, 0.0));
+                    return Some((pos, up, 0.0));
                 }
                 let mut pedals = PedalInput::idle();
                 controls.drive_locomotion(Vec3::Y, Vec3::X, &mut pedals);
-                if pedals.throttle.abs() > 0.1 || pedals.steer.abs() > 0.1 {
-                    let exit = car.dismount_in_direction(pedals.throttle, pedals.steer, world);
+                if pedals.dismount_requested() {
+                    let exit = car.dismount_with(&pedals, world);
+                    let up = world.surface_up_at(exit);
                     *self = Self::Pedestrian;
-                    Some((exit, 0.0))
+                    Some((exit, up, 0.0))
                 } else {
-                    Some((car.perch_position(), 0.0))
+                    Some((car.perch_position(), car.chassis_up(), 0.0))
                 }
             }
-            Self::Passenger { craft, local_seat, ref mut seat_frame } => {
-                let Some((seat, heading, up_raw)) = world.passenger_seat_frame(*craft, *local_seat) else {
-                    let pos = world.constrain_to_surface(seat_frame.0 + seat_frame.2 * 1.2, SEAT_EYE_SUPPORT);
-                    *self = Self::Pedestrian;
-                    return Some((pos, 0.0));
-                };
-                *seat_frame = (seat, heading, up_raw);
-                let up = up_raw.normalize_or_zero();
+            Self::Passenger(berth) => {
                 let mut pedals = PedalInput::idle();
                 controls.drive_locomotion(Vec3::Y, Vec3::X, &mut pedals);
-                if pedals.throttle.abs() > 0.1 || pedals.steer.abs() > 0.1 {
-                    let fwd = (heading - up * heading.dot(up)).normalize_or_zero();
-                    let right = fwd.cross(up).normalize_or_zero();
-                    let dir = (fwd * pedals.throttle + right * pedals.steer).normalize_or_zero();
-                    let exit = world.constrain_to_surface(seat + dir * 1.15 + up * 2.0, SEAT_EYE_SUPPORT);
-                    *self = Self::Pedestrian;
-                    Some((exit, 0.0))
-                } else {
-                    Some((seat + up * (SEAT_EYE_SUPPORT + 0.12), 0.0))
-                }
+                let (next_berth, pos, up, steer_px) = berth.step(&pedals, world);
+                *self = match next_berth {
+                    Some(b) => Self::Passenger(b),
+                    None => Self::Pedestrian,
+                };
+                Some((pos, up, steer_px))
             }
             Self::Driving(car) => Some(car.step(dt, controls, world)),
         }
@@ -154,7 +129,7 @@ impl VehiclePilot {
     pub const fn pilot_craft(&self) -> PilotCraft {
         match self {
             Self::Driving(car) => car.pilot_craft(),
-            Self::Pedestrian | Self::Perch(_) | Self::Passenger { .. } => PilotCraft::Pedestrian,
+            Self::Pedestrian | Self::Perch(_) | Self::Passenger(_) => PilotCraft::Pedestrian,
         }
     }
 }

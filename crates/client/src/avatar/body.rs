@@ -45,7 +45,7 @@ impl AvatarBody {
     pub fn pace_boost(&self) -> f32 { self.posture.pace_boost() }
 
     pub fn visual_position(&self) -> Vec3 {
-        if self.berth.standing() || self.berth.driving() {
+        if self.berth.standing() || self.berth.riding() {
             self.span.visual()
         } else {
             self.span.current()
@@ -57,13 +57,22 @@ impl AvatarBody {
         self.berth.blend_subtick(alpha);
     }
 
-    pub fn meadow_anchor(&self) -> (i32, i32, i32) {
+    pub fn sector_stamp(&self) -> (u8, i32, i32, i32) {
         let p = self.span.current();
         (
+            world::ClimateZone::dominant(p).index() as u8,
             ((p.x * 0.125).floor() as i32) * 16,
             ((p.y * 0.125).floor() as i32) * 16,
             ((p.z * 0.125).floor() as i32) * 16,
         )
+    }
+
+    pub fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 {
+        world.visible_slice_mask(self.span.current())
+    }
+
+    pub fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
+        world.drain_stale_meadow_patch(self.span.current(), ring, target)
     }
 
     pub fn gore(&mut self, impulse: Vec3, world: &dyn PlanetaryWorld) {

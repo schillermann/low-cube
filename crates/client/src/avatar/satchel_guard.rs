@@ -159,8 +159,10 @@ impl<A: Avatar + AvatarCondition> Avatar for SatchelAvatar<A> {
         self.origin.emit_appearance_for_sight(sight, target);
     }
 
-    fn meadow_anchor(&self) -> (i32, i32, i32) {
-        self.origin.meadow_anchor()
+    fn sector_stamp(&self) -> (u8, i32, i32, i32) { self.origin.sector_stamp() }
+    fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 { self.origin.visible_slices(world) }
+    fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.origin.drain_meadow(world, ring, target)
     }
 
     fn take_photo_shutter(&mut self) -> PhotoShutter {

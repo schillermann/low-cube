@@ -10,6 +10,21 @@ use crate::order::LocomotionOrder;
 use crate::orientation::{SensitivityLook, ViewOrientation};
 use crate::posture::AvatarPosture;
 
+#[derive(Clone, Copy)]
+struct HorizonPacing {
+    snap_dot: f32,
+    surface_rate: f32,
+    camera_rate: f32,
+}
+
+impl HorizonPacing {
+    const fn new(snap_dot: f32, surface_rate: f32, camera_rate: f32) -> Self {
+        Self { snap_dot, surface_rate, camera_rate }
+    }
+    const fn pedestrian() -> Self { Self::new(0.7, 8.0, 4.0) }
+    const fn cockpit() -> Self { Self::new(-0.5, 20.0, 16.0) }
+}
+
 /// Encapsulated camera orientation, surface alignment, look sensitivity, and projection lens.
 pub struct AvatarSight {
     surface_rot: Quat,
@@ -48,23 +63,31 @@ impl AvatarSight {
         self.look.constrain_shoulders(false, 0.0);
     }
 
-    pub fn reorient_surface(&mut self, target_up: Vec3, dt: f32) {
+    fn align_horizon(&mut self, target_up: Vec3, pacing: HorizonPacing, dt: f32) {
         let current_up = self.surface_up();
         let dot = current_up.dot(target_up);
         if dot <= 0.9999 {
             let rot_to_target = Quat::from_rotation_arc(current_up, target_up);
-            let step_rot = if dot < 0.7 {
+            let step_rot = if dot < pacing.snap_dot {
                 rot_to_target
             } else {
-                Quat::IDENTITY.slerp(rot_to_target, 1.0 - (-8.0 * dt).exp())
+                Quat::IDENTITY.slerp(rot_to_target, 1.0 - (-pacing.surface_rate * dt).exp())
             };
             self.surface_rot = (step_rot * self.surface_rot).normalize();
         }
         if self.camera_rot.dot(self.surface_rot).abs() > 0.9999 {
             self.camera_rot = self.surface_rot;
         } else {
-            self.camera_rot = self.camera_rot.slerp(self.surface_rot, 1.0 - (-4.0 * dt).exp()).normalize();
+            self.camera_rot = self.camera_rot.slerp(self.surface_rot, 1.0 - (-pacing.camera_rate * dt).exp()).normalize();
         }
+    }
+
+    pub fn reorient_surface(&mut self, target_up: Vec3, dt: f32) {
+        self.align_horizon(target_up, HorizonPacing::pedestrian(), dt);
+    }
+
+    pub fn reorient_cockpit(&mut self, target_up: Vec3, dt: f32) {
+        self.align_horizon(target_up, HorizonPacing::cockpit(), dt);
     }
 
     pub fn drive_order(&self, controls: &dyn KeyboardControls, order: &mut LocomotionOrder) {

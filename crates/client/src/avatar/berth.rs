@@ -30,6 +30,10 @@ impl CockpitBerth {
         self.pilot.driving()
     }
 
+    pub(super) const fn riding(&self) -> bool {
+        self.pilot.riding()
+    }
+
     pub(super) fn blend_subtick(&mut self, alpha: f32) {
         self.pilot.blend_subtick(alpha);
     }
@@ -105,24 +109,25 @@ impl CockpitBerth {
         sight_line: &mut AvatarSight,
         world: &dyn PlanetaryWorld,
     ) -> Option<(BodySpan, AvatarPosture, bool)> {
-        let was_driving = self.pilot.driving();
-        let (seat_pos, steer_px) = self.pilot.step(dt, controls, world)?;
-        let next_span = if was_driving && self.pilot.driving() {
+        let was_riding = self.pilot.riding();
+        let (seat_pos, seat_up, steer_px) = self.pilot.step(dt, controls, world)?;
+        let next_span = if was_riding && self.pilot.riding() {
             span.advanced(seat_pos)
         } else {
             BodySpan::anchored(seat_pos)
         };
         let (next_posture, ground_flight) = if self.pilot.standing() {
             sight_line.constrain_shoulders(false, 0.0);
+            sight_line.reorient_surface(seat_up, dt);
             (AvatarPosture::standing(), true)
         } else {
             sight_line.constrain_shoulders(true, 1.42);
             if steer_px.abs() > 1e-5 {
                 sight_line.steer_vehicle(steer_px);
             }
+            sight_line.reorient_cockpit(seat_up, dt);
             (posture.crouch_down(dt), false)
         };
-        sight_line.reorient_surface(world.surface_up_at(seat_pos), dt);
         Some((next_span, next_posture, ground_flight))
     }
 }

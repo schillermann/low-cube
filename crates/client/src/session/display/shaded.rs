@@ -94,10 +94,8 @@ impl ScenePass for ShadedScenePass {
     fn refresh_meadow_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
         let meadow_idx = world.face_count() * 2;
         self.ensure_meadow_grid(surface, meadow_idx);
-        let (ax, ay, az) = avatar.meadow_anchor();
-        let center = glam::Vec3::new((ax as f32) * 0.5 + 0.25, (ay as f32) * 0.5 + 0.25, (az as f32) * 0.5 + 0.25);
         let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
-        while let Some(slot) = world.drain_stale_meadow_patch(center, &mut self.meadow_ring, &mut patch_buf) {
+        while let Some(slot) = avatar.drain_meadow(world, &mut self.meadow_ring, &mut patch_buf) {
             if let Some(prev) = self.mesh.patch_at(meadow_idx, slot) {
                 let next = surface.replace_mesh(prev, &patch_buf);
                 self.mesh.store_patch(meadow_idx, slot, next);

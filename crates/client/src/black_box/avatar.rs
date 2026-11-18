@@ -198,7 +198,11 @@ impl Avatar for BlackBoxAvatar {
     fn surface_rotation(&self) -> Quat { self.origin.surface_rotation() }
     fn emit_appearance(&self, target: &mut dyn MeshTarget) { self.origin.emit_appearance(target); }
     fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) { self.origin.emit_appearance_for_sight(sight, target); }
-    fn meadow_anchor(&self) -> (i32, i32, i32) { self.origin.meadow_anchor() }
+    fn sector_stamp(&self) -> (u8, i32, i32, i32) { self.origin.sector_stamp() }
+    fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 { self.origin.visible_slices(world) }
+    fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.origin.drain_meadow(world, ring, target)
+    }
     fn take_photo_shutter(&mut self) -> PhotoShutter { self.origin.take_photo_shutter() }
     fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.origin.apply_polaroid_mosaic(mosaic); }
     #[cfg(test)]

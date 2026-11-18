@@ -14,6 +14,7 @@ mod quad;
 mod relief;
 mod topology;
 mod tree;
+mod wire_vector;
 
 #[cfg(test)]
 mod beveled_world_tests;

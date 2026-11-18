@@ -199,7 +199,7 @@ impl SessionStage {
         }
         let ticks = beat.due_ticks();
         if ticks > 0 {
-            let prev_anchor = self.avatar.meadow_anchor();
+            let prev_sector = self.avatar.sector_stamp();
             let step = beat.tick_seconds();
             let total_dt = step * (ticks as f32);
             self.overlay.step_modal(total_dt);
@@ -222,7 +222,7 @@ impl SessionStage {
             if changed || dirty_slices {
                 display.refresh_modified_face(self.world.as_mut());
             }
-            if changed || dirty_slices || self.avatar.meadow_anchor() != prev_anchor {
+            if changed || dirty_slices || self.avatar.sector_stamp() != prev_sector {
                 display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());
             }
         }

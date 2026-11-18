@@ -136,7 +136,11 @@ impl Avatar for EmbodiedAvatar {
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.gear.apply_bindings(bindings); }
     fn blend_subtick(&mut self, alpha: f32) { self.body.blend_subtick(alpha); }
     fn surface_rotation(&self) -> Quat { self.sight_line.surface_rotation() }
-    fn meadow_anchor(&self) -> (i32, i32, i32) { self.body.meadow_anchor() }
+    fn sector_stamp(&self) -> (u8, i32, i32, i32) { self.body.sector_stamp() }
+    fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 { self.body.visible_slices(world) }
+    fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.body.drain_meadow(world, ring, target)
+    }
     fn take_photo_shutter(&mut self) -> PhotoShutter { self.bearing.take_shutter() }
     fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.bearing.apply_polaroid_mosaic(mosaic); }
     #[cfg(test)]
@@ -174,11 +178,12 @@ impl Avatar for EmbodiedAvatar {
         self.tick_ambient(dt);
         let pos = self.body.position();
         let terrain_up = world.surface_up_at(pos);
-        self.sight_line.reorient_surface(terrain_up, dt);
         if self.body.step_driving(dt, controls, &mut self.sight_line, world) {
-            self.bearing.step_vehicle_stride(self.body.driving(), self.body.position(), terrain_up, dt);
+            let cur = self.body.position();
+            self.bearing.step_vehicle_stride(self.body.driving(), cur, world.surface_up_at(cur), dt);
             return;
         }
+        self.sight_line.reorient_surface(terrain_up, dt);
         let mut order = LocomotionOrder::idle();
         self.sight_line.drive_order(controls, &mut order);
         let order = self.gear.encumber_order(order);

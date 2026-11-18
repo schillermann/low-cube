@@ -1,10 +1,30 @@
 use glam::Vec3;
 use crate::block::GridCell;
-use crate::MeshTarget;
-use super::super::vehicle_assembly::{ShiftedMeshTarget, VehiclePart};
+use crate::{MeshTarget, Quad};
+use super::super::vehicle_assembly::VehiclePart;
 use super::pose::CraftPose;
 
 const MAX_BLUEPRINT_PARTS: usize = 512;
+
+struct ShiftedMeshTarget<'a> {
+    shift: Vec3,
+    inner: &'a mut dyn MeshTarget,
+}
+
+impl<'a> ShiftedMeshTarget<'a> {
+    const fn new(shift: Vec3, inner: &'a mut dyn MeshTarget) -> Self {
+        Self { shift, inner }
+    }
+}
+
+impl MeshTarget for ShiftedMeshTarget<'_> {
+    fn push_quad(&mut self, quad: Quad) {
+        let (s, glow) = (self.shift, quad.radiate(|g| g));
+        self.inner.push_quad(quad.transfer(|v0, v1, v2, v3, norm, col| {
+            Quad::glowing(v0 + s, v1 + s, v2 + s, v3 + s, norm, col, glow)
+        }));
+    }
+}
 
 /// Immutable 64-bit entity identity of a commissioned multi-block vehicle.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -153,6 +173,25 @@ impl CraftBlueprint {
             }
         }
         top_support.map(|h| shift + car_frame.point_at(u, v, h + player_height))
+    }
+
+    pub(in crate::relief) fn clamped_seat(
+        &self,
+        raw_seat: (i32, i32),
+        basis: (i32, i32, i32, i32),
+        half_cells: i32,
+    ) -> (i32, i32) {
+        if half_cells < 8 {
+            return raw_seat;
+        }
+        let mut bounds = (0, 0, 0, 0);
+        for part in &self.parts {
+            part.expand_span(basis, &mut bounds);
+        }
+        (
+            raw_seat.0.clamp(-half_cells - bounds.0, half_cells - 1 - bounds.1),
+            raw_seat.1.clamp(-half_cells - bounds.2, half_cells - 1 - bounds.3),
+        )
     }
 
     pub fn emit_at(&self, pose: CraftPose, target: &mut dyn MeshTarget) {

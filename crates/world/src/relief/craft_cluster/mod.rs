@@ -225,16 +225,25 @@ impl CraftCluster {
                 floor_min = floor_min.min(b.floor());
             }
         });
+        let flip_v = frame.tangent().cross(frame.bitangent()).dot(frame.normal()) > 0.0;
+        let v_sign = if flip_v { -1 } else { 1 };
+        let axes = VehicleAxes::new(frame.tangent(), frame.bitangent() * (v_sign as f32), frame.normal());
+        let canonical_frame = SurfaceFrame::new(frame.tangent(), frame.bitangent() * (v_sign as f32), frame.normal(), 0.0);
         let mut parts: Vec<VehiclePart> = self
             .grid
             .into_entries()
             .map(|((cu, cv), b): ((i32, i32), ElevatedShape)| {
-                VehiclePart::new((cu - seat_u, cv - seat_v), (b.floor() - floor_min).max(0.0), b.into_shape())
+                let floor_off = (b.floor() - floor_min).max(0.0);
+                let mut shape = b.into_shape();
+                if flip_v && matches!(shape.block_heading(), WedgeHeading::North | WedgeHeading::South) {
+                    shape.rotate_quarter();
+                    shape.rotate_quarter();
+                }
+                VehiclePart::new((cu - seat_u, (cv - seat_v) * v_sign), floor_off, shape)
             })
             .collect();
         parts.sort_by_key(VehiclePart::canonical_key);
-        let axes = VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal());
-        let heading = parts.iter().find_map(|p| p.steering_heading(frame)).unwrap_or_else(|| ray.align_heading(frame));
+        let heading = parts.iter().find_map(|p| p.steering_heading(&canonical_frame)).unwrap_or_else(|| ray.align_heading(frame));
         let (cx, cy) = GridCell::new(seat_u, seat_v).center();
         Ok(VehicleAssembly::with_identity(identity, frame.point_at(cx, cy, ground_top), axes, heading, parts))
     }
