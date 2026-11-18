@@ -112,9 +112,9 @@ impl PunchBeacon {
         );
     }
 
-    pub fn emit_hub_summary(&self, target: &mut dyn MeshTarget) -> bool {
+    pub fn emit_hub_summary(&self, target: &mut dyn MeshTarget) {
         let Self::Listening { ref reply_code, remaining } = *self else {
-            return false;
+            return;
         };
         let head = format!("REPLY: {reply_code}");
         let sub = format!(
@@ -122,9 +122,8 @@ impl PunchBeacon {
             self.pulse_glyph(remaining),
             self.countdown_label(remaining),
         );
-        PixelStamp::title(Vec3::new(0.96, 0.82, 0.34)).emit_centered(&head, 0.0, -0.13, target);
-        PixelStamp::caption(Vec3::new(0.42, 0.90, 0.62)).emit_centered(&sub, 0.0, -0.23, target);
-        true
+        PixelStamp::title(Vec3::new(0.96, 0.82, 0.34)).emit_centered(&head, 0.0, -0.18, target);
+        PixelStamp::caption(Vec3::new(0.42, 0.90, 0.62)).emit_centered(&sub, 0.0, -0.29, target);
     }
 }
 

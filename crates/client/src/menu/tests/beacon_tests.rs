@@ -65,7 +65,7 @@ fn test_closing_menu_keeps_punch_beacon_hud_alive_and_explicit_cancel_aborts_dia
     let mp_btn = PausePanel::new().multiplayer_button();
     menu.move_cursor(ScreenPoint::new(mp_btn.center_x(), mp_btn.center_y()));
     let _ = menu.press_mouse(&surface, &mut avatar);
-    let wait_btn = PortalBounds::new().join_portal_button();
+    let wait_btn = PortalBounds::expanded().join_portal_button();
     menu.move_cursor(ScreenPoint::new(wait_btn.center_x(), wait_btn.center_y()));
     let _ = menu.press_mouse(&surface, &mut avatar);
     let cancel_btn = WaitingBounds::new().cancel_dial_button();
@@ -98,7 +98,7 @@ fn test_one_click_hub_paste_and_auto_punch_decorator_deduplicates_clipboard() {
     let mp_btn = PausePanel::new().multiplayer_button();
     decorated.move_cursor(ScreenPoint::new(mp_btn.center_x(), mp_btn.center_y()));
     let _ = decorated.press_mouse(&surface, &mut avatar);
-    let hub_paste = PortalBounds::new().hub_paste_button();
+    let hub_paste = PortalBounds::expanded().hub_paste_button();
     decorated.move_cursor(ScreenPoint::new(hub_paste.center_x(), hub_paste.center_y()));
     assert_eq!(decorated.press_mouse(&surface, &mut avatar), ModalDirective::PunchGuest(guest_ep));
 }

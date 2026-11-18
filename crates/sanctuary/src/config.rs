@@ -72,7 +72,7 @@ impl SanctuaryEndpoint {
         println!("Portal Code:    {}", host.code().encode());
         println!("Direct Address: {}", host.ticket().direct());
         println!("Invite Ticket:  {ticket}");
-        println!("Players join in-game via Esc -> JOIN CO-OP / SERVER");
+        println!("Players join in-game via Esc -> MULTIPLAYER -> JOIN");
         let mut last = Instant::now();
         loop {
             let now = Instant::now();

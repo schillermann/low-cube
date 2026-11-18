@@ -8,29 +8,60 @@ use super::beacon::PortalStatus;
 use super::draft::PortalDraft;
 use super::invite::{PortalInvite, PortalNotice};
 
-/// Stateless screen bounds layout for the Multiplayer Hub and Step 1/2 Co-op Join panels.
-pub struct PortalBounds;
+/// Screen bounds layout for the Multiplayer Hub and Step 1/2 Co-op Join panels.
+#[derive(Clone, Copy, Debug)]
+pub struct PortalBounds {
+    expanded: bool,
+}
 
 impl PortalBounds {
-    /// Primary constructor initializing the portal button layout.
-    pub const fn new() -> Self {
-        Self
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(expanded: bool) -> Self {
+        Self { expanded }
+    }
+
+    pub const fn compact() -> Self {
+        Self::new(false)
+    }
+
+    pub const fn expanded() -> Self {
+        Self::new(true)
+    }
+
+    pub const fn hub_card(&self) -> ScreenBounds {
+        if self.expanded {
+            ScreenBounds::new(-0.58, -0.66, 0.58, 0.44)
+        } else {
+            ScreenBounds::new(-0.36, -0.30, 0.36, 0.44)
+        }
+    }
+
+    fn hub_half_width(&self) -> f32 {
+        if self.expanded { 0.38 } else { 0.28 }
     }
 
     pub fn portal_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.38, 0.16, 0.38, 0.27)
+        let w = self.hub_half_width();
+        ScreenBounds::new(-w, 0.14, w, 0.26)
     }
 
     pub fn join_portal_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.38, 0.01, 0.38, 0.12)
+        let w = self.hub_half_width();
+        ScreenBounds::new(-w, -0.04, w, 0.08)
     }
 
     pub fn hub_paste_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.38, -0.35, 0.38, -0.24)
+        let w = self.hub_half_width();
+        ScreenBounds::new(-w, -0.40, w, -0.28)
     }
 
     pub fn hub_back_button(&self) -> ScreenBounds {
-        ScreenBounds::new(-0.38, -0.52, 0.38, -0.41)
+        let w = self.hub_half_width();
+        if self.expanded {
+            ScreenBounds::new(-w, -0.58, w, -0.46)
+        } else {
+            ScreenBounds::new(-w, -0.22, w, -0.10)
+        }
     }
 
     pub fn paste_button(&self) -> ScreenBounds {
@@ -70,26 +101,25 @@ impl<'a> MultiplayerHubBody<'a> {
 
 impl MenuView for MultiplayerHubBody<'_> {
     fn emit(&self, target: &mut dyn MeshTarget) {
-        let bounds = PortalBounds::new();
-        let gold = Vec3::new(0.96, 0.82, 0.34);
-        let mint = Vec3::new(0.56, 0.86, 0.68);
-        let silver = Vec3::new(0.76, 0.82, 0.90);
         let active = self.invite.active();
         let waiting = self.status.listening();
-        let host_label = if active { "COPY INVITE TICKET" } else { "OPEN CO-OP PORTAL" };
+        let bounds = PortalBounds::new(active || waiting);
+        let gold = Vec3::new(0.96, 0.82, 0.34);
+        let mint = Vec3::new(0.56, 0.86, 0.68);
+        let host_label = if active { "COPY INVITE TICKET" } else { "OPEN" };
         let join_label = if waiting {
             "WAITING FOR HOST (OPEN)"
         } else if active {
             "TYPE GUEST CODE / JOIN"
         } else {
-            "JOIN CO-OP / SERVER"
+            "JOIN"
         };
         let host_col = if active { Vec3::new(0.22, 0.52, 0.32) } else { Vec3::new(0.18, 0.44, 0.46) };
         let join_col = if waiting { Vec3::new(0.22, 0.48, 0.36) } else { Vec3::new(0.20, 0.36, 0.56) };
         bounds.portal_button().emit_button(host_label, self.pointer, host_col, active, target);
         bounds.join_portal_button().emit_button(join_label, self.pointer, join_col, waiting, target);
         if active {
-            PixelStamp::title(gold).emit_centered(&self.invite.banner_headline(), 0.0, -0.09, target);
+            PixelStamp::title(gold).emit_centered(&self.invite.banner_headline(), 0.0, -0.13, target);
             let (sub, sub_col) = match self.status.notice() {
                 PortalNotice::AutoPunchSent | PortalNotice::NatPunchSent => (
                     "GUEST REPLY ACCEPTED - NAT PUNCH SENT!",
@@ -106,7 +136,7 @@ impl MenuView for MultiplayerHubBody<'_> {
                 ),
                 _ => ("SHARE 12-CHAR CODE WITH FRIEND", mint),
             };
-            PixelStamp::caption(sub_col).emit_centered(sub, 0.0, -0.18, target);
+            PixelStamp::caption(sub_col).emit_centered(sub, 0.0, -0.22, target);
             bounds.hub_paste_button().emit_button(
                 "PASTE GUEST REPLY (CTRL+V)",
                 self.pointer,
@@ -114,11 +144,11 @@ impl MenuView for MultiplayerHubBody<'_> {
                 matches!(self.status.notice(), PortalNotice::AutoPunchSent | PortalNotice::NatPunchSent),
                 target,
             );
-        } else if !self.status.beacon().emit_hub_summary(target) {
-            PixelStamp::caption(silver).emit_centered("HOST A 12-CHAR PORTAL OR JOIN A WORLD", 0.0, -0.20, target);
+        } else {
+            self.status.beacon().emit_hub_summary(target);
         }
         bounds.hub_back_button().emit_button(
-            "BACK TO MAIN MENU",
+            "BACK",
             self.pointer,
             Vec3::new(0.28, 0.32, 0.40),
             false,
@@ -147,9 +177,10 @@ impl<'a> PortalLayout<'a> {
         Self { invite, draft, status, pointer }
     }
 
-    pub const fn hub_view(self) -> TitledCard<'static, MultiplayerHubBody<'a>> {
+    pub fn hub_view(self) -> TitledCard<'static, MultiplayerHubBody<'a>> {
+        let bounds = PortalBounds::new(self.invite.active() || self.status.listening());
         TitledCard::new(
-            ScreenBounds::new(-0.58, -0.60, 0.58, 0.44),
+            bounds.hub_card(),
             "MULTIPLAYER",
             0.35,
             MultiplayerHubBody::new(self.invite, self.status, self.pointer),
@@ -204,7 +235,7 @@ impl<'a> PortalLayout<'a> {
 
 impl MenuView for PortalLayout<'_> {
     fn emit(&self, target: &mut dyn MeshTarget) {
-        let bounds = PortalBounds::new();
+        let bounds = PortalBounds::compact();
         let silver = Vec3::new(0.76, 0.82, 0.90);
         PixelStamp::caption(silver).emit_centered(
             "TYPE 12 CODE CHARS (AUTO-GROUPED), TICKET, OR IP",

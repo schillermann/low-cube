@@ -35,11 +35,12 @@ fn test_in_game_menu_supports_twelve_char_code_fritzbox_punch_clipboard_paste_an
     menu.move_cursor(ScreenPoint::new(mp_btn.center_x(), mp_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
-    let bounds = PortalBounds::new();
-    let host_btn = bounds.portal_button();
+    let compact_bounds = PortalBounds::compact();
+    let host_btn = compact_bounds.portal_button();
     menu.move_cursor(ScreenPoint::new(host_btn.center_x(), host_btn.center_y()));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::OpenPortal);
     menu.announce_portal(PortalInvite::hosted(host_code_str, encoded_ticket.clone()));
+    let bounds = PortalBounds::expanded();
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
     let join_btn = bounds.join_portal_button();
@@ -160,4 +161,53 @@ fn test_portal_draft_auto_groups_three_four_char_blocks_without_manual_hyphens()
     );
     host_studio.append_text("localhost");
     assert_eq!(host_studio.formatted_draft(), "localhost");
+}
+
+#[test]
+fn test_multiplayer_hub_renders_open_join_and_back_button_labels() {
+    use crate::menu::{MenuView, PixelStamp};
+
+    let studio = PortalStudio::with_clipboard(
+        PortalInvite::empty(),
+        Box::new(MemoryClipboard::seeded("")),
+    );
+    let pointer = ScreenPoint::new(-0.95, -0.95);
+    let mut hub_capture = QuadCapture::empty();
+    studio.hub_view(pointer).emit(&mut hub_capture);
+    let hub_positions = hub_capture.positions();
+
+    let bounds = PortalBounds::compact();
+    let pause = PausePanel::new();
+    assert!(
+        (bounds.portal_button().center_y() - bounds.join_portal_button().center_y()
+            - (bounds.join_portal_button().center_y() - bounds.hub_back_button().center_y()))
+        .abs()
+            < 1e-5,
+        "Compact Multiplayer hub must keep identical vertical spacing between OPEN, JOIN, and BACK"
+    );
+    assert!(
+        (bounds.portal_button().center_y() - pause.resume_button().center_y()).abs() < 1e-5
+            && (bounds.join_portal_button().center_y() - pause.character_button().center_y()).abs() < 1e-5
+            && (bounds.hub_back_button().center_y() - pause.settings_button().center_y()).abs() < 1e-5,
+        "Compact Multiplayer hub rows must align directly with Main Menu button rows"
+    );
+    assert!(
+        hub_positions.iter().all(|v| v.x.abs() <= 0.371),
+        "Compact Multiplayer hub card width must match Main Menu (-0.36..0.36 plus border)"
+    );
+    let expected = [
+        (bounds.portal_button(), "OPEN"),
+        (bounds.join_portal_button(), "JOIN"),
+        (bounds.hub_back_button(), "BACK"),
+    ];
+    for (btn, label) in expected {
+        let mut label_capture = QuadCapture::empty();
+        PixelStamp::caption(Vec3::ONE).emit_centered(label, btn.center_x(), btn.center_y(), &mut label_capture);
+        let label_positions = label_capture.positions();
+        assert!(!label_positions.is_empty());
+        assert!(
+            hub_positions.windows(label_positions.len()).any(|win| win == label_positions.as_slice()),
+            "Multiplayer hub button must emit exact glyph geometry for '{label}'"
+        );
+    }
 }

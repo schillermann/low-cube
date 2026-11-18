@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.78.1] - 2026-11-18
+
+### Changed
+- Renamed Multiplayer Hub buttons (`OPEN CO-OP PORTAL` to `OPEN`, `JOIN CO-OP / SERVER` to `JOIN`, and `BACK TO MAIN MENU` to `BACK`) in `MultiplayerHubBody` (`crates/client/src/menu/portal/layout.rs`) and updated the dedicated server console join hint in `SanctuaryEndpoint` (`crates/sanctuary/src/config.rs`).
+- Aligned the unhosted Multiplayer Hub card width (`-0.36..0.36`) and uniform vertical button spacing (`0.06` gap across `OPEN`, `JOIN`, and `BACK`) with `PausePanel` (`MAIN MENU`) via `PortalBounds::compact` / `PortalBounds::expanded` (`crates/client/src/menu/portal/layout.rs` and `mod.rs`), expanding only while hosting a live portal or awaiting a host NAT punch.
+
+### Removed
+- Removed the redundant idle caption line between the `JOIN` and `BACK` buttons on `MultiplayerHubBody` (`crates/client/src/menu/portal/layout.rs`) and simplified `PunchBeacon::emit_hub_summary` (`crates/client/src/menu/portal/beacon.rs`) to a pure Tell-Don't-Ask command.
+
 ## [0.78.0] - 2026-11-17
 
 ### Added

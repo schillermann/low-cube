@@ -208,7 +208,7 @@ impl PortalStudio {
     }
 
     pub fn press_hub_pointer(&mut self, pointer: ScreenPoint) -> PortalDirective {
-        let bounds = PortalBounds::new();
+        let bounds = PortalBounds::new(self.hosted_active() || self.awaiting_host_punch());
         if bounds.portal_button().contains(pointer) {
             if self.hosted_active() {
                 self.copy_hosted_ticket();
@@ -241,7 +241,7 @@ impl PortalStudio {
             }
             return choice.into_directive();
         }
-        let bounds = PortalBounds::new();
+        let bounds = PortalBounds::compact();
         if bounds.paste_button().contains(pointer) {
             self.paste_from_clipboard()
         } else if bounds.clear_button().contains(pointer) {
