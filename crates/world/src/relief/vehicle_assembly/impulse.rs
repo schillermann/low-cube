@@ -4,22 +4,20 @@ const NOZZLE_THRUST: f32 = 72.0;
 const LEVER_TORQUE_SCALE: f32 = 0.035;
 const CONSOLE_GYRO_AUTHORITY: f32 = 1.65;
 
-/// Cockpit flight command encapsulating 6-DOF thruster channel demand and attitude steer rates.
+/// Cockpit flight command encapsulating 6-DOF thruster channel demand.
 #[derive(Clone, Copy, Debug)]
 pub struct PilotOrder {
     burn_axes: Vec3,
-    attitude_rate: (f32, f32),
-    roll_rate: f32,
 }
 
 impl PilotOrder {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(burn_axes: Vec3, attitude_rate: (f32, f32), roll_rate: f32) -> Self {
-        Self { burn_axes, attitude_rate, roll_rate }
+    pub const fn new(burn_axes: Vec3) -> Self {
+        Self { burn_axes }
     }
 
     pub const fn idle() -> Self {
-        Self::new(Vec3::ZERO, (0.0, 0.0), 0.0)
+        Self::new(Vec3::ZERO)
     }
 
     /// Evaluates `[0.0..=1.0]` throttle demand for a nozzle whose reaction thrust points along `world_thrust`.
@@ -40,11 +38,6 @@ impl PilotOrder {
 
     pub fn active_burn(&self) -> bool {
         self.burn_axes.length_squared() > 0.01
-    }
-
-    pub fn pilot_angular_velocity(&self, right: Vec3, up: Vec3, fwd: Vec3, gain: f32) -> Vec3 {
-        let (pitch_in, yaw_in) = self.attitude_rate;
-        right * (pitch_in * gain) + up * (yaw_in * gain) + fwd * (self.roll_rate * gain)
     }
 }
 
@@ -95,27 +88,17 @@ impl RigidImpulse {
         (self.linear_force / m) * dt
     }
 
-    /// Resolves net angular rotation over `dt` after reaction-wheel gyro trim saturation and pilot attitude input.
-    pub fn attitude_step(
-        &self,
-        order: &PilotOrder,
-        right: Vec3,
-        up: Vec3,
-        fwd: Vec3,
-        dt: f32,
-    ) -> Quat {
+    /// Resolves net angular rotation over `dt` after reaction-wheel gyro trim saturation.
+    pub fn attitude_step(&self, dt: f32) -> Quat {
         let raw_mag = self.lever_torque.length();
         let uncompensated = if raw_mag > self.gyro_authority && raw_mag > 1e-5 {
             self.lever_torque * ((raw_mag - self.gyro_authority) / raw_mag)
         } else {
             Vec3::ZERO
         };
-        let gyro_gain = (self.gyro_authority / CONSOLE_GYRO_AUTHORITY).clamp(0.5, 2.5);
-        let pilot_omega = order.pilot_angular_velocity(right, up, fwd, gyro_gain);
-        let total_omega = uncompensated + pilot_omega;
-        let angle = total_omega.length() * dt;
+        let angle = uncompensated.length() * dt;
         if angle > 1e-6 {
-            Quat::from_axis_angle(total_omega.normalize(), angle)
+            Quat::from_axis_angle(uncompensated.normalize(), angle)
         } else {
             Quat::IDENTITY
         }

@@ -39,13 +39,13 @@ fn test_console_gyro_absorbs_compact_trim_but_yields_to_extreme_outrigger_nozzle
     );
     assert!(compact_bp.spacefaring());
     let pose = CraftPose::parked(Vec3::ZERO, axes, Vec3::Z);
-    let up_burn = PilotOrder::new(Vec3::Y, (0.0, 0.0), 0.0);
+    let up_burn = PilotOrder::new(Vec3::Y);
     let compact_imp = compact_bp.sample_impulse(&up_burn, pose);
     assert!(compact_imp.velocity_delta(1.0).y > 20.0);
-    let compact_rot = compact_imp.attitude_step(&up_burn, Vec3::X, Vec3::Y, Vec3::Z, 0.1);
+    let compact_rot = compact_imp.attitude_step(0.1);
     assert!((compact_rot.w - 1.0).abs() < 1e-5, "Compact 1-cell pod must stay gyro-stabilized");
 
-    let forward_only = PilotOrder::new(Vec3::Z, (0.0, 0.0), 0.0);
+    let forward_only = PilotOrder::new(Vec3::Z);
     let silent_imp = compact_bp.sample_impulse(&forward_only, pose);
     assert!(silent_imp.velocity_delta(1.0).length() < 1e-5, "Downward nozzle must not fire on forward burn");
 
@@ -59,7 +59,7 @@ fn test_console_gyro_absorbs_compact_trim_but_yields_to_extreme_outrigger_nozzle
         ],
     );
     let asym_imp = asymmetric_bp.sample_impulse(&up_burn, pose);
-    let asym_rot = asym_imp.attitude_step(&up_burn, Vec3::X, Vec3::Y, Vec3::Z, 0.2);
+    let asym_rot = asym_imp.attitude_step(0.2);
     assert!(asym_rot.angle_between(glam::Quat::IDENTITY) > 0.05, "Extreme outrigger nozzles must tip craft");
 }
 

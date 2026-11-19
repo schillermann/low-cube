@@ -3,7 +3,7 @@ use sanctuary::{HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHos
 use winit::keyboard::KeyCode;
 use world::{BlockMedium, BlockMold, CelestialSystem, LunarWorld, PlanetaryWorld, WorldEarthworks as _};
 use crate::attire::YouthAttire;
-use crate::avatar::{Avatar as _, AvatarMotor as _, HandGesture, PlanetaryAvatar};
+use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, HandGesture, PlanetaryAvatar};
 use crate::black_box::PresenceProbe;
 use crate::controls::{ActionBindings, KeyMotion, KeyboardControls};
 use crate::flight::SurfaceFlight;
@@ -203,4 +203,44 @@ fn test_lunar_pedestrian_leap_exceeds_earth_jump_and_coop_reaches_moon() {
     }
     let after = guest_world.constrain_to_surface(target_spot, 0.0).y;
     assert!(after < before - 0.1, "Lunar excavation must replicate from Host to Guest ({before} -> {after})");
+}
+
+#[test]
+fn test_mouse_look_rotates_gaze_freely_without_steering_rocket() {
+    let run_launch = |look_yaw_deg: f32, look_pitch_deg: f32| -> (Vec3, fauna::SightCone) {
+        let mut world = CelestialSystem::barren_authoritative(32, 1.0);
+        let _ = build_crane_rocket(world.as_mut());
+        let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+        let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
+            spawn,
+            Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
+            YouthAttire::squire(),
+            ActionBindings::seeded(),
+        );
+        pilot.rotate_degrees(-90.0, 10.0);
+        assert!(HandGesture::RightTap.perform(&mut pilot, world.as_mut()));
+        assert!(pilot.use_right_hand(world.as_mut()));
+        pilot.rotate_degrees(look_yaw_deg, look_pitch_deg);
+
+        let mut burn = KeyMotion::idle();
+        burn.register_key(KeyCode::Space, true);
+        for _ in 0..240 {
+            pilot.step_motion(1.0 / 120.0, &burn, world.as_ref());
+        }
+        (avatar_pos(&pilot), pilot.sight_cone())
+    };
+
+    let (pos_straight, cone_straight) = run_launch(0.0, 0.0);
+    let (pos_freelook, cone_freelook) = run_launch(135.0, 30.0);
+
+    assert!(
+        (pos_straight - pos_freelook).length() < 1e-5,
+        "Mouse look must never steer or tilt rocket trajectory ({pos_straight:?} vs {pos_freelook:?})"
+    );
+    let probe_spot = pos_straight + Vec3::new(-18.0, 0.0, 0.0);
+    assert_ne!(
+        cone_straight.reaches(probe_spot, 40.0),
+        cone_freelook.reaches(probe_spot, 40.0),
+        "Pilot mouse input must still rotate cockpit free-look camera"
+    );
 }

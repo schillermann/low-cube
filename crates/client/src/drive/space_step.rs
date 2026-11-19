@@ -115,11 +115,7 @@ impl<S: SpaceStep> SpaceStep for GyroStep<'_, S> {
     fn resolve(&self, dt: f32) -> SpaceState {
         let s = self.origin.resolve(dt);
         let impulse = self.assembly.sample_impulse(&self.order);
-        let up = self.assembly.normal().normalize_or_zero();
-        let raw_fwd = self.assembly.heading();
-        let fwd = (raw_fwd - up * raw_fwd.dot(up)).normalize_or_zero();
-        let right = fwd.cross(up).normalize_or_zero();
-        let step_rot = impulse.attitude_step(&self.order, right, up, fwd, dt);
+        let step_rot = impulse.attitude_step(dt);
         SpaceState::new(s.origin, s.velocity, (step_rot * s.rotation).normalize())
     }
 }

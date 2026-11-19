@@ -33,7 +33,6 @@ pub trait CraftDrive: Send + Sync {
         assembly: &mut VehicleAssembly,
         dt: f32,
         controls: &dyn KeyboardControls,
-        gaze_dir: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> (Vec3, Vec3, f32);
 }
@@ -199,11 +198,10 @@ impl HelmedCraft {
         &mut self,
         dt: f32,
         controls: &dyn KeyboardControls,
-        gaze_dir: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> (Vec3, Vec3, f32) {
         let prev_origin = self.assembly.origin();
-        let out = self.drive.advance(&mut self.assembly, dt, controls, gaze_dir, world);
+        let out = self.drive.advance(&mut self.assembly, dt, controls, world);
         self.origin_span = (prev_origin, 1.0);
         out
     }

@@ -7,35 +7,23 @@ use super::space_step::{
 };
 use super::{CraftDrive, SEAT_EYE_SUPPORT};
 
-/// Cockpit 6-DOF burn and roll collector implementing `LocomotionTarget` for `FlightConsole`.
+/// Cockpit 6-DOF directional thruster burn collector implementing `LocomotionTarget` for `FlightConsole`.
 struct ConsolePedals {
     planar: (f32, f32),
     vertical: f32,
-    fine_attitude: bool,
 }
 
 impl ConsolePedals {
-    const fn idle() -> Self {
-        Self { planar: (0.0, 0.0), vertical: 0.0, fine_attitude: false }
+    const fn new(planar: (f32, f32), vertical: f32) -> Self {
+        Self { planar, vertical }
     }
 
-    fn to_order(&self, assembly: &VehicleAssembly, gaze_dir: Vec3) -> PilotOrder {
-        let burn = Vec3::new(self.planar.0, self.vertical, self.planar.1);
-        let up = assembly.normal().normalize_or_zero();
-        let raw_fwd = assembly.heading();
-        let fwd = (raw_fwd - up * raw_fwd.dot(up)).normalize_or_zero();
-        let right = fwd.cross(up).normalize_or_zero();
-        let gaze = gaze_dir.normalize_or_zero();
-        let (pitch_rate, yaw_rate) = if gaze.length_squared() > 0.25 {
-            let err_right = gaze.dot(right);
-            let err_up = gaze.dot(up);
-            let deadzone = |v: f32| if v.abs() < 0.035 { 0.0 } else { v - v.signum() * 0.035 };
-            let gain = if self.fine_attitude { 0.9 } else { 2.1 };
-            (deadzone(err_up) * gain, -deadzone(err_right) * gain)
-        } else {
-            (0.0, 0.0)
-        };
-        PilotOrder::new(burn, (pitch_rate, yaw_rate), 0.0)
+    const fn idle() -> Self {
+        Self::new((0.0, 0.0), 0.0)
+    }
+
+    const fn to_order(&self) -> PilotOrder {
+        PilotOrder::new(Vec3::new(self.planar.0, self.vertical, self.planar.1))
     }
 }
 
@@ -49,9 +37,7 @@ impl LocomotionTarget for ConsolePedals {
     fn sneak(&mut self) {
         self.vertical -= 1.0;
     }
-    fn sprint(&mut self) {
-        self.fine_attitude = true;
-    }
+    fn sprint(&mut self) {}
 }
 
 /// 6-DOF spacecraft propulsion composing velocity, plume channels, and the 5-layer `SpaceStep` chain.
@@ -86,12 +72,11 @@ impl CraftDrive for RocketDrive {
         assembly: &mut VehicleAssembly,
         dt: f32,
         controls: &dyn KeyboardControls,
-        gaze_dir: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> (Vec3, Vec3, f32) {
         let mut pedals = ConsolePedals::idle();
         controls.drive_locomotion(Vec3::Y, Vec3::X, &mut pedals);
-        let order = pedals.to_order(assembly, gaze_dir);
+        let order = pedals.to_order();
         let target_plume = order.plume_channels();
         let blend = (14.0 * dt).clamp(0.0, 1.0);
         self.plume = (

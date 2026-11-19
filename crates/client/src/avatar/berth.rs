@@ -113,8 +113,7 @@ impl CockpitBerth {
         world: &dyn PlanetaryWorld,
     ) -> Option<(BodySpan, AvatarPosture, bool)> {
         let was_riding = self.pilot.riding();
-        let gaze_dir = sight_line.view_direction();
-        let (seat_pos, seat_up, steer_px) = self.pilot.step(dt, controls, gaze_dir, world)?;
+        let (seat_pos, seat_up, steer_px) = self.pilot.step(dt, controls, world)?;
         let next_span = if was_riding && self.pilot.riding() {
             span.advanced(seat_pos)
         } else {

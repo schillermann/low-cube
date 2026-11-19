@@ -85,7 +85,6 @@ impl VehiclePilot {
         &mut self,
         dt: f32,
         controls: &dyn KeyboardControls,
-        gaze_dir: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> Option<(Vec3, Vec3, f32)> {
         match self {
@@ -118,7 +117,7 @@ impl VehiclePilot {
                 };
                 Some((pos, up, steer_px))
             }
-            Self::Driving(craft) => Some(craft.step(dt, controls, gaze_dir, world)),
+            Self::Driving(craft) => Some(craft.step(dt, controls, world)),
         }
     }
 

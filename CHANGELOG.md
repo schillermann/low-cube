@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.84.1] - 2026-11-19
+
+### Changed
+- Decoupled cockpit mouse free-look from spacecraft attitude steering across `ConsolePedals` and `RocketDrive` (`crates/client/src/drive/rocket.rs`), `GyroStep` (`crates/client/src/drive/space_step.rs`), `CraftDrive` / `HelmedCraft` (`crates/client/src/drive/mod.rs`), `VehiclePilot` (`crates/client/src/drive/pilot.rs`), `CockpitBerth` (`crates/client/src/avatar/berth.rs`), and `PilotOrder` / `RigidImpulse` (`crates/world/src/relief/vehicle_assembly/impulse.rs`), restricting mouse input to camera gaze while `FlightConsole` gyros hold spacecraft attitude during 6-DOF directional thruster burns (`crates/client/src/drive/rocket_tests.rs`).
+
 ## [0.84.0] - 2026-11-19
 
 ### Added

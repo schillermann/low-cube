@@ -106,7 +106,6 @@ impl CraftDrive for WheeledDrive {
         assembly: &mut VehicleAssembly,
         dt: f32,
         controls: &dyn KeyboardControls,
-        _gaze_dir: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> (Vec3, Vec3, f32) {
         let mut pedals = PedalInput::idle();
