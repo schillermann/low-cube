@@ -1,8 +1,14 @@
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
-use world::{BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, SurfaceFrame};
+use world::{
+    BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, SurfaceFrame,
+    WorldEarthworks as _,
+};
 use crate::attire::{HeldRelic, MartialStyle, StrideRhythm, YouthAttire};
-use crate::avatar::{Avatar, HandGesture, PlanetaryAvatar};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, HandGesture,
+    PlanetaryAvatar,
+};
 use acoustics::{AcousticWave, EngineRumble, PalmScrape, SpadeStrike};
 use crate::controls::{InputTrigger, KeyMotion, KeyboardControls};
 use crate::posture::AvatarPosture;

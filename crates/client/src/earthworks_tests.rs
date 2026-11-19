@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad};
 use crate::attire::{HeldRelic, YouthAttire};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::controls::{InputTrigger, KeyMotion};
 
 struct SurfaceLedger { quads: Vec<Quad> }

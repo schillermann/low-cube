@@ -2,7 +2,7 @@ use glam::Vec3;
 use crate::block::{BlockMedium, BlockMold};
 use crate::relief::{CraftBlueprint, CraftIdentity, CraftPose, ExposedStratum};
 use crate::tree::SurfaceFind;
-use crate::PlanetaryWorld;
+use crate::WorldEarthworks;
 
 /// Authoritative planetary mutation, vehicle ownership event, or newly air-exposed subterranean stratum fact.
 #[derive(Clone, Debug, PartialEq)]
@@ -22,8 +22,8 @@ pub enum WorldFact {
 }
 
 impl WorldFact {
-    /// Applies this authoritative fact directly to a planetary world, returning whether geometry changed.
-    pub fn enact_on(&self, world: &mut dyn PlanetaryWorld) -> bool {
+    /// Applies this authoritative fact directly to a planetary earthworks target, returning whether geometry changed.
+    pub fn enact_on(&self, world: &mut dyn WorldEarthworks) -> bool {
         match *self {
             Self::Loosened { eye, direction, stage } => world.loosen_surface(eye, direction, stage).is_some(),
             Self::Harvested { eye, direction } => world.harvest_surface(eye, direction).is_some(),

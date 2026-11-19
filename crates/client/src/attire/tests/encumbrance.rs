@@ -4,7 +4,7 @@ use world::{ClimateZone, CubePlanet, FacetedReliefFace, NullFace, PlanetaryWorld
 use crate::attire::{
     BeltSatchel, BodyPose, HeldRelic, StrideRhythm, YouthAttire, YouthPhysique,
 };
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 use crate::server_satchel::StartingSatchel;
 use super::QuadLedger;

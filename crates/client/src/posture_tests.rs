@@ -1,7 +1,7 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{GravityField, MeshTarget, PlanetaryWorld};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::horizon::CameraHorizon;
 use crate::controls::{KeyboardControls, KeyMotion};
 use crate::gait::{LocomotionGait, SneakGait, WalkGait};
@@ -14,6 +14,8 @@ impl GravityField for FlatGroundWorld {
     fn pull_direction_at(&self, _position: Vec3) -> Vec3 { Vec3::NEG_Y }
     fn surface_up_at(&self, _position: Vec3) -> Vec3 { Vec3::Y }
 }
+
+impl world::WorldEarthworks for FlatGroundWorld {}
 
 impl PlanetaryWorld for FlatGroundWorld {
     fn emit_surface(&self, _target: &mut dyn MeshTarget) {}
@@ -134,6 +136,7 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
     impl ReliefElevation for FlatRelief { fn elevation_at(&self, _: i32, _: i32) -> i32 { 0 } fn surface_height_at(&self, _: f32, _: f32) -> f32 { 0.0 } }
     struct DoorframeWorld(TerracedRelief);
     impl GravityField for DoorframeWorld { fn pull_direction_at(&self, _: Vec3) -> Vec3 { Vec3::NEG_Y } fn surface_up_at(&self, _: Vec3) -> Vec3 { Vec3::Y } }
+    impl world::WorldEarthworks for DoorframeWorld {}
     impl PlanetaryWorld for DoorframeWorld {
         fn emit_surface(&self, _: &mut dyn MeshTarget) {}
         fn constrain_to_surface(&self, p: Vec3, d: f32) -> Vec3 { Vec3::new(p.x, self.0.support_height_at(p.x, p.z, p.y - d, d) + d, p.z) }

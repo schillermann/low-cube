@@ -1,8 +1,13 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use world::{BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad};
+use world::{
+    BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, WorldEarthworks as _,
+};
 use crate::attire::{HeldRelic, YouthAttire};
-use crate::avatar::{Avatar, HandGesture, PlanetaryAvatar};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, HandGesture,
+    PlanetaryAvatar,
+};
 use crate::controls::{InputTrigger, KeyMotion, KeyboardControls};
 
 struct VertexLedger {

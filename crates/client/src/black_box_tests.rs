@@ -2,7 +2,9 @@ use glam::Vec3;
 use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
 use winit::keyboard::KeyCode;
 use world::{BiomedCubeWorld, PlanetaryWorld};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{
+    AvatarMotor as _, AvatarPresence as _, BlackBoxDeck as _, PlanetaryAvatar,
+};
 use crate::black_box::{
     BlackBoxAvatar, IncidentReplay, LiveTape, MemoryDossier, PresenceProbe, SilentTape,
 };

@@ -2,7 +2,7 @@ use glam::{Mat4, Quat, Vec3};
 use fauna::{SightCone, WoodlandFauna};
 use world::{CompanionPresence, MeshTarget, PlanetaryWorld, PresenceAttire, PresenceKinematics};
 use crate::attire::{PhotoShutter, SightMode, YouthAttire};
-use crate::avatar::Avatar;
+use crate::avatar::{Avatar, AvatarMotor, AvatarOptics, AvatarPresence, BlackBoxDeck, PhotoPort};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls, LocomotionTarget};
 use super::{AnomalyKind, FlightEvent, FlightTape, IncidentMedium, PresenceSink, TickTrace};
 
@@ -57,21 +57,10 @@ impl OrderSample {
 }
 
 impl LocomotionTarget for OrderSample {
-    fn travel(&mut self, direction: Vec3) {
-        self.intent = (direction.z, direction.x);
-    }
-
-    fn jump(&mut self) {
-        self.flags |= 1;
-    }
-
-    fn sprint(&mut self) {
-        self.flags |= 2;
-    }
-
-    fn sneak(&mut self) {
-        self.flags |= 4;
-    }
+    fn travel(&mut self, direction: Vec3) { self.intent = (direction.z, direction.x); }
+    fn jump(&mut self) { self.flags |= 1; }
+    fn sprint(&mut self) { self.flags |= 2; }
+    fn sneak(&mut self) { self.flags |= 4; }
 }
 
 /// Pure-OOP `Avatar` decorator recording a rolling 120 Hz flight black-box ring without touching domain classes.
@@ -120,21 +109,60 @@ impl BlackBoxAvatar {
     }
 }
 
-impl Avatar for BlackBoxAvatar {
-    fn rotate_view(&mut self, dx: f32, dy: f32) { self.origin.rotate_view(dx, dy); }
+impl AvatarOptics for BlackBoxAvatar {
+    fn sight_cone(&self) -> SightCone { self.origin.sight_cone() }
+    fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone { self.origin.sight_cone_for_mode(sight) }
+    fn view_projection_matrix(&self, aspect: f32) -> Mat4 { self.origin.view_projection_matrix(aspect) }
+    fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 { self.origin.view_projection_for_sight(aspect, sight) }
+    fn surface_rotation(&self) -> Quat { self.origin.surface_rotation() }
+}
 
-    fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        let acted = self.origin.use_left_hand(world);
-        if acted {
-            self.tape.record_event(FlightEvent::LeftHandUsed);
-        }
-        acted
+impl AvatarPresence for BlackBoxAvatar {
+    fn emit_appearance(&self, target: &mut dyn MeshTarget) { self.origin.emit_appearance(target); }
+    fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) { self.origin.emit_appearance_for_sight(sight, target); }
+    fn sector_stamp(&self) -> (u8, i32, i32, i32) { self.origin.sector_stamp() }
+    fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 { self.origin.visible_slices(world) }
+    fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.origin.drain_meadow(world, ring, target)
+    }
+    fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) { self.origin.sync_world_presence(world); }
+    fn report_presence(&self, sink: &mut dyn PresenceSink) { self.origin.report_presence(sink); }
+}
+
+impl PhotoPort for BlackBoxAvatar {
+    fn take_photo_shutter(&mut self) -> PhotoShutter { self.origin.take_photo_shutter() }
+    fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.origin.apply_polaroid_mosaic(mosaic); }
+    fn trigger_log_sheet(&mut self, ticks: u16, anomalies: u8) { self.origin.trigger_log_sheet(ticks, anomalies); }
+    #[cfg(test)]
+    fn polaroid_tilt(&self) -> f32 { self.origin.polaroid_tilt() }
+}
+
+impl BlackBoxDeck for BlackBoxAvatar {
+    fn black_box_active(&self) -> bool { self.tape.active() }
+    fn black_box_populated(&self) -> bool { self.tape.populated() }
+    fn black_box_summary(&self) -> (usize, u8) { self.tape.summary_counts() }
+
+    fn toggle_black_box(&mut self) -> bool {
+        self.tape = self.tape.toggled();
+        self.tape.active()
     }
 
-    fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        let acted = self.origin.use_right_hand(world);
+    fn export_incident_dossier(&mut self, medium: &mut dyn IncidentMedium) -> Option<u8> {
+        let (ticks, _) = self.tape.summary_counts();
+        let anomalies = self.tape.inscribe_dossier(medium)?;
+        self.origin.trigger_log_sheet(ticks.min(u16::MAX as usize) as u16, anomalies);
+        Some(anomalies)
+    }
+}
+
+impl AvatarMotor for BlackBoxAvatar {
+    fn rotate_view(&mut self, dx: f32, dy: f32) { self.origin.rotate_view(dx, dy); }
+
+    fn act_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
+        let acted = self.origin.act_hand(side, world);
         if acted {
-            self.tape.record_event(FlightEvent::RightHandUsed);
+            let ev = if side > 0.0 { FlightEvent::RightHandUsed } else { FlightEvent::LeftHandUsed };
+            self.tape.record_event(ev);
         }
         acted
     }
@@ -148,9 +176,6 @@ impl Avatar for BlackBoxAvatar {
     }
 
     fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.step_digging(world) }
-    fn apply_attire(&mut self, attire: YouthAttire) { self.origin.apply_attire(attire); }
-    fn apply_bindings(&mut self, bindings: ActionBindings) { self.origin.apply_bindings(bindings); }
-    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool { self.origin.dispatch_trigger(trigger) }
 
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
         let acted = self.origin.adjust_aimed_rig(trigger, world);
@@ -188,53 +213,24 @@ impl Avatar for BlackBoxAvatar {
         self.tape.record_tick(blocks, trace);
     }
 
+    fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+        self.origin.hunt_fauna(side, fauna, world)
+    }
+
+    fn emit_reticle(&self, target: &mut dyn MeshTarget) { self.origin.emit_reticle(target); }
+}
+
+impl Avatar for BlackBoxAvatar {
+    fn apply_attire(&mut self, attire: YouthAttire) { self.origin.apply_attire(attire); }
+    fn apply_bindings(&mut self, bindings: ActionBindings) { self.origin.apply_bindings(bindings); }
+    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool { self.origin.dispatch_trigger(trigger) }
     fn blend_subtick(&mut self, alpha: f32) { self.origin.blend_subtick(alpha); }
     fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) { self.origin.step_fauna(dt, fauna, world); }
-    fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) { self.origin.hunt_fauna(side, fauna, world) }
-    fn sight_cone(&self) -> SightCone { self.origin.sight_cone() }
-    fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone { self.origin.sight_cone_for_mode(sight) }
-    fn view_projection_matrix(&self, aspect: f32) -> Mat4 { self.origin.view_projection_matrix(aspect) }
-    fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 { self.origin.view_projection_for_sight(aspect, sight) }
-    fn surface_rotation(&self) -> Quat { self.origin.surface_rotation() }
-    fn emit_appearance(&self, target: &mut dyn MeshTarget) { self.origin.emit_appearance(target); }
-    fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) { self.origin.emit_appearance_for_sight(sight, target); }
-    fn sector_stamp(&self) -> (u8, i32, i32, i32) { self.origin.sector_stamp() }
-    fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 { self.origin.visible_slices(world) }
-    fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
-        self.origin.drain_meadow(world, ring, target)
-    }
-    fn take_photo_shutter(&mut self) -> PhotoShutter { self.origin.take_photo_shutter() }
-    fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.origin.apply_polaroid_mosaic(mosaic); }
-    #[cfg(test)]
-    fn polaroid_tilt(&self) -> f32 { self.origin.polaroid_tilt() }
-    fn emit_reticle(&self, target: &mut dyn MeshTarget) { self.origin.emit_reticle(target); }
-    fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) { self.origin.sync_world_presence(world); }
-    fn report_presence(&self, sink: &mut dyn PresenceSink) { self.origin.report_presence(sink); }
 
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) {
         self.world_blocks = 0;
         let blocks = self.calibrate_scale(world);
         self.tape.record_event(FlightEvent::WorldLanded { blocks });
         self.origin.land_on_world(world);
-    }
-
-    fn trigger_log_sheet(&mut self, ticks: u16, anomalies: u8) {
-        self.origin.trigger_log_sheet(ticks, anomalies);
-    }
-
-    fn black_box_active(&self) -> bool { self.tape.active() }
-    fn black_box_populated(&self) -> bool { self.tape.populated() }
-    fn black_box_summary(&self) -> (usize, u8) { self.tape.summary_counts() }
-
-    fn toggle_black_box(&mut self) -> bool {
-        self.tape = self.tape.toggled();
-        self.tape.active()
-    }
-
-    fn export_incident_dossier(&mut self, medium: &mut dyn IncidentMedium) -> Option<u8> {
-        let (ticks, _) = self.tape.summary_counts();
-        let anomalies = self.tape.inscribe_dossier(medium)?;
-        self.origin.trigger_log_sheet(ticks.min(u16::MAX as usize) as u16, anomalies);
-        Some(anomalies)
     }
 }

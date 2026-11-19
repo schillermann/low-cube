@@ -2,7 +2,7 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{BiomedCubeWorld, BlockMedium, MeshTarget, PlanetaryWorld, Quad, SurfaceFind, WorldFact};
 use crate::attire::{HeldRelic, YouthAttire};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::controls::KeyMotion;
 
 struct QuadTally {

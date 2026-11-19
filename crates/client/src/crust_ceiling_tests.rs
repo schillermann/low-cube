@@ -1,7 +1,9 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, WorldEarthworks as _};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
+};
 use crate::controls::{KeyMotion, KeyboardControls};
 use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::gait::WalkGait;

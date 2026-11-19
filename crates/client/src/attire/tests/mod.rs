@@ -5,9 +5,12 @@ mod encumbrance;
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{
-    ClimateZone, CubePlanet, CuboidShape, FacetedReliefFace, MeshTarget, NullFace, PlanetaryWorld, Quad,
+    ClimateZone, CubePlanet, CuboidShape, FacetedReliefFace, MeshTarget, NullFace, PlanetaryWorld,
+    Quad, WorldEarthworks as _,
 };
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
+};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 use super::{
     AttireProfile, BodyPose, FileAttire, HeldRelic, SightMode, StrideRhythm, Wardrobe, YouthAttire,

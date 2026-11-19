@@ -1,6 +1,7 @@
 use glam::Vec3;
 
 mod bevel;
+mod boundary;
 mod climate_zone;
 mod folded_face;
 mod folded_point;
@@ -14,8 +15,9 @@ mod corner_tests;
 mod tests;
 
 pub use bevel::{BevelTransition, SeamBevel};
+pub use boundary::{BeveledBoundary, CubicBoundary, OpenBoundary, SeamBoundary};
 pub use climate_zone::ClimateZone;
-pub use folded_face::FoldedFace;
+pub use folded_face::PerimeterFold;
 pub use folded_point::FoldedPoint;
 pub use perimeter::{FacePerimeter, PerimeterCrossing, PerimeterEdge};
 pub use seam::{CoordinateFold, SeamFold};

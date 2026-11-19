@@ -1,37 +1,65 @@
+mod earthworks;
 mod patches;
 mod slices;
 
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CleaveOutcome, ExposedStratum, Face, GravityField, MeadowRing,
-    MeshTarget, PlanetaryWorld, SurfaceFind, VehicleAssembly,
+    BeveledBoundary, CubicBoundary, ExposedStratum, Face, GravityField, MeadowRing, MeshTarget,
+    OpenBoundary, PlanetaryWorld, SeamBoundary,
 };
 pub use self::patches::{MeadowScan, PatchCoord};
 pub use self::slices::ModifiedSlices;
 
-/// Cubic planetary world composed of polymorphic `Face` instances and encapsulated modified-slice bitmask.
+/// Cubic planetary world composed of polymorphic `Face` instances, modified-slice tracking, and seam boundary.
 pub struct CubePlanet {
     faces: Vec<Box<dyn Face>>,
     fallback: Box<dyn Face>,
     slices: ModifiedSlices,
+    boundary: Box<dyn SeamBoundary>,
 }
 
 impl CubePlanet {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn with_slices(
+    pub fn with_boundary(
         faces: Vec<Box<dyn Face>>,
         fallback: Box<dyn Face>,
         slices: ModifiedSlices,
+        boundary: Box<dyn SeamBoundary>,
     ) -> Self {
-        Self { faces, fallback, slices }
+        Self { faces, fallback, slices, boundary }
     }
 
-    /// Secondary constructor initializing with clean slice bitmask.
+    /// Secondary constructor initializing a planar/open boundary with clean slice bitmask.
     pub fn new(faces: Vec<Box<dyn Face>>, fallback: Box<dyn Face>) -> Self {
-        Self::with_slices(faces, fallback, ModifiedSlices::clean())
+        Self::with_boundary(faces, fallback, ModifiedSlices::clean(), Box::new(OpenBoundary::new()))
     }
 
-    fn matching_index(&self, position: Vec3) -> usize {
+    /// Secondary constructor initializing a sharp 6-face cubic boundary.
+    pub fn cubic(faces: Vec<Box<dyn Face>>, fallback: Box<dyn Face>, half_size: f32) -> Self {
+        Self::with_boundary(
+            faces,
+            fallback,
+            ModifiedSlices::clean(),
+            Box::new(CubicBoundary::sharp(half_size)),
+        )
+    }
+
+    /// Secondary constructor initializing a beveled 6-face cubic boundary.
+    pub fn beveled_cubic(
+        faces: Vec<Box<dyn Face>>,
+        fallback: Box<dyn Face>,
+        half_size: f32,
+        margin: f32,
+    ) -> Self {
+        Self::with_boundary(
+            faces,
+            fallback,
+            ModifiedSlices::clean(),
+            Box::new(BeveledBoundary::decorating(CubicBoundary::sharp(half_size), half_size, margin)),
+        )
+    }
+
+    pub(super) fn matching_index(&self, position: Vec3) -> usize {
         for (idx, face) in self.faces.iter().enumerate() {
             if face.matches(position) {
                 return idx;
@@ -40,7 +68,7 @@ impl CubePlanet {
         0
     }
 
-    fn aimed_indices(&self, eye: Vec3, direction: Vec3) -> (usize, usize) {
+    pub(super) fn aimed_indices(&self, eye: Vec3, direction: Vec3) -> (usize, usize) {
         let primary = self.matching_index(eye);
         let secondary = self.matching_index(eye + direction.normalize_or_zero() * 1.25);
         (primary, secondary)
@@ -55,7 +83,7 @@ impl CubePlanet {
         self.fallback.as_ref()
     }
 
-    fn try_aimed_faces<T>(
+    pub(super) fn try_aimed_faces<T>(
         &mut self,
         eye: Vec3,
         direction: Vec3,
@@ -80,18 +108,24 @@ impl CubePlanet {
 }
 
 impl GravityField for CubePlanet {
-    fn pull_direction_at(&self, position: Vec3) -> Vec3 {
-        self.active_face(position).pull_direction()
+    fn surface_up_at(&self, position: Vec3) -> Vec3 {
+        self.boundary.blend_normal(position, self.active_face(position).surface_up())
     }
 
-    fn surface_up_at(&self, position: Vec3) -> Vec3 {
-        self.active_face(position).surface_up()
+    fn pull_direction_at(&self, position: Vec3) -> Vec3 {
+        -self.surface_up_at(position)
     }
 }
 
 impl PlanetaryWorld for CubePlanet {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
-        self.active_face(position).constrain(position, player_height)
+        for (idx, face) in self.faces.iter().enumerate() {
+            if face.matches(position) {
+                let constrained = face.constrain(position, player_height);
+                return self.boundary.fold_constrained(idx, position, constrained);
+            }
+        }
+        self.fallback.constrain(position, player_height)
     }
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
@@ -102,81 +136,6 @@ impl PlanetaryWorld for CubePlanet {
 
     fn canopy_drag(&self, position: Vec3) -> f32 {
         self.active_face(position).canopy_drag(position)
-    }
-
-    fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
-        self.try_aimed_faces(eye, direction, false, |f| f.harvest(eye, direction))
-    }
-
-    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
-        self.try_aimed_faces(eye, direction, false, |f| f.loosen(eye, direction, stage))
-    }
-
-    fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        self.try_aimed_faces(eye, direction, true, |f| {
-            let outcome = f.strike_timber(eye, direction);
-            outcome.struck().then_some(outcome)
-        })
-        .unwrap_or(CleaveOutcome::Missed)
-    }
-
-    fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        self.try_aimed_faces(eye, direction, true, |f| {
-            let find = f.forage_timber(eye, direction);
-            find.gathered().then_some(find)
-        })
-        .unwrap_or(SurfaceFind::EmptyHanded)
-    }
-
-    fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
-        let len = self.faces.len();
-        let (primary, secondary) = self.aimed_indices(eye, direction);
-        let order = if secondary != primary { [secondary, primary] } else { [primary, primary] };
-        for (step, idx) in order.into_iter().enumerate() {
-            if step == 1 && secondary == primary {
-                break;
-            }
-            if let Some(face) = self.faces.get_mut(idx) {
-                if face.cast_litter(eye, direction, find) {
-                    self.slices.record(len + idx);
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        self.try_aimed_faces(eye, direction, false, |f| {
-            f.place_molded_block(eye, direction, avatar_pos, mold).then_some(())
-        })
-        .is_some()
-    }
-
-    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
-        self.try_aimed_faces(eye, direction, false, |f| {
-            f.adjust_rig(eye, direction, delta_steps, rotate_quarter).then_some(())
-        })
-        .is_some()
-    }
-
-    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        self.try_aimed_faces(eye, direction, false, |f| f.lower_rig(eye, direction).then_some(())).is_some()
-    }
-
-    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
-        self.try_aimed_faces(eye, direction, false, |f| f.board_vehicle(eye, direction, holding_block))
-    }
-
-    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
-        let idx = self.matching_index(assembly.origin());
-        if let Some(face) = self.faces.get_mut(idx) {
-            if face.park_vehicle(assembly) {
-                self.slices.record(idx);
-                return true;
-            }
-        }
-        false
     }
 
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
@@ -270,13 +229,6 @@ impl PlanetaryWorld for CubePlanet {
 
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
         ModifiedSlices::horizon_mask(&self.faces, position, self.surface_up_at(position))
-    }
-
-    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
-        if let Some(face) = self.faces.get_mut(face_index) {
-            face.accept_disclosure(stratum);
-            self.slices.record(face_index);
-        }
     }
 
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {

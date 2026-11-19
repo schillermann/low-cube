@@ -7,7 +7,7 @@ use glam::Vec3;
 use world::{BiomedCubeWorld, PlanetaryWorld};
 use world::ClimateZone;
 #[cfg(test)]
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
 #[cfg(test)]
 use crate::controls::{KeyboardControls, LocomotionTarget};
 use crate::toml_document::TomlDocument;

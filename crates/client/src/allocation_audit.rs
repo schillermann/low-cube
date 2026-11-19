@@ -2,7 +2,7 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use glam::Vec3;
 use world::PlanetaryWorld;
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{AvatarMotor as _, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 
 pub struct HeapLedger;

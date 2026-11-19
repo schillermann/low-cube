@@ -3,7 +3,9 @@ use winit::keyboard::KeyCode;
 use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad};
 use crate::allocation_audit::count_allocations;
 use crate::attire::{BodyPose, HeldRelic, MartialStyle, SightMode, StrideRhythm, Wardrobe, YouthAttire, YouthPhysique};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
+};
 use crate::controls::{KeyboardControls, KeyMotion};
 use crate::menu::StudioAnimation;
 

@@ -15,7 +15,7 @@ use super::body::AvatarBody;
 use super::condition::AvatarCondition;
 use super::gear::AvatarGear;
 use super::sight::AvatarSight;
-use super::Avatar;
+use super::{Avatar, AvatarMotor, AvatarOptics, AvatarPresence, BlackBoxDeck, PhotoPort};
 
 /// Core embodied player entity executing unguarded living kinematics, sight, and hand interactions.
 pub(super) struct EmbodiedAvatar {
@@ -58,17 +58,6 @@ impl EmbodiedAvatar {
     fn surface_reach(&self) -> SurfaceReach {
         let pos = self.body.position();
         self.sight_line.surface_reach(self.pose_at(pos).eye_origin(), pos, self.body.standing(), self.body.driving())
-    }
-
-    fn act_with_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
-        let reach = self.surface_reach();
-        if !self.gear.satchel_open() {
-            if let Some(outcome) = self.body.interact_seated_vehicle(reach.eye(), reach.view_dir(), &mut self.sight_line, world) {
-                self.bearing.calm();
-                return outcome;
-            }
-        }
-        self.gear.act_with_hand(side, reach, &mut self.body, &mut self.bearing, world)
     }
 
     fn reset_to_world(&mut self, world: &dyn PlanetaryWorld) {
@@ -128,25 +117,69 @@ impl AvatarCondition for EmbodiedAvatar {
     }
 }
 
-impl Avatar for EmbodiedAvatar {
-    fn rotate_view(&mut self, dx: f32, dy: f32) { self.sight_line.rotate(dx, dy); }
-    fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(-1.0, world) }
-    fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.act_with_hand(1.0, world) }
-    fn apply_attire(&mut self, attire: YouthAttire) { self.gear.apply_attire(attire); }
-    fn apply_bindings(&mut self, bindings: ActionBindings) { self.gear.apply_bindings(bindings); }
-    fn blend_subtick(&mut self, alpha: f32) { self.body.blend_subtick(alpha); }
+impl AvatarOptics for EmbodiedAvatar {
+    fn sight_cone(&self) -> SightCone { self.sight_cone_for_mode(self.bearing.sight()) }
+    fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone {
+        let vpos = self.body.visual_position();
+        self.sight_line.sight_cone_at(sight, vpos, &self.pose_at(vpos), self.gear.placed_camera_lens())
+    }
+    fn view_projection_matrix(&self, aspect: f32) -> Mat4 { self.project_at_sight(aspect, self.bearing.sight(), None) }
+    fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 { self.project_at_sight(aspect, sight, self.gear.placed_camera_lens()) }
     fn surface_rotation(&self) -> Quat { self.sight_line.surface_rotation() }
+}
+
+impl AvatarPresence for EmbodiedAvatar {
+    fn emit_appearance(&self, target: &mut dyn MeshTarget) {
+        self.body.emit_vehicle(target);
+        self.gear.emit_appearance(&self.visual_pose(), self.bearing.sight(), self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
+    }
+
+    fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
+        self.body.emit_vehicle(target);
+        if !matches!(sight, SightMode::FirstPersonSight) {
+            self.gear.emit_appearance(&self.visual_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
+        }
+    }
+
     fn sector_stamp(&self) -> (u8, i32, i32, i32) { self.body.sector_stamp() }
     fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 { self.body.visible_slices(world) }
     fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
         self.body.drain_meadow(world, ring, target)
     }
+
+    fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) {
+        world.sync_presence(self.current_presence());
+        world.sync_pilot_craft(self.body.pilot_craft());
+    }
+
+    fn report_presence(&self, sink: &mut dyn crate::black_box::PresenceSink) {
+        sink.receive_presence(self.current_presence());
+    }
+}
+
+impl PhotoPort for EmbodiedAvatar {
     fn take_photo_shutter(&mut self) -> PhotoShutter { self.bearing.take_shutter() }
     fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) { self.bearing.apply_polaroid_mosaic(mosaic); }
+    fn trigger_log_sheet(&mut self, ticks: u16, anomalies: u8) { self.bearing.trigger_log_sheet(ticks, anomalies); }
     #[cfg(test)]
     fn polaroid_tilt(&self) -> f32 { self.bearing.polaroid_tilt() }
-    fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.reset_to_world(world); }
-    fn trigger_log_sheet(&mut self, ticks: u16, anomalies: u8) { self.bearing.trigger_log_sheet(ticks, anomalies); }
+}
+
+impl BlackBoxDeck for EmbodiedAvatar {}
+
+impl AvatarMotor for EmbodiedAvatar {
+    fn rotate_view(&mut self, dx: f32, dy: f32) { self.sight_line.rotate(dx, dy); }
+
+    fn act_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
+        let reach = self.surface_reach();
+        if !self.gear.satchel_open() {
+            if let Some(outcome) = self.body.interact_seated_vehicle(reach.eye(), reach.view_dir(), &mut self.sight_line, world) {
+                self.bearing.calm();
+                return outcome;
+            }
+        }
+        self.gear.act_with_hand(side, reach, &mut self.body, &mut self.bearing, world)
+    }
 
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
         let reach = self.surface_reach();
@@ -158,10 +191,6 @@ impl Avatar for EmbodiedAvatar {
         let (next_rhythm, changed) = self.gear.continue_digging(self.surface_reach(), self.bearing.rhythm(), world);
         self.bearing.apply_rhythm(next_rhythm);
         changed
-    }
-
-    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
-        self.gear.dispatch_trigger(trigger, &mut self.bearing, self.body.perished())
     }
 
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
@@ -202,50 +231,28 @@ impl Avatar for EmbodiedAvatar {
         self.sight_line.constrain_shoulders(wedged, self.gear.shaft_yaw_play());
     }
 
-    fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) {
-        let crouching = self.body.posture().crouch_drop() > 0.18;
-        if let Some(shove) = fauna.step_spatial(dt, self.body.position(), self.sight_line.view_direction(), crouching, world) {
-            self.body.gore(shove, world);
-        }
-    }
-
     fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
         self.gear.strike_fauna(side, self.surface_reach(), &mut self.bearing, fauna, world)
-    }
-
-    fn sight_cone(&self) -> SightCone { self.sight_cone_for_mode(self.bearing.sight()) }
-
-    fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone {
-        let vpos = self.body.visual_position();
-        self.sight_line.sight_cone_at(sight, vpos, &self.pose_at(vpos), self.gear.placed_camera_lens())
-    }
-
-    fn view_projection_matrix(&self, aspect: f32) -> Mat4 { self.project_at_sight(aspect, self.bearing.sight(), None) }
-    fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 { self.project_at_sight(aspect, sight, self.gear.placed_camera_lens()) }
-
-    fn emit_appearance(&self, target: &mut dyn MeshTarget) {
-        self.body.emit_vehicle(target);
-        self.gear.emit_appearance(&self.visual_pose(), self.bearing.sight(), self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
-    }
-
-    fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
-        self.body.emit_vehicle(target);
-        if !matches!(sight, SightMode::FirstPersonSight) {
-            self.gear.emit_appearance(&self.visual_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
-        }
     }
 
     fn emit_reticle(&self, target: &mut dyn MeshTarget) {
         self.body.posture().emit_reticle(target);
         self.bearing.emit_polaroid(target);
     }
+}
 
-    fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) {
-        world.sync_presence(self.current_presence());
-        world.sync_pilot_craft(self.body.pilot_craft());
+impl Avatar for EmbodiedAvatar {
+    fn apply_attire(&mut self, attire: YouthAttire) { self.gear.apply_attire(attire); }
+    fn apply_bindings(&mut self, bindings: ActionBindings) { self.gear.apply_bindings(bindings); }
+    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
+        self.gear.dispatch_trigger(trigger, &mut self.bearing, self.body.perished())
     }
-
-    fn report_presence(&self, sink: &mut dyn crate::black_box::PresenceSink) {
-        sink.receive_presence(self.current_presence());
+    fn blend_subtick(&mut self, alpha: f32) { self.body.blend_subtick(alpha); }
+    fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) {
+        let crouching = self.body.posture().crouch_drop() > 0.18;
+        if let Some(shove) = fauna.step_spatial(dt, self.body.position(), self.sight_line.view_direction(), crouching, world) {
+            self.body.gore(shove, world);
+        }
     }
+    fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.reset_to_world(world); }
 }

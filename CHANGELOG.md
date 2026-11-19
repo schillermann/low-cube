@@ -8,6 +8,19 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.83.0] - 2026-11-19
+
+### Added
+- Added focused 2-method `SeamBoundary` (`OpenBoundary`, `CubicBoundary`, and `BeveledBoundary` in `crates/world/src/topology/boundary.rs`), `PerimeterFold` (`crates/world/src/topology/folded_face.rs`), `BeveledGravity` (`crates/world/src/beveled_world.rs`), and `WorldEarthworks` (`crates/world/src/lib.rs` and `crates/world/src/planet/earthworks.rs`) composed directly into `CubePlanet`.
+- Segregated `Avatar` (`crates/client/src/avatar/mod.rs`) into narrow `AvatarMotor`, `AvatarOptics`, `AvatarPresence`, `PhotoPort`, and `BlackBoxDeck` contracts.
+
+### Changed
+- Narrowed `WardedPlanet` (`crates/sanctuary/src/warded_planet.rs`), `ChronicledPlanet` (`crates/sanctuary/src/chronicled_planet.rs`), `FleetLedger::park_by_id` (`crates/sanctuary/src/fleet_ledger.rs`), and `WorldFact::enact_on` (`crates/world/src/chronicle.rs`) to decorate `WorldEarthworks` without `PlanetaryWorld` or `GravityField` forwarding boilerplate.
+- Narrowed `SatchelAvatar` (`crates/client/src/avatar/satchel_guard.rs`), `MortalMotor` (`crates/client/src/avatar/planetary.rs`), and `ReticleHud` (`crates/client/src/menu/portal/beacon.rs`) to `AvatarMotor`, and narrowed `BlackBoxPanel` / `BlackBoxBody` (`crates/client/src/menu/black_box_panel.rs`) to `BlackBoxDeck`.
+
+### Removed
+- Removed 418-line `BeveledWorld` and `FoldedFace` pass-through wrapper shells (`crates/world/src/beveled_world.rs` and `crates/world/src/topology/folded_face.rs`), eliminating seven redundant heap-allocated wrapper boxes per cubic planet and fixing missing `portal_phrase` / `punch_nat_peer` delegation on beveled worlds.
+
 ## [0.82.0] - 2026-11-19
 
 ### Added

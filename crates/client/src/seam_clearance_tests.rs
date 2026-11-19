@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{BiomedCubeWorld, GravityField, PlanetaryWorld};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::gait::{SneakGait, WalkGait};

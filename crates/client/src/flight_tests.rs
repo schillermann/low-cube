@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{GravityField, MeshTarget, PlanetaryWorld};
+use world::{GravityField, MeshTarget, PlanetaryWorld, WorldEarthworks as _};
 use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::gait::WalkGait;
 
@@ -13,6 +13,8 @@ impl GravityField for FlatWorld {
         Vec3::Y
     }
 }
+
+impl world::WorldEarthworks for FlatWorld {}
 
 impl PlanetaryWorld for FlatWorld {
     fn emit_surface(&self, _target: &mut dyn MeshTarget) {}
@@ -45,6 +47,8 @@ impl GravityField for CliffWorld {
         Vec3::Y
     }
 }
+
+impl world::WorldEarthworks for CliffWorld {}
 
 impl PlanetaryWorld for CliffWorld {
     fn emit_surface(&self, _target: &mut dyn MeshTarget) {}

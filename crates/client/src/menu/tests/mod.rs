@@ -9,7 +9,7 @@ use world::{MeshTarget, Quad};
 use crate::attire::{AttireProfile, BodyRegion, ComplexionSwatch, FileAttire, HeldRelic, SightMode, StrideRhythm, Wardrobe, YouthAttire};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::AuroraCanopy;
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{Avatar, AvatarPresence as _, PlanetaryAvatar};
 use crate::celestial::CelestialCadence;
 use crate::controls::ControlAction;
 use crate::posture::AvatarPosture;

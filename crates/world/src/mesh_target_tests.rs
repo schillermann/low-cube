@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{
-    CountedMeshTarget, CrateredMeshTarget, MeshTarget, Quad, TurfMeshTarget,
+    CountedMeshTarget, CrateredMeshTarget, MeshTarget, Quad, TurfMeshTarget, WorldEarthworks,
 };
 
 struct QuadLedger {

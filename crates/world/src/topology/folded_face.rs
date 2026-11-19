@@ -1,163 +1,35 @@
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
-use crate::{BlockMedium, BlockMold, CleaveOutcome, Face, MeshTarget, SurfaceFind, VehicleAssembly};
 use super::{ClimateZone, FacePerimeter, PerimeterCrossing, PlanetaryTopology, SeamFold};
 
-/// Decorator enabling seamless 90° coordinate folding across outer perimeter boundaries.
-pub struct FoldedFace {
-    origin: Box<dyn Face>,
+/// Focused perimeter coordinate folder translating points that cross a face edge onto the adjacent cube face.
+#[derive(Clone, Copy)]
+pub struct PerimeterFold {
     frame: SurfaceFrame,
     perimeter: FacePerimeter,
     seams: [SeamFold; 4],
 }
 
-impl FoldedFace {
+impl PerimeterFold {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(
-        origin: Box<dyn Face>,
-        frame: SurfaceFrame,
-        perimeter: FacePerimeter,
-        seams: [SeamFold; 4],
-    ) -> Self {
-        Self {
-            origin,
-            frame,
-            perimeter,
-            seams,
-        }
+    pub const fn new(frame: SurfaceFrame, perimeter: FacePerimeter, seams: [SeamFold; 4]) -> Self {
+        Self { frame, perimeter, seams }
     }
 
-    /// Secondary constructor decorating an existing face for a canonical climate zone.
-    pub fn in_zone(origin: Box<dyn Face>, zone: ClimateZone, half_size: f32) -> Self {
+    /// Secondary constructor assembling the four perimeter folds for a canonical climate zone.
+    pub fn in_zone(zone: ClimateZone, half_size: f32) -> Self {
         let topology = PlanetaryTopology::cubic(half_size);
         let perimeter = FacePerimeter::square(half_size);
         let seams = topology.seams_for(zone);
         let frame = zone.surface_frame(half_size);
-        Self::new(origin, frame, perimeter, seams)
-    }
-}
-
-impl Face for FoldedFace {
-    fn matches(&self, point: Vec3) -> bool {
-        self.origin.matches(point)
+        Self::new(frame, perimeter, seams)
     }
 
-    fn surface_up(&self) -> Vec3 {
-        self.origin.surface_up()
-    }
-
-    fn pull_direction(&self) -> Vec3 {
-        self.origin.pull_direction()
-    }
-
-    fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
-        let constrained = self.origin.constrain(point, distance);
-        let crossing = self.perimeter.crossing_point(&self.frame, point);
-        match crossing {
+    /// Folds `constrained` across the crossed edge whenever `raw_point` lies beyond the face perimeter.
+    pub fn fold(&self, raw_point: Vec3, constrained: Vec3) -> Vec3 {
+        match self.perimeter.crossing_point(&self.frame, raw_point) {
             PerimeterCrossing::Interior => constrained,
-            PerimeterCrossing::Crossing { edge, .. } => {
-                self.seams[edge.index()].fold_point(constrained)
-            }
+            PerimeterCrossing::Crossing { edge, .. } => self.seams[edge.index()].fold_point(constrained),
         }
-    }
-
-    fn emit_surface(&self, target: &mut dyn MeshTarget) {
-        self.origin.emit_surface(target);
-    }
-
-    fn emit_terrain(&self, target: &mut dyn MeshTarget) {
-        self.origin.emit_terrain(target);
-    }
-
-    fn emit_flora(&self, target: &mut dyn MeshTarget) {
-        self.origin.emit_flora(target);
-    }
-
-    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
-        self.origin.emit_meadow_around(center, view_dir, target);
-    }
-
-    fn terrain_patch_count(&self) -> usize { self.origin.terrain_patch_count() }
-    fn emit_terrain_patch(&self, patch_slot: usize, target: &mut dyn MeshTarget) { self.origin.emit_terrain_patch(patch_slot, target); }
-    fn pending_terrain_patches(&self) -> bool { self.origin.pending_terrain_patches() }
-    fn drain_terrain_patch(&mut self, target: &mut dyn MeshTarget) -> Option<usize> { self.origin.drain_terrain_patch(target) }
-    fn meadow_center_sector(&self, center: Vec3) -> (i32, i32) { self.origin.meadow_center_sector(center) }
-    fn meadow_sector_revision(&self, gsu: i32, gsv: i32) -> u32 { self.origin.meadow_sector_revision(gsu, gsv) }
-    fn emit_meadow_sector(&self, gsu: i32, gsv: i32, lod: u8, target: &mut dyn MeshTarget) { self.origin.emit_meadow_sector(gsu, gsv, lod, target); }
-
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
-        self.origin.arboreal_perch_near(center, selector)
-    }
-
-    fn canopy_drag(&self, point: Vec3) -> f32 {
-        self.origin.canopy_drag(point)
-    }
-
-    fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
-        self.origin.harvest(eye, direction)
-    }
-
-    fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
-        self.origin.loosen(eye, direction, stage)
-    }
-
-    fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        self.origin.strike_timber(eye, direction)
-    }
-
-    fn forage_timber(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        self.origin.forage_timber(eye, direction)
-    }
-
-    fn cast_litter(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
-        self.origin.cast_litter(eye, direction, find)
-    }
-
-    fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        self.origin.place_molded_block(eye, direction, avatar_pos, mold)
-    }
-
-    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
-        self.origin.adjust_rig(eye, direction, delta_steps, rotate_quarter)
-    }
-
-    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        self.origin.lower_rig(eye, direction)
-    }
-
-    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
-        self.origin.board_vehicle(eye, direction, holding_block)
-    }
-
-    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
-        self.origin.park_vehicle(assembly)
-    }
-
-    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
-        self.origin.placed_camera_tripod()
-    }
-
-    fn step_surface(&mut self, dt: f32) -> bool {
-        self.origin.step_surface(dt)
-    }
-
-    fn step_flora(&mut self, dt: f32) -> bool {
-        self.origin.step_flora(dt)
-    }
-
-    fn lethal_at(&self, point: Vec3) -> bool {
-        self.origin.lethal_at(point)
-    }
-
-    fn confine_beneath_crust(&self, point: Vec3) -> Vec3 {
-        self.origin.confine_beneath_crust(point)
-    }
-
-    fn accept_disclosure(&mut self, stratum: crate::ExposedStratum) {
-        self.origin.accept_disclosure(stratum);
-    }
-
-    fn drain_disclosures(&mut self, out: &mut Vec<crate::ExposedStratum>) {
-        self.origin.drain_disclosures(out);
     }
 }

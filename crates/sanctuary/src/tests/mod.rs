@@ -7,8 +7,8 @@ use std::net::UdpSocket;
 use glam::{Quat, Vec3};
 use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, CompanionPresence, CubePlanet, Face,
-    FacetedReliefFace, FoldedFace, HollowVeins, LivingVeins, NullFace, PlanetaryWorld,
-    PresenceAttire, PresenceKinematics, WorldFact,
+    FacetedReliefFace, HollowVeins, LivingVeins, NullFace, PlanetaryWorld,
+    PresenceAttire, PresenceKinematics, WorldEarthworks, WorldFact,
 };
 use crate::{JoinTarget, PortalTicket, RemotePlanet, SanctuaryEnvelope, SanctuaryHost};
 
@@ -23,10 +23,10 @@ fn build_ore_test_planet(authoritative: bool) -> CubePlanet {
                 Box::new(HollowVeins::untouched())
             };
             let face = FacetedReliefFace::in_zone_with_veins(zone, half, 64, veins);
-            Box::new(FoldedFace::in_zone(Box::new(face), zone, half))
+            Box::new(face)
         })
         .collect();
-    CubePlanet::new(faces, Box::new(NullFace))
+    CubePlanet::cubic(faces, Box::new(NullFace), half)
 }
 
 fn pump_pair(host: &mut SanctuaryHost, guest_a: &mut RemotePlanet, guest_b: &mut RemotePlanet, rounds: usize) {

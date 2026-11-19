@@ -1,74 +1,48 @@
-use glam::{Mat4, Quat, Vec3};
-use fauna::{SightCone, WoodlandFauna};
+use fauna::WoodlandFauna;
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{PhotoShutter, SightMode, YouthAttire};
-use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
-use crate::server_satchel::StartingSatchel;
+use crate::controls::{InputTrigger, KeyboardControls};
 use super::condition::AvatarCondition;
-use super::embodied::EmbodiedAvatar;
-use super::Avatar;
+use super::AvatarMotor;
 
-/// Decorator over `Avatar` suspending world gaze, stride, digging, and reticle emission while the belt satchel UI is open.
-pub(super) struct SatchelAvatar<A> {
-    origin: A,
+/// Focused `AvatarMotor` decorator suspending gaze, stride, digging, and reticle emission while the satchel UI is open.
+pub(super) struct SatchelAvatar<M> {
+    origin: M,
 }
 
-impl<A> SatchelAvatar<A> {
+impl<M> SatchelAvatar<M> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(origin: A) -> Self {
+    pub(super) const fn new(origin: M) -> Self {
         Self { origin }
     }
-}
 
-impl SatchelAvatar<EmbodiedAvatar> {
-    pub(super) fn provision_satchel(&mut self, provider: &dyn StartingSatchel) {
-        self.origin.provision_satchel(provider);
+    pub(super) const fn inner(&self) -> &M {
+        &self.origin
+    }
+
+    pub(super) fn inner_mut(&mut self) -> &mut M {
+        &mut self.origin
     }
 }
 
-impl<A: AvatarCondition> AvatarCondition for SatchelAvatar<A> {
-    fn perished(&self) -> bool {
-        self.origin.perished()
-    }
-
-    fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool {
-        self.origin.lethal_contact(world)
-    }
-
-    fn satchel_open(&self) -> bool {
-        self.origin.satchel_open()
-    }
-
-    fn driving(&self) -> bool {
-        self.origin.driving()
-    }
-
-    fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        self.origin.abort_hands(world)
-    }
-
-    fn step_satchel_idle(&mut self, dt: f32) {
-        self.origin.step_satchel_idle(dt);
-    }
-
-    fn step_blackout(&mut self, dt: f32, world: &dyn PlanetaryWorld) {
-        self.origin.step_blackout(dt, world);
-    }
+impl<M: AvatarCondition> AvatarCondition for SatchelAvatar<M> {
+    fn perished(&self) -> bool { self.origin.perished() }
+    fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool { self.origin.lethal_contact(world) }
+    fn satchel_open(&self) -> bool { self.origin.satchel_open() }
+    fn driving(&self) -> bool { self.origin.driving() }
+    fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.abort_hands(world) }
+    fn step_satchel_idle(&mut self, dt: f32) { self.origin.step_satchel_idle(dt); }
+    fn step_blackout(&mut self, dt: f32, world: &dyn PlanetaryWorld) { self.origin.step_blackout(dt, world); }
 }
 
-impl<A: Avatar + AvatarCondition> Avatar for SatchelAvatar<A> {
+impl<M: AvatarMotor + AvatarCondition> AvatarMotor for SatchelAvatar<M> {
     fn rotate_view(&mut self, dx: f32, dy: f32) {
         if !self.origin.satchel_open() {
             self.origin.rotate_view(dx, dy);
         }
     }
 
-    fn use_left_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        self.origin.use_left_hand(world)
-    }
-
-    fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        self.origin.use_right_hand(world)
+    fn act_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
+        self.origin.act_hand(side, world)
     }
 
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
@@ -80,23 +54,7 @@ impl<A: Avatar + AvatarCondition> Avatar for SatchelAvatar<A> {
     }
 
     fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.origin.satchel_open() {
-            false
-        } else {
-            self.origin.step_digging(world)
-        }
-    }
-
-    fn apply_attire(&mut self, attire: YouthAttire) {
-        self.origin.apply_attire(attire);
-    }
-
-    fn apply_bindings(&mut self, bindings: ActionBindings) {
-        self.origin.apply_bindings(bindings);
-    }
-
-    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
-        self.origin.dispatch_trigger(trigger)
+        !self.origin.satchel_open() && self.origin.step_digging(world)
     }
 
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
@@ -115,14 +73,6 @@ impl<A: Avatar + AvatarCondition> Avatar for SatchelAvatar<A> {
         }
     }
 
-    fn blend_subtick(&mut self, alpha: f32) {
-        self.origin.blend_subtick(alpha);
-    }
-
-    fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) {
-        self.origin.step_fauna(dt, fauna, world);
-    }
-
     fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
         if self.origin.satchel_open() || self.origin.driving() {
             (false, false)
@@ -131,72 +81,9 @@ impl<A: Avatar + AvatarCondition> Avatar for SatchelAvatar<A> {
         }
     }
 
-    fn sight_cone(&self) -> SightCone {
-        self.origin.sight_cone()
-    }
-
-    fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone {
-        self.origin.sight_cone_for_mode(sight)
-    }
-
-    fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
-        self.origin.view_projection_matrix(aspect)
-    }
-
-    fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 {
-        self.origin.view_projection_for_sight(aspect, sight)
-    }
-
-    fn surface_rotation(&self) -> Quat {
-        self.origin.surface_rotation()
-    }
-
-    fn emit_appearance(&self, target: &mut dyn MeshTarget) {
-        self.origin.emit_appearance(target);
-    }
-
-    fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
-        self.origin.emit_appearance_for_sight(sight, target);
-    }
-
-    fn sector_stamp(&self) -> (u8, i32, i32, i32) { self.origin.sector_stamp() }
-    fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 { self.origin.visible_slices(world) }
-    fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
-        self.origin.drain_meadow(world, ring, target)
-    }
-
-    fn take_photo_shutter(&mut self) -> PhotoShutter {
-        self.origin.take_photo_shutter()
-    }
-
-    fn apply_polaroid_mosaic(&mut self, mosaic: Vec<Vec3>) {
-        self.origin.apply_polaroid_mosaic(mosaic);
-    }
-
-    #[cfg(test)]
-    fn polaroid_tilt(&self) -> f32 {
-        self.origin.polaroid_tilt()
-    }
-
     fn emit_reticle(&self, target: &mut dyn MeshTarget) {
         if !self.origin.satchel_open() {
             self.origin.emit_reticle(target);
         }
-    }
-
-    fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) {
-        self.origin.sync_world_presence(world);
-    }
-
-    fn report_presence(&self, sink: &mut dyn crate::black_box::PresenceSink) {
-        self.origin.report_presence(sink);
-    }
-
-    fn land_on_world(&mut self, world: &dyn PlanetaryWorld) {
-        self.origin.land_on_world(world);
-    }
-
-    fn trigger_log_sheet(&mut self, ticks: u16, anomalies: u8) {
-        self.origin.trigger_log_sheet(ticks, anomalies);
     }
 }

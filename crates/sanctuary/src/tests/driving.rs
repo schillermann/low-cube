@@ -2,7 +2,7 @@ use glam::{Quat, Vec3};
 use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, CompanionPresence, CraftBlueprint, CraftPose,
     DrivenCraft, MeshTarget, PilotCraft, PlanetaryWorld, PresenceAttire, PresenceKinematics, Quad,
-    SurfaceFrame, VehicleAxes, VehiclePart,
+    SurfaceFrame, VehicleAxes, VehiclePart, WorldEarthworks,
 };
 use crate::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
 

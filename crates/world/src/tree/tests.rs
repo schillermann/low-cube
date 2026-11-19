@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use glam::Vec3;
-use crate::{ClimateZone, MeshTarget, Quad, SurfaceFrame};
+use crate::{ClimateZone, MeshTarget, Quad, SurfaceFrame, WorldEarthworks};
 use super::{Arboreal, TimberDepository, TimberYield, ZonedForest};
 
 struct TestDepository {

@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::MeshTarget;
-use crate::avatar::Avatar;
+use crate::avatar::BlackBoxDeck;
 use crate::black_box::{DiskDossier, FileBlackBox};
 use super::clipboard::TextClipboard;
 use super::glyph::PixelStamp;
@@ -51,22 +51,22 @@ impl BlackBoxLayout {
 pub struct BlackBoxBody<'a> {
     pointer: ScreenPoint,
     notice: BlackBoxNotice,
-    avatar: &'a dyn Avatar,
+    deck: &'a dyn BlackBoxDeck,
 }
 
 impl<'a> BlackBoxBody<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(pointer: ScreenPoint, notice: BlackBoxNotice, avatar: &'a dyn Avatar) -> Self {
-        Self { pointer, notice, avatar }
+    pub const fn new(pointer: ScreenPoint, notice: BlackBoxNotice, deck: &'a dyn BlackBoxDeck) -> Self {
+        Self { pointer, notice, deck }
     }
 }
 
 impl MenuView for BlackBoxBody<'_> {
     fn emit(&self, target: &mut dyn MeshTarget) {
         let layout = BlackBoxLayout::new();
-        let active = self.avatar.black_box_active();
-        let populated = self.avatar.black_box_populated();
-        let (ticks, anomalies) = self.avatar.black_box_summary();
+        let active = self.deck.black_box_active();
+        let populated = self.deck.black_box_populated();
+        let (ticks, anomalies) = self.deck.black_box_summary();
 
         let status_line = if active {
             format!("RING BUFFER: {ticks} TICKS  ANOMALIES: {anomalies}")
@@ -147,10 +147,10 @@ impl BlackBoxPanel {
         )
     }
 
-    pub fn press_pointer(&mut self, pointer: ScreenPoint, avatar: &mut dyn Avatar) -> BlackBoxDirective {
+    pub fn press_pointer(&mut self, pointer: ScreenPoint, deck: &mut dyn BlackBoxDeck) -> BlackBoxDirective {
         let layout = BlackBoxLayout::new();
         if layout.toggle_button().contains(pointer) {
-            let now_active = avatar.toggle_black_box();
+            let now_active = deck.toggle_black_box();
             self.profile.save_active(now_active);
             self.notice = if now_active {
                 BlackBoxNotice::Activated
@@ -160,7 +160,7 @@ impl BlackBoxPanel {
             BlackBoxDirective::StayInBlackBox
         } else if layout.report_button().contains(pointer) {
             let mut dossier = DiskDossier::in_folder(&self.report_folder);
-            if avatar.export_incident_dossier(&mut dossier).is_some() {
+            if deck.export_incident_dossier(&mut dossier).is_some() {
                 let saved_path = dossier.commit_to_disk();
                 let _ = self.clipboard.store_text(&saved_path);
                 self.notice = BlackBoxNotice::ReportSaved;
@@ -176,12 +176,12 @@ impl BlackBoxPanel {
         }
     }
 
-    pub fn view<'a>(&'a self, pointer: ScreenPoint, avatar: &'a dyn Avatar) -> TitledCard<'static, BlackBoxBody<'a>> {
+    pub fn view<'a>(&'a self, pointer: ScreenPoint, deck: &'a dyn BlackBoxDeck) -> TitledCard<'static, BlackBoxBody<'a>> {
         TitledCard::new(
             ScreenBounds::new(-0.44, -0.54, 0.44, 0.44),
             "FLIGHT LOG",
             0.35,
-            BlackBoxBody::new(pointer, self.notice, avatar),
+            BlackBoxBody::new(pointer, self.notice, deck),
         )
     }
 }

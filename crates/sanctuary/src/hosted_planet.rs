@@ -3,7 +3,7 @@ use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftIdentity, DrivenCraft,
     ExposedStratum, GravityField, MeadowRing, MeshTarget, PilotCraft, PlanetaryWorld, SurfaceFind,
-    VehicleAssembly,
+    VehicleAssembly, WorldEarthworks,
 };
 use crate::sanctuary_host::SanctuaryHost;
 
@@ -40,50 +40,6 @@ impl PlanetaryWorld for HostedPlanet {
 
     fn canopy_drag(&self, position: Vec3) -> f32 {
         self.host.world().canopy_drag(position)
-    }
-
-    fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
-        self.host.with_chronicled(|w| w.harvest_surface(eye, direction))
-    }
-
-    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
-        self.host.with_chronicled(|w| w.loosen_surface(eye, direction, stage))
-    }
-
-    fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        self.host.with_chronicled(|w| w.strike_timber(eye, direction))
-    }
-
-    fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        self.host.with_chronicled(|w| w.forage_surface(eye, direction))
-    }
-
-    fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
-        self.host.with_chronicled(|w| w.cast_surface_find(eye, direction, find))
-    }
-
-    fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        self.host.with_chronicled(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold))
-    }
-
-    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
-        self.host.with_chronicled(|w| w.adjust_rig(eye, direction, delta_steps, rotate_quarter))
-    }
-
-    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        self.host.with_chronicled(|w| w.lower_rig(eye, direction))
-    }
-
-    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
-        if holding_block {
-            self.host.with_chronicled(|w| w.board_vehicle(eye, direction, true))
-        } else {
-            self.host.world_mut().board_vehicle(eye, direction, false)
-        }
-    }
-
-    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
-        self.host.with_chronicled(|w| w.park_vehicle(assembly))
     }
 
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
@@ -156,10 +112,6 @@ impl PlanetaryWorld for HostedPlanet {
         self.host.world().visible_slice_mask(position)
     }
 
-    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
-        self.host.world_mut().disclose_stratum(face_index, stratum);
-    }
-
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {
         self.host.world_mut().drain_disclosures(out);
     }
@@ -211,5 +163,55 @@ impl PlanetaryWorld for HostedPlanet {
 
     fn pump_portal(&mut self, dt: f32) -> bool {
         self.host.pump_network(dt) || self.host.world().pending_slices()
+    }
+}
+
+impl WorldEarthworks for HostedPlanet {
+    fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.host.with_chronicled(|w| w.harvest_surface(eye, direction))
+    }
+
+    fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
+        self.host.with_chronicled(|w| w.loosen_surface(eye, direction, stage))
+    }
+
+    fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
+        self.host.with_chronicled(|w| w.strike_timber(eye, direction))
+    }
+
+    fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
+        self.host.with_chronicled(|w| w.forage_surface(eye, direction))
+    }
+
+    fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
+        self.host.with_chronicled(|w| w.cast_surface_find(eye, direction, find))
+    }
+
+    fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
+        self.host.with_chronicled(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold))
+    }
+
+    fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
+        self.host.with_chronicled(|w| w.adjust_rig(eye, direction, delta_steps, rotate_quarter))
+    }
+
+    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
+        self.host.with_chronicled(|w| w.lower_rig(eye, direction))
+    }
+
+    fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
+        if holding_block {
+            self.host.with_chronicled(|w| w.board_vehicle(eye, direction, true))
+        } else {
+            self.host.world_mut().board_vehicle(eye, direction, false)
+        }
+    }
+
+    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
+        self.host.with_chronicled(|w| w.park_vehicle(assembly))
+    }
+
+    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
+        self.host.world_mut().disclose_stratum(face_index, stratum);
     }
 }

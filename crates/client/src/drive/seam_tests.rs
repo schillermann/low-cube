@@ -2,8 +2,12 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, ClimateZone, GravityField, PlanetaryWorld,
+    WorldEarthworks,
 };
-use crate::avatar::{Avatar, HandGesture, PlanetaryAvatar};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, HandGesture,
+    PlanetaryAvatar,
+};
 use crate::controls::{KeyMotion, KeyboardControls};
 
 fn build_car_at_origin(world: &mut dyn PlanetaryWorld) -> f32 {

@@ -16,6 +16,8 @@ impl GravityField for FlatPlane {
     }
 }
 
+impl world::WorldEarthworks for FlatPlane {}
+
 impl PlanetaryWorld for FlatPlane {
     fn emit_surface(&self, _target: &mut dyn MeshTarget) {}
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
@@ -35,6 +37,8 @@ impl GravityField for RampWorld {
         Vec3::Y
     }
 }
+
+impl world::WorldEarthworks for RampWorld {}
 
 impl PlanetaryWorld for RampWorld {
     fn emit_surface(&self, _target: &mut dyn MeshTarget) {}

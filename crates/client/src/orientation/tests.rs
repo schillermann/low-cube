@@ -1,6 +1,6 @@
 use glam::{Quat, Vec3};
-use world::{BiomedCubeWorld, PlanetaryWorld};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use world::{BiomedCubeWorld, PlanetaryWorld, WorldEarthworks as _};
+use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::controls::KeyMotion;
 use super::*;
 

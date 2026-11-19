@@ -4,7 +4,7 @@ use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
     CraftPose, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget, PilotCraft,
-    PlanetaryWorld, SurfaceFind, VehicleAssembly,
+    PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
 };
 use crate::mailbox::{PortalMailbox, SocketLoop};
 
@@ -58,10 +58,7 @@ impl GravityField for ConduitPlanet {
     }
 }
 
-impl PlanetaryWorld for ConduitPlanet {
-    fn emit_surface(&self, target: &mut dyn MeshTarget) { self.read_world(|w| w.emit_surface(target)); }
-    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 { self.read_world(|w| w.constrain_to_surface(position, player_height)) }
-    fn canopy_drag(&self, position: Vec3) -> f32 { self.read_world(|w| w.canopy_drag(position)) }
+impl WorldEarthworks for ConduitPlanet {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.write_world(|w| w.harvest_surface(eye, direction)) }
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.write_world(|w| w.loosen_surface(eye, direction, stage)) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.write_world(|w| w.strike_timber(eye, direction)) }
@@ -75,6 +72,13 @@ impl PlanetaryWorld for ConduitPlanet {
     fn register_craft_blueprint(&mut self, blueprint: CraftBlueprint) -> bool { self.write_world(|w| w.register_craft_blueprint(blueprint)) }
     fn claim_vehicle_helm(&mut self, craft: CraftIdentity, pilot_slot: u32, eye: Vec3, direction: Vec3) -> bool { self.write_world(|w| w.claim_vehicle_helm(craft, pilot_slot, eye, direction)) }
     fn park_craft_by_id(&mut self, craft: CraftIdentity, pose: CraftPose) -> bool { self.write_world(|w| w.park_craft_by_id(craft, pose)) }
+    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.write_world(|w| w.disclose_stratum(face_index, stratum)); }
+}
+
+impl PlanetaryWorld for ConduitPlanet {
+    fn emit_surface(&self, target: &mut dyn MeshTarget) { self.read_world(|w| w.emit_surface(target)); }
+    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 { self.read_world(|w| w.constrain_to_surface(position, player_height)) }
+    fn canopy_drag(&self, position: Vec3) -> f32 { self.read_world(|w| w.canopy_drag(position)) }
     fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> { self.read_world(|w| w.board_passenger_seat(eye, direction)) }
     fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> { self.read_world(|w| w.passenger_seat_frame(craft, local_seat)) }
     fn helm_revoked(&mut self, craft: CraftIdentity) -> bool { self.write_world(|w| w.helm_revoked(craft)) }
@@ -104,7 +108,6 @@ impl PlanetaryWorld for ConduitPlanet {
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.read_world(|w| w.emit_meadow_around(center, view_dir, target)); }
     fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.read_world(|w| w.arboreal_perch_near(center, selector)) }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.read_world(|w| w.visible_slice_mask(position)) }
-    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.write_world(|w| w.disclose_stratum(face_index, stratum)); }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.write_world(|w| w.drain_disclosures(out)); }
     fn sync_presence(&mut self, presence: CompanionPresence) { self.write_world(|w| w.sync_presence(presence)); }
     fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.write_world(|w| w.sync_pilot_craft(craft)); }

@@ -1,7 +1,10 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
 use crate::attire::{BeltSatchel, HeldRelic, PhotoShutter, SightMode, YouthAttire};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PhotoPort as _,
+    PlanetaryAvatar,
+};
 use acoustics::{AcousticWave, ShutterClick};
 use crate::controls::{InputTrigger, KeyMotion, KeyboardControls};
 use crate::photo_plate::PhotoPlate;

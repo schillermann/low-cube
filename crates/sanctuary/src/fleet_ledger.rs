@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{
     BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, DrivenCraft, HelmLocks, MeshTarget,
-    PlanetaryWorld, VehicleAssembly,
+    VehicleAssembly, WorldEarthworks,
 };
 
 /// Encapsulated blueprint catalog, helm ownership locks, and optimistic race-revocation list.
@@ -82,7 +82,7 @@ impl FleetLedger {
         &mut self,
         craft: CraftIdentity,
         pose: CraftPose,
-        world: &mut dyn PlanetaryWorld,
+        world: &mut dyn WorldEarthworks,
     ) -> bool {
         let Some(assembly) = self.reconstruct_assembly(craft, pose) else {
             return false;

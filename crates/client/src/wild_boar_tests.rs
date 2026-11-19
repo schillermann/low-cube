@@ -4,7 +4,7 @@ use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, SurfaceFind};
 use acoustics::{AcousticWave, HeartyBite};
 use fauna::{BoarActivity, BoarSounder, RoeHerd, SparrowFlock, TestWildBoar as WildBoar, WoodlandFauna};
 use crate::attire::{HeldRelic, YouthAttire};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::controls::{KeyMotion, KeyboardControls};
 use crate::flight::SurfaceFlight;
 use crate::posture::AvatarPosture;

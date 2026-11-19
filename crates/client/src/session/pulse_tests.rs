@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 use glam::Vec3;
 use fauna::SparrowFlock;
 use world::{BiomedCubeWorld, PlanetaryWorld};
-use crate::avatar::{Avatar, PlanetaryAvatar};
+use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::clock::ControllableClock;
 use crate::controls::{ActionBindings, InputTrigger, KeyMotion, KeyboardControls};
 use super::pulse::EpochPulse;

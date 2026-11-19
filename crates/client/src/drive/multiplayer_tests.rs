@@ -1,8 +1,12 @@
 use glam::Vec3;
 use sanctuary::{HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
 use winit::keyboard::KeyCode;
-use world::{BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad};
-use crate::avatar::{Avatar, HandGesture, PlanetaryAvatar};
+use world::{
+    BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, WorldEarthworks as _,
+};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarPresence as _, HandGesture, PlanetaryAvatar,
+};
 use crate::companion::CompanionFigure;
 use crate::controls::{KeyMotion, KeyboardControls};
 

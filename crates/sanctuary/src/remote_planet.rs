@@ -4,7 +4,7 @@ use glam::Vec3;
 use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint,
     CraftIdentity, CraftPose, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
-    PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldFact,
+    PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks, WorldFact,
 };
 use crate::chronicled_planet::{ChronicledPlanet, FactJournal};
 use crate::fleet_ledger::FleetLedger;
@@ -144,21 +144,7 @@ impl GravityField for RemotePlanet {
     fn surface_up_at(&self, position: Vec3) -> Vec3 { self.world.surface_up_at(position) }
 }
 
-impl PlanetaryWorld for RemotePlanet {
-    fn emit_surface(&self, target: &mut dyn MeshTarget) { self.world.emit_surface(target); }
-
-    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
-        let ground = self.world.constrain_to_surface(position, player_height);
-        let mut crafts = Vec::new();
-        self.journal.crafts(&mut crafts);
-        let Some(craft_top) = self.journal.fleet().constrain_crafts(&crafts, position, player_height) else {
-            return ground;
-        };
-        let up = self.world.surface_up_at(position);
-        if craft_top.dot(up) > ground.dot(up) { craft_top } else { ground }
-    }
-
-    fn canopy_drag(&self, position: Vec3) -> f32 { self.world.canopy_drag(position) }
+impl WorldEarthworks for RemotePlanet {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.with_chronicled(|w| w.harvest_surface(eye, direction)) }
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.with_chronicled(|w| w.loosen_surface(eye, direction, stage)) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.with_chronicled(|w| w.strike_timber(eye, direction)) }
@@ -183,6 +169,27 @@ impl PlanetaryWorld for RemotePlanet {
     fn park_craft_by_id(&mut self, craft: CraftIdentity, pose: CraftPose) -> bool {
         self.journal.fleet_mut().park_by_id(craft, pose, self.world.as_mut())
     }
+
+    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
+        self.world.disclose_stratum(face_index, stratum);
+    }
+}
+
+impl PlanetaryWorld for RemotePlanet {
+    fn emit_surface(&self, target: &mut dyn MeshTarget) { self.world.emit_surface(target); }
+
+    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
+        let ground = self.world.constrain_to_surface(position, player_height);
+        let mut crafts = Vec::new();
+        self.journal.crafts(&mut crafts);
+        let Some(craft_top) = self.journal.fleet().constrain_crafts(&crafts, position, player_height) else {
+            return ground;
+        };
+        let up = self.world.surface_up_at(position);
+        if craft_top.dot(up) > ground.dot(up) { craft_top } else { ground }
+    }
+
+    fn canopy_drag(&self, position: Vec3) -> f32 { self.world.canopy_drag(position) }
 
     fn helm_revoked(&mut self, craft: CraftIdentity) -> bool {
         self.journal.fleet_mut().take_revoked(craft)
@@ -234,7 +241,6 @@ impl PlanetaryWorld for RemotePlanet {
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.world.emit_meadow_around(center, view_dir, target); }
     fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.world.arboreal_perch_near(center, selector) }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.world.visible_slice_mask(position) }
-    fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.world.disclose_stratum(face_index, stratum); }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.world.drain_disclosures(out); }
     fn sync_presence(&mut self, presence: CompanionPresence) { self.journal.sync_local_presence(presence); }
     fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.journal.sync_local_craft(craft); }

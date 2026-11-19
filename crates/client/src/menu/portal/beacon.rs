@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::MeshTarget;
-use crate::avatar::Avatar;
+use crate::avatar::AvatarMotor;
 use crate::menu::clipboard::TextClipboard;
 use crate::menu::glyph::PixelStamp;
 use crate::menu::view::MenuView;
@@ -187,19 +187,19 @@ impl PortalStatus {
 
 /// Focused `MenuView` adapter emitting the gameplay avatar reticle.
 pub struct ReticleHud<'a> {
-    avatar: &'a dyn Avatar,
+    motor: &'a dyn AvatarMotor,
 }
 
 impl<'a> ReticleHud<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(avatar: &'a dyn Avatar) -> Self {
-        Self { avatar }
+    pub const fn new(motor: &'a dyn AvatarMotor) -> Self {
+        Self { motor }
     }
 }
 
 impl MenuView for ReticleHud<'_> {
     fn emit(&self, target: &mut dyn MeshTarget) {
-        self.avatar.emit_reticle(target);
+        self.motor.emit_reticle(target);
     }
 }
 
