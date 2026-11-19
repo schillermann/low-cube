@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::block::GridCell;
 use crate::{MeshTarget, Quad};
-use super::super::vehicle_assembly::VehiclePart;
+use super::super::vehicle_assembly::{PilotOrder, RigidImpulse, VehiclePart};
 use super::pose::CraftPose;
 
 const MAX_BLUEPRINT_PARTS: usize = 512;
@@ -104,6 +104,32 @@ impl CraftBlueprint {
 
     pub fn drivable(&self) -> bool {
         !self.parts.is_empty()
+    }
+
+    pub fn spacefaring(&self) -> bool {
+        self.parts.iter().any(VehiclePart::flight_console)
+    }
+
+    pub fn sample_impulse(&self, order: &PilotOrder, pose: CraftPose) -> RigidImpulse {
+        let mut impulse = RigidImpulse::zero();
+        if self.parts.is_empty() {
+            return impulse;
+        }
+        let car_frame = pose.surface_frame();
+        let lift = self.wheel_ground_lift();
+        let com = self
+            .parts
+            .iter()
+            .fold(Vec3::ZERO, |acc, p| acc + p.world_mass_center(lift, &car_frame))
+            / (self.parts.len() as f32);
+        let up = pose.normal().normalize_or_zero();
+        let raw_fwd = pose.heading();
+        let fwd = (raw_fwd - up * raw_fwd.dot(up)).normalize_or_zero();
+        let right = fwd.cross(up).normalize_or_zero();
+        for part in &self.parts {
+            part.contribute_impulse(lift, &car_frame, com, order, right, up, fwd, &mut impulse);
+        }
+        impulse
     }
 
     pub fn parts(&self) -> &[VehiclePart] {

@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::time::Duration;
 use glam::Vec3;
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint,
+    BlockMedium, BlockMold, CelestialSystem, CleaveOutcome, CompanionPresence, CraftBlueprint,
     CraftIdentity, CraftPose, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
     PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks, WorldFact,
 };
@@ -90,11 +90,7 @@ impl RemotePlanet {
     }
 
     pub fn from_link(link: RemoteLink, blocks: u32, tron: bool, bevel_margin: f32) -> Self {
-        let world: Box<dyn PlanetaryWorld> = if tron {
-            Box::new(BiomedCubeWorld::hollow_beveled_tron(blocks, bevel_margin))
-        } else {
-            Box::new(BiomedCubeWorld::hollow_beveled(blocks, bevel_margin))
-        };
+        let world = CelestialSystem::hollow(blocks, bevel_margin, tron);
         Self::new(world, link, VecDeque::new())
     }
 
@@ -142,6 +138,7 @@ impl RemotePlanet {
 impl GravityField for RemotePlanet {
     fn pull_direction_at(&self, position: Vec3) -> Vec3 { self.world.pull_direction_at(position) }
     fn surface_up_at(&self, position: Vec3) -> Vec3 { self.world.surface_up_at(position) }
+    fn apply_pull(&self, position: Vec3, dt: f32) -> Vec3 { self.world.apply_pull(position, dt) }
 }
 
 impl WorldEarthworks for RemotePlanet {
@@ -208,6 +205,7 @@ impl PlanetaryWorld for RemotePlanet {
     }
 
     fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {
+        self.world.emit_active_crafts(target);
         let mut crafts = Vec::new();
         self.journal.crafts(&mut crafts);
         self.journal.fleet().emit_crafts(&crafts, target);

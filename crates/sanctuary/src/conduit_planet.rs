@@ -56,6 +56,10 @@ impl GravityField for ConduitPlanet {
     fn surface_up_at(&self, position: Vec3) -> Vec3 {
         self.read_world(|w| w.surface_up_at(position))
     }
+
+    fn apply_pull(&self, position: Vec3, dt: f32) -> Vec3 {
+        self.read_world(|w| w.apply_pull(position, dt))
+    }
 }
 
 impl WorldEarthworks for ConduitPlanet {

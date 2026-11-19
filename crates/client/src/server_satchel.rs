@@ -21,7 +21,8 @@ impl StartingSatchel for TestKitSatchel {
     fn provision(&self, satchel: BeltSatchel) -> BeltSatchel {
         satchel
             .with_stowed_relic(HeldRelic::FieldCamera, 1)
-            .with_stowed_relic(HeldRelic::RocketEngine, 1)
+            .with_stowed_relic(HeldRelic::FlightConsole, 1)
+            .with_stowed_relic(HeldRelic::RocketNozzle, 4)
             .with_stowed_relic(HeldRelic::AircraftEngine, 1)
             .with_stowed_relic(HeldRelic::SteeringWheel, 1)
             .with_stowed_relic(HeldRelic::CarWheel, 8)

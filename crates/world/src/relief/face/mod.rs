@@ -82,6 +82,25 @@ impl FacetedReliefFace {
         face
     }
 
+    /// Secondary constructor assembling a cratered lunar regolith face with explicit vein authority.
+    pub fn lunar_with_veins(
+        zone: ClimateZone,
+        half_size: f32,
+        divisions: u32,
+        crater_relief: Box<dyn ReliefElevation>,
+        veins: Box<dyn SubterraneanVeins>,
+        tron: bool,
+    ) -> Self {
+        let frame = zone.surface_frame(half_size);
+        let relief = Box::new(TerracedRelief::with_veins(crater_relief, (divisions as i32) / 2, veins));
+        let palette = if tron { ReliefPalette::tron() } else { ReliefPalette::lunar_regolith(zone) };
+        Self::new(
+            ReliefDomain::new(frame, relief),
+            palette,
+            ReliefCellCache::empty(ReliefStrata::new(), divisions),
+        )
+    }
+
     /// Returns this relief face with an additional molded voxel shape stacked at `(u, v, base)`.
     pub fn with_molded_block(mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>) -> Self {
         self.domain.relief.stack_molded_cell(u, v, base, shape);

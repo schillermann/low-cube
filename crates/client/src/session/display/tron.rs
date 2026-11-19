@@ -59,6 +59,8 @@ impl ScenePass for TronScenePass {
     }
 
     fn refresh_face_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, idx: usize) {
+        let empty_init = CpuTronBatch::empty();
+        self.mesh.ensure_slice(idx, || surface.upload_tron_mesh(&empty_init));
         let mut tron_buf = CpuTronBatch::empty();
         world.emit_face(idx, &mut tron_buf);
         let next = surface.replace_tron_mesh(self.mesh.slice_at(idx), &tron_buf);

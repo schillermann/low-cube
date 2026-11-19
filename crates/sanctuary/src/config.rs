@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::thread;
 use std::time::{Duration, Instant};
-use world::{BiomedCubeWorld, PlanetaryWorld};
+use world::{CelestialSystem, PlanetaryWorld};
 use crate::SanctuaryHost;
 
 /// Encapsulated `server.toml` text resolving dedicated sanctuary properties without external crates.
@@ -63,7 +63,7 @@ impl SanctuaryEndpoint {
     fn serve(self, blocks_per_edge: u32) -> std::io::Result<()> {
         let bind_addr = format!("0.0.0.0:{}", self.port);
         let bevel = ((blocks_per_edge as f32) * 0.5 * 0.125).clamp(0.5, 1.0);
-        let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(blocks_per_edge, bevel));
+        let world: Box<dyn PlanetaryWorld> = CelestialSystem::authoritative(blocks_per_edge, bevel, false);
         let mut host = SanctuaryHost::bind(&bind_addr, world, blocks_per_edge, false)?;
         let bound = host.local_addr()?;
         let ticket = host.ticket().encode();

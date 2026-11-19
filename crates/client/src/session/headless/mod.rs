@@ -82,7 +82,9 @@ impl HeadlessSession {
         let spawn = world.constrain_to_surface(Vec3::new(0.25, half + 2.0, 0.25), 1.0);
         let inner = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
-            Box::new(crate::flight::SurfaceFlight::calibrated(0.522, 10.0, 1.0)),
+            Box::new(crate::zero_g_flight::ZeroGFlight::wrapping(
+                crate::flight::SurfaceFlight::calibrated(0.522, 10.0, 1.0),
+            )),
             YouthAttire::squire(),
             ActionBindings::seeded(),
         )

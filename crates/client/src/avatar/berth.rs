@@ -53,6 +53,9 @@ impl CockpitBerth {
     fn mount_assembly(&mut self, assembly: VehicleAssembly, sight_line: &mut AvatarSight, world: &dyn PlanetaryWorld) -> Vec3 {
         let (pos, heading) = self.pilot.mount(assembly, world);
         sight_line.anchor_vehicle_heading(heading);
+        if self.pilot.free_look() {
+            sight_line.constrain_shoulders(false, 0.0);
+        }
         pos
     }
 
@@ -110,7 +113,8 @@ impl CockpitBerth {
         world: &dyn PlanetaryWorld,
     ) -> Option<(BodySpan, AvatarPosture, bool)> {
         let was_riding = self.pilot.riding();
-        let (seat_pos, seat_up, steer_px) = self.pilot.step(dt, controls, world)?;
+        let gaze_dir = sight_line.view_direction();
+        let (seat_pos, seat_up, steer_px) = self.pilot.step(dt, controls, gaze_dir, world)?;
         let next_span = if was_riding && self.pilot.riding() {
             span.advanced(seat_pos)
         } else {
@@ -121,7 +125,7 @@ impl CockpitBerth {
             sight_line.reorient_surface(seat_up, dt);
             (AvatarPosture::standing(), true)
         } else {
-            sight_line.constrain_shoulders(true, 1.42);
+            sight_line.constrain_shoulders(!self.pilot.free_look(), 1.42);
             if steer_px.abs() > 1e-5 {
                 sight_line.steer_vehicle(steer_px);
             }

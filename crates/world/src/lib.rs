@@ -3,6 +3,7 @@ use glam::Vec3;
 mod beveled_world;
 mod biome;
 mod block;
+mod celestial;
 mod chronicle;
 mod frame;
 mod mesh_target;
@@ -19,18 +20,24 @@ mod wire_vector;
 #[cfg(test)]
 mod beveled_world_tests;
 #[cfg(test)]
+mod celestial_tests;
+#[cfg(test)]
 mod gravity_tests;
 #[cfg(test)]
 mod mesh_target_tests;
 
 pub use beveled_world::BeveledGravity;
 pub use biome::BiomedCubeWorld;
+pub use celestial::{
+    BinaryGravity, BinaryPlanet, CelestialSystem, LunarCraterRelief, LunarWorld, OrbitalFleetWorld,
+    RadialWell, StarVault, TranslatedWorld,
+};
 pub use block::{
     BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
-    ElevatedShape, FieldCameraTripod, FootwellPlinth, GentleRidge, GentleValley, GentleWedge, GridCell,
-    MediumShape, MineralSeam, MoldArchetype, PalmMolds, PedalClusterMesh, PyramidPeak, RampWedge,
-    RidgeCorner, StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading,
-    WheelProfile,
+    ElevatedShape, FieldCameraTripod, FlightConsoleMesh, FootwellPlinth, GentleRidge, GentleValley,
+    GentleWedge, GridCell, MediumShape, MineralSeam, MoldArchetype, NozzleAxis, PalmMolds,
+    PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, RocketNozzleMesh, StairCorner, StairFlight,
+    ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
 };
 pub use chronicle::WorldFact;
 pub use frame::SurfaceFrame;
@@ -43,8 +50,8 @@ pub use planet::{CubePlanet, PatchCoord};
 pub use presence::{CompanionPresence, DrivenCraft, PilotCraft, PresenceAttire, PresenceKinematics};
 pub use relief::{
     BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, CrustVault, ExposedStratum,
-    FacetedReliefFace, HelmLocks, HollowVeins, LivingVeins, MeadowRing, MeadowStamp,
-    ReliefElevation, ReliefFacet, ReliefPalette, SeatOccupancy, SubterraneanVeins,
+    FacetedReliefFace, HelmLocks, HollowVeins, LivingVeins, MeadowRing, MeadowStamp, PilotOrder,
+    ReliefElevation, ReliefFacet, ReliefPalette, RigidImpulse, SeatOccupancy, SubterraneanVeins,
     SurfaceSightRay, TerracedRelief, VehicleAssembly, VehicleAxes, VehiclePart, WorldCraft,
     MEADOW_RING_SLOTS,
 };
@@ -72,6 +79,9 @@ pub trait MeshTarget {
 pub trait GravityField {
     fn pull_direction_at(&self, position: Vec3) -> Vec3;
     fn surface_up_at(&self, position: Vec3) -> Vec3;
+    fn apply_pull(&self, position: Vec3, dt: f32) -> Vec3 {
+        self.pull_direction_at(position) * (9.81 * dt)
+    }
 }
 
 /// Focused interface for surface excavation, timber cleaving, block molding, and craft commissioning.

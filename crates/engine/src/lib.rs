@@ -14,7 +14,7 @@ mod tron_shader;
 mod tron_tests;
 
 pub use buffer::{CpuMeshBatch, GlMesh};
-pub use composite_mesh::{CompositeMesh, PlanetaryMesh, TronMesh};
+pub use composite_mesh::{CompositeMesh, PlanetaryMesh, StarryPipeline, TronMesh};
 pub use line_buffer::{CpuLineBatch, CpuTronBatch, GlLineMesh};
 pub use pipeline::ForwardPipeline;
 pub use sector_mesh::SectorGridMesh;

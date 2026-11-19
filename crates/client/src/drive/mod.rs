@@ -1,9 +1,14 @@
 mod passenger;
 mod pilot;
 mod road;
+mod rocket;
+mod space_step;
 mod track;
+mod wheeled;
 #[cfg(test)]
 mod multiplayer_tests;
+#[cfg(test)]
+mod rocket_tests;
 #[cfg(test)]
 mod seam_tests;
 #[cfg(test)]
@@ -11,20 +16,27 @@ mod tests;
 
 use glam::{Mat3, Quat, Vec3};
 use world::{ClimateZone, MeshTarget, PlanetaryWorld, VehicleAssembly};
-use acoustics::{AcousticWave, EngineRumble};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 pub use self::pilot::VehiclePilot;
-use self::track::{FaceContact, WheelTrack};
+use self::rocket::RocketDrive;
+use self::track::FaceContact;
+pub use self::wheeled::WheeledDrive;
 
-const MAX_DRIVE_SPEED: f32 = 14.0;
-const MAX_REVERSE_SPEED: f32 = 8.0;
-const THROTTLE_ACCEL: f32 = 16.0;
-const REVERSE_ACCEL: f32 = 11.0;
-const BRAKE_DECEL: f32 = 32.0;
-const COAST_DECEL: f32 = 3.5;
-const STEER_RATE: f32 = 2.2;
 pub(super) const SEAT_EYE_SUPPORT: f32 = 1.0;
-const REVERSE_ENGAGE_DWELL: f32 = 0.22;
+
+/// Polymorphic propulsion strategy driving a `HelmedCraft` without car-vs-rocket type inspection.
+pub trait CraftDrive: Send + Sync {
+    fn motion_channels(&self) -> (f32, f32);
+    fn free_look(&self) -> bool;
+    fn advance(
+        &mut self,
+        assembly: &mut VehicleAssembly,
+        dt: f32,
+        controls: &dyn KeyboardControls,
+        gaze_dir: Vec3,
+        world: &dyn PlanetaryWorld,
+    ) -> (Vec3, Vec3, f32);
+}
 
 /// Encapsulated cockpit pedal and steering command captured from `KeyboardControls`.
 pub(super) struct PedalInput {
@@ -41,6 +53,10 @@ impl PedalInput {
 
     pub(super) const fn idle() -> Self {
         Self::new(0.0, 0.0, false)
+    }
+
+    pub(super) fn transfer<R>(&self, f: impl FnOnce(f32, f32, bool) -> R) -> R {
+        f(self.throttle, self.steer, self.handbrake)
     }
 
     pub(super) fn dismount_requested(&self) -> bool {
@@ -61,103 +77,62 @@ impl LocomotionTarget for PedalInput {
     fn sprint(&mut self) {}
 }
 
-/// Immutable longitudinal speed, reverse-shift dwell, wheel spin angle, and steering wheel turn state.
-#[derive(Clone, Copy, Debug)]
-pub struct DriveKinematics {
-    speed: f32,
-    reverse_dwell: f32,
-    wheel_spin: f32,
-    steer_turn: f32,
-}
-
-impl DriveKinematics {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(speed: f32, reverse_dwell: f32, wheel_spin: f32, steer_turn: f32) -> Self {
-        Self { speed, reverse_dwell, wheel_spin, steer_turn }
-    }
-
-    pub const fn parked() -> Self { Self::new(0.0, 0.0, 0.0, 0.0) }
-    pub const fn wheel_spin(self) -> f32 { self.wheel_spin }
-    pub const fn steer_turn(self) -> f32 { self.steer_turn }
-    fn displacement(self, dt: f32) -> f32 { self.speed * dt }
-    const fn arrested(self) -> Self { Self::new(0.0, self.reverse_dwell, self.wheel_spin, self.steer_turn) }
-
-    fn yaw_step(self, sign: f32, dt: f32) -> f32 {
-        if sign.abs() > 0.1 && self.speed.abs() > 0.05 {
-            sign * (if self.speed < -0.05 { -1.0 } else { 1.0 }) * STEER_RATE * dt
-        } else {
-            0.0
-        }
-    }
-
-    fn advanced(self, pedals: &PedalInput, wheel_radius: f32, dt: f32) -> (Self, f32) {
-        let (mut speed, mut dwell) = (self.speed, self.reverse_dwell);
-        if pedals.handbrake {
-            dwell = 0.0;
-            speed = if speed > 0.0 { (speed - BRAKE_DECEL * dt).max(0.0) } else { (speed + BRAKE_DECEL * dt).min(0.0) };
-        } else if pedals.throttle > 0.1 {
-            dwell = 0.0;
-            speed = if speed < 0.0 { (speed + BRAKE_DECEL * dt).min(0.0) } else { (speed + THROTTLE_ACCEL * dt).min(MAX_DRIVE_SPEED) };
-        } else if pedals.throttle < -0.1 {
-            if speed > 0.0 {
-                speed = (speed - BRAKE_DECEL * dt).max(0.0);
-                dwell = 0.0;
-            } else {
-                dwell += if speed == 0.0 { dt } else { 0.0 };
-                if speed < 0.0 || dwell >= REVERSE_ENGAGE_DWELL {
-                    speed = (speed - REVERSE_ACCEL * dt).max(-MAX_REVERSE_SPEED);
-                }
-            }
-        } else {
-            dwell = 0.0;
-            speed = if speed > 0.0 { (speed - COAST_DECEL * dt).max(0.0) } else { (speed + COAST_DECEL * dt).min(0.0) };
-        }
-        let target_steer = if pedals.steer.abs() > 0.1 { pedals.steer.signum() } else { 0.0 };
-        let next_turn = self.steer_turn + (target_steer - self.steer_turn) * (14.0 * dt).clamp(0.0, 1.0);
-        let next_spin = self.wheel_spin + (speed * dt) / wheel_radius.max(0.12);
-        if speed.abs() > 0.25 && (self.wheel_spin * 0.06).floor() != (next_spin * 0.06).floor() {
-            EngineRumble::combustion().thump();
-        }
-        (Self::new(speed, dwell, next_spin, next_turn), target_steer)
-    }
-}
-
-/// Active driven vehicle state encapsulating the multi-block car assembly, kinematics, and sub-tick origin span.
-pub struct DrivenCar {
+/// Active helmed vehicle uniting `VehicleAssembly`, polymorphic `CraftDrive`, and sub-tick origin span.
+pub struct HelmedCraft {
     assembly: VehicleAssembly,
-    kinematics: DriveKinematics,
+    drive: Box<dyn CraftDrive>,
     origin_span: (Vec3, f32),
 }
 
-impl DrivenCar {
+impl HelmedCraft {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(assembly: VehicleAssembly, kinematics: DriveKinematics, origin_span: (Vec3, f32)) -> Self {
-        Self { assembly, kinematics, origin_span }
+    pub fn new(assembly: VehicleAssembly, drive: Box<dyn CraftDrive>, origin_span: (Vec3, f32)) -> Self {
+        Self { assembly, drive, origin_span }
     }
 
-    pub const fn boarded(assembly: VehicleAssembly) -> Self {
+    pub fn boarded(assembly: VehicleAssembly) -> Self {
         let origin = assembly.origin();
-        Self::new(assembly, DriveKinematics::parked(), (origin, 1.0))
+        let drive: Box<dyn CraftDrive> = if assembly.spacefaring() {
+            Box::new(RocketDrive::pad_idle())
+        } else {
+            Box::new(WheeledDrive::parked())
+        };
+        Self::new(assembly, drive, (origin, 1.0))
     }
+
     pub const fn identity(&self) -> world::CraftIdentity { self.assembly.identity() }
-    pub const fn steer_turn(&self) -> f32 { self.kinematics.steer_turn() }
+    pub fn steer_turn(&self) -> f32 { self.drive.motion_channels().1 }
+    pub fn free_look(&self) -> bool { self.drive.free_look() }
     pub fn chassis_up(&self) -> Vec3 { self.assembly.normal().normalize_or_zero() }
     pub fn blend_subtick(&mut self, alpha: f32) { self.origin_span.1 = alpha.clamp(0.0, 1.0); }
 
-    pub const fn pilot_craft(&self) -> world::PilotCraft {
+    pub fn pilot_craft(&self) -> world::PilotCraft {
+        let (m0, m1) = self.drive.motion_channels();
         world::PilotCraft::Driving(world::DrivenCraft::new(
             0,
             self.assembly.identity(),
-            self.assembly.pose().with_motion(self.kinematics.wheel_spin(), self.kinematics.steer_turn()),
+            self.assembly.pose().with_motion(m0, m1),
         ))
+    }
+
+    fn orbital_at(pos: Vec3, world: &dyn PlanetaryWorld) -> bool {
+        if world.apply_pull(pos, 1.0).length_squared() <= 1e-4 {
+            return true;
+        }
+        let up = world.surface_up_at(pos);
+        (pos - FaceContact::new(pos).ground(0.0, world)).dot(up) > 4.5
     }
 
     pub fn release_wheel(self, world: &mut dyn PlanetaryWorld) -> Self {
         let mut shell = self.assembly.perch_shell();
         let raw_origin = self.assembly.origin();
+        let in_orbit = Self::orbital_at(raw_origin, world);
         let _ = world.park_vehicle(self.assembly);
+        if in_orbit {
+            return Self::boarded(shell);
+        }
         let parked_origin = FaceContact::new(raw_origin).parked_seat_origin(world);
-        let face_up = ClimateZone::dominant(parked_origin).normal();
+        let face_up = ClimateZone::dominant(world.surface_up_at(parked_origin)).normal();
         let base_ground = FaceContact::new(parked_origin).ground(0.0, world) - face_up * 0.5;
         shell.relocate(base_ground, world.surface_up_at(parked_origin));
         Self::boarded(shell)
@@ -181,13 +156,25 @@ impl DrivenCar {
 
     pub fn seat_position(&self, world: &dyn PlanetaryWorld) -> Vec3 {
         let origin = self.assembly.origin();
+        if Self::orbital_at(origin, world) {
+            let up = self.assembly.normal().normalize_or_zero();
+            return origin + up * (SEAT_EYE_SUPPORT + 0.12 + self.assembly.seat_floor_offset());
+        }
         let up = world.surface_up_at(origin);
         FaceContact::new(origin).ground(SEAT_EYE_SUPPORT, world) + up * (0.12 + self.assembly.seat_floor_offset())
     }
 
     pub(super) fn dismount_with(&self, pedals: &PedalInput, world: &dyn PlanetaryWorld) -> Vec3 {
         let origin = self.assembly.origin();
-        let face_up = ClimateZone::dominant(origin).normal();
+        if Self::orbital_at(origin, world) {
+            let up = self.assembly.normal().normalize_or_zero();
+            let fwd = (self.assembly.heading() - up * self.assembly.heading().dot(up)).normalize_or_zero();
+            let right = fwd.cross(up).normalize_or_zero();
+            let chosen = pedals.dismount_vector(fwd, right);
+            let exit_dir = if chosen.length_squared() > 0.01 { chosen } else { right };
+            return origin + exit_dir * 1.15 + up * SEAT_EYE_SUPPORT;
+        }
+        let face_up = ClimateZone::dominant(world.surface_up_at(origin)).normal();
         let fwd = (self.assembly.heading() - face_up * self.assembly.heading().dot(face_up)).normalize_or_zero();
         let right = fwd.cross(face_up).normalize_or_zero();
         let chosen = pedals.dismount_vector(fwd, right);
@@ -200,43 +187,32 @@ impl DrivenCar {
             origin + side * 1.15, origin - side * 1.15, origin - primary * 1.15,
         ] {
             let grounded = FaceContact::new(cand).ground(1.0, world);
-            if grounded.dot(face_up) < seat_elev - 0.15 {
+            let drop = (grounded - origin).dot(face_up);
+            if grounded.dot(face_up) < seat_elev - 0.15 && drop > -3.5 {
                 return grounded;
             }
         }
         FaceContact::new(origin + primary * 0.60).ground(1.0, world)
     }
 
-    pub fn step(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) -> (Vec3, Vec3, f32) {
-        let mut pedals = PedalInput::idle();
-        controls.drive_locomotion(Vec3::Y, Vec3::X, &mut pedals);
-        let (next_kin, sign) = self.kinematics.advanced(&pedals, self.assembly.wheel_radius(), dt);
-        self.kinematics = next_kin;
-        let yaw_delta = self.kinematics.yaw_step(sign, dt);
-        if yaw_delta.abs() > 0.0 {
-            self.assembly.steer(-yaw_delta);
-        }
+    pub fn step(
+        &mut self,
+        dt: f32,
+        controls: &dyn KeyboardControls,
+        gaze_dir: Vec3,
+        world: &dyn PlanetaryWorld,
+    ) -> (Vec3, Vec3, f32) {
         let prev_origin = self.assembly.origin();
-        let disp = self.kinematics.displacement(dt);
-        let (next_ground, next_up, blocked) = WheelTrack::from_assembly(&self.assembly).advance(disp, dt, world);
-        if blocked {
-            self.kinematics = self.kinematics.arrested();
-        }
-        self.assembly.relocate(next_ground, next_up);
+        let out = self.drive.advance(&mut self.assembly, dt, controls, gaze_dir, world);
         self.origin_span = (prev_origin, 1.0);
-        let seat_pos = next_ground + next_up * (SEAT_EYE_SUPPORT + 0.12 + self.assembly.seat_floor_offset());
-        (seat_pos, next_up, yaw_delta / 0.003)
+        out
     }
 
     pub fn emit(&self, target: &mut dyn MeshTarget) {
         let (prev, alpha) = self.origin_span;
         let cur = self.assembly.origin();
         let visual_origin = if (cur - prev).length_squared() > 64.0 { cur } else { prev.lerp(cur, alpha) };
-        self.assembly.emit_driven_at(
-            visual_origin,
-            self.kinematics.wheel_spin(),
-            self.kinematics.steer_turn(),
-            target,
-        );
+        let (m0, m1) = self.drive.motion_channels();
+        self.assembly.emit_driven_at(visual_origin, m0, m1, target);
     }
 }

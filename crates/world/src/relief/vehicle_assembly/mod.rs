@@ -1,7 +1,8 @@
 mod axes;
+mod impulse;
 mod part;
 
-use glam::Vec3;
+use glam::{Quat, Vec3};
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::craft_cluster::CraftCluster;
@@ -9,6 +10,7 @@ use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose};
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
 pub use self::axes::VehicleAxes;
+pub use self::impulse::{PilotOrder, RigidImpulse};
 pub use self::part::VehiclePart;
 
 /// Drivable multi-block vehicle assembly uniting its immutable `CraftBlueprint` and live `CraftPose`.
@@ -52,6 +54,8 @@ impl VehicleAssembly {
     pub const fn heading(&self) -> Vec3 { self.pose.heading() }
     pub const fn normal(&self) -> Vec3 { self.pose.normal() }
     pub fn drivable(&self) -> bool { self.blueprint.drivable() }
+    pub fn spacefaring(&self) -> bool { self.blueprint.spacefaring() }
+    pub fn sample_impulse(&self, order: &PilotOrder) -> RigidImpulse { self.blueprint.sample_impulse(order, self.pose) }
     pub fn seat_floor_offset(&self) -> f32 { self.blueprint.seat_floor_offset() }
     pub fn wheel_radius(&self) -> f32 { self.blueprint.wheel_radius() }
 
@@ -67,6 +71,14 @@ impl VehicleAssembly {
 
     pub fn steer(&mut self, delta_yaw: f32) {
         self.pose = self.pose.steered(delta_yaw);
+    }
+
+    pub fn rotate_3d(&mut self, rot: Quat) {
+        self.pose = self.pose.rotated(rot);
+    }
+
+    pub fn translate_to(&mut self, next_origin: Vec3) {
+        self.pose = self.pose.with_origin(next_origin);
     }
 
     pub fn relocate(&mut self, next_origin: Vec3, next_up: Vec3) {

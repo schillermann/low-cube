@@ -9,6 +9,7 @@ use super::super::mineral_seam::MineralSeam;
 use super::super::mold::MoldArchetype;
 use super::super::pedal_cluster::{FootwellPlinth, PedalClusterMesh};
 use super::super::shape::VoxelShape;
+use super::super::space_parts::SpaceBlockMesh;
 use super::super::vehicle_parts::{VehicleBlockMesh, WheelProfile};
 use super::super::wedge::WedgeHeading;
 use super::BlockMedium;
@@ -99,7 +100,9 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target);
         } else if self.medium == BlockMedium::FieldCamera {
             FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
-        } else if matches!(self.medium, BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel | BlockMedium::CrossAxle) {
+        } else if matches!(self.medium, BlockMedium::FlightConsole | BlockMedium::RocketNozzle) {
+            SpaceBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle)).emit(cell, floor_elevation, frame, target);
+        } else if matches!(self.medium, BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::CarWheel | BlockMedium::CrossAxle) {
             VehicleBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle)).emit(cell, floor_elevation, frame, target);
         } else {
             self.emit_terraced_shape(cell, floor_elevation, frame, top_color, wall_color, true, target);
@@ -119,7 +122,10 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             (BlockMedium::CabinSeat, _) => CabinSeatMesh::new(self.heading).emit(&self.inner, cell, floor_elevation, frame, target),
             (BlockMedium::PedalCluster, _) => PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
-            (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::RocketEngine | BlockMedium::CarWheel | BlockMedium::CrossAxle, _) => {
+            (BlockMedium::FlightConsole | BlockMedium::RocketNozzle, _) => {
+                SpaceBlockMesh::parked(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
+            }
+            (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::CarWheel | BlockMedium::CrossAxle, _) => {
                 VehicleBlockMesh::with_archetype(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
             }
             (BlockMedium::TurfEarth, false) => {

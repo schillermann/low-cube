@@ -38,6 +38,7 @@ mod watertight_tests;
 #[cfg(test)]
 mod wedge_seam_tests;
 
+pub(crate) use corner::NaturalCrown;
 pub use craft_entity::{
     BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, HelmLocks, SeatOccupancy,
     WorldCraft,
@@ -50,7 +51,7 @@ pub use mineral_vein::{ExposedStratum, HollowVeins, LivingVeins, SubterraneanVei
 pub use palette::ReliefPalette;
 pub use sight_ray::SurfaceSightRay;
 pub use terraced::TerracedRelief;
-pub use vehicle_assembly::{VehicleAssembly, VehicleAxes, VehiclePart};
+pub use vehicle_assembly::{PilotOrder, RigidImpulse, VehicleAssembly, VehicleAxes, VehiclePart};
 #[cfg(test)]
 pub use elevation::ZonedRelief;
 #[cfg(test)]

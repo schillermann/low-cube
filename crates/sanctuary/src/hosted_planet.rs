@@ -27,6 +27,10 @@ impl GravityField for HostedPlanet {
     fn surface_up_at(&self, position: Vec3) -> Vec3 {
         self.host.world().surface_up_at(position)
     }
+
+    fn apply_pull(&self, position: Vec3, dt: f32) -> Vec3 {
+        self.host.world().apply_pull(position, dt)
+    }
 }
 
 impl PlanetaryWorld for HostedPlanet {
@@ -133,6 +137,7 @@ impl PlanetaryWorld for HostedPlanet {
     }
 
     fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {
+        self.host.world().emit_active_crafts(target);
         self.host.emit_guest_crafts(target);
     }
 

@@ -84,7 +84,8 @@ impl SlotBurden {
             | HeldRelic::GoldOre
             | HeldRelic::CantileverCrane
             | HeldRelic::AircraftEngine
-            | HeldRelic::RocketEngine => WeightGrade::Heavy,
+            | HeldRelic::FlightConsole
+            | HeldRelic::RocketNozzle => WeightGrade::Heavy,
         }
     }
 

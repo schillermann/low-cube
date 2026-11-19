@@ -19,7 +19,7 @@ pub enum BlockMedium {
     CantileverRig,
     SteeringWheel,
     AircraftEngine,
-    RocketEngine,
+    FlightConsole,
     CabinSeat,
     CarWheel,
     FieldCamera,
@@ -28,6 +28,7 @@ pub enum BlockMedium {
     CopperOre,
     IronOre,
     GoldOre,
+    RocketNozzle,
 }
 
 impl BlockMedium {
@@ -43,7 +44,7 @@ impl BlockMedium {
             Self::CantileverRig => 6,
             Self::SteeringWheel => 7,
             Self::AircraftEngine => 8,
-            Self::RocketEngine => 9,
+            Self::FlightConsole => 9,
             Self::CabinSeat => 10,
             Self::CarWheel => 11,
             Self::FieldCamera => 12,
@@ -52,6 +53,7 @@ impl BlockMedium {
             Self::CopperOre => 15,
             Self::IronOre => 16,
             Self::GoldOre => 17,
+            Self::RocketNozzle => 18,
         }
     }
 
@@ -66,7 +68,7 @@ impl BlockMedium {
             6 => Self::CantileverRig,
             7 => Self::SteeringWheel,
             8 => Self::AircraftEngine,
-            9 => Self::RocketEngine,
+            9 => Self::FlightConsole,
             10 => Self::CabinSeat,
             11 => Self::CarWheel,
             12 => Self::FieldCamera,
@@ -75,6 +77,7 @@ impl BlockMedium {
             15 => Self::CopperOre,
             16 => Self::IronOre,
             17 => Self::GoldOre,
+            18 => Self::RocketNozzle,
             _ => Self::TurfEarth,
         }
     }
@@ -91,7 +94,7 @@ impl BlockMedium {
 
     /// Indicates whether this block medium is a vehicle engine or steering control.
     pub const fn vehicle_engine(self) -> bool {
-        matches!(self, Self::SteeringWheel | Self::AircraftEngine | Self::RocketEngine)
+        matches!(self, Self::SteeringWheel | Self::AircraftEngine | Self::FlightConsole | Self::RocketNozzle)
     }
 
     /// Indicates whether this block medium is a sculpted mechanical vehicle component.
@@ -127,7 +130,8 @@ impl BlockMedium {
             Self::Sand => (Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.74, 0.64, 0.40)),
             Self::SteeringWheel | Self::FieldCamera => (Vec3::new(0.94, 0.76, 0.24), Vec3::new(0.20, 0.22, 0.27)),
             Self::AircraftEngine => (Vec3::new(0.22, 0.88, 0.98), Vec3::new(0.54, 0.62, 0.72)),
-            Self::RocketEngine => (Vec3::new(0.99, 0.32, 0.14), Vec3::new(0.24, 0.22, 0.28)),
+            Self::FlightConsole => (Vec3::new(0.16, 0.94, 0.78), Vec3::new(0.90, 0.72, 0.24)),
+            Self::RocketNozzle => (Vec3::new(0.99, 0.38, 0.12), Vec3::new(0.22, 0.24, 0.30)),
             Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.36, 0.20, 0.13)),
             Self::CarWheel | Self::CrossAxle => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
             Self::PedalCluster => (Vec3::new(0.88, 0.22, 0.18), Vec3::new(0.24, 0.84, 0.36)),

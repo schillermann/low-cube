@@ -31,10 +31,11 @@ impl ShadedScenePass {
     }
 
     fn ensure_meadow_grid(&mut self, surface: &dyn PlatformSurface, meadow_idx: usize) {
+        let empty = CpuMeshBatch::empty();
+        self.mesh.ensure_slice(meadow_idx, || surface.upload_mesh(&empty));
         if self.mesh.patch_at(meadow_idx, 0).is_some() {
             return;
         }
-        let empty = CpuMeshBatch::empty();
         let patches = (0..MEADOW_RING_SLOTS).map(|_| surface.upload_mesh(&empty)).collect();
         self.mesh.store_slice(meadow_idx, Box::new(SectorGridMesh::new(patches)));
         self.meadow_ring.invalidate_all();
@@ -68,6 +69,8 @@ impl ScenePass for ShadedScenePass {
     }
 
     fn refresh_face_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, idx: usize) {
+        let empty_init = CpuMeshBatch::empty();
+        self.mesh.ensure_slice(idx, || surface.upload_mesh(&empty_init));
         let patch_count = world.face_patch_count(idx);
         if patch_count > 0 {
             if idx == 0 {

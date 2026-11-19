@@ -75,7 +75,8 @@ Every harvestable block, vehicle component, foraged resource, tool, and weapon i
 | **`CRUST BLOCK`** | `HeldRelic::CrustBlock` / `BlockMedium::CrustRock` | Building Block | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
 | **`CRANE LIFT`** | `HeldRelic::CantileverCrane` / `BlockMedium::CantileverRig` | Assembly Apparatus | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
 | **`PLANE ENGINE`** | `HeldRelic::AircraftEngine` / `BlockMedium::AircraftEngine` | Vehicle Engine | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
-| **`ROCKET ENGINE`** | `HeldRelic::RocketEngine` / `BlockMedium::RocketEngine` | Vehicle Engine | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
+| **`FLIGHT CONSOLE`** | `HeldRelic::FlightConsole` / `BlockMedium::FlightConsole` | Spacecraft Helm | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
+| **`ROCKET NOZZLE`** | `HeldRelic::RocketNozzle` / `BlockMedium::RocketNozzle` | Spacecraft Nozzle | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
 
 ---
 

@@ -121,7 +121,8 @@ impl RelicFigure {
             | HeldRelic::CrustBlock
             | HeldRelic::SteeringWheel
             | HeldRelic::AircraftEngine
-            | HeldRelic::RocketEngine
+            | HeldRelic::FlightConsole
+            | HeldRelic::RocketNozzle
             | HeldRelic::CabinSeat
             | HeldRelic::CarWheel
             | HeldRelic::PedalCluster
@@ -221,7 +222,8 @@ impl RelicFigure {
             | HeldRelic::CrustBlock
             | HeldRelic::SteeringWheel
             | HeldRelic::AircraftEngine
-            | HeldRelic::RocketEngine
+            | HeldRelic::FlightConsole
+            | HeldRelic::RocketNozzle
             | HeldRelic::CabinSeat
             | HeldRelic::CarWheel
             | HeldRelic::PedalCluster

@@ -21,13 +21,19 @@ fn test_server_satchel_parses_cli_and_custom_inventory_specs() {
     assert_eq!(custom.resource_tally(HeldRelic::FieldCamera, squire), 2);
     assert_eq!(custom.resource_tally(HeldRelic::WoodmanAxe, squire), 1);
     assert_eq!(custom.resource_tally(HeldRelic::CarWheel, squire), 4);
-    assert_eq!(custom.resource_tally(HeldRelic::RocketEngine, squire), 0);
+    assert_eq!(custom.resource_tally(HeldRelic::FlightConsole, squire), 0);
 
     let args = vec!["client".to_string(), "--inventory".to_string(), "camera,iron_spade:2".to_string()];
     let cli_satchel = ArgumentSatchel::from_arguments(&args, Box::new(FileSatchel::server(Box::new(TestKitSatchel::new()))))
         .provision(BeltSatchel::empty());
     assert_eq!(cli_satchel.resource_tally(HeldRelic::FieldCamera, squire), 1);
     assert_eq!(cli_satchel.resource_tally(HeldRelic::IronSpade, squire), 2);
+
+    let root_toml = format!("{}/../../server.toml", env!("CARGO_MANIFEST_DIR"));
+    let root_satchel = FileSatchel::from_path(&root_toml, Box::new(TestKitSatchel::new()))
+        .provision(BeltSatchel::empty());
+    assert_eq!(root_satchel.resource_tally(HeldRelic::FlightConsole, squire), 1);
+    assert_eq!(root_satchel.resource_tally(HeldRelic::RocketNozzle, squire), 4);
 }
 
 #[test]

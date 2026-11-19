@@ -116,12 +116,15 @@ vec3 polar_aurora(vec3 dir, vec3 cam_pos, vec3 local_up, float aurora_factor, fl
 void main() {
     vec3 dir = normalize(v_ray_dir);
 
+    float cam_cheb = max(max(abs(v_cam_pos.x), abs(v_cam_pos.y)), abs(v_cam_pos.z));
+    float space_factor = smoothstep(24.0, 92.0, cam_cheb - u_face_half);
+
     // Fiery golden sun with warm corona and horizon cutoff
     float sun_dot = dot(dir, u_sun_dir);
     float sun_disc = smoothstep(0.9980, 0.9992, sun_dot);
     float sun_inner_glow = pow(max(sun_dot, 0.0), 32.0) * 0.50;
     float sun_outer_glow = pow(max(sun_dot, 0.0), 8.0) * 0.20;
-    float sun_above = smoothstep(-0.02, 0.05, dot(u_sun_dir, u_local_up));
+    float sun_above = mix(smoothstep(-0.02, 0.05, dot(u_sun_dir, u_local_up)), 1.0, space_factor);
     vec3 sun_core = vec3(1.0, 0.95, 0.65) * sun_disc * 2.8;
     vec3 sun_halo = vec3(1.0, 0.60, 0.15) * sun_inner_glow + vec3(0.95, 0.35, 0.08) * sun_outer_glow;
     vec3 sun_color = (sun_core + sun_halo) * sun_above;
@@ -134,7 +137,7 @@ void main() {
 
     float moon_disc = 1.0 - smoothstep(0.92, 1.0, length(moon_uv));
     float moon_above = smoothstep(-0.02, 0.05, dot(moon_dir, u_local_up));
-    float moon_visible = moon_disc * moon_above;
+    float moon_visible = moon_disc * moon_above * (1.0 - space_factor);
 
     vec3 moon_body = vec3(0.0);
     if (moon_visible > 0.0) {
@@ -157,8 +160,10 @@ void main() {
 
     // Occlude stars and aurora behind solid celestial bodies (moon and sun)
     float star_occ = (1.0 - moon_visible) * (1.0 - sun_disc * sun_above);
-    vec3 night_sky = u_sky_color.rgb + vec3(stars(dir) * u_night_factor * star_occ * 1.5);
-    vec3 aurora = polar_aurora(dir, v_cam_pos, u_local_up, u_aurora_factor, u_time);
+    vec3 sky_bg = mix(u_sky_color.rgb, vec3(0.01, 0.015, 0.03), space_factor);
+    float star_visibility = max(u_night_factor, space_factor);
+    vec3 night_sky = sky_bg + vec3(stars(dir) * star_visibility * star_occ * 1.5);
+    vec3 aurora = polar_aurora(dir, v_cam_pos, u_local_up, u_aurora_factor * (1.0 - space_factor), u_time);
     night_sky += aurora * (1.0 - moon_visible);
 
     // Completely opaque lunar body composited over firmament

@@ -2,10 +2,10 @@ use glam::Vec3;
 use winit::event_loop::ActiveEventLoop;
 
 use engine::{
-    CpuMeshBatch, CpuTronBatch, PlanetaryMesh, TronPipeline, TronShaderSource,
+    CpuMeshBatch, CpuTronBatch, PlanetaryMesh, StarryPipeline, TronPipeline, TronShaderSource,
     VoxelShaderSource,
 };
-use world::PlanetaryWorld;
+use world::{PlanetaryWorld, StarVault};
 use crate::attire::{AttireProfile, FileAttire, HeldRelic};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::CalibratedCanopy;
@@ -162,11 +162,17 @@ impl SessionAssembly for SessionLaunch {
         let primary_mesh = PlanetaryMesh::with_mask(primary_faces, initial_mask);
         let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
         let canopy = Box::new(CalibratedCanopy::planetary(self.cosmos.world_blocks));
-        let primary_pipeline = surface.assemble_diurnal_pipeline(
-            self.cosmos.celestial.clone_cadence(),
-            self.cosmos.aurora.clone_cadence(),
-            canopy,
-        );
+        let mut star_cpu = CpuMeshBatch::with_quad_capacity(384);
+        StarVault::cosmic().emit(&mut star_cpu);
+        let star_mesh = surface.upload_mesh(&star_cpu);
+        let primary_pipeline = Box::new(StarryPipeline::new(
+            surface.assemble_diurnal_pipeline(
+                self.cosmos.celestial.clone_cadence(),
+                self.cosmos.aurora.clone_cadence(),
+                canopy,
+            ),
+            star_mesh,
+        ));
 
         let tron_mesh = PlanetaryMesh::with_mask(tron_faces, initial_mask);
         let tron_shader = surface.compile_shader(&TronShaderSource::embedded());

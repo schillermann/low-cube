@@ -26,7 +26,7 @@ pub enum HeldRelic {
     CantileverCrane,
     SteeringWheel,
     AircraftEngine,
-    RocketEngine,
+    FlightConsole,
     CabinSeat,
     CarWheel,
     FieldCamera,
@@ -36,10 +36,11 @@ pub enum HeldRelic {
     IronOre,
     GoldOre,
     BoarMeat,
+    RocketNozzle,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 26;
+    pub const COUNT: usize = 27;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -65,7 +66,7 @@ impl HeldRelic {
             13 => Self::CantileverCrane,
             14 => Self::SteeringWheel,
             15 => Self::AircraftEngine,
-            16 => Self::RocketEngine,
+            16 => Self::FlightConsole,
             17 => Self::CabinSeat,
             18 => Self::CarWheel,
             19 => Self::FieldCamera,
@@ -74,7 +75,8 @@ impl HeldRelic {
             22 => Self::CopperOre,
             23 => Self::IronOre,
             24 => Self::GoldOre,
-            _ => Self::BoarMeat,
+            25 => Self::BoarMeat,
+            _ => Self::RocketNozzle,
         }
     }
 
@@ -96,7 +98,7 @@ impl HeldRelic {
             Self::CantileverCrane => 13,
             Self::SteeringWheel => 14,
             Self::AircraftEngine => 15,
-            Self::RocketEngine => 16,
+            Self::FlightConsole => 16,
             Self::CabinSeat => 17,
             Self::CarWheel => 18,
             Self::FieldCamera => 19,
@@ -106,6 +108,7 @@ impl HeldRelic {
             Self::IronOre => 23,
             Self::GoldOre => 24,
             Self::BoarMeat => 25,
+            Self::RocketNozzle => 26,
         }
     }
 
@@ -190,7 +193,8 @@ impl HeldRelic {
                 | Self::CantileverCrane
                 | Self::SteeringWheel
                 | Self::AircraftEngine
-                | Self::RocketEngine
+                | Self::FlightConsole
+                | Self::RocketNozzle
                 | Self::CabinSeat
                 | Self::CarWheel
                 | Self::FieldCamera
@@ -216,7 +220,8 @@ impl HeldRelic {
             BlockMedium::CantileverRig => Self::CantileverCrane,
             BlockMedium::SteeringWheel => Self::SteeringWheel,
             BlockMedium::AircraftEngine => Self::AircraftEngine,
-            BlockMedium::RocketEngine => Self::RocketEngine,
+            BlockMedium::FlightConsole => Self::FlightConsole,
+            BlockMedium::RocketNozzle => Self::RocketNozzle,
             BlockMedium::CabinSeat => Self::CabinSeat,
             BlockMedium::CarWheel => Self::CarWheel,
             BlockMedium::FieldCamera => Self::FieldCamera,

@@ -1,10 +1,11 @@
 use glam::Vec3;
-use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape, WedgeHeading};
+use crate::block::{BlockMedium, BlockMold, GridCell, MoldArchetype, NozzleAxis, VoxelShape, WedgeHeading};
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::super::craft_cluster::CraftCluster;
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
+use super::impulse::{PilotOrder, RigidImpulse};
 
 pub(in crate::relief) const BLOCK_STEP: f32 = GridCell::SPAN;
 
@@ -126,8 +127,48 @@ impl VehiclePart {
         (self.shape.block_medium() == BlockMedium::CarWheel).then(|| self.shape.wheel_radius())
     }
 
+    pub fn flight_console(&self) -> bool {
+        self.shape.block_medium() == BlockMedium::FlightConsole
+    }
+
+    pub fn console_heading(&self, frame: &SurfaceFrame) -> Option<Vec3> {
+        self.flight_console().then(|| self.shape.block_heading().forward_vector(frame))
+    }
+
     pub fn steering_heading(&self, frame: &SurfaceFrame) -> Option<Vec3> {
         (self.shape.block_medium() == BlockMedium::SteeringWheel).then(|| self.shape.block_heading().forward_vector(frame))
+    }
+
+    pub(in crate::relief) fn world_mass_center(&self, lift: f32, frame: &SurfaceFrame) -> Vec3 {
+        let (uc, vc) = GridCell::new(self.offset.0, self.offset.1).center();
+        frame.point_at(uc, vc, self.floor_offset + lift + 0.25)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(in crate::relief) fn contribute_impulse(
+        &self,
+        lift: f32,
+        frame: &SurfaceFrame,
+        center_of_mass: Vec3,
+        order: &PilotOrder,
+        right: Vec3,
+        up: Vec3,
+        fwd: Vec3,
+        impulse: &mut RigidImpulse,
+    ) {
+        impulse.add_block_mass(1.0);
+        match self.shape.block_medium() {
+            BlockMedium::FlightConsole => impulse.add_console_gyro(),
+            BlockMedium::RocketNozzle => {
+                let stamp = self.shape.shape_stamp();
+                let axis = NozzleAxis::from_mold(MoldArchetype::from_code(stamp[0]), self.shape.block_heading());
+                let thrust_dir = axis.thrust_vector(frame).normalize_or_zero();
+                let throttle = order.throttle_along(thrust_dir, right, up, fwd);
+                let lever = self.world_mass_center(lift, frame) - center_of_mass;
+                impulse.apply_nozzle_burn(lever, thrust_dir, throttle);
+            }
+            _ => {}
+        }
     }
 
     pub(in crate::relief) fn emit_driven(&self, lift: f32, spin: f32, turn: f32, frame: &SurfaceFrame, top: Vec3, wall: Vec3, out: &mut dyn MeshTarget) {

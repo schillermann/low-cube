@@ -53,6 +53,7 @@ mod stride;
 mod surface;
 mod threshold;
 mod toml_document;
+mod zero_g_flight;
 
 #[cfg(test)]
 mod allocation_audit;

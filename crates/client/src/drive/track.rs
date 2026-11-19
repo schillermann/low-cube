@@ -18,18 +18,22 @@ impl FaceContact {
     }
 
     pub(super) fn ground(self, clearance: f32, world: &dyn PlanetaryWorld) -> Vec3 {
-        let face_up = ClimateZone::dominant(self.point).normal();
-        let lift = (self.point.abs().max_element() - self.point.dot(face_up)).max(0.0) + SURFACE_PROBE_LIFT;
-        world.constrain_to_surface(self.point + face_up * lift, clearance)
+        let zone = ClimateZone::dominant(world.surface_up_at(self.point));
+        let face_up = zone.normal();
+        let seam_lift = (self.point.abs().max_element() - self.point.dot(face_up)).clamp(0.0, 2.5);
+        world.constrain_to_surface(self.point + face_up * (seam_lift + SURFACE_PROBE_LIFT), clearance)
     }
 
     pub(super) fn seat_intact(self, world: &dyn PlanetaryWorld) -> bool {
-        let face_up = ClimateZone::dominant(self.point).normal();
+        let face_up = ClimateZone::dominant(world.surface_up_at(self.point)).normal();
+        if (self.point - self.ground(0.0, world)).dot(face_up) > 4.5 {
+            return true;
+        }
         (self.ground(0.9, world) - self.point).dot(face_up) > 1.15
     }
 
     pub(super) fn parked_seat_origin(self, world: &dyn PlanetaryWorld) -> Vec3 {
-        let zone = ClimateZone::dominant(self.point);
+        let zone = ClimateZone::dominant(world.surface_up_at(self.point));
         let face_up = zone.normal();
         let frame = zone.surface_frame(0.0);
         let (u0, v0) = frame.decompose(self.point);
@@ -45,7 +49,7 @@ impl FaceContact {
         for du in -2..=2 {
             for dv in -2..=2 {
                 let cand = center + frame.tangent() * ((du as f32) * 0.5) + frame.bitangent() * ((dv as f32) * 0.5);
-                if ClimateZone::dominant(cand) == zone {
+                if ClimateZone::dominant(world.surface_up_at(cand)) == zone {
                     let h = (Self::new(cand).ground(0.9, world) - cand).dot(face_up);
                     if h > best_h + 0.05 {
                         best_h = h;

@@ -1,4 +1,5 @@
 mod fleet;
+mod helm;
 
 use glam::Vec3;
 use crate::MeshTarget;
@@ -12,6 +13,7 @@ use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::{VehicleAssembly, VehicleAxes, VehiclePart};
 pub use self::fleet::ParkedFleet;
+use self::helm::ClusterHelm;
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 
@@ -122,15 +124,7 @@ impl CraftCluster {
     }
 
     fn steering_unit(&self) -> Option<(i32, i32, f32, WedgeHeading)> {
-        let mut found = None;
-        self.grid.visit_cells(|(cu, cv), list| {
-            if found.is_none() {
-                if let Some(eng) = list.iter().rfind(|b| b.block_medium() == BlockMedium::SteeringWheel) {
-                    found = Some((cu, cv, eng.floor(), eng.block_heading()));
-                }
-            }
-        });
-        found
+        ClusterHelm::new(&self.grid).unit()
     }
 
     pub fn relocate_to_claw(
@@ -166,35 +160,13 @@ impl CraftCluster {
     }
 
     pub fn targets_steering(&self, u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, frame: &SurfaceFrame) -> bool {
-        if self.grid.any_at(u, v, |b| b.occupies_layer(layer_elev) && b.block_medium() == BlockMedium::SteeringWheel) {
-            return true;
-        }
-        (1..=28).any(|step| {
-            let sample = ray.sample_point((step as f32) * 0.06);
-            let (su, sv) = frame.decompose(sample);
-            let (cu, cv) = GridCell::at_planar(su, sv).feed_coordinates(|gu, gv| (gu, gv));
-            let ray_elev = frame.elevation_of(sample);
-            self.grid.any_at(cu, cv, |b| {
-                b.block_medium() == BlockMedium::SteeringWheel && ray_elev >= b.floor() - 0.15 && ray_elev <= b.ceiling() + 1.15
-            })
-        })
+        ClusterHelm::new(&self.grid).targets_helm(u, v, layer_elev, ray, frame)
     }
 
     pub fn steerable(&self) -> bool { self.steering_unit().is_some() }
 
     pub fn drivable(&self) -> bool {
-        let (mut wheel_present, mut seat_present, mut steering_present) = (false, false, false);
-        self.grid.visit_cells(|_, list| {
-            for block in list {
-                match block.block_medium() {
-                    BlockMedium::CarWheel => wheel_present = true,
-                    BlockMedium::CabinSeat => seat_present = true,
-                    BlockMedium::SteeringWheel => steering_present = true,
-                    _ => {}
-                }
-            }
-        });
-        wheel_present && seat_present && steering_present
+        ClusterHelm::new(&self.grid).drivable()
     }
 
     pub fn into_vehicle(
@@ -243,7 +215,11 @@ impl CraftCluster {
             })
             .collect();
         parts.sort_by_key(VehiclePart::canonical_key);
-        let heading = parts.iter().find_map(|p| p.steering_heading(&canonical_frame)).unwrap_or_else(|| ray.align_heading(frame));
+        let heading = parts
+            .iter()
+            .find_map(|p| p.console_heading(&canonical_frame))
+            .or_else(|| parts.iter().find_map(|p| p.steering_heading(&canonical_frame)))
+            .unwrap_or_else(|| ray.align_heading(frame));
         let (cx, cy) = GridCell::new(seat_u, seat_v).center();
         Ok(VehicleAssembly::with_identity(identity, frame.point_at(cx, cy, ground_top), axes, heading, parts))
     }

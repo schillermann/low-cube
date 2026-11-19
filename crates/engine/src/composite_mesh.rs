@@ -1,5 +1,33 @@
+use glam::{Mat4, Quat};
 use glow::HasContext;
-use crate::Mesh;
+use crate::{GraphicPipeline, Mesh, ShaderProgram};
+
+/// `GraphicPipeline` decorator composing a static 3D star-vault `Mesh` into every rendered scene and Polaroid pass.
+pub struct StarryPipeline {
+    origin: Box<dyn GraphicPipeline>,
+    stars: Box<dyn Mesh>,
+}
+
+impl StarryPipeline {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn new(origin: Box<dyn GraphicPipeline>, stars: Box<dyn Mesh>) -> Self {
+        Self { origin, stars }
+    }
+}
+
+impl GraphicPipeline for StarryPipeline {
+    fn render(
+        &self,
+        gl: &glow::Context,
+        shader: &dyn ShaderProgram,
+        mesh: &dyn Mesh,
+        view_proj: &Mat4,
+        surface_rot: Quat,
+    ) {
+        let composed = CompositeMesh::new(mesh, self.stars.as_ref());
+        self.origin.render(gl, shader, &composed, view_proj, surface_rot);
+    }
+}
 
 /// Decorator combining two GPU-renderable meshes into a unified draw sequence.
 pub struct CompositeMesh<'a> {
@@ -40,6 +68,12 @@ impl PlanetaryMesh {
 
     pub fn select_visible(&mut self, visible_mask: u32) {
         self.visible_mask = visible_mask;
+    }
+
+    pub fn ensure_slice(&mut self, index: usize, make_empty: impl Fn() -> Box<dyn Mesh>) {
+        while self.faces.len() <= index {
+            self.faces.push(make_empty());
+        }
     }
 
     pub fn slice_at(&self, index: usize) -> &dyn Mesh {

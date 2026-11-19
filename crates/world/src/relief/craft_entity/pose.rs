@@ -49,7 +49,10 @@ impl CraftPose {
     }
 
     pub fn steered(self, delta_yaw: f32) -> Self {
-        let rot = Quat::from_axis_angle(self.axes.normal(), delta_yaw);
+        self.rotated(Quat::from_axis_angle(self.axes.normal(), delta_yaw))
+    }
+
+    pub fn rotated(self, rot: Quat) -> Self {
         Self::new(
             self.origin,
             self.axes.rotated(rot),

@@ -50,6 +50,8 @@ impl BlockMold {
             MoldArchetype::FullCube
         } else if matches!(medium, BlockMedium::FieldCamera) {
             MoldArchetype::from_code(self.archetype.code() % 8)
+        } else if matches!(medium, BlockMedium::RocketNozzle) {
+            MoldArchetype::from_code(self.archetype.code() % 3)
         } else {
             self.archetype
         };
@@ -61,6 +63,8 @@ impl BlockMold {
             self.archetype.next_flat_square_top()
         } else if matches!(self.medium, BlockMedium::FieldCamera) {
             self.archetype.next_camera_turn()
+        } else if matches!(self.medium, BlockMedium::RocketNozzle) {
+            self.archetype.next_nozzle_axis()
         } else {
             self.archetype.next()
         };
@@ -72,6 +76,8 @@ impl BlockMold {
             self.archetype.next_flat_square_top()
         } else if matches!(self.medium, BlockMedium::FieldCamera) {
             self.archetype.prev_camera_turn()
+        } else if matches!(self.medium, BlockMedium::RocketNozzle) {
+            self.archetype.prev_nozzle_axis()
         } else {
             self.archetype.prev()
         };

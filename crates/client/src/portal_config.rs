@@ -1,6 +1,6 @@
 use std::time::Duration;
 use sanctuary::{ConduitPlanet, HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
-use world::{BiomedCubeWorld, PlanetaryWorld};
+use world::{CelestialSystem, PlanetaryWorld};
 use crate::command_flags::CommandFlags;
 use crate::menu::PortalInvite;
 
@@ -153,11 +153,7 @@ impl PortalConfig {
 
     pub fn assemble_planet(&self, blocks: u32, tron_active: bool) -> Box<dyn PlanetaryWorld> {
         let local_authoritative = || -> Box<dyn PlanetaryWorld> {
-            if tron_active {
-                Box::new(BiomedCubeWorld::beveled_tron(blocks, 1.0))
-            } else {
-                Box::new(BiomedCubeWorld::beveled(blocks, 1.0))
-            }
+            CelestialSystem::authoritative(blocks, 1.0, tron_active)
         };
         match *self {
             Self::Solitary => local_authoritative(),

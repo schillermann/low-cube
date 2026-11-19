@@ -130,6 +130,28 @@ impl ReliefPalette {
         )
     }
 
+    /// Secondary constructor deriving airless cratered lunar regolith and basalt tones per face.
+    pub fn lunar_regolith(zone: ClimateZone) -> Self {
+        let (regolith, mare_floor, basalt_wall) = match zone {
+            ClimateZone::Temperate | ClimateZone::Arctic => (
+                Vec3::new(0.68, 0.70, 0.75),
+                Vec3::new(0.30, 0.32, 0.36),
+                Vec3::new(0.44, 0.46, 0.51),
+            ),
+            ClimateZone::Volcanic | ClimateZone::Steppe => (
+                Vec3::new(0.54, 0.55, 0.60),
+                Vec3::new(0.24, 0.25, 0.30),
+                Vec3::new(0.36, 0.38, 0.43),
+            ),
+            ClimateZone::Desert | ClimateZone::Jungle => (
+                Vec3::new(0.62, 0.63, 0.67),
+                Vec3::new(0.28, 0.29, 0.33),
+                Vec3::new(0.40, 0.42, 0.47),
+            ),
+        };
+        Self::uniform(regolith, mare_floor, basalt_wall)
+    }
+
     /// Feeds surface color to consumer closure.
     pub fn inspect_surface<R>(&self, consumer: impl FnOnce(Vec3) -> R) -> R {
         consumer(self.facets.surface)

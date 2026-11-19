@@ -3,14 +3,14 @@ use world::{CraftIdentity, MeshTarget, PilotCraft, PlanetaryWorld, VehicleAssemb
 use crate::controls::KeyboardControls;
 use super::passenger::PassengerBerth;
 use super::track::FaceContact;
-use super::{DrivenCar, PedalInput, SEAT_EYE_SUPPORT};
+use super::{HelmedCraft, PedalInput, SEAT_EYE_SUPPORT};
 
-/// Polymorphic avatar driving and passenger state avoiding `Option<DrivenCar>`.
+/// Polymorphic avatar driving and passenger state avoiding `Option<HelmedCraft>`.
 pub enum VehiclePilot {
     Pedestrian,
-    Perch(DrivenCar),
+    Perch(HelmedCraft),
     Passenger(PassengerBerth),
-    Driving(DrivenCar),
+    Driving(HelmedCraft),
 }
 
 impl VehiclePilot {
@@ -19,12 +19,19 @@ impl VehiclePilot {
     pub const fn driving(&self) -> bool { matches!(self, Self::Driving(_)) }
     pub const fn riding(&self) -> bool { matches!(self, Self::Driving(_) | Self::Passenger(_)) }
 
+    pub fn free_look(&self) -> bool {
+        match self {
+            Self::Driving(craft) => craft.free_look(),
+            _ => false,
+        }
+    }
+
     pub fn mount(&mut self, assembly: VehicleAssembly, world: &dyn PlanetaryWorld) -> (Vec3, Vec3) {
         let heading = assembly.heading();
         let drivable = assembly.drivable();
-        let car = DrivenCar::boarded(assembly);
-        let pos = if drivable { car.seat_position(world) } else { car.perch_position() };
-        *self = if drivable { Self::Driving(car) } else { Self::Perch(car) };
+        let craft = HelmedCraft::boarded(assembly);
+        let pos = if drivable { craft.seat_position(world) } else { craft.perch_position() };
+        *self = if drivable { Self::Driving(craft) } else { Self::Perch(craft) };
         (pos, heading)
     }
 
@@ -41,14 +48,14 @@ impl VehiclePilot {
 
     pub fn reconcile_helm(&mut self, world: &mut dyn PlanetaryWorld) -> Option<Vec3> {
         let revoked_id = match self {
-            Self::Driving(car) => Some(car.identity()),
+            Self::Driving(craft) => Some(craft.identity()),
             _ => None,
         }?;
         if !world.helm_revoked(revoked_id) {
             return None;
         }
         let fallback = match std::mem::replace(self, Self::Pedestrian) {
-            Self::Driving(car) => FaceContact::new(car.perch_position()).ground(SEAT_EYE_SUPPORT, world),
+            Self::Driving(craft) => FaceContact::new(craft.perch_position()).ground(SEAT_EYE_SUPPORT, world),
             _ => Vec3::ZERO,
         };
         Some(fallback)
@@ -57,17 +64,17 @@ impl VehiclePilot {
     pub fn shape_pose(&self, pose: crate::attire::BodyPose) -> crate::attire::BodyPose {
         match self {
             Self::Pedestrian => pose,
-            Self::Perch(car) => pose.with_surface_rotation(car.body_rotation()).with_seated(1.0),
+            Self::Perch(craft) => pose.with_surface_rotation(craft.body_rotation()).with_seated(1.0),
             Self::Passenger(berth) => berth.shape_pose(pose),
-            Self::Driving(car) => pose.with_surface_rotation(car.body_rotation()).with_seated_steer(car.steer_turn()),
+            Self::Driving(craft) => pose.with_surface_rotation(craft.body_rotation()).with_seated_steer(craft.steer_turn()),
         }
     }
 
     pub fn release_wheel(&mut self, world: &mut dyn PlanetaryWorld) -> Option<Vec3> {
-        if let Self::Driving(car) = std::mem::replace(self, Self::Pedestrian) {
-            let perch_car = car.release_wheel(world);
-            let pos = perch_car.perch_position();
-            *self = Self::Perch(perch_car);
+        if let Self::Driving(craft) = std::mem::replace(self, Self::Pedestrian) {
+            let perch_craft = craft.release_wheel(world);
+            let pos = perch_craft.perch_position();
+            *self = Self::Perch(perch_craft);
             Some(pos)
         } else {
             None
@@ -78,13 +85,14 @@ impl VehiclePilot {
         &mut self,
         dt: f32,
         controls: &dyn KeyboardControls,
+        gaze_dir: Vec3,
         world: &dyn PlanetaryWorld,
     ) -> Option<(Vec3, Vec3, f32)> {
         match self {
             Self::Pedestrian => None,
-            Self::Perch(car) => {
-                if !car.seat_intact(world) {
-                    let pos = FaceContact::new(car.perch_position()).ground(SEAT_EYE_SUPPORT, world);
+            Self::Perch(craft) => {
+                if !craft.seat_intact(world) {
+                    let pos = FaceContact::new(craft.perch_position()).ground(SEAT_EYE_SUPPORT, world);
                     let up = world.surface_up_at(pos);
                     *self = Self::Pedestrian;
                     return Some((pos, up, 0.0));
@@ -92,12 +100,12 @@ impl VehiclePilot {
                 let mut pedals = PedalInput::idle();
                 controls.drive_locomotion(Vec3::Y, Vec3::X, &mut pedals);
                 if pedals.dismount_requested() {
-                    let exit = car.dismount_with(&pedals, world);
+                    let exit = craft.dismount_with(&pedals, world);
                     let up = world.surface_up_at(exit);
                     *self = Self::Pedestrian;
                     Some((exit, up, 0.0))
                 } else {
-                    Some((car.perch_position(), car.chassis_up(), 0.0))
+                    Some((craft.perch_position(), craft.chassis_up(), 0.0))
                 }
             }
             Self::Passenger(berth) => {
@@ -110,25 +118,25 @@ impl VehiclePilot {
                 };
                 Some((pos, up, steer_px))
             }
-            Self::Driving(car) => Some(car.step(dt, controls, world)),
+            Self::Driving(craft) => Some(craft.step(dt, controls, gaze_dir, world)),
         }
     }
 
     pub fn emit(&self, target: &mut dyn MeshTarget) {
-        if let Self::Driving(car) = self {
-            car.emit(target);
+        if let Self::Driving(craft) = self {
+            craft.emit(target);
         }
     }
 
     pub fn blend_subtick(&mut self, alpha: f32) {
-        if let Self::Driving(car) = self {
-            car.blend_subtick(alpha);
+        if let Self::Driving(craft) = self {
+            craft.blend_subtick(alpha);
         }
     }
 
-    pub const fn pilot_craft(&self) -> PilotCraft {
+    pub fn pilot_craft(&self) -> PilotCraft {
         match self {
-            Self::Driving(car) => car.pilot_craft(),
+            Self::Driving(craft) => craft.pilot_craft(),
             Self::Pedestrian | Self::Perch(_) | Self::Passenger(_) => PilotCraft::Pedestrian,
         }
     }

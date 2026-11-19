@@ -96,7 +96,9 @@ impl<'a> FlightContext<'a> {
     }
 
     pub fn gravitational_acceleration(&self, vertical_speed: f32) -> f32 {
-        self.dynamics.gravity.delta_velocity(vertical_speed, self.step.dt)
+        let local_g = self.terrain.world.apply_pull(self.step.position, 1.0).length();
+        let ratio = (local_g / 9.81).clamp(0.0, 2.0);
+        self.dynamics.gravity.delta_velocity(vertical_speed, self.step.dt) * ratio
     }
 
     pub fn brake_canopy(&self, vertical_speed: f32) -> f32 {

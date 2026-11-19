@@ -1,0 +1,104 @@
+mod binary;
+mod gravity;
+mod lunar;
+mod orbital_fleet;
+mod stars;
+mod translated;
+
+use glam::Vec3;
+use crate::{BeveledGravity, BiomedCubeWorld, ClimateZone, GravityField, PlanetaryWorld};
+
+pub use self::binary::BinaryPlanet;
+pub use self::gravity::{BinaryGravity, RadialWell};
+pub use self::lunar::{LunarCraterRelief, LunarWorld};
+pub use self::orbital_fleet::OrbitalFleetWorld;
+pub use self::stars::StarVault;
+pub use self::translated::TranslatedWorld;
+
+/// Cardinal cubic gravity field resolving the dominant climate-zone normal around an origin.
+#[derive(Clone, Copy, Debug)]
+pub struct ZoneGravity;
+
+impl ZoneGravity {
+    /// Primary constructor initializing the zero-state cubic normal field.
+    pub const fn new() -> Self {
+        Self
+    }
+}
+
+impl GravityField for ZoneGravity {
+    fn surface_up_at(&self, position: Vec3) -> Vec3 {
+        ClimateZone::dominant(position).normal()
+    }
+
+    fn pull_direction_at(&self, position: Vec3) -> Vec3 {
+        -self.surface_up_at(position)
+    }
+}
+
+type SystemGravity = BinaryGravity<
+    RadialWell<BeveledGravity<ZoneGravity>>,
+    RadialWell<BeveledGravity<ZoneGravity>>,
+>;
+
+/// Factory assembling the complete Earth-Moon `OrbitalFleetWorld<BinaryPlanet<...>>` decorator hierarchy.
+pub struct CelestialSystem;
+
+impl CelestialSystem {
+    /// Orbital center of the 32-block Moon-Cube high above the northern Temperate horizon.
+    pub const fn moon_center(home_blocks: u32) -> Vec3 {
+        let half = (home_blocks as f32) * 0.5;
+        Vec3::new(0.0, half + 256.0, -96.0)
+    }
+
+    fn compose_gravity(home_half: f32, margin: f32, moon_center: Vec3) -> SystemGravity {
+        let home_well = RadialWell::homeworld(
+            BeveledGravity::decorating(ZoneGravity::new(), home_half, margin),
+            home_half,
+        );
+        let moon_well = RadialWell::lunar(
+            BeveledGravity::decorating(ZoneGravity::new(), LunarWorld::HALF_SIZE, 1.0),
+            moon_center,
+            LunarWorld::HALF_SIZE,
+        );
+        BinaryGravity::new(home_well, moon_well)
+    }
+
+    /// Authoritative Earth-Moon system with living subterranean mineral veins on both worlds.
+    pub fn authoritative(blocks: u32, margin: f32, tron: bool) -> Box<dyn PlanetaryWorld> {
+        let home = if tron {
+            BiomedCubeWorld::beveled_tron(blocks, margin)
+        } else {
+            BiomedCubeWorld::beveled(blocks, margin)
+        };
+        let home_half = (blocks as f32) * 0.5;
+        let moon_pos = Self::moon_center(blocks);
+        let moon = TranslatedWorld::new(LunarWorld::authoritative(tron), moon_pos);
+        let gravity = Self::compose_gravity(home_half, margin, moon_pos);
+        Box::new(OrbitalFleetWorld::wrapping(BinaryPlanet::new(home, moon, gravity, home_half)))
+    }
+
+    /// Barren flora-free Earth-Moon system for fast headless physics and multiplayer tests (`< 3ms`).
+    pub fn barren_authoritative(blocks: u32, margin: f32) -> Box<dyn PlanetaryWorld> {
+        let home = BiomedCubeWorld::barren_beveled(blocks, margin);
+        let home_half = (blocks as f32) * 0.5;
+        let moon_pos = Self::moon_center(blocks);
+        let moon = TranslatedWorld::new(LunarWorld::authoritative(false), moon_pos);
+        let gravity = Self::compose_gravity(home_half, margin, moon_pos);
+        Box::new(OrbitalFleetWorld::wrapping(BinaryPlanet::new(home, moon, gravity, home_half)))
+    }
+
+    /// Zero-knowledge client Earth-Moon system without unexposed subterranean ores.
+    pub fn hollow(blocks: u32, margin: f32, tron: bool) -> Box<dyn PlanetaryWorld> {
+        let home = if tron {
+            BiomedCubeWorld::hollow_beveled_tron(blocks, margin)
+        } else {
+            BiomedCubeWorld::hollow_beveled(blocks, margin)
+        };
+        let home_half = (blocks as f32) * 0.5;
+        let moon_pos = Self::moon_center(blocks);
+        let moon = TranslatedWorld::new(LunarWorld::hollow(tron), moon_pos);
+        let gravity = Self::compose_gravity(home_half, margin, moon_pos);
+        Box::new(OrbitalFleetWorld::wrapping(BinaryPlanet::new(home, moon, gravity, home_half)))
+    }
+}

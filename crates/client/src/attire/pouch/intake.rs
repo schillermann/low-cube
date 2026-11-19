@@ -24,7 +24,8 @@ impl SatchelIntake {
         if relic == HeldRelic::CantileverCrane {
             for (part, qty) in [
                 (HeldRelic::FieldCamera, 1),
-                (HeldRelic::RocketEngine, 1),
+                (HeldRelic::FlightConsole, 1),
+                (HeldRelic::RocketNozzle, 4),
                 (HeldRelic::AircraftEngine, 1),
                 (HeldRelic::SteeringWheel, 1),
                 (HeldRelic::CarWheel, 8),

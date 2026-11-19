@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.84.0] - 2026-11-19
+
+### Added
+- Added spacecraft construction and 6-way physical thruster nozzles (`BlockMedium::FlightConsole` & `BlockMedium::RocketNozzle` in `crates/world/src/block/timber_grain/mod.rs`, `HeldRelic::FlightConsole` & `HeldRelic::RocketNozzle` in `crates/client/src/attire/relic/`, `NozzleAxis`, `FlightConsoleMesh`, and `RocketNozzleMesh` in `crates/world/src/block/space_parts/`, `ClusterHelm` in `crates/world/src/relief/craft_cluster/helm.rs`, `PilotOrder` & `RigidImpulse` in `crates/world/src/relief/vehicle_assembly/impulse.rs`, and `NozzleRoar` in `crates/acoustics/src/nozzle_roar.rs`) with off-center lever-arm torque and console reaction-wheel stabilization.
+- Added polymorphic `CraftDrive` (`HelmedCraft`, `WheeledDrive`, and `RocketDrive` in `crates/client/src/drive/`) and the stack-allocated 5-layer `SpaceStep` decorator chain (`TouchdownStep(GyroStep(NozzleThrustStep(GravitationStep(InertialDrift))))` in `crates/client/src/drive/space_step.rs`).
+- Added the Earth-Moon `CelestialSystem` decorator hierarchy (`RadialWell`, `BinaryGravity`, `LunarCraterRelief`, `LunarWorld`, `TranslatedWorld`, `BinaryPlanet`, `OrbitalFleetWorld`, and `StarVault` in `crates/world/src/celestial/`), `StarryPipeline` (`crates/engine/src/composite_mesh.rs`), stratosphere-to-space sky transition (`crates/client/src/firmament_glsl.rs`), and `ZeroGFlight` (`crates/client/src/zero_g_flight.rs`) enabling `0.0g` EVA spacewalks, `0.22g` lunar leaps, and multiplayer lunar excavation.
+
+### Changed
+- Replaced `BlockMedium::RocketEngine` and `HeldRelic::RocketEngine` with dedicated `FlightConsole` (rocket helm) and `RocketNozzle` (directional thruster) recipes in `ArtisanTome` (`crates/client/src/attire/tome.rs`), generalized `DrivenCar` into `HelmedCraft`, extended `GravityField::apply_pull` across `HostedPlanet`, `RemotePlanet`, and `ConduitPlanet`, and raised `PerspectiveLens::human_eye` far plane to `4096.0` (`crates/client/src/lens.rs`).
+
 ## [0.83.0] - 2026-11-19
 
 ### Added

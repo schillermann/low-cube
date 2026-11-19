@@ -1,4 +1,5 @@
 use crate::flight::{GravitationalFlight, SurfaceFlight};
+use crate::zero_g_flight::ZeroGFlight;
 
 /// Interface representing planetary flight and jump kinematics.
 pub trait PlanetaryPhysics: Send + Sync {
@@ -28,7 +29,11 @@ impl TunedPhysics {
 
 impl PlanetaryPhysics for TunedPhysics {
     fn surface_flight(&self, eye_height: f32) -> Box<dyn GravitationalFlight> {
-        Box::new(SurfaceFlight::calibrated(self.jump_height(), self.gravity, eye_height))
+        Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(
+            self.jump_height(),
+            self.gravity,
+            eye_height,
+        )))
     }
 }
 
