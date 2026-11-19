@@ -1,6 +1,8 @@
 use std::time::{Duration, Instant};
 use glam::{Quat, Vec3};
-use world::{BiomedCubeWorld, CompanionPresence, PlanetaryWorld, PresenceKinematics};
+use world::{
+    BiomedCubeWorld, CompanionPresence, PlanetaryWorld, PresenceAttire, PresenceKinematics,
+};
 use crate::{ConduitPlanet, HostedPlanet, JoinTarget, PortalMailbox, RemotePlanet, SanctuaryHost};
 
 #[test]
@@ -39,7 +41,7 @@ fn test_conduit_planet_relays_guest_motion_while_host_render_loop_stalls() {
         0,
         PresenceKinematics::new(moved_pos, Quat::IDENTITY, Quat::IDENTITY, (0.8, 0.0)),
         (1.0, 0.5, 0.0, 0.0),
-        ([1; 9], [0; 4]),
+        PresenceAttire::with_garments([1; 9], [0; 4]),
     ));
 
     // Host render thread calls ZERO step_surface / RedrawRequested frames during this entire window:
@@ -50,7 +52,7 @@ fn test_conduit_planet_relays_guest_motion_while_host_render_loop_stalls() {
         let _ = guest_b.step_surface(1.0 / 120.0);
         let mut peers = Vec::new();
         guest_b.active_companions(&mut peers);
-        if peers.iter().any(|p| p.transfer(|_, k, _, _, _| k.transfer(|pos, _, _, _, _| pos.x > 2.5))) {
+        if peers.iter().any(|p| p.transfer(|_, k, _, _| k.transfer(|pos, _, _, _, _| pos.x > 2.5))) {
             reached_b = true;
             break;
         }

@@ -28,8 +28,9 @@ pub use biome::BiomedCubeWorld;
 pub use block::{
     BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
     ElevatedShape, FieldCameraTripod, FootwellPlinth, GentleRidge, GentleValley, GentleWedge, GridCell,
-    MediumShape, MineralSeam, MoldArchetype, PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner,
-    StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
+    MediumShape, MineralSeam, MoldArchetype, PalmMolds, PedalClusterMesh, PyramidPeak, RampWedge,
+    RidgeCorner, StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading,
+    WheelProfile,
 };
 pub use chronicle::WorldFact;
 pub use frame::SurfaceFrame;
@@ -39,7 +40,7 @@ pub use mesh_target::{
 pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
 pub use planet::{CubePlanet, PatchCoord};
-pub use presence::{CompanionPresence, DrivenCraft, PilotCraft, PresenceKinematics};
+pub use presence::{CompanionPresence, DrivenCraft, PilotCraft, PresenceAttire, PresenceKinematics};
 pub use relief::{
     BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, CrustVault, ExposedStratum,
     FacetedReliefFace, HelmLocks, HollowVeins, LivingVeins, MeadowRing, MeadowStamp,

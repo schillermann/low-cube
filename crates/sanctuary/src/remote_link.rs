@@ -2,7 +2,10 @@ use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::{Duration, Instant};
 use glam::{Quat, Vec3};
-use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceKinematics, WorldFact};
+use world::{
+    CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceAttire, PresenceKinematics,
+    WorldFact,
+};
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::SmoothRoster;
@@ -42,7 +45,7 @@ impl RemoteLink {
         let _ = socket.set_nonblocking(true);
         let _ = socket.set_broadcast(true);
         let kin = PresenceKinematics::new(Vec3::new(0.0, 32.0, 0.0), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
-        let initial_pres = CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4]));
+        let initial_pres = CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
         let keys = HandshakeIdentity::generate();
         let phase = match target {
             JoinTarget::Wormhole(code) => {

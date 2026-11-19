@@ -38,7 +38,7 @@ pub use gentle_ridge::GentleRidge;
 pub use gentle_valley::GentleValley;
 pub use gentle_wedge::GentleWedge;
 pub use mineral_seam::MineralSeam;
-pub use mold::{BlockMold, CardinalTurn, MoldArchetype};
+pub use mold::{BlockMold, CardinalTurn, MoldArchetype, PalmMolds};
 pub use pedal_cluster::{FootwellPlinth, PedalClusterMesh, WalnutFloorPan};
 pub use pyramid::PyramidPeak;
 pub use ridge::RidgeCorner;

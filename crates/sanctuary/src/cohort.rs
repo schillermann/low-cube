@@ -3,7 +3,7 @@ use std::net::{SocketAddr, UdpSocket};
 use glam::{Quat, Vec3};
 use world::{
     CompanionPresence, CraftBlueprint, CraftIdentity, DrivenCraft, ExposedStratum, MeshTarget,
-    PilotCraft, PlanetaryWorld, PresenceKinematics, WorldFact,
+    PilotCraft, PlanetaryWorld, PresenceAttire, PresenceKinematics, WorldFact,
 };
 use crate::aura::{HostAura, HostIdentity, HostPresence, PeerCrack};
 use crate::chronicle_log::ChronicleLog;
@@ -69,7 +69,7 @@ impl GuestCohort {
         let seal = identity.keys().establish(guest_pub, false);
         let spawn = world.constrain_to_surface(Vec3::new(0.0, 64.0, 0.0), 0.0);
         let kin = PresenceKinematics::new(spawn, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
-        let pres = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4]));
+        let pres = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
         self.wards.entry(cid).or_insert_with(|| GuestWard::new(seal, peer, pres, WardVitals::fresh()));
         cid
     }

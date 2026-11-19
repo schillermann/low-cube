@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{MeshTarget, PlanetaryWorld};
+use world::{MeshTarget, PlanetaryWorld, PresenceAttire};
 use crate::attire::{BodyPose, CameraMount, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
@@ -44,8 +44,8 @@ impl AvatarGear {
         self.attire.shaft_yaw_play()
     }
 
-    pub fn attire_wire(&self) -> ([u8; 9], [u8; 4]) {
-        (self.attire.multiplayer_bytes(), self.attire.region_bytes())
+    pub fn presence_attire(&self) -> PresenceAttire {
+        self.earthworks.presence_attire(self.attire)
     }
 
     pub fn apply_attire(&mut self, attire: YouthAttire) {

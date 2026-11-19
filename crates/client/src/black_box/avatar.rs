@@ -1,6 +1,6 @@
 use glam::{Mat4, Quat, Vec3};
 use fauna::{SightCone, WoodlandFauna};
-use world::{CompanionPresence, MeshTarget, PlanetaryWorld, PresenceKinematics};
+use world::{CompanionPresence, MeshTarget, PlanetaryWorld, PresenceAttire, PresenceKinematics};
 use crate::attire::{PhotoShutter, SightMode, YouthAttire};
 use crate::avatar::Avatar;
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls, LocomotionTarget};
@@ -20,15 +20,15 @@ impl PresenceProbe {
 
     pub const fn at_origin() -> Self {
         let kin = PresenceKinematics::new(Vec3::ZERO, Quat::IDENTITY, Quat::IDENTITY, (0.8, 0.0));
-        Self::new(CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4])))
+        Self::new(CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire()))
     }
 
     pub fn position(&self) -> Vec3 {
-        self.captured.transfer(|_, kin, _, _, _| kin.transfer(|pos, _, _, _, _| pos))
+        self.captured.transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos))
     }
 
     pub fn view_direction(&self) -> Vec3 {
-        self.captured.transfer(|_, kin, _, _, _| {
+        self.captured.transfer(|_, kin, _, _| {
             kin.transfer(|_, _, view_rot, _, _| (view_rot * Vec3::NEG_Z).normalize_or_zero())
         })
     }

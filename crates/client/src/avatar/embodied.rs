@@ -101,7 +101,7 @@ impl EmbodiedAvatar {
 
     fn current_presence(&self) -> world::CompanionPresence {
         let pose = self.pose_at(self.body.position());
-        world::CompanionPresence::new(0, pose.capture_kinematics(), self.bearing.rhythm().wire_tuple(), self.gear.attire_wire())
+        world::CompanionPresence::new(0, pose.capture_kinematics(), self.bearing.rhythm().wire_tuple(), self.gear.presence_attire())
     }
 }
 

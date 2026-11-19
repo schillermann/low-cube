@@ -95,7 +95,7 @@ fn test_first_person_omits_head_while_multiplayer_and_mirror_include_crown() {
     let mut fp_ledger = QuadLedger::empty();
     attire.emit(&pose, SightMode::FirstPersonSight, &mut fp_ledger);
     let mut mp_ledger = QuadLedger::empty();
-    attire.emit_peer(&pose, &mut mp_ledger);
+    attire.emit(&pose, SightMode::LookingGlassSight, &mut mp_ledger);
     assert!(fp_ledger.populated(), "First-person view must emit torso, legs, boots, and hands");
     assert!(mp_ledger.exceeds(&fp_ledger), "Multiplayer and Looking-Glass view must emit additional crown quads");
 }
@@ -129,7 +129,7 @@ fn test_wardrobe_customization_keys_and_file_persistence() {
     let temp_path = std::env::temp_dir().join("test_medieval_character_profile.toml");
     let store = FileAttire::new(temp_path.to_str().unwrap().to_string());
     let squire = YouthAttire::squire();
-    let initial_bytes = store.encode_multiplayer(&squire);
+    let initial_bytes = squire.multiplayer_bytes();
     let customized = squire
         .with_next_tunic().with_next_vambrace().with_next_girdle().with_next_footwear()
         .with_next_crown().with_next_relic().with_next_pigment().with_next_complexion();
@@ -137,7 +137,7 @@ fn test_wardrobe_customization_keys_and_file_persistence() {
     let loaded = store.load_or_squire();
     std::fs::remove_file(&temp_path).expect("Failed to clean up temporary profile");
     assert_eq!(customized, loaded);
-    assert_ne!(initial_bytes, store.encode_multiplayer(&loaded));
+    assert_ne!(initial_bytes, loaded.multiplayer_bytes());
 }
 
 #[test]

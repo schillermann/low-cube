@@ -1,6 +1,7 @@
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, CompanionPresence, MeshTarget, PlanetaryWorld, PresenceKinematics, Quad,
+    BiomedCubeWorld, CompanionPresence, MeshTarget, PlanetaryWorld, PresenceAttire,
+    PresenceKinematics, Quad,
 };
 use crate::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
 
@@ -12,7 +13,7 @@ impl MeshTarget for NullTarget {
 
 fn stand_at(world: &mut dyn PlanetaryWorld, spot: Vec3) {
     let kin = PresenceKinematics::new(spot, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
-    world.sync_presence(CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4])));
+    world.sync_presence(CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire()));
 }
 
 fn step_trio(host: &mut HostedPlanet, alice: &mut RemotePlanet, bob: &mut RemotePlanet, rounds: usize) {

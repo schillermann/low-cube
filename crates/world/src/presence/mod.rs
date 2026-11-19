@@ -1,6 +1,8 @@
+mod attire;
 mod craft;
 
 use glam::{Quat, Vec3};
+pub use self::attire::PresenceAttire;
 pub use self::craft::{DrivenCraft, PilotCraft};
 
 /// Encapsulated 3D stance and orientation of a companion avatar on the World-Cube.
@@ -43,7 +45,7 @@ pub struct CompanionPresence {
     slot: u32,
     kinematics: PresenceKinematics,
     rhythm: (f32, f32, f32, f32),
-    attire: ([u8; 9], [u8; 4]),
+    attire: PresenceAttire,
 }
 
 impl CompanionPresence {
@@ -52,7 +54,7 @@ impl CompanionPresence {
         slot: u32,
         kinematics: PresenceKinematics,
         rhythm: (f32, f32, f32, f32),
-        attire: ([u8; 9], [u8; 4]),
+        attire: PresenceAttire,
     ) -> Self {
         Self { slot, kinematics, rhythm, attire }
     }
@@ -102,9 +104,9 @@ impl CompanionPresence {
 
     pub fn transfer<T>(
         self,
-        f: impl FnOnce(u32, PresenceKinematics, (f32, f32, f32, f32), [u8; 9], [u8; 4]) -> T,
+        f: impl FnOnce(u32, PresenceKinematics, (f32, f32, f32, f32), PresenceAttire) -> T,
     ) -> T {
-        f(self.slot, self.kinematics, self.rhythm, self.attire.0, self.attire.1)
+        f(self.slot, self.kinematics, self.rhythm, self.attire)
     }
 
     pub fn inscribe(&self, out: &mut Vec<u8>) {
@@ -120,13 +122,12 @@ impl CompanionPresence {
                 out.extend_from_slice(&f.to_le_bytes());
             }
         });
-        out.extend_from_slice(&self.attire.0);
-        out.extend_from_slice(&self.attire.1);
+        self.attire.inscribe(out);
     }
 
     pub fn decode(bytes: &[u8]) -> Option<(Self, usize)> {
-        const SPAN: usize = 4 + 17 * 4 + 9 + 4;
-        if bytes.len() < SPAN {
+        const HEAD_SPAN: usize = 4 + 17 * 4;
+        if bytes.len() < HEAD_SPAN + PresenceAttire::WIRE_SPAN {
             return None;
         }
         let slot = u32::from_le_bytes(bytes[0..4].try_into().ok()?);
@@ -135,16 +136,13 @@ impl CompanionPresence {
             let off = 4 + i * 4;
             *dst = f32::from_le_bytes(bytes[off..off + 4].try_into().ok()?);
         }
-        let mut attire_main = [0u8; 9];
-        attire_main.copy_from_slice(&bytes[72..81]);
-        let mut attire_reg = [0u8; 4];
-        attire_reg.copy_from_slice(&bytes[81..85]);
+        let (attire, attire_span) = PresenceAttire::decode(&bytes[HEAD_SPAN..])?;
         let kin = PresenceKinematics::new(
             Vec3::new(floats[0], floats[1], floats[2]),
             Quat::from_xyzw(floats[3], floats[4], floats[5], floats[6]),
             Quat::from_xyzw(floats[7], floats[8], floats[9], floats[10]),
             (floats[11], floats[12]),
         );
-        Some((Self::new(slot, kin, (floats[13], floats[14], floats[15], floats[16]), (attire_main, attire_reg)), SPAN))
+        Some((Self::new(slot, kin, (floats[13], floats[14], floats[15], floats[16]), attire), HEAD_SPAN + attire_span))
     }
 }

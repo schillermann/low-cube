@@ -201,3 +201,49 @@ fn test_camera_on_three_dirt_blocks_photographs_from_tripod_lens_and_picks_up_in
     assert!(pickup_avatar.dispatch_trigger(InputTrigger::WheelClick));
     assert_eq!(pickup_avatar.take_photo_shutter(), PhotoShutter::Triggered(SightMode::FirstPersonSight));
 }
+
+#[test]
+fn test_multiplayer_companion_handheld_camera_rotation_visible_to_peer() {
+    use crate::black_box::PresenceProbe;
+    use crate::companion::CompanionFigure;
+    use world::CompanionPresence;
+
+    let peer_vertices = |avatar: &PlanetaryAvatar| -> Vec<Vec3> {
+        let mut probe = PresenceProbe::at_origin();
+        avatar.report_presence(&mut probe);
+        let mut wire = Vec::new();
+        probe.presence().inscribe(&mut wire);
+        let (decoded, used) = CompanionPresence::decode(&wire).expect("decode companion presence");
+        assert_eq!(used, wire.len());
+        let mut ledger = QuadLedger::empty();
+        CompanionFigure::new(decoded).emit(&mut ledger);
+        ledger.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect()
+    };
+
+    let world = world::BiomedCubeWorld::barren_beveled(16, 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 1.0);
+    let mut companion = PlanetaryAvatar::at(spawn);
+
+    for hands in [
+        (HeldRelic::FieldCamera, HeldRelic::EmptyPalm),
+        (HeldRelic::EmptyPalm, HeldRelic::FieldCamera),
+    ] {
+        companion.apply_attire(YouthAttire::squire().with_relics(hands.0, hands.1));
+        let v_fwd = peer_vertices(&companion);
+        assert!(companion.dispatch_trigger(InputTrigger::WheelDown));
+        let v_diag_fwd = peer_vertices(&companion);
+        assert_ne!(v_fwd, v_diag_fwd, "Peer must see companion's handheld camera turn to forward-angled");
+
+        assert!(companion.dispatch_trigger(InputTrigger::WheelDown));
+        let v_side = peer_vertices(&companion);
+        assert_ne!(v_diag_fwd, v_side, "Peer must see companion's handheld camera turn to profile");
+
+        assert!(companion.dispatch_trigger(InputTrigger::WheelDown));
+        let v_diag_back = peer_vertices(&companion);
+        assert_ne!(v_side, v_diag_back, "Peer must see companion's handheld camera turn to rear-angled");
+
+        assert!(companion.dispatch_trigger(InputTrigger::WheelDown));
+        let v_selfie = peer_vertices(&companion);
+        assert_ne!(v_diag_back, v_selfie, "Peer must see companion's handheld camera turn to selfie");
+    }
+}

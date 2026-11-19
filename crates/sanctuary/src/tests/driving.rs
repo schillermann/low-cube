@@ -1,8 +1,8 @@
 use glam::{Quat, Vec3};
 use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, CompanionPresence, CraftBlueprint, CraftPose,
-    DrivenCraft, MeshTarget, PilotCraft, PlanetaryWorld, PresenceKinematics, Quad, SurfaceFrame,
-    VehicleAxes, VehiclePart,
+    DrivenCraft, MeshTarget, PilotCraft, PlanetaryWorld, PresenceAttire, PresenceKinematics, Quad,
+    SurfaceFrame, VehicleAxes, VehiclePart,
 };
 use crate::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
 
@@ -117,7 +117,7 @@ fn test_multiplayer_vehicle_ownership_lock_passenger_seat_and_smooth_glide() {
         0,
         PresenceKinematics::new(seat_pos, Quat::IDENTITY, Quat::IDENTITY, (0.6, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        ([0; 9], [0; 4]),
+        PresenceAttire::squire(),
     );
     guest_a.sync_presence(pres);
     guest_b.sync_presence(pres);
@@ -152,7 +152,7 @@ fn test_multiplayer_vehicle_ownership_lock_passenger_seat_and_smooth_glide() {
             0,
             PresenceKinematics::new(ground + Vec3::Y * 1.12, Quat::IDENTITY, Quat::IDENTITY, (0.6, 0.0)),
             (0.0, 0.0, 0.0, 0.0),
-            ([0; 9], [0; 4]),
+            PresenceAttire::squire(),
         ));
         guest_a.sync_pilot_craft(PilotCraft::Driving(DrivenCraft::new(
             0,

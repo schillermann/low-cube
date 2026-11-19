@@ -8,7 +8,7 @@ use glam::{Quat, Vec3};
 use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, CompanionPresence, CubePlanet, Face,
     FacetedReliefFace, FoldedFace, HollowVeins, LivingVeins, NullFace, PlanetaryWorld,
-    PresenceKinematics, WorldFact,
+    PresenceAttire, PresenceKinematics, WorldFact,
 };
 use crate::{JoinTarget, PortalTicket, RemotePlanet, SanctuaryEnvelope, SanctuaryHost};
 
@@ -54,8 +54,18 @@ fn test_encrypted_multiplayer_companions_dig_and_build_together_on_shared_cube()
     let spawn = alice.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0);
     let alice_kin = PresenceKinematics::new(spawn, Quat::IDENTITY, Quat::IDENTITY, (0.9, 0.0));
     let bob_kin = PresenceKinematics::new(spawn + Vec3::X * 1.5, Quat::IDENTITY, Quat::IDENTITY, (0.4, 0.0));
-    alice.sync_presence(CompanionPresence::new(0, alice_kin, (1.0, 0.5, 0.0, 0.0), ([3, 1, 2, 0, 0, 0, 0, 0, 0], [0; 4])));
-    bob.sync_presence(CompanionPresence::new(0, bob_kin, (0.2, 0.0, 0.0, 0.0), ([5, 2, 1, 0, 0, 0, 0, 0, 0], [0; 4])));
+    alice.sync_presence(CompanionPresence::new(
+        0,
+        alice_kin,
+        (1.0, 0.5, 0.0, 0.0),
+        PresenceAttire::with_garments([3, 1, 2, 0, 0, 0, 0, 0, 0], [0; 4]),
+    ));
+    bob.sync_presence(CompanionPresence::new(
+        0,
+        bob_kin,
+        (0.2, 0.0, 0.0, 0.0),
+        PresenceAttire::with_garments([5, 2, 1, 0, 0, 0, 0, 0, 0], [0; 4]),
+    ));
     pump_pair(&mut host, &mut alice, &mut bob, 4);
 
     let mut seen_by_bob = Vec::new();
@@ -75,7 +85,12 @@ fn test_encrypted_multiplayer_companions_dig_and_build_together_on_shared_cube()
     assert!((after_sync_bob - after_predict).abs() < 0.02, "Bob's cube must reflect Alice's excavated shaft");
 
     let place_eye = Vec3::new(1.25, spawn.y + 1.55, 0.25);
-    alice.sync_presence(CompanionPresence::new(0, PresenceKinematics::new(Vec3::new(2.25, spawn.y, 0.25), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)), (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4])));
+    alice.sync_presence(CompanionPresence::new(
+        0,
+        PresenceKinematics::new(Vec3::new(2.25, spawn.y, 0.25), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
+        (0.0, 0.0, 0.0, 0.0),
+        PresenceAttire::squire(),
+    ));
     pump_pair(&mut host, &mut alice, &mut bob, 2);
     assert!(alice.place_molded_surface_block(place_eye, Vec3::NEG_Y, Vec3::new(2.25, spawn.y, 0.25), BlockMold::cube().in_medium(BlockMedium::QuarriedStone)));
     pump_pair(&mut host, &mut alice, &mut bob, 6);
@@ -110,7 +125,12 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
         let x = 0.25 + (idx as f32) * 1.5;
         for _ in 0..8 {
             let cur_ground = guest.constrain_to_surface(Vec3::new(x, 28.0, 0.25), 0.0);
-            guest.sync_presence(CompanionPresence::new(0, PresenceKinematics::new(cur_ground, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)), (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4])));
+            guest.sync_presence(CompanionPresence::new(
+                0,
+                PresenceKinematics::new(cur_ground, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
+                (0.0, 0.0, 0.0, 0.0),
+                PresenceAttire::squire(),
+            ));
             pump_pair(&mut host, &mut guest, &mut observer, 1);
             let _ = guest.harvest_surface(cur_ground + Vec3::Y * 1.2, Vec3::NEG_Y);
             pump_pair(&mut host, &mut guest, &mut observer, 5);
@@ -155,7 +175,12 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
     let (mut payload, mut frame) = (Vec::new(), Vec::new());
     let pulse = SanctuaryEnvelope::GuestPulse {
         ack_seq: 0,
-        presence: CompanionPresence::new(cid, PresenceKinematics::new(stand, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)), (0.0, 0.0, 0.0, 0.0), ([0; 9], [0; 4])),
+        presence: CompanionPresence::new(
+            cid,
+            PresenceKinematics::new(stand, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
+            (0.0, 0.0, 0.0, 0.0),
+            PresenceAttire::squire(),
+        ),
         craft: world::PilotCraft::Pedestrian,
     };
     pulse.inscribe(&mut payload);

@@ -3,7 +3,7 @@ mod reach;
 mod toss;
 
 use glam::Vec3;
-use world::{BlockMold, MeshTarget, PlanetaryWorld};
+use world::{BlockMold, MeshTarget, PlanetaryWorld, PresenceAttire};
 use crate::attire::{
     ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, SatchelWardrobe, SightMode,
     StrideRhythm, Wardrobe, YouthAttire,
@@ -175,6 +175,16 @@ impl PalmEarthworks {
         let (dig_r, dig_l) = self.dig.bare_hand_digging(attire);
         SatchelWardrobe::new(*attire, self.satchel, dig_r, dig_l).emit(pose, sight, target);
         self.tome.emit_book(&self.satchel, *attire, pose, target);
+    }
+
+    pub fn presence_attire(&self, attire: YouthAttire) -> PresenceAttire {
+        let (r, l) = attire.held_pair();
+        let (dig_r, dig_l) = self.dig.bare_hand_digging(&attire);
+        let active = attire.with_relics(
+            if dig_r { HeldRelic::EmptyPalm } else { r },
+            if dig_l { HeldRelic::EmptyPalm } else { l },
+        );
+        PresenceAttire::new(active.multiplayer_bytes(), active.region_bytes(), self.satchel.palm_molds())
     }
 
     pub fn emit_debris(&self, view_dir: Vec3, surface_up: Vec3, rhythm: StrideRhythm, target: &mut dyn MeshTarget) {

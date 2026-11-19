@@ -94,7 +94,7 @@ impl CompanionGlide {
         }
         let cur_pres = self.smooth_presence();
         let teleport = !next_presence.within_reach(
-            cur_pres.transfer(|_, kin, _, _, _| kin.transfer(|p, _, _, _, _| p)),
+            cur_pres.transfer(|_, kin, _, _| kin.transfer(|p, _, _, _, _| p)),
             8.0,
         );
         if teleport || self.clock.since_arrival >= 0.50 {

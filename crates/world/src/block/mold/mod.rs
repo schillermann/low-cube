@@ -1,4 +1,5 @@
 mod archetype;
+mod palms;
 
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
@@ -20,6 +21,7 @@ use super::valley::ValleyCorner;
 use super::wedge::{RampWedge, WedgeHeading};
 
 pub use self::archetype::{CardinalTurn, MoldArchetype};
+pub use self::palms::PalmMolds;
 
 /// Immutable palm-molded block specification pairing form archetype, 4-way directional turn, and material medium.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -79,7 +81,6 @@ impl BlockMold {
     pub const fn turn_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_clockwise(), self.medium) }
     pub const fn turn_counter_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_counter_clockwise(), self.medium) }
     pub const fn full_height_flat(self) -> bool { self.archetype.full_height_flat() }
-    pub const fn placed_camera(self) -> bool { matches!(self.medium, BlockMedium::FieldCamera) }
     pub const fn medium(self) -> BlockMedium { self.medium }
     pub const fn chronicle_bytes(self) -> [u8; 3] {
         [self.archetype.code(), self.turn.code(), self.medium.code()]

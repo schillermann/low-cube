@@ -21,9 +21,6 @@ impl SatchelIntake {
     }
 
     pub(super) fn excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (PalmStack, SatchelTray, YouthAttire) {
-        if relic == HeldRelic::FieldCamera {
-            self.palms.clear_placed_cameras();
-        }
         if relic == HeldRelic::CantileverCrane {
             for (part, qty) in [
                 (HeldRelic::FieldCamera, 1),
@@ -64,9 +61,6 @@ impl SatchelIntake {
     }
 
     pub(super) fn foraged(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (PalmStack, SatchelTray, YouthAttire) {
-        if relic == HeldRelic::FieldCamera {
-            self.palms.clear_placed_cameras();
-        }
         let (r, l) = attire.held_pair();
         self.tray = self.tray.focused_on(side);
         let next_attire = if (side > 0.0 && r.free_palm()) || (r.free_palm() && !l.free_palm()) {

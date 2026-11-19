@@ -1,5 +1,5 @@
 use winit::keyboard::KeyCode;
-use world::MeshTarget;
+use world::{MeshTarget, PalmMolds};
 
 mod accoutrement;
 mod burden;
@@ -21,6 +21,7 @@ mod sack;
 mod sight;
 mod tome;
 mod tray;
+mod wardrobe;
 #[cfg(test)]
 mod tests;
 
@@ -29,7 +30,7 @@ pub use crown::CrownStyle;
 pub use file_attire::{AttireProfile, FileAttire};
 pub use footwear::FootwearStyle;
 pub use garments::{GirdleStyle, TunicStyle};
-pub use hands::VambraceStyle;
+pub use hands::{HeldPalms, VambraceStyle};
 pub use limb::{FacetedSolid, LimbFrame, TaperedPrism};
 pub use palette::{ComplexionSwatch, PigmentSwatch};
 pub use pose::BodyPose;
@@ -39,35 +40,70 @@ pub use relic::{HeldRelic, MartialStyle};
 pub use rhythm::StrideRhythm;
 pub use sight::{CameraMount, PhotoShutter, SightMode};
 pub use tome::ArtisanTome;
+pub use wardrobe::{MoldedWardrobe, SatchelWardrobe, Wardrobe};
 
-/// Interface for avatar wardrobe appearance emission.
-pub trait Wardrobe {
-    fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget);
-}
-
+/// Encapsulated four-piece medieval garment selection.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct GarmentEnsemble {
+pub struct GarmentEnsemble {
     tunic: TunicStyle,
     vambrace: VambraceStyle,
     girdle: GirdleStyle,
     footwear: FootwearStyle,
 }
 
+impl GarmentEnsemble {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(
+        tunic: TunicStyle,
+        vambrace: VambraceStyle,
+        girdle: GirdleStyle,
+        footwear: FootwearStyle,
+    ) -> Self {
+        Self { tunic, vambrace, girdle, footwear }
+    }
+}
+
+/// Encapsulated character crown, dye pigment, skin complexion, and body proportions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct IdentityTraits {
+pub struct IdentityTraits {
     crown: CrownStyle,
     pigment: PigmentSwatch,
     complexion: ComplexionSwatch,
     physique: YouthPhysique,
 }
 
+impl IdentityTraits {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(
+        crown: CrownStyle,
+        pigment: PigmentSwatch,
+        complexion: ComplexionSwatch,
+        physique: YouthPhysique,
+    ) -> Self {
+        Self { crown, pigment, complexion, physique }
+    }
+}
+
+/// Encapsulated right-palm and left-palm held relics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct HeldHands {
+pub struct HeldHands {
     relic: HeldRelic,
     offhand: HeldRelic,
 }
 
-/// Immutable medieval youth character appearance combining body traits, garments, dyes, and dual-hand held relics.
+impl HeldHands {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(relic: HeldRelic, offhand: HeldRelic) -> Self {
+        Self { relic, offhand }
+    }
+
+    /// Secondary constructor initializing two empty palms.
+    pub const fn empty() -> Self {
+        Self::new(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm)
+    }
+}
+
+/// Immutable medieval youth character appearance combining garments, identity traits, and dual-hand relics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct YouthAttire {
     garments: GarmentEnsemble,
@@ -77,38 +113,46 @@ pub struct YouthAttire {
 
 impl YouthAttire {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    #[allow(clippy::too_many_arguments)]
-    pub const fn new(
-        tunic: TunicStyle,
-        vambrace: VambraceStyle,
-        girdle: GirdleStyle,
-        footwear: FootwearStyle,
-        crown: CrownStyle,
-        relic: HeldRelic,
-        offhand: HeldRelic,
-        pigment: PigmentSwatch,
-        complexion: ComplexionSwatch,
-        physique: YouthPhysique,
-    ) -> Self {
-        Self {
-            garments: GarmentEnsemble { tunic, vambrace, girdle, footwear },
-            identity: IdentityTraits { crown, pigment, complexion, physique },
-            hands: HeldHands { relic, offhand },
-        }
+    pub const fn new(garments: GarmentEnsemble, identity: IdentityTraits, hands: HeldHands) -> Self {
+        Self { garments, identity, hands }
     }
 
     pub const fn squire() -> Self {
         Self::new(
-            TunicStyle::LinenDoublet,
-            VambraceStyle::RawhideWraps,
-            GirdleStyle::KnottedCord,
-            FootwearStyle::CuffedBoots,
-            CrownStyle::TousledMop,
-            HeldRelic::EmptyPalm,
-            HeldRelic::EmptyPalm,
-            PigmentSwatch::UnbleachedLinen,
-            ComplexionSwatch::Birch,
-            YouthPhysique::SlenderSquire,
+            GarmentEnsemble::new(
+                TunicStyle::LinenDoublet,
+                VambraceStyle::RawhideWraps,
+                GirdleStyle::KnottedCord,
+                FootwearStyle::CuffedBoots,
+            ),
+            IdentityTraits::new(
+                CrownStyle::TousledMop,
+                PigmentSwatch::UnbleachedLinen,
+                ComplexionSwatch::Birch,
+                YouthPhysique::SlenderSquire,
+            ),
+            HeldHands::empty(),
+        )
+    }
+
+    pub fn from_multiplayer_bytes(bytes: [u8; 9]) -> Self {
+        Self::new(
+            GarmentEnsemble::new(
+                TunicStyle::from_code(bytes[0]),
+                VambraceStyle::from_code(bytes[1]),
+                GirdleStyle::from_code(bytes[2]),
+                FootwearStyle::from_code(bytes[3]),
+            ),
+            IdentityTraits::new(
+                CrownStyle::from_code(bytes[4] & 0x0F),
+                PigmentSwatch::from_code(bytes[6]),
+                ComplexionSwatch::from_code(bytes[7]),
+                YouthPhysique::from_code(bytes[8]),
+            ),
+            HeldHands::new(
+                HeldRelic::from_code((bytes[5] & 0x0F) | (((bytes[4] >> 4) & 1) << 4)),
+                HeldRelic::from_code((bytes[5] >> 4) | (((bytes[4] >> 5) & 1) << 4)),
+            ),
         )
     }
 
@@ -119,7 +163,7 @@ impl YouthAttire {
     pub fn with_next_crown(mut self) -> Self { self.identity.crown = self.identity.crown.next(); self }
     #[cfg(test)]
     pub fn with_next_relic(mut self) -> Self { self.hands.relic = self.hands.relic.next(); self }
-    pub fn with_relics(mut self, relic: HeldRelic, offhand: HeldRelic) -> Self { self.hands = HeldHands { relic, offhand }; self }
+    pub fn with_relics(mut self, relic: HeldRelic, offhand: HeldRelic) -> Self { self.hands = HeldHands::new(relic, offhand); self }
     pub fn with_complexion(mut self, complexion: ComplexionSwatch) -> Self { self.identity.complexion = complexion; self }
     pub fn with_physique(mut self, physique: YouthPhysique) -> Self { self.identity.physique = physique; self }
     pub fn with_feminine(mut self, feminine: bool) -> Self { self.identity.physique = self.identity.physique.as_feminine(feminine); self }
@@ -190,68 +234,35 @@ impl YouthAttire {
         ]
     }
 
-    pub fn from_multiplayer_wire(bytes: [u8; 9], regions: [u8; 4]) -> Self {
-        FileAttire::new(String::new())
-            .decode_multiplayer(bytes)
-            .with_physique(YouthPhysique::from_region_bytes(regions))
+    pub(super) fn scaled_pose(&self, pose: &BodyPose) -> BodyPose {
+        pose.with_physique(self.identity.physique)
     }
 
-    pub fn emit_companion(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
-        self.emit(pose, SightMode::LookingGlassSight, target);
-    }
-
-    #[cfg(test)]
-    pub fn emit_peer(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
-        self.emit(pose, SightMode::LookingGlassSight, target);
-    }
-
-    pub fn emit_satchel(&self, pose: &BodyPose, sight: SightMode, satchel: BeltSatchel, target: &mut dyn MeshTarget) {
-        let scaled_pose = pose.with_physique(self.identity.physique);
+    pub(super) fn emit_garments(
+        &self,
+        pose: &BodyPose,
+        sight: SightMode,
+        molds: PalmMolds,
+        tray_open: bool,
+        target: &mut dyn MeshTarget,
+    ) {
+        let scaled_pose = self.scaled_pose(pose);
         self.garments.tunic.emit(&scaled_pose, self.identity.pigment, target);
         self.garments.girdle.emit(&scaled_pose, target);
         self.garments.footwear.emit(&scaled_pose, self.identity.pigment, target);
         self.garments.vambrace.emit(
             &scaled_pose,
             sight,
-            self.identity.complexion,
-            self.identity.pigment,
-            (self.hands.relic, self.hands.offhand),
-            satchel,
+            (self.identity.complexion, self.identity.pigment),
+            HeldPalms::new(self.held_pair(), molds, tray_open),
             target,
         );
-        satchel.emit_for_attire(&scaled_pose, *self, target);
         sight.emit_crown(self.identity.crown, &scaled_pose, self.identity.complexion, self.identity.pigment, target);
     }
 }
 
 impl Wardrobe for YouthAttire {
     fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
-        self.emit_satchel(pose, sight, BeltSatchel::empty(), target);
-    }
-}
-
-/// Wardrobe decorator equipping a BeltSatchel and bare-hand digging posture onto YouthAttire.
-pub struct SatchelWardrobe {
-    attire: YouthAttire,
-    satchel: BeltSatchel,
-    dig_right: bool,
-    dig_left: bool,
-}
-
-impl SatchelWardrobe {
-    pub const fn new(attire: YouthAttire, satchel: BeltSatchel, dig_right: bool, dig_left: bool) -> Self {
-        Self { attire, satchel, dig_right, dig_left }
-    }
-}
-
-impl Wardrobe for SatchelWardrobe {
-    fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
-        let (r, l) = self.attire.held_pair();
-        let driving = pose.driving_factor() > 0.5;
-        let active = self.attire.with_relics(
-            if self.dig_right || driving { HeldRelic::EmptyPalm } else { r },
-            if self.dig_left || driving { HeldRelic::EmptyPalm } else { l },
-        );
-        active.emit_satchel(pose, sight, self.satchel, target);
+        MoldedWardrobe::closed(*self, PalmMolds::cubes()).emit(pose, sight, target);
     }
 }

@@ -150,7 +150,16 @@ fn test_world_fact_and_companion_presence_binary_roundtrip_and_zero_knowledge_en
     assert!(d2.enact_on(&mut client_world));
 
     let kin = PresenceKinematics::new(Vec3::new(1.0, 17.0, -2.0), Quat::IDENTITY, Quat::IDENTITY, (0.8, 0.0));
-    let pres = CompanionPresence::new(7, kin, (1.2, 0.8, 0.0, 0.0), ([1, 2, 3, 0, 0, 0, 4, 2, 1], [5, 5, 5, 5]));
+    let palm_molds = crate::PalmMolds::new(
+        BlockMold::new(crate::MoldArchetype::SteppedStair, crate::CardinalTurn::Left),
+        BlockMold::cube().in_medium(BlockMedium::FieldCamera).next_form().next_form(),
+    );
+    let pres = CompanionPresence::new(
+        7,
+        kin,
+        (1.2, 0.8, 0.0, 0.0),
+        crate::PresenceAttire::new([1, 2, 3, 0, 0, 0, 4, 2, 1], [5, 5, 5, 5], palm_molds),
+    );
     let mut p_buf = Vec::new();
     pres.inscribe(&mut p_buf);
     let (decoded_pres, p_len) = CompanionPresence::decode(&p_buf).expect("decode presence");

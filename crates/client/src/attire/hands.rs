@@ -1,11 +1,33 @@
 use glam::Vec3;
-use world::MeshTarget;
+use world::{MeshTarget, PalmMolds};
 use super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
 use super::palette::{ComplexionSwatch, PigmentSwatch};
 use super::pose::BodyPose;
-use super::pouch::BeltSatchel;
 use super::relic::HeldRelic;
 use super::sight::SightMode;
+
+/// Encapsulated dual-hand held relics, active palm molds, and open-satchel inspection posture.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HeldPalms {
+    relics: (HeldRelic, HeldRelic),
+    molds: PalmMolds,
+    tray_open: bool,
+}
+
+impl HeldPalms {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(relics: (HeldRelic, HeldRelic), molds: PalmMolds, tray_open: bool) -> Self {
+        Self { relics, molds, tray_open }
+    }
+
+    const fn relic_on(self, side: f32) -> HeldRelic {
+        if side > 0.0 { self.relics.0 } else { self.relics.1 }
+    }
+
+    fn emit_in_palm(self, side: f32, frame: &LimbFrame, target: &mut dyn MeshTarget) {
+        self.relic_on(side).figure(self.molds.on_side(side)).emit_in_palm(side, frame, target);
+    }
+}
 
 /// Polygon-style forearm, sleeve, bracer, and gauntlet style.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,18 +67,16 @@ impl VambraceStyle {
         }
     }
 
-    /// Emits both arms, hands, and held relics with the active palm block mold.
-    #[allow(clippy::too_many_arguments)]
+    /// Emits both arms, hands, and held relics with their active palm block or camera orientations.
     pub fn emit(
         self,
         pose: &BodyPose,
         sight: SightMode,
-        complexion: ComplexionSwatch,
-        pigment: PigmentSwatch,
-        relics: (HeldRelic, HeldRelic),
-        satchel: BeltSatchel,
+        swatches: (ComplexionSwatch, PigmentSwatch),
+        palms: HeldPalms,
         target: &mut dyn MeshTarget,
     ) {
+        let (complexion, pigment) = swatches;
         let skin = complexion.skin();
         let hide = Vec3::new(0.42, 0.26, 0.15);
         let dark_hide = Vec3::new(0.28, 0.17, 0.10);
@@ -65,11 +85,11 @@ impl VambraceStyle {
         let world_frame = LimbFrame::new(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::Z);
 
         for side in [-1.0f32, 1.0f32] {
-            let hand_relic = if side > 0.0 { relics.0 } else { relics.1 };
+            let hand_relic = palms.relic_on(side);
             let holding = hand_relic.gripped();
             let martial = hand_relic.martial_style();
             let (shoulder_world, elbow_world, arm_frame, forearm_len) =
-                sight.arm_joints(pose, side, holding, martial, satchel.open());
+                sight.arm_joints(pose, side, holding, martial, palms.tray_open);
             let upper_dir = (elbow_world - shoulder_world).normalize_or_zero();
             let wrist_world = arm_frame.point(0.0, 0.0, 0.0);
             let forearm_dir = (wrist_world - elbow_world).normalize_or_zero();
@@ -93,7 +113,6 @@ impl VambraceStyle {
 
             let (wrist_col, palm_col) = match self {
                 Self::BareForearms => {
-                    // Rolled shirt cuff at elbow + muscular bare forearm + leather wrist band
                     AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len - 0.012), Vec3::new(0.0, 0.0, -forearm_len * 0.78), pose.arm_girth(0.056), pose.arm_girth(0.054), pigment.trim())
                         .emit(&forearm_frame, true, target);
                     AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len * 0.80), Vec3::new(0.0, 0.0, -0.040), pose.arm_girth(0.048), pose.arm_girth(0.032), skin)
@@ -117,7 +136,6 @@ impl VambraceStyle {
                     (hide, hide)
                 }
                 Self::PlateGauntlets => {
-                    // Faceted elbow couter + flared steel vambrace + armored gauntlet
                     AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len - 0.018), Vec3::new(0.0, 0.0, -forearm_len * 0.72), pose.arm_girth(0.056), pose.arm_girth(0.046), brass)
                         .emit(&forearm_frame, true, target);
                     AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len * 0.74), Vec3::new(0.0, 0.0, -0.016), pose.arm_girth(0.046), pose.arm_girth(0.038), steel)
@@ -125,7 +143,6 @@ impl VambraceStyle {
                     (steel, steel)
                 }
                 Self::ForgeGloves => {
-                    // Heavy heat-shielded flared leather blacksmith gauntlets over bare upper forearms
                     AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len - 0.010), Vec3::new(0.0, 0.0, -forearm_len * 0.52), pose.arm_girth(0.048), pose.arm_girth(0.042), skin)
                         .emit(&forearm_frame, true, target);
                     AxialLimb::new(Vec3::new(0.0, 0.0, -forearm_len * 0.55), Vec3::new(0.0, 0.0, -0.014), pose.arm_girth(0.056), pose.arm_girth(0.038), dark_hide)
@@ -141,7 +158,6 @@ impl VambraceStyle {
                 }
             };
 
-            // Wrist joint and flat-faced anatomical palm (scaled up in span and length for masculine physique)
             let (hs, hg) = if pose.feminine() { (1.0, 1.0) } else { (1.18, 1.16) };
             let hand_frame = arm_frame.scaled(hs);
             let palm_frame = arm_frame.pitched(std::f32::consts::FRAC_PI_2).scaled(hs);
@@ -170,7 +186,7 @@ impl VambraceStyle {
             }
 
             let relic_frame = if cradle && !pose.feminine() { arm_frame.shifted(-side * 0.003, 0.0, 0.008) } else { arm_frame };
-            satchel.emit_in_palm(side, hand_relic, &relic_frame, target);
+            palms.emit_in_palm(side, &relic_frame, target);
         }
     }
 }

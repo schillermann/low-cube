@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.82.0] - 2026-11-19
+
+### Added
+- Added live multiplayer synchronization of dual-palm field-camera and block mold orientations via `PalmMolds` (`crates/world/src/block/mold/palms.rs`), `PresenceAttire` (`crates/world/src/presence/attire.rs`), `HeldPalms` (`crates/client/src/attire/hands.rs`), and `MoldedWardrobe` (`crates/client/src/attire/wardrobe.rs`), enabling peers to see 8-way handheld `FieldCamera` rotations and 16-form / 4-turn block shapes in a companion's right and left hands (`crates/client/src/companion.rs`).
+
+### Changed
+- Replaced raw `([u8; 9], [u8; 4])` byte-tuple attire payloads in `CompanionPresence` (`crates/world/src/presence/mod.rs`) with encapsulated `PresenceAttire`, decoupled `VambraceStyle::emit` (`crates/client/src/attire/hands.rs`) from `BeltSatchel`, refactored `YouthAttire::new` (`crates/client/src/attire/mod.rs`) and `AvatarArchetype` (`crates/client/src/menu/archetype.rs`) to compose `GarmentEnsemble`, `IdentityTraits`, and `HeldHands` without `#[allow(clippy::too_many_arguments)]`, and narrowed `AttireProfile` (`crates/client/src/attire/file_attire.rs`) to persistence methods.
+
+### Removed
+- Removed legacy ghost `placed_camera` tracking from `PalmStack` (`crates/client/src/attire/pouch/palms.rs`, `crates/client/src/attire/pouch/intake.rs`, `crates/world/src/block/mold/mod.rs`), half-born `FileAttire::new(String::new())` decoding in `YouthAttire` (`crates/client/src/attire/mod.rs`), and duplicate `YouthAttire::emit_companion` / `emit_peer` wrappers.
+
 ## [0.81.0] - 2026-11-18
 
 ### Added
