@@ -1,7 +1,8 @@
 use glam::Vec3;
-use crate::block::{ConsoleOrrery, GridCell};
+use crate::block::{ConsoleOrrery, GridCell, SensorPodAxis};
 use crate::{MeshTarget, Quad};
 use super::super::vehicle_assembly::{PilotOrder, RigidImpulse, VehiclePart};
+use super::identity::CraftIdentity;
 use super::pose::CraftPose;
 
 const MAX_BLUEPRINT_PARTS: usize = 512;
@@ -23,56 +24,6 @@ impl MeshTarget for ShiftedMeshTarget<'_> {
         self.inner.push_quad(quad.transfer(|v0, v1, v2, v3, norm, col| {
             Quad::glowing(v0 + s, v1 + s, v2 + s, v3 + s, norm, col, glow)
         }));
-    }
-}
-
-/// Immutable 64-bit entity identity of a commissioned multi-block vehicle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct CraftIdentity {
-    code: u64,
-}
-
-impl CraftIdentity {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(code: u64) -> Self {
-        Self { code }
-    }
-
-    pub const fn unassigned() -> Self {
-        Self::new(0)
-    }
-
-    pub const fn assigned(self) -> bool {
-        self.code != 0
-    }
-
-    pub fn from_parts(origin: Vec3, parts: &[VehiclePart]) -> Self {
-        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        for q in [
-            (origin.x * 4.0).round() as i32,
-            (origin.y * 4.0).round() as i32,
-            (origin.z * 4.0).round() as i32,
-        ] {
-            for b in q.to_le_bytes() {
-                h = (h ^ (b as u64)).wrapping_mul(0x1000_0000_01b3);
-            }
-        }
-        for part in parts {
-            h = part.digest_mix(h);
-        }
-        Self::new(if h == 0 { 1 } else { h })
-    }
-
-    pub fn inscribe(self, out: &mut Vec<u8>) {
-        out.extend_from_slice(&self.code.to_le_bytes());
-    }
-
-    pub fn decode(bytes: &[u8]) -> Option<(Self, usize)> {
-        if bytes.len() < 8 {
-            return None;
-        }
-        let code = u64::from_le_bytes(bytes[0..8].try_into().ok()?);
-        Some((Self::new(code), 8))
     }
 }
 
@@ -110,8 +61,14 @@ impl CraftBlueprint {
         self.parts.iter().any(VehiclePart::flight_console)
     }
 
-    pub fn attitude_capable(&self) -> bool {
-        self.parts.iter().any(VehiclePart::attitude_pod)
+    pub fn attitude_capable(&self) -> bool { self.parts.iter().any(VehiclePart::attitude_pod) }
+
+    pub fn camera_equipped(&self) -> bool {
+        if self.spacefaring() {
+            self.parts.iter().any(VehiclePart::rocket_camera)
+        } else {
+            self.parts.iter().any(VehiclePart::camera_equipped)
+        }
     }
 
     pub fn push_camera_views(&self, pose: CraftPose, out: &mut Vec<(Vec3, Vec3, Vec3)>) {
@@ -119,16 +76,30 @@ impl CraftBlueprint {
         let shift = pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
         let lift = self.wheel_ground_lift();
         let ship_up = pose.normal().normalize_or_zero();
-        let ship_fwd = (pose.heading() - ship_up * pose.heading().dot(ship_up)).normalize_or_zero();
-        let min_floor = self.parts.iter().filter_map(|p| p.any_ceiling(lift).map(|(f, _)| f)).fold(0.0f32, f32::min);
-        for part in &self.parts {
-            let Some((hub, lens_fwd, _, part_floor)) = part.camera_lens_at(lift, &car_frame) else { continue };
-            let world_hub = shift + hub;
-            if self.spacefaring() {
-                out.push((world_hub + ship_up * 0.36, ship_up, -ship_fwd));
-                out.push((world_hub - ship_up * ((part_floor - min_floor).max(0.0) + 0.58), -ship_up, ship_fwd));
+        let raw_fwd = pose.heading() - ship_up * pose.heading().dot(ship_up);
+        let ship_fwd = if raw_fwd.length_squared() > 1e-6 { raw_fwd.normalize() } else { car_frame.tangent().normalize_or_zero() };
+        if self.spacefaring() {
+            let min_floor = self.parts.iter().filter_map(|p| p.any_ceiling(lift).map(|(f, _)| f)).fold(0.0f32, f32::min);
+            let mut pods: Vec<_> = self.parts.iter().filter_map(|p| p.rocket_pod_at(lift)).collect();
+            pods.sort_by(|a, b| b.0.channel_rank().cmp(&a.0.channel_rank()).then_with(|| b.2.total_cmp(&a.2)));
+            let dedicated_belly = pods.iter().any(|(axis, _, _)| matches!(axis, SensorPodAxis::BellyPod));
+            let mut ventral_emitted = false;
+            for (axis, (ox, oy), part_floor) in &pods {
+                let col_top = self.parts.iter().filter_map(|p| p.cell_top_at(*ox, *oy, lift).map(|(_, c)| c)).fold(*part_floor + 0.5, f32::max);
+                let (local_eye, fwd, up) = axis.lens_ray(GridCell::new(*ox, *oy), *part_floor, col_top, min_floor, ship_fwd, &car_frame);
+                out.push((shift + local_eye, fwd, up));
+                if matches!(axis, SensorPodAxis::NoseCone) && !dedicated_belly && !ventral_emitted {
+                    let (belly_eye, bfwd, bup) = SensorPodAxis::BellyPod.lens_ray(GridCell::new(*ox, *oy), *part_floor, col_top, min_floor, ship_fwd, &car_frame);
+                    out.push((shift + belly_eye, bfwd, bup));
+                    ventral_emitted = true;
+                }
             }
-            out.push((world_hub + lens_fwd * 0.22 + ship_up * 0.02, lens_fwd, ship_up));
+            return;
+        }
+        for part in &self.parts {
+            if let Some((hub, lens_fwd, _, _)) = part.camera_lens_at(lift, &car_frame) {
+                out.push((shift + hub + lens_fwd * 0.22 + ship_up * 0.02, lens_fwd, ship_up));
+            }
         }
     }
 
@@ -173,6 +144,18 @@ impl CraftBlueprint {
 
     pub fn wheel_radius(&self) -> f32 {
         self.parts.iter().filter_map(VehiclePart::wheel_radius).fold(0.0f32, f32::max).max(0.16)
+    }
+
+    pub fn hull_envelope(&self) -> (f32, f32) {
+        let lift = self.wheel_ground_lift();
+        let part_top = self.parts.iter().filter_map(|p| p.any_ceiling(lift).map(|(_, c)| c + 0.15)).fold(0.5f32, f32::max);
+        let hull_top = part_top.max(self.seat_floor_offset() + 1.35);
+        let mut bounds = (0, 0, 0, 0);
+        for part in &self.parts {
+            part.expand_span((1, 0, 0, 1), &mut bounds);
+        }
+        let max_cell = bounds.0.abs().max(bounds.1.abs()).max(bounds.2.abs()).max(bounds.3.abs()) as f32;
+        (hull_top, (max_cell * 0.5 + 0.35).max(0.55))
     }
 
     pub fn passenger_seat_along_ray(&self, pose: CraftPose, eye: Vec3, direction: Vec3) -> Option<Vec3> {

@@ -33,7 +33,7 @@ pub use garments::{GirdleStyle, TunicStyle};
 pub use hands::{HeldPalms, VambraceStyle};
 pub use limb::{FacetedSolid, LimbFrame, TaperedPrism};
 pub use palette::{ComplexionSwatch, PigmentSwatch};
-pub use pose::BodyPose;
+pub use pose::{BodyPose, RocketControls};
 pub use pouch::BeltSatchel;
 pub use proportion::{BodyRegion, PartProportion, YouthPhysique};
 pub use relic::{HeldRelic, MartialStyle};

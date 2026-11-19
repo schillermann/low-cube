@@ -94,9 +94,9 @@ impl CockpitBerth {
     }
 
     fn mount_assembly(&mut self, assembly: VehicleAssembly, sight_line: &mut AvatarSight, world: &dyn PlanetaryWorld) -> Vec3 {
-        self.optic_channel = 0;
         self.footing.reset();
         let (pos, heading) = self.pilot.mount(assembly, world);
+        self.optic_channel = self.pilot.helm_optic_channel();
         sight_line.anchor_vehicle_heading(heading);
         if self.pilot.free_look() {
             sight_line.constrain_shoulders(false, 0.0);

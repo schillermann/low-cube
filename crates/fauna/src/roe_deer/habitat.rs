@@ -29,7 +29,9 @@ impl TemperateGlade {
     }
 
     pub(crate) fn temperate_surface(spot: Vec3, world: &dyn PlanetaryWorld) -> bool {
-        ClimateZone::dominant(spot) == ClimateZone::Temperate && world.surface_up_at(spot).y > 0.85
+        world.woodland_habitat(spot)
+            && ClimateZone::dominant(spot) == ClimateZone::Temperate
+            && world.surface_up_at(spot).y > 0.85
     }
 
     pub(crate) fn oak_rooting_spot(&self, hash: u32, min_r: f32, span_r: f32, world: &dyn PlanetaryWorld) -> Vec3 {

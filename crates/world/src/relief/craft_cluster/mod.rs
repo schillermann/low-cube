@@ -236,7 +236,9 @@ impl MoldedStructure for CraftCluster {
     fn medium_at(&self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> { self.grid.medium_at(u, v, layer_elev) }
     fn hit_top_at(&self, cu: i32, cv: i32, u: f32, v: f32, ray_elev: f32) -> Option<f32> { self.grid.hit_top_at(cu, cv, u, v, ray_elev) }
     fn perch_at(&self, u: i32, v: i32, layer_elev: f32, eu: f32, ev: f32, frame: &SurfaceFrame) -> Option<VehicleAssembly> {
-        self.layer_occupied_at(u, v, layer_elev).then(|| self.perch_seat(eu, ev, frame)).flatten()
+        (self.medium_at(u, v, layer_elev) == Some(BlockMedium::CabinSeat))
+            .then(|| self.perch_seat(eu, ev, frame))
+            .flatten()
     }
     fn tripod_hub(&self, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> { self.grid.tripod_hub(frame) }
     fn emit_at(&self, cell: GridCell, frame: &SurfaceFrame, colors: (Vec3, Vec3), scars: &TurfScars, target: &mut dyn MeshTarget) -> bool {

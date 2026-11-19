@@ -19,9 +19,13 @@ impl<'a> ArmKinematics<'a> {
 
     pub fn external(self, holding: bool) -> (Vec3, Vec3, LimbFrame, f32) {
         let (pose, side, martial) = (self.pose, self.side, self.martial);
+        let torso = pose.torso_frame();
+        if let Some(controls) = pose.rocket_controls() {
+            return controls.external_arm(pose, side, &torso);
+        }
         let (rhythm, leap) = pose.motion_factors();
         let (seated, driving, steer) = (pose.seated_factor(), pose.driving_factor(), pose.steering_turn());
-        let (torso, crouch) = (pose.torso_frame(), pose.crouch_compression() * (1.0 - seated));
+        let crouch = pose.crouch_compression() * (1.0 - seated);
         let ext = (pose.eye_height() + leap - 0.80).clamp(0.0, 0.40) * (1.0 - seated);
         let shoulder = Vec3::new(side * pose.scale(if pose.feminine() { 0.194 } else { 0.222 }), pose.torso_span(0.64), -0.066);
         let ground = (1.0 - ext * 2.0).clamp(0.0, 1.0) * (1.0 - seated);
@@ -95,6 +99,9 @@ impl<'a> ArmKinematics<'a> {
 
     pub fn finger_curl(self, holding_relic: bool) -> f32 {
         let (pose, side, martial) = (self.pose, self.side, self.martial);
+        if pose.piloting_rocket() {
+            return if side > 0.0 { 0.90 } else { 0.86 };
+        }
         if matches!(martial, MartialStyle::PalmCradle) {
             return 0.34;
         }

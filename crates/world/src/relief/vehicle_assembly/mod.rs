@@ -56,10 +56,12 @@ impl VehicleAssembly {
     pub fn drivable(&self) -> bool { self.blueprint.drivable() }
     pub fn spacefaring(&self) -> bool { self.blueprint.spacefaring() }
     pub fn attitude_capable(&self) -> bool { self.blueprint.attitude_capable() }
+    pub fn camera_equipped(&self) -> bool { self.blueprint.camera_equipped() }
     pub fn push_camera_views(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) { self.blueprint.push_camera_views(self.pose, out); }
     pub fn sample_impulse(&self, order: &PilotOrder) -> RigidImpulse { self.blueprint.sample_impulse(order, self.pose) }
     pub fn seat_floor_offset(&self) -> f32 { self.blueprint.seat_floor_offset() }
     pub fn wheel_radius(&self) -> f32 { self.blueprint.wheel_radius() }
+    pub fn hull_envelope(&self) -> (f32, f32) { self.blueprint.hull_envelope() }
 
     pub fn perch_shell(&self) -> Self {
         let seat_off = self.seat_floor_offset();

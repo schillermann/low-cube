@@ -8,6 +8,20 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.86.0] - 2026-11-19
+
+### Added
+- Added dedicated aerodynamic spacecraft hull cameras (`BlockMedium::RocketCamera`, `HeldRelic::RocketCamera`, `RocketCameraMesh`, and `SensorPodAxis` in `crates/world/src/block/space_parts/rocket_camera.rs` and `crates/client/src/attire/relic/`) with three mouse-wheel selectable mounting profiles (`NoseCone` zenith dome, `BellyPod` nadir landing turret, and wall-bolted `SideFairing`), Crafting Book synthesis in `ArtisanTome`, and `4` starting `rocket_camera` units in `TestKitSatchel` and `server.toml`.
+- Added automatic nose-camera engagement when clicking a rocket's `FlightConsole` while seated (`CraftDrive::helm_optic_channel` in `crates/client/src/drive/`, `CockpitBerth::mount_assembly` in `crates/client/src/avatar/berth.rs`, and zenith-first sorting in `CraftBlueprint::push_camera_views`), switching immediately to the highest `RocketCamera` on the spacecraft without affecting compact `FieldCamera` tripods or camera-less rockets.
+- Added HOTAS rocket cockpit arm and hand kinematics (`RocketControls` and `CockpitPosture` in `crates/client/src/attire/pose/helm.rs`), polymorphic `CraftDrive::shape_pilot_pose` (`RocketDrive` vs. `WheeledDrive` in `crates/client/src/drive/`), sculpted fore/aft thrust throttle lever and 4-way flight control stick on `FlightConsoleMesh` (`crates/world/src/block/space_parts/console.rs`), and the `StudioAnimation::RocketPilot` (`ROCKET PILOT`) showcase animation in the Character Studio (`crates/client/src/menu/stage.rs`).
+
+### Changed
+- Extracted `CraftIdentity` into `crates/world/src/relief/craft_entity/identity.rs` and added `PlanetaryWorld::woodland_habitat` and `PlanetaryWorld::local_body_point` across `BinaryPlanet`, `TranslatedWorld`, `OrbitalFleetWorld`, `HostedPlanet`, `RemotePlanet`, and `ConduitPlanet`.
+
+### Fixed
+- Fixed spacecraft nose-first impacts penetrating into the Moon's interior by enforcing full-hull clearance (`CraftBlueprint::hull_envelope`), auto-righting touchdown kinematics (`TouchdownStep::resolve` in `crates/client/src/drive/space_step.rs`), and body-local seam offsets (`FaceContact` and `SeamRoad` in `crates/client/src/drive/`).
+- Fixed woodland house sparrows, roe deer, and wild boars flying across vacuum onto the airless Moon (`WoodlandFauna::step_spatial`, `SparrowFlock::step_spatial`, and `TemperateGlade::temperate_surface` in `crates/fauna/`), and prevented underside nozzle grazes or non-seat crane clicks from consuming wall-mounted pods or perching off-seat.
+
 ## [0.85.0] - 2026-11-19
 
 ### Added

@@ -6,16 +6,16 @@ use super::super::pedal_cluster::{FootwellPlinth, WalnutFloorPan};
 use super::super::timber_grain::BlockMedium;
 use super::super::wedge::WedgeHeading;
 
-/// Sculpted spacecraft flight console with slanted avionics deck, glowing orbital screen, and twin throttle levers.
+/// Sculpted spacecraft flight console with orbital screen, left fore/aft thrust lever, and right 4-way control stick.
 pub struct FlightConsoleMesh {
     heading: WedgeHeading,
-    attitude_deflection: f32,
+    motion: (f32, f32),
 }
 
 impl FlightConsoleMesh {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(heading: WedgeHeading, attitude_deflection: f32) -> Self {
-        Self { heading, attitude_deflection }
+    pub const fn new(heading: WedgeHeading, motion: (f32, f32)) -> Self {
+        Self { heading, motion }
     }
 
     pub fn emit(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
@@ -30,6 +30,7 @@ impl FlightConsoleMesh {
         let hull_dark = Vec3::new(0.18, 0.21, 0.27);
         let brass_trim = Vec3::new(0.90, 0.72, 0.24);
         let bezel_slate = Vec3::new(0.12, 0.15, 0.20);
+        let grip_leather = Vec3::new(0.15, 0.17, 0.22);
         let screen_emerald = Vec3::new(0.16, 0.94, 0.78);
         let horizon_gold = Vec3::new(0.98, 0.84, 0.28);
         let ruby_lamp = Vec3::new(0.98, 0.26, 0.20);
@@ -61,7 +62,8 @@ impl FlightConsoleMesh {
         let screen_norm = (-fwd + up * 0.22).normalize_or_zero();
         out.push_quad(Quad::glowing(s0, s1, s2, s3, screen_norm, screen_emerald, 0.92));
 
-        let needle = (self.attitude_deflection * 0.06).clamp(-0.08, 0.08);
+        let (thrust, stick_defl) = (self.motion.0.clamp(-1.0, 1.0), self.motion.1.clamp(-1.0, 1.0));
+        let needle = (stick_defl * 0.06).clamp(-0.08, 0.08);
         let [h0, h1, h2, h3] = [
             local_frame.point_at(needle - 0.04, 0.012, 0.395),
             local_frame.point_at(needle + 0.04, 0.012, 0.395),
@@ -70,9 +72,15 @@ impl FlightConsoleMesh {
         ];
         out.push_quad(Quad::glowing(h0, h1, h2, h3, screen_norm, horizon_gold, 0.98));
 
-        for lx in [-0.11, 0.11] {
-            BlockMedium::emit_box(lx - 0.016, lx + 0.016, -0.08, -0.04, 0.33, 0.42, &local_frame, brass_trim, brass_trim, false, &mut out);
-            BlockMedium::emit_box(lx - 0.028, lx + 0.028, -0.09, -0.03, 0.41, 0.44, &local_frame, ruby_lamp, ruby_lamp, true, &mut out);
-        }
+        let th_v = -0.062 + thrust * 0.036;
+        BlockMedium::emit_box(-0.136, -0.084, -0.112, -0.008, 0.330, 0.346, &local_frame, hull_dark, bezel_slate, false, &mut out);
+        BlockMedium::emit_box(-0.122, -0.098, th_v - 0.014, th_v + 0.014, 0.344, 0.412, &local_frame, brass_trim, brass_trim, false, &mut out);
+        BlockMedium::emit_box(-0.152, -0.068, th_v - 0.020, th_v + 0.020, 0.408, 0.436, &local_frame, grip_leather, brass_trim, true, &mut out);
+
+        let st_u = 0.110 + stick_defl * 0.024;
+        let st_v = -0.062 + stick_defl * 0.018;
+        BlockMedium::emit_box(0.080, 0.140, -0.092, -0.032, 0.330, 0.354, &local_frame, grip_leather, bezel_slate, false, &mut out);
+        BlockMedium::emit_box(st_u - 0.012, st_u + 0.012, st_v - 0.012, st_v + 0.012, 0.352, 0.418, &local_frame, brass_trim, brass_trim, false, &mut out);
+        BlockMedium::emit_box(st_u - 0.020, st_u + 0.020, st_v - 0.022, st_v + 0.022, 0.404, 0.450, &local_frame, grip_leather, ruby_lamp, true, &mut out);
     }
 }

@@ -26,24 +26,27 @@ impl RoadProbe for SeamRoad<'_> {
         if step.length_squared() <= 1e-8 {
             return None;
         }
-        let src_zone = ClimateZone::dominant(self.origin);
+        let src_zone = ClimateZone::dominant(self.world.local_body_point(self.origin));
         let src_normal = src_zone.normal();
         let candidate = self.origin + step;
-        let lift = (candidate.abs().max_element() - candidate.dot(src_normal)).max(0.0) + SURFACE_PROBE_LIFT;
+        let cand_rel = self.world.local_body_point(candidate);
+        let lift = (cand_rel.abs().max_element() - cand_rel.dot(src_normal)).max(0.0) + SURFACE_PROBE_LIFT;
         let folded = self.world.constrain_to_surface(candidate + src_normal * lift, 0.0);
         let delta = folded - candidate;
         let tan_shift = delta - src_normal * delta.dot(src_normal);
-        let crossed_seam = tan_shift.length_squared() > 1e-5 || ClimateZone::dominant(folded) != src_zone;
+        let folded_zone = ClimateZone::dominant(self.world.local_body_point(folded));
+        let crossed_seam = tan_shift.length_squared() > 1e-5 || folded_zone != src_zone;
         if !crossed_seam {
             return Some(folded);
         }
-        let dst_zone = if ClimateZone::dominant(folded) != src_zone {
-            ClimateZone::dominant(folded)
+        let dst_zone = if folded_zone != src_zone {
+            folded_zone
         } else {
-            ClimateZone::dominant(folded + step.normalize_or_zero())
+            ClimateZone::dominant(self.world.local_body_point(folded + step.normalize_or_zero()))
         };
         let dst_normal = dst_zone.normal();
-        let dst_lift = (folded.abs().max_element() - folded.dot(dst_normal)).max(0.0) + SURFACE_PROBE_LIFT;
+        let fold_rel = self.world.local_body_point(folded);
+        let dst_lift = (fold_rel.abs().max_element() - fold_rel.dot(dst_normal)).max(0.0) + SURFACE_PROBE_LIFT;
         let dst_ground = self.world.constrain_to_surface(folded + dst_normal * dst_lift, 0.0);
         ((dst_ground - folded).dot(dst_normal) <= 0.62).then_some(dst_ground)
     }

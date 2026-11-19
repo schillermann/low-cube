@@ -195,6 +195,8 @@ impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
     fn face_patch_count(&self, slice: usize) -> usize { self.origin.face_patch_count(slice) }
     fn emit_face_patch(&self, slice: usize, patch_slot: usize, target: &mut dyn MeshTarget) { self.origin.emit_face_patch(slice, patch_slot, target); }
     fn drain_modified_patch(&mut self, target: &mut dyn MeshTarget) -> Option<(usize, usize)> { self.origin.drain_modified_patch(target) }
+    fn woodland_habitat(&self, position: Vec3) -> bool { self.origin.woodland_habitat(position) }
+    fn local_body_point(&self, position: Vec3) -> Vec3 { self.origin.local_body_point(position) }
     fn drain_stale_meadow_patch(&self, center: Vec3, ring: &mut MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
         self.origin.drain_stale_meadow_patch(center, ring, target)
     }

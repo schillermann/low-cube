@@ -101,6 +101,9 @@ impl WoodlandFauna {
         crouching: bool,
         world: &dyn PlanetaryWorld,
     ) -> Option<Vec3> {
+        if !world.woodland_habitat(listener) {
+            return None;
+        }
         let _ = self.sparrows.step_spatial(dt, listener, view_dir, world);
         let _ = self.roe_herd.step_spatial(dt, listener, view_dir, crouching, world);
         self.boar_sounder.step_spatial(dt, listener, view_dir, crouching, world)

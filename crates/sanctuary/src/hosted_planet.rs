@@ -112,6 +112,14 @@ impl PlanetaryWorld for HostedPlanet {
         self.host.world().arboreal_perch_near(center, selector)
     }
 
+    fn woodland_habitat(&self, position: Vec3) -> bool {
+        self.host.world().woodland_habitat(position)
+    }
+
+    fn local_body_point(&self, position: Vec3) -> Vec3 {
+        self.host.world().local_body_point(position)
+    }
+
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
         self.host.world().visible_slice_mask(position)
     }

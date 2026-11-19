@@ -20,7 +20,8 @@ impl FaceContact {
     pub(super) fn ground(self, clearance: f32, world: &dyn PlanetaryWorld) -> Vec3 {
         let zone = ClimateZone::dominant(world.surface_up_at(self.point));
         let face_up = zone.normal();
-        let seam_lift = (self.point.abs().max_element() - self.point.dot(face_up)).clamp(0.0, 2.5);
+        let rel = world.local_body_point(self.point);
+        let seam_lift = (rel.abs().max_element() - rel.dot(face_up)).clamp(0.0, 2.5);
         world.constrain_to_surface(self.point + face_up * (seam_lift + SURFACE_PROBE_LIFT), clearance)
     }
 
@@ -82,7 +83,7 @@ impl WheelTrack {
     }
 
     pub(super) fn advance(self, displacement: f32, dt: f32, world: &dyn PlanetaryWorld) -> (Vec3, Vec3, bool) {
-        let src_zone = ClimateZone::dominant(self.origin);
+        let src_zone = ClimateZone::dominant(world.local_body_point(self.origin));
         let src_normal = src_zone.normal();
         let prev_ground = FaceContact::new(self.origin).ground(0.0, world);
         let (next_ground, blocked) = if displacement.abs() <= 1e-6 {

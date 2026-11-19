@@ -188,7 +188,7 @@ impl Face for FacetedReliefFace {
         let half = self.cache.half_blocks();
         let half_size = self.domain.frame.step_elevation(half);
         if let Some((cu, cv, base)) = SurfaceSightRay::new(eye, direction)
-            .placement_cell(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos)
+            .placement_cell_for(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos, !mold.wall_mounted_pod())
         {
             let shape = mold.shape_for(direction, &self.domain.frame);
             let changed = self.domain.relief.stack_molded_cell(cu, cv, base, shape);

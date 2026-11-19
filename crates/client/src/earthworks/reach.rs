@@ -112,7 +112,12 @@ impl SurfaceReach {
         if dig.untouched() && !dig.grip().any_held() && active == HeldRelic::WoodenMallet && world.adjust_rig(self.eye, self.view_dir, 1, false) {
             return (reconciled, attire, dig.with_grip(DigGrip::idle()), Self::swing_rhythm(attire, rhythm, side), true);
         }
-        if dig.untouched() && !dig.grip().any_held() && active != HeldRelic::WoodenMallet && world.lower_rig(self.eye, self.view_dir) {
+        if dig.untouched()
+            && !dig.grip().any_held()
+            && active != HeldRelic::WoodenMallet
+            && !active.placeable_block()
+            && world.lower_rig(self.eye, self.view_dir)
+        {
             return (reconciled, attire, dig.with_grip(DigGrip::idle()), Self::swing_rhythm(attire, rhythm, side), true);
         }
         if self.perch_eligible

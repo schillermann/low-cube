@@ -161,7 +161,7 @@ impl VambraceStyle {
             let (hs, hg) = if pose.feminine() { (1.0, 1.0) } else { (1.18, 1.16) };
             let hand_frame = arm_frame.scaled(hs);
             let palm_frame = arm_frame.pitched(std::f32::consts::FRAC_PI_2).scaled(hs);
-            let cradle = matches!(martial, super::relic::MartialStyle::PalmCradle);
+            let cradle = !pose.piloting_rocket() && matches!(martial, super::relic::MartialStyle::PalmCradle);
             let cup = if cradle { side * 0.003 } else { 0.0 };
             AxialLimb::new(Vec3::new(0.0, 0.0, -0.020), Vec3::new(0.0, 0.0, 0.004), pose.arm_girth(0.027 * hg), pose.arm_girth(0.023 * hg), wrist_col).emit(&forearm_frame, true, target);
             TaperedPrism::new(8, Vec3::new(0.0, -0.004, 0.0), Vec3::new(cup, 0.032, 0.0), pose.arm_girth(0.014), pose.arm_girth(0.026 * hg), pose.arm_girth(0.012), pose.arm_girth(0.034 * hg), palm_col).emit(&palm_frame, false, target);

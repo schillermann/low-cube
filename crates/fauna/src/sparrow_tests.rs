@@ -233,3 +233,25 @@ fn test_sight_cone_elastic_horizon_scales_far_reach_while_preserving_close_aware
     let close_behind = Vec3::new(0.0, 0.0, 3.2);
     assert!(contracted.reaches(close_behind, 42.0), "Nearby wildlife within 4.2m must always remain visible");
 }
+
+#[test]
+fn test_sparrows_and_woodland_fauna_remain_on_earth_and_never_fly_onto_moon() {
+    let world = world::CelestialSystem::barren_authoritative(32, 1.0);
+    let earth_pos = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 1.0);
+    let moon_center = world::CelestialSystem::moon_center(32);
+    let moon_pos = world.constrain_to_surface(moon_center + Vec3::new(0.25, world::LunarWorld::HALF_SIZE + 4.0, 0.25), 1.0);
+
+    let mut fauna = crate::WoodlandFauna::seeded();
+    let _ = fauna.step_spatial(1.0 / 30.0, earth_pos, Vec3::NEG_Z, false, world.as_ref());
+    for _ in 0..180 {
+        let _ = fauna.step_spatial(1.0 / 30.0, moon_pos, Vec3::NEG_Z, false, world.as_ref());
+    }
+    let mut moon_quads = QuadCollector::empty();
+    fauna.emit_visible(crate::SightCone::omnidirectional(moon_pos), &mut moon_quads);
+    assert!(moon_quads.quads.is_empty(), "Zero birds or woodland animals may ever appear on the airless Moon");
+
+    let mut moon_flock = SparrowFlock::seeded();
+    assert!(!moon_flock.step_spatial(1.0 / 30.0, moon_pos, Vec3::NEG_Z, world.as_ref()));
+    moon_flock.emit_visible(crate::SightCone::omnidirectional(moon_pos), &mut moon_quads);
+    assert!(moon_quads.quads.is_empty(), "SparrowFlock must never anchor on the Moon");
+}

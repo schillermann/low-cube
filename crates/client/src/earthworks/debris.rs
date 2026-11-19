@@ -26,7 +26,7 @@ impl DebrisSplash {
     }
 
     pub fn sub_eye(eye: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> bool {
-        (world.constrain_to_surface(eye, 0.0) - eye).dot(up) > SUBTERRANEAN_ROOF_OFFSET
+        (world.constrain_to_surface(eye, 1.0) - up - eye).dot(up) > SUBTERRANEAN_ROOF_OFFSET
     }
 
     pub fn overhead_aim(eye: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> bool {

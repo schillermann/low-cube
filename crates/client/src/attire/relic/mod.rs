@@ -37,10 +37,11 @@ pub enum HeldRelic {
     GoldOre,
     BoarMeat,
     RocketNozzle,
+    RocketCamera,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 27;
+    pub const COUNT: usize = 28;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -76,7 +77,8 @@ impl HeldRelic {
             23 => Self::IronOre,
             24 => Self::GoldOre,
             25 => Self::BoarMeat,
-            _ => Self::RocketNozzle,
+            26 => Self::RocketNozzle,
+            _ => Self::RocketCamera,
         }
     }
 
@@ -109,6 +111,7 @@ impl HeldRelic {
             Self::GoldOre => 24,
             Self::BoarMeat => 25,
             Self::RocketNozzle => 26,
+            Self::RocketCamera => 27,
         }
     }
 
@@ -133,7 +136,7 @@ impl HeldRelic {
     }
 
     pub const fn independent_palm_mold(self) -> bool {
-        matches!(self, Self::FieldCamera | Self::RocketNozzle)
+        matches!(self, Self::FieldCamera | Self::RocketNozzle | Self::RocketCamera)
     }
 
     pub const fn edible_provision(self) -> bool {
@@ -199,6 +202,7 @@ impl HeldRelic {
                 | Self::AircraftEngine
                 | Self::FlightConsole
                 | Self::RocketNozzle
+                | Self::RocketCamera
                 | Self::CabinSeat
                 | Self::CarWheel
                 | Self::FieldCamera
@@ -226,6 +230,7 @@ impl HeldRelic {
             BlockMedium::AircraftEngine => Self::AircraftEngine,
             BlockMedium::FlightConsole => Self::FlightConsole,
             BlockMedium::RocketNozzle => Self::RocketNozzle,
+            BlockMedium::RocketCamera => Self::RocketCamera,
             BlockMedium::CabinSeat => Self::CabinSeat,
             BlockMedium::CarWheel => Self::CarWheel,
             BlockMedium::FieldCamera => Self::FieldCamera,

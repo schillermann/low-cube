@@ -141,14 +141,20 @@ impl<S: SpaceStep> SpaceStep for GyroStep<'_, S> {
 /// `SpaceStep` decorator arresting descent on planetary or lunar terrain and settling landing skids upright.
 pub(super) struct TouchdownStep<'a, S> {
     origin: S,
-    chassis_up: Vec3,
+    assembly: &'a VehicleAssembly,
     world: &'a dyn PlanetaryWorld,
 }
 
 impl<'a, S> TouchdownStep<'a, S> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(origin: S, chassis_up: Vec3, world: &'a dyn PlanetaryWorld) -> Self {
-        Self { origin, chassis_up, world }
+    pub(super) const fn new(origin: S, assembly: &'a VehicleAssembly, world: &'a dyn PlanetaryWorld) -> Self {
+        Self { origin, assembly, world }
+    }
+
+    fn hull_clearance(rot_up: Vec3, surf_up: Vec3, hull_top: f32, hull_radius: f32) -> f32 {
+        let c = rot_up.dot(surf_up).clamp(-1.0, 1.0);
+        let sin_perp = (1.0 - c * c).max(0.0).sqrt();
+        -((c * hull_top).min(0.0) - sin_perp * hull_radius)
     }
 }
 
@@ -159,22 +165,43 @@ impl<S: SpaceStep> SpaceStep for TouchdownStep<'_, S> {
             return s;
         }
         let surf_up = self.world.surface_up_at(s.origin);
-        let ground = FaceContact::new(s.origin).ground(0.0, self.world);
-        let alt = (s.origin - ground).dot(surf_up);
+        let (hull_top, hull_radius) = self.assembly.hull_envelope();
+        let rotated_up = (s.rotation * self.assembly.normal()).normalize_or_zero();
+        let ground_base = FaceContact::new(s.origin).ground(0.0, self.world);
+        let nose_pt = s.origin + rotated_up * hull_top;
+        let ground_nose = FaceContact::new(nose_pt).ground(0.0, self.world);
+        let ground = if rotated_up.dot(surf_up) < 0.75
+            && self.world.surface_up_at(nose_pt).dot(surf_up) > 0.5
+            && (ground_nose - ground_base).dot(surf_up) > 0.0
+        {
+            s.origin + surf_up * (ground_nose - s.origin).dot(surf_up)
+        } else {
+            ground_base
+        };
+        let clearance = Self::hull_clearance(rotated_up, surf_up, hull_top, hull_radius);
+        let alt = (s.origin - ground).dot(surf_up) - clearance;
         let v_norm = s.velocity.dot(surf_up);
         if alt > 0.005 || (alt >= 0.0 && v_norm > 0.0) {
             return s;
         }
         if v_norm > 0.0 {
-            return SpaceState::new(ground + surf_up * 0.006, s.velocity, s.rotation);
+            return SpaceState::new(ground + surf_up * (clearance + 0.006), s.velocity, s.rotation);
         }
         let next_v = (s.velocity - surf_up * v_norm.min(0.0)) * (1.0 - (5.5 * dt).clamp(0.0, 1.0));
-        let rotated_up = (s.rotation * self.chassis_up).normalize_or_zero();
-        let settle_arc = if rotated_up.dot(surf_up) > 0.25 && rotated_up.dot(surf_up) < 0.9999 {
-            Quat::IDENTITY.slerp(Quat::from_rotation_arc(rotated_up, surf_up), (8.0 * dt).clamp(0.0, 1.0))
-        } else {
+        let dot = rotated_up.dot(surf_up).clamp(-1.0, 1.0);
+        let max_turn = (7.5 * dt).clamp(0.0, 0.35);
+        let settle_arc = if dot >= 0.9999 {
             Quat::IDENTITY
+        } else if dot < -0.995 {
+            let pivot = if surf_up.x.abs() < 0.9 { Vec3::X } else { Vec3::Z };
+            Quat::from_axis_angle(rotated_up.cross(pivot).normalize_or_zero(), max_turn)
+        } else {
+            let full = Quat::from_rotation_arc(rotated_up, surf_up);
+            Quat::IDENTITY.slerp(full, (max_turn / dot.acos().max(1e-4)).clamp(0.0, 1.0))
         };
-        SpaceState::new(ground, next_v, (settle_arc * s.rotation).normalize())
+        let next_rot = (settle_arc * s.rotation).normalize();
+        let next_up = (next_rot * self.assembly.normal()).normalize_or_zero();
+        let next_clear = Self::hull_clearance(next_up, surf_up, hull_top, hull_radius);
+        SpaceState::new(ground + surf_up * next_clear, next_v, next_rot)
     }
 }

@@ -184,14 +184,14 @@ impl AvatarMotor for EmbodiedAvatar {
     fn rotate_view(&mut self, dx: f32, dy: f32) { self.sight_line.rotate(dx, dy); }
 
     fn act_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
-        let reach = self.surface_reach();
+        let eye = self.pose_at(self.body.position()).eye_origin();
         if !self.gear.satchel_open() {
-            if let Some(outcome) = self.body.interact_seated_vehicle(reach.eye(), reach.view_dir(), &mut self.sight_line, world) {
+            if let Some(outcome) = self.body.interact_seated_vehicle(eye, self.sight_line.view_direction(), &mut self.sight_line, world) {
                 self.bearing.calm();
                 return outcome;
             }
         }
-        self.gear.act_with_hand(side, reach, &mut self.body, &mut self.bearing, world)
+        self.gear.act_with_hand(side, self.surface_reach(), &mut self.body, &mut self.bearing, world)
     }
 
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {

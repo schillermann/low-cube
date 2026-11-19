@@ -1,5 +1,8 @@
 use glam::Vec3;
-use crate::block::{BlockMedium, BlockMold, GridCell, MoldArchetype, NozzleAxis, VoxelShape, WedgeHeading};
+use crate::block::{
+    BlockMedium, BlockMold, GridCell, MoldArchetype, NozzleAxis, SensorPodAxis, VoxelShape,
+    WedgeHeading,
+};
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::super::craft_cluster::CraftCluster;
@@ -119,14 +122,33 @@ impl VehiclePart {
         Some((self.floor_offset + lift, self.floor_offset + lift + BLOCK_STEP))
     }
 
-    pub(in crate::relief) fn camera_lens_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3, f32)> {
+    pub(in crate::relief) fn camera_equipped(&self) -> bool {
+        self.shape.block_medium() == BlockMedium::FieldCamera
+    }
+
+    pub(in crate::relief) fn rocket_camera(&self) -> bool {
+        self.shape.block_medium() == BlockMedium::RocketCamera
+    }
+
+    pub(in crate::relief) fn rocket_pod_at(&self, lift: f32) -> Option<(SensorPodAxis, (i32, i32), f32)> {
+        if !self.rocket_camera() {
+            return None;
+        }
+        let axis = SensorPodAxis::from_mold(
+            MoldArchetype::from_code(self.shape.shape_stamp()[0]),
+            self.shape.block_heading(),
+        );
+        Some((axis, self.offset, self.floor_offset + lift))
+    }
+
+    pub(in crate::relief) fn camera_lens_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, (i32, i32), f32)> {
         let cell = GridCell::new(self.offset.0, self.offset.1);
         let (hub, base_fwd, up) = self.shape.camera_tripod_hub(cell, self.floor_offset + lift, frame)?;
         let yaw = MoldArchetype::from_code(self.shape.shape_stamp()[0]).placed_camera_yaw();
         let right = base_fwd.cross(up).normalize_or_zero();
         let (s, c) = yaw.sin_cos();
         let lens_fwd = (base_fwd * c + right * s).normalize_or_zero();
-        Some((hub, lens_fwd, up, self.floor_offset + lift))
+        Some((hub, lens_fwd, self.offset, self.floor_offset + lift))
     }
 
     pub(in crate::relief) fn console_base_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<Vec3> {

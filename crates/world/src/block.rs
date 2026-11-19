@@ -44,7 +44,10 @@ pub use pedal_cluster::{FootwellPlinth, PedalClusterMesh, WalnutFloorPan};
 pub use pyramid::PyramidPeak;
 pub use ridge::RidgeCorner;
 pub use shape::VoxelShape;
-pub use space_parts::{AttitudeNozzleMesh, ConsoleOrrery, FlightConsoleMesh, NozzleAxis, RocketNozzleMesh};
+pub use space_parts::{
+    AttitudeNozzleMesh, ConsoleOrrery, FlightConsoleMesh, NozzleAxis, RocketNozzleMesh,
+    SensorPodAxis,
+};
 pub use stair::StairFlight;
 pub use stair_corner::StairCorner;
 pub use timber_grain::{BlockMedium, MediumShape};

@@ -266,6 +266,8 @@ impl PlanetaryWorld for RemotePlanet {
     }
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.world.emit_meadow_around(center, view_dir, target); }
     fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.world.arboreal_perch_near(center, selector) }
+    fn woodland_habitat(&self, position: Vec3) -> bool { self.world.woodland_habitat(position) }
+    fn local_body_point(&self, position: Vec3) -> Vec3 { self.world.local_body_point(position) }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.world.visible_slice_mask(position) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.world.drain_disclosures(out); }
     fn sync_presence(&mut self, presence: CompanionPresence) { self.journal.sync_local_presence(presence); }

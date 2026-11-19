@@ -1,4 +1,5 @@
 mod arms;
+mod helm;
 
 use glam::{Quat, Vec3};
 use world::SurfaceSightRay;
@@ -6,6 +7,8 @@ use super::limb::LimbFrame;
 use super::proportion::YouthPhysique;
 use super::rhythm::{MartialStyle, StrideRhythm};
 pub use arms::ArmKinematics;
+use helm::CockpitPosture;
+pub use helm::RocketControls;
 
 #[derive(Clone, Copy, Debug)]
 struct PoseStance {
@@ -18,7 +21,7 @@ struct PoseStance {
 #[derive(Clone, Copy, Debug)]
 struct PoseMotion {
     leap: f32,
-    seated_steer: f32,
+    helm: CockpitPosture,
     rhythm: StrideRhythm,
     physique: YouthPhysique,
 }
@@ -43,7 +46,7 @@ impl BodyPose {
     ) -> Self {
         Self {
             stance: PoseStance { position, surface_rot, view_rot, eye_height },
-            motion: PoseMotion { leap, seated_steer: 0.0, rhythm, physique },
+            motion: PoseMotion { leap, helm: CockpitPosture::Standing, rhythm, physique },
         }
     }
 
@@ -72,11 +75,15 @@ impl BodyPose {
     }
 
     pub fn with_seated(self, seated: f32) -> Self {
-        Self { motion: PoseMotion { seated_steer: -0.5 * seated.clamp(0.0, 1.0), ..self.motion }, ..self }
+        Self { motion: PoseMotion { helm: CockpitPosture::Seated(seated.clamp(0.0, 1.0)), ..self.motion }, ..self }
     }
 
     pub fn with_seated_steer(self, steer: f32) -> Self {
-        Self { motion: PoseMotion { seated_steer: -(2.0 + steer.clamp(-1.0, 1.0)), ..self.motion }, ..self }
+        Self { motion: PoseMotion { helm: CockpitPosture::WheelSteer(steer.clamp(-1.0, 1.0)), ..self.motion }, ..self }
+    }
+
+    pub fn with_rocket_controls(self, controls: RocketControls) -> Self {
+        Self { motion: PoseMotion { helm: CockpitPosture::RocketPilot(controls), ..self.motion }, ..self }
     }
 
     pub fn with_surface_rotation(self, surface_rot: Quat) -> Self {
@@ -87,15 +94,11 @@ impl BodyPose {
         Self { motion: PoseMotion { physique, ..self.motion }, ..self }
     }
 
-    pub const fn seated_factor(&self) -> f32 {
-        if self.motion.seated_steer <= -0.95 { 1.0 } else { (-self.motion.seated_steer * 2.0).clamp(0.0, 1.0) }
-    }
-    pub const fn driving_factor(&self) -> f32 {
-        if self.motion.seated_steer <= -0.95 { 1.0 } else { 0.0 }
-    }
-    pub const fn steering_turn(&self) -> f32 {
-        if self.motion.seated_steer <= -0.95 { (-self.motion.seated_steer - 2.0).clamp(-1.0, 1.0) } else { 0.0 }
-    }
+    pub const fn seated_factor(&self) -> f32 { self.motion.helm.seated_factor() }
+    pub const fn driving_factor(&self) -> f32 { self.motion.helm.driving_factor() }
+    pub const fn steering_turn(&self) -> f32 { self.motion.helm.steering_turn() }
+    pub const fn piloting_rocket(&self) -> bool { self.motion.helm.piloting_rocket() }
+    pub(super) const fn rocket_controls(&self) -> Option<RocketControls> { self.motion.helm.rocket_controls() }
     pub(super) const fn eye_height(&self) -> f32 { self.stance.eye_height }
     pub(super) const fn motion_factors(&self) -> (StrideRhythm, f32) { (self.motion.rhythm, self.motion.leap) }
     pub(super) fn view_axes(&self) -> (Vec3, Vec3, Vec3) {

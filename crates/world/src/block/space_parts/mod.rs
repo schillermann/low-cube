@@ -2,6 +2,7 @@ mod attitude_nozzle;
 mod console;
 mod nozzle;
 mod orrery;
+mod rocket_camera;
 
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
@@ -15,6 +16,7 @@ pub use self::attitude_nozzle::AttitudeNozzleMesh;
 pub use self::console::FlightConsoleMesh;
 pub use self::nozzle::RocketNozzleMesh;
 pub use self::orrery::ConsoleOrrery;
+pub use self::rocket_camera::{RocketCameraMesh, SensorPodAxis};
 
 /// Propulsion mode of a mounted `RocketNozzle` block toggled via mouse wheel scroll (`Downward` main bell vs. `Attitude` Steuerdüse).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -88,7 +90,11 @@ impl SpaceBlockMesh {
     pub fn emit(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         match self.medium {
             BlockMedium::FlightConsole => {
-                FlightConsoleMesh::new(self.heading, self.motion.1).emit(cell, floor_elev, frame, target);
+                FlightConsoleMesh::new(self.heading, self.motion).emit(cell, floor_elev, frame, target);
+            }
+            BlockMedium::RocketCamera => {
+                RocketCameraMesh::new(SensorPodAxis::from_mold(self.archetype, self.heading))
+                    .emit(cell, floor_elev, frame, target);
             }
             _ => match NozzleAxis::from_mold(self.archetype, self.heading) {
                 axis @ NozzleAxis::Downward => {

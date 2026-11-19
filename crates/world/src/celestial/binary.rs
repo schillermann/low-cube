@@ -247,6 +247,18 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
         if self.near_moon(center) { None } else { self.home.arboreal_perch_near(center, selector) }
     }
 
+    fn woodland_habitat(&self, position: Vec3) -> bool {
+        !self.near_moon(position) && position_near_home(position, self.home_half)
+    }
+
+    fn local_body_point(&self, position: Vec3) -> Vec3 {
+        if self.near_moon(position) {
+            self.moon.local_body_point(position)
+        } else {
+            position
+        }
+    }
+
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
         let mut mask = self.moon.visible_faces_from(position, LunarWorld::HALF_SIZE) << 6;
         let show_flora = position.length() <= self.home_half + 420.0;

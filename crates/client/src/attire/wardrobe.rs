@@ -42,7 +42,7 @@ impl MoldedWardrobe {
 
 impl Wardrobe for MoldedWardrobe {
     fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
-        let active = if pose.driving_factor() > 0.5 {
+        let active = if pose.driving_factor() > 0.5 && !self.tray_open {
             self.attire.with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm)
         } else {
             self.attire
@@ -69,7 +69,7 @@ impl SatchelWardrobe {
 impl Wardrobe for SatchelWardrobe {
     fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
         let (r, l) = self.attire.held_pair();
-        let driving = pose.driving_factor() > 0.5;
+        let driving = pose.driving_factor() > 0.5 && !self.satchel.open();
         let active = self.attire.with_relics(
             if self.dig_right || driving { HeldRelic::EmptyPalm } else { r },
             if self.dig_left || driving { HeldRelic::EmptyPalm } else { l },

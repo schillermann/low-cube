@@ -71,6 +71,7 @@ impl SlotBurden {
             | HeldRelic::TimberBlock
             | HeldRelic::WoodenMallet
             | HeldRelic::CabinSeat
+            | HeldRelic::RocketCamera
             | HeldRelic::BoarMeat => WeightGrade::Moderate,
             HeldRelic::QuarriedStone
             | HeldRelic::IronSpade

@@ -52,6 +52,9 @@ impl SparrowFlock {
 
     /// Steps all sparrows in the flock and triggers a 3D spatialized birdsong chirp when a nearby sparrow vocalizes.
     pub fn step_spatial(&mut self, dt: f32, listener: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> bool {
+        if !world.woodland_habitat(listener) {
+            return false;
+        }
         if !self.anchored {
             for (idx, bird) in self.birds.iter_mut().enumerate() {
                 bird.anchor_around(idx, listener, world);

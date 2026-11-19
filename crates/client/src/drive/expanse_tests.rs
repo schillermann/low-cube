@@ -52,7 +52,7 @@ fn build_expanse_ship(world: &mut dyn PlanetaryWorld) -> f32 {
         Vec3::new(1.25, g0 + 1.75, 1.75),
         Vec3::NEG_Z,
         av_pos,
-        BlockMold::cube().in_medium(BlockMedium::FieldCamera),
+        BlockMold::cube().in_medium(BlockMedium::RocketCamera),
     ));
     assert!(world.place_molded_surface_block(
         Vec3::new(0.25, g0 + 1.75, 0.75),
@@ -145,12 +145,11 @@ fn test_outboard_cameras_orrery_and_flip_and_burn_maneuver() {
         pilot.step_motion(dt, &burn, world.as_ref());
     }
     let ship_pos = pos_of(&pilot);
-    assert!(pilot.dispatch_trigger(InputTrigger::WheelDown), "WheelDown must select Zenith nose camera");
-    assert!(pilot.sight_cone().reaches(ship_pos + Vec3::Y * 25.0, 40.0), "Zenith camera must look up along flight vector");
+    assert!(pilot.sight_cone().reaches(ship_pos + Vec3::Y * 25.0, 40.0), "Clicking FlightConsole must immediately select Zenith nose camera");
     assert!(pilot.dispatch_trigger(InputTrigger::WheelClick), "WheelClick on hull camera must snap Polaroid");
     assert!(matches!(pilot.take_photo_shutter(), PhotoShutter::Triggered(_)));
 
-    assert!(pilot.dispatch_trigger(InputTrigger::WheelDown), "Second WheelDown must select Nadir landing camera");
+    assert!(pilot.dispatch_trigger(InputTrigger::WheelDown), "WheelDown must select Nadir landing camera");
     assert!(pilot.sight_cone().reaches(ship_pos - Vec3::Y * 25.0, 40.0), "Nadir camera must look down below nozzles");
 
     assert!(pilot.dispatch_trigger(InputTrigger::Key(KeyCode::KeyR)), "KeyR must engage 180-degree Flip & Burn");
@@ -256,4 +255,39 @@ fn test_coop_thrust_gravity_grounds_crew_under_burn_and_floats_when_cut() {
         float_offset > settled_offset + 0.25,
         "Cutting main thrust ('On the Float') must let crewmate float weightlessly off the deck ({settled_offset} -> {float_offset})"
     );
+}
+
+#[test]
+fn test_camera_less_rocket_keeps_cockpit_gaze_without_fallback() {
+    let mut world = CelestialSystem::barren_authoritative(32, 1.0);
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let av = Vec3::new(0.25, g0, 1.75);
+    let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
+    for mold in [
+        BlockMold::cube().in_medium(BlockMedium::CantileverRig),
+        BlockMold::cube().in_medium(BlockMedium::RocketNozzle),
+    ] {
+        assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.5, 1.25), crane_dir, av, mold));
+    }
+    assert!(world.adjust_rig(Vec3::new(0.25, g0 + 1.5, 1.25), crane_dir, -1, false));
+    assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 2.40, 0.25), Vec3::NEG_Y, av, BlockMold::cube().turn_clockwise().in_medium(BlockMedium::FlightConsole)));
+    assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 1.75, 0.75), Vec3::NEG_Z, av, BlockMold::cube().in_medium(BlockMedium::CabinSeat)));
+    assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.75, 0.75), Vec3::X, av, BlockMold::cube().in_medium(BlockMedium::PlanedPlanks)));
+    for top_y in [2.90, 3.40, 3.90] {
+        assert!(world.place_molded_surface_block(Vec3::new(0.75, g0 + top_y, 0.75), Vec3::NEG_Y, av, BlockMold::cube().in_medium(BlockMedium::PlanedPlanks)));
+    }
+    let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+    let cam_ray = |a: &PlanetaryAvatar| {
+        let inv = a.view_projection_matrix(1.0).inverse();
+        let eye = inv.project_point3(Vec3::ZERO);
+        (eye, (inv.project_point3(Vec3::new(0.0, 0.0, 0.5)) - eye).normalize())
+    };
+    let mut pilot = PlanetaryAvatar::with_attire_and_bindings(spawn, Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))), YouthAttire::squire(), ActionBindings::seeded());
+    pilot.rotate_degrees(-90.0, 10.0);
+    assert!(HandGesture::RightTap.perform(&mut pilot, world.as_mut()));
+    assert!(pilot.use_right_hand(world.as_mut()));
+    let (cockpit_eye, cockpit_dir) = cam_ray(&pilot);
+    assert!(cockpit_eye.y < g0 + 2.0 && cockpit_dir.y.abs() < 0.4, "Camera-less rocket must stay in cockpit view without fallback, got ({cockpit_eye:?}, {cockpit_dir:?})");
+    let _ = pilot.dispatch_trigger(InputTrigger::WheelDown);
+    assert_eq!(cam_ray(&pilot), (cockpit_eye, cockpit_dir), "Scrolling without installed camera must not switch to any synthetic hull view");
 }

@@ -29,6 +29,7 @@ pub enum BlockMedium {
     IronOre,
     GoldOre,
     RocketNozzle,
+    RocketCamera,
 }
 
 impl BlockMedium {
@@ -54,6 +55,7 @@ impl BlockMedium {
             Self::IronOre => 16,
             Self::GoldOre => 17,
             Self::RocketNozzle => 18,
+            Self::RocketCamera => 19,
         }
     }
 
@@ -78,6 +80,7 @@ impl BlockMedium {
             16 => Self::IronOre,
             17 => Self::GoldOre,
             18 => Self::RocketNozzle,
+            19 => Self::RocketCamera,
             _ => Self::TurfEarth,
         }
     }
@@ -99,7 +102,11 @@ impl BlockMedium {
 
     /// Indicates whether this block medium is a sculpted mechanical vehicle component.
     pub const fn mechanical_part(self) -> bool {
-        self.vehicle_engine() || matches!(self, Self::CabinSeat | Self::CarWheel | Self::PedalCluster | Self::CrossAxle)
+        self.vehicle_engine()
+            || matches!(
+                self,
+                Self::CabinSeat | Self::CarWheel | Self::PedalCluster | Self::CrossAxle | Self::RocketCamera
+            )
     }
 
     /// Indicates whether this medium is a portable item picked up in a single click without excavation stages.
@@ -132,6 +139,7 @@ impl BlockMedium {
             Self::AircraftEngine => (Vec3::new(0.22, 0.88, 0.98), Vec3::new(0.54, 0.62, 0.72)),
             Self::FlightConsole => (Vec3::new(0.16, 0.94, 0.78), Vec3::new(0.90, 0.72, 0.24)),
             Self::RocketNozzle => (Vec3::new(0.99, 0.38, 0.12), Vec3::new(0.22, 0.24, 0.30)),
+            Self::RocketCamera => (Vec3::new(0.24, 0.88, 0.98), Vec3::new(0.84, 0.88, 0.93)),
             Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.36, 0.20, 0.13)),
             Self::CarWheel | Self::CrossAxle => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
             Self::PedalCluster => (Vec3::new(0.88, 0.22, 0.18), Vec3::new(0.24, 0.84, 0.36)),

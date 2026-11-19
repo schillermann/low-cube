@@ -56,7 +56,7 @@ impl RayProbe {
         cells: ((i32, i32), (i32, i32)),
         uv_pair: ((f32, f32), (f32, f32)),
         elevs: (f32, f32, f32, f32),
-    ) -> Option<f32> {
+    ) -> Option<(f32, f32)> {
         let (((prev_cu, prev_cv), (cu, cv)), ((prev_u, prev_v), (u, v))) = (cells, uv_pair);
         let (prev_elev, ray_elev, wall_top, d_up) = elevs;
         if (cu, cv) != (prev_cu, prev_cv) {
@@ -75,10 +75,15 @@ impl RayProbe {
             let entry_elev = prev_elev + alpha * (ray_elev - prev_elev);
             let entry_probe = self.probe_elevation(cu, cv, wall_top, entry_elev, d_up);
             if let Some(hit) = relief.hit_top_at(entry_u, entry_v, entry_probe) {
-                return Some(hit);
+                return Some((hit, entry_elev));
             }
+            return relief
+                .hit_top_at(u, v, self.probe_elevation(cu, cv, wall_top, ray_elev, d_up))
+                .map(|hit| (hit, entry_elev));
         }
-        relief.hit_top_at(u, v, self.probe_elevation(cu, cv, wall_top, ray_elev, d_up))
+        relief
+            .hit_top_at(u, v, self.probe_elevation(cu, cv, wall_top, ray_elev, d_up))
+            .map(|hit| (hit, prev_elev))
     }
 }
 
@@ -171,7 +176,7 @@ impl SurfaceSightRay {
                     continue;
                 }
                 let wall_top = (relief.elevation_at(cu, cv) as f32) * Self::CELL_SPAN;
-                if let Some(hit_top) = probe.step_hit_top(
+                if let Some((hit_top, crossing_elev)) = probe.step_hit_top(
                     relief, ((prev_cu, prev_cv), (cu, cv)), ((prev_u, prev_v), (u, v)), (prev_elev, ray_elev, wall_top, d_up),
                 ) {
                     if start_occupied && (cu, cv) == (ecu, ecv) && (ecu, ecv) == (scu, scv) && (hit_top - start_layer_top).abs() < 0.05 {
@@ -187,7 +192,7 @@ impl SurfaceSightRay {
                         if close_wall { continue; }
                         return None;
                     }
-                    let crossing = StepCrossing::new(((cu, cv), (prev_cu, prev_cv)), (prev_elev, hit_top), d_up, bounds);
+                    let crossing = StepCrossing::new(((cu, cv), (prev_cu, prev_cv)), (crossing_elev, hit_top), d_up, bounds);
                     return Some(crossing.contact(relief));
                 }
             }
@@ -207,7 +212,23 @@ impl SurfaceSightRay {
     pub fn placement_cell(
         &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32, avatar_pos: Vec3,
     ) -> Option<(i32, i32, f32)> {
+        self.placement_cell_for(frame, relief, half_blocks, half_size, avatar_pos, true)
+    }
+
+    /// Resolves a placement cell while optionally forbidding underside attachment for side-wall thruster pods.
+    pub fn placement_cell_for(
+        &self,
+        frame: &SurfaceFrame,
+        relief: &dyn ReliefElevation,
+        half_blocks: i32,
+        half_size: f32,
+        avatar_pos: Vec3,
+        allow_underside: bool,
+    ) -> Option<(i32, i32, f32)> {
         let contact = self.trace_contact(frame, relief, half_blocks, half_size)?;
+        if !allow_underside && contact.underside_contact() {
+            return None;
+        }
         let d_up = self.direction.normalize_or_zero().dot(frame.normal());
         let guarded = StanceClearance::around_avatar(
             contact, avatar_pos, d_up, frame, relief, (-half_blocks + 1, half_blocks - 2),

@@ -1,6 +1,7 @@
 use glam::Vec3;
 use world::{PlanetaryWorld, VehicleAssembly};
 use acoustics::{AcousticWave, EngineRumble};
+use crate::attire::BodyPose;
 use crate::controls::KeyboardControls;
 use super::track::WheelTrack;
 use super::{CraftDrive, PedalInput, SEAT_EYE_SUPPORT};
@@ -95,6 +96,10 @@ impl WheeledDrive {
 impl CraftDrive for WheeledDrive {
     fn motion_channels(&self) -> (f32, f32) {
         (self.kinematics.wheel_spin(), self.kinematics.steer_turn())
+    }
+
+    fn shape_pilot_pose(&self, pose: BodyPose) -> BodyPose {
+        pose.with_seated_steer(self.kinematics.steer_turn())
     }
 
     fn free_look(&self) -> bool {

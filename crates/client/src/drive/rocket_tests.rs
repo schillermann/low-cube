@@ -244,3 +244,25 @@ fn test_mouse_look_rotates_gaze_freely_without_steering_rocket() {
         "Pilot mouse input must still rotate cockpit free-look camera"
     );
 }
+
+#[test]
+fn test_clicking_rocket_controls_prefers_nose_camera_over_lower_hull_camera() {
+    let mut world = CelestialSystem::barren_authoritative(32, 1.0);
+    let g0 = build_crane_rocket(world.as_mut());
+    let av = Vec3::new(0.25, g0, 1.75);
+    assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 1.75, 1.75), Vec3::NEG_Z, av, BlockMold::cube().in_medium(BlockMedium::RocketCamera)));
+    assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.75, 0.75), Vec3::X, av, BlockMold::cube().in_medium(BlockMedium::PlanedPlanks)));
+    for top_y in [2.90, 3.40] {
+        assert!(world.place_molded_surface_block(Vec3::new(0.75, g0 + top_y, 0.75), Vec3::NEG_Y, av, BlockMold::cube().in_medium(BlockMedium::PlanedPlanks)));
+    }
+    assert!(world.place_molded_surface_block(Vec3::new(0.75, g0 + 3.90, 0.75), Vec3::NEG_Y, av, BlockMold::cube().in_medium(BlockMedium::RocketCamera)));
+    let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+    let mut pilot = PlanetaryAvatar::with_attire_and_bindings(spawn, Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))), YouthAttire::squire(), ActionBindings::seeded());
+    pilot.rotate_degrees(-90.0, 10.0);
+    assert!(HandGesture::RightTap.perform(&mut pilot, world.as_mut()));
+    assert!(pilot.use_right_hand(world.as_mut()));
+    let inv = pilot.view_projection_matrix(1.0).inverse();
+    let eye = inv.project_point3(Vec3::ZERO);
+    let dir = (inv.project_point3(Vec3::new(0.0, 0.0, 0.5)) - eye).normalize();
+    assert!(eye.y > g0 + 2.4 && dir.y > 0.99, "Nose camera at rocket tip must be selected over lower camera, got ({eye:?}, {dir:?})");
+}

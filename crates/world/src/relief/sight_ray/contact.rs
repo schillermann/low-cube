@@ -26,7 +26,7 @@ impl StepCrossing {
     const CRUST_SEAM_TOLERANCE: f32 = 0.05;
     const UNDERSIDE_MIN_CLEARANCE: f32 = 0.95;
     const UNDERSIDE_LAYER_OFFSET: f32 = 0.75;
-    const UNDERSIDE_RAY_BELOW: f32 = 0.48;
+    const UNDERSIDE_WALL_MARGIN: f32 = 0.015;
     const UNDERSIDE_DROP: f32 = 1.0;
     const LATERAL_MIN_WALL: f32 = 0.9;
     const LATERAL_BAND_DEPTH: f32 = 0.55;
@@ -77,7 +77,7 @@ impl StepCrossing {
         };
         if block_top >= ground_prev + min_wall
             && prior_elev >= block_top - Self::LATERAL_BAND_DEPTH
-            && prior_elev <= block_top
+            && prior_elev <= block_top + Self::CRUST_SEAM_TOLERANCE
         {
             return Some(ContactFace::Lateral((prev_cu, prev_cv), block_top - Self::CELL_SPAN));
         }
@@ -104,10 +104,12 @@ impl StepCrossing {
         let block_top = raw_top.max(ground_top);
         let layer_mid = block_top - Self::CELL_SPAN * 0.5;
         let backrest = relief.seat_backrest_cell(cu, cv, layer_mid);
+        let underside_entry = (prev_cu, prev_cv) == (cu, cv)
+            || prior_elev < block_top - Self::CELL_SPAN - Self::UNDERSIDE_WALL_MARGIN;
         if block_top >= ground_top + Self::UNDERSIDE_MIN_CLEARANCE
             && !relief.layer_occupied_at(cu, cv, block_top - Self::UNDERSIDE_LAYER_OFFSET)
             && self.slope_up > 0.0
-            && (prior_elev < block_top - Self::UNDERSIDE_RAY_BELOW || (prev_cu, prev_cv) == (cu, cv))
+            && underside_entry
         {
             return SightContact::new((cu, cv), hit_top, ContactFace::Underside(block_top - Self::UNDERSIDE_DROP));
         }
@@ -139,6 +141,10 @@ impl SightContact {
     /// Primary constructor doing nothing except assigning arguments to fields.
     const fn new(cell: (i32, i32), hit_top: f32, face: ContactFace) -> Self {
         Self { cell, hit_top, face }
+    }
+
+    pub(super) const fn underside_contact(&self) -> bool {
+        matches!(self.face, ContactFace::Underside(_))
     }
 
     pub(super) fn target_layer(&self) -> (i32, i32, f32) {

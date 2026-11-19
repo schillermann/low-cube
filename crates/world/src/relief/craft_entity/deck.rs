@@ -1,6 +1,7 @@
 use glam::Vec3;
 use crate::block::GridCell;
-use super::blueprint::{CraftBlueprint, CraftIdentity};
+use super::blueprint::CraftBlueprint;
+use super::identity::CraftIdentity;
 use super::pose::CraftPose;
 
 /// Ship-local deck reference frame for unseated astronauts experiencing thrust gravity or 0.0g float.

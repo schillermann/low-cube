@@ -6,6 +6,7 @@ use super::Avatar;
 #[derive(Clone, Copy, Debug)]
 pub enum HandGesture {
     RightTap,
+    LeftTap,
     RightHold(u32),
 }
 
@@ -15,6 +16,11 @@ impl HandGesture {
         match self {
             Self::RightTap => {
                 let immediate = avatar.use_right_hand(world);
+                let released = avatar.release_hand(world);
+                immediate || released
+            }
+            Self::LeftTap => {
+                let immediate = avatar.use_left_hand(world);
                 let released = avatar.release_hand(world);
                 immediate || released
             }

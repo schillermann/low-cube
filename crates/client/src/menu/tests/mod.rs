@@ -143,8 +143,9 @@ fn test_single_character_cycles_all_animations_and_archetypes_differ_fundamental
     assert_ne!(front_quads.positions(), turned_quads.positions());
 
     assert!(
-        StudioAnimation::sequence().contains(&StudioAnimation::SeatedDrive),
-        "Character Studio animation sequence must include SeatedDrive"
+        StudioAnimation::sequence().contains(&StudioAnimation::SeatedDrive)
+            && StudioAnimation::sequence().contains(&StudioAnimation::RocketPilot),
+        "Character Studio animation sequence must include SeatedDrive and RocketPilot"
     );
     for idx in 0..(StudioAnimation::sequence().len() - 1) {
         let (t0, t1) = ((idx as f32) * 2.2 + 0.35, ((idx + 1) as f32) * 2.2 + 0.35);

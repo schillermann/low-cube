@@ -2,8 +2,8 @@ use std::f32::consts::TAU;
 use glam::{Mat4, Quat, Vec3};
 use world::MeshTarget;
 use crate::attire::{
-    BodyPose, FacetedSolid, HeldRelic, LimbFrame, SightMode, StrideRhythm, TaperedPrism, Wardrobe,
-    YouthAttire, YouthPhysique,
+    BodyPose, FacetedSolid, HeldRelic, LimbFrame, RocketControls, SightMode, StrideRhythm,
+    TaperedPrism, Wardrobe, YouthAttire, YouthPhysique,
 };
 
 /// Available character animations automatically demonstrated in sequence by the center studio figure.
@@ -14,6 +14,7 @@ pub enum StudioAnimation {
     RunningSprint,
     CrouchingSneak,
     SeatedDrive,
+    RocketPilot,
     JumpingLeap,
     AxeCleave,
     SwordSlash,
@@ -22,13 +23,14 @@ pub enum StudioAnimation {
 }
 
 impl StudioAnimation {
-    pub fn sequence() -> [Self; 10] {
+    pub fn sequence() -> [Self; 11] {
         [
             Self::StandingIdle,
             Self::WalkingStride,
             Self::RunningSprint,
             Self::CrouchingSneak,
             Self::SeatedDrive,
+            Self::RocketPilot,
             Self::JumpingLeap,
             Self::AxeCleave,
             Self::SwordSlash,
@@ -44,6 +46,7 @@ impl StudioAnimation {
             Self::RunningSprint => "SPRINTING",
             Self::CrouchingSneak => "SNEAKING",
             Self::SeatedDrive => "SEATED DRIVE",
+            Self::RocketPilot => "ROCKET PILOT",
             Self::JumpingLeap => "JUMP LEAP",
             Self::AxeCleave => "AXE CLEAVE",
             Self::SwordSlash => "SWORD SLASH",
@@ -75,6 +78,10 @@ impl StudioAnimation {
                 (0.0, 0.80 - 0.44 * s * s, 0.0, StrideRhythm::new((elapsed * 5.4) % TAU, 0.38), *attire)
             }
             Self::SeatedDrive => (0.0, 0.46, 1.0, StrideRhythm::new((elapsed * 5.2) % TAU, 0.35), *attire),
+            Self::RocketPilot => {
+                let bare = attire.with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm);
+                (0.0, 0.46, 0.0, StrideRhythm::new((elapsed * 3.6) % TAU, 0.0), bare)
+            }
             Self::JumpingLeap => {
                 let u = (elapsed % 2.2) / 2.2;
                 let (jump_lift, eye) = if u < 0.08 {
@@ -116,13 +123,19 @@ impl StudioAnimation {
         let view_rot = Quat::from_rotation_y(std::f32::consts::PI + yaw_radians);
         let base_pose = BodyPose::new(
             position + Vec3::Y * lift,
-            Quat::IDENTITY,
+            view_rot,
             view_rot,
             eye_height,
             rhythm,
             YouthPhysique::SlenderSquire,
         );
-        let pose = if seated > 0.0 { base_pose.with_seated(seated) } else { base_pose };
+        let pose = if matches!(self, Self::RocketPilot) {
+            base_pose.with_rocket_controls(RocketControls::studio_showcase((elapsed % 2.2) / 2.2))
+        } else if seated > 0.0 {
+            base_pose.with_seated(seated)
+        } else {
+            base_pose
+        };
         staged_attire.emit(&pose, SightMode::LookingGlassSight, target);
     }
 }

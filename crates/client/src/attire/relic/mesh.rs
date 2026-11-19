@@ -123,6 +123,7 @@ impl RelicFigure {
             | HeldRelic::AircraftEngine
             | HeldRelic::FlightConsole
             | HeldRelic::RocketNozzle
+            | HeldRelic::RocketCamera
             | HeldRelic::CabinSeat
             | HeldRelic::CarWheel
             | HeldRelic::PedalCluster
@@ -224,6 +225,7 @@ impl RelicFigure {
             | HeldRelic::AircraftEngine
             | HeldRelic::FlightConsole
             | HeldRelic::RocketNozzle
+            | HeldRelic::RocketCamera
             | HeldRelic::CabinSeat
             | HeldRelic::CarWheel
             | HeldRelic::PedalCluster

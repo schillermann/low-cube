@@ -1,7 +1,7 @@
 mod martial;
 
 use glam::Vec3;
-pub use self::martial::MartialStyle;
+pub use self::martial::{MartialStyle, WristPosture};
 
 /// Immutable gait rhythm tracking stride phase, walking-to-sprinting blend, and independent right/left hand strike cycles.
 #[derive(Clone, Copy, Debug)]

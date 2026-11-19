@@ -26,6 +26,13 @@ impl VehiclePilot {
         }
     }
 
+    pub fn helm_optic_channel(&self) -> u8 {
+        match self {
+            Self::Driving(craft) => craft.helm_optic_channel(),
+            _ => 0,
+        }
+    }
+
     pub fn toggle_retro_flip(&mut self) -> bool {
         match self {
             Self::Driving(craft) => craft.toggle_retro_flip(),
@@ -79,7 +86,7 @@ impl VehiclePilot {
             Self::Pedestrian => pose,
             Self::Perch(craft) => pose.with_surface_rotation(craft.body_rotation()).with_seated(1.0),
             Self::Passenger(berth) => berth.shape_pose(pose),
-            Self::Driving(craft) => pose.with_surface_rotation(craft.body_rotation()).with_seated_steer(craft.steer_turn()),
+            Self::Driving(craft) => craft.shape_pilot_pose(pose),
         }
     }
 

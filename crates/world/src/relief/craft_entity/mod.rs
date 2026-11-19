@@ -1,12 +1,14 @@
 mod blueprint;
 mod deck;
+mod identity;
 mod pose;
 
 use glam::Vec3;
 use crate::MeshTarget;
 use crate::presence::DrivenCraft;
-pub use self::blueprint::{CraftBlueprint, CraftIdentity};
+pub use self::blueprint::CraftBlueprint;
 pub use self::deck::DeckFrame;
+pub use self::identity::CraftIdentity;
 pub use self::pose::{CraftPose, SeatOccupancy};
 
 /// Living planetary vehicle entity uniting identity, immutable blueprint, pose, and seat occupancy.

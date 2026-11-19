@@ -114,6 +114,8 @@ impl PlanetaryWorld for ConduitPlanet {
     fn drain_stale_meadow_patch(&self, center: Vec3, ring: &mut MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> { self.read_world(|w| w.drain_stale_meadow_patch(center, ring, target)) }
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.read_world(|w| w.emit_meadow_around(center, view_dir, target)); }
     fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.read_world(|w| w.arboreal_perch_near(center, selector)) }
+    fn woodland_habitat(&self, position: Vec3) -> bool { self.read_world(|w| w.woodland_habitat(position)) }
+    fn local_body_point(&self, position: Vec3) -> Vec3 { self.read_world(|w| w.local_body_point(position)) }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.read_world(|w| w.visible_slice_mask(position)) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.write_world(|w| w.drain_disclosures(out)); }
     fn sync_presence(&mut self, presence: CompanionPresence) { self.write_world(|w| w.sync_presence(presence)); }

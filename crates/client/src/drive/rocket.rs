@@ -1,6 +1,7 @@
 use glam::{Quat, Vec3};
 use world::{PilotOrder, PlanetaryWorld, VehicleAssembly};
 use acoustics::{AcousticWave, NozzleRoar};
+use crate::attire::{BodyPose, RocketControls};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 use super::space_step::{
     GravitationStep, GyroStep, InertialDrift, NozzleThrustStep, SpaceStep, TouchdownStep,
@@ -40,22 +41,22 @@ impl LocomotionTarget for ConsolePedals {
     fn sprint(&mut self) {}
 }
 
-/// 6-DOF spacecraft propulsion composing velocity, plume channels, Flip-and-Burn trim, and the `SpaceStep` chain.
+/// 6-DOF spacecraft propulsion composing velocity, cockpit stick/throttle controls, Flip-and-Burn trim, and the `SpaceStep` chain.
 pub struct RocketDrive {
     velocity: Vec3,
-    plume: (f32, f32),
+    controls: RocketControls,
     roar_phase: f32,
     flip_retro: bool,
 }
 
 impl RocketDrive {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(velocity: Vec3, plume: (f32, f32), roar_phase: f32, flip_retro: bool) -> Self {
-        Self { velocity, plume, roar_phase, flip_retro }
+    pub const fn new(velocity: Vec3, controls: RocketControls, roar_phase: f32, flip_retro: bool) -> Self {
+        Self { velocity, controls, roar_phase, flip_retro }
     }
 
     pub const fn pad_idle() -> Self {
-        Self::new(Vec3::ZERO, (0.0, 0.0), 0.0, false)
+        Self::new(Vec3::ZERO, RocketControls::neutral(), 0.0, false)
     }
 
     fn step_retro_flip(&mut self, assembly: &mut VehicleAssembly, dt: f32) -> bool {
@@ -94,11 +95,19 @@ impl RocketDrive {
 
 impl CraftDrive for RocketDrive {
     fn motion_channels(&self) -> (f32, f32) {
-        self.plume
+        self.controls.plume_channels()
+    }
+
+    fn shape_pilot_pose(&self, pose: BodyPose) -> BodyPose {
+        pose.with_rocket_controls(self.controls)
     }
 
     fn free_look(&self) -> bool {
         true
+    }
+
+    fn helm_optic_channel(&self, assembly: &VehicleAssembly) -> u8 {
+        u8::from(assembly.camera_equipped())
     }
 
     fn toggle_retro_flip(&mut self, assembly: &VehicleAssembly) -> bool {
@@ -123,15 +132,9 @@ impl CraftDrive for RocketDrive {
             self.flip_retro = false;
         }
         let flipping = self.step_retro_flip(assembly, dt);
-        let mut target_plume = order.plume_channels();
-        if flipping && target_plume.1.abs() < 0.85 {
-            target_plume.1 = 0.85;
-        }
-        let blend = (14.0 * dt).clamp(0.0, 1.0);
-        self.plume = (
-            self.plume.0 + (target_plume.0 - self.plume.0) * blend,
-            self.plume.1 + (target_plume.1 - self.plume.1) * blend,
-        );
+        let stick_z = if flipping && pedals.planar.1.abs() < 0.85 { 0.85 } else { pedals.planar.1 };
+        let target_controls = RocketControls::clamped(pedals.planar.0, stick_z, pedals.vertical);
+        self.controls = self.controls.blended(target_controls, 14.0 * dt);
         if order.active_burn() || flipping {
             let next_phase = self.roar_phase + dt * 3.4;
             if self.roar_phase.floor() != next_phase.floor() {
@@ -149,7 +152,7 @@ impl CraftDrive for RocketDrive {
                 assembly,
                 order,
             ),
-            assembly.normal(),
+            assembly,
             world,
         );
         let stepped = chain.resolve(dt);

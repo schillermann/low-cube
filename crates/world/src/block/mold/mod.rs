@@ -52,6 +52,8 @@ impl BlockMold {
             MoldArchetype::from_code(self.archetype.code() % 8)
         } else if matches!(medium, BlockMedium::RocketNozzle) {
             MoldArchetype::from_code(self.archetype.code() % 2)
+        } else if matches!(medium, BlockMedium::RocketCamera) {
+            MoldArchetype::from_code(self.archetype.code() % 3)
         } else {
             self.archetype
         };
@@ -65,6 +67,8 @@ impl BlockMold {
             self.archetype.next_camera_turn()
         } else if matches!(self.medium, BlockMedium::RocketNozzle) {
             self.archetype.next_nozzle_axis()
+        } else if matches!(self.medium, BlockMedium::RocketCamera) {
+            self.archetype.next_pod_axis()
         } else {
             self.archetype.next()
         };
@@ -78,6 +82,8 @@ impl BlockMold {
             self.archetype.prev_camera_turn()
         } else if matches!(self.medium, BlockMedium::RocketNozzle) {
             self.archetype.prev_nozzle_axis()
+        } else if matches!(self.medium, BlockMedium::RocketCamera) {
+            self.archetype.prev_pod_axis()
         } else {
             self.archetype.prev()
         };
@@ -88,6 +94,13 @@ impl BlockMold {
     pub const fn turn_counter_clockwise(self) -> Self { Self::with_medium(self.archetype, self.turn.turn_counter_clockwise(), self.medium) }
     pub const fn full_height_flat(self) -> bool { self.archetype.full_height_flat() }
     pub const fn medium(self) -> BlockMedium { self.medium }
+    pub const fn attitude_thruster(self) -> bool {
+        matches!(self.medium, BlockMedium::RocketNozzle) && (self.archetype.code() % 2 == 1)
+    }
+    pub const fn wall_mounted_pod(self) -> bool {
+        self.attitude_thruster()
+            || (matches!(self.medium, BlockMedium::RocketCamera) && (self.archetype.code() % 3 == 2))
+    }
     pub const fn chronicle_bytes(self) -> [u8; 3] {
         [self.archetype.code(), self.turn.code(), self.medium.code()]
     }

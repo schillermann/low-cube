@@ -8,9 +8,13 @@ mod wheeled;
 #[cfg(test)]
 mod expanse_tests;
 #[cfg(test)]
+mod lunar_tests;
+#[cfg(test)]
 mod multiplayer_tests;
 #[cfg(test)]
 mod nozzle_tests;
+#[cfg(test)]
+mod rocket_pose_tests;
 #[cfg(test)]
 mod rocket_tests;
 #[cfg(test)]
@@ -20,6 +24,7 @@ mod tests;
 
 use glam::{Mat3, Quat, Vec3};
 use world::{ClimateZone, MeshTarget, PlanetaryWorld, VehicleAssembly};
+use crate::attire::BodyPose;
 use crate::controls::{KeyboardControls, LocomotionTarget};
 pub use self::pilot::VehiclePilot;
 use self::rocket::RocketDrive;
@@ -31,7 +36,9 @@ pub(super) const SEAT_EYE_SUPPORT: f32 = 1.0;
 /// Polymorphic propulsion strategy driving a `HelmedCraft` without car-vs-rocket type inspection.
 pub trait CraftDrive: Send + Sync {
     fn motion_channels(&self) -> (f32, f32);
+    fn shape_pilot_pose(&self, pose: BodyPose) -> BodyPose;
     fn free_look(&self) -> bool;
+    fn helm_optic_channel(&self, _assembly: &VehicleAssembly) -> u8 { 0 }
     fn toggle_retro_flip(&mut self, _assembly: &VehicleAssembly) -> bool { false }
     fn advance(
         &mut self,
@@ -105,8 +112,11 @@ impl HelmedCraft {
     }
 
     pub const fn identity(&self) -> world::CraftIdentity { self.assembly.identity() }
-    pub fn steer_turn(&self) -> f32 { self.drive.motion_channels().1 }
+    pub fn shape_pilot_pose(&self, pose: BodyPose) -> BodyPose {
+        self.drive.shape_pilot_pose(pose.with_surface_rotation(self.body_rotation()))
+    }
     pub fn free_look(&self) -> bool { self.drive.free_look() }
+    pub fn helm_optic_channel(&self) -> u8 { self.drive.helm_optic_channel(&self.assembly) }
     pub fn chassis_up(&self) -> Vec3 { self.assembly.normal().normalize_or_zero() }
     pub fn blend_subtick(&mut self, alpha: f32) { self.origin_span.1 = alpha.clamp(0.0, 1.0); }
     pub fn toggle_retro_flip(&mut self) -> bool { self.drive.toggle_retro_flip(&self.assembly) }
