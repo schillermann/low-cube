@@ -1,8 +1,8 @@
 use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
-    CraftPose, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget, PilotCraft,
-    PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
+    CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
+    PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
 };
 
 const SURFACE_PARK_CLEARANCE: f32 = 4.5;
@@ -159,6 +159,29 @@ impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
     }
     fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
         self.origin.passenger_seat_frame(craft, local_seat)
+    }
+
+    fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> {
+        for craft in &self.drifting {
+            if let Some(frame) = DeckFrame::probe(craft.blueprint(), craft.pose(), position, player_height) {
+                return Some(frame);
+            }
+        }
+        self.origin.sample_deck_frame(position, player_height)
+    }
+
+    fn resolve_deck_pose(&self, id: CraftIdentity) -> Option<(CraftPose, f32)> {
+        if let Some(craft) = self.drifting.iter().find(|c| c.identity() == id) {
+            return Some((craft.pose(), DeckFrame::thrust_from_pose(craft.pose())));
+        }
+        self.origin.resolve_deck_pose(id)
+    }
+
+    fn constrain_on_craft(&self, id: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> {
+        if let Some(craft) = self.drifting.iter().find(|c| c.identity() == id) {
+            return craft.blueprint().constrain_at(craft.pose(), position, player_height);
+        }
+        self.origin.constrain_on_craft(id, position, player_height)
     }
     fn helm_revoked(&mut self, craft: CraftIdentity) -> bool { self.origin.helm_revoked(craft) }
 

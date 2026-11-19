@@ -8,6 +8,20 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.85.0] - 2026-11-19
+
+### Added
+- Added lateral reaction-control Steuerdüsen (`AttitudeNozzleMesh` and `NozzleAxis::Attitude` in `crates/world/src/block/space_parts/`, `AttitudeImpulse` in `crates/world/src/relief/vehicle_assembly/impulse.rs`) toggled via mouse wheel scroll on `RocketNozzle` (`crates/world/src/block/mold/`), oriented with the nozzle cone facing the player in hand and bolting flush onto rocket side walls for active 6-DOF pitch/yaw steering and braking (`crates/client/src/drive/nozzle_tests.rs`).
+- Added live cockpit outboard hull cameras (`CraftBlueprint::push_camera_views` in `crates/world/src/relief/craft_entity/blueprint.rs` and `CockpitBerth::handle_cockpit_trigger` in `crates/client/src/avatar/berth.rs`) providing Zenith nose-cone, Nadir landing-pad, and directional hull camera feeds with one-click Polaroid space photography for spacecraft carrying `FieldCamera` blocks.
+- Added floating 3D holographic Earth-Moon-Spacecraft wireframe orrery `ConsoleOrrery` (`crates/world/src/block/space_parts/orrery.rs`) projected above helmed `FlightConsole` decks and automated 180-degree retrograde Flip-and-Burn maneuvers (`RocketDrive::step_retro_flip` in `crates/client/src/drive/rocket.rs`).
+- Added zero-allocation ship-local Thrust Gravity and `0.0g` cabin float (`DeckFrame` in `crates/world/src/relief/craft_entity/deck.rs` and `DeckFooting` in `crates/client/src/avatar/deck.rs`) across `OrbitalFleetWorld`, `HostedPlanet`, `RemotePlanet`, and `ConduitPlanet` so unseated Co-op crew walk on accelerating spacecraft decks and float inside coasting cabins without falling behind (`crates/client/src/drive/expanse_tests.rs`).
+
+### Changed
+- Bounded maximum spacecraft acceleration (`MAX_THRUST_ACCEL` in `crates/world/src/relief/vehicle_assembly/impulse.rs`) and enforced quartic thrust tapering plus a strict `45.0 m/s` cosmic speed cap (`SpaceState::bounded` and `NozzleThrustStep` in `crates/client/src/drive/space_step.rs`) so sustained burns or stacked nozzles never accelerate infinitely.
+
+### Fixed
+- Fixed `RocketNozzle` palm mold initialization (`HeldRelic::independent_palm_mold` in `crates/client/src/attire/relic/mod.rs`, `BeltSatchel::transition_attire` in `crates/client/src/attire/pouch/mod.rs`, `PalmStack::reconcile_attire`, and `SatchelIntake`) and sculpted `RocketNozzleMesh` (`crates/world/src/block/space_parts/nozzle.rs`) with a closed top bulkhead and octagonal bottom bell so equipping a thruster always starts downward.
+
 ## [0.84.1] - 2026-11-19
 
 ### Changed

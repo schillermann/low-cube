@@ -3,8 +3,9 @@ use std::time::Duration;
 use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, CelestialSystem, CleaveOutcome, CompanionPresence, CraftBlueprint,
-    CraftIdentity, CraftPose, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
-    PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks, WorldFact,
+    CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing,
+    MeshTarget, PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
+    WorldFact,
 };
 use crate::chronicled_planet::{ChronicledPlanet, FactJournal};
 use crate::fleet_ledger::FleetLedger;
@@ -202,6 +203,33 @@ impl PlanetaryWorld for RemotePlanet {
         let mut crafts = Vec::new();
         self.journal.crafts(&mut crafts);
         crafts.into_iter().find(|c| c.identity() == craft).map(|c| c.pose().world_seat_at(local_seat))
+    }
+
+    fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> {
+        let mut crafts = Vec::new();
+        self.journal.crafts(&mut crafts);
+        self.journal
+            .fleet()
+            .sample_deck_at(&crafts, position, player_height)
+            .or_else(|| self.world.sample_deck_frame(position, player_height))
+    }
+
+    fn resolve_deck_pose(&self, craft: CraftIdentity) -> Option<(CraftPose, f32)> {
+        let mut crafts = Vec::new();
+        self.journal.crafts(&mut crafts);
+        self.journal
+            .fleet()
+            .resolve_deck_pose(&crafts, craft)
+            .or_else(|| self.world.resolve_deck_pose(craft))
+    }
+
+    fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> {
+        let mut crafts = Vec::new();
+        self.journal.crafts(&mut crafts);
+        self.journal
+            .fleet()
+            .constrain_craft_by_id(&crafts, craft, position, player_height)
+            .or_else(|| self.world.constrain_on_craft(craft, position, player_height))
     }
 
     fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {

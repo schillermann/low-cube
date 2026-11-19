@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::block::GridCell;
+use crate::block::{ConsoleOrrery, GridCell};
 use crate::{MeshTarget, Quad};
 use super::super::vehicle_assembly::{PilotOrder, RigidImpulse, VehiclePart};
 use super::pose::CraftPose;
@@ -108,6 +108,28 @@ impl CraftBlueprint {
 
     pub fn spacefaring(&self) -> bool {
         self.parts.iter().any(VehiclePart::flight_console)
+    }
+
+    pub fn attitude_capable(&self) -> bool {
+        self.parts.iter().any(VehiclePart::attitude_pod)
+    }
+
+    pub fn push_camera_views(&self, pose: CraftPose, out: &mut Vec<(Vec3, Vec3, Vec3)>) {
+        let car_frame = pose.surface_frame();
+        let shift = pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
+        let lift = self.wheel_ground_lift();
+        let ship_up = pose.normal().normalize_or_zero();
+        let ship_fwd = (pose.heading() - ship_up * pose.heading().dot(ship_up)).normalize_or_zero();
+        let min_floor = self.parts.iter().filter_map(|p| p.any_ceiling(lift).map(|(f, _)| f)).fold(0.0f32, f32::min);
+        for part in &self.parts {
+            let Some((hub, lens_fwd, _, part_floor)) = part.camera_lens_at(lift, &car_frame) else { continue };
+            let world_hub = shift + hub;
+            if self.spacefaring() {
+                out.push((world_hub + ship_up * 0.36, ship_up, -ship_fwd));
+                out.push((world_hub - ship_up * ((part_floor - min_floor).max(0.0) + 0.58), -ship_up, ship_fwd));
+            }
+            out.push((world_hub + lens_fwd * 0.22 + ship_up * 0.02, lens_fwd, ship_up));
+        }
     }
 
     pub fn sample_impulse(&self, order: &PilotOrder, pose: CraftPose) -> RigidImpulse {
@@ -223,11 +245,18 @@ impl CraftBlueprint {
     pub fn emit_at(&self, pose: CraftPose, target: &mut dyn MeshTarget) {
         let car_frame = pose.surface_frame();
         let shift = pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
-        let mut shifted = ShiftedMeshTarget::new(shift, target);
-        let (top_col, wall_col) = (Vec3::new(0.45, 0.30, 0.17), Vec3::new(0.41, 0.27, 0.15));
         let lift = self.wheel_ground_lift();
+        {
+            let mut shifted = ShiftedMeshTarget::new(shift, target);
+            let (top_col, wall_col) = (Vec3::new(0.45, 0.30, 0.17), Vec3::new(0.41, 0.27, 0.15));
+            for part in &self.parts {
+                part.emit_driven(lift, pose.wheel_spin(), pose.steer_turn(), &car_frame, top_col, wall_col, &mut shifted);
+            }
+        }
         for part in &self.parts {
-            part.emit_driven(lift, pose.wheel_spin(), pose.steer_turn(), &car_frame, top_col, wall_col, &mut shifted);
+            if let Some(base) = part.console_base_at(lift, &car_frame) {
+                ConsoleOrrery::new(pose.origin(), shift + base, (pose.heading(), pose.normal())).emit(target);
+            }
         }
     }
 

@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
-    CraftPose, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget, PilotCraft,
-    PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
+    CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
+    PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
 };
 use crate::mailbox::{PortalMailbox, SocketLoop};
 
@@ -85,6 +85,9 @@ impl PlanetaryWorld for ConduitPlanet {
     fn canopy_drag(&self, position: Vec3) -> f32 { self.read_world(|w| w.canopy_drag(position)) }
     fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> { self.read_world(|w| w.board_passenger_seat(eye, direction)) }
     fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> { self.read_world(|w| w.passenger_seat_frame(craft, local_seat)) }
+    fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> { self.read_world(|w| w.sample_deck_frame(position, player_height)) }
+    fn resolve_deck_pose(&self, craft: CraftIdentity) -> Option<(CraftPose, f32)> { self.read_world(|w| w.resolve_deck_pose(craft)) }
+    fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> { self.read_world(|w| w.constrain_on_craft(craft, position, player_height)) }
     fn helm_revoked(&mut self, craft: CraftIdentity) -> bool { self.write_world(|w| w.helm_revoked(craft)) }
     fn emit_active_crafts(&self, target: &mut dyn MeshTarget) { self.read_world(|w| w.emit_active_crafts(target)); }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.read_world(|w| w.placed_camera_tripod()) }

@@ -51,7 +51,7 @@ impl BlockMold {
         } else if matches!(medium, BlockMedium::FieldCamera) {
             MoldArchetype::from_code(self.archetype.code() % 8)
         } else if matches!(medium, BlockMedium::RocketNozzle) {
-            MoldArchetype::from_code(self.archetype.code() % 3)
+            MoldArchetype::from_code(self.archetype.code() % 2)
         } else {
             self.archetype
         };

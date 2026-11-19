@@ -135,6 +135,11 @@ impl LocomotionOrder {
         self.leap.apply(flight);
     }
 
+    /// Indicates whether a jump impulse was requested on this step.
+    pub const fn jump_active(&self) -> bool {
+        matches!(self.leap, LeapIntent::Active)
+    }
+
     /// Advances avatar posture towards this order's active gait across elapsed time.
     pub fn advance_posture(&self, posture: AvatarPosture, dt: f32) -> AvatarPosture {
         self.gait.shape_posture(posture, dt)

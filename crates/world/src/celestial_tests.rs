@@ -6,19 +6,58 @@ use crate::{
 };
 
 #[test]
-fn test_nozzle_axis_reaction_thrust_opposes_bell_direction() {
+fn test_nozzle_axis_toggles_between_downward_main_bell_and_attitude_pod() {
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
     let down = NozzleAxis::from_mold(MoldArchetype::from_code(0), WedgeHeading::North);
     assert_eq!(down, NozzleAxis::Downward);
+    assert!(!down.attitude_pod());
     assert!((down.thrust_vector(&frame) - Vec3::Y).length() < 1e-5);
 
-    let aft = NozzleAxis::from_mold(MoldArchetype::from_code(1), WedgeHeading::South);
-    assert_eq!(aft, NozzleAxis::Lateral(WedgeHeading::South));
-    assert!((aft.thrust_vector(&frame) - Vec3::Z).length() < 1e-5);
+    let rcs = NozzleAxis::from_mold(MoldArchetype::from_code(1), WedgeHeading::North);
+    assert_eq!(rcs, NozzleAxis::Attitude(WedgeHeading::North));
+    assert!(rcs.attitude_pod());
+    assert!((rcs.exhaust_vector(&frame) - Vec3::NEG_Z).length() < 1e-5);
+    assert!((rcs.thrust_vector(&frame) - Vec3::Z).length() < 1e-5);
 
-    let retro_up = NozzleAxis::from_mold(MoldArchetype::from_code(2), WedgeHeading::North);
-    assert_eq!(retro_up, NozzleAxis::Upward);
-    assert!((retro_up.thrust_vector(&frame) - Vec3::NEG_Y).length() < 1e-5);
+    let mold = BlockMold::cube().in_medium(BlockMedium::RocketNozzle);
+    let scrolled = mold.next_form();
+    let scrolled_back = scrolled.next_form();
+    assert_eq!(mold.chronicle_bytes()[0], 0);
+    assert_eq!(scrolled.chronicle_bytes()[0], 1);
+    assert_eq!(scrolled_back.chronicle_bytes()[0], 0);
+}
+
+#[test]
+fn test_attitude_nozzle_steers_spacecraft_and_fires_retro_descent_jet() {
+    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
+    let axes = VehicleAxes::new(Vec3::X, Vec3::Z, Vec3::Y);
+    let seat_mold = BlockMold::with_medium(MoldArchetype::FullCube, CardinalTurn::Forward, BlockMedium::CabinSeat);
+    let console_mold = BlockMold::with_medium(MoldArchetype::FullCube, CardinalTurn::Forward, BlockMedium::FlightConsole);
+    let rcs_mold = BlockMold::cube().next_form().in_medium(BlockMedium::RocketNozzle);
+
+    let rcs_bp = CraftBlueprint::commission(
+        Vec3::ZERO,
+        vec![
+            VehiclePart::new((0, 0), 0.0, seat_mold.shape_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 1), 0.0, console_mold.shape_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, -1), 0.0, rcs_mold.shape_for(Vec3::Z, &frame)),
+        ],
+    );
+    let pose = CraftPose::parked(Vec3::ZERO, axes, Vec3::Z);
+    let pitch_forward = PilotOrder::new(Vec3::Z);
+    let pitch_imp = rcs_bp.sample_impulse(&pitch_forward, pose);
+    assert!(pitch_imp.velocity_delta(1.0).z > 8.0, "Aft Steuerdüse must push craft forward");
+    let tilted_up = pitch_imp.attitude_step(0.2) * Vec3::Y;
+    assert!(tilted_up.z > 0.05, "Steuerdüse must actively pitch spacecraft nose forward on W");
+
+    let yaw_right = PilotOrder::new(Vec3::X);
+    let yaw_imp = rcs_bp.sample_impulse(&yaw_right, pose);
+    let turned_fwd = yaw_imp.attitude_step(0.2) * Vec3::Z;
+    assert!(turned_fwd.x < -0.05, "Steuerdüse must actively yaw spacecraft heading on D");
+
+    let retro_down = PilotOrder::new(Vec3::NEG_Y);
+    let retro_imp = rcs_bp.sample_impulse(&retro_down, pose);
+    assert!(retro_imp.velocity_delta(1.0).y < -8.0, "Steuerdüse dorsal horn must brake downward on Shift");
 }
 
 #[test]

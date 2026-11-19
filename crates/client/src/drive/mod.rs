@@ -6,7 +6,11 @@ mod space_step;
 mod track;
 mod wheeled;
 #[cfg(test)]
+mod expanse_tests;
+#[cfg(test)]
 mod multiplayer_tests;
+#[cfg(test)]
+mod nozzle_tests;
 #[cfg(test)]
 mod rocket_tests;
 #[cfg(test)]
@@ -28,6 +32,7 @@ pub(super) const SEAT_EYE_SUPPORT: f32 = 1.0;
 pub trait CraftDrive: Send + Sync {
     fn motion_channels(&self) -> (f32, f32);
     fn free_look(&self) -> bool;
+    fn toggle_retro_flip(&mut self, _assembly: &VehicleAssembly) -> bool { false }
     fn advance(
         &mut self,
         assembly: &mut VehicleAssembly,
@@ -104,6 +109,22 @@ impl HelmedCraft {
     pub fn free_look(&self) -> bool { self.drive.free_look() }
     pub fn chassis_up(&self) -> Vec3 { self.assembly.normal().normalize_or_zero() }
     pub fn blend_subtick(&mut self, alpha: f32) { self.origin_span.1 = alpha.clamp(0.0, 1.0); }
+    pub fn toggle_retro_flip(&mut self) -> bool { self.drive.toggle_retro_flip(&self.assembly) }
+
+    pub fn camera_views(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) {
+        let (prev, alpha) = self.origin_span;
+        let cur = self.assembly.origin();
+        let visual_shift = if (cur - prev).length_squared() > 64.0 {
+            Vec3::ZERO
+        } else {
+            prev.lerp(cur, alpha) - cur
+        };
+        let start = out.len();
+        self.assembly.push_camera_views(out);
+        for view in &mut out[start..] {
+            view.0 += visual_shift;
+        }
+    }
 
     pub fn pilot_craft(&self) -> world::PilotCraft {
         let (m0, m1) = self.drive.motion_channels();

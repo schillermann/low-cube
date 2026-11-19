@@ -75,7 +75,13 @@ impl PalmStack {
 
     pub(super) fn reconcile_attire(&mut self, attire: YouthAttire) {
         let (r, l) = attire.held_pair();
-        if r.placeable_block() && l.placeable_block() && !r.field_camera() && !l.field_camera() {
+        if r.independent_palm_mold() && self.right_blocks == 0 {
+            self.reset_mold(1.0);
+        }
+        if l.independent_palm_mold() && self.left_blocks == 0 {
+            self.reset_mold(-1.0);
+        }
+        if r.placeable_block() && l.placeable_block() && !r.independent_palm_mold() && !l.independent_palm_mold() {
             if self.right_blocks == 0 && self.left_blocks > 0 {
                 self.molds = self.molds.synced_from_opposite(1.0);
             } else if self.left_blocks == 0 && self.right_blocks > 0 {

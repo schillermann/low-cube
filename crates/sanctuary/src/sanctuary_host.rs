@@ -1,8 +1,8 @@
 use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
-    CompanionPresence, CraftIdentity, DrivenCraft, ExposedStratum, MeshTarget, PilotCraft,
-    PlanetaryWorld, WorldFact,
+    CompanionPresence, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum,
+    MeshTarget, PilotCraft, PlanetaryWorld, WorldFact,
 };
 use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_log::ChronicleLog;
@@ -140,6 +140,33 @@ impl SanctuaryHost {
         let mut crafts = Vec::new();
         self.state.guest_crafts(&mut crafts);
         crafts.into_iter().find(|c| c.identity() == craft).map(|c| c.pose().world_seat_at(local_seat))
+    }
+
+    pub fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> {
+        let mut crafts = Vec::new();
+        self.state.guest_crafts(&mut crafts);
+        self.state
+            .fleet()
+            .sample_deck_at(&crafts, position, player_height)
+            .or_else(|| self.world.sample_deck_frame(position, player_height))
+    }
+
+    pub fn resolve_deck_pose(&self, craft: CraftIdentity) -> Option<(CraftPose, f32)> {
+        let mut crafts = Vec::new();
+        self.state.guest_crafts(&mut crafts);
+        self.state
+            .fleet()
+            .resolve_deck_pose(&crafts, craft)
+            .or_else(|| self.world.resolve_deck_pose(craft))
+    }
+
+    pub fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> {
+        let mut crafts = Vec::new();
+        self.state.guest_crafts(&mut crafts);
+        self.state
+            .fleet()
+            .constrain_craft_by_id(&crafts, craft, position, player_height)
+            .or_else(|| self.world.constrain_on_craft(craft, position, player_height))
     }
 
     pub fn blend_companions(&mut self, subtick_secs: f32) {

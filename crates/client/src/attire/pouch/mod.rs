@@ -104,6 +104,17 @@ impl BeltSatchel {
         self
     }
 
+    pub fn transition_attire(mut self, prev: YouthAttire, next: YouthAttire) -> Self {
+        let ((pr, pl), (nr, nl)) = (prev.held_pair(), next.held_pair());
+        if nr != pr && nr.independent_palm_mold() {
+            self.palms.reset_mold(1.0);
+        }
+        if nl != pl && nl.independent_palm_mold() {
+            self.palms.reset_mold(-1.0);
+        }
+        self.reconcile_attire(next)
+    }
+
     pub fn toggle_open(self) -> (Self, bool) {
         (Self::new(self.palms, self.tray.toggled_open(), self.tripod), true)
     }
@@ -122,9 +133,9 @@ impl BeltSatchel {
                 if hand.gripped() {
                     next_tray = next_tray.stowed_with(hand, state.palms.blocks_on(side));
                 }
-                if chosen.placeable_block() && other.placeable_block() && !chosen.field_camera() && !other.field_camera() {
+                if chosen.placeable_block() && other.placeable_block() && !chosen.independent_palm_mold() && !other.independent_palm_mold() {
                     state.palms.sync_mold_from_opposite(side);
-                } else if !chosen.placeable_block() || chosen.field_camera() {
+                } else if !chosen.placeable_block() || chosen.independent_palm_mold() {
                     state.palms.reset_mold(side);
                 }
                 state.palms.assign_blocks(side, u32::from(chosen.placeable_block()));
@@ -135,7 +146,7 @@ impl BeltSatchel {
         if hand.gripped() {
             state.tray = state.tray.closed().stowed_with(hand, state.palms.blocks_on(side)).focused_on(side);
             state.palms.assign_blocks(side, 0);
-            if hand.field_camera() {
+            if hand.independent_palm_mold() {
                 state.palms.reset_mold(side);
             }
             (state, attire.with_hand_relic(side, HeldRelic::EmptyPalm), true)

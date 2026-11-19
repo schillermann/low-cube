@@ -138,8 +138,8 @@ impl MoldArchetype {
 
     pub const fn next_camera_turn(self) -> Self { Self::from_code((self.code() + 1) % 8) }
     pub const fn prev_camera_turn(self) -> Self { Self::from_code((self.code() + 7) % 8) }
-    pub const fn next_nozzle_axis(self) -> Self { Self::from_code((self.code() + 1) % 3) }
-    pub const fn prev_nozzle_axis(self) -> Self { Self::from_code((self.code() + 2) % 3) }
+    pub const fn next_nozzle_axis(self) -> Self { Self::from_code((self.code() + 1) % 2) }
+    pub const fn prev_nozzle_axis(self) -> Self { Self::from_code((self.code() + 1) % 2) }
 
     pub const fn placed_camera_yaw(self) -> f32 {
         match self.code() % 8 {

@@ -40,8 +40,8 @@ mod wedge_seam_tests;
 
 pub(crate) use corner::NaturalCrown;
 pub use craft_entity::{
-    BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, HelmLocks, SeatOccupancy,
-    WorldCraft,
+    BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, DeckFrame, HelmLocks,
+    SeatOccupancy, WorldCraft,
 };
 pub use crust_vault::CrustVault;
 pub use elevation::ReliefElevation;

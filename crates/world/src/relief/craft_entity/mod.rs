@@ -1,10 +1,12 @@
 mod blueprint;
+mod deck;
 mod pose;
 
 use glam::Vec3;
 use crate::MeshTarget;
 use crate::presence::DrivenCraft;
 pub use self::blueprint::{CraftBlueprint, CraftIdentity};
+pub use self::deck::DeckFrame;
 pub use self::pose::{CraftPose, SeatOccupancy};
 
 /// Living planetary vehicle entity uniting identity, immutable blueprint, pose, and seat occupancy.
@@ -107,6 +109,33 @@ impl BlueprintCatalog {
             }
         }
         None
+    }
+
+    pub fn sample_deck_at(&self, crafts: &[DrivenCraft], position: Vec3, player_height: f32) -> Option<DeckFrame> {
+        for craft in crafts {
+            let Some(bp) = self.find(craft.identity()) else { continue };
+            if let Some(frame) = DeckFrame::probe(bp, craft.pose(), position, player_height) {
+                return Some(frame);
+            }
+        }
+        None
+    }
+
+    pub fn resolve_deck_pose(&self, crafts: &[DrivenCraft], id: CraftIdentity) -> Option<(CraftPose, f32)> {
+        let craft = crafts.iter().find(|c| c.identity() == id)?;
+        Some((craft.pose(), DeckFrame::thrust_from_pose(craft.pose())))
+    }
+
+    pub fn constrain_craft_by_id(
+        &self,
+        crafts: &[DrivenCraft],
+        id: CraftIdentity,
+        position: Vec3,
+        player_height: f32,
+    ) -> Option<Vec3> {
+        let craft = crafts.iter().find(|c| c.identity() == id)?;
+        let bp = self.find(id)?;
+        bp.constrain_at(craft.pose(), position, player_height)
     }
 }
 

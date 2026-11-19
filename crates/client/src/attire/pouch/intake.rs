@@ -41,7 +41,7 @@ impl SatchelIntake {
         let (hand, other) = attire.hand_pair(side);
         if hand.free_palm() || (!hand.placeable_block() && other.free_palm()) {
             let (target, opp) = if hand.free_palm() { (side, other) } else { (-side, hand) };
-            if opp == relic {
+            if opp == relic && !relic.independent_palm_mold() {
                 self.palms.sync_mold_from_opposite(target);
             } else {
                 self.palms.reset_mold(target);
@@ -65,12 +65,12 @@ impl SatchelIntake {
         let (r, l) = attire.held_pair();
         self.tray = self.tray.focused_on(side);
         let next_attire = if (side > 0.0 && r.free_palm()) || (r.free_palm() && !l.free_palm()) {
-            if !l.placeable_block() || relic.field_camera() || l.field_camera() {
+            if !l.placeable_block() || relic.independent_palm_mold() || l.independent_palm_mold() {
                 self.palms.reset_mold(1.0);
             }
             attire.with_relics(relic, l)
         } else if l.free_palm() {
-            if !r.placeable_block() || relic.field_camera() || r.field_camera() {
+            if !r.placeable_block() || relic.independent_palm_mold() || r.independent_palm_mold() {
                 self.palms.reset_mold(-1.0);
             }
             attire.with_relics(r, relic)

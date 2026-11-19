@@ -1,10 +1,11 @@
+use std::f32::consts::PI;
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
 use super::super::cell::GridCell;
 use super::NozzleAxis;
 
-/// Sculpted bell-shaped rocket thruster nozzle with cooling ribs and live glowing exhaust plume.
+/// Sculpted De Laval main rocket bell nozzle with top mounting bulkhead and downward exhaust plume.
 pub struct RocketNozzleMesh {
     axis: NozzleAxis,
     plume_glow: f32,
@@ -26,7 +27,7 @@ impl RocketNozzleMesh {
             frame.normal()
         };
         let side_a = exhaust.cross(ref_vec).normalize_or_zero();
-        let side_b = side_a.cross(exhaust).normalize_or_zero();
+        let side_b = exhaust.cross(side_a).normalize_or_zero();
         (center, side_a, side_b, exhaust)
     }
 
@@ -45,27 +46,29 @@ impl RocketNozzleMesh {
         caps: (bool, bool),
         target: &mut dyn MeshTarget,
     ) {
-        let ring = |z: f32, r: f32| -> [Vec3; 4] {
-            let o = center + ex * z;
-            [o - sa * r - sb * r, o + sa * r - sb * r, o + sa * r + sb * r, o - sa * r + sb * r]
-        };
-        let ([a0, a1, a2, a3], [b0, b1, b2, b3]) = (ring(z0, r0), ring(z1, r1));
-        for (p0, p1, q1, q0) in [(a0, a1, b1, b0), (a1, a2, b2, b1), (a2, a3, b3, b2), (a3, a0, b0, b3)] {
-            let norm = (p1 - p0).cross(q0 - p0).normalize_or_zero();
-            target.push_quad(Quad::glowing(p0, p1, q1, q0, norm, col, glow));
-        }
-        if caps.0 {
-            target.push_quad(Quad::glowing(a0, a3, a2, a1, -ex, col, glow));
-        }
-        if caps.1 {
-            target.push_quad(Quad::glowing(b0, b1, b2, b3, ex, col, glow));
+        let (segs, step) = (8usize, (2.0 * PI) / 8.0);
+        let (mid0, mid1) = (center + ex * z0, center + ex * z1);
+        for i in 0..segs {
+            let ((s0, c0), (s1, c1)) = (((i as f32) * step).sin_cos(), (((i + 1) as f32) * step).sin_cos());
+            let (d0, d1) = (sa * c0 + sb * s0, sa * c1 + sb * s1);
+            let [a0, a1] = [mid0 + d0 * r0, mid0 + d1 * r0];
+            let [b0, b1] = [mid1 + d0 * r1, mid1 + d1 * r1];
+            let norm = (a1 - a0).cross(b0 - a0).normalize_or_zero();
+            target.push_quad(Quad::glowing(a0, a1, b1, b0, norm, col, glow));
+            if caps.0 {
+                target.push_quad(Quad::glowing(mid0, a1, a0, a0, -ex, col, glow));
+            }
+            if caps.1 {
+                target.push_quad(Quad::glowing(mid1, b0, b1, b1, ex, col, glow));
+            }
         }
     }
 
     pub fn emit(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let (center, sa, sb, ex) = self.axis_frame(cell, floor_elev, frame);
-        let mount_steel = Vec3::new(0.24, 0.26, 0.32);
-        let bell_graphite = Vec3::new(0.15, 0.16, 0.20);
+        let bulkhead_steel = Vec3::new(0.28, 0.31, 0.38);
+        let chamber_slate = Vec3::new(0.20, 0.22, 0.28);
+        let bell_graphite = Vec3::new(0.14, 0.15, 0.19);
         let brass_ring = Vec3::new(0.88, 0.68, 0.22);
         let throat_ember = if self.plume_glow > 0.02 {
             Vec3::new(1.00, 0.86, 0.42)
@@ -73,20 +76,24 @@ impl RocketNozzleMesh {
             Vec3::new(0.86, 0.28, 0.12)
         };
 
-        Self::emit_frustum(center, sa, sb, ex, -0.25, 0.22, -0.05, 0.19, mount_steel, 0.0, (true, false), target);
-        Self::emit_frustum(center, sa, sb, ex, -0.06, 0.205, 0.01, 0.145, brass_ring, 0.0, (true, true), target);
-        Self::emit_frustum(center, sa, sb, ex, 0.01, 0.13, 0.24, 0.22, bell_graphite, 0.0, (false, false), target);
-        Self::emit_frustum(center, sa, sb, ex, 0.12, 0.185, 0.15, 0.195, brass_ring, 0.0, (true, true), target);
+        Self::emit_frustum(center, sa, sb, ex, -0.25, 0.18, -0.19, 0.18, bulkhead_steel, 0.0, (true, true), target);
+        Self::emit_frustum(center, sa, sb, ex, -0.255, 0.09, -0.245, 0.09, brass_ring, 0.0, (true, false), target);
+        Self::emit_frustum(center, sa, sb, ex, -0.19, 0.125, -0.07, 0.105, chamber_slate, 0.0, (false, false), target);
+        Self::emit_frustum(center, sa, sb, ex, -0.08, 0.12, -0.02, 0.088, brass_ring, 0.0, (true, true), target);
+        Self::emit_frustum(center, sa, sb, ex, -0.02, 0.085, 0.11, 0.175, bell_graphite, 0.0, (false, false), target);
+        Self::emit_frustum(center, sa, sb, ex, 0.11, 0.175, 0.24, 0.238, bell_graphite, 0.0, (false, false), target);
+        Self::emit_frustum(center, sa, sb, ex, 0.08, 0.168, 0.105, 0.182, brass_ring, 0.0, (true, true), target);
+        Self::emit_frustum(center, sa, sb, ex, 0.175, 0.212, 0.20, 0.224, brass_ring, 0.0, (true, true), target);
 
         let throat_glow = if self.plume_glow > 0.02 { 0.98 } else { 0.55 };
-        Self::emit_frustum(center, sa, sb, ex, 0.22, 0.18, 0.245, 0.18, throat_ember, throat_glow, (false, true), target);
+        Self::emit_frustum(center, sa, sb, ex, 0.225, 0.205, 0.242, 0.205, throat_ember, throat_glow, (false, true), target);
 
         if self.plume_glow > 0.02 {
             let reach = 0.52 + 0.34 * self.plume_glow;
             let core_col = Vec3::new(0.98, 0.94, 0.68);
             let outer_col = Vec3::new(0.99, 0.38, 0.10);
-            Self::emit_frustum(center, sa, sb, ex, 0.24, 0.15, 0.24 + reach * 0.55, 0.06, core_col, 0.99, (false, true), target);
-            Self::emit_frustum(center, sa, sb, ex, 0.25, 0.19, 0.24 + reach, 0.02, outer_col, 0.94, (false, true), target);
+            Self::emit_frustum(center, sa, sb, ex, 0.24, 0.16, 0.24 + reach * 0.55, 0.06, core_col, 0.99, (false, true), target);
+            Self::emit_frustum(center, sa, sb, ex, 0.25, 0.20, 0.24 + reach, 0.02, outer_col, 0.94, (false, true), target);
         }
     }
 }

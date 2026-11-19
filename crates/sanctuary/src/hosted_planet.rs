@@ -1,9 +1,9 @@
 use std::net::SocketAddr;
 use glam::Vec3;
 use world::{
-    BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftIdentity, DrivenCraft,
-    ExposedStratum, GravityField, MeadowRing, MeshTarget, PilotCraft, PlanetaryWorld, SurfaceFind,
-    VehicleAssembly, WorldEarthworks,
+    BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftIdentity, CraftPose, DeckFrame,
+    DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget, PilotCraft, PlanetaryWorld,
+    SurfaceFind, VehicleAssembly, WorldEarthworks,
 };
 use crate::sanctuary_host::SanctuaryHost;
 
@@ -147,6 +147,18 @@ impl PlanetaryWorld for HostedPlanet {
 
     fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
         self.host.passenger_seat_frame(craft, local_seat)
+    }
+
+    fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> {
+        self.host.sample_deck_frame(position, player_height)
+    }
+
+    fn resolve_deck_pose(&self, craft: CraftIdentity) -> Option<(CraftPose, f32)> {
+        self.host.resolve_deck_pose(craft)
+    }
+
+    fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> {
+        self.host.constrain_on_craft(craft, position, player_height)
     }
 
     fn blend_companions(&mut self, subtick_secs: f32) {

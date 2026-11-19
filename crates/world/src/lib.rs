@@ -33,11 +33,12 @@ pub use celestial::{
     RadialWell, StarVault, TranslatedWorld,
 };
 pub use block::{
-    BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, CornerHeading, CuboidShape, DiagonalSlope,
-    ElevatedShape, FieldCameraTripod, FlightConsoleMesh, FootwellPlinth, GentleRidge, GentleValley,
-    GentleWedge, GridCell, MediumShape, MineralSeam, MoldArchetype, NozzleAxis, PalmMolds,
-    PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, RocketNozzleMesh, StairCorner, StairFlight,
-    ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
+    AttitudeNozzleMesh, BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, ConsoleOrrery,
+    CornerHeading, CuboidShape, DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh,
+    FootwellPlinth, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape, MineralSeam,
+    MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner,
+    RocketNozzleMesh, StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan,
+    WedgeHeading, WheelProfile,
 };
 pub use chronicle::WorldFact;
 pub use frame::SurfaceFrame;
@@ -49,11 +50,11 @@ pub use null_face::NullFace;
 pub use planet::{CubePlanet, PatchCoord};
 pub use presence::{CompanionPresence, DrivenCraft, PilotCraft, PresenceAttire, PresenceKinematics};
 pub use relief::{
-    BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, CrustVault, ExposedStratum,
-    FacetedReliefFace, HelmLocks, HollowVeins, LivingVeins, MeadowRing, MeadowStamp, PilotOrder,
-    ReliefElevation, ReliefFacet, ReliefPalette, RigidImpulse, SeatOccupancy, SubterraneanVeins,
-    SurfaceSightRay, TerracedRelief, VehicleAssembly, VehicleAxes, VehiclePart, WorldCraft,
-    MEADOW_RING_SLOTS,
+    BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, CrustVault, DeckFrame,
+    ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins, LivingVeins, MeadowRing,
+    MeadowStamp, PilotOrder, ReliefElevation, ReliefFacet, ReliefPalette, RigidImpulse,
+    SeatOccupancy, SubterraneanVeins, SurfaceSightRay, TerracedRelief, VehicleAssembly,
+    VehicleAxes, VehiclePart, WorldCraft, MEADOW_RING_SLOTS,
 };
 pub use topology::{
     BevelTransition, BeveledBoundary, ClimateZone, CoordinateFold, CubicBoundary, FacePerimeter,
@@ -140,6 +141,9 @@ pub trait PlanetaryWorld: GravityField + WorldEarthworks + Send {
     fn pump_portal(&mut self, _dt: f32) -> bool { false }
     fn board_passenger_seat(&self, _eye: Vec3, _direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> { None }
     fn passenger_seat_frame(&self, _craft: CraftIdentity, _local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> { None }
+    fn sample_deck_frame(&self, _position: Vec3, _player_height: f32) -> Option<DeckFrame> { None }
+    fn resolve_deck_pose(&self, _craft: CraftIdentity) -> Option<(CraftPose, f32)> { None }
+    fn constrain_on_craft(&self, _craft: CraftIdentity, _position: Vec3, _player_height: f32) -> Option<Vec3> { None }
     fn helm_revoked(&mut self, _craft: CraftIdentity) -> bool { false }
     fn emit_active_crafts(&self, _target: &mut dyn MeshTarget) {}
     fn face_patch_count(&self, _slice: usize) -> usize { 0 }

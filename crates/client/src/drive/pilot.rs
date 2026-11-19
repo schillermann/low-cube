@@ -26,6 +26,19 @@ impl VehiclePilot {
         }
     }
 
+    pub fn toggle_retro_flip(&mut self) -> bool {
+        match self {
+            Self::Driving(craft) => craft.toggle_retro_flip(),
+            _ => false,
+        }
+    }
+
+    pub fn camera_views(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) {
+        if let Self::Driving(craft) = self {
+            craft.camera_views(out);
+        }
+    }
+
     pub fn mount(&mut self, assembly: VehicleAssembly, world: &dyn PlanetaryWorld) -> (Vec3, Vec3) {
         let heading = assembly.heading();
         let drivable = assembly.drivable();

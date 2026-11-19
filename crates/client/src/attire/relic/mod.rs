@@ -132,6 +132,10 @@ impl HeldRelic {
         matches!(self, Self::FieldCamera)
     }
 
+    pub const fn independent_palm_mold(self) -> bool {
+        matches!(self, Self::FieldCamera | Self::RocketNozzle)
+    }
+
     pub const fn edible_provision(self) -> bool {
         matches!(self, Self::BoarMeat)
     }

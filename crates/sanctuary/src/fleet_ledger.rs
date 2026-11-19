@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{
-    BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, DrivenCraft, HelmLocks, MeshTarget,
-    VehicleAssembly, WorldEarthworks,
+    BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, HelmLocks,
+    MeshTarget, VehicleAssembly, WorldEarthworks,
 };
 
 /// Encapsulated blueprint catalog, helm ownership locks, and optimistic race-revocation list.
@@ -111,5 +111,23 @@ impl FleetLedger {
         direction: Vec3,
     ) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
         self.catalog.find_passenger_seat(crafts, eye, direction)
+    }
+
+    pub fn sample_deck_at(&self, crafts: &[DrivenCraft], position: Vec3, player_height: f32) -> Option<DeckFrame> {
+        self.catalog.sample_deck_at(crafts, position, player_height)
+    }
+
+    pub fn resolve_deck_pose(&self, crafts: &[DrivenCraft], id: CraftIdentity) -> Option<(CraftPose, f32)> {
+        self.catalog.resolve_deck_pose(crafts, id)
+    }
+
+    pub fn constrain_craft_by_id(
+        &self,
+        crafts: &[DrivenCraft],
+        id: CraftIdentity,
+        position: Vec3,
+        player_height: f32,
+    ) -> Option<Vec3> {
+        self.catalog.constrain_craft_by_id(crafts, id, position, player_height)
     }
 }

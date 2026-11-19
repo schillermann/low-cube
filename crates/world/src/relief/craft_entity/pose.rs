@@ -48,6 +48,14 @@ impl CraftPose {
         (seat, self.heading, self.axes.normal())
     }
 
+    pub fn local_point_of(self, world_pos: Vec3) -> Vec3 {
+        let frame = self.axes.surface_frame();
+        let shift = self.origin - frame.point_at(0.25, 0.25, 0.0);
+        let rel = world_pos - shift;
+        let (u, v) = frame.decompose(rel);
+        Vec3::new(u - 0.25, frame.elevation_of(rel), v - 0.25)
+    }
+
     pub fn steered(self, delta_yaw: f32) -> Self {
         self.rotated(Quat::from_axis_angle(self.axes.normal(), delta_yaw))
     }

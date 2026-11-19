@@ -2,6 +2,7 @@ mod bearing;
 mod berth;
 mod body;
 mod condition;
+mod deck;
 mod embodied;
 mod gear;
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use glam::{Mat4, Quat, Vec3};
 use fauna::{SightCone, WoodlandFauna};
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, PhotoShutter, SightMode, StrideRhythm, YouthAttire};
+use crate::attire::{BodyPose, CameraMount, PhotoShutter, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
 use crate::flight::GravitationalFlight;
@@ -88,6 +88,10 @@ impl EmbodiedAvatar {
         self.sight_line.project_placed_or_sight(aspect, tilt, sight, self.body.posture(), vpos, &self.pose_at(vpos), placed)
     }
 
+    fn active_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
+        self.body.hull_camera_lens().or_else(|| self.gear.placed_camera_lens())
+    }
+
     fn current_presence(&self) -> world::CompanionPresence {
         let pose = self.pose_at(self.body.position());
         world::CompanionPresence::new(0, pose.capture_kinematics(), self.bearing.rhythm().wire_tuple(), self.gear.presence_attire())
@@ -121,17 +125,26 @@ impl AvatarOptics for EmbodiedAvatar {
     fn sight_cone(&self) -> SightCone { self.sight_cone_for_mode(self.bearing.sight()) }
     fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone {
         let vpos = self.body.visual_position();
-        self.sight_line.sight_cone_at(sight, vpos, &self.pose_at(vpos), self.gear.placed_camera_lens())
+        self.sight_line.sight_cone_at(sight, vpos, &self.pose_at(vpos), self.active_camera_lens())
     }
-    fn view_projection_matrix(&self, aspect: f32) -> Mat4 { self.project_at_sight(aspect, self.bearing.sight(), None) }
-    fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 { self.project_at_sight(aspect, sight, self.gear.placed_camera_lens()) }
+    fn view_projection_matrix(&self, aspect: f32) -> Mat4 {
+        self.project_at_sight(aspect, self.bearing.sight(), self.body.hull_camera_lens())
+    }
+    fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 {
+        self.project_at_sight(aspect, sight, self.active_camera_lens())
+    }
     fn surface_rotation(&self) -> Quat { self.sight_line.surface_rotation() }
 }
 
 impl AvatarPresence for EmbodiedAvatar {
     fn emit_appearance(&self, target: &mut dyn MeshTarget) {
         self.body.emit_vehicle(target);
-        self.gear.emit_appearance(&self.visual_pose(), self.bearing.sight(), self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
+        let sight = if self.body.hull_camera_lens().is_some() {
+            SightMode::LookingGlassSight
+        } else {
+            self.bearing.sight()
+        };
+        self.gear.emit_appearance(&self.visual_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
     }
 
     fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
@@ -216,6 +229,15 @@ impl AvatarMotor for EmbodiedAvatar {
         let mut order = LocomotionOrder::idle();
         self.sight_line.drive_order(controls, &mut order);
         let order = self.gear.encumber_order(order);
+        if let Some((deck_pos, deck_up)) = self.body.step_ship_deck(&order, dt, world) {
+            self.sight_line.reorient_surface(deck_up, dt);
+            self.bearing.decay_tilt(dt);
+            self.sight_line.advance_lens(&order, self.body.posture(), dt);
+            self.bearing.advance_stride(pos, deck_pos, deck_up, dt);
+            self.body.relocate(deck_pos);
+            self.sight_line.constrain_shoulders(false, 0.0);
+            return;
+        }
         let facing = self.sight_line.view_direction();
         self.bearing.decay_tilt(dt);
         let (final_pos, wedged, lethal) = self.body.step_pedestrian(
@@ -245,6 +267,17 @@ impl Avatar for EmbodiedAvatar {
     fn apply_attire(&mut self, attire: YouthAttire) { self.gear.apply_attire(attire); }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.gear.apply_bindings(bindings); }
     fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
+        if !self.gear.satchel_open() && !self.body.perished() {
+            if self.body.hull_camera_lens().is_some()
+                && trigger == InputTrigger::WheelClick
+                && self.bearing.press_shutter(CameraMount::Handheld(SightMode::FirstPersonSight))
+            {
+                return true;
+            }
+            if self.body.handle_cockpit_trigger(trigger, self.gear.bindings()) {
+                return true;
+            }
+        }
         self.gear.dispatch_trigger(trigger, &mut self.bearing, self.body.perished())
     }
     fn blend_subtick(&mut self, alpha: f32) { self.body.blend_subtick(alpha); }

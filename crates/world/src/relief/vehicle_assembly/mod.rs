@@ -55,6 +55,8 @@ impl VehicleAssembly {
     pub const fn normal(&self) -> Vec3 { self.pose.normal() }
     pub fn drivable(&self) -> bool { self.blueprint.drivable() }
     pub fn spacefaring(&self) -> bool { self.blueprint.spacefaring() }
+    pub fn attitude_capable(&self) -> bool { self.blueprint.attitude_capable() }
+    pub fn push_camera_views(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) { self.blueprint.push_camera_views(self.pose, out); }
     pub fn sample_impulse(&self, order: &PilotOrder) -> RigidImpulse { self.blueprint.sample_impulse(order, self.pose) }
     pub fn seat_floor_offset(&self) -> f32 { self.blueprint.seat_floor_offset() }
     pub fn wheel_radius(&self) -> f32 { self.blueprint.wheel_radius() }

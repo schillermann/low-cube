@@ -57,6 +57,9 @@ impl PalmEarthworks {
     pub fn mold_next_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }
     pub fn mold_prev_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::prev_form)) }
     pub fn reconcile_attire(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.reconcile_attire(attire)) }
+    pub fn transition_attire(self, prev: YouthAttire, next: YouthAttire) -> Self {
+        self.with_satchel(self.satchel.transition_attire(prev, next))
+    }
     pub fn with_provisioned_satchel(self, provider: &dyn crate::server_satchel::StartingSatchel) -> Self {
         self.with_satchel(provider.provision(self.satchel))
     }

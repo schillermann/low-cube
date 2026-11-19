@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::BodyPose;
-use crate::controls::KeyboardControls;
+use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use crate::envelope::{BodyEnvelope, PhysicalEnvelope};
 use crate::flight::GravitationalFlight;
 use crate::order::LocomotionOrder;
@@ -41,6 +41,10 @@ impl AvatarBody {
     pub fn shape_pose(&self, pose: BodyPose) -> BodyPose { self.berth.shape_pose(pose) }
     pub fn pilot_craft(&self) -> world::PilotCraft { self.berth.pilot_craft() }
     pub fn emit_vehicle(&self, target: &mut dyn MeshTarget) { self.berth.emit(target); }
+    pub fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> { self.berth.hull_camera_lens() }
+    pub fn handle_cockpit_trigger(&mut self, trigger: InputTrigger, bindings: &ActionBindings) -> bool {
+        self.berth.handle_cockpit_trigger(trigger, bindings)
+    }
     pub fn nourish(&mut self) { self.posture = self.posture.nourish(); }
     pub fn pace_boost(&self) -> f32 { self.posture.pace_boost() }
 
@@ -188,6 +192,25 @@ impl AvatarBody {
             use acoustics::{AcousticWave, CardiacPulse};
             CardiacPulse::studio().thump();
         }
+    }
+
+    pub fn step_ship_deck(
+        &mut self,
+        order: &LocomotionOrder,
+        dt: f32,
+        world: &dyn PlanetaryWorld,
+    ) -> Option<(Vec3, Vec3)> {
+        let (final_pos, deck_up) = self.berth.step_aboard(
+            self.span.current(),
+            order,
+            6.0 * self.pace_boost(),
+            EYE_SUPPORT_HEIGHT,
+            dt,
+            world,
+        )?;
+        self.posture = order.advance_posture(self.posture, dt);
+        self.advance_leap(final_pos, deck_up, dt);
+        Some((final_pos, deck_up))
     }
 
     /// Confines pedestrian flight against deep shafts and subterranean crust ceilings, returning `(final_pos, wedged, lethal_hit)`.

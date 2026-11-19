@@ -115,6 +115,37 @@ impl VehiclePart {
         (self.offset == (cu, cv)).then_some((self.floor_offset + lift, self.floor_offset + lift + BLOCK_STEP))
     }
 
+    pub(in crate::relief) fn any_ceiling(&self, lift: f32) -> Option<(f32, f32)> {
+        Some((self.floor_offset + lift, self.floor_offset + lift + BLOCK_STEP))
+    }
+
+    pub(in crate::relief) fn camera_lens_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3, f32)> {
+        let cell = GridCell::new(self.offset.0, self.offset.1);
+        let (hub, base_fwd, up) = self.shape.camera_tripod_hub(cell, self.floor_offset + lift, frame)?;
+        let yaw = MoldArchetype::from_code(self.shape.shape_stamp()[0]).placed_camera_yaw();
+        let right = base_fwd.cross(up).normalize_or_zero();
+        let (s, c) = yaw.sin_cos();
+        let lens_fwd = (base_fwd * c + right * s).normalize_or_zero();
+        Some((hub, lens_fwd, up, self.floor_offset + lift))
+    }
+
+    pub(in crate::relief) fn console_base_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<Vec3> {
+        if !self.flight_console() {
+            return None;
+        }
+        let (uc, vc) = GridCell::new(self.offset.0, self.offset.1).center();
+        Some(frame.point_at(uc, vc, self.floor_offset + lift))
+    }
+
+    pub fn attitude_pod(&self) -> bool {
+        self.shape.block_medium() == BlockMedium::RocketNozzle
+            && NozzleAxis::from_mold(
+                MoldArchetype::from_code(self.shape.shape_stamp()[0]),
+                self.shape.block_heading(),
+            )
+            .attitude_pod()
+    }
+
     pub(in crate::relief) fn origin_seat_floor(&self) -> Option<f32> {
         (self.offset == (0, 0) && self.shape.block_medium() == BlockMedium::CabinSeat).then_some(self.floor_offset)
     }
@@ -164,8 +195,16 @@ impl VehiclePart {
                 let axis = NozzleAxis::from_mold(MoldArchetype::from_code(stamp[0]), self.shape.block_heading());
                 let thrust_dir = axis.thrust_vector(frame).normalize_or_zero();
                 let throttle = order.throttle_along(thrust_dir, right, up, fwd);
-                let lever = self.world_mass_center(lift, frame) - center_of_mass;
-                impulse.apply_nozzle_burn(lever, thrust_dir, throttle);
+                if axis.attitude_pod() {
+                    let retro_dir = -frame.normal().normalize_or_zero();
+                    let retro_throttle = order.throttle_along(retro_dir, right, up, fwd);
+                    impulse.apply_attitude_jet(thrust_dir, throttle);
+                    impulse.apply_attitude_jet(retro_dir, retro_throttle);
+                    impulse.apply_attitude_steer(order.attitude_rate(right, up));
+                } else {
+                    let lever = self.world_mass_center(lift, frame) - center_of_mass;
+                    impulse.apply_nozzle_burn(lever, thrust_dir, throttle);
+                }
             }
             _ => {}
         }

@@ -24,6 +24,10 @@ impl AvatarGear {
         Self { attire, earthworks, bindings }
     }
 
+    pub const fn bindings(&self) -> &ActionBindings {
+        &self.bindings
+    }
+
     pub fn satchel_open(&self) -> bool {
         self.earthworks.satchel_open()
     }
@@ -51,7 +55,7 @@ impl AvatarGear {
     pub fn apply_attire(&mut self, attire: YouthAttire) {
         let (r, l) = self.attire.held_pair();
         let merged = if !attire.armed() && self.attire.armed() { attire.with_relics(r, l) } else { attire };
-        (self.attire, self.earthworks) = (merged, self.earthworks.reconcile_attire(merged));
+        (self.attire, self.earthworks) = (merged, self.earthworks.transition_attire(self.attire, merged));
     }
 
     pub fn apply_bindings(&mut self, bindings: ActionBindings) {
