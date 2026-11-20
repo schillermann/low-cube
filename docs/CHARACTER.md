@@ -142,9 +142,9 @@ All 15 slots (`3 columns × 5 rows`) of [`SatchelTray`](../crates/client/src/att
 
 | Weight Grade | 10-Step Escalation | Held Items, Tools & Weapons | Placeable Blocks & Vehicle Parts | Corner Triangle Color (1–9×) |
 | :---: | :---: | :--- | :--- | :---: |
-| **`LIGHT`** | `10× -> MODERATE` | `DEADWOOD` (`DeadwoodBough`), `TIMBER TORCH` (`TimberTorch`), `FIELD CAMERA` (`FieldCamera`) | `WOOD PLANKS` (`PlankBlock`), `STEERING WHEEL` (`SteeringWheel`), `PEDAL BLOCK` (`PedalCluster`) | **Emerald Green** |
+| **`LIGHT`** | `10× -> MODERATE` | `DEADWOOD` (`DeadwoodBough`), `TIMBER TORCH` (`TimberTorch`), `FIELD CAMERA` (`FieldCamera`), `BLUEPRINT BLOCK` (`VehicleBlueprint`) | `WOOD PLANKS` (`PlankBlock`), `STEERING WHEEL` (`SteeringWheel`), `PEDAL BLOCK` (`PedalCluster`) | **Emerald Green** |
 | **`MODERATE`** | `10× -> WEIGHTY` | `FLINT STONE` (`FlintStone`), `WOODEN MALLET` (`WoodenMallet`) | `EARTH BLOCK` (`ExcavatedEarth`), `WOOD BLOCK` (`TimberBlock`), `SEAT BLOCK` (`CabinSeat`) | **Warm Amber** |
-| **`WEIGHTY`** | `10× -> HEAVY` | `IRON SPADE` (`IronSpade`), `WOODMAN AXE` (`WoodmanAxe`), `KNIGHT SWORD` (`KnightlySword`) | `STONE BLOCK` (`QuarriedStone`), `CROSS AXLE` (`CrossAxle`), `CAR WHEEL` (`CarWheel`) | **Burnt Orange** |
+| **`WEIGHTY`** | `10× -> HEAVY` | `IRON SPADE` (`IronSpade`), `WOODMAN AXE` (`WoodmanAxe`), `KNIGHT SWORD` (`KnightlySword`) | `STONE BLOCK` (`QuarriedStone`), `CAR WHEEL` (`CarWheel`) | **Burnt Orange** |
 | **`HEAVY`** | `1× = HEAVY` | `CRANE LIFT` (`CantileverCrane`) | `CRUST BLOCK` (`CrustBlock`), `PLANE ENGINE` (`AircraftEngine`), `FLIGHT CONSOLE` (`FlightConsole`), `ROCKET NOZZLE` (`RocketNozzle`) | **Crimson Red** |
 
 - **10-Step Slot Escalation ([`SlotBurden`](../crates/client/src/attire/burden.rs))**: Every 10 stacked items in a slot step one weight grade higher (`1..=9` base grade, `10..=19` `+1` tier, `20..=29` `+2` tiers, `30+` `+3` tiers: `LIGHT -> MODERATE -> WEIGHTY -> HEAVY`) and shift the unframed top-left corner triangle color from Emerald Green -> Warm Amber -> Burnt Orange -> Crimson Red -> Deep Ruby.

@@ -79,7 +79,6 @@ impl VehicleBlockMesh {
         match self.medium {
             BlockMedium::SteeringWheel => SteeringColumn::new(self.heading, self.motion.1).emit(cell, floor_elevation, frame, target),
             BlockMedium::CarWheel => self.emit_wheel(cell, floor_elevation, frame, target),
-            BlockMedium::CrossAxle => self.emit_cross_axle(cell, floor_elevation, frame, target),
             _ => self.emit_engine(cell, floor_elevation, frame, target),
         }
     }
@@ -125,29 +124,6 @@ impl VehicleBlockMesh {
             ),
         };
         target.push_quad(Quad::glowing(c0, c1, c2, c3, ln, lens_glow, 0.95));
-    }
-
-    fn emit_cross_axle(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
-        let ((u0, u1), (v0, v1), (uc, vc)) = (cell.u_bounds(), cell.v_bounds(), cell.center());
-        let hc = floor_elev + 0.11;
-        let (walnut, iron_dark, axle_steel, brass) = (
-            Vec3::new(0.32, 0.18, 0.11),
-            Vec3::new(0.20, 0.22, 0.27),
-            Vec3::new(0.66, 0.70, 0.76),
-            Vec3::new(0.90, 0.70, 0.22),
-        );
-        BlockMedium::emit_box(u0, u1, vc - 0.042, vc + 0.042, hc - 0.042, hc + 0.042, frame, axle_steel, axle_steel, true, target);
-        BlockMedium::emit_box(uc - 0.042, uc + 0.042, v0, v1, hc - 0.042, hc + 0.042, frame, axle_steel, axle_steel, true, target);
-        for (a0, a1) in [(u0, u0 + 0.036), (u1 - 0.036, u1)] {
-            BlockMedium::emit_box(a0, a1, vc - 0.064, vc + 0.064, hc - 0.064, hc + 0.064, frame, brass, brass, true, target);
-        }
-        for (b0, b1) in [(v0, v0 + 0.036), (v1 - 0.036, v1)] {
-            BlockMedium::emit_box(uc - 0.064, uc + 0.064, b0, b1, hc - 0.064, hc + 0.064, frame, brass, brass, true, target);
-        }
-        BlockMedium::emit_box(uc - 0.11, uc + 0.11, vc - 0.11, vc + 0.11, floor_elev + 0.02, floor_elev + 0.24, frame, iron_dark, brass, true, target);
-        BlockMedium::emit_box(uc - 0.16, uc + 0.16, vc - 0.06, vc + 0.06, floor_elev + 0.22, floor_elev + 0.43, frame, iron_dark, iron_dark, false, target);
-        BlockMedium::emit_box(uc - 0.06, uc + 0.06, vc - 0.16, vc + 0.16, floor_elev + 0.22, floor_elev + 0.43, frame, iron_dark, iron_dark, false, target);
-        BlockMedium::emit_box(u0, u1, v0, v1, floor_elev + 0.43, floor_elev + 0.50, frame, walnut, iron_dark, true, target);
     }
 
     fn emit_wheel(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {

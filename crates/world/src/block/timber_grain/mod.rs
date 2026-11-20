@@ -24,7 +24,6 @@ pub enum BlockMedium {
     CarWheel,
     FieldCamera,
     PedalCluster,
-    CrossAxle,
     CopperOre,
     IronOre,
     GoldOre,
@@ -51,13 +50,12 @@ impl BlockMedium {
             Self::CarWheel => 11,
             Self::FieldCamera => 12,
             Self::PedalCluster => 13,
-            Self::CrossAxle => 14,
-            Self::CopperOre => 15,
-            Self::IronOre => 16,
-            Self::GoldOre => 17,
-            Self::RocketNozzle => 18,
-            Self::RocketCamera => 19,
-            Self::VehicleBlueprint => 20,
+            Self::CopperOre => 14,
+            Self::IronOre => 15,
+            Self::GoldOre => 16,
+            Self::RocketNozzle => 17,
+            Self::RocketCamera => 18,
+            Self::VehicleBlueprint => 19,
         }
     }
 
@@ -77,13 +75,12 @@ impl BlockMedium {
             11 => Self::CarWheel,
             12 => Self::FieldCamera,
             13 => Self::PedalCluster,
-            14 => Self::CrossAxle,
-            15 => Self::CopperOre,
-            16 => Self::IronOre,
-            17 => Self::GoldOre,
-            18 => Self::RocketNozzle,
-            19 => Self::RocketCamera,
-            20 => Self::VehicleBlueprint,
+            14 => Self::CopperOre,
+            15 => Self::IronOre,
+            16 => Self::GoldOre,
+            17 => Self::RocketNozzle,
+            18 => Self::RocketCamera,
+            19 => Self::VehicleBlueprint,
             _ => Self::TurfEarth,
         }
     }
@@ -108,7 +105,7 @@ impl BlockMedium {
         self.vehicle_engine()
             || matches!(
                 self,
-                Self::CabinSeat | Self::CarWheel | Self::PedalCluster | Self::CrossAxle | Self::RocketCamera
+                Self::CabinSeat | Self::CarWheel | Self::PedalCluster | Self::RocketCamera
             )
     }
 
@@ -144,7 +141,7 @@ impl BlockMedium {
             Self::RocketNozzle => (Vec3::new(0.99, 0.38, 0.12), Vec3::new(0.22, 0.24, 0.30)),
             Self::RocketCamera => (Vec3::new(0.24, 0.88, 0.98), Vec3::new(0.84, 0.88, 0.93)),
             Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.36, 0.20, 0.13)),
-            Self::CarWheel | Self::CrossAxle => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
+            Self::CarWheel => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
             Self::PedalCluster => (Vec3::new(0.88, 0.22, 0.18), Vec3::new(0.24, 0.84, 0.36)),
             Self::CopperOre => (Vec3::new(0.86, 0.46, 0.22), Vec3::new(0.18, 0.68, 0.52)),
             Self::IronOre => (Vec3::new(0.72, 0.75, 0.80), Vec3::new(0.64, 0.30, 0.20)),

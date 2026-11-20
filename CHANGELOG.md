@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.89.0] - 2026-11-20
+
+### Changed
+- Provisioned `BLUEPRINT BLOCK` (`vehicle_blueprint`) in the default `server.toml` starting satchel (`[inventory] items`) alongside `TestKitSatchel` and `SatchelIntake` so players start with a reusable blueprint block in their inventory (`crates/client/src/attire/tests/camera.rs`).
+
+### Removed
+- Removed the `CROSS AXLE` block (`BlockMedium::CrossAxle`, `VehicleBlockMesh::emit_cross_axle`, `HeldRelic::CrossAxle`, `ArtisanTome` recipe, starting satchel entries, and lexicon tokens) across `crates/world`, `crates/client`, `server.toml`, and block/inventory documentation.
+
 ## [0.88.0] - 2026-11-20
 
 ### Added

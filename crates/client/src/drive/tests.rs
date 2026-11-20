@@ -74,19 +74,13 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
             && seat_meshes[0].0.iter().any(|v| v.z <= 0.05)
             && seat_meshes[0].0.iter().filter(|v| v.y > 0.15).all(|v| v.z > 0.15)
     );
-    let (mut pedal_verts, mut wheel_verts, mut axle_verts) = (
-        VertCollector(Vec::new()),
-        VertCollector(Vec::new()),
-        VertCollector(Vec::new()),
-    );
+    let (mut pedal_verts, mut wheel_verts) = (VertCollector(Vec::new()), VertCollector(Vec::new()));
     BlockMold::cube().in_medium(BlockMedium::PedalCluster).shape_for(Vec3::NEG_Z, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut pedal_verts);
     m0.shape_for(Vec3::X, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut wheel_verts);
-    BlockMold::cube().in_medium(BlockMedium::CrossAxle).shape_for(Vec3::X, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut axle_verts);
     assert!(
         pedal_verts.0.iter().any(|v| (v.y - 0.50).abs() < 1e-4)
             && wheel_verts.0.iter().any(|v| (v.x - 0.50).abs() < 1e-4)
             && wheel_verts.0.iter().any(|v| v.y < -0.04)
-            && !axle_verts.0.is_empty()
     );
 
     let (wheel_mold, av_pos, cam_pos) = (

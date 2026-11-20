@@ -31,7 +31,6 @@ impl SatchelIntake {
                 (HeldRelic::AircraftEngine, 1),
                 (HeldRelic::SteeringWheel, 1),
                 (HeldRelic::CarWheel, 8),
-                (HeldRelic::CrossAxle, 4),
                 (HeldRelic::CabinSeat, 2),
                 (HeldRelic::PedalCluster, 2),
             ] {

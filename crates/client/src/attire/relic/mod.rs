@@ -31,7 +31,6 @@ pub enum HeldRelic {
     CarWheel,
     FieldCamera,
     PedalCluster,
-    CrossAxle,
     CopperOre,
     IronOre,
     GoldOre,
@@ -42,7 +41,7 @@ pub enum HeldRelic {
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 29;
+    pub const COUNT: usize = 28;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -73,13 +72,12 @@ impl HeldRelic {
             18 => Self::CarWheel,
             19 => Self::FieldCamera,
             20 => Self::PedalCluster,
-            21 => Self::CrossAxle,
-            22 => Self::CopperOre,
-            23 => Self::IronOre,
-            24 => Self::GoldOre,
-            25 => Self::BoarMeat,
-            26 => Self::RocketNozzle,
-            27 => Self::RocketCamera,
+            21 => Self::CopperOre,
+            22 => Self::IronOre,
+            23 => Self::GoldOre,
+            24 => Self::BoarMeat,
+            25 => Self::RocketNozzle,
+            26 => Self::RocketCamera,
             _ => Self::VehicleBlueprint,
         }
     }
@@ -107,14 +105,13 @@ impl HeldRelic {
             Self::CarWheel => 18,
             Self::FieldCamera => 19,
             Self::PedalCluster => 20,
-            Self::CrossAxle => 21,
-            Self::CopperOre => 22,
-            Self::IronOre => 23,
-            Self::GoldOre => 24,
-            Self::BoarMeat => 25,
-            Self::RocketNozzle => 26,
-            Self::RocketCamera => 27,
-            Self::VehicleBlueprint => 28,
+            Self::CopperOre => 21,
+            Self::IronOre => 22,
+            Self::GoldOre => 23,
+            Self::BoarMeat => 24,
+            Self::RocketNozzle => 25,
+            Self::RocketCamera => 26,
+            Self::VehicleBlueprint => 27,
         }
     }
 
@@ -211,7 +208,6 @@ impl HeldRelic {
                 | Self::CarWheel
                 | Self::FieldCamera
                 | Self::PedalCluster
-                | Self::CrossAxle
                 | Self::CopperOre
                 | Self::IronOre
                 | Self::GoldOre
@@ -240,7 +236,6 @@ impl HeldRelic {
             BlockMedium::CarWheel => Self::CarWheel,
             BlockMedium::FieldCamera => Self::FieldCamera,
             BlockMedium::PedalCluster => Self::PedalCluster,
-            BlockMedium::CrossAxle => Self::CrossAxle,
             BlockMedium::CopperOre => Self::CopperOre,
             BlockMedium::IronOre => Self::IronOre,
             BlockMedium::GoldOre => Self::GoldOre,

@@ -127,7 +127,6 @@ impl RelicFigure {
             | HeldRelic::CabinSeat
             | HeldRelic::CarWheel
             | HeldRelic::PedalCluster
-            | HeldRelic::CrossAxle
             | HeldRelic::CopperOre
             | HeldRelic::IronOre
             | HeldRelic::GoldOre
@@ -230,7 +229,6 @@ impl RelicFigure {
             | HeldRelic::CabinSeat
             | HeldRelic::CarWheel
             | HeldRelic::PedalCluster
-            | HeldRelic::CrossAxle
             | HeldRelic::CopperOre
             | HeldRelic::IronOre
             | HeldRelic::GoldOre

@@ -112,7 +112,7 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
         } else if matches!(self.medium, BlockMedium::FlightConsole | BlockMedium::RocketNozzle | BlockMedium::RocketCamera) {
             SpaceBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle)).emit(cell, floor_elevation, frame, target);
-        } else if matches!(self.medium, BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::CarWheel | BlockMedium::CrossAxle) {
+        } else if matches!(self.medium, BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::CarWheel) {
             VehicleBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle)).emit(cell, floor_elevation, frame, target);
         } else {
             self.emit_terraced_shape(cell, floor_elevation, frame, top_color, wall_color, true, target);
@@ -136,7 +136,7 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             (BlockMedium::FlightConsole | BlockMedium::RocketNozzle | BlockMedium::RocketCamera, _) => {
                 SpaceBlockMesh::parked(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
             }
-            (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::CarWheel | BlockMedium::CrossAxle, _) => {
+            (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::CarWheel, _) => {
                 VehicleBlockMesh::with_archetype(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
             }
             (BlockMedium::TurfEarth, false) => {

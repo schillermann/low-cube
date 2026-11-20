@@ -78,7 +78,6 @@ impl SlotBurden {
             | HeldRelic::IronSpade
             | HeldRelic::WoodmanAxe
             | HeldRelic::KnightlySword
-            | HeldRelic::CrossAxle
             | HeldRelic::CarWheel
             | HeldRelic::CopperOre
             | HeldRelic::IronOre => WeightGrade::Weighty,

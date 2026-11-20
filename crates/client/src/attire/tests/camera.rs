@@ -16,7 +16,9 @@ fn test_server_satchel_parses_cli_and_custom_inventory_specs() {
     let squire = YouthAttire::squire();
     let test_satchel = TestKitSatchel::new().provision(BeltSatchel::empty());
     assert_eq!(test_satchel.resource_tally(HeldRelic::FieldCamera, squire), 1);
+    assert_eq!(test_satchel.resource_tally(HeldRelic::VehicleBlueprint, squire), 1);
     assert_eq!(test_satchel.resource_tally(HeldRelic::RocketCamera, squire), 4);
+    assert!(HeldRelic::EmptyPalm.parse_token("cross_axle").is_none());
 
     let custom = ParsedSatchel::parse("field_camera:2, woodman_axe, car_wheel:4", "test").provision(BeltSatchel::empty());
     assert_eq!(custom.resource_tally(HeldRelic::FieldCamera, squire), 2);
@@ -34,6 +36,7 @@ fn test_server_satchel_parses_cli_and_custom_inventory_specs() {
     let root_satchel = FileSatchel::from_path(&root_toml, Box::new(TestKitSatchel::new()))
         .provision(BeltSatchel::empty());
     assert_eq!(root_satchel.resource_tally(HeldRelic::FieldCamera, squire), 1);
+    assert_eq!(root_satchel.resource_tally(HeldRelic::VehicleBlueprint, squire), 1);
     assert_eq!(root_satchel.resource_tally(HeldRelic::RocketCamera, squire), 4);
     assert_eq!(root_satchel.resource_tally(HeldRelic::FlightConsole, squire), 1);
     assert_eq!(root_satchel.resource_tally(HeldRelic::RocketNozzle, squire), 4);

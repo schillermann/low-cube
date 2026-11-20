@@ -65,7 +65,7 @@ impl SurfaceFind {
             6 => Self::KnightlySword,
             7 => Self::IronSpade,
             8 => Self::BoarMeat,
-            16..=33 => Self::LooseBlock(BlockMedium::from_code(code - 16)),
+            16..=35 => Self::LooseBlock(BlockMedium::from_code(code - 16)),
             _ => Self::EmptyHanded,
         }
     }

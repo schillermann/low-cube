@@ -59,6 +59,7 @@ Every harvestable block, vehicle component, foraged resource, tool, and weapon i
 | **`STEERING WHEEL`** | `HeldRelic::SteeringWheel` / `BlockMedium::SteeringWheel` | Vehicle Block | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
 | **`PEDAL BLOCK`** | `HeldRelic::PedalCluster` / `BlockMedium::PedalCluster` | Vehicle Block | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
 | **`FIELD CAMERA`** | `HeldRelic::FieldCamera` / `BlockMedium::FieldCamera` | Apparatus / Block | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
+| **`BLUEPRINT BLOCK`** | `HeldRelic::VehicleBlueprint` / `BlockMedium::VehicleBlueprint` | Apparatus / Block | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
 | **`DEADWOOD`** | `HeldRelic::DeadwoodBough` | Foraged Resource | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
 | **`TIMBER TORCH`** | `HeldRelic::TimberTorch` | Tool / Light | **`LIGHT`** | `10× -> MODERATE` | Emerald Green |
 | **`EARTH BLOCK`** | `HeldRelic::ExcavatedEarth` / `BlockMedium::TurfEarth` | Building Block | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
@@ -67,7 +68,6 @@ Every harvestable block, vehicle component, foraged resource, tool, and weapon i
 | **`FLINT STONE`** | `HeldRelic::FlintStone` | Foraged Resource | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
 | **`WOODEN MALLET`** | `HeldRelic::WoodenMallet` | Tool | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
 | **`STONE BLOCK`** | `HeldRelic::QuarriedStone` / `BlockMedium::QuarriedStone` | Building Block | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
-| **`CROSS AXLE`** | `HeldRelic::CrossAxle` / `BlockMedium::CrossAxle` | Vehicle Block | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
 | **`CAR WHEEL`** | `HeldRelic::CarWheel` / `BlockMedium::CarWheel` | Vehicle Block | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
 | **`IRON SPADE`** | `HeldRelic::IronSpade` | Excavation Tool | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
 | **`WOODMAN AXE`** | `HeldRelic::WoodmanAxe` | Felling Tool / Weapon | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
