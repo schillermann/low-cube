@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.86.1] - 2026-11-20
+
+### Changed
+- Resculpted `RocketCameraMesh` (`PodMount` and `SensorPodAxis` in `crates/world/src/block/space_parts/rocket_camera.rs`) into a compact half-block (`0.25m`) V1 nose-cone dome with brass collars, dark graphite drum, glowing ruby status tally lamp, tapered ceramic cone, and two-tier glowing sapphire dome across zenith, belly, and side hull mounts, and added the six-variant showcase sheet (`rocket_camera_versions.jpg`).
+
 ## [0.86.0] - 2026-11-19
 
 ### Added

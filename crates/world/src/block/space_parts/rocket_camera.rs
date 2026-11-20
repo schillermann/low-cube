@@ -49,13 +49,100 @@ impl SensorPodAxis {
             }
             Self::SideFairing(heading) => {
                 let out_dir = -heading.forward_vector(frame).normalize_or_zero();
-                (base + ship_up * 0.26 + out_dir * 0.30, out_dir, ship_up)
+                (base + ship_up * 0.25 + out_dir * 0.15, out_dir, ship_up)
             }
         }
     }
 }
 
-/// Sculpted aerodynamic rocket camera pod rendering as a nose-cone dome, belly landing turret, or hull blister fairing.
+/// Orthonormal half-block (`0.25m`) mounting basis for the V1 nose-cone dome camera pod.
+#[derive(Clone, Copy)]
+struct PodMount {
+    origin: Vec3,
+    axis: Vec3,
+    front: Vec3,
+    side: Vec3,
+}
+
+impl PodMount {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    const fn new(origin: Vec3, axis: Vec3, front: Vec3, side: Vec3) -> Self {
+        Self { origin, axis, front, side }
+    }
+
+    fn aligned(origin: Vec3, axis: Vec3, ref_up: Vec3) -> Self {
+        let unit_axis = axis.normalize_or_zero();
+        let front = unit_axis.cross(ref_up).normalize_or_zero();
+        let side = unit_axis.cross(front).normalize_or_zero();
+        Self::new(origin, unit_axis, front, side)
+    }
+
+    fn emit_frustum(
+        &self,
+        z_span: (f32, f32),
+        radii: (f32, f32),
+        col: Vec3,
+        glow: f32,
+        caps: (bool, bool),
+        target: &mut dyn MeshTarget,
+    ) {
+        let (segs, step) = (8usize, (2.0 * PI) / 8.0);
+        let half_step = 0.5 * step;
+        let (mid0, mid1) = (self.origin + self.axis * z_span.0, self.origin + self.axis * z_span.1);
+        for i in 0..segs {
+            let a0_ang = (i as f32) * step - half_step;
+            let a1_ang = a0_ang + step;
+            let ((s0, c0), (s1, c1)) = (a0_ang.sin_cos(), a1_ang.sin_cos());
+            let (d0, d1) = (self.front * c0 + self.side * s0, self.front * c1 + self.side * s1);
+            let [a0, a1] = [mid0 + d0 * radii.0, mid0 + d1 * radii.0];
+            let [b0, b1] = [mid1 + d0 * radii.1, mid1 + d1 * radii.1];
+            let norm = (a1 - a0).cross(b0 - a0).normalize_or_zero();
+            target.push_quad(Quad::glowing(a0, a1, b1, b0, norm, col, glow));
+            if caps.0 {
+                target.push_quad(Quad::glowing(mid0, a1, a0, a0, -self.axis, col, glow));
+            }
+            if caps.1 {
+                target.push_quad(Quad::glowing(mid1, b0, b1, b1, self.axis, col, glow));
+            }
+        }
+    }
+
+    fn emit_tally_lamp(&self, target: &mut dyn MeshTarget) {
+        let ruby = Vec3::new(0.98, 0.20, 0.18);
+        let cos_oct = (PI / 8.0).cos();
+        let depth = 0.193 * cos_oct + 0.003;
+        let (w, z0, z1) = (0.015, 0.038, 0.058);
+        let pt = |sx: f32, az: f32| self.origin + self.front * depth + self.side * sx + self.axis * az;
+        target.push_quad(Quad::glowing(
+            pt(-w, z0),
+            pt(w, z0),
+            pt(w, z1),
+            pt(-w, z1),
+            self.front,
+            ruby,
+            0.96,
+        ));
+    }
+
+    fn emit_v1_dome(&self, target: &mut dyn MeshTarget) {
+        let ceramic = Vec3::new(0.86, 0.89, 0.94);
+        let graphite = Vec3::new(0.16, 0.18, 0.23);
+        let brass = Vec3::new(0.88, 0.70, 0.24);
+        let sapphire_rim = Vec3::new(0.16, 0.76, 0.98);
+        let sapphire_crown = Vec3::new(0.38, 0.94, 1.00);
+
+        self.emit_frustum((0.000, 0.022), (0.212, 0.206), brass, 0.0, (true, true), target);
+        self.emit_frustum((0.022, 0.076), (0.196, 0.190), graphite, 0.0, (false, false), target);
+        self.emit_tally_lamp(target);
+        self.emit_frustum((0.076, 0.094), (0.198, 0.190), brass, 0.0, (true, true), target);
+        self.emit_frustum((0.094, 0.182), (0.184, 0.118), ceramic, 0.0, (false, false), target);
+        self.emit_frustum((0.182, 0.206), (0.122, 0.104), brass, 0.0, (true, true), target);
+        self.emit_frustum((0.206, 0.234), (0.094, 0.064), sapphire_rim, 0.88, (false, false), target);
+        self.emit_frustum((0.234, 0.250), (0.064, 0.026), sapphire_crown, 0.96, (false, true), target);
+    }
+}
+
+/// Sculpted half-block (`0.25m`) V1 nose-cone dome rocket camera pod across zenith, nadir, and side mounts.
 pub struct RocketCameraMesh {
     axis: SensorPodAxis,
 }
@@ -66,77 +153,76 @@ impl RocketCameraMesh {
         Self { axis }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn emit_frustum(
-        origin: Vec3,
-        axis: Vec3,
-        ref_up: Vec3,
-        z0: f32,
-        r0: f32,
-        z1: f32,
-        r1: f32,
-        col: Vec3,
-        glow: f32,
-        caps: (bool, bool),
-        target: &mut dyn MeshTarget,
-    ) {
-        let sa = axis.cross(ref_up).normalize_or_zero();
-        let sb = axis.cross(sa).normalize_or_zero();
-        let (segs, step) = (8usize, (2.0 * PI) / 8.0);
-        let (mid0, mid1) = (origin + axis * z0, origin + axis * z1);
-        for i in 0..segs {
-            let ((s0, c0), (s1, c1)) = (((i as f32) * step).sin_cos(), (((i + 1) as f32) * step).sin_cos());
-            let (d0, d1) = (sa * c0 + sb * s0, sa * c1 + sb * s1);
-            let [a0, a1] = [mid0 + d0 * r0, mid0 + d1 * r0];
-            let [b0, b1] = [mid1 + d0 * r1, mid1 + d1 * r1];
-            let norm = (a1 - a0).cross(b0 - a0).normalize_or_zero();
-            target.push_quad(Quad::glowing(a0, a1, b1, b0, norm, col, glow));
-            if caps.0 {
-                target.push_quad(Quad::glowing(mid0, a1, a0, a0, -axis, col, glow));
-            }
-            if caps.1 {
-                target.push_quad(Quad::glowing(mid1, b0, b1, b1, axis, col, glow));
-            }
-        }
-    }
-
     pub fn emit(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let (uc, vc) = cell.center();
         let up = frame.normal();
         let tan = frame.tangent();
-        let ceramic = Vec3::new(0.84, 0.88, 0.93);
-        let titanium = Vec3::new(0.46, 0.52, 0.60);
-        let graphite = Vec3::new(0.16, 0.18, 0.23);
-        let brass = Vec3::new(0.90, 0.72, 0.24);
-        let sapphire = Vec3::new(0.24, 0.88, 0.98);
-
-        match self.axis {
-            SensorPodAxis::NoseCone => {
-                let base = frame.point_at(uc, vc, floor_elev);
-                Self::emit_frustum(base, up, tan, 0.0, 0.235, 0.055, 0.215, titanium, 0.0, (true, false), target);
-                Self::emit_frustum(base, up, tan, 0.055, 0.220, 0.080, 0.208, brass, 0.0, (true, true), target);
-                Self::emit_frustum(base, up, tan, 0.080, 0.205, 0.250, 0.132, ceramic, 0.0, (false, false), target);
-                Self::emit_frustum(base, up, tan, 0.250, 0.132, 0.375, 0.076, graphite, 0.0, (false, false), target);
-                Self::emit_frustum(base, up, tan, 0.375, 0.080, 0.415, 0.064, brass, 0.0, (true, true), target);
-                Self::emit_frustum(base, up, tan, 0.415, 0.058, 0.470, 0.026, sapphire, 0.88, (false, true), target);
-            }
-            SensorPodAxis::BellyPod => {
-                let ceil = frame.point_at(uc, vc, floor_elev + 0.50);
-                let down = -up;
-                Self::emit_frustum(ceil, down, tan, 0.0, 0.205, 0.060, 0.190, titanium, 0.0, (true, true), target);
-                Self::emit_frustum(ceil, down, tan, 0.060, 0.148, 0.260, 0.112, graphite, 0.0, (false, false), target);
-                Self::emit_frustum(ceil, down, tan, 0.260, 0.118, 0.305, 0.094, brass, 0.0, (true, true), target);
-                Self::emit_frustum(ceil, down, tan, 0.305, 0.086, 0.365, 0.042, sapphire, 0.88, (false, true), target);
-            }
+        let mount = match self.axis {
+            SensorPodAxis::NoseCone => PodMount::aligned(frame.point_at(uc, vc, floor_elev), up, tan),
+            SensorPodAxis::BellyPod => PodMount::aligned(frame.point_at(uc, vc, floor_elev + 0.50), -up, tan),
             SensorPodAxis::SideFairing(heading) => {
-                let center = frame.point_at(uc, vc, floor_elev + 0.25);
                 let out_dir = -heading.forward_vector(frame).normalize_or_zero();
-                Self::emit_frustum(center, out_dir, up, -0.25, 0.185, -0.185, 0.172, titanium, 0.0, (true, true), target);
-                Self::emit_frustum(center, out_dir, up, -0.185, 0.145, -0.020, 0.105, ceramic, 0.0, (false, false), target);
-                Self::emit_frustum(center, out_dir, up, -0.020, 0.110, 0.045, 0.082, graphite, 0.0, (false, false), target);
-                Self::emit_frustum(center, out_dir, up, 0.045, 0.086, 0.085, 0.068, brass, 0.0, (true, true), target);
-                Self::emit_frustum(center, out_dir, up, 0.085, 0.062, 0.135, 0.028, sapphire, 0.88, (false, true), target);
+                let wall = frame.point_at(uc, vc, floor_elev + 0.25) - out_dir * 0.25;
+                PodMount::aligned(wall, out_dir, up)
+            }
+        };
+        mount.emit_v1_dome(target);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct ExtentProbe {
+        min_pt: Vec3,
+        max_pt: Vec3,
+        glowing_quads: usize,
+    }
+
+    impl ExtentProbe {
+        const fn empty() -> Self {
+            Self {
+                min_pt: Vec3::splat(f32::INFINITY),
+                max_pt: Vec3::splat(f32::NEG_INFINITY),
+                glowing_quads: 0,
             }
         }
+    }
+
+    impl MeshTarget for ExtentProbe {
+        fn push_quad(&mut self, quad: Quad) {
+            if quad.radiate(|g| g > 0.8) {
+                self.glowing_quads += 1;
+            }
+            quad.transfer(|v0, v1, v2, v3, _, _| {
+                for v in [v0, v1, v2, v3] {
+                    self.min_pt = self.min_pt.min(v);
+                    self.max_pt = self.max_pt.max(v);
+                }
+            });
+        }
+    }
+
+    #[test]
+    fn v1_rocket_camera_dome_is_exactly_half_block_tall_across_all_mounts() {
+        let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
+        let cell = GridCell::new(0, 0);
+        let half_block = GridCell::SPAN * 0.5;
+
+        let mut nose = ExtentProbe::empty();
+        RocketCameraMesh::new(SensorPodAxis::NoseCone).emit(cell, 1.0, &frame, &mut nose);
+        assert!((nose.min_pt.y - 1.0).abs() < 1e-5);
+        assert!(((nose.max_pt.y - nose.min_pt.y) - half_block).abs() < 1e-5);
+        assert!(nose.glowing_quads >= 17);
+
+        let mut belly = ExtentProbe::empty();
+        RocketCameraMesh::new(SensorPodAxis::BellyPod).emit(cell, 1.0, &frame, &mut belly);
+        assert!((belly.max_pt.y - 1.5).abs() < 1e-5);
+        assert!(((belly.max_pt.y - belly.min_pt.y) - half_block).abs() < 1e-5);
+
+        let mut side = ExtentProbe::empty();
+        RocketCameraMesh::new(SensorPodAxis::SideFairing(WedgeHeading::South)).emit(cell, 1.0, &frame, &mut side);
+        assert!(((side.max_pt.z - side.min_pt.z) - half_block).abs() < 1e-5);
     }
 }
