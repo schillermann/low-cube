@@ -1,13 +1,14 @@
 mod archive;
 mod plaque;
 mod saved;
+mod sheet;
 
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{CraftBlueprint, MeshTarget, PlanetaryWorld};
 use crate::attire::{BeltSatchel, BodyPose, YouthAttire};
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
-pub use self::archive::{BlueprintArchive, FileBlueprints};
+pub use self::archive::{BlueprintArchive, DirectoryBlueprints};
 #[cfg(test)]
 pub use self::archive::MemoryBlueprints;
 use self::plaque::FolioPlaque;
@@ -46,7 +47,7 @@ impl BlueprintFolio {
     }
 
     pub fn profile() -> Self {
-        Self::with_archive(Box::new(FileBlueprints::profile()))
+        Self::with_archive(Box::new(DirectoryBlueprints::profile()))
     }
 
     pub const fn open(&self) -> bool {
@@ -96,25 +97,32 @@ impl BlueprintFolio {
         changed
     }
 
+    fn next_untitled_name(&self) -> String {
+        let existing = self.archive.load_saved();
+        let mut index = 1usize;
+        loop {
+            let candidate = format!("VEHICLE {index}");
+            if !existing.iter().any(|e| e.title_text().eq_ignore_ascii_case(&candidate)) {
+                return candidate;
+            }
+            index += 1;
+        }
+    }
+
     fn commit_draft(&mut self) -> bool {
         let prev = std::mem::replace(&mut self.view, FolioView::Closed);
         let FolioView::NamingDraft { draft, captured } = prev else {
             self.view = prev;
             return false;
         };
-        let mut entries = self.archive.load_saved();
         let trimmed = draft.trim();
         let final_name = if trimmed.is_empty() {
-            format!("VEHICLE {}", entries.len() + 1)
+            self.next_untitled_name()
         } else {
             trimmed.to_string()
         };
-        if let Some(slot) = entries.iter_mut().find(|e| e.title_text().eq_ignore_ascii_case(&final_name)) {
-            *slot = SavedBlueprint::new(final_name, captured);
-        } else {
-            entries.push(SavedBlueprint::new(final_name, captured));
-        }
-        self.archive.save_all(&entries);
+        let entry = SavedBlueprint::new(final_name, captured);
+        self.archive.store(&entry);
         true
     }
 
@@ -147,10 +155,9 @@ impl BlueprintFolio {
                 if matches!(trigger, InputTrigger::Key(KeyCode::Delete | KeyCode::Backspace)) {
                     if !entries.is_empty() {
                         let idx = *cursor % entries.len();
-                        entries.remove(idx);
+                        let removed = entries.remove(idx);
                         *cursor = if entries.is_empty() { 0 } else { idx.min(entries.len() - 1) };
-                        let snapshot = entries.clone();
-                        self.archive.save_all(&snapshot);
+                        self.archive.expunge(removed.title_text());
                     }
                     return true;
                 }

@@ -9,7 +9,7 @@ use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, HandGesture,
     PlanetaryAvatar,
 };
-use crate::blueprint::{BlueprintArchive, FileBlueprints, MemoryBlueprints, SavedBlueprint};
+use crate::blueprint::{BlueprintArchive, DirectoryBlueprints, MemoryBlueprints, SavedBlueprint};
 use crate::controls::{InputTrigger, KeyMotion, KeyboardControls};
 use crate::server_satchel::StartingSatchel;
 use crate::session::HeadlessSession;
@@ -63,12 +63,11 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     let mut world = BiomedCubeWorld::beveled(32, 1.0);
     let g0 = SampleCraneCar.assemble_on(&mut world);
 
-    let temp_path = std::env::temp_dir().join(format!("lowcube_bp_test_{}.toml", std::process::id()));
-    let _ = std::fs::remove_file(&temp_path);
-    let archive_path = temp_path.to_string_lossy().into_owned();
+    let temp_dir = std::env::temp_dir().join(format!("lowcube_bp_test_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&temp_dir);
 
     let mut engineer = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 22.0, 2.25), 1.0));
-    engineer.install_blueprint_archive(Box::new(FileBlueprints::new(archive_path.clone())));
+    engineer.install_blueprint_archive(Box::new(DirectoryBlueprints::new(temp_dir.clone())));
     engineer.apply_attire(YouthAttire::squire().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
     engineer.rotate_degrees(0.0, -10.0);
 
@@ -91,8 +90,12 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
 
     assert!(engineer.press_world_key(KeyCode::Enter, &mut world));
     assert!(!engineer.typing_text());
+    assert!(
+        temp_dir.join("canyon_1.toml").is_file(),
+        "Each saved blueprint must live in its own TOML file inside the directory"
+    );
 
-    let saved = FileBlueprints::new(archive_path.clone()).load_saved();
+    let saved = DirectoryBlueprints::new(temp_dir.clone()).load_saved();
     assert_eq!(saved.len(), 1);
     assert_eq!(saved[0].title_text(), "CANYON #1");
     assert_eq!(saved[0].blueprint().part_count(), 3);
@@ -105,7 +108,7 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
 
     let mut sparse_builder = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 22.0, -1.25), 1.0))
         .with_starting_satchel(&SparseKit);
-    sparse_builder.install_blueprint_archive(Box::new(FileBlueprints::new(archive_path.clone())));
+    sparse_builder.install_blueprint_archive(Box::new(DirectoryBlueprints::new(temp_dir.clone())));
     sparse_builder.apply_attire(YouthAttire::squire().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
     sparse_builder.rotate_degrees(0.0, 35.0);
     let _ = HandGesture::RightTap.perform(&mut sparse_builder, &mut world);
@@ -115,7 +118,7 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     // Provision full parts kit, select saved blueprint on empty crane arm, and build it
     let mut full_builder = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 22.0, -1.25), 1.0))
         .with_starting_satchel(&CarPartsKit);
-    full_builder.install_blueprint_archive(Box::new(FileBlueprints::new(archive_path.clone())));
+    full_builder.install_blueprint_archive(Box::new(DirectoryBlueprints::new(temp_dir.clone())));
     full_builder.apply_attire(YouthAttire::squire().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
     full_builder.rotate_degrees(0.0, 35.0);
 
@@ -142,7 +145,7 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     }
     assert!(cam_pos(&pilot).x > before.x + 0.35);
 
-    let _ = std::fs::remove_file(&temp_path);
+    let _ = std::fs::remove_dir_all(&temp_dir);
 }
 
 #[test]
@@ -183,10 +186,29 @@ fn test_parked_vehicle_blueprint_capture_world_fact_wire_and_headless_typing() {
     // Verify MemoryBlueprints + HeadlessSession::type_text integration
     let empty = MemoryBlueprints::empty();
     assert!(empty.load_saved().is_empty());
-    let mem = MemoryBlueprints::new(vec![SavedBlueprint::new("ROVER".to_string(), captured)]);
+    let mem = MemoryBlueprints::new(vec![SavedBlueprint::new("ROVER".to_string(), captured.clone())]);
     assert_eq!(mem.load_saved().len(), 1);
     let mut session = HeadlessSession::solitary(16, HeadlessSession::closed_modal());
     session.type_text("ROVER");
     session.advance_ticks(1);
     assert!(!session.modal_open());
+
+    // Verify DirectoryBlueprints stores one file per rocket, disambiguates colliding slugs, and deletes isolated files
+    let multi_dir = std::env::temp_dir().join(format!("lowcube_bp_multi_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&multi_dir);
+    let mut dir_store = DirectoryBlueprints::new(multi_dir.clone());
+    dir_store.store(&SavedBlueprint::new("MK/1".to_string(), captured.clone()));
+    dir_store.store(&SavedBlueprint::new("MK:1".to_string(), captured.clone()));
+    dir_store.store(&SavedBlueprint::new("APOLLO 11".to_string(), captured));
+    assert!(multi_dir.join("mk_1.toml").is_file());
+    assert!(multi_dir.join("mk_1_2.toml").is_file());
+    assert!(multi_dir.join("apollo_11.toml").is_file());
+    assert_eq!(dir_store.load_saved().len(), 3);
+
+    dir_store.expunge("MK/1");
+    assert!(!multi_dir.join("mk_1.toml").exists());
+    assert!(multi_dir.join("mk_1_2.toml").is_file());
+    assert!(multi_dir.join("apollo_11.toml").is_file());
+    assert_eq!(dir_store.load_saved().len(), 2);
+    let _ = std::fs::remove_dir_all(&multi_dir);
 }

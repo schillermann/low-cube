@@ -1,107 +1,127 @@
 use std::fs;
-use world::CraftBlueprint;
-use crate::toml_document::TomlDocument;
+use std::io::ErrorKind;
+use std::path::PathBuf;
+use super::sheet::{BlueprintSheet, BlueprintSlug};
 use super::SavedBlueprint;
 
 /// Focused persistent storage contract for named player vehicle blueprints.
 pub trait BlueprintArchive {
     fn load_saved(&self) -> Vec<SavedBlueprint>;
-    fn save_all(&mut self, entries: &[SavedBlueprint]);
+    fn store(&mut self, entry: &SavedBlueprint);
+    fn expunge(&mut self, title: &str);
 }
 
-/// Persistent TOML storage saving and loading named vehicle blueprints in `blueprints.toml`.
-pub struct FileBlueprints {
-    path: String,
+/// Directory-backed blueprint storage persisting each named vehicle as `blueprints/<slug>.toml`.
+pub struct DirectoryBlueprints {
+    directory: PathBuf,
 }
 
-impl FileBlueprints {
+impl DirectoryBlueprints {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(path: String) -> Self {
-        Self { path }
+    pub const fn new(directory: PathBuf) -> Self {
+        Self { directory }
     }
 
-    /// Secondary constructor targeting the local `blueprints.toml` profile.
+    pub fn in_directory(path: &str) -> Self {
+        Self::new(PathBuf::from(path))
+    }
+
+    /// Secondary constructor targeting the local `blueprints/` directory.
     pub fn profile() -> Self {
-        Self::new("blueprints.toml".to_string())
+        Self::in_directory("blueprints")
     }
 
-    fn hex_encode(bytes: &[u8]) -> String {
-        const HEX: &[u8; 16] = b"0123456789abcdef";
-        let mut out = String::with_capacity(bytes.len() * 2);
-        for &b in bytes {
-            out.push(HEX[(b >> 4) as usize] as char);
-            out.push(HEX[(b & 0x0F) as usize] as char);
-        }
-        out
+    fn toml_paths(&self) -> Vec<PathBuf> {
+        let entries = match fs::read_dir(&self.directory) {
+            Ok(dir) => dir,
+            Err(err) if err.kind() == ErrorKind::NotFound => return Vec::new(),
+            Err(err) => panic!("Failed to read blueprints directory {:?}: {err}", self.directory),
+        };
+        let mut paths: Vec<PathBuf> = entries
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| {
+                p.is_file()
+                    && p.extension()
+                        .and_then(|s| s.to_str())
+                        .is_some_and(|ext| ext.eq_ignore_ascii_case("toml"))
+            })
+            .collect();
+        paths.sort();
+        paths
     }
 
-    fn hex_nibble(ch: u8) -> Option<u8> {
-        match ch {
-            b'0'..=b'9' => Some(ch - b'0'),
-            b'a'..=b'f' => Some(ch - b'a' + 10),
-            b'A'..=b'F' => Some(ch - b'A' + 10),
-            _ => None,
+    fn fresh_path(&self, title: &str) -> PathBuf {
+        let stem = BlueprintSlug::new(title).stem();
+        let first = self.directory.join(format!("{stem}.toml"));
+        if !first.exists() {
+            return first;
         }
-    }
-
-    fn hex_decode(raw: &str) -> Option<Vec<u8>> {
-        let bytes = raw.trim().as_bytes();
-        if bytes.is_empty() || bytes.len() % 2 != 0 {
-            return None;
+        let mut suffix = 2usize;
+        loop {
+            let candidate = self.directory.join(format!("{stem}_{suffix}.toml"));
+            if !candidate.exists() {
+                return candidate;
+            }
+            suffix += 1;
         }
-        let mut out = Vec::with_capacity(bytes.len() / 2);
-        for pair in bytes.chunks_exact(2) {
-            let hi = Self::hex_nibble(pair[0])?;
-            let lo = Self::hex_nibble(pair[1])?;
-            out.push((hi << 4) | lo);
-        }
-        Some(out)
-    }
-
-    fn sanitize_title(raw: &str) -> String {
-        raw.chars()
-            .filter(|&c| c != '"' && c != '\'' && c != '\n' && c != '\r')
-            .take(24)
-            .collect()
     }
 }
 
-impl BlueprintArchive for FileBlueprints {
+impl BlueprintArchive for DirectoryBlueprints {
     fn load_saved(&self) -> Vec<SavedBlueprint> {
-        let Some(doc) = TomlDocument::from_file(&self.path) else {
-            return Vec::new();
-        };
-        let count: usize = doc.parsed_property("count").unwrap_or(0).min(128);
-        let mut loaded = Vec::with_capacity(count);
-        for idx in 0..count {
-            let section = format!("blueprint_{idx}");
-            let Some(name) = doc.section_property(&section, "name", false) else {
+        let mut loaded: Vec<SavedBlueprint> = Vec::new();
+        for path in self.toml_paths() {
+            let Some(entry) = BlueprintSheet::from_file(&path).and_then(|s| s.decode_saved()) else {
                 continue;
             };
-            let Some(hex_payload) = doc.section_property(&section, "payload", false) else {
-                continue;
-            };
-            let Some(raw_bytes) = Self::hex_decode(&hex_payload) else {
-                continue;
-            };
-            if let Some((bp, _)) = CraftBlueprint::decode(&raw_bytes) {
-                loaded.push(SavedBlueprint::new(Self::sanitize_title(&name), bp));
+            if let Some(slot) = loaded
+                .iter_mut()
+                .find(|e| e.title_text().eq_ignore_ascii_case(entry.title_text()))
+            {
+                *slot = entry;
+            } else {
+                loaded.push(entry);
             }
         }
+        loaded.sort_by(|a, b| {
+            a.title_text()
+                .to_ascii_uppercase()
+                .cmp(&b.title_text().to_ascii_uppercase())
+        });
         loaded
     }
 
-    fn save_all(&mut self, entries: &[SavedBlueprint]) {
-        let mut text = format!("# Saved Vehicle Blueprints\ncount = {}\n", entries.len());
-        let mut wire = Vec::new();
-        for (idx, entry) in entries.iter().enumerate() {
-            wire.clear();
-            entry.blueprint().inscribe(&mut wire);
-            let safe_name = Self::sanitize_title(entry.title_text());
-            let hex = Self::hex_encode(&wire);
-            text.push_str(&format!("\n[blueprint_{idx}]\nname = \"{safe_name}\"\npayload = \"{hex}\"\n"));
+    fn store(&mut self, entry: &SavedBlueprint) {
+        fs::create_dir_all(&self.directory).expect("Failed to create blueprints directory");
+        let matching: Vec<PathBuf> = self
+            .toml_paths()
+            .into_iter()
+            .filter(|path| {
+                BlueprintSheet::from_file(path)
+                    .and_then(|s| s.decode_saved())
+                    .is_some_and(|bp| bp.title_text().eq_ignore_ascii_case(entry.title_text()))
+            })
+            .collect();
+        let target = matching
+            .first()
+            .cloned()
+            .unwrap_or_else(|| self.fresh_path(entry.title_text()));
+        BlueprintSheet::from_saved(entry).write_to(&target);
+        for extra in matching.iter().skip(1) {
+            fs::remove_file(extra).expect("Failed to remove duplicate blueprint TOML file");
         }
-        fs::write(&self.path, text).expect("Failed to persist vehicle blueprints to disk");
+    }
+
+    fn expunge(&mut self, title: &str) {
+        for path in self.toml_paths() {
+            let matches = BlueprintSheet::from_file(&path)
+                .and_then(|s| s.decode_saved())
+                .is_some_and(|bp| bp.title_text().eq_ignore_ascii_case(title));
+            if matches {
+                fs::remove_file(&path).expect("Failed to remove blueprint TOML file");
+            }
+        }
     }
 }
 
@@ -126,10 +146,29 @@ impl MemoryBlueprints {
 #[cfg(test)]
 impl BlueprintArchive for MemoryBlueprints {
     fn load_saved(&self) -> Vec<SavedBlueprint> {
-        self.entries.clone()
+        let mut sorted = self.entries.clone();
+        sorted.sort_by(|a, b| {
+            a.title_text()
+                .to_ascii_uppercase()
+                .cmp(&b.title_text().to_ascii_uppercase())
+        });
+        sorted
     }
 
-    fn save_all(&mut self, entries: &[SavedBlueprint]) {
-        self.entries = entries.to_vec();
+    fn store(&mut self, entry: &SavedBlueprint) {
+        if let Some(slot) = self
+            .entries
+            .iter_mut()
+            .find(|e| e.title_text().eq_ignore_ascii_case(entry.title_text()))
+        {
+            *slot = entry.clone();
+        } else {
+            self.entries.push(entry.clone());
+        }
+    }
+
+    fn expunge(&mut self, title: &str) {
+        self.entries
+            .retain(|e| !e.title_text().eq_ignore_ascii_case(title));
     }
 }

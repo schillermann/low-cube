@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.90.0] - 2026-11-20
+
+### Changed
+- Replaced monolithic `blueprints.toml` vehicle blueprint persistence with directory-backed per-vehicle TOML files (`DirectoryBlueprints`, `BlueprintSheet`, `BlueprintSlug`, and `CleanTitle` in `crates/client/src/blueprint/archive.rs` and `crates/client/src/blueprint/sheet.rs`, plus `BlueprintArchive::store` and `BlueprintArchive::expunge`), saving each named rocket or vehicle in its own `blueprints/<slug>.toml` file with slug collision disambiguation and isolated single-file updates/deletions (`crates/client/src/blueprint_tests.rs`).
+
 ## [0.89.0] - 2026-11-20
 
 ### Changed
