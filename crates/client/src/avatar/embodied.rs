@@ -43,30 +43,21 @@ impl EmbodiedAvatar {
         )
     }
 
-    pub(super) fn provision_satchel(&mut self, provider: &dyn StartingSatchel) {
-        self.gear.provision_satchel(provider);
-    }
-
+    pub(super) fn provision_satchel(&mut self, provider: &dyn StartingSatchel) { self.gear.provision_satchel(provider); }
     fn pose_at(&self, pos: Vec3) -> BodyPose {
         self.body.shape_pose(self.sight_line.body_pose(pos, self.body.posture(), self.bearing.rhythm()))
     }
-
-    fn visual_pose(&self) -> BodyPose {
-        self.pose_at(self.body.visual_position())
-    }
-
+    fn visual_pose(&self) -> BodyPose { self.pose_at(self.body.visual_position()) }
     fn surface_reach(&self) -> SurfaceReach {
         let pos = self.body.position();
         self.sight_line.surface_reach(self.pose_at(pos).eye_origin(), pos, self.body.standing(), self.body.driving())
     }
-
     fn reset_to_world(&mut self, world: &dyn PlanetaryWorld) {
         self.body.respawn(world);
         self.sight_line.reset_horizon();
         self.bearing.reset();
         self.gear.calm_hands();
     }
-
     fn tick_ambient(&mut self, dt: f32) {
         self.bearing.step_polaroid(dt);
         self.gear.step_timers(dt);
@@ -139,19 +130,26 @@ impl AvatarOptics for EmbodiedAvatar {
 impl AvatarPresence for EmbodiedAvatar {
     fn emit_appearance(&self, target: &mut dyn MeshTarget) {
         self.body.emit_vehicle(target);
-        let sight = if self.body.hull_camera_lens().is_some() {
-            SightMode::LookingGlassSight
-        } else {
-            self.bearing.sight()
-        };
-        self.gear.emit_appearance(&self.visual_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
+        self.emit_figure(target);
     }
-
     fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
         self.body.emit_vehicle(target);
+        self.emit_figure_for_sight(sight, target);
+    }
+    fn emit_figure(&self, target: &mut dyn MeshTarget) {
+        let sight = if self.body.hull_camera_lens().is_some() { SightMode::LookingGlassSight } else { self.bearing.sight() };
+        self.gear.emit_appearance(&self.visual_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
+    }
+    fn emit_figure_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
         if !matches!(sight, SightMode::FirstPersonSight) {
             self.gear.emit_appearance(&self.visual_pose(), sight, self.sight_line.view_direction(), self.sight_line.surface_up(), self.bearing.rhythm(), target);
         }
+    }
+    fn present_vessel(&self, sink: &mut dyn world::VesselSink) { self.body.present_vessel(sink); }
+    fn planned_mount(&self, world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> {
+        (!self.body.driving() && !self.body.perished() && self.body.hull_camera_lens().is_none())
+            .then(|| self.gear.planned_mount(self.surface_reach(), world))
+            .flatten()
     }
 
     fn sector_stamp(&self) -> (u8, i32, i32, i32) { self.body.sector_stamp() }

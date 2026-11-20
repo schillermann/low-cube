@@ -32,12 +32,17 @@ impl CompanionFigure {
         });
     }
 
-    pub fn emit_all(world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
-        world.emit_active_crafts(target);
+    pub fn emit_figures(world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
         let mut roster = Vec::new();
         world.active_companions(&mut roster);
         for companion in roster {
             Self::new(companion).emit(target);
         }
+    }
+
+    #[cfg(test)]
+    pub fn emit_all(world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
+        world.emit_active_crafts(target);
+        Self::emit_figures(world, target);
     }
 }

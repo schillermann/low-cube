@@ -105,7 +105,7 @@ impl GraphicPipeline for DiurnalPipeline {
         }
 
         shader.bind(gl, view_proj, light_direction);
-        mesh.draw(gl);
+        mesh.draw_posed(gl, shader);
 
         let inv_view_proj = Mat4::from_cols(
             view_proj.x_axis.with_z(0.0),

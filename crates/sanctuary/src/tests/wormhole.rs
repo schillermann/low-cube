@@ -93,7 +93,7 @@ fn test_twelve_char_crockford_codes_roundtrip_normalize_confusable_letters_and_r
 #[test]
 fn test_twelve_char_portal_code_connects_directly_and_rejects_wrong_secret() {
     let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
-    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16, false).expect("bind host");
+    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16).expect("bind host");
     let code = host.code();
     let compact = code.encode().replace('-', "").to_ascii_lowercase();
     let target = JoinTarget::parse(&compact).expect("parse compact 12-char code");
@@ -105,8 +105,8 @@ fn test_twelve_char_portal_code_connects_directly_and_rejects_wrong_secret() {
         if PortalCode::from_endpoint(code.endpoint(), wrong_secret) == code { 79 } else { wrong_secret },
     );
 
-    let mut imposter = RemotePlanet::dial(JoinTarget::Wormhole(wrong_code), 16, false, 0.5).expect("imposter");
-    let mut friend = RemotePlanet::dial(target, 16, false, 0.5).expect("friend");
+    let mut imposter = RemotePlanet::dial(JoinTarget::Wormhole(wrong_code), 16, 0.5).expect("imposter");
+    let mut friend = RemotePlanet::dial(target, 16, 0.5).expect("friend");
 
     for _ in 0..12 {
         let _ = imposter.step_surface(0.18);
@@ -171,7 +171,6 @@ fn test_dual_fritzbox_port_restricted_nat_connects_via_mutual_twelve_char_punch_
         fritz_guest.lan_gateway_addr(),
         world,
         16,
-        false,
     )
     .expect("bind host behind fritzbox");
 
@@ -182,7 +181,7 @@ fn test_dual_fritzbox_port_restricted_nat_connects_via_mutual_twelve_char_punch_
         JoinTarget::Wormhole(host_code),
     );
     let guest_punch = link.punch_code().expect("guest punch code").encode();
-    let mut guest = RemotePlanet::from_link(link, 16, false, 0.5);
+    let mut guest = RemotePlanet::from_link(link, 16, 0.5);
 
     // Phase 1: Before Host punches Guest's code, Host's FRITZ!Box drops EVERY unsolicited packet from Guest!
     for _ in 0..8 {

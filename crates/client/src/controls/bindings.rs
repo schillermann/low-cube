@@ -4,16 +4,16 @@ use winit::keyboard::KeyCode;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ControlAction {
     MoveForward, MoveBackward, MoveLeft, MoveRight,
-    Jump, Sneak, TronMode,
+    Jump, Sneak,
     Satchel, CraftingBook, SatchelLeft, SatchelRight,
     MoldForm, MoldLeft, MoldRight,
 }
 
 impl ControlAction {
-    pub const fn all() -> [Self; 14] {
+    pub const fn all() -> [Self; 13] {
         [
             Self::MoveForward, Self::MoveBackward, Self::MoveLeft, Self::MoveRight,
-            Self::Jump, Self::Sneak, Self::TronMode,
+            Self::Jump, Self::Sneak,
             Self::Satchel, Self::CraftingBook, Self::SatchelLeft, Self::SatchelRight,
             Self::MoldForm, Self::MoldLeft, Self::MoldRight,
         ]
@@ -22,9 +22,9 @@ impl ControlAction {
     pub const fn slot_index(self) -> usize {
         match self {
             Self::MoveForward => 0, Self::MoveBackward => 1, Self::MoveLeft => 2, Self::MoveRight => 3,
-            Self::Jump => 4, Self::Sneak => 5, Self::TronMode => 6,
-            Self::Satchel => 7, Self::CraftingBook => 8, Self::SatchelLeft => 9, Self::SatchelRight => 10,
-            Self::MoldForm => 11, Self::MoldLeft => 12, Self::MoldRight => 13,
+            Self::Jump => 4, Self::Sneak => 5,
+            Self::Satchel => 6, Self::CraftingBook => 7, Self::SatchelLeft => 8, Self::SatchelRight => 9,
+            Self::MoldForm => 10, Self::MoldLeft => 11, Self::MoldRight => 12,
         }
     }
 
@@ -32,7 +32,7 @@ impl ControlAction {
         match self {
             Self::MoveForward => "MOVE FORWARD", Self::MoveBackward => "MOVE BACK",
             Self::MoveLeft => "MOVE LEFT", Self::MoveRight => "MOVE RIGHT",
-            Self::Jump => "JUMP", Self::Sneak => "SNEAK", Self::TronMode => "TRON MODE",
+            Self::Jump => "JUMP", Self::Sneak => "SNEAK",
             Self::Satchel => "SATCHEL", Self::CraftingBook => "CRAFTING BOOK",
             Self::SatchelLeft => "EMPTY LEFT HAND", Self::SatchelRight => "EMPTY RIGHT HAND",
             Self::MoldForm => "TURN BLOCK", Self::MoldLeft => "PREV SHAPE", Self::MoldRight => "NEXT SHAPE",
@@ -43,7 +43,7 @@ impl ControlAction {
         match self {
             Self::MoveForward => "move_forward", Self::MoveBackward => "move_backward",
             Self::MoveLeft => "move_left", Self::MoveRight => "move_right",
-            Self::Jump => "jump", Self::Sneak => "sneak", Self::TronMode => "tron_mode",
+            Self::Jump => "jump", Self::Sneak => "sneak",
             Self::Satchel => "satchel", Self::CraftingBook => "crafting_book",
             Self::SatchelLeft => "satchel_left", Self::SatchelRight => "satchel_right",
             Self::MoldForm => "mold_form", Self::MoldLeft => "mold_left", Self::MoldRight => "mold_right",
@@ -105,22 +105,22 @@ impl TriggerNotation for InputTrigger {
 /// Immutable one-to-one mapping assigning strictly one InputTrigger to each ControlAction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActionBindings {
-    triggers: [InputTrigger; 14],
+    triggers: [InputTrigger; 13],
 }
 
 impl ActionBindings {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(triggers: [InputTrigger; 14]) -> Self {
+    pub const fn new(triggers: [InputTrigger; 13]) -> Self {
         Self { triggers }
     }
 
-    /// Secondary constructor initializing all 14 actions with their single seeded triggers.
+    /// Secondary constructor initializing all 13 actions with their single seeded triggers.
     pub const fn seeded() -> Self {
         Self::new([
             InputTrigger::Key(KeyCode::KeyW), InputTrigger::Key(KeyCode::KeyS),
             InputTrigger::Key(KeyCode::KeyA), InputTrigger::Key(KeyCode::KeyD),
             InputTrigger::Key(KeyCode::Space), InputTrigger::Key(KeyCode::ShiftLeft),
-            InputTrigger::Key(KeyCode::KeyT), InputTrigger::Key(KeyCode::Tab),
+            InputTrigger::Key(KeyCode::Tab),
             InputTrigger::Key(KeyCode::KeyC), InputTrigger::Key(KeyCode::KeyQ),
             InputTrigger::Key(KeyCode::KeyE), InputTrigger::WheelClick,
             InputTrigger::WheelUp, InputTrigger::WheelDown,

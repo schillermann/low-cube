@@ -3,10 +3,12 @@ use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::column_clearance::ColumnClearance;
+use super::craft_entity::VesselSink;
 use super::elevation::ReliefElevation;
 use super::mineral_vein::{ExposedStratum, SubterraneanVeins};
 use super::natural_strata::NaturalStrata;
 use super::overhang_molds::OverhangMolds;
+use super::planned_mount::MountDomain;
 use super::shaft_excavation::ShaftExcavation;
 use super::sight_ray::SurfaceSightRay;
 use super::vehicle_assembly::VehicleAssembly;
@@ -66,6 +68,26 @@ impl ReliefElevation for TerracedRelief {
 
     fn layer_occupied_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
         self.molds.layer_occupied_at(u, v, layer_elev)
+    }
+
+    fn boom_slot_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
+        self.molds.boom_slot_at(u, v, layer_elev)
+    }
+
+    fn effective_placement_cell(&self, u: i32, v: i32, base: f32) -> Option<(i32, i32, f32)> {
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        let sub = base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
+        self.molds.effective_placement_cell(u, v, ground_top, sub, base)
+    }
+
+    fn resolve_planned_site(&self, u: i32, v: i32, base: f32, medium: BlockMedium) -> Option<(GridCell, f32, MountDomain)> {
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        let sub = base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
+        self.molds.resolve_planned_site(u, v, ground_top, sub, base, medium)
+    }
+
+    fn present_vessels(&self, sink: &mut dyn VesselSink) {
+        self.molds.present_vessels(sink);
     }
 
     fn seat_backrest_cell(&self, u: i32, v: i32, layer_elev: f32) -> Option<(i32, i32)> {
@@ -154,10 +176,16 @@ impl ReliefElevation for TerracedRelief {
         self.molds.lower_rig(&self.strata, &self.shafts, u, v)
     }
 
+    fn board_vehicle_on_face(
+        &mut self, frame: &SurfaceFrame, u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, engage_engine: bool,
+    ) -> (Option<VehicleAssembly>, bool) {
+        self.molds.board_vehicle(&self.strata, &self.shafts, frame, u, v, layer_elev, ray, engage_engine)
+    }
+
     fn board_vehicle_at(
         &mut self, frame: &SurfaceFrame, u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, engage_engine: bool,
     ) -> Option<VehicleAssembly> {
-        self.molds.board_vehicle(&self.strata, &self.shafts, frame, u, v, layer_elev, ray, engage_engine)
+        self.board_vehicle_on_face(frame, u, v, layer_elev, ray, engage_engine).0
     }
 
     fn park_vehicle_at(&mut self, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {

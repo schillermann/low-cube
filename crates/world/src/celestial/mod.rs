@@ -65,15 +65,11 @@ impl CelestialSystem {
     }
 
     /// Authoritative Earth-Moon system with living subterranean mineral veins on both worlds.
-    pub fn authoritative(blocks: u32, margin: f32, tron: bool) -> Box<dyn PlanetaryWorld> {
-        let home = if tron {
-            BiomedCubeWorld::beveled_tron(blocks, margin)
-        } else {
-            BiomedCubeWorld::beveled(blocks, margin)
-        };
+    pub fn authoritative(blocks: u32, margin: f32) -> Box<dyn PlanetaryWorld> {
+        let home = BiomedCubeWorld::beveled(blocks, margin);
         let home_half = (blocks as f32) * 0.5;
         let moon_pos = Self::moon_center(blocks);
-        let moon = TranslatedWorld::new(LunarWorld::authoritative(tron), moon_pos);
+        let moon = TranslatedWorld::new(LunarWorld::authoritative(), moon_pos);
         let gravity = Self::compose_gravity(home_half, margin, moon_pos);
         Box::new(OrbitalFleetWorld::wrapping(BinaryPlanet::new(home, moon, gravity, home_half)))
     }
@@ -83,21 +79,17 @@ impl CelestialSystem {
         let home = BiomedCubeWorld::barren_beveled(blocks, margin);
         let home_half = (blocks as f32) * 0.5;
         let moon_pos = Self::moon_center(blocks);
-        let moon = TranslatedWorld::new(LunarWorld::authoritative(false), moon_pos);
+        let moon = TranslatedWorld::new(LunarWorld::authoritative(), moon_pos);
         let gravity = Self::compose_gravity(home_half, margin, moon_pos);
         Box::new(OrbitalFleetWorld::wrapping(BinaryPlanet::new(home, moon, gravity, home_half)))
     }
 
     /// Zero-knowledge client Earth-Moon system without unexposed subterranean ores.
-    pub fn hollow(blocks: u32, margin: f32, tron: bool) -> Box<dyn PlanetaryWorld> {
-        let home = if tron {
-            BiomedCubeWorld::hollow_beveled_tron(blocks, margin)
-        } else {
-            BiomedCubeWorld::hollow_beveled(blocks, margin)
-        };
+    pub fn hollow(blocks: u32, margin: f32) -> Box<dyn PlanetaryWorld> {
+        let home = BiomedCubeWorld::hollow_beveled(blocks, margin);
         let home_half = (blocks as f32) * 0.5;
         let moon_pos = Self::moon_center(blocks);
-        let moon = TranslatedWorld::new(LunarWorld::hollow(tron), moon_pos);
+        let moon = TranslatedWorld::new(LunarWorld::hollow(), moon_pos);
         let gravity = Self::compose_gravity(home_half, margin, moon_pos);
         Box::new(OrbitalFleetWorld::wrapping(BinaryPlanet::new(home, moon, gravity, home_half)))
     }

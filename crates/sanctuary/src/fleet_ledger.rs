@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{
     BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, HelmLocks,
-    MeshTarget, VehicleAssembly, WorldEarthworks,
+    MeshTarget, VehicleAssembly, VesselSink, WorldEarthworks,
 };
 
 /// Encapsulated blueprint catalog, helm ownership locks, and optimistic race-revocation list.
@@ -93,6 +93,10 @@ impl FleetLedger {
 
     pub fn emit_crafts(&self, crafts: &[DrivenCraft], target: &mut dyn MeshTarget) {
         self.catalog.emit_crafts(crafts, target);
+    }
+
+    pub fn present_vessels(&self, crafts: &[DrivenCraft], sink: &mut dyn VesselSink) {
+        self.catalog.present_vessels(crafts, sink);
     }
 
     pub fn constrain_crafts(

@@ -3,12 +3,8 @@ mod impulse;
 mod part;
 
 use glam::{Quat, Vec3};
-use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
-use super::craft_cluster::CraftCluster;
 use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose};
-use super::natural_strata::NaturalStrata;
-use super::shaft_excavation::ShaftExcavation;
 pub use self::axes::VehicleAxes;
 pub use self::impulse::{PilotOrder, RigidImpulse};
 pub use self::part::VehiclePart;
@@ -50,6 +46,7 @@ impl VehicleAssembly {
     pub const fn identity(&self) -> CraftIdentity { self.blueprint.identity() }
     pub const fn blueprint(&self) -> &CraftBlueprint { &self.blueprint }
     pub const fn pose(&self) -> CraftPose { self.pose }
+    pub fn into_blueprint_pose(self) -> (CraftBlueprint, CraftPose) { (self.blueprint, self.pose) }
     pub const fn origin(&self) -> Vec3 { self.pose.origin() }
     pub const fn heading(&self) -> Vec3 { self.pose.heading() }
     pub const fn normal(&self) -> Vec3 { self.pose.normal() }
@@ -117,24 +114,5 @@ impl VehicleAssembly {
         let (blueprint, bp_used) = CraftBlueprint::decode(bytes)?;
         let (pose, pose_used) = CraftPose::decode(&bytes[bp_used..])?;
         Some((Self::from_blueprint(blueprint, pose), bp_used + pose_used))
-    }
-
-    pub(super) fn park_into_cluster(
-        self,
-        strata: &NaturalStrata,
-        shafts: &ShaftExcavation,
-        frame: &SurfaceFrame,
-    ) -> (CraftIdentity, CraftCluster, (i32, i32)) {
-        let id = self.blueprint.identity();
-        let lift = self.blueprint.wheel_ground_lift();
-        let raw_seat = frame.cell_at(self.pose.origin()).feed_coordinates(|cu, cv| (cu, cv));
-        let basis = self.pose.axes().grid_basis(frame);
-        let half_cells = (frame.height_of(frame.point_at(0.0, 0.0, 0.0)) * 2.0).round() as i32;
-        let seat = self.blueprint.clamped_seat(raw_seat, basis, half_cells);
-        let mut craft = CraftCluster::untouched();
-        for part in self.blueprint.into_parts() {
-            part.park_into(seat, basis, lift, &mut craft, strata, shafts);
-        }
-        (id, craft, seat)
     }
 }

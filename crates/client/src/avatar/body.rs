@@ -41,6 +41,7 @@ impl AvatarBody {
     pub fn shape_pose(&self, pose: BodyPose) -> BodyPose { self.berth.shape_pose(pose) }
     pub fn pilot_craft(&self) -> world::PilotCraft { self.berth.pilot_craft() }
     pub fn emit_vehicle(&self, target: &mut dyn MeshTarget) { self.berth.emit(target); }
+    pub fn present_vessel(&self, sink: &mut dyn world::VesselSink) { self.berth.present_vessel(sink); }
     pub fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> { self.berth.hull_camera_lens() }
     pub fn handle_cockpit_trigger(&mut self, trigger: InputTrigger, bindings: &ActionBindings) -> bool {
         self.berth.handle_cockpit_trigger(trigger, bindings)

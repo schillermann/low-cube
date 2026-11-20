@@ -4,8 +4,8 @@ mod slices;
 
 use glam::Vec3;
 use crate::{
-    BeveledBoundary, CubicBoundary, ExposedStratum, Face, GravityField, MeadowRing, MeshTarget,
-    OpenBoundary, PlanetaryWorld, SeamBoundary,
+    BeveledBoundary, BlockMold, CubicBoundary, ExposedStratum, Face, GravityField, MeadowRing,
+    MeshTarget, OpenBoundary, PlanetaryWorld, PlannedMount, SeamBoundary, VesselSink,
 };
 pub use self::patches::{MeadowScan, PatchCoord};
 pub use self::slices::ModifiedSlices;
@@ -229,6 +229,25 @@ impl PlanetaryWorld for CubePlanet {
 
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
         ModifiedSlices::horizon_mask(&self.faces, position, self.surface_up_at(position))
+    }
+
+    fn present_vessels(&self, sink: &mut dyn VesselSink) {
+        for face in &self.faces {
+            face.present_vessels(sink);
+        }
+    }
+
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        for idx in [primary, secondary] {
+            if let Some(planned) = self.faces.get(idx).and_then(|f| f.plan_molded_block(eye, direction, avatar_pos, mold)) {
+                return Some(planned);
+            }
+            if secondary == primary {
+                break;
+            }
+        }
+        None
     }
 
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {

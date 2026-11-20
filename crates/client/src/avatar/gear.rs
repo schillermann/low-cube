@@ -204,4 +204,8 @@ impl AvatarGear {
         self.earthworks.emit_attire(&self.attire, pose, sight, target);
         self.earthworks.emit_debris(view_dir, up, rhythm, target);
     }
+
+    pub fn planned_mount(&self, reach: SurfaceReach, world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> {
+        self.earthworks.planned_mount(reach, self.attire, world)
+    }
 }

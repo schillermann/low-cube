@@ -12,6 +12,7 @@ mod molded_structure;
 mod natural_strata;
 mod overhang_molds;
 mod palette;
+mod planned_mount;
 mod shaft_excavation;
 mod sight_ray;
 mod strata;
@@ -41,7 +42,7 @@ mod wedge_seam_tests;
 pub(crate) use corner::NaturalCrown;
 pub use craft_entity::{
     BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, DeckFrame, HelmLocks,
-    SeatOccupancy, WorldCraft,
+    SeatOccupancy, VesselSink, WorldCraft,
 };
 pub use crust_vault::CrustVault;
 pub use elevation::ReliefElevation;
@@ -49,6 +50,7 @@ pub use face::{FacetedReliefFace, MeadowRing, MeadowStamp, MEADOW_RING_SLOTS};
 pub use facet::ReliefFacet;
 pub use mineral_vein::{ExposedStratum, HollowVeins, LivingVeins, SubterraneanVeins};
 pub use palette::ReliefPalette;
+pub use planned_mount::{MountDomain, MountSite, PlannedMount};
 pub use sight_ray::SurfaceSightRay;
 pub use terraced::TerracedRelief;
 pub use vehicle_assembly::{PilotOrder, RigidImpulse, VehicleAssembly, VehicleAxes, VehiclePart};

@@ -149,6 +149,15 @@ impl PlanetaryWorld for HostedPlanet {
         self.host.emit_guest_crafts(target);
     }
 
+    fn present_vessels(&self, sink: &mut dyn world::VesselSink) {
+        self.host.world().present_vessels(sink);
+        self.host.present_guest_vessels(sink);
+    }
+
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<world::PlannedMount> {
+        self.host.world().plan_molded_block(eye, direction, avatar_pos, mold)
+    }
+
     fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
         self.host.board_passenger_seat(eye, direction)
     }

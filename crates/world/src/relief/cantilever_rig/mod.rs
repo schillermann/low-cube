@@ -36,7 +36,19 @@ impl CantileverRig {
     }
 
     pub fn occupies_mast_layer(&self, layer_elev: f32) -> bool { self.arm.occupies_mast_layer(layer_elev) }
+    pub fn vacant_craft(&self) -> bool { self.craft.vacant() }
     pub fn craft_present_at(&self, u: i32, v: i32) -> bool { self.craft.present_at(u, v) }
+    pub fn boom_or_craft_at(&self, mast_u: i32, mast_v: i32, u: i32, v: i32) -> bool {
+        self.arm.occupies_boom_cell(mast_u, mast_v, u, v) || self.craft.present_at(u, v)
+    }
+    pub fn boom_slot_at(&self, mast_u: i32, mast_v: i32, u: i32, v: i32, layer_elev: f32) -> bool {
+        let hoist_z = self.arm.hoist_elevation();
+        self.arm.hoisted()
+            && (u, v) != (mast_u, mast_v)
+            && !self.craft.layer_occupied_at(u, v, hoist_z + 0.25)
+            && self.arm.occupies_boom_cell(mast_u, mast_v, u, v)
+            && (layer_elev - (hoist_z + 0.25)).abs() <= 0.30
+    }
     pub fn top_steps_at(&self, u: i32, v: i32, floor_steps: i32) -> i32 { self.craft.top_steps_at(u, v, floor_steps) }
     pub fn seat_backrest_cell(&self, u: i32, v: i32, layer_elev: f32) -> Option<(i32, i32)> { self.craft.seat_backrest_cell(u, v, layer_elev) }
     pub fn craft_medium_at(&self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> { self.craft.medium_at(u, v, layer_elev) }
@@ -114,13 +126,8 @@ impl CantileverRig {
         if (cu, cv) == (mast_u, mast_v) && self.arm.occupies_mast_layer(ray_elev) {
             return Some(self.arm.mast_ceiling());
         }
-        let claw = self.arm.gripped_cell(mast_u, mast_v);
-        let hoist_z = self.arm.hoist_elevation();
-        (self.arm.hoisted()
-            && !self.craft.occupies_claw(claw, hoist_z)
-            && self.arm.occupies_boom_cell(mast_u, mast_v, cu, cv)
-            && (ray_elev - (hoist_z + 0.25)).abs() <= 0.30)
-            .then_some(hoist_z + BLOCK_STEP)
+        self.boom_slot_at(mast_u, mast_v, cu, cv, ray_elev)
+            .then_some(self.arm.hoist_elevation() + BLOCK_STEP)
     }
 
     pub fn emit_mast_and_craft(&self, mast_u: i32, mast_v: i32, cell: GridCell, frame: &SurfaceFrame, colors: (Vec3, Vec3), scars: &TurfScars, target: &mut dyn MeshTarget) -> bool {

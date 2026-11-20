@@ -140,3 +140,79 @@ fn test_spacecraft_with_steuerduese_pitches_into_lateral_trajectory() {
         "Steuerdüse pitch + thrust must steer craft laterally, got {pos:?}"
     );
 }
+
+#[test]
+fn test_flight_console_mounts_from_one_block_in_front_of_crane_arm_without_stepping_back() {
+    use world::{BiomedCubeWorld, PlanetaryWorld, WorldEarthworks as _};
+
+    for &(u, v, yaw_deg) in &[
+        (1.75f32, 0.25f32, -90.0f32),
+        (2.05, 0.25, -90.0),
+        (0.75, 1.05, 0.0),
+        (1.25, 1.05, 0.0),
+        (-0.55, 0.25, 90.0),
+    ] {
+        let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
+        let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+        let far = Vec3::new(5.0, g0 + 1.0, 5.0);
+        assert!(world.place_molded_surface_block(
+            Vec3::new(0.25, g0 + 1.5, 0.25),
+            Vec3::NEG_Y,
+            far,
+            BlockMold::cube().in_medium(BlockMedium::CantileverRig),
+        ));
+        let spawn = world.constrain_to_surface(Vec3::new(u, 22.0, v), 1.0);
+        let squire = YouthAttire::squire().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm);
+        let mut avatar = PlanetaryAvatar::with_attire_and_bindings(
+            spawn,
+            Box::new(SurfaceFlight::calibrated(0.522, 9.81, 1.0)),
+            squire,
+            ActionBindings::seeded(),
+        );
+        avatar.rotate_degrees(yaw_deg, 0.0);
+        assert!(
+            HandGesture::RightTap.perform(&mut avatar, &mut world),
+            "FlightConsole must mount onto empty crane arm from ({u}, {v}) without stepping back",
+        );
+        assert!(
+            world.adjust_rig(Vec3::new(0.25, g0 + 1.5, 0.25), Vec3::NEG_Y, 1, false),
+            "Placed FlightConsole from ({u}, {v}) must be mounted on the crane cluster",
+        );
+    }
+
+    for &(u, v, yaw_deg, expected_cell) in &[
+        (0.75f32, 1.25f32, 0.0f32, Vec3::new(0.75, 0.0, 0.25)),
+        (1.25, 1.05, 0.0, Vec3::new(1.25, 0.0, 0.75)),
+        (2.05, 0.25, -90.0, Vec3::new(1.75, 0.0, 0.25)),
+    ] {
+        let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
+        let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+        let far = Vec3::new(5.0, g0 + 1.0, 5.0);
+        for medium in [BlockMedium::CantileverRig, BlockMedium::RocketNozzle] {
+            assert!(world.place_molded_surface_block(
+                Vec3::new(0.25, g0 + 1.5, 0.25),
+                Vec3::NEG_Y,
+                far,
+                BlockMold::cube().in_medium(medium),
+            ));
+        }
+        let spawn = world.constrain_to_surface(Vec3::new(u, 22.0, v), 1.0);
+        let squire = YouthAttire::squire().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm);
+        let mut avatar = PlanetaryAvatar::with_attire_and_bindings(
+            spawn,
+            Box::new(SurfaceFlight::calibrated(0.522, 9.81, 1.0)),
+            squire,
+            ActionBindings::seeded(),
+        );
+        avatar.rotate_degrees(yaw_deg, 0.0);
+        assert!(
+            HandGesture::RightTap.perform(&mut avatar, &mut world),
+            "FlightConsole must attach to crane rocket from ({u}, {v}) without stepping back",
+        );
+        assert_eq!(
+            world.harvest_surface(Vec3::new(expected_cell.x, g0 + 2.4, expected_cell.z), Vec3::NEG_Y),
+            Some(BlockMedium::FlightConsole),
+            "FlightConsole placed from ({u}, {v}) must occupy expected crane cell {expected_cell:?}",
+        );
+    }
+}

@@ -90,8 +90,8 @@ impl RemotePlanet {
         Self::with_journal(world, GuestJournal::new(link, predicted))
     }
 
-    pub fn from_link(link: RemoteLink, blocks: u32, tron: bool, bevel_margin: f32) -> Self {
-        let world = CelestialSystem::hollow(blocks, bevel_margin, tron);
+    pub fn from_link(link: RemoteLink, blocks: u32, bevel_margin: f32) -> Self {
+        let world = CelestialSystem::hollow(blocks, bevel_margin);
         Self::new(world, link, VecDeque::new())
     }
 
@@ -99,7 +99,6 @@ impl RemotePlanet {
     pub fn connect(
         target: JoinTarget,
         fallback_blocks: u32,
-        fallback_tron: bool,
         bevel_margin: f32,
     ) -> std::io::Result<Self> {
         let mut link = RemoteLink::bind(target)?;
@@ -107,25 +106,24 @@ impl RemotePlanet {
             JoinTarget::Wormhole(_) => Duration::from_millis(650),
             JoinTarget::Ticket(_) | JoinTarget::Direct(_) => Duration::from_millis(450),
         };
-        let (blocks, tron) = link.await_welcome(wait, fallback_blocks, fallback_tron);
+        let blocks = link.await_welcome(wait, fallback_blocks);
         if !link.connected() || link.unresolved_wormhole() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::TimedOut,
                 "Sanctuary handshake did not complete within welcome window",
             ));
         }
-        Ok(Self::from_link(link, blocks, tron, bevel_margin))
+        Ok(Self::from_link(link, blocks, bevel_margin))
     }
 
     /// Non-blocking connection constructor firing the initial knock immediately without sleeping.
     pub fn dial(
         target: JoinTarget,
         blocks_per_edge: u32,
-        tron_mode: bool,
         bevel_margin: f32,
     ) -> std::io::Result<Self> {
         let link = RemoteLink::bind(target)?;
-        Ok(Self::from_link(link, blocks_per_edge, tron_mode, bevel_margin))
+        Ok(Self::from_link(link, blocks_per_edge, bevel_margin))
     }
 
     pub fn connected(&self) -> bool { self.journal.connected() }
@@ -237,6 +235,17 @@ impl PlanetaryWorld for RemotePlanet {
         let mut crafts = Vec::new();
         self.journal.crafts(&mut crafts);
         self.journal.fleet().emit_crafts(&crafts, target);
+    }
+
+    fn present_vessels(&self, sink: &mut dyn world::VesselSink) {
+        self.world.present_vessels(sink);
+        let mut crafts = Vec::new();
+        self.journal.crafts(&mut crafts);
+        self.journal.fleet().present_vessels(&crafts, sink);
+    }
+
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<world::PlannedMount> {
+        self.world.plan_molded_block(eye, direction, avatar_pos, mold)
     }
 
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.world.placed_camera_tripod() }

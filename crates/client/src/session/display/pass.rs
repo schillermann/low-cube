@@ -5,11 +5,8 @@ use crate::avatar::Avatar;
 use crate::menu::SessionModal;
 use crate::surface::PlatformSurface;
 
-/// Polymorphic rendering pass refreshing world slices and drawing the 3D scene without mode flags.
+/// Polymorphic rendering pass refreshing world slices and drawing the 3D scene.
 pub trait ScenePass {
-    fn tron_wireframe(&self) -> bool {
-        false
-    }
     fn select_visible(&mut self, mask: u32);
     fn refresh_face_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, idx: usize);
     fn refresh_meadow_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, avatar: &dyn Avatar);
@@ -54,10 +51,6 @@ impl<P> PolaroidScenePass<P> {
 }
 
 impl<P: ScenePass> ScenePass for PolaroidScenePass<P> {
-    fn tron_wireframe(&self) -> bool {
-        self.origin.tron_wireframe()
-    }
-
     fn select_visible(&mut self, mask: u32) {
         self.origin.select_visible(mask);
     }

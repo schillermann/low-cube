@@ -2,6 +2,7 @@ mod blueprint;
 mod deck;
 mod identity;
 mod pose;
+mod spatial;
 
 use glam::Vec3;
 use crate::MeshTarget;
@@ -10,6 +11,12 @@ pub use self::blueprint::CraftBlueprint;
 pub use self::deck::DeckFrame;
 pub use self::identity::CraftIdentity;
 pub use self::pose::{CraftPose, SeatOccupancy};
+pub(in crate::relief) use self::spatial::PosedHull;
+
+/// Focused sink receiving active, parked, and orbital vessels for GPU-posed local-hull rendering.
+pub trait VesselSink {
+    fn receive_vessel(&mut self, blueprint: &CraftBlueprint, pose: CraftPose);
+}
 
 /// Living planetary vehicle entity uniting identity, immutable blueprint, pose, and seat occupancy.
 #[derive(Clone, Debug, PartialEq)]
@@ -80,6 +87,14 @@ impl BlueprintCatalog {
         for craft in crafts {
             if let Some(bp) = self.find(craft.identity()) {
                 bp.emit_at(craft.pose(), target);
+            }
+        }
+    }
+
+    pub fn present_vessels(&self, crafts: &[DrivenCraft], sink: &mut dyn VesselSink) {
+        for craft in crafts {
+            if let Some(bp) = self.find(craft.identity()) {
+                sink.receive_vessel(bp, craft.pose());
             }
         }
     }

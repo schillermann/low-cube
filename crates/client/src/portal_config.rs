@@ -42,9 +42,9 @@ impl PortalDial {
         let Ok(mut link) = RemoteLink::bind(target) else {
             return (Self::Idle, DialOutcome::Failed);
         };
-        if let Some((blocks, tron)) = link.try_welcome_within(Duration::from_millis(240)) {
+        if let Some(blocks) = link.try_welcome_within(Duration::from_millis(240)) {
             println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-            let remote = RemotePlanet::from_link(link, blocks, tron, 1.0);
+            let remote = RemotePlanet::from_link(link, blocks, 1.0);
             return (Self::Idle, DialOutcome::Connected(Box::new(ConduitPlanet::spawning(Box::new(remote)))));
         }
         if let Some(punch) = link.punch_code() {
@@ -52,9 +52,9 @@ impl PortalDial {
             println!("=== CO-OP SIGNAL OPEN - SEND REPLY CODE TO HOST: {reply_code} ===");
             return (Self::Punching { link, elapsed: 0.0 }, DialOutcome::Punching(reply_code));
         }
-        if let Some((blocks, tron)) = link.try_welcome_within(Duration::from_millis(210)) {
+        if let Some(blocks) = link.try_welcome_within(Duration::from_millis(210)) {
             println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-            let remote = RemotePlanet::from_link(link, blocks, tron, 1.0);
+            let remote = RemotePlanet::from_link(link, blocks, 1.0);
             return (Self::Idle, DialOutcome::Connected(Box::new(ConduitPlanet::spawning(Box::new(remote)))));
         }
         (Self::Idle, DialOutcome::Failed)
@@ -65,17 +65,17 @@ impl PortalDial {
     }
 
     pub fn step(&mut self, dt: f32) -> DialStep {
-        let ready_cfg = match *self {
+        let ready_blocks = match *self {
             Self::Idle => return DialStep::Idle,
             Self::Punching { ref mut link, ref mut elapsed } => {
                 *elapsed += dt;
                 link.step_handshake(dt)
             }
         };
-        if let Some((blocks, tron)) = ready_cfg {
+        if let Some(blocks) = ready_blocks {
             if let Self::Punching { link, .. } = std::mem::replace(self, Self::Idle) {
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-                let remote = RemotePlanet::from_link(link, blocks, tron, 1.0);
+                let remote = RemotePlanet::from_link(link, blocks, 1.0);
                 return DialStep::Connected(Box::new(ConduitPlanet::spawning(Box::new(remote))));
             }
         }
@@ -93,13 +93,12 @@ impl PortalDial {
 #[derive(Clone, Copy, Debug)]
 pub struct LivePortal {
     blocks: u32,
-    tron_active: bool,
 }
 
 impl LivePortal {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(blocks: u32, tron_active: bool) -> Self {
-        Self { blocks, tron_active }
+    pub const fn new(blocks: u32) -> Self {
+        Self { blocks }
     }
 
     pub fn open(&self, world: Box<dyn PlanetaryWorld>) -> (Box<dyn PlanetaryWorld>, PortalInvite) {
@@ -112,7 +111,7 @@ impl LivePortal {
             println!("Invite Ticket:  {existing_ticket}");
             return (world, PortalInvite::hosted(existing_code, existing_ticket));
         }
-        let host = SanctuaryHost::bind("0.0.0.0:0", world, self.blocks, self.tron_active)
+        let host = SanctuaryHost::bind("0.0.0.0:0", world, self.blocks)
             .expect("Failed to bind live co-op portal socket");
         let code = host.code().encode();
         let ticket = host.ticket().encode();
@@ -151,15 +150,15 @@ impl PortalConfig {
         Self::Solitary
     }
 
-    pub fn assemble_planet(&self, blocks: u32, tron_active: bool) -> Box<dyn PlanetaryWorld> {
+    pub fn assemble_planet(&self, blocks: u32) -> Box<dyn PlanetaryWorld> {
         let local_authoritative = || -> Box<dyn PlanetaryWorld> {
-            CelestialSystem::authoritative(blocks, 1.0, tron_active)
+            CelestialSystem::authoritative(blocks, 1.0)
         };
         match *self {
             Self::Solitary => local_authoritative(),
             Self::HostSanctuary { port } => {
                 let bind_spec = format!("0.0.0.0:{port}");
-                let host = SanctuaryHost::bind(&bind_spec, local_authoritative(), blocks, tron_active)
+                let host = SanctuaryHost::bind(&bind_spec, local_authoritative(), blocks)
                     .expect("Failed to bind multiplayer SanctuaryHost UDP socket");
                 let code = host.code().encode();
                 let ticket = host.ticket().encode();
@@ -170,7 +169,7 @@ impl PortalConfig {
                 Box::new(ConduitPlanet::spawning(Box::new(HostedPlanet::new(host))))
             }
             Self::JoinRemote { target } => {
-                let remote = RemotePlanet::connect(target, blocks, tron_active, 1.0)
+                let remote = RemotePlanet::connect(target, blocks, 1.0)
                     .expect("Failed to connect multiplayer RemotePlanet UDP socket");
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
                 Box::new(ConduitPlanet::spawning(Box::new(remote)))

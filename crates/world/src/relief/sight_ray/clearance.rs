@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use super::super::elevation::ReliefElevation;
-use super::contact::{PlacementTarget, SightContact};
+use super::contact::PlacementTarget;
 
 /// Decorator over a `PlacementTarget` rejecting placements inside or beneath the avatar's body volume.
 #[derive(Clone, Copy, Debug)]
@@ -15,7 +15,7 @@ pub(super) struct StanceClearance<T> {
 impl<T> StanceClearance<T> {
     const CELL_SPAN: f32 = 0.5;
     const LAYER_HALF: f32 = 0.25;
-    const BODY_RADIUS: f32 = 0.16;
+    const STANCE_SEAM_MARGIN: f32 = 0.02;
     const EYE_SUPPORT_OFFSET: f32 = 1.0;
     const STAND_ORIGIN_THRESHOLD: f32 = 0.85;
 
@@ -59,7 +59,7 @@ impl<T> StanceClearance<T> {
         let (v0, v1) = ((v as f32) * Self::CELL_SPAN, ((v + 1) as f32) * Self::CELL_SPAN);
         let du = self.planar.0 - self.planar.0.clamp(u0, u1);
         let dv = self.planar.1 - self.planar.1.clamp(v0, v1);
-        du * du + dv * dv < Self::BODY_RADIUS * Self::BODY_RADIUS
+        du * du + dv * dv < Self::STANCE_SEAM_MARGIN * Self::STANCE_SEAM_MARGIN
     }
 
     fn stacked_floor(&self, u: i32, v: i32, raw_base: f32, relief: &dyn ReliefElevation) -> f32 {
@@ -75,7 +75,7 @@ impl<T> StanceClearance<T> {
     }
 }
 
-impl PlacementTarget for StanceClearance<SightContact> {
+impl<T: PlacementTarget> PlacementTarget for StanceClearance<T> {
     fn cell_and_base(&self, relief: &dyn ReliefElevation) -> Option<(i32, i32, f32)> {
         let (cu, cv, raw_base) = self.origin.cell_and_base(relief)?;
         if !self.within_bounds(cu, cv) {
@@ -88,5 +88,9 @@ impl PlacementTarget for StanceClearance<SightContact> {
         let actual_base = self.stacked_floor(cu, cv, raw_base, relief);
         let head_limit = self.origin.clearance_above(foot_elev, slope_up);
         (actual_base >= head_limit - 0.02).then_some((cu, cv, raw_base))
+    }
+
+    fn clearance_above(&self, foot_elev: f32, slope_up: f32) -> f32 {
+        self.origin.clearance_above(foot_elev, slope_up)
     }
 }

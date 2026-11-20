@@ -1,9 +1,20 @@
 use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CleaveOutcome, CraftBlueprint, CraftIdentity, CraftPose,
-    ExposedStratum, GravityField, MeadowRing, MeshTarget, PlanetaryWorld, Quad, SurfaceFind,
-    VehicleAssembly, WorldEarthworks,
+    ExposedStratum, GravityField, MeadowRing, MeshTarget, PlanetaryWorld, PlannedMount, Quad,
+    SurfaceFind, VehicleAssembly, VesselSink, WorldEarthworks,
 };
+
+struct TranslatedVesselSink<'a> {
+    shift: Vec3,
+    inner: &'a mut dyn VesselSink,
+}
+
+impl VesselSink for TranslatedVesselSink<'_> {
+    fn receive_vessel(&mut self, blueprint: &CraftBlueprint, pose: CraftPose) {
+        self.inner.receive_vessel(blueprint, pose.with_origin(pose.origin() + self.shift));
+    }
+}
 
 struct TranslatedTarget<'a> {
     shift: Vec3,
@@ -207,6 +218,17 @@ impl<W: PlanetaryWorld> PlanetaryWorld for TranslatedWorld<W> {
 
     fn local_body_point(&self, position: Vec3) -> Vec3 {
         position - self.center
+    }
+
+    fn present_vessels(&self, sink: &mut dyn VesselSink) {
+        let mut shifted = TranslatedVesselSink { shift: self.center, inner: sink };
+        self.origin.present_vessels(&mut shifted);
+    }
+
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
+        self.origin
+            .plan_molded_block(eye - self.center, direction, avatar_pos - self.center, mold)
+            .map(|p| p.translated(self.center))
     }
 
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {

@@ -3,6 +3,36 @@ use super::super::elevation::ReliefElevation;
 /// Focused interface for a resolved voxel block placement target.
 pub(super) trait PlacementTarget {
     fn cell_and_base(&self, relief: &dyn ReliefElevation) -> Option<(i32, i32, f32)>;
+    fn clearance_above(&self, foot_elev: f32, slope_up: f32) -> f32;
+}
+
+/// Decorator redirecting non-crane block placements to their effective cantilever rig cell before stance vetting.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct RigMountTarget<T> {
+    origin: T,
+    rig_eligible: bool,
+}
+
+impl<T> RigMountTarget<T> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub(super) const fn new(origin: T, rig_eligible: bool) -> Self {
+        Self { origin, rig_eligible }
+    }
+}
+
+impl<T: PlacementTarget> PlacementTarget for RigMountTarget<T> {
+    fn cell_and_base(&self, relief: &dyn ReliefElevation) -> Option<(i32, i32, f32)> {
+        let (cu, cv, base) = self.origin.cell_and_base(relief)?;
+        if self.rig_eligible {
+            relief.effective_placement_cell(cu, cv, base)
+        } else {
+            Some((cu, cv, base))
+        }
+    }
+
+    fn clearance_above(&self, foot_elev: f32, slope_up: f32) -> f32 {
+        self.origin.clearance_above(foot_elev, slope_up)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -103,6 +133,9 @@ impl StepCrossing {
         }
         let block_top = raw_top.max(ground_top);
         let layer_mid = block_top - Self::CELL_SPAN * 0.5;
+        if relief.boom_slot_at(cu, cv, layer_mid) {
+            return SightContact::new((cu, cv), hit_top, ContactFace::Lateral((cu, cv), block_top - Self::CELL_SPAN));
+        }
         let backrest = relief.seat_backrest_cell(cu, cv, layer_mid);
         let underside_entry = (prev_cu, prev_cv) == (cu, cv)
             || prior_elev < block_top - Self::CELL_SPAN - Self::UNDERSIDE_WALL_MARGIN;
@@ -151,13 +184,6 @@ impl SightContact {
         let (cu, cv) = self.cell;
         (cu, cv, self.hit_top - Self::LAYER_HALF)
     }
-
-    pub(super) fn clearance_above(&self, foot_elev: f32, slope_up: f32) -> f32 {
-        match self.face {
-            ContactFace::Underside(_) if slope_up > 0.5 => foot_elev + Self::UNDERSIDE_HEADROOM,
-            _ => foot_elev + Self::UPRIGHT_HEADROOM,
-        }
-    }
 }
 
 impl PlacementTarget for SightContact {
@@ -170,6 +196,13 @@ impl PlacementTarget for SightContact {
                 let ground_top = (relief.elevation_at(cu, cv) as f32) * Self::CELL_SPAN;
                 (ground_top <= self.hit_top + 0.05).then_some((cu, cv, block_top))
             }
+        }
+    }
+
+    fn clearance_above(&self, foot_elev: f32, slope_up: f32) -> f32 {
+        match self.face {
+            ContactFace::Underside(_) if slope_up > 0.5 => foot_elev + Self::UNDERSIDE_HEADROOM,
+            _ => foot_elev + Self::UPRIGHT_HEADROOM,
         }
     }
 }

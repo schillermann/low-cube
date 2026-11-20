@@ -194,6 +194,14 @@ impl PalmEarthworks {
         self.dig.emit_debris(view_dir, surface_up, rhythm, target);
     }
 
+    pub fn planned_mount(&self, reach: SurfaceReach, attire: YouthAttire, world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> {
+        if self.satchel.open() || self.tome.open() || !self.dig.untouched() {
+            return None;
+        }
+        let (_, mold) = self.satchel.active_preview_mold(attire, self.dig.grip().pending_place_side())?;
+        world.plan_molded_block(reach.eye(), reach.view_dir(), reach.stance_origin(), mold)
+    }
+
     pub const fn halt_dig(self) -> Self {
         Self::with_state(self.satchel, self.tome, self.dig.halted(), TossCadence::Quiet)
     }

@@ -5,7 +5,9 @@ use crate::frame::SurfaceFrame;
 use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 use crate::topology::ClimateZone;
 use super::corner::NaturalCrown;
+use super::craft_entity::VesselSink;
 use super::mineral_vein::ExposedStratum;
+use super::planned_mount::MountDomain;
 use super::sight_ray::SurfaceSightRay;
 use super::vehicle_assembly::VehicleAssembly;
 
@@ -25,6 +27,22 @@ pub trait ReliefElevation: Send + Sync {
 
     /// Indicates whether a placed block occupies the vertical layer at (u, v).
     fn layer_occupied_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> bool { false }
+
+    /// Indicates whether an unoccupied cantilever crane boom slot sits at (u, v, layer_elev).
+    fn boom_slot_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> bool { false }
+
+    /// Resolves the effective cell and base elevation where a non-crane block aimed at (u, v, base) will mount.
+    fn effective_placement_cell(&self, u: i32, v: i32, base: f32) -> Option<(i32, i32, f32)> {
+        Some((u, v, base))
+    }
+
+    /// Resolves the verified target cell, final floor elevation, and construction domain for a candidate block.
+    fn resolve_planned_site(&self, u: i32, v: i32, base: f32, _medium: BlockMedium) -> Option<(GridCell, f32, MountDomain)> {
+        Some((GridCell::new(u, v), base, MountDomain::WorldCube))
+    }
+
+    /// Presents parked surface vessels to a GPU vessel sink.
+    fn present_vessels(&self, _sink: &mut dyn VesselSink) {}
 
     /// Adjacent cell directly behind the backrest of a cabin seat at (u, v, layer_elev), if present.
     fn seat_backrest_cell(&self, _u: i32, _v: i32, _layer_elev: f32) -> Option<(i32, i32)> { None }
@@ -86,6 +104,13 @@ pub trait ReliefElevation: Send + Sync {
 
     /// Lowers a polyhedral cantilever rig assembly onto the ground when its mast at (u, v) is clicked.
     fn lower_rig_at(&mut self, _u: i32, _v: i32) -> bool { false }
+
+    /// Boards a cabin seat or engages a car engine at (u, v, layer_elev), returning `(assembly, terrain_changed)`.
+    fn board_vehicle_on_face(
+        &mut self, frame: &SurfaceFrame, u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay, engage_engine: bool,
+    ) -> (Option<VehicleAssembly>, bool) {
+        (self.board_vehicle_at(frame, u, v, layer_elev, ray, engage_engine), false)
+    }
 
     /// Boards a cabin seat or engages a car engine at (u, v, layer_elev).
     fn board_vehicle_at(

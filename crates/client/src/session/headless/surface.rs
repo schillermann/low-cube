@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use glam::Vec3;
-use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
+use engine::{CpuMeshBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
 use world::{ClimateZone, MeshTarget, Quad};
 use crate::attire::SightMode;
 use crate::aurora_cadence::AuroraCadence;
@@ -97,11 +97,6 @@ impl PlatformSurface for HeadlessSurface {
         Box::new(HeadlessMesh { quad_count: 1 })
     }
 
-    fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh> {
-        let _ = batch;
-        Box::new(HeadlessMesh { quad_count: 1 })
-    }
-
     fn compile_shader(&self, _source: &dyn ShaderSource) -> Box<dyn ShaderProgram> {
         Box::new(HeadlessProgram)
     }
@@ -121,7 +116,6 @@ impl PlatformSurface for HeadlessSurface {
         _shader: &dyn ShaderProgram,
         _mesh: &dyn Mesh,
         avatar: &dyn Avatar,
-        _overlay_shader: &dyn ShaderProgram,
         modal: &dyn SessionModal,
     ) {
         let mut sink = QuadSink { quads: Vec::with_capacity(256) };

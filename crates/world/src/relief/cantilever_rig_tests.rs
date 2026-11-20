@@ -258,3 +258,25 @@ fn test_dismantled_crane_adopts_bare_dirt_and_smothered_meadow_renders_loam() {
     ReliefStrata::new().emit_cell(GridCell::new(2, 0), &frame, &relief, &palette, 64, &mut col);
     assert!(!col.quads.iter().any(|q| q.radiate(|g| g > 0.01)), "Vacated smothered meadow must render bare loam without grass glow");
 }
+
+#[test]
+fn test_boom_slot_targets_crane_from_adjacent_free_cell_and_guards_claw_headroom() {
+    let frame = ClimateZone::Temperate.surface_frame(32.0);
+    let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
+    let rig_shape = Box::new(MediumShape::new(Box::new(CuboidShape::new(0.5)), BlockMedium::CantileverRig, true, false));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, rig_shape));
+
+    let console = BlockMold::cube().in_medium(BlockMedium::FlightConsole);
+    let tip_ray = SurfaceSightRay::new(frame.point_at(1.66, 0.25, 1.80), -frame.tangent());
+    assert_eq!(
+        tip_ray.placement_for_mold(&frame, &relief, 64, 32.0, frame.point_at(1.75, 0.25, 1.0), console),
+        Some((2, 0, 1.5)),
+        "Standing 1 block in front of visual crane jaw must resolve placement onto gripped cell (2, 0)",
+    );
+    let mast_ray = SurfaceSightRay::new(frame.point_at(1.16, 0.25, 1.80), -frame.tangent());
+    assert_eq!(
+        mast_ray.placement_for_mold(&frame, &relief, 64, 32.0, frame.point_at(1.25, 0.25, 1.0), console),
+        None,
+        "Standing directly beneath gripped cell (2, 0) at 1.5m hoist must reject self-trapping mount",
+    );
+}

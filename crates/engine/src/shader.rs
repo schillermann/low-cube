@@ -9,6 +9,7 @@ layout(location = 2) in vec3 in_color;
 layout(location = 3) in float in_glow;
 
 uniform mat4 u_view_proj;
+uniform mat4 u_model;
 
 out vec3 v_normal;
 out vec3 v_color;
@@ -17,13 +18,14 @@ out vec3 v_world;
 out vec2 v_uv;
 
 void main() {
-    v_normal = in_normal;
+    vec4 world_pos = u_model * vec4(in_position, 1.0);
+    v_normal = (in_glow < 0.0) ? in_normal : (mat3(u_model) * in_normal);
     v_color = in_color;
     v_glow = in_glow;
     v_world = in_position;
     int corner = gl_VertexID & 3;
     v_uv = vec2(float(corner == 1 || corner == 2), float(corner >= 2));
-    gl_Position = u_view_proj * vec4(in_position, 1.0);
+    gl_Position = u_view_proj * world_pos;
 }
 "#;
 
@@ -113,6 +115,7 @@ pub struct VoxelProgram {
     program: glow::Program,
     u_view_proj: glow::UniformLocation,
     u_light_dir: glow::UniformLocation,
+    u_model: glow::UniformLocation,
 }
 
 impl VoxelProgram {
@@ -120,11 +123,13 @@ impl VoxelProgram {
         program: glow::Program,
         u_view_proj: glow::UniformLocation,
         u_light_dir: glow::UniformLocation,
+        u_model: glow::UniformLocation,
     ) -> Self {
         Self {
             program,
             u_view_proj,
             u_light_dir,
+            u_model,
         }
     }
 }
@@ -134,7 +139,14 @@ impl ShaderProgram for VoxelProgram {
         unsafe {
             gl.use_program(Some(self.program));
             gl.uniform_matrix_4_f32_slice(Some(&self.u_view_proj), false, &view_proj.to_cols_array());
+            gl.uniform_matrix_4_f32_slice(Some(&self.u_model), false, &Mat4::IDENTITY.to_cols_array());
             gl.uniform_3_f32(Some(&self.u_light_dir), light_dir.x, light_dir.y, light_dir.z);
+        }
+    }
+
+    fn apply_model(&self, gl: &glow::Context, model: &Mat4) {
+        unsafe {
+            gl.uniform_matrix_4_f32_slice(Some(&self.u_model), false, &model.to_cols_array());
         }
     }
 }
@@ -186,7 +198,8 @@ impl ShaderSource for VoxelShaderSource {
 
         let u_view_proj = gl.get_uniform_location(program, "u_view_proj").expect("u_view_proj missing");
         let u_light_dir = gl.get_uniform_location(program, "u_light_dir").expect("u_light_dir missing");
+        let u_model = gl.get_uniform_location(program, "u_model").expect("u_model missing");
 
-        Box::new(VoxelProgram::new(program, u_view_proj, u_light_dir))
+        Box::new(VoxelProgram::new(program, u_view_proj, u_light_dir, u_model))
     }
 }

@@ -32,35 +32,6 @@ impl FaceContact {
         }
         (self.ground(0.9, world) - self.point).dot(face_up) > 1.15
     }
-
-    pub(super) fn parked_seat_origin(self, world: &dyn PlanetaryWorld) -> Vec3 {
-        let zone = ClimateZone::dominant(world.surface_up_at(self.point));
-        let face_up = zone.normal();
-        let frame = zone.surface_frame(0.0);
-        let (u0, v0) = frame.decompose(self.point);
-        let (cu, cv) = (u0.div_euclid(0.5) as i32, v0.div_euclid(0.5) as i32);
-        let center = self.point
-            + frame.tangent() * ((cu as f32) * 0.5 + 0.25 - u0)
-            + frame.bitangent() * ((cv as f32) * 0.5 + 0.25 - v0);
-        let mut best = center;
-        let mut best_h = (Self::new(center).ground(0.9, world) - center).dot(face_up);
-        if best_h > 1.15 {
-            return best;
-        }
-        for du in -2..=2 {
-            for dv in -2..=2 {
-                let cand = center + frame.tangent() * ((du as f32) * 0.5) + frame.bitangent() * ((dv as f32) * 0.5);
-                if ClimateZone::dominant(world.surface_up_at(cand)) == zone {
-                    let h = (Self::new(cand).ground(0.9, world) - cand).dot(face_up);
-                    if h > best_h + 0.05 {
-                        best_h = h;
-                        best = cand;
-                    }
-                }
-            }
-        }
-        best
-    }
 }
 
 /// Wheeled chassis surface contact composing the `SlidingRoad(BumperRoad(GradedRoad(SeamRoad)))` decorator chain.

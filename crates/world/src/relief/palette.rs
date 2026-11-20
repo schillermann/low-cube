@@ -116,20 +116,6 @@ impl ReliefPalette {
         }
     }
 
-    /// Secondary constructor assembling vibrant Tron wireframe signature colors.
-    pub fn tron() -> Self {
-        Self::new(
-            Vec3::new(0.0, 0.9, 1.0),
-            Vec3::new(0.1, 0.2, 0.5),
-            Vec3::new(1.0, 0.1, 0.1),
-            Vec3::new(1.0, 0.55, 0.0),
-            Vec3::new(1.0, 0.0, 0.8),
-            Vec3::new(1.0, 0.95, 0.0),
-            Vec3::new(1.0, 1.0, 1.0),
-            Vec3::new(1.0, 0.1, 0.1),
-        )
-    }
-
     /// Secondary constructor deriving airless cratered lunar regolith and basalt tones per face.
     pub fn lunar_regolith(zone: ClimateZone) -> Self {
         let (regolith, mare_floor, basalt_wall) = match zone {

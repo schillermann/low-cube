@@ -54,7 +54,6 @@ fn test_multiplayer_vehicle_ownership_lock_passenger_seat_and_smooth_glide() {
         "127.0.0.1:0",
         Box::new(BiomedCubeWorld::barren_beveled(32, 1.0)),
         32,
-        false,
     )
     .expect("bind host");
     let addr = host.local_addr().expect("host addr");

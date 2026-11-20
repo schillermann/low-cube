@@ -40,13 +40,13 @@ fn pump_pair(host: &mut SanctuaryHost, guest_a: &mut RemotePlanet, guest_b: &mut
 #[test]
 fn test_encrypted_multiplayer_companions_dig_and_build_together_on_shared_cube() {
     let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
-    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16, false).expect("bind host");
+    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16).expect("bind host");
     let ticket = host.ticket();
     let encoded = ticket.encode();
     let parsed = JoinTarget::parse(&encoded).expect("parse LC1 ticket");
 
-    let mut alice = RemotePlanet::dial(parsed, 16, false, 0.5).expect("dial alice");
-    let mut bob = RemotePlanet::dial(JoinTarget::Direct(host.local_addr().expect("addr")), 16, false, 0.5).expect("dial bob");
+    let mut alice = RemotePlanet::dial(parsed, 16, 0.5).expect("dial alice");
+    let mut bob = RemotePlanet::dial(JoinTarget::Direct(host.local_addr().expect("addr")), 16, 0.5).expect("dial bob");
 
     pump_pair(&mut host, &mut alice, &mut bob, 8);
     assert!(alice.connected() && bob.connected(), "Both guests must complete X25519+ChaCha20 handshake");
@@ -104,7 +104,6 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
         "127.0.0.1:0",
         Box::new(build_ore_test_planet(true)),
         16,
-        false,
     )
     .expect("bind ore host");
     let addr = host.local_addr().expect("addr");
@@ -155,7 +154,7 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
 #[test]
 fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping() {
     let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
-    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16, false).expect("bind host");
+    let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16).expect("bind host");
     let ticket = host.ticket();
 
     let sock = UdpSocket::bind("127.0.0.1:0").expect("bind cheater");

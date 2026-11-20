@@ -91,7 +91,7 @@ impl LunarWorld {
     pub const BLOCKS: u32 = 32;
     pub const HALF_SIZE: f32 = 16.0;
 
-    fn build(authoritative_veins: bool, tron: bool) -> CubePlanet {
+    fn build(authoritative_veins: bool) -> CubePlanet {
         let divs = Self::BLOCKS * 2;
         let faces: Vec<Box<dyn Face>> = ClimateZone::all()
             .into_iter()
@@ -102,17 +102,17 @@ impl LunarWorld {
                 } else {
                     Box::new(HollowVeins::untouched())
                 };
-                Box::new(FacetedReliefFace::lunar_with_veins(zone, Self::HALF_SIZE, divs, craters, veins, tron))
+                Box::new(FacetedReliefFace::lunar_with_veins(zone, Self::HALF_SIZE, divs, craters, veins))
             })
             .collect();
         CubePlanet::beveled_cubic(faces, Box::new(NullFace), Self::HALF_SIZE, 1.0)
     }
 
-    pub fn authoritative(tron: bool) -> CubePlanet {
-        Self::build(true, tron)
+    pub fn authoritative() -> CubePlanet {
+        Self::build(true)
     }
 
-    pub fn hollow(tron: bool) -> CubePlanet {
-        Self::build(false, tron)
+    pub fn hollow() -> CubePlanet {
+        Self::build(false)
     }
 }

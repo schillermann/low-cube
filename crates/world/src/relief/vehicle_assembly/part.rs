@@ -114,6 +114,31 @@ impl VehiclePart {
             .then_some((self.offset.0, self.offset.1, self.floor_offset))
     }
 
+    pub(in crate::relief) fn block_medium(&self) -> BlockMedium {
+        self.shape.block_medium()
+    }
+
+    pub(in crate::relief) fn kinematic_part(&self) -> bool {
+        matches!(
+            self.shape.block_medium(),
+            BlockMedium::CarWheel | BlockMedium::SteeringWheel | BlockMedium::FieldCamera
+        )
+    }
+
+    pub(in crate::relief) fn seat_slot(&self) -> Option<((i32, i32), f32, WedgeHeading)> {
+        (self.shape.block_medium() == BlockMedium::CabinSeat)
+            .then_some((self.offset, self.floor_offset, self.shape.block_heading()))
+    }
+
+    pub(in crate::relief) fn step_camera_turn(&mut self, delta: i32) -> Option<(i32, i32)> {
+        self.shape.step_camera_turn(delta).then_some(self.offset)
+    }
+
+    pub(in crate::relief) fn tripod_hub_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
+        let cell = GridCell::new(self.offset.0, self.offset.1);
+        self.shape.camera_tripod_hub(cell, self.floor_offset + lift, frame)
+    }
+
     pub(in crate::relief) fn cell_top_at(&self, cu: i32, cv: i32, lift: f32) -> Option<(f32, f32)> {
         (self.offset == (cu, cv)).then_some((self.floor_offset + lift, self.floor_offset + lift + BLOCK_STEP))
     }

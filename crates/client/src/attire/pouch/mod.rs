@@ -45,6 +45,26 @@ impl BeltSatchel {
     pub const fn with_open(self, open: bool) -> Self { Self::new(self.palms, self.tray.with_open(open), self.tripod) }
     pub const fn palm_molds(&self) -> PalmMolds { self.palms.palm_molds() }
 
+    pub fn active_preview_mold(&self, attire: YouthAttire, pending_side: f32) -> Option<(f32, BlockMold)> {
+        if self.tray.open() {
+            return None;
+        }
+        if pending_side != 0.0 {
+            let (hand, _) = attire.hand_pair(pending_side);
+            if hand.placeable_block() {
+                return Some((pending_side, self.palms.mold_on(pending_side).in_medium(hand.block_medium())));
+            }
+        }
+        let (right, left) = attire.held_pair();
+        if right.placeable_block() {
+            Some((1.0, self.palms.mold_on(1.0).in_medium(right.block_medium())))
+        } else if left.placeable_block() {
+            Some((-1.0, self.palms.mold_on(-1.0).in_medium(left.block_medium())))
+        } else {
+            None
+        }
+    }
+
     pub const fn camera_mount(&self, attire: YouthAttire) -> CameraMount {
         let mount = self.palms.camera_mount(attire);
         if matches!(mount, CameraMount::Handheld(_)) {

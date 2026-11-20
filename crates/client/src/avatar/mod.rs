@@ -43,6 +43,21 @@ pub trait AvatarPresence {
     fn emit_appearance_for_sight(&self, _sight: SightMode, target: &mut dyn MeshTarget) {
         self.emit_appearance(target);
     }
+    fn emit_figure(&self, target: &mut dyn MeshTarget) {
+        self.emit_appearance(target);
+    }
+    fn emit_figure_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) {
+        self.emit_appearance_for_sight(sight, target);
+    }
+    fn present_vessel(&self, _sink: &mut dyn world::VesselSink) {}
+    fn planned_mount(&self, _world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> {
+        None
+    }
+    fn emit_placement_preview(&self, world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
+        if let Some(planned) = self.planned_mount(world) {
+            planned.emit_hologram(target);
+        }
+    }
     fn sector_stamp(&self) -> (u8, i32, i32, i32) { (0, 0, 0, 0) }
     fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 { world.visible_slice_mask(Vec3::ZERO) }
     fn drain_meadow(&self, _world: &dyn PlanetaryWorld, _ring: &mut world::MeadowRing, _target: &mut dyn MeshTarget) -> Option<usize> {

@@ -10,24 +10,35 @@ use crate::companion::CompanionFigure;
 use crate::menu::SessionModal;
 use crate::surface::PlatformSurface;
 use super::pass::ScenePass;
+use super::vessel_stage::{SceneActors, VesselStage};
 
-/// Primary diurnal voxel rendering pass using `16×16` sector grids, toroidal `MeadowRing`, and `StreamingMesh`.
+/// Primary diurnal voxel rendering pass using `16×16` sector grids, toroidal `MeadowRing`, `VesselStage`, and `StreamingMesh`.
 pub struct ShadedScenePass {
     program: (Box<dyn GraphicPipeline>, Box<dyn ShaderProgram>),
     mesh: PlanetaryMesh,
-    actors: StreamingMesh,
+    actors: SceneActors,
     meadow_ring: MeadowRing,
 }
 
 impl ShadedScenePass {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(
+    pub fn with_stage(
         program: (Box<dyn GraphicPipeline>, Box<dyn ShaderProgram>),
         mesh: PlanetaryMesh,
-        actors: StreamingMesh,
+        actors: SceneActors,
         meadow_ring: MeadowRing,
     ) -> Self {
         Self { program, mesh, actors, meadow_ring }
+    }
+
+    /// Secondary constructor initializing an empty GPU `VesselStage` alongside actor streaming buffers.
+    pub fn new(
+        program: (Box<dyn GraphicPipeline>, Box<dyn ShaderProgram>),
+        mesh: PlanetaryMesh,
+        figures: StreamingMesh,
+        meadow_ring: MeadowRing,
+    ) -> Self {
+        Self::with_stage(program, mesh, SceneActors::new(figures, VesselStage::empty()), meadow_ring)
     }
 
     fn ensure_meadow_grid(&mut self, surface: &dyn PlatformSurface, meadow_idx: usize) {
@@ -41,25 +52,44 @@ impl ShadedScenePass {
         self.meadow_ring.invalidate_all();
     }
 
-    fn populate_actors(&mut self, world: &dyn PlanetaryWorld, avatar: &dyn Avatar, fauna: &WoodlandFauna, sight_scale: f32) {
-        self.actors.clear();
-        avatar.emit_appearance(&mut self.actors);
-        CompanionFigure::emit_all(world, &mut self.actors);
-        fauna.emit_visible(avatar.sight_cone().scaled(sight_scale), &mut self.actors);
+    fn populate_actors(
+        &mut self,
+        surface: &dyn PlatformSurface,
+        world: &dyn PlanetaryWorld,
+        avatar: &dyn Avatar,
+        fauna: &WoodlandFauna,
+        sight_scale: f32,
+    ) {
+        self.actors.reset();
+        self.actors.collect_vessels(surface, |sink| {
+            avatar.present_vessel(sink);
+            world.present_vessels(sink);
+        });
+        let figures = self.actors.figures_mut();
+        avatar.emit_figure(figures);
+        avatar.emit_placement_preview(world, figures);
+        CompanionFigure::emit_figures(world, figures);
+        fauna.emit_visible(avatar.sight_cone().scaled(sight_scale), figures);
     }
 
     fn populate_sight_actors(
         &mut self,
+        surface: &dyn PlatformSurface,
         world: &dyn PlanetaryWorld,
         avatar: &dyn Avatar,
         fauna: &WoodlandFauna,
         sight: SightMode,
         sight_scale: f32,
     ) {
-        self.actors.clear();
-        avatar.emit_appearance_for_sight(sight, &mut self.actors);
-        CompanionFigure::emit_all(world, &mut self.actors);
-        fauna.emit_visible(avatar.sight_cone_for_mode(sight).scaled(sight_scale), &mut self.actors);
+        self.actors.reset();
+        self.actors.collect_vessels(surface, |sink| {
+            avatar.present_vessel(sink);
+            world.present_vessels(sink);
+        });
+        let figures = self.actors.figures_mut();
+        avatar.emit_figure_for_sight(sight, figures);
+        CompanionFigure::emit_figures(world, figures);
+        fauna.emit_visible(avatar.sight_cone_for_mode(sight).scaled(sight_scale), figures);
     }
 }
 
@@ -143,7 +173,7 @@ impl ScenePass for ShadedScenePass {
         sight: SightMode,
         sight_scale: f32,
     ) -> Vec<glam::Vec3> {
-        self.populate_sight_actors(world, avatar, fauna, sight, sight_scale);
+        self.populate_sight_actors(surface, world, avatar, fauna, sight, sight_scale);
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
         surface.capture_sight_frame(
             self.program.0.as_ref(),
@@ -162,9 +192,8 @@ impl ScenePass for ShadedScenePass {
         modal: &dyn SessionModal,
         sight_scale: f32,
     ) {
-        self.populate_actors(world, avatar, fauna, sight_scale);
+        self.populate_actors(surface, world, avatar, fauna, sight_scale);
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
-        let shader = self.program.1.as_ref();
-        surface.render_frame(self.program.0.as_ref(), shader, &composed, avatar, shader, modal);
+        surface.render_frame(self.program.0.as_ref(), self.program.1.as_ref(), &composed, avatar, modal);
     }
 }

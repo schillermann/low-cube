@@ -176,10 +176,10 @@ fn test_multiplayer_narrow_shaft_looking_down_clamps_crosshair_and_rejects_under
     use crate::attire::{HeldRelic, YouthAttire};
 
     let host_inner: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(64, 1.0));
-    let host = SanctuaryHost::bind("127.0.0.1:0", host_inner, 64, false).expect("bind host");
+    let host = SanctuaryHost::bind("127.0.0.1:0", host_inner, 64).expect("bind host");
     let addr = host.local_addr().expect("addr");
     let mut host_planet = HostedPlanet::new(host);
-    let mut guest_planet = RemotePlanet::dial(JoinTarget::Direct(addr), 64, false, 1.0).expect("dial guest");
+    let mut guest_planet = RemotePlanet::dial(JoinTarget::Direct(addr), 64, 1.0).expect("dial guest");
     for _ in 0..10 {
         let _ = guest_planet.step_surface(0.02);
         let _ = host_planet.step_surface(0.02);

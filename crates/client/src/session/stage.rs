@@ -63,10 +63,6 @@ impl SessionStage {
         display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());
     }
 
-    pub(super) fn toggle_tron(&self, display: &mut SessionDisplay) {
-        display.toggle_tron(self.world.as_ref(), self.avatar.as_ref());
-    }
-
     pub(super) fn render_onto(&mut self, display: &mut SessionDisplay, sight_scale: f32) {
         display.render_scene(
             self.world.as_ref(),
@@ -88,10 +84,6 @@ impl SessionStage {
     }
 
     pub(super) fn release_hand(&mut self) -> bool { self.avatar.release_hand(self.world.as_mut()) }
-
-    pub(super) fn matches_tron(&self, trigger: InputTrigger) -> bool {
-        self.overlay.matches_tron(trigger)
-    }
 
     pub(super) fn dispatch_avatar_or_control(&mut self, trigger: InputTrigger, pressed: bool) -> bool {
         if pressed
@@ -125,7 +117,7 @@ impl SessionStage {
             OverlayTransition::OpenLivePortal => {
                 let current = std::mem::replace(&mut self.world, Box::new(world::BiomedCubeWorld::of_size(4)));
                 let blocks = ServerScale::assembled().blocks();
-                let (hosted, invite) = LivePortal::new(blocks, display.tron_enabled()).open(current);
+                let (hosted, invite) = LivePortal::new(blocks).open(current);
                 self.world = hosted;
                 self.overlay.announce_portal(invite);
                 ModalDirective::ContinueSession

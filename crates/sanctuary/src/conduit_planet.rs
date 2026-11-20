@@ -90,6 +90,10 @@ impl PlanetaryWorld for ConduitPlanet {
     fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> { self.read_world(|w| w.constrain_on_craft(craft, position, player_height)) }
     fn helm_revoked(&mut self, craft: CraftIdentity) -> bool { self.write_world(|w| w.helm_revoked(craft)) }
     fn emit_active_crafts(&self, target: &mut dyn MeshTarget) { self.read_world(|w| w.emit_active_crafts(target)); }
+    fn present_vessels(&self, sink: &mut dyn world::VesselSink) { self.read_world(|w| w.present_vessels(sink)); }
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<world::PlannedMount> {
+        self.read_world(|w| w.plan_molded_block(eye, direction, avatar_pos, mold))
+    }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.read_world(|w| w.placed_camera_tripod()) }
 
     fn step_surface(&mut self, dt: f32) -> bool {

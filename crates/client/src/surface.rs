@@ -6,7 +6,7 @@ use glutin::surface::{Surface, WindowSurface};
 use glam::Vec3;
 use winit::window::Window;
 
-use engine::{CpuMeshBatch, CpuTronBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
+use engine::{CpuMeshBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
 
 use crate::attire::SightMode;
 use crate::aurora_cadence::AuroraCadence;
@@ -27,12 +27,8 @@ pub trait PlatformSurface {
         SystemClipboard::new().detached()
     }
     fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh>;
-    fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh>;
     fn replace_mesh(&self, _previous: &dyn Mesh, batch: &CpuMeshBatch) -> Box<dyn Mesh> {
         self.upload_mesh(batch)
-    }
-    fn replace_tron_mesh(&self, _previous: &dyn Mesh, batch: &CpuTronBatch) -> Box<dyn Mesh> {
-        self.upload_tron_mesh(batch)
     }
     fn compile_shader(&self, source: &dyn ShaderSource) -> Box<dyn ShaderProgram>;
     fn assemble_diurnal_pipeline(
@@ -47,7 +43,6 @@ pub trait PlatformSurface {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         avatar: &dyn Avatar,
-        overlay_shader: &dyn ShaderProgram,
         modal: &dyn SessionModal,
     );
     fn present_frame(&self) {}
@@ -136,16 +131,7 @@ impl PlatformSurface for GlPlatformSurface {
         unsafe { batch.upload(&self.gl) }
     }
 
-    fn upload_tron_mesh(&self, batch: &CpuTronBatch) -> Box<dyn Mesh> {
-        unsafe { batch.upload(&self.gl) }
-    }
-
     fn replace_mesh(&self, previous: &dyn Mesh, batch: &CpuMeshBatch) -> Box<dyn Mesh> {
-        previous.release(&self.gl);
-        unsafe { batch.upload(&self.gl) }
-    }
-
-    fn replace_tron_mesh(&self, previous: &dyn Mesh, batch: &CpuTronBatch) -> Box<dyn Mesh> {
         previous.release(&self.gl);
         unsafe { batch.upload(&self.gl) }
     }
@@ -169,13 +155,12 @@ impl PlatformSurface for GlPlatformSurface {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         avatar: &dyn Avatar,
-        overlay_shader: &dyn ShaderProgram,
         modal: &dyn SessionModal,
     ) {
         let aspect = self.aspect_ratio();
         let view_proj = avatar.view_projection_matrix(aspect);
         pipeline.render(&self.gl, shader, mesh, &view_proj, avatar.surface_rotation());
-        modal.draw_layer(&self.gl, overlay_shader, avatar, aspect);
+        modal.draw_layer(&self.gl, shader, avatar, aspect);
     }
 
     fn present_frame(&self) {

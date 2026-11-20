@@ -43,13 +43,12 @@ impl SanctuaryHost {
         bind_addr: &str,
         world: Box<dyn PlanetaryWorld>,
         blocks_per_edge: u32,
-        tron_mode: bool,
     ) -> std::io::Result<Self> {
         let secret = PortalCode::draw_secret();
         let socket = Self::bind_slot_socket(bind_addr, secret)?;
         socket.set_nonblocking(true)?;
         let endpoint = NatAperture::interactive().open_host(&socket);
-        Ok(Self::assemble_bound(socket, endpoint, secret, world, blocks_per_edge, tron_mode))
+        Ok(Self::assemble_bound(socket, endpoint, secret, world, blocks_per_edge))
     }
 
     /// Binds a UDP socket advertising a known external NAT endpoint (for port-forwarded or simulated NAT).
@@ -58,12 +57,11 @@ impl SanctuaryHost {
         advertised: SocketAddr,
         world: Box<dyn PlanetaryWorld>,
         blocks_per_edge: u32,
-        tron_mode: bool,
     ) -> std::io::Result<Self> {
         let secret = PortalCode::draw_secret();
         let socket = Self::bind_slot_socket(bind_addr, secret)?;
         socket.set_nonblocking(true)?;
-        Ok(Self::assemble_bound(socket, advertised, secret, world, blocks_per_edge, tron_mode))
+        Ok(Self::assemble_bound(socket, advertised, secret, world, blocks_per_edge))
     }
 
     fn assemble_bound(
@@ -72,10 +70,9 @@ impl SanctuaryHost {
         secret: u8,
         world: Box<dyn PlanetaryWorld>,
         blocks_per_edge: u32,
-        tron_mode: bool,
     ) -> Self {
         let code = PortalCode::from_endpoint(endpoint, secret);
-        let identity = HostIdentity::new(HandshakeIdentity::generate(), blocks_per_edge, tron_mode, endpoint);
+        let identity = HostIdentity::new(HandshakeIdentity::generate(), blocks_per_edge, endpoint);
         let state = HostState::new(
             ChronicleLog::empty(),
             GuestCohort::empty(),
@@ -117,6 +114,12 @@ impl SanctuaryHost {
 
     pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) {
         self.state.emit_guest_crafts(target);
+    }
+
+    pub fn present_guest_vessels(&self, sink: &mut dyn world::VesselSink) {
+        let mut crafts = Vec::new();
+        self.state.guest_crafts(&mut crafts);
+        self.state.fleet().present_vessels(&crafts, sink);
     }
 
     pub fn constrain_with_crafts(&self, position: Vec3, player_height: f32) -> Vec3 {
@@ -198,12 +201,11 @@ impl SanctuaryHost {
 
     fn answer_knock(&mut self, peer: SocketAddr, guest_pub: [u8; 32]) {
         let cid = self.state.admit_guest(&self.identity, self.world.as_ref(), peer, guest_pub);
-        let mut reply = Vec::with_capacity(45);
+        let mut reply = Vec::with_capacity(44);
         reply.extend_from_slice(b"LWEL");
         reply.extend_from_slice(&self.identity.keys().public_bytes());
         reply.extend_from_slice(&cid.to_le_bytes());
         reply.extend_from_slice(&self.identity.blocks_per_edge().to_le_bytes());
-        reply.push(u8::from(self.identity.tron_mode()));
         let _ = self.socket.send_to(&reply, peer);
     }
 

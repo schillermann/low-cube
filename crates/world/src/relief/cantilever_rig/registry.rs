@@ -39,6 +39,10 @@ impl RigRegistry {
         self.rigs.insert((u, v), CantileverRig::deployed(ground_top, 0));
     }
 
+    pub fn boom_slot_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
+        self.rigs.iter().any(|(&(mu, mv), rig)| rig.boom_slot_at(mu, mv, u, v, layer_elev))
+    }
+
     pub fn resolve_placement(&self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32) -> RigPlacement {
         if let Some((mast, (eu, ev, floor_elev))) = self
             .rigs
@@ -113,7 +117,7 @@ impl RigRegistry {
         let target_mast = if self.rigs.contains_key(&(u, v)) {
             Some((u, v))
         } else {
-            self.rigs.iter().find_map(|(&(mu, mv), rig)| rig.craft_present_at(u, v).then_some((mu, mv)))
+            self.rigs.iter().find_map(|(&(mu, mv), rig)| rig.boom_or_craft_at(mu, mv, u, v).then_some((mu, mv)))
         };
         let Some((mu, mv)) = target_mast else { return false };
         let Some(rig) = self.rigs.get_mut(&(mu, mv)) else { return false };
@@ -136,26 +140,28 @@ impl RigRegistry {
 
     pub fn reconnect_seated_car(
         &mut self,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
         mast: (i32, i32),
         ray: SurfaceSightRay,
         frame: &SurfaceFrame,
         fleet: &mut ParkedFleet,
     ) -> Option<VehicleAssembly> {
-        let (eu, ev) = frame.decompose(ray.sample_point(0.0));
-        let parked = fleet.take_seated_near(eu, ev, 5.0)?;
-        let Some(mut rig) = self.rigs.remove(&mast) else {
-            fleet.park(parked);
+        if !self.rigs.get(&mast).is_some_and(CantileverRig::vacant_craft) {
             return None;
-        };
+        }
+        let eye_world = ray.sample_point(0.0);
+        let (eu, ev) = frame.decompose(eye_world);
+        let parked = fleet.take_cluster_near(strata, shafts, eye_world, 5.0)?;
+        let mut rig = self.rigs.remove(&mast)?;
         match rig.mount_parked(mast.0, mast.1, parked, eu, ev, frame) {
             Ok((relocated, origin, heading)) => {
                 self.rigs.insert(relocated.unwrap_or(mast), rig);
                 let axes = VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal());
                 Some(VehicleAssembly::new(origin, axes, heading, Vec::new()))
             }
-            Err(unmoved) => {
+            Err(_) => {
                 self.rigs.insert(mast, rig);
-                fleet.park(unmoved);
                 None
             }
         }

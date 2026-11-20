@@ -120,6 +120,10 @@ impl AvatarOptics for BlackBoxAvatar {
 impl AvatarPresence for BlackBoxAvatar {
     fn emit_appearance(&self, target: &mut dyn MeshTarget) { self.origin.emit_appearance(target); }
     fn emit_appearance_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) { self.origin.emit_appearance_for_sight(sight, target); }
+    fn emit_figure(&self, target: &mut dyn MeshTarget) { self.origin.emit_figure(target); }
+    fn emit_figure_for_sight(&self, sight: SightMode, target: &mut dyn MeshTarget) { self.origin.emit_figure_for_sight(sight, target); }
+    fn present_vessel(&self, sink: &mut dyn world::VesselSink) { self.origin.present_vessel(sink); }
+    fn planned_mount(&self, world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> { self.origin.planned_mount(world) }
     fn sector_stamp(&self) -> (u8, i32, i32, i32) { self.origin.sector_stamp() }
     fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 { self.origin.visible_slices(world) }
     fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {

@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use engine::{CpuMeshBatch, CpuTronBatch, PlanetaryMesh, TronShaderSource, VoxelShaderSource};
+use engine::{CpuMeshBatch, PlanetaryMesh, VoxelShaderSource};
 use world::{BiomedCubeWorld, PlanetaryWorld, Quad};
 use crate::attire::YouthAttire;
 use crate::avatar::{Avatar, PlanetaryAvatar};
@@ -13,7 +13,7 @@ use crate::controls::{ActionBindings, InputTrigger, KeyMotion};
 use crate::menu::{EscapeMenu, ScreenPoint, SessionModal};
 use crate::server_satchel::ServerSatchel;
 use crate::surface::PlatformSurface;
-use super::display::{PolaroidScenePass, SessionDisplay, ShadedScenePass, TronScenePass, VisualPass};
+use super::display::{PolaroidScenePass, SessionDisplay, ShadedScenePass};
 use super::pulse::PulseBeat;
 use super::stage::SessionStage;
 use self::surface::HeadlessPipeline;
@@ -42,9 +42,7 @@ impl HeadlessSession {
         let surface = Box::new(HeadlessSurface::hd(Rc::clone(&ui_quads)));
         let slice_count = world.face_count() * 2 + 1;
         let mut primary_slices: Vec<Box<dyn engine::Mesh>> = Vec::with_capacity(slice_count);
-        let mut tron_slices = Vec::with_capacity(slice_count);
         let empty_cpu = CpuMeshBatch::empty();
-        let empty_tron = CpuTronBatch::empty();
         for idx in 0..slice_count {
             let patch_count = world.face_patch_count(idx);
             if patch_count > 0 {
@@ -53,24 +51,15 @@ impl HeadlessSession {
             } else {
                 primary_slices.push(surface.upload_mesh(&empty_cpu));
             }
-            tron_slices.push(surface.upload_tron_mesh(&empty_tron));
         }
         let sh = surface.compile_shader(&VoxelShaderSource::embedded());
-        let tr_sh = surface.compile_shader(&TronShaderSource::embedded());
-        let hud_sh = surface.compile_shader(&VoxelShaderSource::embedded());
         let shaded = PolaroidScenePass::new(ShadedScenePass::new(
             (Box::new(HeadlessPipeline), sh),
             PlanetaryMesh::with_mask(primary_slices, u32::MAX),
             engine::StreamingMesh::empty(),
             world::MeadowRing::cold(),
         ));
-        let tron = PolaroidScenePass::new(TronScenePass::new(
-            Box::new(HeadlessPipeline),
-            (tr_sh, hud_sh),
-            PlanetaryMesh::with_mask(tron_slices, u32::MAX),
-            CpuTronBatch::empty(),
-        ));
-        let display = SessionDisplay::new(surface, Box::new(shaded), Box::new(tron), VisualPass::Shaded);
+        let display = SessionDisplay::new(surface, Box::new(shaded));
         let controls = Box::new(KeyMotion::with_bindings(ActionBindings::seeded()));
         let stage = SessionStage::new(world, avatar, controls, modal);
         Self::new(stage, display, ui_quads)

@@ -157,10 +157,10 @@ fn test_headless_session_menu_creates_log_report_and_displays_tilted_log_sheet_a
 #[test]
 fn test_headless_multiplayer_seam_sprint_jump_records_zero_anomalies() {
     let host_world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::barren_beveled(16, 1.0));
-    let host = SanctuaryHost::bind("127.0.0.1:0", host_world, 16, false).expect("bind host");
+    let host = SanctuaryHost::bind("127.0.0.1:0", host_world, 16).expect("bind host");
     let addr = host.local_addr().expect("host addr");
     let mut host_planet = HostedPlanet::new(host);
-    let mut guest_planet = RemotePlanet::dial(JoinTarget::Direct(addr), 16, false, 1.0).expect("dial guest");
+    let mut guest_planet = RemotePlanet::dial(JoinTarget::Direct(addr), 16, 1.0).expect("dial guest");
     for _ in 0..8 {
         let _ = guest_planet.step_surface(0.02);
         let _ = host_planet.step_surface(0.02);

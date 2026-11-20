@@ -1,10 +1,7 @@
 use glam::Vec3;
 use winit::event_loop::ActiveEventLoop;
 
-use engine::{
-    CpuMeshBatch, CpuTronBatch, PlanetaryMesh, StarryPipeline, TronPipeline, TronShaderSource,
-    VoxelShaderSource,
-};
+use engine::{CpuMeshBatch, PlanetaryMesh, StarryPipeline, VoxelShaderSource};
 use world::{PlanetaryWorld, StarVault};
 use crate::attire::{AttireProfile, FileAttire, HeldRelic};
 use crate::aurora_cadence::AuroraCadence;
@@ -23,7 +20,6 @@ use crate::server_physics::ServerPhysics;
 use crate::server_satchel::ServerSatchel;
 use crate::session::{
     GameSession, PolaroidScenePass, Session, SessionDisplay, SessionStage, ShadedScenePass,
-    TronScenePass, VisualPass,
 };
 
 /// Interface for assembling an active display session.
@@ -42,7 +38,6 @@ struct LaunchCosmos {
 pub struct SessionLaunch {
     host_env: Box<dyn HostEnvironment>,
     cosmos: LaunchCosmos,
-    tron_active: bool,
 }
 
 impl SessionLaunch {
@@ -53,22 +48,19 @@ impl SessionLaunch {
         physics: Box<dyn PlanetaryPhysics>,
         celestial: Box<dyn CelestialCadence>,
         aurora: Box<dyn AuroraCadence>,
-        tron_active: bool,
     ) -> Self {
         Self {
             host_env,
             cosmos: LaunchCosmos { world_blocks, physics, celestial, aurora },
-            tron_active,
         }
     }
 
-    /// Secondary constructor initializing with window dimensions, physics, and Tron mode state.
-    pub fn with_tron(
+    /// Secondary constructor initializing with window dimensions and planetary scale.
+    pub fn windowed(
         title: &'static str,
         width: f64,
         height: f64,
         world_blocks: u32,
-        tron_active: bool,
     ) -> Self {
         let celestial = Box::new(ServerCelestial::assembled());
         let aurora = Box::new(ServerAurora::assembled(celestial.duration_seconds()));
@@ -78,7 +70,6 @@ impl SessionLaunch {
             Box::new(ServerPhysics::assembled()),
             celestial,
             aurora,
-            tron_active,
         )
     }
 }
@@ -90,7 +81,7 @@ impl SessionAssembly for SessionLaunch {
         surface.request_redraw();
 
         let planet: Box<dyn PlanetaryWorld> =
-            PortalConfig::from_process().assemble_planet(self.cosmos.world_blocks, self.tron_active);
+            PortalConfig::from_process().assemble_planet(self.cosmos.world_blocks);
         let initial_invite = PortalInvite::hosted(
             planet.portal_phrase().unwrap_or_default(),
             planet.portal_ticket().unwrap_or_default(),
@@ -117,11 +108,10 @@ impl SessionAssembly for SessionLaunch {
 
         let slice_count = planet.face_count() * 2;
         let mut primary_faces: Vec<Box<dyn engine::Mesh>> = Vec::with_capacity(slice_count + 1);
-        let mut tron_faces = Vec::with_capacity(slice_count + 1);
         let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
         for idx in 0..slice_count {
             let patch_count = planet.face_patch_count(idx);
-            if !self.tron_active && patch_count > 0 {
+            if patch_count > 0 {
                 let mut patches = Vec::with_capacity(patch_count);
                 for slot in 0..patch_count {
                     patch_buf.clear();
@@ -131,32 +121,19 @@ impl SessionAssembly for SessionLaunch {
                 primary_faces.push(Box::new(engine::SectorGridMesh::new(patches)));
             } else {
                 let mut cpu_buf = CpuMeshBatch::empty();
-                if !self.tron_active {
-                    planet.emit_face(idx, &mut cpu_buf);
-                }
+                planet.emit_face(idx, &mut cpu_buf);
                 primary_faces.push(surface.upload_mesh(&cpu_buf));
             }
-
-            let mut tron_buf = CpuTronBatch::empty();
-            if self.tron_active {
-                planet.emit_face(idx, &mut tron_buf);
-            }
-            tron_faces.push(surface.upload_tron_mesh(&tron_buf));
         }
         let mut initial_ring = world::MeadowRing::cold();
-        if !self.tron_active {
-            let empty_cpu = CpuMeshBatch::empty();
-            let mut meadow_patches: Vec<Box<dyn engine::Mesh>> =
-                (0..world::MEADOW_RING_SLOTS).map(|_| surface.upload_mesh(&empty_cpu)).collect();
-            while let Some(slot) = planet.drain_stale_meadow_patch(spawn_position, &mut initial_ring, &mut patch_buf) {
-                meadow_patches[slot] = surface.upload_mesh(&patch_buf);
-                patch_buf.clear();
-            }
-            primary_faces.push(Box::new(engine::SectorGridMesh::new(meadow_patches)));
-        } else {
-            primary_faces.push(surface.upload_mesh(&CpuMeshBatch::empty()));
+        let empty_cpu = CpuMeshBatch::empty();
+        let mut meadow_patches: Vec<Box<dyn engine::Mesh>> =
+            (0..world::MEADOW_RING_SLOTS).map(|_| surface.upload_mesh(&empty_cpu)).collect();
+        while let Some(slot) = planet.drain_stale_meadow_patch(spawn_position, &mut initial_ring, &mut patch_buf) {
+            meadow_patches[slot] = surface.upload_mesh(&patch_buf);
+            patch_buf.clear();
         }
-        tron_faces.push(surface.upload_tron_mesh(&CpuTronBatch::empty()));
+        primary_faces.push(Box::new(engine::SectorGridMesh::new(meadow_patches)));
 
         let initial_mask = planet.visible_slice_mask(spawn_position);
         let primary_mesh = PlanetaryMesh::with_mask(primary_faces, initial_mask);
@@ -174,10 +151,6 @@ impl SessionAssembly for SessionLaunch {
             star_mesh,
         ));
 
-        let tron_mesh = PlanetaryMesh::with_mask(tron_faces, initial_mask);
-        let tron_shader = surface.compile_shader(&TronShaderSource::embedded());
-        let tron_hud_shader = surface.compile_shader(&VoxelShaderSource::embedded());
-        let tron_pipeline = Box::new(TronPipeline::void());
         let controls = Box::new(KeyMotion::with_bindings(bindings));
         let modal = Box::new(AutoPunchModal::wrapping(
             EscapeMenu::with_clipboards(
@@ -194,18 +167,7 @@ impl SessionAssembly for SessionLaunch {
             engine::StreamingMesh::with_quad_capacity(4_096),
             initial_ring,
         ));
-        let tron_pass = PolaroidScenePass::new(TronScenePass::new(
-            tron_pipeline,
-            (tron_shader, tron_hud_shader),
-            tron_mesh,
-            CpuTronBatch::empty(),
-        ));
-        let display = SessionDisplay::new(
-            surface,
-            Box::new(shaded_pass),
-            Box::new(tron_pass),
-            VisualPass::from_flag(self.tron_active),
-        );
+        let display = SessionDisplay::new(surface, Box::new(shaded_pass));
         let stage = SessionStage::new(planet, avatar, controls, modal);
 
         Box::new(GameSession::new(stage, display))

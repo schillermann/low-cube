@@ -4,7 +4,9 @@ use std::sync::RwLock;
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
-use crate::{BlockMedium, BlockMold, Face, MeshTarget, Quad, VehicleAssembly};
+use crate::{
+    BlockMedium, BlockMold, Face, MeshTarget, PlannedMount, Quad, VehicleAssembly, VesselSink,
+};
 use super::arboreal::Arboreal;
 use super::depository::WoodlandDepository;
 use super::floor_litter::FloorLitter;
@@ -179,6 +181,10 @@ impl Face for ForestedFace {
         true
     }
 
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
+        self.origin.plan_molded_block(eye, direction, avatar_pos, mold)
+    }
+
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let changed = self.origin.place_molded_block(eye, direction, avatar_pos, mold);
         if changed {
@@ -201,6 +207,10 @@ impl Face for ForestedFace {
 
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
         self.origin.park_vehicle(assembly)
+    }
+
+    fn present_vessels(&self, sink: &mut dyn VesselSink) {
+        self.origin.present_vessels(sink);
     }
 
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {

@@ -1,7 +1,8 @@
 use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CleaveOutcome, ClimateZone, CubePlanet, ExposedStratum, GravityField,
-    MeadowRing, MeshTarget, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
+    MeadowRing, MeshTarget, PlanetaryWorld, PlannedMount, SurfaceFind, VehicleAssembly, VesselSink,
+    WorldEarthworks,
 };
 use super::lunar::LunarWorld;
 use super::translated::TranslatedWorld;
@@ -39,17 +40,9 @@ impl<G> BinaryPlanet<G> {
 }
 
 impl<G: GravityField> GravityField for BinaryPlanet<G> {
-    fn pull_direction_at(&self, position: Vec3) -> Vec3 {
-        self.gravity.pull_direction_at(position)
-    }
-
-    fn surface_up_at(&self, position: Vec3) -> Vec3 {
-        self.gravity.surface_up_at(position)
-    }
-
-    fn apply_pull(&self, position: Vec3, dt: f32) -> Vec3 {
-        self.gravity.apply_pull(position, dt)
-    }
+    fn pull_direction_at(&self, position: Vec3) -> Vec3 { self.gravity.pull_direction_at(position) }
+    fn surface_up_at(&self, position: Vec3) -> Vec3 { self.gravity.surface_up_at(position) }
+    fn apply_pull(&self, position: Vec3, dt: f32) -> Vec3 { self.gravity.apply_pull(position, dt) }
 }
 
 impl<G: GravityField + Send> WorldEarthworks for BinaryPlanet<G> {
@@ -252,10 +245,19 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
     }
 
     fn local_body_point(&self, position: Vec3) -> Vec3 {
-        if self.near_moon(position) {
-            self.moon.local_body_point(position)
+        if self.near_moon(position) { self.moon.local_body_point(position) } else { position }
+    }
+
+    fn present_vessels(&self, sink: &mut dyn VesselSink) {
+        self.home.present_vessels(sink);
+        self.moon.present_vessels(sink);
+    }
+
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
+        if self.near_moon(eye) {
+            self.moon.plan_molded_block(eye, direction, avatar_pos, mold)
         } else {
-            position
+            self.home.plan_molded_block(eye, direction, avatar_pos, mold)
         }
     }
 

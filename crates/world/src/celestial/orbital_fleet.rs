@@ -2,7 +2,8 @@ use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
     CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
-    PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
+    PilotCraft, PlanetaryWorld, PlannedMount, SurfaceFind, VehicleAssembly, VesselSink,
+    WorldEarthworks,
 };
 
 const SURFACE_PARK_CLEARANCE: f32 = 4.5;
@@ -190,6 +191,17 @@ impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
         for craft in &self.drifting {
             craft.emit(target);
         }
+    }
+
+    fn present_vessels(&self, sink: &mut dyn VesselSink) {
+        self.origin.present_vessels(sink);
+        for craft in &self.drifting {
+            sink.receive_vessel(craft.blueprint(), craft.pose());
+        }
+    }
+
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
+        self.origin.plan_molded_block(eye, direction, avatar_pos, mold)
     }
 
     fn face_patch_count(&self, slice: usize) -> usize { self.origin.face_patch_count(slice) }

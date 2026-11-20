@@ -51,6 +51,6 @@ impl GraphicPipeline for ForwardPipeline {
             gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         }
         shader.bind(gl, view_proj, self.light_direction);
-        mesh.draw(gl);
+        mesh.draw_posed(gl, shader);
     }
 }

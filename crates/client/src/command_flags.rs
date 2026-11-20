@@ -20,7 +20,7 @@ impl CommandFlags {
         Self::new(arguments.to_vec())
     }
 
-    /// Checks whether a standalone boolean switch (e.g. `--tron` or `tron`) is present.
+    /// Checks whether a standalone boolean switch (e.g. `--host`) is present.
     pub fn contains_switch(&self, switch: &str) -> bool {
         self.arguments.iter().any(|arg| arg == switch)
     }

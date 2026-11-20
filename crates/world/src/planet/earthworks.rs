@@ -67,14 +67,30 @@ impl WorldEarthworks for CubePlanet {
     }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
-        self.try_aimed_faces(eye, direction, false, |f| f.board_vehicle(eye, direction, holding_block))
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        for idx in [primary, secondary] {
+            if let Some(face) = self.faces.get_mut(idx) {
+                if let Some(out) = face.board_vehicle(eye, direction, holding_block) {
+                    if face.pending_terrain_patches() || face.terrain_patch_count() == 0 {
+                        self.slices.record(idx);
+                    }
+                    return Some(out);
+                }
+            }
+            if secondary == primary {
+                break;
+            }
+        }
+        None
     }
 
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
         let idx = self.matching_index(assembly.origin());
         if let Some(face) = self.faces.get_mut(idx) {
             if face.park_vehicle(assembly) {
-                self.slices.record(idx);
+                if face.pending_terrain_patches() {
+                    self.slices.record(idx);
+                }
                 return true;
             }
         }

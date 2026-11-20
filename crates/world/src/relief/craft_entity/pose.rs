@@ -41,6 +41,17 @@ impl CraftPose {
         self.axes.surface_frame()
     }
 
+    pub fn model_matrix(self) -> glam::Mat4 {
+        let frame = self.axes.surface_frame();
+        let shift = self.origin - frame.point_at(0.25, 0.25, 0.0);
+        glam::Mat4::from_cols(
+            frame.tangent().extend(0.0),
+            frame.normal().extend(0.0),
+            frame.bitangent().extend(0.0),
+            shift.extend(1.0),
+        )
+    }
+
     pub fn world_seat_at(self, local_seat: Vec3) -> (Vec3, Vec3, Vec3) {
         let frame = self.axes.surface_frame();
         let shift = self.origin - frame.point_at(0.25, 0.25, 0.0);

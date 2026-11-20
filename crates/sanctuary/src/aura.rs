@@ -8,19 +8,17 @@ use crate::seal::HandshakeIdentity;
 pub struct HostIdentity {
     keys: HandshakeIdentity,
     blocks_per_edge: u32,
-    tron_mode: bool,
     endpoint: SocketAddr,
 }
 
 impl HostIdentity {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(keys: HandshakeIdentity, blocks_per_edge: u32, tron_mode: bool, endpoint: SocketAddr) -> Self {
-        Self { keys, blocks_per_edge, tron_mode, endpoint }
+    pub const fn new(keys: HandshakeIdentity, blocks_per_edge: u32, endpoint: SocketAddr) -> Self {
+        Self { keys, blocks_per_edge, endpoint }
     }
 
     pub const fn keys(&self) -> &HandshakeIdentity { &self.keys }
     pub const fn blocks_per_edge(&self) -> u32 { self.blocks_per_edge }
-    pub const fn tron_mode(&self) -> bool { self.tron_mode }
     pub const fn endpoint(&self) -> SocketAddr { self.endpoint }
 }
 

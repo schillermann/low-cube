@@ -207,10 +207,10 @@ fn test_multiplayer_companion_figure_renders_ore_relics_and_live_host_guest_sync
     use crate::companion::CompanionFigure;
 
     let base_world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
-    let raw_host = SanctuaryHost::bind("127.0.0.1:0", base_world, 16, false).expect("bind");
+    let raw_host = SanctuaryHost::bind("127.0.0.1:0", base_world, 16).expect("bind");
     let ticket = raw_host.ticket().encode();
     let mut host_planet = HostedPlanet::new(raw_host);
-    let mut guest_planet = RemotePlanet::dial(JoinTarget::parse(&ticket).expect("ticket"), 16, false, 0.5).expect("dial");
+    let mut guest_planet = RemotePlanet::dial(JoinTarget::parse(&ticket).expect("ticket"), 16, 0.5).expect("dial");
 
     let spawn = host_planet.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 1.0);
     let mut host_avatar = PlanetaryAvatar::at(spawn);

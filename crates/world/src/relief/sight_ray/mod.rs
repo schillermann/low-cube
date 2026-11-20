@@ -2,10 +2,11 @@ mod clearance;
 mod contact;
 
 use glam::Vec3;
+use crate::block::{BlockMedium, BlockMold};
 use crate::frame::SurfaceFrame;
 use super::elevation::ReliefElevation;
 use self::clearance::StanceClearance;
-use self::contact::{PlacementTarget, SightContact, StepCrossing};
+use self::contact::{PlacementTarget, RigMountTarget, SightContact, StepCrossing};
 
 #[derive(Clone, Copy, Debug)]
 struct RayProbe {
@@ -212,11 +213,32 @@ impl SurfaceSightRay {
     pub fn placement_cell(
         &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32, avatar_pos: Vec3,
     ) -> Option<(i32, i32, f32)> {
-        self.placement_cell_for(frame, relief, half_blocks, half_size, avatar_pos, true)
+        self.resolve_placement(frame, relief, half_blocks, half_size, avatar_pos, true, true)
     }
 
-    /// Resolves a placement cell while optionally forbidding underside attachment for side-wall thruster pods.
-    pub fn placement_cell_for(
+    /// Resolves a placement cell for `mold`, honoring side-wall pod rules and cantilever crane redirects.
+    pub fn placement_for_mold(
+        &self,
+        frame: &SurfaceFrame,
+        relief: &dyn ReliefElevation,
+        half_blocks: i32,
+        half_size: f32,
+        avatar_pos: Vec3,
+        mold: BlockMold,
+    ) -> Option<(i32, i32, f32)> {
+        self.resolve_placement(
+            frame,
+            relief,
+            half_blocks,
+            half_size,
+            avatar_pos,
+            !mold.wall_mounted_pod(),
+            mold.medium() != BlockMedium::CantileverRig,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn resolve_placement(
         &self,
         frame: &SurfaceFrame,
         relief: &dyn ReliefElevation,
@@ -224,14 +246,16 @@ impl SurfaceSightRay {
         half_size: f32,
         avatar_pos: Vec3,
         allow_underside: bool,
+        rig_eligible: bool,
     ) -> Option<(i32, i32, f32)> {
         let contact = self.trace_contact(frame, relief, half_blocks, half_size)?;
         if !allow_underside && contact.underside_contact() {
             return None;
         }
         let d_up = self.direction.normalize_or_zero().dot(frame.normal());
+        let target = RigMountTarget::new(contact, rig_eligible);
         let guarded = StanceClearance::around_avatar(
-            contact, avatar_pos, d_up, frame, relief, (-half_blocks + 1, half_blocks - 2),
+            target, avatar_pos, d_up, frame, relief, (-half_blocks + 1, half_blocks - 2),
         );
         guarded.cell_and_base(relief)
     }

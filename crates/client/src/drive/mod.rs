@@ -14,6 +14,8 @@ mod multiplayer_tests;
 #[cfg(test)]
 mod nozzle_tests;
 #[cfg(test)]
+mod preview_vessel_tests;
+#[cfg(test)]
 mod rocket_pose_tests;
 #[cfg(test)]
 mod rocket_tests;
@@ -161,10 +163,9 @@ impl HelmedCraft {
         if in_orbit {
             return Self::boarded(shell);
         }
-        let parked_origin = FaceContact::new(raw_origin).parked_seat_origin(world);
-        let face_up = ClimateZone::dominant(world.surface_up_at(parked_origin)).normal();
-        let base_ground = FaceContact::new(parked_origin).ground(0.0, world) - face_up * 0.5;
-        shell.relocate(base_ground, world.surface_up_at(parked_origin));
+        let face_up = ClimateZone::dominant(world.surface_up_at(raw_origin)).normal();
+        let base_ground = FaceContact::new(raw_origin).ground(0.0, world) - face_up * 0.5;
+        shell.relocate(base_ground, face_up);
         Self::boarded(shell)
     }
 
@@ -243,5 +244,14 @@ impl HelmedCraft {
         let visual_origin = if (cur - prev).length_squared() > 64.0 { cur } else { prev.lerp(cur, alpha) };
         let (m0, m1) = self.drive.motion_channels();
         self.assembly.emit_driven_at(visual_origin, m0, m1, target);
+    }
+
+    pub fn present_vessel(&self, sink: &mut dyn world::VesselSink) {
+        let (prev, alpha) = self.origin_span;
+        let cur = self.assembly.origin();
+        let visual_origin = if (cur - prev).length_squared() > 64.0 { cur } else { prev.lerp(cur, alpha) };
+        let (m0, m1) = self.drive.motion_channels();
+        let pose = self.assembly.pose().with_origin(visual_origin).with_motion(m0, m1);
+        sink.receive_vessel(self.assembly.blueprint(), pose);
     }
 }

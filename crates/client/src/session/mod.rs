@@ -13,7 +13,7 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 
 use crate::controls::InputTrigger;
 use crate::menu::ModalDirective;
-pub use self::display::{PolaroidScenePass, SessionDisplay, ShadedScenePass, TronScenePass, VisualPass};
+pub use self::display::{PolaroidScenePass, SessionDisplay, ShadedScenePass};
 #[cfg(test)]
 pub use self::headless::{HeadlessSession, HeadlessSurface};
 use self::pulse::EpochPulse;
@@ -45,11 +45,7 @@ impl GameSession {
     }
 
     fn dispatch_gameplay_trigger(&mut self, trigger: InputTrigger, pressed: bool) {
-        if self.stage.matches_tron(trigger) {
-            if pressed {
-                self.stage.toggle_tron(&mut self.display);
-            }
-        } else if self.stage.dispatch_avatar_or_control(trigger, pressed) {
+        if self.stage.dispatch_avatar_or_control(trigger, pressed) {
             self.stage.refresh_surface(&mut self.display);
         }
     }

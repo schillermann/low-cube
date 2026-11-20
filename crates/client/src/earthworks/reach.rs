@@ -23,6 +23,7 @@ impl SurfaceReach {
 
     pub const fn eye(self) -> Vec3 { self.eye }
     pub const fn view_dir(self) -> Vec3 { self.view_dir }
+    pub const fn stance_origin(self) -> Vec3 { self.stance_origin }
 
     pub fn swing_rhythm(attire: YouthAttire, rhythm: StrideRhythm, side: f32) -> StrideRhythm {
         let (right, left) = attire.held_pair();

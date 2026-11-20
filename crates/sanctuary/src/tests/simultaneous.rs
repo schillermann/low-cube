@@ -36,11 +36,11 @@ fn drain_all_slices(world: &mut dyn PlanetaryWorld) -> Vec<usize> {
 #[test]
 fn test_host_and_guests_excavate_simultaneously_without_wiping_cracks_or_slices() {
     let inner: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
-    let raw_host = SanctuaryHost::bind("127.0.0.1:0", inner, 16, false).expect("bind host");
+    let raw_host = SanctuaryHost::bind("127.0.0.1:0", inner, 16).expect("bind host");
     let addr = raw_host.local_addr().expect("host addr");
     let mut host = HostedPlanet::new(raw_host);
-    let mut alice = RemotePlanet::dial(JoinTarget::Direct(addr), 16, false, 0.5).expect("dial alice");
-    let mut bob = RemotePlanet::dial(JoinTarget::Direct(addr), 16, false, 0.5).expect("dial bob");
+    let mut alice = RemotePlanet::dial(JoinTarget::Direct(addr), 16, 0.5).expect("dial alice");
+    let mut bob = RemotePlanet::dial(JoinTarget::Direct(addr), 16, 0.5).expect("dial bob");
 
     step_trio(&mut host, &mut alice, &mut bob, 8);
     assert!(alice.connected() && bob.connected());

@@ -47,6 +47,10 @@ impl CockpitBerth {
         self.pilot.emit(target);
     }
 
+    pub(super) fn present_vessel(&self, sink: &mut dyn world::VesselSink) {
+        self.pilot.present_vessel(sink);
+    }
+
     pub(super) fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
         if self.optic_channel == 0 || !self.pilot.driving() {
             return None;

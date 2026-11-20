@@ -108,26 +108,18 @@ mod wild_boar_tests;
 
 use winit::event_loop::EventLoop;
 use app::LowCubeApp;
-use command_flags::CommandFlags;
 use launch::SessionLaunch;
 use server_scale::{PlanetaryScale, ServerScale};
-
-fn tron_active() -> bool {
-    let flags = CommandFlags::process();
-    flags.contains_switch("--tron") || flags.contains_switch("tron")
-}
 
 fn main() {
     acoustics::SoundStage::live().activate();
     let event_loop = EventLoop::new().expect("Failed to create EventLoop");
 
-    let tron = tron_active();
-    let launch = SessionLaunch::with_tron(
+    let launch = SessionLaunch::windowed(
         "LowCube",
         1280.0,
         720.0,
         ServerScale::assembled().blocks(),
-        tron,
     );
     let mut app = LowCubeApp::launching(Box::new(launch));
     event_loop.run_app(&mut app).expect("Application run failed");

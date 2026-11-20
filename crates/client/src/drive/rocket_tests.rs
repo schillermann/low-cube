@@ -140,13 +140,12 @@ fn test_lunar_pedestrian_leap_exceeds_earth_jump_and_coop_reaches_moon() {
         "127.0.0.1:0",
         CelestialSystem::barren_authoritative(32, 1.0),
         32,
-        false,
     )
     .expect("bind host");
     let addr = host.local_addr().expect("addr");
     let mut host_world = HostedPlanet::new(host);
     let mut guest_world = RemotePlanet::new(
-        CelestialSystem::hollow(32, 1.0, false),
+        CelestialSystem::hollow(32, 1.0),
         RemoteLink::bind(JoinTarget::Direct(addr)).expect("guest link"),
         std::collections::VecDeque::new(),
     );

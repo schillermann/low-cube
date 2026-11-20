@@ -37,18 +37,6 @@ impl BiomedCubeWorld {
         })
     }
 
-    fn tron_faces(size_blocks: u32) -> (Vec<Box<dyn Face>>, f32) {
-        Self::build_faces(size_blocks, |zone, half, divs| {
-            Box::new(FacetedReliefFace::tron(zone, half, divs))
-        })
-    }
-
-    fn hollow_tron_faces(size_blocks: u32) -> (Vec<Box<dyn Face>>, f32) {
-        Self::build_faces(size_blocks, |zone, half, divs| {
-            Box::new(FacetedReliefFace::hollow_tron(zone, half, divs))
-        })
-    }
-
     /// Factory method assembling authoritative multi-biome planetary terrain with living mineral veins.
     pub fn of_size(size_blocks: u32) -> CubePlanet {
         let (faces, half) = Self::forested_faces(size_blocks);
@@ -73,18 +61,6 @@ impl BiomedCubeWorld {
         CubePlanet::beveled_cubic(faces, Box::new(NullFace), half, margin)
     }
 
-    /// Factory method assembling planetary terrain in Tron wireframe visualization mode.
-    pub fn tron(size_blocks: u32) -> CubePlanet {
-        let (faces, half) = Self::tron_faces(size_blocks);
-        CubePlanet::cubic(faces, Box::new(NullFace), half)
-    }
-
-    /// Factory method assembling zero-knowledge Tron wireframe planetary terrain.
-    pub fn hollow_tron(size_blocks: u32) -> CubePlanet {
-        let (faces, half) = Self::hollow_tron_faces(size_blocks);
-        CubePlanet::cubic(faces, Box::new(NullFace), half)
-    }
-
     /// Factory method assembling multi-biome terrain with continuous seam normal transitions.
     pub fn beveled(size_blocks: u32, margin: f32) -> CubePlanet {
         let (faces, half) = Self::forested_faces(size_blocks);
@@ -94,18 +70,6 @@ impl BiomedCubeWorld {
     /// Factory method assembling zero-knowledge client terrain with continuous seam normal transitions.
     pub fn hollow_beveled(size_blocks: u32, margin: f32) -> CubePlanet {
         let (faces, half) = Self::hollow_forested_faces(size_blocks);
-        CubePlanet::beveled_cubic(faces, Box::new(NullFace), half, margin)
-    }
-
-    /// Factory method assembling Tron wireframe terrain with beveled seam normal transitions.
-    pub fn beveled_tron(size_blocks: u32, margin: f32) -> CubePlanet {
-        let (faces, half) = Self::tron_faces(size_blocks);
-        CubePlanet::beveled_cubic(faces, Box::new(NullFace), half, margin)
-    }
-
-    /// Factory method assembling zero-knowledge Tron wireframe terrain with beveled seam transitions.
-    pub fn hollow_beveled_tron(size_blocks: u32, margin: f32) -> CubePlanet {
-        let (faces, half) = Self::hollow_tron_faces(size_blocks);
         CubePlanet::beveled_cubic(faces, Box::new(NullFace), half, margin)
     }
 }

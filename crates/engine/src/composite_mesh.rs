@@ -1,5 +1,4 @@
 use glam::{Mat4, Quat};
-use glow::HasContext;
 use crate::{GraphicPipeline, Mesh, ShaderProgram};
 
 /// `GraphicPipeline` decorator composing a static 3D star-vault `Mesh` into every rendered scene and Polaroid pass.
@@ -46,6 +45,11 @@ impl<'a> Mesh for CompositeMesh<'a> {
     fn draw(&self, gl: &glow::Context) {
         self.first.draw(gl);
         self.second.draw(gl);
+    }
+
+    fn draw_posed(&self, gl: &glow::Context, shader: &dyn ShaderProgram) {
+        self.first.draw_posed(gl, shader);
+        self.second.draw_posed(gl, shader);
     }
 }
 
@@ -110,40 +114,5 @@ impl Mesh for PlanetaryMesh {
         for face in &self.faces {
             face.release(gl);
         }
-    }
-}
-
-/// Composite GPU mesh combining occluding dark facets and glowing neon wireframe lines.
-pub struct TronMesh {
-    occlusion_mesh: Box<dyn Mesh>,
-    line_mesh: Box<dyn Mesh>,
-}
-
-impl TronMesh {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(occlusion_mesh: Box<dyn Mesh>, line_mesh: Box<dyn Mesh>) -> Self {
-        Self {
-            occlusion_mesh,
-            line_mesh,
-        }
-    }
-}
-
-impl Mesh for TronMesh {
-    fn draw(&self, gl: &glow::Context) {
-        unsafe {
-            gl.enable(glow::POLYGON_OFFSET_FILL);
-            gl.polygon_offset(1.0, 1.0);
-        }
-        self.occlusion_mesh.draw(gl);
-        unsafe {
-            gl.disable(glow::POLYGON_OFFSET_FILL);
-        }
-        self.line_mesh.draw(gl);
-    }
-
-    fn release(&self, gl: &glow::Context) {
-        self.occlusion_mesh.release(gl);
-        self.line_mesh.release(gl);
     }
 }

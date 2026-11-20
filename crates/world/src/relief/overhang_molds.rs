@@ -4,8 +4,10 @@ use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::cantilever_rig::{RigPlacement, RigRegistry};
 use super::craft_cluster::ParkedFleet;
+use super::craft_entity::VesselSink;
 use super::molded_structure::{MoldedStructure, ParkedStructure, RiggedStructure, WorldBlocks};
 use super::natural_strata::NaturalStrata;
+use super::planned_mount::MountDomain;
 use super::shaft_excavation::ShaftExcavation;
 use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
@@ -76,6 +78,61 @@ impl OverhangMolds {
 
     pub fn layer_occupied_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
         self.decorated().layer_occupied_at(u, v, layer_elev)
+    }
+
+    pub fn boom_slot_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
+        self.rigs.boom_slot_at(u, v, layer_elev)
+    }
+
+    pub fn effective_placement_cell(&self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32) -> Option<(i32, i32, f32)> {
+        match self.rigs.resolve_placement(u, v, ground_top, sub, raw_floor) {
+            RigPlacement::BlockedMast => None,
+            RigPlacement::MountFirst { cell, floor_elev, .. } => Some((cell.0, cell.1, floor_elev)),
+            RigPlacement::AttachCraft { cell, floor_elev, .. } => {
+                (floor_elev < MAX_STACK_ELEVATION).then_some((cell.0, cell.1, floor_elev))
+            }
+            RigPlacement::WorldCube => Some((u, v, raw_floor)),
+        }
+    }
+
+    fn resolve_world_floor(&self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32) -> Option<f32> {
+        let mut next_floor = if sub { raw_floor } else { raw_floor.max(ground_top) };
+        while self.world_blocks.layer_occupied_at(u, v, next_floor + HALF_BLOCK_STEP) {
+            next_floor += if sub { -BLOCK_STEP } else { BLOCK_STEP };
+        }
+        (next_floor < MAX_STACK_ELEVATION && !self.fleet.blocks_placement_at(u, v, next_floor))
+            .then_some(next_floor)
+    }
+
+    pub fn resolve_planned_site(
+        &self,
+        u: i32,
+        v: i32,
+        ground_top: f32,
+        sub: bool,
+        raw_floor: f32,
+        medium: BlockMedium,
+    ) -> Option<(GridCell, f32, MountDomain)> {
+        if medium == BlockMedium::CantileverRig {
+            return Some((GridCell::new(u, v), ground_top, MountDomain::WorldCube));
+        }
+        match self.rigs.resolve_placement(u, v, ground_top, sub, raw_floor) {
+            RigPlacement::BlockedMast => None,
+            RigPlacement::MountFirst { cell, floor_elev, .. } => {
+                Some((GridCell::new(cell.0, cell.1), floor_elev, MountDomain::CraftRig))
+            }
+            RigPlacement::AttachCraft { cell, floor_elev, .. } => {
+                (floor_elev < MAX_STACK_ELEVATION)
+                    .then_some((GridCell::new(cell.0, cell.1), floor_elev, MountDomain::CraftRig))
+            }
+            RigPlacement::WorldCube => self
+                .resolve_world_floor(u, v, ground_top, sub, raw_floor)
+                .map(|z| (GridCell::new(u, v), z, MountDomain::WorldCube)),
+        }
+    }
+
+    pub fn present_vessels(&self, sink: &mut dyn VesselSink) {
+        self.fleet.present_vessels(sink);
     }
 
     pub fn car_locked_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
@@ -154,13 +211,9 @@ impl OverhangMolds {
                 true
             }
             RigPlacement::WorldCube => {
-                let mut next_floor = if sub { raw_floor } else { raw_floor.max(ground_top) };
-                while self.world_blocks.layer_occupied_at(u, v, next_floor + HALF_BLOCK_STEP) {
-                    next_floor += if sub { -BLOCK_STEP } else { BLOCK_STEP };
-                }
-                if next_floor >= MAX_STACK_ELEVATION || self.fleet.blocks_placement_at(u, v, next_floor) {
+                let Some(next_floor) = self.resolve_world_floor(u, v, ground_top, sub, raw_floor) else {
                     return false;
-                }
+                };
                 self.world_blocks.stack_bare(u, v, next_floor, ground_top, sub, shape, &mut self.scars);
                 self.clear_stage(u, v);
                 true
@@ -197,27 +250,27 @@ impl OverhangMolds {
         layer_elev: f32,
         ray: SurfaceSightRay,
         engage_engine: bool,
-    ) -> Option<VehicleAssembly> {
+    ) -> (Option<VehicleAssembly>, bool) {
         let (eu, ev) = frame.decompose(ray.sample_point(0.0));
         if !engage_engine {
-            return self.decorated().perch_at(u, v, layer_elev, eu, ev, frame);
+            return (self.decorated().perch_at(u, v, layer_elev, eu, ev, frame), false);
         }
         if let Some(assembly) = self.rigs.board_drivable(strata, shafts, u, v, layer_elev, ray, frame) {
-            return Some(assembly);
+            return (Some(assembly), true);
         }
-        if let Some(assembly) = self.fleet.board_drivable(u, v, layer_elev, ray, frame, |cu, cv| {
-            (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP
-        }) {
-            return Some(assembly);
+        if let Some(assembly) = self.fleet.board_drivable(u, v, layer_elev, ray) {
+            return (Some(assembly), false);
         }
-        let mast = self.rigs.find_aimed_rig(u, v, ray, frame)?;
-        self.rigs.reconnect_seated_car(mast, ray, frame, &mut self.fleet)
+        let Some(mast) = self.rigs.find_aimed_rig(u, v, ray, frame) else {
+            return (None, false);
+        };
+        let mounted = self.rigs.reconnect_seated_car(strata, shafts, mast, ray, frame, &mut self.fleet);
+        let changed = mounted.is_some();
+        (mounted, changed)
     }
 
     pub fn park_vehicle(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {
-        let (id, craft, seat) = assembly.park_into_cluster(strata, shafts, frame);
-        self.fleet.park_identified(id, craft);
-        seat
+        self.fleet.park_settled(strata, shafts, frame, assembly)
     }
 
     pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> Vec<(i32, i32)> {

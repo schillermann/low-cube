@@ -7,13 +7,13 @@ use super::pose::CraftPose;
 
 const MAX_BLUEPRINT_PARTS: usize = 512;
 
-struct ShiftedMeshTarget<'a> {
+pub(super) struct ShiftedMeshTarget<'a> {
     shift: Vec3,
     inner: &'a mut dyn MeshTarget,
 }
 
 impl<'a> ShiftedMeshTarget<'a> {
-    const fn new(shift: Vec3, inner: &'a mut dyn MeshTarget) -> Self {
+    pub(super) const fn new(shift: Vec3, inner: &'a mut dyn MeshTarget) -> Self {
         Self { shift, inner }
     }
 }
@@ -129,6 +129,10 @@ impl CraftBlueprint {
         &self.parts
     }
 
+    pub(in crate::relief) fn step_camera_turn(&mut self, delta: i32) -> Option<(i32, i32)> {
+        self.parts.iter_mut().rev().find_map(|p| p.step_camera_turn(delta))
+    }
+
     pub fn into_parts(self) -> Vec<VehiclePart> {
         self.parts
     }
@@ -241,6 +245,14 @@ impl CraftBlueprint {
                 ConsoleOrrery::new(pose.origin(), shift + base, (pose.heading(), pose.normal())).emit(target);
             }
         }
+    }
+
+    pub fn emit_local_hull(&self, target: &mut dyn MeshTarget) {
+        super::spatial::PosedHull::emit_local(self, target);
+    }
+
+    pub fn emit_kinematic_parts(&self, pose: CraftPose, target: &mut dyn MeshTarget) {
+        super::spatial::PosedHull::new(self, pose).emit_kinematic(target);
     }
 
     pub fn inscribe(&self, out: &mut Vec<u8>) {

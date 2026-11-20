@@ -34,7 +34,6 @@ pub trait KeyboardControls {
     fn register_trigger(&mut self, _trigger: InputTrigger, _pressed: bool) {}
     fn clear_triggers(&mut self) {}
     fn apply_bindings(&mut self, _bindings: ActionBindings) {}
-    fn matches_action(&self, _action: ControlAction, _trigger: InputTrigger) -> bool { false }
     fn drive_locomotion(
         &self,
         forward: Vec3,
@@ -113,10 +112,6 @@ impl KeyboardControls for KeyMotion {
     fn apply_bindings(&mut self, bindings: ActionBindings) {
         self.bindings = bindings;
         self.clear_triggers();
-    }
-
-    fn matches_action(&self, action: ControlAction, trigger: InputTrigger) -> bool {
-        self.bindings.matches(action, trigger)
     }
 
     fn drive_locomotion(

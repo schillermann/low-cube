@@ -147,6 +147,12 @@ impl VehiclePilot {
         }
     }
 
+    pub fn present_vessel(&self, sink: &mut dyn world::VesselSink) {
+        if let Self::Driving(craft) = self {
+            craft.present_vessel(sink);
+        }
+    }
+
     pub fn blend_subtick(&mut self, alpha: f32) {
         if let Self::Driving(craft) = self {
             craft.blend_subtick(alpha);

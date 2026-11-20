@@ -8,6 +8,21 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.87.0] - 2026-11-20
+
+### Added
+- Added shape-faithful 3D hologram placement previews (`PlannedMount`, `MountSite`, and `MountDomain` in `crates/world/src/relief/planned_mount.rs`, `PlanetaryWorld::plan_molded_block`, and `AvatarPresence::emit_placement_preview` in `crates/client/src/avatar/`) sharing a single source of truth with `place_molded_surface_block`, rendering oriented sculpted molds and 12 glowing corner docking brackets in electric cyan for `MountDomain::CraftRig` and warm emerald green for `MountDomain::WorldCube` (`crates/client/src/drive/preview_vessel_tests.rs`).
+- Added GPU `u_model` (`Mat4`) local-hull vehicle rendering (`VoxelProgram::apply_model` and `Mesh::draw_posed` in `crates/engine/src/`, `CraftPose::model_matrix`, `VesselSink`, and `PosedHull` in `crates/world/src/relief/craft_entity/`, and `VesselStage` / `SceneActors` in `crates/client/src/session/display/vessel_stage.rs`) uploading rigid vehicle hulls once per `CraftIdentity` while streaming only animated wheels, steering columns, and `ConsoleOrrery` indicators.
+
+### Changed
+- Decoupled planetary surface-parked vehicles (`ParkedCraft` and `ParkedFleet` in `crates/world/src/relief/craft_cluster/fleet.rs`, `FacetedReliefFace`, `CubePlanet`, and `HelmedCraft::release_wheel`) from 90-degree `VoxelCells` terrain sectors so parking and re-boarding preserve continuous 360-degree 6-DOF `CraftPose` orientations with zero terrain sector rebuilds or meadow tuft invalidations.
+
+### Removed
+- Removed Tron wireframe mode across `crates/engine`, `crates/world`, `crates/sanctuary`, and `crates/client` (`TronShaderSource`, `TronPipeline`, `TronMesh`, `CpuTronBatch`, `TronScenePass`, `ControlAction::TronMode`, and the `LWEL` Tron aura byte).
+
+### Fixed
+- Fixed `CantileverRig` boom targeting (`CantileverRig::boom_slot_at`, `RigMountTarget`, and `StanceClearance` in `crates/world/src/relief/sight_ray/`) so standing one free block in front of the crane arm mounts `FlightConsole` and adjacent craft blocks directly without stepping back and forward (`crates/client/src/drive/nozzle_tests.rs` and `crates/world/src/relief/cantilever_rig_tests.rs`).
+
 ## [0.86.1] - 2026-11-20
 
 ### Changed

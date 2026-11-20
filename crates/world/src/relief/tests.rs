@@ -21,20 +21,6 @@ fn test_relief_palette_biome_differentiation() {
     assert_ne!(temp_surf, volc_surf, "Different biomes must have distinct palettes");
 }
 
-#[test]
-fn test_tron_palette_distinct_colors_for_facets_and_mismatches() {
-    let tron = ReliefPalette::tron();
-    let (surf, ramp, ridge, valley, chamfer, cliff) =
-        tron.inspect_facets(|s, r, rd, v, ch, cl| (s, r, rd, v, ch, cl));
-
-    assert_ne!(surf, ramp, "Cube flat and ramp must have distinct colors");
-    assert_ne!(ramp, ridge, "Ramp and ridge corner must have distinct colors");
-    assert_ne!(ridge, valley, "Ridge and valley corner must have distinct colors");
-    assert_ne!(cliff, surf, "Vertical cliff drop must have warning color distinct from surface");
-    assert_eq!(cliff, Vec3::new(1.0, 0.1, 0.1), "Mismatched cliff walls must glow warning red");
-    assert_eq!(chamfer, Vec3::new(1.0, 1.0, 1.0), "Planet seam chamfers must be white");
-}
-
 struct QuadLedger;
 
 impl crate::MeshTarget for QuadLedger {

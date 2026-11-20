@@ -10,10 +10,12 @@ use crate::{Face, MeshTarget};
 use super::elevation::{ReliefElevation, ZonedRelief};
 use super::mineral_vein::{ExposedStratum, HollowVeins, LivingVeins, SubterraneanVeins};
 use super::palette::ReliefPalette;
+use super::planned_mount::{MountSite, PlannedMount};
 use super::sight_ray::SurfaceSightRay;
 use super::strata::ReliefStrata;
 use super::terraced::TerracedRelief;
 use super::vehicle_assembly::VehicleAssembly;
+use super::VesselSink;
 use self::cache::ReliefCellCache;
 pub use self::meadow_ring::{MeadowRing, MeadowStamp, MEADOW_RING_SLOTS};
 
@@ -68,20 +70,6 @@ impl FacetedReliefFace {
         Self::in_zone_with_veins(zone, half_size, divisions, Box::new(HollowVeins::untouched()))
     }
 
-    /// Secondary constructor assembling a relief face calibrated for Tron wireframe visualization.
-    pub fn tron(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
-        let mut face = Self::in_zone(zone, half_size, divisions);
-        face.palette = ReliefPalette::tron();
-        face
-    }
-
-    /// Secondary constructor assembling a zero-knowledge Tron wireframe relief face.
-    pub fn hollow_tron(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
-        let mut face = Self::hollow_in_zone(zone, half_size, divisions);
-        face.palette = ReliefPalette::tron();
-        face
-    }
-
     /// Secondary constructor assembling a cratered lunar regolith face with explicit vein authority.
     pub fn lunar_with_veins(
         zone: ClimateZone,
@@ -89,11 +77,10 @@ impl FacetedReliefFace {
         divisions: u32,
         crater_relief: Box<dyn ReliefElevation>,
         veins: Box<dyn SubterraneanVeins>,
-        tron: bool,
     ) -> Self {
         let frame = zone.surface_frame(half_size);
         let relief = Box::new(TerracedRelief::with_veins(crater_relief, (divisions as i32) / 2, veins));
-        let palette = if tron { ReliefPalette::tron() } else { ReliefPalette::lunar_regolith(zone) };
+        let palette = ReliefPalette::lunar_regolith(zone);
         Self::new(
             ReliefDomain::new(frame, relief),
             palette,
@@ -184,12 +171,24 @@ impl Face for FacetedReliefFace {
         Some(loosened)
     }
 
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
+        let half = self.cache.half_blocks();
+        let half_size = self.domain.frame.step_elevation(half);
+        let (cu, cv, base) = SurfaceSightRay::new(eye, direction)
+            .placement_for_mold(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos, mold)?;
+        let (cell, floor_elev, domain) = self.domain.relief.resolve_planned_site(cu, cv, base, mold.medium())?;
+        Some(PlannedMount::new(MountSite::new(self.domain.frame, cell, floor_elev), mold, direction, domain))
+    }
+
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let half = self.cache.half_blocks();
         let half_size = self.domain.frame.step_elevation(half);
         if let Some((cu, cv, base)) = SurfaceSightRay::new(eye, direction)
-            .placement_cell_for(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos, !mold.wall_mounted_pod())
+            .placement_for_mold(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos, mold)
         {
+            if self.domain.relief.resolve_planned_site(cu, cv, base, mold.medium()).is_none() {
+                return false;
+            }
             let shape = mold.shape_for(direction, &self.domain.frame);
             let changed = self.domain.relief.stack_molded_cell(cu, cv, base, shape);
             if changed {
@@ -244,8 +243,10 @@ impl Face for FacetedReliefFace {
         } else {
             ray_hit?
         };
-        let assembly = self.domain.relief.board_vehicle_at(&self.domain.frame, cu, cv, layer, ray, engage_engine)?;
-        if engage_engine {
+        let (assembly, terrain_changed) =
+            self.domain.relief.board_vehicle_on_face(&self.domain.frame, cu, cv, layer, ray, engage_engine);
+        let assembly = assembly?;
+        if terrain_changed {
             let (eu, ev) = self.domain.frame.cell_at(eye).feed_coordinates(|gu, gv| (gu, gv));
             let (su, sv) = self.domain.frame.cell_at(assembly.origin()).feed_coordinates(|gu, gv| (gu, gv));
             self.refresh_neighborhood(eu, ev, half, 4);
@@ -256,10 +257,12 @@ impl Face for FacetedReliefFace {
     }
 
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
-        let half = self.cache.half_blocks();
-        let (cu, cv) = self.domain.relief.park_vehicle_at(&self.domain.frame, assembly);
-        self.refresh_neighborhood(cu, cv, half, 4);
+        let _ = self.domain.relief.park_vehicle_at(&self.domain.frame, assembly);
         true
+    }
+
+    fn present_vessels(&self, sink: &mut dyn VesselSink) {
+        self.domain.relief.present_vessels(sink);
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {

@@ -23,16 +23,15 @@ fn test_conduit_planet_relays_guest_motion_while_host_render_loop_stalls() {
         "127.0.0.1:0",
         Box::new(BiomedCubeWorld::barren_beveled(16, 0.5)),
         16,
-        false,
     )
     .expect("bind host");
     let addr = host.local_addr().expect("host addr");
     let conduit_host = ConduitPlanet::spawning(Box::new(HostedPlanet::new(host)));
     assert!(conduit_host.active());
 
-    let mut guest_a = RemotePlanet::connect(JoinTarget::Direct(addr), 16, false, 0.5)
+    let mut guest_a = RemotePlanet::connect(JoinTarget::Direct(addr), 16, 0.5)
         .expect("guest A connects purely via autonomous SocketLoop while host render thread is idle");
-    let mut guest_b = RemotePlanet::connect(JoinTarget::Direct(addr), 16, false, 0.5)
+    let mut guest_b = RemotePlanet::connect(JoinTarget::Direct(addr), 16, 0.5)
         .expect("guest B connects purely via autonomous SocketLoop while host render thread is idle");
 
     let spawn = guest_a.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0);

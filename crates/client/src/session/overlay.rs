@@ -1,6 +1,6 @@
 use world::PlanetaryWorld;
 use crate::avatar::Avatar;
-use crate::controls::{ControlAction, InputTrigger, KeyboardControls};
+use crate::controls::{InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, ScreenPoint, SessionModal};
 use crate::portal_config::{DialOutcome, DialStep, PortalDial};
 use crate::surface::PlatformSurface;
@@ -49,10 +49,6 @@ impl StageOverlay {
     pub(super) fn release_modal_mouse(&mut self) { self.modal.release_mouse(); }
     pub(super) fn handle_text(&mut self, text: &str) { self.modal.handle_text(text); }
     pub(super) fn step_modal(&mut self, dt: f32) { self.modal.step(dt); }
-
-    pub(super) fn matches_tron(&self, trigger: InputTrigger) -> bool {
-        self.controls.matches_action(ControlAction::TronMode, trigger)
-    }
 
     pub(super) fn register_trigger(&mut self, trigger: InputTrigger, pressed: bool) {
         self.controls.register_trigger(trigger, pressed);

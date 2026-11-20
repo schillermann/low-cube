@@ -52,9 +52,9 @@ pub use presence::{CompanionPresence, DrivenCraft, PilotCraft, PresenceAttire, P
 pub use relief::{
     BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, CrustVault, DeckFrame,
     ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins, LivingVeins, MeadowRing,
-    MeadowStamp, PilotOrder, ReliefElevation, ReliefFacet, ReliefPalette, RigidImpulse,
-    SeatOccupancy, SubterraneanVeins, SurfaceSightRay, TerracedRelief, VehicleAssembly,
-    VehicleAxes, VehiclePart, WorldCraft, MEADOW_RING_SLOTS,
+    MeadowStamp, MountDomain, MountSite, PilotOrder, PlannedMount, ReliefElevation, ReliefFacet,
+    ReliefPalette, RigidImpulse, SeatOccupancy, SubterraneanVeins, SurfaceSightRay, TerracedRelief,
+    VehicleAssembly, VehicleAxes, VehiclePart, VesselSink, WorldCraft, MEADOW_RING_SLOTS,
 };
 pub use topology::{
     BevelTransition, BeveledBoundary, ClimateZone, CoordinateFold, CubicBoundary, FacePerimeter,
@@ -148,6 +148,8 @@ pub trait PlanetaryWorld: GravityField + WorldEarthworks + Send {
     fn constrain_on_craft(&self, _craft: CraftIdentity, _position: Vec3, _player_height: f32) -> Option<Vec3> { None }
     fn helm_revoked(&mut self, _craft: CraftIdentity) -> bool { false }
     fn emit_active_crafts(&self, _target: &mut dyn MeshTarget) {}
+    fn present_vessels(&self, _sink: &mut dyn VesselSink) {}
+    fn plan_molded_block(&self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> Option<PlannedMount> { None }
     fn face_patch_count(&self, _slice: usize) -> usize { 0 }
     fn emit_face_patch(&self, _slice: usize, _patch_slot: usize, _target: &mut dyn MeshTarget) {}
     fn drain_modified_patch(&mut self, _target: &mut dyn MeshTarget) -> Option<(usize, usize)> { None }
@@ -187,11 +189,13 @@ pub trait Face: Send + Sync {
     fn strike_timber(&mut self, _eye: Vec3, _direction: Vec3) -> CleaveOutcome { CleaveOutcome::Missed }
     fn forage_timber(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind { SurfaceFind::EmptyHanded }
     fn cast_litter(&mut self, _eye: Vec3, _direction: Vec3, _find: SurfaceFind) -> bool { false }
+    fn plan_molded_block(&self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> Option<PlannedMount> { None }
     fn place_molded_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool { false }
     fn adjust_rig(&mut self, _eye: Vec3, _direction: Vec3, _delta_steps: i32, _rotate_quarter: bool) -> bool { false }
     fn lower_rig(&mut self, _eye: Vec3, _direction: Vec3) -> bool { false }
     fn board_vehicle(&mut self, _eye: Vec3, _direction: Vec3, _holding_block: bool) -> Option<VehicleAssembly> { None }
     fn park_vehicle(&mut self, _assembly: VehicleAssembly) -> bool { false }
+    fn present_vessels(&self, _sink: &mut dyn VesselSink) {}
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { None }
     fn step_surface(&mut self, _dt: f32) -> bool { false }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.step_surface(dt) }

@@ -138,14 +138,14 @@ impl RemoteLink {
         }
     }
 
-    /// Steps non-blocking PAKE + X25519 handshake by `dt`, returning `Some((blocks, tron))` upon `LWEL`.
-    pub fn step_handshake(&mut self, dt: f32) -> Option<(u32, bool)> {
+    /// Steps non-blocking PAKE + X25519 handshake by `dt`, returning `Some(blocks)` upon `LWEL`.
+    pub fn step_handshake(&mut self, dt: f32) -> Option<u32> {
         let mut buf = [0u8; 1500];
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
             if matches!(self.phase, LinkPhase::SeekingWormhole { .. }) {
                 self.try_advance_wormhole(src, &buf[..len]);
-            } else if let Some(cfg) = self.try_accept_welcome(src, &buf[..len]) {
-                return Some(cfg);
+            } else if let Some(blocks) = self.try_accept_welcome(src, &buf[..len]) {
+                return Some(blocks);
             }
         }
         match self.phase {
@@ -168,23 +168,23 @@ impl RemoteLink {
         None
     }
 
-    pub fn try_welcome_within(&mut self, timeout: Duration) -> Option<(u32, bool)> {
+    pub fn try_welcome_within(&mut self, timeout: Duration) -> Option<u32> {
         let deadline = Instant::now() + timeout;
         while Instant::now() < deadline {
-            if let Some(cfg) = self.step_handshake(0.01) {
-                return Some(cfg);
+            if let Some(blocks) = self.step_handshake(0.01) {
+                return Some(blocks);
             }
             std::thread::sleep(Duration::from_millis(8));
         }
         None
     }
 
-    pub fn await_welcome(&mut self, timeout: Duration, fallback_blocks: u32, fallback_tron: bool) -> (u32, bool) {
-        self.try_welcome_within(timeout).unwrap_or((fallback_blocks, fallback_tron))
+    pub fn await_welcome(&mut self, timeout: Duration, fallback_blocks: u32) -> u32 {
+        self.try_welcome_within(timeout).unwrap_or(fallback_blocks)
     }
 
-    fn try_accept_welcome(&mut self, src: SocketAddr, pkt: &[u8]) -> Option<(u32, bool)> {
-        if pkt.len() < 45 || &pkt[0..4] != b"LWEL" {
+    fn try_accept_welcome(&mut self, src: SocketAddr, pkt: &[u8]) -> Option<u32> {
+        if pkt.len() < 44 || &pkt[0..4] != b"LWEL" {
             return None;
         }
         let mut host_pub = [0u8; 32];
@@ -196,12 +196,11 @@ impl RemoteLink {
         }
         let cid = u32::from_le_bytes(pkt[36..40].try_into().ok()?);
         let blocks = u32::from_le_bytes(pkt[40..44].try_into().ok()?);
-        let tron = pkt[44] != 0;
         if let LinkPhase::Knocking { ref keys, .. } = self.phase {
             let seal = keys.establish(host_pub, true);
             self.phase = LinkPhase::Sealed { companion_id: cid, seal, peer: src };
             self.sync.assign_slot(cid);
-            return Some((blocks, tron));
+            return Some(blocks);
         }
         None
     }
