@@ -129,8 +129,8 @@ impl AttitudeNozzleMesh {
 
         let hub = center - out_dir * 0.06;
         let planar_plume = if self.motion.1.abs() > 0.04 { self.motion.1.abs().clamp(0.0, 1.2) } else { 0.0 };
-        let retro_plume = if self.motion.0 < -0.04 { (-self.motion.0).clamp(0.0, 1.2) } else { 0.0 };
-        let active_plume = planar_plume.max(retro_plume);
+        let vertical_plume = if self.motion.0.abs() > 0.04 { self.motion.0.abs().clamp(0.0, 1.2) } else { 0.0 };
+        let active_plume = planar_plume.max(vertical_plume);
 
         Self::emit_rcs_horn(hub, out_dir, up, 0.080, 0.220, 0.125, active_plume, target);
     }

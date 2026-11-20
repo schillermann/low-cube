@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.87.1] - 2026-11-20
+
+### Changed
+- Refactored spacecraft propulsion into an immutable 4-stage `ImpulseStage` decorator chain (`VernierAttitudeStage(MainBellStage(ConsoleGyroStage(HullBallast)))` and `CockpitAxes` in `crates/world/src/relief/vehicle_assembly/impulse/`, plus `PartPropulsion` and `PartWire` in `crates/world/src/relief/vehicle_assembly/part/`) replacing procedural `&mut RigidImpulse` accumulation while preserving strictly linear `F / m` mass scaling.
+
+### Fixed
+- Fixed compact skeleton and RCS-only rockets failing to lift off from the launchpad on `Space` (`PartPropulsion::part_mass`, `VernierAttitudeStage::resolve`, `AttitudeNozzleMesh`, and `NozzleAxis::plume_glow`) by calibrating half-meter voxel material masses (`0.20` light frame vs. `0.45` stone/ore hull) so single-bell skeleton craft lift off cleanly while heavy hulled ships require multiple main bells, and included `FlightConsole` and `RocketNozzle` in `VehiclePart::kinematic_part` so `VesselStage` streams live thruster plumes and cockpit levers every frame (`crates/client/src/drive/liftoff_tests.rs`).
+
 ## [0.87.0] - 2026-11-20
 
 ### Added

@@ -8,6 +8,8 @@ mod wheeled;
 #[cfg(test)]
 mod expanse_tests;
 #[cfg(test)]
+mod liftoff_tests;
+#[cfg(test)]
 mod lunar_tests;
 #[cfg(test)]
 mod multiplayer_tests;

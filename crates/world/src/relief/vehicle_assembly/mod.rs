@@ -6,6 +6,9 @@ use glam::{Quat, Vec3};
 use crate::MeshTarget;
 use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose};
 pub use self::axes::VehicleAxes;
+pub(in crate::relief) use self::impulse::{
+    CockpitAxes, ConsoleGyroStage, HullBallast, ImpulseStage, MainBellStage, VernierAttitudeStage,
+};
 pub use self::impulse::{PilotOrder, RigidImpulse};
 pub use self::part::VehiclePart;
 

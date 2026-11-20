@@ -1,7 +1,10 @@
 use glam::Vec3;
 use crate::block::{ConsoleOrrery, GridCell, SensorPodAxis};
 use crate::{MeshTarget, Quad};
-use super::super::vehicle_assembly::{PilotOrder, RigidImpulse, VehiclePart};
+use super::super::vehicle_assembly::{
+    CockpitAxes, ConsoleGyroStage, HullBallast, ImpulseStage, MainBellStage, PilotOrder,
+    RigidImpulse, VehiclePart, VernierAttitudeStage,
+};
 use super::identity::CraftIdentity;
 use super::pose::CraftPose;
 
@@ -104,9 +107,8 @@ impl CraftBlueprint {
     }
 
     pub fn sample_impulse(&self, order: &PilotOrder, pose: CraftPose) -> RigidImpulse {
-        let mut impulse = RigidImpulse::zero();
         if self.parts.is_empty() {
-            return impulse;
+            return RigidImpulse::zero();
         }
         let car_frame = pose.surface_frame();
         let lift = self.wheel_ground_lift();
@@ -115,14 +117,18 @@ impl CraftBlueprint {
             .iter()
             .fold(Vec3::ZERO, |acc, p| acc + p.world_mass_center(lift, &car_frame))
             / (self.parts.len() as f32);
-        let up = pose.normal().normalize_or_zero();
-        let raw_fwd = pose.heading();
-        let fwd = (raw_fwd - up * raw_fwd.dot(up)).normalize_or_zero();
-        let right = fwd.cross(up).normalize_or_zero();
-        for part in &self.parts {
-            part.contribute_impulse(lift, &car_frame, com, order, right, up, fwd, &mut impulse);
-        }
-        impulse
+        let axes = CockpitAxes::from_pose(pose);
+        let chain = VernierAttitudeStage::new(
+            MainBellStage::new(
+                ConsoleGyroStage::new(HullBallast::new(&self.parts), &self.parts),
+                (&self.parts, &car_frame),
+                (lift, com),
+                (*order, axes),
+            ),
+            (&self.parts, &car_frame),
+            (*order, axes),
+        );
+        chain.resolve()
     }
 
     pub fn parts(&self) -> &[VehiclePart] {

@@ -57,7 +57,7 @@ impl NozzleAxis {
         match self {
             Self::Downward if motion.0 > 0.04 => motion.0.clamp(0.0, 1.2),
             Self::Attitude(_) if motion.1.abs() > 0.04 => motion.1.abs().clamp(0.0, 1.2),
-            Self::Attitude(_) if motion.0 < -0.04 => (-motion.0).clamp(0.0, 1.2),
+            Self::Attitude(_) if motion.0.abs() > 0.04 => motion.0.abs().clamp(0.0, 1.2),
             _ => 0.0,
         }
     }

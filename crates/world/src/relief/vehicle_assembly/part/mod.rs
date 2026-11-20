@@ -1,3 +1,6 @@
+mod propulsion;
+mod wire;
+
 use glam::Vec3;
 use crate::block::{
     BlockMedium, BlockMold, GridCell, MoldArchetype, NozzleAxis, SensorPodAxis, VoxelShape,
@@ -8,7 +11,9 @@ use crate::MeshTarget;
 use super::super::craft_cluster::CraftCluster;
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
-use super::impulse::{PilotOrder, RigidImpulse};
+use super::impulse::{CockpitAxes, PilotOrder, RigidImpulse};
+use self::propulsion::PartPropulsion;
+use self::wire::PartWire;
 
 pub(in crate::relief) const BLOCK_STEP: f32 = GridCell::SPAN;
 
@@ -49,6 +54,10 @@ impl VehiclePart {
         Self { offset, floor_offset, shape }
     }
 
+    fn wire(&self) -> PartWire {
+        PartWire::new(self.offset, self.floor_offset, self.shape.shape_stamp())
+    }
+
     pub(in crate::relief) fn expand_span(
         &self,
         basis: (i32, i32, i32, i32),
@@ -62,51 +71,13 @@ impl VehiclePart {
         bounds.3 = bounds.3.max(dv);
     }
 
-    pub(in crate::relief) fn inscribe(&self, out: &mut Vec<u8>) {
-        out.extend_from_slice(&(self.offset.0.clamp(-128, 128) as i16).to_le_bytes());
-        out.extend_from_slice(&(self.offset.1.clamp(-128, 128) as i16).to_le_bytes());
-        out.extend_from_slice(&self.floor_offset.to_le_bytes());
-        out.extend_from_slice(&self.shape.shape_stamp());
-    }
+    pub(in crate::relief) fn inscribe(&self, out: &mut Vec<u8>) { self.wire().inscribe(out); }
+    pub(in crate::relief) fn canonical_key(&self) -> (i32, i32, i32, [u8; 3]) { self.wire().canonical_key() }
+    pub(in crate::relief) fn digest_mix(&self, h: u64) -> u64 { self.wire().digest_mix(h) }
 
     pub(in crate::relief) fn decode(bytes: &[u8]) -> Option<(Self, usize)> {
-        if bytes.len() < 11 {
-            return None;
-        }
-        let ox = i16::from_le_bytes(bytes[0..2].try_into().ok()?) as i32;
-        let oy = i16::from_le_bytes(bytes[2..4].try_into().ok()?) as i32;
-        let floor_offset = f32::from_le_bytes(bytes[4..8].try_into().ok()?);
-        if !floor_offset.is_finite() || ox.abs() > 128 || oy.abs() > 128 || floor_offset.abs() > 32.0 {
-            return None;
-        }
-        let stamp = [bytes[8], bytes[9], bytes[10]];
-        Some((Self::new((ox, oy), floor_offset, BlockMold::shape_from_stamp(stamp)), 11))
-    }
-
-    pub(in crate::relief) fn canonical_key(&self) -> (i32, i32, i32, [u8; 3]) {
-        (
-            self.offset.0,
-            self.offset.1,
-            (self.floor_offset * 16.0).round() as i32,
-            self.shape.shape_stamp(),
-        )
-    }
-
-    pub(in crate::relief) fn digest_mix(&self, mut h: u64) -> u64 {
-        for b in (self.offset.0 as i16).to_le_bytes() {
-            h = (h ^ (b as u64)).wrapping_mul(0x100000001b3);
-        }
-        for b in (self.offset.1 as i16).to_le_bytes() {
-            h = (h ^ (b as u64)).wrapping_mul(0x100000001b3);
-        }
-        let qf = ((self.floor_offset * 16.0).round() as i16).to_le_bytes();
-        for b in qf {
-            h = (h ^ (b as u64)).wrapping_mul(0x100000001b3);
-        }
-        for b in self.shape.shape_stamp() {
-            h = (h ^ (b as u64)).wrapping_mul(0x100000001b3);
-        }
-        h
+        let (off, floor_offset, shape, used) = PartWire::decode(bytes)?;
+        Some((Self::new(off, floor_offset, shape), used))
     }
 
     pub(in crate::relief) fn passenger_seat_slot(&self) -> Option<(i32, i32, f32)> {
@@ -114,14 +85,16 @@ impl VehiclePart {
             .then_some((self.offset.0, self.offset.1, self.floor_offset))
     }
 
-    pub(in crate::relief) fn block_medium(&self) -> BlockMedium {
-        self.shape.block_medium()
-    }
+    pub(in crate::relief) fn block_medium(&self) -> BlockMedium { self.shape.block_medium() }
 
     pub(in crate::relief) fn kinematic_part(&self) -> bool {
         matches!(
             self.shape.block_medium(),
-            BlockMedium::CarWheel | BlockMedium::SteeringWheel | BlockMedium::FieldCamera
+            BlockMedium::CarWheel
+                | BlockMedium::SteeringWheel
+                | BlockMedium::FieldCamera
+                | BlockMedium::FlightConsole
+                | BlockMedium::RocketNozzle
         )
     }
 
@@ -147,13 +120,8 @@ impl VehiclePart {
         Some((self.floor_offset + lift, self.floor_offset + lift + BLOCK_STEP))
     }
 
-    pub(in crate::relief) fn camera_equipped(&self) -> bool {
-        self.shape.block_medium() == BlockMedium::FieldCamera
-    }
-
-    pub(in crate::relief) fn rocket_camera(&self) -> bool {
-        self.shape.block_medium() == BlockMedium::RocketCamera
-    }
+    pub(in crate::relief) fn camera_equipped(&self) -> bool { self.shape.block_medium() == BlockMedium::FieldCamera }
+    pub(in crate::relief) fn rocket_camera(&self) -> bool { self.shape.block_medium() == BlockMedium::RocketCamera }
 
     pub(in crate::relief) fn rocket_pod_at(&self, lift: f32) -> Option<(SensorPodAxis, (i32, i32), f32)> {
         if !self.rocket_camera() {
@@ -205,9 +173,7 @@ impl VehiclePart {
         (self.shape.block_medium() == BlockMedium::CarWheel).then(|| self.shape.wheel_radius())
     }
 
-    pub fn flight_console(&self) -> bool {
-        self.shape.block_medium() == BlockMedium::FlightConsole
-    }
+    pub fn flight_console(&self) -> bool { self.shape.block_medium() == BlockMedium::FlightConsole }
 
     pub fn console_heading(&self, frame: &SurfaceFrame) -> Option<Vec3> {
         self.flight_console().then(|| self.shape.block_heading().forward_vector(frame))
@@ -222,39 +188,32 @@ impl VehiclePart {
         frame.point_at(uc, vc, self.floor_offset + lift + 0.25)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub(in crate::relief) fn contribute_impulse(
+    pub(in crate::relief) fn part_mass(&self) -> f32 {
+        PartPropulsion::new(self.shape.as_ref(), Vec3::ZERO).part_mass()
+    }
+
+    pub(in crate::relief) fn bell_burn(
         &self,
         lift: f32,
         frame: &SurfaceFrame,
         center_of_mass: Vec3,
         order: &PilotOrder,
-        right: Vec3,
-        up: Vec3,
-        fwd: Vec3,
-        impulse: &mut RigidImpulse,
-    ) {
-        impulse.add_block_mass(1.0);
-        match self.shape.block_medium() {
-            BlockMedium::FlightConsole => impulse.add_console_gyro(),
-            BlockMedium::RocketNozzle => {
-                let stamp = self.shape.shape_stamp();
-                let axis = NozzleAxis::from_mold(MoldArchetype::from_code(stamp[0]), self.shape.block_heading());
-                let thrust_dir = axis.thrust_vector(frame).normalize_or_zero();
-                let throttle = order.throttle_along(thrust_dir, right, up, fwd);
-                if axis.attitude_pod() {
-                    let retro_dir = -frame.normal().normalize_or_zero();
-                    let retro_throttle = order.throttle_along(retro_dir, right, up, fwd);
-                    impulse.apply_attitude_jet(thrust_dir, throttle);
-                    impulse.apply_attitude_jet(retro_dir, retro_throttle);
-                    impulse.apply_attitude_steer(order.attitude_rate(right, up));
-                } else {
-                    let lever = self.world_mass_center(lift, frame) - center_of_mass;
-                    impulse.apply_nozzle_burn(lever, thrust_dir, throttle);
-                }
-            }
-            _ => {}
-        }
+        axes: CockpitAxes,
+        impulse: RigidImpulse,
+    ) -> RigidImpulse {
+        PartPropulsion::new(self.shape.as_ref(), self.world_mass_center(lift, frame))
+            .bell_burn(frame, center_of_mass, order, axes, impulse)
+    }
+
+    pub(in crate::relief) fn attitude_burn(
+        &self,
+        frame: &SurfaceFrame,
+        order: &PilotOrder,
+        axes: CockpitAxes,
+        impulse: RigidImpulse,
+    ) -> (RigidImpulse, f32) {
+        PartPropulsion::new(self.shape.as_ref(), Vec3::ZERO)
+            .attitude_burn(frame, order, axes, impulse)
     }
 
     pub(in crate::relief) fn emit_driven(&self, lift: f32, spin: f32, turn: f32, frame: &SurfaceFrame, top: Vec3, wall: Vec3, out: &mut dyn MeshTarget) {
