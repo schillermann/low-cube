@@ -19,6 +19,7 @@ pub enum WorldFact {
     CraftCommissioned { blueprint: CraftBlueprint },
     HelmClaimed { craft: CraftIdentity, pilot_slot: u32, eye: Vec3, direction: Vec3 },
     HelmReleased { craft: CraftIdentity, pose: CraftPose },
+    RigBlueprintBuilt { eye: Vec3, direction: Vec3, blueprint: CraftBlueprint },
 }
 
 impl WorldFact {
@@ -46,6 +47,9 @@ impl WorldFact {
                 world.claim_vehicle_helm(craft, pilot_slot, eye, direction)
             }
             Self::HelmReleased { craft, pose } => world.park_craft_by_id(craft, pose),
+            Self::RigBlueprintBuilt { eye, direction, ref blueprint } => {
+                world.build_rig_blueprint(eye, direction, blueprint)
+            }
         }
     }
 
@@ -127,6 +131,12 @@ impl WorldFact {
                 out.push(12);
                 craft.inscribe(out);
                 pose.inscribe(out);
+            }
+            Self::RigBlueprintBuilt { eye, direction, ref blueprint } => {
+                out.push(13);
+                WireVector::new(eye).inscribe(out);
+                WireVector::new(direction).inscribe(out);
+                blueprint.inscribe(out);
             }
         }
     }
@@ -223,6 +233,12 @@ impl WorldFact {
                 let (craft, _) = CraftIdentity::decode(&bytes[1..9])?;
                 let (pose, _) = CraftPose::decode(&bytes[9..77])?;
                 Some((Self::HelmReleased { craft, pose }, 77))
+            }
+            13 if bytes.len() >= 35 => {
+                let eye = WireSlice::new(&bytes[1..13]).vec3()?;
+                let direction = WireSlice::new(&bytes[13..25]).vec3()?;
+                let (blueprint, used) = CraftBlueprint::decode(&bytes[25..])?;
+                Some((Self::RigBlueprintBuilt { eye, direction, blueprint }, 25 + used))
             }
             _ => None,
         }

@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.88.0] - 2026-11-20
+
+### Added
+- Added reusable `BLUEPRINT BLOCK` (`BlockMedium::VehicleBlueprint` and `BlueprintBlockMesh` in `crates/world/src/block/blueprint_block.rs`, `HeldRelic::VehicleBlueprint`, `BlueprintFolio`, `SavedBlueprint`, `BlueprintArchive`, and `FileBlueprints` in `crates/client/src/blueprint/`, `BlueprintHoist` in `crates/world/src/relief/cantilever_rig/blueprint_mount.rs`, and `WorldFact::RigBlueprintBuilt` in `crates/world/src/chronicle.rs`) enabling players to capture crane-mounted or parked vehicles with custom typed names into `blueprints.toml` and select saved blueprints on any empty cantilever crane arm to assemble the complete vehicle while consuming required parts from `BeltSatchel` (`crates/client/src/blueprint_tests.rs`).
+
 ## [0.87.1] - 2026-11-20
 
 ### Changed

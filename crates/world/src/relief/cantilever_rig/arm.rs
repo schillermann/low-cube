@@ -33,6 +33,18 @@ impl RigArm {
         self.hoist_steps > 0
     }
 
+    pub const fn reach_steps(&self) -> i32 {
+        self.reach_steps
+    }
+
+    pub fn reposition_mast(&mut self, next_ground_top: f32, next_reach: i32) {
+        let prev_hoist = self.hoist_elevation();
+        self.ground_top = next_ground_top;
+        self.reach_steps = next_reach.max(1);
+        let raw_steps = ((prev_hoist - next_ground_top) / BLOCK_STEP).round() as i32;
+        self.hoist_steps = raw_steps.clamp(1, MAX_HOIST_STEPS);
+    }
+
     pub fn reset(&mut self) {
         self.hoist_steps = INITIAL_HOIST_STEPS;
         self.reach_steps = INITIAL_REACH_STEPS;

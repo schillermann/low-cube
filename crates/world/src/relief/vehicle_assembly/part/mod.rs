@@ -85,7 +85,16 @@ impl VehiclePart {
             .then_some((self.offset.0, self.offset.1, self.floor_offset))
     }
 
-    pub(in crate::relief) fn block_medium(&self) -> BlockMedium { self.shape.block_medium() }
+    pub fn block_medium(&self) -> BlockMedium { self.shape.block_medium() }
+
+    pub(in crate::relief) fn insert_rigid(&self, v_sign: i32, flip_v: bool, craft: &mut CraftCluster) {
+        let mut shape = BlockMold::shape_from_stamp(self.shape.shape_stamp());
+        if flip_v && matches!(shape.block_heading(), WedgeHeading::North | WedgeHeading::South) {
+            shape.rotate_quarter();
+            shape.rotate_quarter();
+        }
+        craft.insert(self.offset.0, self.offset.1 * v_sign, self.floor_offset, shape);
+    }
 
     pub(in crate::relief) fn kinematic_part(&self) -> bool {
         matches!(

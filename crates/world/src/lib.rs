@@ -33,8 +33,8 @@ pub use celestial::{
     RadialWell, StarVault, TranslatedWorld,
 };
 pub use block::{
-    AttitudeNozzleMesh, BlockMedium, BlockMold, CabinSeatMesh, CardinalTurn, ConsoleOrrery,
-    CornerHeading, CuboidShape, DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh,
+    AttitudeNozzleMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,
+    ConsoleOrrery, CornerHeading, CuboidShape, DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh,
     FootwellPlinth, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape, MineralSeam,
     MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner,
     RocketNozzleMesh, StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan,
@@ -100,6 +100,7 @@ pub trait WorldEarthworks {
     fn lower_rig(&mut self, _eye: Vec3, _direction: Vec3) -> bool { false }
     fn board_vehicle(&mut self, _eye: Vec3, _direction: Vec3, _holding_block: bool) -> Option<VehicleAssembly> { None }
     fn park_vehicle(&mut self, _assembly: VehicleAssembly) -> bool { false }
+    fn build_rig_blueprint(&mut self, _eye: Vec3, _direction: Vec3, _blueprint: &CraftBlueprint) -> bool { false }
     fn register_craft_blueprint(&mut self, _blueprint: CraftBlueprint) -> bool { false }
     fn claim_vehicle_helm(&mut self, _craft: CraftIdentity, _pilot_slot: u32, eye: Vec3, direction: Vec3) -> bool {
         self.board_vehicle(eye, direction, true).is_some()
@@ -150,6 +151,8 @@ pub trait PlanetaryWorld: GravityField + WorldEarthworks + Send {
     fn emit_active_crafts(&self, _target: &mut dyn MeshTarget) {}
     fn present_vessels(&self, _sink: &mut dyn VesselSink) {}
     fn plan_molded_block(&self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> Option<PlannedMount> { None }
+    fn capture_vehicle_blueprint(&self, _eye: Vec3, _direction: Vec3) -> Option<CraftBlueprint> { None }
+    fn aimed_empty_rig(&self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3) -> bool { false }
     fn face_patch_count(&self, _slice: usize) -> usize { 0 }
     fn emit_face_patch(&self, _slice: usize, _patch_slot: usize, _target: &mut dyn MeshTarget) {}
     fn drain_modified_patch(&mut self, _target: &mut dyn MeshTarget) -> Option<(usize, usize)> { None }
@@ -195,6 +198,9 @@ pub trait Face: Send + Sync {
     fn lower_rig(&mut self, _eye: Vec3, _direction: Vec3) -> bool { false }
     fn board_vehicle(&mut self, _eye: Vec3, _direction: Vec3, _holding_block: bool) -> Option<VehicleAssembly> { None }
     fn park_vehicle(&mut self, _assembly: VehicleAssembly) -> bool { false }
+    fn capture_vehicle_blueprint(&self, _eye: Vec3, _direction: Vec3) -> Option<CraftBlueprint> { None }
+    fn aimed_empty_rig(&self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3) -> bool { false }
+    fn build_rig_blueprint(&mut self, _eye: Vec3, _direction: Vec3, _blueprint: &CraftBlueprint) -> bool { false }
     fn present_vessels(&self, _sink: &mut dyn VesselSink) {}
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { None }
     fn step_surface(&mut self, _dt: f32) -> bool { false }

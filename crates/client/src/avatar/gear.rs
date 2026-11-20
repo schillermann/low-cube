@@ -1,6 +1,7 @@
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld, PresenceAttire};
-use crate::attire::{BodyPose, CameraMount, SightMode, StrideRhythm, YouthAttire};
+use crate::attire::{BodyPose, CameraMount, HeldRelic, SightMode, StrideRhythm, YouthAttire};
+use crate::blueprint::BlueprintFolio;
 use crate::controls::{ActionBindings, InputTrigger};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
 use crate::envelope::BodyEnvelope;
@@ -11,17 +12,32 @@ use super::bearing::AvatarBearing;
 use super::body::AvatarBody;
 use super::sight::AvatarSight;
 
-/// Encapsulated wardrobe attire, dual-hand earthworks, and input bindings.
+/// Encapsulated wardrobe attire, dual-hand earthworks, blueprint folio, and input bindings.
 pub struct AvatarGear {
     attire: YouthAttire,
     earthworks: PalmEarthworks,
+    folio: BlueprintFolio,
     bindings: ActionBindings,
 }
 
 impl AvatarGear {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(attire: YouthAttire, earthworks: PalmEarthworks, bindings: ActionBindings) -> Self {
-        Self { attire, earthworks, bindings }
+    pub const fn with_folio(
+        attire: YouthAttire,
+        earthworks: PalmEarthworks,
+        folio: BlueprintFolio,
+        bindings: ActionBindings,
+    ) -> Self {
+        Self { attire, earthworks, folio, bindings }
+    }
+
+    pub fn new(attire: YouthAttire, earthworks: PalmEarthworks, bindings: ActionBindings) -> Self {
+        Self::with_folio(attire, earthworks, BlueprintFolio::profile(), bindings)
+    }
+
+    #[cfg(test)]
+    pub fn install_blueprint_archive(&mut self, archive: Box<dyn crate::blueprint::BlueprintArchive>) {
+        self.folio = BlueprintFolio::with_archive(archive);
     }
 
     pub const fn bindings(&self) -> &ActionBindings {
@@ -29,11 +45,31 @@ impl AvatarGear {
     }
 
     pub fn satchel_open(&self) -> bool {
-        self.earthworks.satchel_open()
+        self.earthworks.satchel_open() || self.folio.open()
+    }
+
+    pub const fn typing_text(&self) -> bool {
+        self.folio.typing_name()
+    }
+
+    pub fn accept_text(&mut self, text: &str) -> bool {
+        self.folio.append_text(text)
+    }
+
+    fn active_camera_mount(&self) -> CameraMount {
+        if self.folio.open() {
+            CameraMount::Unmounted
+        } else {
+            self.earthworks.camera_mount(self.attire)
+        }
     }
 
     pub fn placed_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
-        self.earthworks.placed_camera_lens(self.attire)
+        if self.folio.open() {
+            None
+        } else {
+            self.earthworks.placed_camera_lens(self.attire)
+        }
     }
 
     pub fn standing_envelope(&self, facing: Vec3) -> BodyEnvelope {
@@ -72,6 +108,7 @@ impl AvatarGear {
 
     pub fn calm_hands(&mut self) {
         self.earthworks = self.earthworks.halt_dig();
+        self.folio.close();
     }
 
     pub fn abort_hands(&mut self, reach: SurfaceReach, world: &mut dyn PlanetaryWorld) -> bool {
@@ -81,17 +118,24 @@ impl AvatarGear {
     }
 
     pub fn dispatch_trigger(&mut self, trigger: InputTrigger, bearing: &mut AvatarBearing, perished: bool) -> bool {
+        if self.folio.handle_trigger(trigger, &self.bindings) {
+            bearing.reconcile_mount(self.active_camera_mount());
+            return true;
+        }
         if trigger == InputTrigger::WheelClick
             && !self.satchel_open()
             && !perished
-            && bearing.press_shutter(self.earthworks.camera_mount(self.attire))
+            && bearing.press_shutter(self.active_camera_mount())
         {
             return true;
         }
         let (ew, attire, handled) = self.earthworks.handle_trigger(trigger, &self.bindings, self.attire);
         if handled {
             (self.earthworks, self.attire) = (ew, attire);
-            bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
+            if self.earthworks.satchel_open() {
+                self.folio.close();
+            }
+            bearing.reconcile_mount(self.active_camera_mount());
         }
         handled
     }
@@ -104,22 +148,35 @@ impl AvatarGear {
         view_dir: Vec3,
         world: &mut dyn PlanetaryWorld,
     ) -> bool {
+        if self.folio.open() {
+            return false;
+        }
         let (next_ew, next_rhythm, cast) =
             self.earthworks.try_cast_relic(trigger, &self.bindings, self.attire, bearing.rhythm(), eye, view_dir, world);
         self.earthworks = next_ew;
         if cast {
             bearing.apply_rhythm(next_rhythm);
-            bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
+            bearing.reconcile_mount(self.active_camera_mount());
         }
         cast
     }
 
     pub fn try_adjust_rig(&mut self, trigger: InputTrigger, bearing: &mut AvatarBearing, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld) -> bool {
+        if self.folio.open() {
+            let (next_ew, next_attire, built) =
+                self.earthworks.try_build_folio(&mut self.folio, trigger, &self.bindings, self.attire, world);
+            (self.earthworks, self.attire) = (next_ew, next_attire);
+            if built {
+                bearing.apply_rhythm(SurfaceReach::swing_rhythm(self.attire, bearing.rhythm(), 1.0));
+                bearing.reconcile_mount(self.active_camera_mount());
+            }
+            return built;
+        }
         let adjusted = self.earthworks.try_adjust_rig(trigger, &self.bindings, self.attire, eye, view_dir, world);
-        if adjusted && matches!(self.earthworks.camera_mount(self.attire), CameraMount::Placed(_)) {
+        if adjusted && matches!(self.active_camera_mount(), CameraMount::Placed(_)) {
             let (ew, attire, _) = self.earthworks.handle_trigger(trigger, &self.bindings, self.attire);
             (self.earthworks, self.attire) = (ew, attire);
-            bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
+            bearing.reconcile_mount(self.active_camera_mount());
         }
         adjusted
     }
@@ -132,6 +189,31 @@ impl AvatarGear {
         bearing: &mut AvatarBearing,
         world: &mut dyn PlanetaryWorld,
     ) -> bool {
+        if self.folio.open() {
+            let (next_ew, next_attire, built, _) = self.earthworks.act_folio(&mut self.folio, self.attire, world);
+            (self.earthworks, self.attire) = (next_ew, next_attire);
+            if built {
+                bearing.apply_rhythm(SurfaceReach::swing_rhythm(self.attire, bearing.rhythm(), side));
+            }
+            bearing.reconcile_mount(self.active_camera_mount());
+            return built;
+        }
+        if !self.earthworks.satchel_open() && self.attire.hand_pair(side).0 == HeldRelic::VehicleBlueprint {
+            if let Some(captured) = world.capture_vehicle_blueprint(reach.eye(), reach.view_dir()) {
+                self.earthworks = self.earthworks.halt_dig();
+                self.folio.open_naming(captured);
+                bearing.apply_rhythm(SurfaceReach::swing_rhythm(self.attire, bearing.rhythm(), side));
+                bearing.reconcile_mount(self.active_camera_mount());
+                return false;
+            }
+            if world.aimed_empty_rig(reach.eye(), reach.view_dir(), reach.stance_origin()) {
+                self.earthworks = self.earthworks.halt_dig();
+                self.folio.open_rig_catalog(reach.eye(), reach.view_dir());
+                bearing.apply_rhythm(SurfaceReach::swing_rhythm(self.attire, bearing.rhythm(), side));
+                bearing.reconcile_mount(self.active_camera_mount());
+                return false;
+            }
+        }
         let (next_ew, next_attire, next_rhythm, changed, nourished) =
             self.earthworks.act_with_hand(side, reach, self.attire, bearing.rhythm(), world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
@@ -141,7 +223,7 @@ impl AvatarGear {
             HeartyBite::savory().thump();
         }
         bearing.apply_rhythm(next_rhythm);
-        bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
+        bearing.reconcile_mount(self.active_camera_mount());
         changed || nourished
     }
 
@@ -185,7 +267,7 @@ impl AvatarGear {
         let (next_ew, next_attire, perch_ready, changed) =
             self.earthworks.release_hand(reach, self.attire, world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
-        bearing.reconcile_mount(self.earthworks.camera_mount(self.attire));
+        bearing.reconcile_mount(self.active_camera_mount());
         if perch_ready && body.perch_vehicle(reach.eye(), reach.view_dir(), sight_line, world) {
             bearing.calm();
             return true;
@@ -202,10 +284,11 @@ impl AvatarGear {
 
     pub fn emit_appearance(&self, pose: &BodyPose, sight: SightMode, view_dir: Vec3, up: Vec3, rhythm: StrideRhythm, target: &mut dyn MeshTarget) {
         self.earthworks.emit_attire(&self.attire, pose, sight, target);
+        self.earthworks.emit_folio(&self.folio, &self.attire, pose, target);
         self.earthworks.emit_debris(view_dir, up, rhythm, target);
     }
 
     pub fn planned_mount(&self, reach: SurfaceReach, world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> {
-        self.earthworks.planned_mount(reach, self.attire, world)
+        (!self.folio.open()).then(|| self.earthworks.planned_mount(reach, self.attire, world)).flatten()
     }
 }

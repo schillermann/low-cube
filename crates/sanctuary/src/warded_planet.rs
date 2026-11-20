@@ -96,6 +96,18 @@ impl WorldEarthworks for WardedPlanet<'_> {
         self.ward.eye_within_reach(eye, direction) && self.origin.lower_rig(eye, direction)
     }
 
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        let needed = blueprint.part_count() as u32;
+        if needed == 0 || !self.ward.eye_within_reach(eye, direction) || !self.ward.spend_blocks(needed) {
+            return false;
+        }
+        if self.origin.build_rig_blueprint(eye, direction, blueprint) {
+            return true;
+        }
+        self.ward.credit_blocks(needed);
+        false
+    }
+
     fn register_craft_blueprint(&mut self, blueprint: CraftBlueprint) -> bool {
         blueprint.drivable() && self.fleet.register_blueprint(blueprint)
     }

@@ -1,9 +1,9 @@
 use std::net::SocketAddr;
 use glam::Vec3;
 use world::{
-    BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftIdentity, CraftPose, DeckFrame,
-    DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget, PilotCraft, PlanetaryWorld,
-    SurfaceFind, VehicleAssembly, WorldEarthworks,
+    BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
+    CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
+    PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
 };
 use crate::sanctuary_host::SanctuaryHost;
 
@@ -158,6 +158,14 @@ impl PlanetaryWorld for HostedPlanet {
         self.host.world().plan_molded_block(eye, direction, avatar_pos, mold)
     }
 
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
+        self.host.world().capture_vehicle_blueprint(eye, direction)
+    }
+
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.host.world().aimed_empty_rig(eye, direction, avatar_pos)
+    }
+
     fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
         self.host.board_passenger_seat(eye, direction)
     }
@@ -231,6 +239,10 @@ impl WorldEarthworks for HostedPlanet {
 
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
         self.host.with_chronicled(|w| w.lower_rig(eye, direction))
+    }
+
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        self.host.with_chronicled(|w| w.build_rig_blueprint(eye, direction, blueprint))
     }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {

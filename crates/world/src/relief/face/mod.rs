@@ -1,34 +1,25 @@
+mod blueprints;
 mod cache;
 mod meadow_ring;
 mod patch_grid;
 
 use glam::Vec3;
 use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape};
-use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
 use crate::{Face, MeshTarget};
+use super::craft_entity::CraftBlueprint;
 use super::elevation::{ReliefElevation, ZonedRelief};
 use super::mineral_vein::{ExposedStratum, HollowVeins, LivingVeins, SubterraneanVeins};
 use super::palette::ReliefPalette;
-use super::planned_mount::{MountSite, PlannedMount};
+use super::planned_mount::PlannedMount;
 use super::sight_ray::SurfaceSightRay;
 use super::strata::ReliefStrata;
 use super::terraced::TerracedRelief;
 use super::vehicle_assembly::VehicleAssembly;
 use super::VesselSink;
+use self::blueprints::ReliefDomain;
 use self::cache::ReliefCellCache;
 pub use self::meadow_ring::{MeadowRing, MeadowStamp, MEADOW_RING_SLOTS};
-
-struct ReliefDomain {
-    frame: SurfaceFrame,
-    relief: Box<dyn ReliefElevation>,
-}
-
-impl ReliefDomain {
-    fn new(frame: SurfaceFrame, relief: Box<dyn ReliefElevation>) -> Self {
-        Self { frame, relief }
-    }
-}
 
 /// Planetary relief face generating undulating climbable terrain and subterranean cavities ("Tell, Don't Ask").
 pub struct FacetedReliefFace {
@@ -172,31 +163,16 @@ impl Face for FacetedReliefFace {
     }
 
     fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
-        let half = self.cache.half_blocks();
-        let half_size = self.domain.frame.step_elevation(half);
-        let (cu, cv, base) = SurfaceSightRay::new(eye, direction)
-            .placement_for_mold(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos, mold)?;
-        let (cell, floor_elev, domain) = self.domain.relief.resolve_planned_site(cu, cv, base, mold.medium())?;
-        Some(PlannedMount::new(MountSite::new(self.domain.frame, cell, floor_elev), mold, direction, domain))
+        self.domain.plan_molded(self.cache.half_blocks(), eye, direction, avatar_pos, mold)
     }
 
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let half = self.cache.half_blocks();
-        let half_size = self.domain.frame.step_elevation(half);
-        if let Some((cu, cv, base)) = SurfaceSightRay::new(eye, direction)
-            .placement_for_mold(&self.domain.frame, self.domain.relief.as_ref(), half, half_size, avatar_pos, mold)
-        {
-            if self.domain.relief.resolve_planned_site(cu, cv, base, mold.medium()).is_none() {
-                return false;
-            }
-            let shape = mold.shape_for(direction, &self.domain.frame);
-            let changed = self.domain.relief.stack_molded_cell(cu, cv, base, shape);
-            if changed {
-                self.refresh_neighborhood(cu, cv, half, 4);
-            }
-            return changed;
-        }
-        false
+        let Some((cu, cv)) = self.domain.place_molded(half, eye, direction, avatar_pos, mold) else {
+            return false;
+        };
+        self.refresh_neighborhood(cu, cv, half, 4);
+        true
     }
 
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
@@ -258,6 +234,23 @@ impl Face for FacetedReliefFace {
 
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
         let _ = self.domain.relief.park_vehicle_at(&self.domain.frame, assembly);
+        true
+    }
+
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
+        self.domain.capture_blueprint(self.cache.half_blocks(), eye, direction)
+    }
+
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.domain.aimed_empty_rig(self.cache.half_blocks(), eye, direction, avatar_pos)
+    }
+
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        let half = self.cache.half_blocks();
+        let Some((mu, mv)) = self.domain.build_blueprint(half, eye, direction, blueprint) else {
+            return false;
+        };
+        self.refresh_neighborhood(mu, mv, half, 8);
         true
     }
 

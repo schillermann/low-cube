@@ -38,10 +38,11 @@ pub enum HeldRelic {
     BoarMeat,
     RocketNozzle,
     RocketCamera,
+    VehicleBlueprint,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 28;
+    pub const COUNT: usize = 29;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -78,7 +79,8 @@ impl HeldRelic {
             24 => Self::GoldOre,
             25 => Self::BoarMeat,
             26 => Self::RocketNozzle,
-            _ => Self::RocketCamera,
+            27 => Self::RocketCamera,
+            _ => Self::VehicleBlueprint,
         }
     }
 
@@ -112,6 +114,7 @@ impl HeldRelic {
             Self::BoarMeat => 25,
             Self::RocketNozzle => 26,
             Self::RocketCamera => 27,
+            Self::VehicleBlueprint => 28,
         }
     }
 
@@ -162,7 +165,7 @@ impl HeldRelic {
     }
 
     pub const fn rotatable_in_palm(self) -> bool {
-        self.placeable_block() || self.field_camera()
+        (self.placeable_block() && !matches!(self, Self::VehicleBlueprint)) || self.field_camera()
     }
 
     pub const fn turnable_in_palm(self) -> bool {
@@ -174,7 +177,8 @@ impl HeldRelic {
     }
 
     pub const fn stowed_block(self) -> bool {
-        self.placeable_block() && !matches!(self, Self::CantileverCrane | Self::FieldCamera)
+        self.placeable_block()
+            && !matches!(self, Self::CantileverCrane | Self::FieldCamera | Self::VehicleBlueprint)
     }
 
     pub const fn stackable_in_tray(self) -> bool {
@@ -211,6 +215,7 @@ impl HeldRelic {
                 | Self::CopperOre
                 | Self::IronOre
                 | Self::GoldOre
+                | Self::VehicleBlueprint
         )
     }
 
@@ -239,6 +244,7 @@ impl HeldRelic {
             BlockMedium::CopperOre => Self::CopperOre,
             BlockMedium::IronOre => Self::IronOre,
             BlockMedium::GoldOre => Self::GoldOre,
+            BlockMedium::VehicleBlueprint => Self::VehicleBlueprint,
         }
     }
 

@@ -8,6 +8,7 @@ use crate::attire::{
     ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, SatchelWardrobe, SightMode,
     StrideRhythm, Wardrobe, YouthAttire,
 };
+use crate::blueprint::BlueprintFolio;
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 pub use crate::grip::DigGrip;
 use crate::order::LocomotionOrder;
@@ -178,6 +179,34 @@ impl PalmEarthworks {
         let (dig_r, dig_l) = self.dig.bare_hand_digging(attire);
         SatchelWardrobe::new(*attire, self.satchel, dig_r, dig_l).emit(pose, sight, target);
         self.tome.emit_book(&self.satchel, *attire, pose, target);
+    }
+
+    pub fn emit_folio(&self, folio: &BlueprintFolio, attire: &YouthAttire, pose: &BodyPose, target: &mut dyn MeshTarget) {
+        folio.emit(&self.satchel, *attire, pose, target);
+    }
+
+    pub fn act_folio(
+        self,
+        folio: &mut BlueprintFolio,
+        attire: YouthAttire,
+        world: &mut dyn PlanetaryWorld,
+    ) -> (Self, YouthAttire, bool, bool) {
+        let state = self.reconcile_attire(attire);
+        let (ns, na, built, handled) = folio.act_open(state.satchel, attire, world);
+        (Self::with_state(ns, state.tome, state.dig.halted(), TossCadence::Quiet), na, built, handled)
+    }
+
+    pub fn try_build_folio(
+        self,
+        folio: &mut BlueprintFolio,
+        trigger: InputTrigger,
+        bindings: &ActionBindings,
+        attire: YouthAttire,
+        world: &mut dyn PlanetaryWorld,
+    ) -> (Self, YouthAttire, bool) {
+        let state = self.reconcile_attire(attire);
+        let (ns, na, built) = folio.try_build_trigger(trigger, bindings, state.satchel, attire, world);
+        (Self::with_state(ns, state.tome, state.dig.halted(), TossCadence::Quiet), na, built)
     }
 
     pub fn presence_attire(&self, attire: YouthAttire) -> PresenceAttire {

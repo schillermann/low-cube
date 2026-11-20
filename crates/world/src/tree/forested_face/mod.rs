@@ -5,7 +5,8 @@ use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
 use crate::{
-    BlockMedium, BlockMold, Face, MeshTarget, PlannedMount, Quad, VehicleAssembly, VesselSink,
+    BlockMedium, BlockMold, CraftBlueprint, Face, MeshTarget, PlannedMount, Quad, VehicleAssembly,
+    VesselSink,
 };
 use super::arboreal::Arboreal;
 use super::depository::WoodlandDepository;
@@ -207,6 +208,22 @@ impl Face for ForestedFace {
 
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
         self.origin.park_vehicle(assembly)
+    }
+
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
+        self.origin.capture_vehicle_blueprint(eye, direction)
+    }
+
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.origin.aimed_empty_rig(eye, direction, avatar_pos)
+    }
+
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        let changed = self.origin.build_rig_blueprint(eye, direction, blueprint);
+        if changed {
+            self.settle_flora();
+        }
+        changed
     }
 
     fn present_vessels(&self, sink: &mut dyn VesselSink) {

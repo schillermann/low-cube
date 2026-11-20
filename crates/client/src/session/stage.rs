@@ -158,6 +158,14 @@ impl SessionStage {
         self.overlay.handle_text(text);
     }
 
+    pub(super) fn typing_avatar_text(&self) -> bool {
+        self.avatar.typing_text()
+    }
+
+    pub(super) fn handle_avatar_text(&mut self, text: &str) -> bool {
+        self.avatar.accept_typed_text(text)
+    }
+
     pub(super) fn release_control_key(&mut self, code: winit::keyboard::KeyCode) {
         self.overlay.register_trigger(InputTrigger::Key(code), false);
     }

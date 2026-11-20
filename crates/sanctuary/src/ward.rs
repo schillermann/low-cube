@@ -150,8 +150,12 @@ impl GuestWard {
     }
 
     pub fn spend_block(&mut self) -> bool {
-        if self.vitals.earned_blocks > 0 {
-            self.vitals.earned_blocks -= 1;
+        self.spend_blocks(1)
+    }
+
+    pub fn spend_blocks(&mut self, count: u32) -> bool {
+        if count > 0 && self.vitals.earned_blocks >= count {
+            self.vitals.earned_blocks -= count;
             true
         } else {
             false

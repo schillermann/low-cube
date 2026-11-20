@@ -7,71 +7,10 @@ use world::{
     MeshTarget, PilotCraft, PlanetaryWorld, SurfaceFind, VehicleAssembly, WorldEarthworks,
     WorldFact,
 };
-use crate::chronicled_planet::{ChronicledPlanet, FactJournal};
-use crate::fleet_ledger::FleetLedger;
+use crate::chronicled_planet::ChronicledPlanet;
+use crate::guest_journal::GuestJournal;
 use crate::remote_link::RemoteLink;
 use crate::ticket::JoinTarget;
-
-/// Optimistic guest petition journal pairing `RemoteLink`, bounded prediction ring, and `FleetLedger`.
-pub struct GuestJournal {
-    link: RemoteLink,
-    predicted: VecDeque<WorldFact>,
-    fleet: FleetLedger,
-}
-
-impl GuestJournal {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn with_fleet(link: RemoteLink, predicted: VecDeque<WorldFact>, fleet: FleetLedger) -> Self {
-        Self { link, predicted, fleet }
-    }
-
-    pub fn new(link: RemoteLink, predicted: VecDeque<WorldFact>) -> Self {
-        Self::with_fleet(link, predicted, FleetLedger::empty())
-    }
-
-    pub fn connected(&self) -> bool { self.link.connected() }
-    pub const fn fleet(&self) -> &FleetLedger { &self.fleet }
-    pub fn fleet_mut(&mut self) -> &mut FleetLedger { &mut self.fleet }
-    pub fn sync_local_presence(&mut self, presence: CompanionPresence) { self.link.sync_local_presence(presence); }
-    pub fn sync_local_craft(&mut self, craft: PilotCraft) { self.link.sync_local_craft(craft); }
-    pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.link.companions(out); }
-    pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.link.crafts(out); }
-    pub fn blend_subtick(&mut self, subtick_secs: f32) { self.link.blend_subtick(subtick_secs); }
-    pub fn ticket_string(&self) -> Option<String> { self.link.ticket_string() }
-    pub fn phrase_string(&self) -> Option<String> { self.link.phrase_string() }
-
-    pub fn pump(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) -> bool {
-        self.link.pump(dt, world, &mut self.fleet, &mut self.predicted)
-    }
-}
-
-impl FactJournal for GuestJournal {
-    fn inscribe_fact(&mut self, fact: WorldFact) {
-        if fact.durable() {
-            if self.predicted.len() >= 64 {
-                let _ = self.predicted.pop_front();
-            }
-            self.predicted.push_back(fact.clone());
-        }
-        self.link.send_petition(fact);
-    }
-
-    fn local_slot(&self) -> u32 {
-        self.link.companion_slot()
-    }
-
-    fn register_local_blueprint(&mut self, blueprint: CraftBlueprint) -> bool {
-        self.fleet.register_blueprint(blueprint)
-    }
-
-    fn claim_local_helm(&mut self, craft: CraftIdentity, pilot_slot: u32) -> bool {
-        self.fleet.claim_helm(craft, pilot_slot)
-    }
-
-    fn release_local_helm(&mut self, craft: CraftIdentity) {
-        self.fleet.force_release(craft);
-    }
-}
 
 /// Zero-knowledge P2P client decorator implementing `PlanetaryWorld` over `HollowVeins` and `ChronicledPlanet`.
 pub struct RemotePlanet {
@@ -149,6 +88,9 @@ impl WorldEarthworks for RemotePlanet {
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool { self.with_chronicled(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold)) }
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool { self.with_chronicled(|w| w.adjust_rig(eye, direction, delta_steps, rotate_quarter)) }
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool { self.with_chronicled(|w| w.lower_rig(eye, direction)) }
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        self.with_chronicled(|w| w.build_rig_blueprint(eye, direction, blueprint))
+    }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
         if holding_block {
@@ -248,6 +190,14 @@ impl PlanetaryWorld for RemotePlanet {
         self.world.plan_molded_block(eye, direction, avatar_pos, mold)
     }
 
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
+        self.world.capture_vehicle_blueprint(eye, direction)
+    }
+
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.world.aimed_empty_rig(eye, direction, avatar_pos)
+    }
+
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.world.placed_camera_tripod() }
 
     fn step_surface(&mut self, dt: f32) -> bool {
@@ -256,10 +206,7 @@ impl PlanetaryWorld for RemotePlanet {
         regrown || net_changed || self.world.pending_slices()
     }
 
-    fn step_local_flora(&mut self, dt: f32) -> bool {
-        self.world.step_surface(dt)
-    }
-
+    fn step_local_flora(&mut self, dt: f32) -> bool { self.world.step_surface(dt) }
     fn lethal_at(&self, position: Vec3) -> bool { self.world.lethal_at(position) }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.world.confine_beneath_crust(position) }
     fn face_count(&self) -> usize { self.world.face_count() }

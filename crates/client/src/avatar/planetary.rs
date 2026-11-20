@@ -191,7 +191,13 @@ impl Avatar for PlanetaryAvatar {
     fn apply_attire(&mut self, attire: YouthAttire) { self.core_mut().apply_attire(attire); }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.core_mut().apply_bindings(bindings); }
     fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool { self.core_mut().dispatch_trigger(trigger) }
+    fn typing_text(&self) -> bool { self.core().typing_text() }
+    fn accept_typed_text(&mut self, text: &str) -> bool { self.core_mut().accept_typed_text(text) }
     fn blend_subtick(&mut self, alpha: f32) { self.core_mut().blend_subtick(alpha); }
     fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) { self.core_mut().step_fauna(dt, fauna, world); }
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.core_mut().land_on_world(world); }
+    #[cfg(test)]
+    fn install_blueprint_archive(&mut self, archive: Box<dyn crate::blueprint::BlueprintArchive>) {
+        self.core_mut().install_blueprint_archive(archive);
+    }
 }

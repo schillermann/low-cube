@@ -1,3 +1,4 @@
+mod blueprint_block;
 mod cabin_seat;
 mod cell;
 mod corner;
@@ -26,6 +27,7 @@ mod wedge;
 #[cfg(test)]
 mod tests;
 
+pub use blueprint_block::BlueprintBlockMesh;
 pub use cabin_seat::CabinSeatMesh;
 pub use cell::GridCell;
 pub use corner::CornerHeading;

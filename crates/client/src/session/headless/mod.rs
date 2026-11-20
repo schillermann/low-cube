@@ -94,6 +94,14 @@ impl HeadlessSession {
     pub fn click_modal(&mut self) { let _ = self.stage.press_modal_mouse(&mut self.display); }
     pub fn rotate_mouse(&mut self, dx: f32, dy: f32) { self.stage.rotate_avatar(dx, dy); }
 
+    pub fn type_text(&mut self, text: &str) {
+        if self.stage.modal_open() {
+            self.stage.handle_modal_text(text);
+        } else {
+            let _ = self.stage.handle_avatar_text(text);
+        }
+    }
+
     pub fn input_key(&mut self, code: KeyCode, pressed: bool) {
         if code == KeyCode::Escape && pressed {
             self.press_escape();

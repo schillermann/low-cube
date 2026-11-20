@@ -5,7 +5,7 @@ use crate::frame::SurfaceFrame;
 use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 use crate::topology::ClimateZone;
 use super::corner::NaturalCrown;
-use super::craft_entity::VesselSink;
+use super::craft_entity::{CraftBlueprint, VesselSink};
 use super::mineral_vein::ExposedStratum;
 use super::planned_mount::MountDomain;
 use super::sight_ray::SurfaceSightRay;
@@ -122,6 +122,43 @@ pub trait ReliefElevation: Send + Sync {
     /// Deposits a driven vehicle assembly back into the terrain grid on dismount.
     fn park_vehicle_at(&mut self, _frame: &SurfaceFrame, _assembly: VehicleAssembly) -> (i32, i32) {
         (0, 0)
+    }
+
+    /// Captures a non-destructive blueprint from an aimed crane craft or parked vehicle.
+    fn capture_blueprint_at(
+        &self,
+        _frame: &SurfaceFrame,
+        _u: i32,
+        _v: i32,
+        _layer_elev: f32,
+        _ray: SurfaceSightRay,
+    ) -> Option<CraftBlueprint> {
+        None
+    }
+
+    /// Indicates whether the sight ray targets an empty cantilever crane arm ready for blueprint construction.
+    fn aimed_empty_rig_at(
+        &self,
+        _frame: &SurfaceFrame,
+        _u: i32,
+        _v: i32,
+        _base: f32,
+        _ray: SurfaceSightRay,
+    ) -> bool {
+        false
+    }
+
+    /// Constructs `blueprint` onto an aimed empty cantilever crane arm, returning the mast cell to refresh.
+    fn build_rig_blueprint_at(
+        &mut self,
+        _frame: &SurfaceFrame,
+        _u: i32,
+        _v: i32,
+        _base: f32,
+        _ray: SurfaceSightRay,
+        _blueprint: &CraftBlueprint,
+    ) -> Option<(i32, i32)> {
+        None
     }
 
     /// Air-exposed subterranean mineral ore at `(u, v, step)`, if uncovered.

@@ -4,8 +4,8 @@ mod slices;
 
 use glam::Vec3;
 use crate::{
-    BeveledBoundary, BlockMold, CubicBoundary, ExposedStratum, Face, GravityField, MeadowRing,
-    MeshTarget, OpenBoundary, PlanetaryWorld, PlannedMount, SeamBoundary, VesselSink,
+    BeveledBoundary, BlockMold, CraftBlueprint, CubicBoundary, ExposedStratum, Face, GravityField,
+    MeadowRing, MeshTarget, OpenBoundary, PlanetaryWorld, PlannedMount, SeamBoundary, VesselSink,
 };
 pub use self::patches::{MeadowScan, PatchCoord};
 pub use self::slices::ModifiedSlices;
@@ -248,6 +248,32 @@ impl PlanetaryWorld for CubePlanet {
             }
         }
         None
+    }
+
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        for idx in [primary, secondary] {
+            if let Some(bp) = self.faces.get(idx).and_then(|f| f.capture_vehicle_blueprint(eye, direction)) {
+                return Some(bp);
+            }
+            if secondary == primary {
+                break;
+            }
+        }
+        None
+    }
+
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        for idx in [primary, secondary] {
+            if self.faces.get(idx).is_some_and(|f| f.aimed_empty_rig(eye, direction, avatar_pos)) {
+                return true;
+            }
+            if secondary == primary {
+                break;
+            }
+        }
+        false
     }
 
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {

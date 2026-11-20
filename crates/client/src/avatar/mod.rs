@@ -111,9 +111,13 @@ pub trait Avatar: AvatarMotor + AvatarOptics + AvatarPresence + PhotoPort + Blac
     fn apply_attire(&mut self, attire: YouthAttire);
     fn apply_bindings(&mut self, _bindings: ActionBindings) {}
     fn dispatch_trigger(&mut self, _trigger: InputTrigger) -> bool { false }
+    fn typing_text(&self) -> bool { false }
+    fn accept_typed_text(&mut self, _text: &str) -> bool { false }
     fn blend_subtick(&mut self, _alpha: f32) {}
     fn step_fauna(&mut self, _dt: f32, _fauna: &mut WoodlandFauna, _world: &dyn PlanetaryWorld) {}
     fn land_on_world(&mut self, _world: &dyn PlanetaryWorld) {}
+    #[cfg(test)]
+    fn install_blueprint_archive(&mut self, _archive: Box<dyn crate::blueprint::BlueprintArchive>) {}
     #[cfg(test)]
     fn dispatch_wardrobe_key(&mut self, code: KeyCode) -> bool {
         self.dispatch_trigger(InputTrigger::Key(code))
@@ -121,7 +125,9 @@ pub trait Avatar: AvatarMotor + AvatarOptics + AvatarPresence + PhotoPort + Blac
     #[cfg(test)]
     fn press_world_key(&mut self, code: KeyCode, world: &mut dyn PlanetaryWorld) -> bool {
         let trigger = InputTrigger::Key(code);
-        self.cast_triggered_relic(trigger, world) || self.dispatch_trigger(trigger)
+        self.adjust_aimed_rig(trigger, world)
+            || self.cast_triggered_relic(trigger, world)
+            || self.dispatch_trigger(trigger)
     }
     #[cfg(test)]
     fn rotate_degrees(&mut self, yaw_deg: f32, pitch_deg: f32) {

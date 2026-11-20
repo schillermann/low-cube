@@ -7,6 +7,7 @@ mod aurora_cadence;
 mod aurora_canopy;
 mod avatar;
 mod black_box;
+mod blueprint;
 mod cadence;
 mod celestial;
 mod clock;
@@ -69,6 +70,8 @@ mod aurora_tests;
 mod ballistic_tests;
 #[cfg(test)]
 mod black_box_tests;
+#[cfg(test)]
+mod blueprint_tests;
 #[cfg(test)]
 mod cadence_tests;
 #[cfg(test)]

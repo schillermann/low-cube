@@ -168,7 +168,22 @@ impl Session for GameSession {
                     }
                     return;
                 }
+                let was_typing_avatar = self.stage.typing_avatar_text();
                 self.dispatch_gameplay_trigger(InputTrigger::Key(code), pressed);
+                if pressed
+                    && was_typing_avatar
+                    && self.stage.typing_avatar_text()
+                    && !self.stage.ctrl_active()
+                    && !matches!(code, KeyCode::Backspace | KeyCode::Enter | KeyCode::NumpadEnter)
+                {
+                    let typed = text.as_deref().or_else(|| match &logical_key {
+                        winit::keyboard::Key::Character(s) => Some(s.as_str()),
+                        _ => None,
+                    });
+                    if let Some(chars) = typed {
+                        let _ = self.stage.handle_avatar_text(chars);
+                    }
+                }
             }
             WindowEvent::RedrawRequested => {
                 let (work_started, beat) = self.pulse.begin_frame();

@@ -106,6 +106,10 @@ impl<W: WorldEarthworks> WorldEarthworks for TranslatedWorld<W> {
         self.origin.lower_rig(eye - self.center, direction)
     }
 
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        self.origin.build_rig_blueprint(eye - self.center, direction, blueprint)
+    }
+
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
         let mut assembly = self.origin.board_vehicle(eye - self.center, direction, holding_block)?;
         assembly.translate_to(assembly.origin() + self.center);
@@ -229,6 +233,14 @@ impl<W: PlanetaryWorld> PlanetaryWorld for TranslatedWorld<W> {
         self.origin
             .plan_molded_block(eye - self.center, direction, avatar_pos - self.center, mold)
             .map(|p| p.translated(self.center))
+    }
+
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
+        self.origin.capture_vehicle_blueprint(eye - self.center, direction)
+    }
+
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.origin.aimed_empty_rig(eye - self.center, direction, avatar_pos - self.center)
     }
 
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {

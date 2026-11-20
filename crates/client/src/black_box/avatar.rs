@@ -228,8 +228,14 @@ impl Avatar for BlackBoxAvatar {
     fn apply_attire(&mut self, attire: YouthAttire) { self.origin.apply_attire(attire); }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.origin.apply_bindings(bindings); }
     fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool { self.origin.dispatch_trigger(trigger) }
+    fn typing_text(&self) -> bool { self.origin.typing_text() }
+    fn accept_typed_text(&mut self, text: &str) -> bool { self.origin.accept_typed_text(text) }
     fn blend_subtick(&mut self, alpha: f32) { self.origin.blend_subtick(alpha); }
     fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) { self.origin.step_fauna(dt, fauna, world); }
+    #[cfg(test)]
+    fn install_blueprint_archive(&mut self, archive: Box<dyn crate::blueprint::BlueprintArchive>) {
+        self.origin.install_blueprint_archive(archive);
+    }
 
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) {
         self.world_blocks = 0;

@@ -1,6 +1,7 @@
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, TurfMeshTarget};
+use super::super::blueprint_block::BlueprintBlockMesh;
 use super::super::cabin_seat::CabinSeatMesh;
 use super::super::cell::GridCell;
 use super::super::earth_clods::EarthClods;
@@ -55,7 +56,12 @@ impl<S: VoxelShape> MediumShape<S> {
 
 impl<S: VoxelShape> VoxelShape for MediumShape<S> {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        if self.medium.mechanical_part() || matches!(self.medium, BlockMedium::CantileverRig | BlockMedium::FieldCamera) {
+        if self.medium.mechanical_part()
+            || matches!(
+                self.medium,
+                BlockMedium::CantileverRig | BlockMedium::FieldCamera | BlockMedium::VehicleBlueprint
+            )
+        {
             GridCell::SPAN
         } else {
             self.inner.elevation_at(local_u, local_v)
@@ -69,7 +75,9 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
     }
     fn wheel_radius(&self) -> f32 { WheelProfile::from_archetype(self.archetype).radius() }
     fn full_cube_envelope(&self) -> bool {
-        self.archetype.full_height_flat() && !self.medium.mechanical_part() && !matches!(self.medium, BlockMedium::FieldCamera)
+        self.archetype.full_height_flat()
+            && !self.medium.mechanical_part()
+            && !matches!(self.medium, BlockMedium::FieldCamera | BlockMedium::VehicleBlueprint)
     }
     fn step_camera_turn(&mut self, delta: i32) -> bool {
         if self.medium == BlockMedium::FieldCamera {
@@ -96,6 +104,8 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
     fn emit_driven_part(&self, cell: GridCell, floor_elevation: f32, spin_angle: f32, steer_angle: f32, frame: &SurfaceFrame, top_color: Vec3, wall_color: Vec3, target: &mut dyn MeshTarget) {
         if self.medium == BlockMedium::CabinSeat {
             CabinSeatMesh::new(self.heading).emit(&self.inner, cell, floor_elevation, frame, target);
+        } else if self.medium == BlockMedium::VehicleBlueprint {
+            BlueprintBlockMesh::new(self.heading).emit(cell, floor_elevation, frame, target);
         } else if self.medium == BlockMedium::PedalCluster {
             PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target);
         } else if self.medium == BlockMedium::FieldCamera {
@@ -120,6 +130,7 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
                 BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target);
             }
             (BlockMedium::CabinSeat, _) => CabinSeatMesh::new(self.heading).emit(&self.inner, cell, floor_elevation, frame, target),
+            (BlockMedium::VehicleBlueprint, _) => BlueprintBlockMesh::new(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::PedalCluster, _) => PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FlightConsole | BlockMedium::RocketNozzle | BlockMedium::RocketCamera, _) => {

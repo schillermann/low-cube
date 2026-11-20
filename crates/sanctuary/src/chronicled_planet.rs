@@ -87,6 +87,18 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
         ok
     }
 
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        let ok = self.origin.build_rig_blueprint(eye, direction, blueprint);
+        if ok {
+            self.journal.inscribe_fact(WorldFact::RigBlueprintBuilt {
+                eye,
+                direction,
+                blueprint: blueprint.clone(),
+            });
+        }
+        ok
+    }
+
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
         let assembly = self.origin.board_vehicle(eye, direction, holding_block)?;
         if holding_block {

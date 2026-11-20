@@ -29,6 +29,7 @@ impl RelicLexicon {
         HeldRelic::DeadwoodBough,
         HeldRelic::FlintStone,
         HeldRelic::FieldCamera,
+        HeldRelic::VehicleBlueprint,
         HeldRelic::CantileverCrane,
         HeldRelic::IronSpade,
         HeldRelic::WoodmanAxe,
@@ -47,6 +48,7 @@ impl RelicLexicon {
             self.relic,
             HeldRelic::EmptyPalm
                 | HeldRelic::FieldCamera
+                | HeldRelic::VehicleBlueprint
                 | HeldRelic::CantileverCrane
                 | HeldRelic::IronSpade
                 | HeldRelic::WoodmanAxe
@@ -86,6 +88,7 @@ impl RelicLexicon {
             HeldRelic::IronOre => "IRON ORE",
             HeldRelic::GoldOre => "GOLD ORE",
             HeldRelic::BoarMeat => "BOAR MEAT",
+            HeldRelic::VehicleBlueprint => "BLUEPRINT BLOCK",
         }
     }
 
@@ -124,6 +127,7 @@ impl RelicLexicon {
             "ironore" | "iron" | "eisen" => Some(HeldRelic::IronOre),
             "goldore" | "gold" => Some(HeldRelic::GoldOre),
             "boarmeat" | "meat" | "venison" | "fleisch" | "wildschwein" => Some(HeldRelic::BoarMeat),
+            "blueprint" | "blueprintblock" | "vehicleblueprint" | "bauplan" => Some(HeldRelic::VehicleBlueprint),
             _ => None,
         }
     }
@@ -148,6 +152,7 @@ impl RelicLexicon {
             HeldRelic::CopperOre => BlockMedium::CopperOre,
             HeldRelic::IronOre => BlockMedium::IronOre,
             HeldRelic::GoldOre => BlockMedium::GoldOre,
+            HeldRelic::VehicleBlueprint => BlockMedium::VehicleBlueprint,
             _ => BlockMedium::TurfEarth,
         }
     }

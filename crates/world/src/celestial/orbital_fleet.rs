@@ -75,6 +75,10 @@ impl<W: PlanetaryWorld> WorldEarthworks for OrbitalFleetWorld<W> {
     }
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool { self.origin.lower_rig(eye, direction) }
 
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        self.origin.build_rig_blueprint(eye, direction, blueprint)
+    }
+
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
         if let Some(idx) = self.aimed_orbital_index(eye, direction) {
             if holding_block {
@@ -202,6 +206,17 @@ impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
 
     fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
         self.origin.plan_molded_block(eye, direction, avatar_pos, mold)
+    }
+
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
+        if let Some(idx) = self.aimed_orbital_index(eye, direction) {
+            return Some(self.drifting[idx].blueprint().clone());
+        }
+        self.origin.capture_vehicle_blueprint(eye, direction)
+    }
+
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.origin.aimed_empty_rig(eye, direction, avatar_pos)
     }
 
     fn face_patch_count(&self, slice: usize) -> usize { self.origin.face_patch_count(slice) }

@@ -1,34 +1,20 @@
+mod optics;
+
 use glam::Vec3;
-use crate::block::{ConsoleOrrery, GridCell, SensorPodAxis};
-use crate::{MeshTarget, Quad};
+use crate::block::{BlockMedium, ConsoleOrrery, GridCell};
+use crate::frame::SurfaceFrame;
+use crate::MeshTarget;
+use super::super::craft_cluster::CraftCluster;
 use super::super::vehicle_assembly::{
     CockpitAxes, ConsoleGyroStage, HullBallast, ImpulseStage, MainBellStage, PilotOrder,
     RigidImpulse, VehiclePart, VernierAttitudeStage,
 };
 use super::identity::CraftIdentity;
 use super::pose::CraftPose;
+use self::optics::BlueprintOptics;
+pub(in crate::relief::craft_entity) use self::optics::ShiftedMeshTarget;
 
 const MAX_BLUEPRINT_PARTS: usize = 512;
-
-pub(super) struct ShiftedMeshTarget<'a> {
-    shift: Vec3,
-    inner: &'a mut dyn MeshTarget,
-}
-
-impl<'a> ShiftedMeshTarget<'a> {
-    pub(super) const fn new(shift: Vec3, inner: &'a mut dyn MeshTarget) -> Self {
-        Self { shift, inner }
-    }
-}
-
-impl MeshTarget for ShiftedMeshTarget<'_> {
-    fn push_quad(&mut self, quad: Quad) {
-        let (s, glow) = (self.shift, quad.radiate(|g| g));
-        self.inner.push_quad(quad.transfer(|v0, v1, v2, v3, norm, col| {
-            Quad::glowing(v0 + s, v1 + s, v2 + s, v3 + s, norm, col, glow)
-        }));
-    }
-}
 
 /// Immutable structural block layout of a vehicle registered once per `CraftIdentity`.
 #[derive(Clone, Debug, PartialEq)]
@@ -52,19 +38,27 @@ impl CraftBlueprint {
         Self::new(id, parts)
     }
 
-    pub const fn identity(&self) -> CraftIdentity {
-        self.identity
-    }
-
-    pub fn drivable(&self) -> bool {
-        !self.parts.is_empty()
-    }
-
-    pub fn spacefaring(&self) -> bool {
-        self.parts.iter().any(VehiclePart::flight_console)
-    }
-
+    pub const fn identity(&self) -> CraftIdentity { self.identity }
+    pub fn part_count(&self) -> usize { self.parts.len() }
+    pub fn drivable(&self) -> bool { !self.parts.is_empty() }
+    pub fn spacefaring(&self) -> bool { self.parts.iter().any(VehiclePart::flight_console) }
     pub fn attitude_capable(&self) -> bool { self.parts.iter().any(VehiclePart::attitude_pod) }
+
+    pub fn tally_media(&self, mut sink: impl FnMut(BlockMedium)) {
+        for part in &self.parts {
+            sink(part.block_medium());
+        }
+    }
+
+    pub(in crate::relief) fn to_face_cluster(&self, frame: &SurfaceFrame) -> CraftCluster {
+        let flip_v = frame.tangent().cross(frame.bitangent()).dot(frame.normal()) > 0.0;
+        let v_sign = if flip_v { -1 } else { 1 };
+        let mut craft = CraftCluster::untouched();
+        for part in &self.parts {
+            part.insert_rigid(v_sign, flip_v, &mut craft);
+        }
+        craft
+    }
 
     pub fn camera_equipped(&self) -> bool {
         if self.spacefaring() {
@@ -75,35 +69,7 @@ impl CraftBlueprint {
     }
 
     pub fn push_camera_views(&self, pose: CraftPose, out: &mut Vec<(Vec3, Vec3, Vec3)>) {
-        let car_frame = pose.surface_frame();
-        let shift = pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
-        let lift = self.wheel_ground_lift();
-        let ship_up = pose.normal().normalize_or_zero();
-        let raw_fwd = pose.heading() - ship_up * pose.heading().dot(ship_up);
-        let ship_fwd = if raw_fwd.length_squared() > 1e-6 { raw_fwd.normalize() } else { car_frame.tangent().normalize_or_zero() };
-        if self.spacefaring() {
-            let min_floor = self.parts.iter().filter_map(|p| p.any_ceiling(lift).map(|(f, _)| f)).fold(0.0f32, f32::min);
-            let mut pods: Vec<_> = self.parts.iter().filter_map(|p| p.rocket_pod_at(lift)).collect();
-            pods.sort_by(|a, b| b.0.channel_rank().cmp(&a.0.channel_rank()).then_with(|| b.2.total_cmp(&a.2)));
-            let dedicated_belly = pods.iter().any(|(axis, _, _)| matches!(axis, SensorPodAxis::BellyPod));
-            let mut ventral_emitted = false;
-            for (axis, (ox, oy), part_floor) in &pods {
-                let col_top = self.parts.iter().filter_map(|p| p.cell_top_at(*ox, *oy, lift).map(|(_, c)| c)).fold(*part_floor + 0.5, f32::max);
-                let (local_eye, fwd, up) = axis.lens_ray(GridCell::new(*ox, *oy), *part_floor, col_top, min_floor, ship_fwd, &car_frame);
-                out.push((shift + local_eye, fwd, up));
-                if matches!(axis, SensorPodAxis::NoseCone) && !dedicated_belly && !ventral_emitted {
-                    let (belly_eye, bfwd, bup) = SensorPodAxis::BellyPod.lens_ray(GridCell::new(*ox, *oy), *part_floor, col_top, min_floor, ship_fwd, &car_frame);
-                    out.push((shift + belly_eye, bfwd, bup));
-                    ventral_emitted = true;
-                }
-            }
-            return;
-        }
-        for part in &self.parts {
-            if let Some((hub, lens_fwd, _, _)) = part.camera_lens_at(lift, &car_frame) {
-                out.push((shift + hub + lens_fwd * 0.22 + ship_up * 0.02, lens_fwd, ship_up));
-            }
-        }
+        BlueprintOptics::new(self).push_views(pose, out);
     }
 
     pub fn sample_impulse(&self, order: &PilotOrder, pose: CraftPose) -> RigidImpulse {
@@ -131,17 +97,13 @@ impl CraftBlueprint {
         chain.resolve()
     }
 
-    pub fn parts(&self) -> &[VehiclePart] {
-        &self.parts
-    }
+    pub fn parts(&self) -> &[VehiclePart] { &self.parts }
 
     pub(in crate::relief) fn step_camera_turn(&mut self, delta: i32) -> Option<(i32, i32)> {
         self.parts.iter_mut().rev().find_map(|p| p.step_camera_turn(delta))
     }
 
-    pub fn into_parts(self) -> Vec<VehiclePart> {
-        self.parts
-    }
+    pub fn into_parts(self) -> Vec<VehiclePart> { self.parts }
 
     pub fn wheel_ground_lift(&self) -> f32 {
         self.parts.iter().filter_map(VehiclePart::wheel_floor_drop).fold(0.0f32, f32::max)

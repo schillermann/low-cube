@@ -24,6 +24,7 @@ impl SatchelIntake {
         if relic == HeldRelic::CantileverCrane {
             for (part, qty) in [
                 (HeldRelic::FieldCamera, 1),
+                (HeldRelic::VehicleBlueprint, 1),
                 (HeldRelic::FlightConsole, 1),
                 (HeldRelic::RocketNozzle, 4),
                 (HeldRelic::RocketCamera, 4),
@@ -133,5 +134,34 @@ impl SatchelIntake {
         }
         palms.reconcile_attire(next_attire);
         (palms, tray, next_attire)
+    }
+
+    pub(super) fn consume_manifest(
+        mut self,
+        manifest: &[(HeldRelic, u32)],
+        mut attire: YouthAttire,
+    ) -> Option<(PalmStack, SatchelTray, YouthAttire)> {
+        if !manifest.iter().all(|&(relic, needed)| needed == 0 || self.resource_tally(relic, attire) >= needed) {
+            return None;
+        }
+        for &(ing, mut rem) in manifest {
+            while rem > 0 {
+                let (r, l) = attire.held_pair();
+                let (next_tray, taken) = self.tray.taken_stowed(ing);
+                self.tray = next_tray;
+                if !taken {
+                    if r == ing {
+                        self.palms.assign_blocks(1.0, 0);
+                        attire = attire.with_relics(HeldRelic::EmptyPalm, l);
+                    } else if l == ing {
+                        self.palms.assign_blocks(-1.0, 0);
+                        attire = attire.with_relics(r, HeldRelic::EmptyPalm);
+                    }
+                }
+                rem -= 1;
+            }
+        }
+        self.palms.reconcile_attire(attire);
+        Some((self.palms, self.tray, attire))
     }
 }

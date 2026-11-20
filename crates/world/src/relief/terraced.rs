@@ -3,7 +3,7 @@ use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::column_clearance::ColumnClearance;
-use super::craft_entity::VesselSink;
+use super::craft_entity::{CraftBlueprint, VesselSink};
 use super::elevation::ReliefElevation;
 use super::mineral_vein::{ExposedStratum, SubterraneanVeins};
 use super::natural_strata::NaturalStrata;
@@ -190,6 +190,38 @@ impl ReliefElevation for TerracedRelief {
 
     fn park_vehicle_at(&mut self, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {
         self.molds.park_vehicle(&self.strata, &self.shafts, frame, assembly)
+    }
+
+    fn capture_blueprint_at(
+        &self,
+        frame: &SurfaceFrame,
+        u: i32,
+        v: i32,
+        layer_elev: f32,
+        ray: SurfaceSightRay,
+    ) -> Option<CraftBlueprint> {
+        self.molds.capture_blueprint(frame, u, v, layer_elev, ray)
+    }
+
+    fn aimed_empty_rig_at(&self, frame: &SurfaceFrame, u: i32, v: i32, base: f32, ray: SurfaceSightRay) -> bool {
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        let sub = base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
+        self.molds.aimed_empty_rig(u, v, ground_top, sub, base, ray, frame)
+    }
+
+    fn build_rig_blueprint_at(
+        &mut self,
+        frame: &SurfaceFrame,
+        u: i32,
+        v: i32,
+        base: f32,
+        ray: SurfaceSightRay,
+        blueprint: &CraftBlueprint,
+    ) -> Option<(i32, i32)> {
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        let sub = base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
+        self.molds
+            .build_rig_blueprint(&self.strata, &self.shafts, frame, u, v, ground_top, sub, base, ray, blueprint)
     }
 
     fn exposed_ore_at(&self, u: i32, v: i32, step: i32) -> Option<BlockMedium> {

@@ -71,6 +71,9 @@ impl WorldEarthworks for ConduitPlanet {
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool { self.write_world(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold)) }
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool { self.write_world(|w| w.adjust_rig(eye, direction, delta_steps, rotate_quarter)) }
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool { self.write_world(|w| w.lower_rig(eye, direction)) }
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        self.write_world(|w| w.build_rig_blueprint(eye, direction, blueprint))
+    }
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> { self.write_world(|w| w.board_vehicle(eye, direction, holding_block)) }
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool { self.write_world(|w| w.park_vehicle(assembly)) }
     fn register_craft_blueprint(&mut self, blueprint: CraftBlueprint) -> bool { self.write_world(|w| w.register_craft_blueprint(blueprint)) }
@@ -93,6 +96,12 @@ impl PlanetaryWorld for ConduitPlanet {
     fn present_vessels(&self, sink: &mut dyn world::VesselSink) { self.read_world(|w| w.present_vessels(sink)); }
     fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<world::PlannedMount> {
         self.read_world(|w| w.plan_molded_block(eye, direction, avatar_pos, mold))
+    }
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
+        self.read_world(|w| w.capture_vehicle_blueprint(eye, direction))
+    }
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.read_world(|w| w.aimed_empty_rig(eye, direction, avatar_pos))
     }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.read_world(|w| w.placed_camera_tripod()) }
 

@@ -171,6 +171,19 @@ impl ParkedFleet {
         Some(self.crafts.swap_remove(idx).into_assembly())
     }
 
+    pub fn capture_blueprint_at(&self, u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay) -> Option<CraftBlueprint> {
+        if let Some(c) = self.crafts.iter().find(|c| c.occupies_cell_layer(u, v, layer_elev)) {
+            return Some(c.blueprint().clone());
+        }
+        (1..=36).find_map(|step| {
+            let pt = ray.sample_point((step as f32) * 0.12);
+            self.crafts
+                .iter()
+                .find(|c| c.hull().medium_at_world(pt).is_some())
+                .map(|c| c.blueprint().clone())
+        })
+    }
+
     pub fn find_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
         for craft in &self.crafts {
             if let Some(local) = craft.blueprint().passenger_seat_along_ray(craft.pose(), eye, direction) {

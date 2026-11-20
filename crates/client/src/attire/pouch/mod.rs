@@ -253,6 +253,12 @@ impl BeltSatchel {
         (Self::new(palms, tray, self.tripod), next_attire)
     }
 
+    pub fn consume_manifest(self, manifest: &[(HeldRelic, u32)], attire: YouthAttire) -> Option<(Self, YouthAttire)> {
+        let state = self.reconcile_attire(attire);
+        let (palms, tray, next_attire) = SatchelIntake::new(state.palms, state.tray).consume_manifest(manifest, attire)?;
+        Some((Self::new(palms, tray, state.tripod), next_attire))
+    }
+
     pub fn emit_for_attire(&self, pose: &BodyPose, attire: YouthAttire, target: &mut dyn MeshTarget) {
         self.tray.emit_with_burden(pose, self.carried_burden(attire), target);
     }

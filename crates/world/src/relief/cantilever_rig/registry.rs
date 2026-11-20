@@ -4,6 +4,7 @@ use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::super::craft_cluster::ParkedFleet;
+use super::super::craft_entity::CraftBlueprint;
 use super::super::molded_structure::{MoldedStructure, WorldBlocks};
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
@@ -182,6 +183,61 @@ impl RigRegistry {
                 (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP
             })
         })
+    }
+
+    pub fn capture_blueprint(
+        &self,
+        u: i32,
+        v: i32,
+        layer_elev: f32,
+        eu: f32,
+        ev: f32,
+        frame: &SurfaceFrame,
+    ) -> Option<CraftBlueprint> {
+        self.rigs.iter().find_map(|(&(mu, mv), rig)| {
+            let hit = !rig.vacant_craft()
+                && (rig.craft_medium_at(u, v, layer_elev).is_some()
+                    || rig.boom_or_craft_at(mu, mv, u, v)
+                    || ((u, v) == (mu, mv) && rig.occupies_mast_layer(layer_elev)));
+            hit.then(|| rig.capture_blueprint(eu, ev, frame)).flatten()
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn resolve_empty_rig(
+        &self,
+        u: i32,
+        v: i32,
+        ground_top: f32,
+        sub: bool,
+        raw_floor: f32,
+        ray: SurfaceSightRay,
+        frame: &SurfaceFrame,
+    ) -> Option<(i32, i32)> {
+        if let RigPlacement::MountFirst { mast, .. } = self.resolve_placement(u, v, ground_top, sub, raw_floor) {
+            return Some(mast);
+        }
+        if self.rigs.get(&(u, v)).is_some_and(CantileverRig::vacant_craft) {
+            return Some((u, v));
+        }
+        self.find_aimed_rig(u, v, ray, frame)
+    }
+
+    pub fn build_blueprint(
+        &mut self,
+        mast: (i32, i32),
+        blueprint: &CraftBlueprint,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        frame: &SurfaceFrame,
+    ) -> Option<(i32, i32)> {
+        let mut rig = self.rigs.remove(&mast)?;
+        let mounted = rig.mount_blueprint(mast.0, mast.1, blueprint, frame, |cu, cv| {
+            (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP
+        });
+        let final_mast = mounted.map(|rel| rel.unwrap_or(mast));
+        self.rigs.insert(final_mast.unwrap_or(mast), rig);
+        final_mast
     }
 }
 

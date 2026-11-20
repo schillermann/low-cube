@@ -30,6 +30,7 @@ pub enum BlockMedium {
     GoldOre,
     RocketNozzle,
     RocketCamera,
+    VehicleBlueprint,
 }
 
 impl BlockMedium {
@@ -56,6 +57,7 @@ impl BlockMedium {
             Self::GoldOre => 17,
             Self::RocketNozzle => 18,
             Self::RocketCamera => 19,
+            Self::VehicleBlueprint => 20,
         }
     }
 
@@ -81,6 +83,7 @@ impl BlockMedium {
             17 => Self::GoldOre,
             18 => Self::RocketNozzle,
             19 => Self::RocketCamera,
+            20 => Self::VehicleBlueprint,
             _ => Self::TurfEarth,
         }
     }
@@ -146,6 +149,7 @@ impl BlockMedium {
             Self::CopperOre => (Vec3::new(0.86, 0.46, 0.22), Vec3::new(0.18, 0.68, 0.52)),
             Self::IronOre => (Vec3::new(0.72, 0.75, 0.80), Vec3::new(0.64, 0.30, 0.20)),
             Self::GoldOre => (Vec3::new(0.98, 0.80, 0.22), Vec3::new(0.25, 0.23, 0.27)),
+            Self::VehicleBlueprint => (Vec3::new(0.18, 0.52, 0.92), Vec3::new(0.88, 0.72, 0.26)),
         }
     }
 

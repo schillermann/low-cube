@@ -58,7 +58,13 @@ impl TomlDocument {
     }
 
     fn clean_value(raw_val: &str) -> String {
-        let uncommented = raw_val.split('#').next().unwrap_or("").trim();
+        let trimmed = raw_val.trim();
+        if let Some(rest) = trimmed.strip_prefix('"') {
+            if let Some((quoted, _)) = rest.split_once('"') {
+                return quoted.trim().to_string();
+            }
+        }
+        let uncommented = trimmed.split('#').next().unwrap_or("").trim();
         uncommented.trim_matches('"').trim_matches('\'').trim().to_string()
     }
 }

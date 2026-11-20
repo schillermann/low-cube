@@ -1,10 +1,12 @@
+mod blueprints;
+
 use glam::Vec3;
 use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::cantilever_rig::{RigPlacement, RigRegistry};
 use super::craft_cluster::ParkedFleet;
-use super::craft_entity::VesselSink;
+use super::craft_entity::{CraftBlueprint, VesselSink};
 use super::molded_structure::{MoldedStructure, ParkedStructure, RiggedStructure, WorldBlocks};
 use super::natural_strata::NaturalStrata;
 use super::planned_mount::MountDomain;
@@ -12,11 +14,12 @@ use super::shaft_excavation::ShaftExcavation;
 use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
+use self::blueprints::{BlueprintCommission, BlueprintSite};
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
 const NICHE_WALL_MARGIN: f32 = 0.10;
-const MAX_STACK_ELEVATION: f32 = 16.0;
+pub(super) const MAX_STACK_ELEVATION: f32 = 16.0;
 
 /// Overhanging World-Cube blocks composed with parked vehicles, cantilever cranes, and turf scars.
 pub struct OverhangMolds {
@@ -116,6 +119,10 @@ impl OverhangMolds {
         if medium == BlockMedium::CantileverRig {
             return Some((GridCell::new(u, v), ground_top, MountDomain::WorldCube));
         }
+        if medium == BlockMedium::VehicleBlueprint {
+            return BlueprintSite::new(&self.rigs, &self.fleet)
+                .resolve_planned_site(u, v, ground_top, sub, raw_floor);
+        }
         match self.rigs.resolve_placement(u, v, ground_top, sub, raw_floor) {
             RigPlacement::BlockedMast => None,
             RigPlacement::MountFirst { cell, floor_elev, .. } => {
@@ -131,14 +138,8 @@ impl OverhangMolds {
         }
     }
 
-    pub fn present_vessels(&self, sink: &mut dyn VesselSink) {
-        self.fleet.present_vessels(sink);
-    }
-
-    pub fn car_locked_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
-        self.decorated().locked_at(u, v, layer_elev)
-    }
-
+    pub fn present_vessels(&self, sink: &mut dyn VesselSink) { self.fleet.present_vessels(sink); }
+    pub fn car_locked_at(&self, u: i32, v: i32, layer_elev: f32) -> bool { self.decorated().locked_at(u, v, layer_elev) }
     pub fn seat_backrest_cell(&self, u: i32, v: i32, layer_elev: f32) -> Option<(i32, i32)> {
         self.decorated().seat_backrest_cell(u, v, layer_elev)
     }
@@ -161,14 +162,7 @@ impl OverhangMolds {
         self.decorated().tripod_hub(frame)
     }
 
-    pub fn remove_layer(
-        &mut self,
-        strata: &NaturalStrata,
-        shafts: &ShaftExcavation,
-        u: i32,
-        v: i32,
-        layer_elev: f32,
-    ) -> Option<BlockMedium> {
+    pub fn remove_layer(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
         if self.car_locked_at(u, v, layer_elev) {
             return None;
         }
@@ -190,6 +184,9 @@ impl OverhangMolds {
     }
 
     pub fn stack_molded(&mut self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, shape: Box<dyn VoxelShape>) -> bool {
+        if shape.block_medium() == BlockMedium::VehicleBlueprint {
+            return false;
+        }
         if shape.block_medium() == BlockMedium::CantileverRig {
             self.rigs.deploy(u, v, ground_top);
             self.clear_stage(u, v);
@@ -271,6 +268,24 @@ impl OverhangMolds {
 
     pub fn park_vehicle(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {
         self.fleet.park_settled(strata, shafts, frame, assembly)
+    }
+
+    pub fn capture_blueprint(&self, frame: &SurfaceFrame, u: i32, v: i32, layer_elev: f32, ray: SurfaceSightRay) -> Option<CraftBlueprint> {
+        BlueprintSite::new(&self.rigs, &self.fleet).capture(frame, u, v, layer_elev, ray)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn aimed_empty_rig(&self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, ray: SurfaceSightRay, frame: &SurfaceFrame) -> bool {
+        BlueprintSite::new(&self.rigs, &self.fleet).aimed_empty_rig(u, v, ground_top, sub, raw_floor, ray, frame)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn build_rig_blueprint(
+        &mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame,
+        u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, ray: SurfaceSightRay, blueprint: &CraftBlueprint,
+    ) -> Option<(i32, i32)> {
+        BlueprintCommission::new(&mut self.rigs, &mut self.scars)
+            .build(strata, shafts, frame, (u, v, ground_top, raw_floor), sub, ray, blueprint)
     }
 
     pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> Vec<(i32, i32)> {

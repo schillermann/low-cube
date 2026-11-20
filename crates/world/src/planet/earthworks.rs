@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CleaveOutcome, ExposedStratum, SurfaceFind, VehicleAssembly,
-    WorldEarthworks,
+    BlockMedium, BlockMold, CleaveOutcome, CraftBlueprint, ExposedStratum, SurfaceFind,
+    VehicleAssembly, WorldEarthworks,
 };
 use super::CubePlanet;
 
@@ -64,6 +64,13 @@ impl WorldEarthworks for CubePlanet {
 
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
         self.try_aimed_faces(eye, direction, false, |f| f.lower_rig(eye, direction).then_some(())).is_some()
+    }
+
+    fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
+        self.try_aimed_faces(eye, direction, false, |f| {
+            f.build_rig_blueprint(eye, direction, blueprint).then_some(())
+        })
+        .is_some()
     }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {

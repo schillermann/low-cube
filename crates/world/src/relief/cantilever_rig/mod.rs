@@ -1,4 +1,5 @@
 mod arm;
+mod blueprint_mount;
 mod mesh;
 mod registry;
 
@@ -7,6 +8,7 @@ use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::craft_cluster::CraftCluster;
+use super::craft_entity::CraftBlueprint;
 use super::molded_structure::{MoldedStructure, WorldBlocks};
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
@@ -14,6 +16,7 @@ use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
 pub use self::arm::RigArm;
+use self::blueprint_mount::BlueprintHoist;
 pub use self::registry::{RigPlacement, RigRegistry};
 
 pub(super) const BLOCK_STEP: f32 = GridCell::SPAN;
@@ -69,6 +72,21 @@ impl CantileverRig {
 
     pub fn perch_at(&self, u: i32, v: i32, layer_elev: f32, eu: f32, ev: f32, frame: &SurfaceFrame) -> Option<VehicleAssembly> {
         self.craft.perch_at(u, v, layer_elev, eu, ev, frame)
+    }
+
+    pub fn capture_blueprint(&self, eu: f32, ev: f32, frame: &SurfaceFrame) -> Option<CraftBlueprint> {
+        self.craft.capture_blueprint(eu, ev, frame)
+    }
+
+    pub fn mount_blueprint(
+        &mut self,
+        mast_u: i32,
+        mast_v: i32,
+        blueprint: &CraftBlueprint,
+        frame: &SurfaceFrame,
+        ground_fn: impl Fn(i32, i32) -> f32,
+    ) -> Option<Option<(i32, i32)>> {
+        BlueprintHoist::new(blueprint, frame).mount_into((mast_u, mast_v), &mut self.arm, &mut self.craft, ground_fn)
     }
 
     pub fn constrain_at(&self, mast_u: i32, mast_v: i32, cell: GridCell, planar: (f32, f32), mut h: f32, span: (f32, f32)) -> f32 {
