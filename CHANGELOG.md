@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.91.0] - 2026-11-20
+
+### Added
+- Added mouse pan-tilt free-look across all rocket hull cameras (`HelmOptics` and `CockpitBerth::rotate_view` in `crates/client/src/avatar/helm_optics.rs` and `crates/client/src/avatar/berth.rs`) and handheld external `SightMode` camera framing during rocket flight (`BodyPose::camera_orbit_frame` in `crates/client/src/attire/pose/mod.rs` and `SightMode::view_matrix` in `crates/client/src/attire/sight.rs`), enabling 360-degree camera observation across `NoseCone`, `BellyPod`, `SideFairing`, and handheld `FieldCamera` views without steering or tilting the spacecraft (`crates/client/src/drive/camera_look_tests.rs`).
+
 ## [0.90.0] - 2026-11-20
 
 ### Changed

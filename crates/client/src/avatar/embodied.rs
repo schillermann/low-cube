@@ -179,7 +179,7 @@ impl PhotoPort for EmbodiedAvatar {
 impl BlackBoxDeck for EmbodiedAvatar {}
 
 impl AvatarMotor for EmbodiedAvatar {
-    fn rotate_view(&mut self, dx: f32, dy: f32) { self.sight_line.rotate(dx, dy); }
+    fn rotate_view(&mut self, dx: f32, dy: f32) { self.body.rotate_view(dx, dy, &mut self.sight_line); }
 
     fn act_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
         let eye = self.pose_at(self.body.position()).eye_origin();

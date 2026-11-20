@@ -5,6 +5,7 @@ mod condition;
 mod deck;
 mod embodied;
 mod gear;
+mod helm_optics;
 #[cfg(test)]
 mod gesture;
 mod planetary;

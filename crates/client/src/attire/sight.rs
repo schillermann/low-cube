@@ -183,7 +183,7 @@ impl SightMode {
         match self {
             Self::FirstPersonSight => posture.view_matrix(frame, position),
             _ => {
-                let torso = pose.stance_frame();
+                let torso = pose.camera_orbit_frame();
                 let up = (torso.point(0.0, 1.0, 0.0) - torso.point(0.0, 0.0, 0.0)).normalize();
                 let (hand_pitch, crouch_shift) = pose.held_camera_elevation();
                 let eye_y = (1.35 + hand_pitch * 0.90 + crouch_shift * 0.80).clamp(0.35, 2.30);

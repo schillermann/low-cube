@@ -161,6 +161,22 @@ impl BodyPose {
             .yawed(rhythm.stance_twist() * (1.0 - seated))
     }
 
+    pub fn camera_orbit_frame(&self) -> LimbFrame {
+        if !self.piloting_rocket() {
+            return self.stance_frame();
+        }
+        let up = (self.stance.surface_rot * Vec3::Y).normalize();
+        let fallback = self.stance.surface_rot * Vec3::NEG_Z;
+        let raw_fwd = self.stance.view_rot * Vec3::NEG_Z;
+        let flat_fwd = raw_fwd - up * raw_fwd.dot(up);
+        let forward = if flat_fwd.length_squared() > 1e-4 {
+            flat_fwd.normalize()
+        } else {
+            (fallback - up * fallback.dot(up)).normalize()
+        };
+        LimbFrame::new(self.foot_origin(), forward.cross(up).normalize(), up, forward)
+    }
+
     pub fn torso_frame(&self) -> LimbFrame {
         let (hip_y, crouch, seated) = (self.hip_elevation(), self.crouch_compression(), self.seated_factor());
         self.stance_frame()

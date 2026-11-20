@@ -6,6 +6,8 @@ mod space_step;
 mod track;
 mod wheeled;
 #[cfg(test)]
+mod camera_look_tests;
+#[cfg(test)]
 mod expanse_tests;
 #[cfg(test)]
 mod liftoff_tests;

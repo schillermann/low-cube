@@ -7,6 +7,7 @@ use crate::drive::VehiclePilot;
 use crate::order::LocomotionOrder;
 use crate::posture::AvatarPosture;
 use super::deck::DeckFooting;
+use super::helm_optics::HelmOptics;
 use super::sight::AvatarSight;
 use super::span::BodySpan;
 
@@ -14,17 +15,17 @@ use super::span::BodySpan;
 pub(super) struct CockpitBerth {
     pilot: VehiclePilot,
     footing: DeckFooting,
-    optic_channel: u8,
+    optics: HelmOptics,
 }
 
 impl CockpitBerth {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(pilot: VehiclePilot, footing: DeckFooting, optic_channel: u8) -> Self {
-        Self { pilot, footing, optic_channel }
+    pub(super) const fn new(pilot: VehiclePilot, footing: DeckFooting, optics: HelmOptics) -> Self {
+        Self { pilot, footing, optics }
     }
 
-    pub(super) const fn pedestrian() -> Self {
-        Self::new(VehiclePilot::Pedestrian, DeckFooting::Planetary, 0)
+    pub(super) fn pedestrian() -> Self {
+        Self::new(VehiclePilot::Pedestrian, DeckFooting::Planetary, HelmOptics::cockpit())
     }
 
     pub(super) const fn standing(&self) -> bool { self.pilot.standing() }
@@ -52,12 +53,20 @@ impl CockpitBerth {
     }
 
     pub(super) fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
-        if self.optic_channel == 0 || !self.pilot.driving() {
+        if self.optics.cockpit_view() || !self.pilot.driving() {
             return None;
         }
         let mut views = Vec::new();
         self.pilot.camera_views(&mut views);
-        views.get((self.optic_channel as usize).saturating_sub(1)).copied()
+        self.optics.resolve_lens(&views, self.pilot.free_look())
+    }
+
+    pub(super) fn rotate_view(&mut self, dx: f32, dy: f32, sight_line: &mut AvatarSight) {
+        if self.pilot.driving() && self.pilot.free_look() && self.optics.active() {
+            self.optics.rotate(dx, dy);
+        } else {
+            sight_line.rotate(dx, dy);
+        }
     }
 
     pub(super) fn handle_cockpit_trigger(&mut self, trigger: InputTrigger, bindings: &ActionBindings) -> bool {
@@ -69,15 +78,11 @@ impl CockpitBerth {
             self.pilot.camera_views(&mut views);
             if !views.is_empty() {
                 let total = (views.len() + 1) as u8;
-                self.optic_channel = if bindings.matches(ControlAction::MoldRight, trigger) {
-                    (self.optic_channel + 1) % total
-                } else {
-                    (self.optic_channel + total - 1) % total
-                };
+                self.optics.cycle(total, bindings.matches(ControlAction::MoldRight, trigger));
                 return true;
             }
         }
-        if (self.optic_channel == 0 && bindings.matches(ControlAction::MoldForm, trigger))
+        if (self.optics.cockpit_view() && bindings.matches(ControlAction::MoldForm, trigger))
             || trigger == InputTrigger::Key(KeyCode::KeyR)
         {
             return self.pilot.toggle_retro_flip();
@@ -100,7 +105,7 @@ impl CockpitBerth {
     fn mount_assembly(&mut self, assembly: VehicleAssembly, sight_line: &mut AvatarSight, world: &dyn PlanetaryWorld) -> Vec3 {
         self.footing.reset();
         let (pos, heading) = self.pilot.mount(assembly, world);
-        self.optic_channel = self.pilot.helm_optic_channel();
+        self.optics.select_channel(self.pilot.helm_optic_channel());
         sight_line.anchor_vehicle_heading(heading);
         if self.pilot.free_look() {
             sight_line.constrain_shoulders(false, 0.0);
@@ -117,7 +122,7 @@ impl CockpitBerth {
     ) -> Option<(Vec3, bool)> {
         if self.pilot.driving() {
             if let Some(perch_pos) = self.pilot.release_wheel(world) {
-                self.optic_channel = 0;
+                self.optics.reset();
                 sight_line.constrain_shoulders(true, 1.42);
                 return Some((perch_pos, false));
             }
@@ -138,7 +143,7 @@ impl CockpitBerth {
         sight_line: &mut AvatarSight,
         world: &mut dyn PlanetaryWorld,
     ) -> Option<Vec3> {
-        self.optic_channel = 0;
+        self.optics.reset();
         self.footing.reset();
         if let Some(perch) = world.board_vehicle(eye, view_dir, false) {
             return Some(self.mount_assembly(perch, sight_line, world));
@@ -151,7 +156,7 @@ impl CockpitBerth {
 
     pub(super) fn reconcile_helm(&mut self, sight_line: &mut AvatarSight, world: &mut dyn PlanetaryWorld) -> Option<Vec3> {
         let fallback = self.pilot.reconcile_helm(world)?;
-        self.optic_channel = 0;
+        self.optics.reset();
         sight_line.constrain_shoulders(false, 0.0);
         Some(fallback)
     }
@@ -173,7 +178,7 @@ impl CockpitBerth {
             BodySpan::anchored(seat_pos)
         };
         let (next_posture, ground_flight) = if self.pilot.standing() {
-            self.optic_channel = 0;
+            self.optics.reset();
             sight_line.constrain_shoulders(false, 0.0);
             sight_line.reorient_surface(seat_up, dt);
             (AvatarPosture::standing(), true)
