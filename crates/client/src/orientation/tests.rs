@@ -13,6 +13,26 @@ fn test_sensitivity_look_rotation() {
 }
 
 #[test]
+fn test_cone_look_confines_mouse_movement_within_small_circular_radius() {
+    let mut look = ConeLook::centered(Box::new(MouseLook::idle()), 0.26);
+    look.rotate(0.10, 0.08);
+    let slight = (look.combine_with_surface(Quat::IDENTITY) * Vec3::NEG_Z).normalize();
+    assert!(slight.dot(Vec3::NEG_Z) < 0.995 && slight.dot(Vec3::NEG_Z) > 0.985);
+
+    look.rotate(2.40, 1.90);
+    let clamped_diag = (look.combine_with_surface(Quat::IDENTITY) * Vec3::NEG_Z).normalize();
+    let max_cos = 0.262f32.cos();
+    assert!(
+        clamped_diag.dot(Vec3::NEG_Z) >= max_cos && clamped_diag.dot(Vec3::NEG_Z) < 0.972,
+        "Diagonal sweep must clamp cleanly onto the circular radius rim, got {clamped_diag:?}"
+    );
+
+    look.anchor_heading(0.0, 0.0);
+    let recentered = (look.combine_with_surface(Quat::IDENTITY) * Vec3::NEG_Z).normalize();
+    assert!((recentered - Vec3::NEG_Z).length() < 1e-5);
+}
+
+#[test]
 fn test_avatar_in_two_by_two_shaft_cannot_turn_fully_until_widened() {
     use winit::keyboard::KeyCode;
     use crate::controls::KeyboardControls;

@@ -1,7 +1,9 @@
 use glam::{Mat3, Quat, Vec3};
-use crate::orientation::{MouseLook, SensitivityLook, ViewOrientation};
+use crate::orientation::{ConeLook, MouseLook, SensitivityLook, ViewOrientation};
 
-/// Encapsulated cockpit camera channel selector and 3D pan-tilt gimbal for hull-mounted sensor pods.
+const GIMBAL_RADIUS: f32 = 0.26;
+
+/// Encapsulated cockpit camera channel selector and small-radius pan-tilt gimbal for hull-mounted sensor pods.
 pub(super) struct HelmOptics {
     channel: u8,
     gimbal: SensitivityLook,
@@ -14,7 +16,8 @@ impl HelmOptics {
     }
 
     pub(super) fn cockpit() -> Self {
-        Self::new(0, SensitivityLook::calibrated(Box::new(MouseLook::idle())))
+        let cone = ConeLook::centered(Box::new(MouseLook::idle()), GIMBAL_RADIUS);
+        Self::new(0, SensitivityLook::calibrated(Box::new(cone)))
     }
 
     pub(super) const fn cockpit_view(&self) -> bool {
@@ -47,18 +50,11 @@ impl HelmOptics {
         self.gimbal.rotate(dx, dy);
     }
 
-    pub(super) fn resolve_lens(
-        &self,
-        views: &[(Vec3, Vec3, Vec3)],
-        gimbal_enabled: bool,
-    ) -> Option<(Vec3, Vec3, Vec3)> {
+    pub(super) fn resolve_lens(&self, views: &[(Vec3, Vec3, Vec3)]) -> Option<(Vec3, Vec3, Vec3)> {
         if self.cockpit_view() {
             return None;
         }
         let (eye, base_fwd, base_up) = *views.get((self.channel as usize).saturating_sub(1))?;
-        if !gimbal_enabled {
-            return Some((eye, base_fwd, base_up));
-        }
         let fwd = base_fwd.normalize_or_zero();
         let raw_right = fwd.cross(base_up);
         let right = if raw_right.length_squared() > 1e-6 {

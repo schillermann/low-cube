@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.91.2] - 2026-11-21
+
+### Changed
+- Confined hull-mounted camera mouse pan and tilt within a small circular gimbal radius (`ConeLook` in `crates/client/src/orientation/cone.rs`, `HelmOptics` in `crates/client/src/avatar/helm_optics.rs`, and `CockpitBerth::rotate_view` in `crates/client/src/avatar/berth.rs`), clamping camera sight movement to a `0.26 rad` (`~15°`) circular cone around each `NoseCone`, `BellyPod`, `SideFairing`, or vehicle-mounted `FieldCamera` optical axis instead of rotating 360 degrees into the craft hull (`crates/client/src/drive/camera_look_tests.rs` and `crates/client/src/orientation/tests.rs`).
+
 ## [0.91.1] - 2026-11-21
 
 ### Fixed

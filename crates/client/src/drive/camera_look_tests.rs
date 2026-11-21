@@ -69,7 +69,7 @@ fn camera_ray(avatar: &PlanetaryAvatar) -> (Vec3, Vec3) {
 }
 
 #[test]
-fn test_rocket_camera_allows_mouse_freelook_on_nose_and_belly_channels_without_steering_rocket() {
+fn test_rocket_camera_moves_within_small_radius_on_nose_and_belly_channels_without_steering_rocket() {
     let run_flight = |yaw_deg: f32, pitch_deg: f32, belly_channel: bool| -> (Vec3, (Vec3, Vec3), Vec<u8>) {
         let mut world = CelestialSystem::barren_authoritative(32, 1.0);
         build_rocket(world.as_mut(), true);
@@ -106,30 +106,35 @@ fn test_rocket_camera_allows_mouse_freelook_on_nose_and_belly_channels_without_s
     };
 
     let (pos_nose_fixed, (_, dir_nose_fixed), wire_nose_fixed) = run_flight(0.0, 0.0, false);
-    let (pos_nose_look, (_, dir_nose_look), wire_nose_look) = run_flight(95.0, 45.0, false);
+    let (pos_nose_small, (_, dir_nose_small), _) = run_flight(9.0, 6.0, false);
+    let (pos_nose_wide, (_, dir_nose_wide), wire_nose_wide) = run_flight(95.0, 45.0, false);
     assert!(
-        (pos_nose_fixed - pos_nose_look).length() < 1e-5 && wire_nose_fixed == wire_nose_look,
-        "Mouse look in NoseCone camera must never steer or rotate the rocket ({pos_nose_fixed:?} vs {pos_nose_look:?})"
+        (pos_nose_fixed - pos_nose_wide).length() < 1e-5
+            && (pos_nose_fixed - pos_nose_small).length() < 1e-5
+            && wire_nose_fixed == wire_nose_wide,
+        "Mouse look in NoseCone camera must never steer or rotate the rocket ({pos_nose_fixed:?} vs {pos_nose_wide:?})"
     );
     assert!(
-        dir_nose_fixed.dot(dir_nose_look) < 0.75,
-        "Mouse movement must pan and tilt the NoseCone rocket camera ({dir_nose_fixed:?} vs {dir_nose_look:?})"
+        dir_nose_fixed.dot(dir_nose_small) < 0.990
+            && dir_nose_fixed.dot(dir_nose_wide) < 0.972
+            && dir_nose_fixed.dot(dir_nose_wide) >= 0.962,
+        "Mouse movement must move NoseCone camera only within a small circular radius ({dir_nose_fixed:?} -> {dir_nose_wide:?})"
     );
 
     let (pos_belly_fixed, (_, dir_belly_fixed), wire_belly_fixed) = run_flight(0.0, 0.0, true);
-    let (pos_belly_look, (_, dir_belly_look), wire_belly_look) = run_flight(-110.0, -40.0, true);
+    let (pos_belly_wide, (_, dir_belly_wide), wire_belly_wide) = run_flight(-110.0, -40.0, true);
     assert!(
-        (pos_belly_fixed - pos_belly_look).length() < 1e-5 && wire_belly_fixed == wire_belly_look,
+        (pos_belly_fixed - pos_belly_wide).length() < 1e-5 && wire_belly_fixed == wire_belly_wide,
         "Mouse look in BellyPod camera must never steer or rotate the rocket"
     );
     assert!(
-        dir_belly_fixed.dot(dir_belly_look) < 0.80,
-        "Mouse movement must pan and tilt the BellyPod landing camera ({dir_belly_fixed:?} vs {dir_belly_look:?})"
+        dir_belly_fixed.dot(dir_belly_wide) < 0.972 && dir_belly_fixed.dot(dir_belly_wide) >= 0.962,
+        "Mouse movement must move BellyPod landing camera only within a small circular radius ({dir_belly_fixed:?} -> {dir_belly_wide:?})"
     );
 }
 
 #[test]
-fn test_side_rocket_camera_and_handheld_field_camera_follow_mouse_look_without_steering_rocket() {
+fn test_side_rocket_camera_stays_in_small_radius_while_cockpit_and_handheld_orbit_freely() {
     let run_flight = |yaw_deg: f32, pitch_deg: f32| -> (Vec3, (Vec3, Vec3), (Vec3, Vec3)) {
         let mut world = CelestialSystem::barren_authoritative(32, 1.0);
         let g0 = build_rocket(world.as_mut(), false);
@@ -173,12 +178,12 @@ fn test_side_rocket_camera_and_handheld_field_camera_follow_mouse_look_without_s
         "Mouse look across SideFairing and handheld FieldCamera must never steer the rocket ({pos_a:?} vs {pos_b:?})"
     );
     assert!(
-        side_dir_a.dot(side_dir_b) < 0.5,
-        "Mouse movement must swivel SideFairing rocket camera ({side_dir_a:?} vs {side_dir_b:?})"
+        side_dir_a.dot(side_dir_b) < 0.972 && side_dir_a.dot(side_dir_b) >= 0.962,
+        "Mouse movement must swivel SideFairing rocket camera only within a small radius ({side_dir_a:?} -> {side_dir_b:?})"
     );
     assert!(
         (shot_eye_a - shot_eye_b).length() > 0.8 && shot_dir_a.dot(shot_dir_b) < 0.5,
-        "Mouse movement must orbit handheld FieldCamera view around the flying rocket ({shot_dir_a:?} vs {shot_dir_b:?})"
+        "Mouse movement in cockpit channel must still orbit handheld FieldCamera view around the flying rocket"
     );
 }
 

@@ -58,11 +58,11 @@ impl CockpitBerth {
         }
         let mut views = Vec::new();
         self.pilot.camera_views(&mut views);
-        self.optics.resolve_lens(&views, self.pilot.free_look())
+        self.optics.resolve_lens(&views)
     }
 
     pub(super) fn rotate_view(&mut self, dx: f32, dy: f32, sight_line: &mut AvatarSight) {
-        if self.pilot.driving() && self.pilot.free_look() && self.optics.active() {
+        if self.pilot.driving() && self.optics.active() {
             self.optics.rotate(dx, dy);
         } else {
             sight_line.rotate(dx, dy);

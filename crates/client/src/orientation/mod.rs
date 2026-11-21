@@ -1,7 +1,9 @@
+mod cone;
 #[cfg(test)]
 mod tests;
 
 use glam::Quat;
+pub use self::cone::ConeLook;
 
 /// Polymorphic upper-body yaw and pitch play when shoulders are wedged in a narrow shaft.
 #[derive(Clone, Copy, Debug)]
