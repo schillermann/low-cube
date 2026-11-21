@@ -1,7 +1,6 @@
 mod optics;
 
 use glam::{Mat4, Quat, Vec3};
-use fauna::WoodlandFauna;
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{BodyPose, CameraMount, SightMode, StrideRhythm, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
@@ -206,8 +205,8 @@ impl AvatarMotor for EmbodiedAvatar {
         self.sight_line.constrain_shoulders(wedged, self.gear.shaft_yaw_play());
     }
 
-    fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        self.gear.strike_fauna(side, self.surface_reach(), &mut self.bearing, fauna, world)
+    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+        self.gear.strike_fauna(side, self.surface_reach(), &mut self.bearing, world)
     }
 
     fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
@@ -245,9 +244,9 @@ impl Avatar for EmbodiedAvatar {
         self.gear.install_blueprint_archive(archive);
     }
     fn blend_subtick(&mut self, alpha: f32) { self.body.blend_subtick(alpha); }
-    fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) {
+    fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) {
         let crouching = self.body.posture().crouch_drop() > 0.18;
-        if let Some(shove) = fauna.step_spatial(dt, self.body.position(), self.sight_line.view_direction(), crouching, world) {
+        if let Some(shove) = world.step_wildlife(dt, self.body.position(), self.sight_line.view_direction(), crouching) {
             self.body.gore(shove, world);
         }
     }

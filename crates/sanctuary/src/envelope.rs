@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, WorldFact};
+use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, WildlifePulse, WorldFact};
 
 /// Transient block-loosening crack stage broadcast across P2P companions.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -57,6 +57,7 @@ pub enum SanctuaryEnvelope {
         cracks: Vec<CrackNotice>,
         companions: Vec<CompanionPresence>,
         crafts: Vec<DrivenCraft>,
+        wildlife: WildlifePulse,
     },
 }
 
@@ -82,7 +83,7 @@ impl SanctuaryEnvelope {
                     fact.inscribe(out);
                 }
             }
-            Self::HostPulse { total_facts, cracks, companions, crafts } => {
+            Self::HostPulse { total_facts, cracks, companions, crafts, wildlife } => {
                 out.push(4);
                 out.extend_from_slice(&total_facts.to_le_bytes());
                 out.push(cracks.len().min(16) as u8);
@@ -100,13 +101,14 @@ impl SanctuaryEnvelope {
                 for craft in crafts.iter().take(16) {
                     scratch.clear();
                     craft.inscribe(&mut scratch);
-                    if out.len() + scratch.len() > 1_350 {
+                    if out.len() + scratch.len() > 1_240 {
                         break;
                     }
                     out.extend_from_slice(&scratch);
                     written += 1;
                 }
                 out[count_idx] = written;
+                wildlife.inscribe(out);
             }
         }
     }
@@ -170,7 +172,12 @@ impl SanctuaryEnvelope {
                         cursor += used;
                     }
                 }
-                Some(Self::HostPulse { total_facts, cracks, companions, crafts })
+                let wildlife = if cursor < bytes.len() {
+                    WildlifePulse::decode(&bytes[cursor..])?.0
+                } else {
+                    WildlifePulse::calm()
+                };
+                Some(Self::HostPulse { total_facts, cracks, companions, crafts, wildlife })
             }
             _ => None,
         }

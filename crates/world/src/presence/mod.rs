@@ -1,8 +1,10 @@
 mod attire;
+mod boar;
 mod craft;
 
 use glam::{Quat, Vec3};
 pub use self::attire::PresenceAttire;
+pub use self::boar::{BoarPresence, BoarStance, GoreStamp, SounderPresence, WildlifePulse};
 pub use self::craft::{DrivenCraft, PilotCraft};
 
 /// Encapsulated 3D stance and orientation of a companion avatar on the World-Cube.

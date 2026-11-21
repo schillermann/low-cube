@@ -20,7 +20,7 @@ use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{PhotoShutter, SightMode, YouthAttire};
 use crate::black_box::{IncidentMedium, PresenceSink};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
-use fauna::{SightCone, WoodlandFauna};
+use fauna::SightCone;
 use crate::menu::ScreenPoint;
 
 #[cfg(test)]
@@ -102,7 +102,7 @@ pub trait AvatarMotor {
     fn adjust_aimed_rig(&mut self, _trigger: InputTrigger, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn cast_triggered_relic(&mut self, _trigger: InputTrigger, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
-    fn hunt_fauna(&mut self, _side: f32, _fauna: &mut WoodlandFauna, _world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+    fn hunt_fauna(&mut self, _side: f32, _world: &mut dyn PlanetaryWorld) -> (bool, bool) {
         (false, false)
     }
     fn emit_reticle_for_aspect(&self, _aspect: f32, target: &mut dyn MeshTarget) {
@@ -128,7 +128,7 @@ pub trait Avatar: AvatarMotor + AvatarOptics + AvatarPresence + PhotoPort + Blac
     fn typing_text(&self) -> bool { false }
     fn accept_typed_text(&mut self, _text: &str) -> bool { false }
     fn blend_subtick(&mut self, _alpha: f32) {}
-    fn step_fauna(&mut self, _dt: f32, _fauna: &mut WoodlandFauna, _world: &dyn PlanetaryWorld) {}
+    fn step_fauna(&mut self, _dt: f32, _world: &mut dyn PlanetaryWorld) {}
     fn land_on_world(&mut self, _world: &dyn PlanetaryWorld) {}
     #[cfg(test)]
     fn install_blueprint_archive(&mut self, _archive: Box<dyn crate::blueprint::BlueprintArchive>) {}

@@ -107,6 +107,14 @@ impl LinkSync {
         self.roster.blend_subtick(subtick_secs);
     }
 
+    pub const fn wildlife(&self) -> &crate::remote_wildlife::RemoteWildlife {
+        self.roster.wildlife()
+    }
+
+    pub fn wildlife_mut(&mut self) -> &mut crate::remote_wildlife::RemoteWildlife {
+        self.roster.wildlife_mut()
+    }
+
     pub fn flush_pulse(&mut self, cid: u32, seal: &mut SessionSeal, peer: SocketAddr, socket: &UdpSocket) {
         self.pulse_clock = 0.0;
         let (mut payload, mut frame) = (Vec::new(), Vec::new());
@@ -210,8 +218,9 @@ impl LinkSync {
                 }
                 changed
             }
-            SanctuaryEnvelope::HostPulse { cracks, companions, crafts, .. } => {
+            SanctuaryEnvelope::HostPulse { cracks, companions, crafts, wildlife, .. } => {
                 self.roster.reconcile_snapshot(&companions, &crafts);
+                self.roster.reconcile_wildlife(wildlife);
                 let mut changed = false;
                 for crack in cracks {
                     if crack.enact_on(world) {

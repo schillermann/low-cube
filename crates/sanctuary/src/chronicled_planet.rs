@@ -47,6 +47,15 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
         out
     }
 
+    fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
+        let out = self.origin.strike_boar(eye, direction, power, max_reach);
+        if out.0 {
+            let reach_cm = (max_reach.clamp(0.0, 10.0) * 100.0).round() as u16;
+            self.journal.inscribe_fact(WorldFact::BoarStruck { eye, direction, power, reach_cm });
+        }
+        out
+    }
+
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
         let find = self.origin.forage_surface(eye, direction);
         if find.gathered() {

@@ -42,15 +42,37 @@ impl Sparrow {
         Self { activity, up, seed }
     }
 
-    /// Secondary constructor initializing an unanchored sparrow with a unique seed.
-    pub const fn seeded(seed: u32) -> Self {
-        let idle = SparrowActivity::GroundPecking {
-            position: Vec3::Y,
-            yaw: 0.0,
-            peck_phase: 0.0,
-            remaining: 1.0,
+    /// Secondary constructor birthing a sparrow directly into flight, ground pecking, or tree perching around `listener`.
+    pub fn inhabiting(seed: u32, slot: usize, listener: Vec3, world: &dyn PlanetaryWorld) -> Self {
+        let up = world.surface_up_at(listener);
+        let next_seed = Self::next_hash(seed ^ (slot as u32).wrapping_mul(1_664_525));
+        let yaw = ((next_seed % 628) as f32) * 0.01;
+        let phase = (((next_seed >> 8) % 628) as f32) * 0.01;
+        let remaining = 3.2 + (((next_seed >> 16) % 40) as f32) * 0.10;
+        let activity = match slot % 3 {
+            0 => {
+                let origin = Self::ground_spot_near(listener, up, next_seed, world) + up * 0.8;
+                let target_seed = Self::next_hash(next_seed);
+                let target = Self::tree_or_ground_target(listener, up, target_seed, (slot / 3) % 2 == 0, world);
+                SparrowActivity::Flying { origin, target, progress: ((slot as f32) * 0.19) % 0.65, wing_phase: phase }
+            }
+            1 => SparrowActivity::GroundPecking {
+                position: Self::ground_spot_near(listener, up, next_seed, world),
+                yaw,
+                peck_phase: phase,
+                remaining,
+            },
+            _ => match world.arboreal_perch_near(listener, slot).filter(|&p| !Self::frightened_by(p, listener, up)) {
+                Some(position) => SparrowActivity::TreePerched { position, yaw, perch_phase: phase, remaining },
+                None => SparrowActivity::GroundPecking {
+                    position: Self::ground_spot_near(listener, up, next_seed, world),
+                    yaw,
+                    peck_phase: phase,
+                    remaining,
+                },
+            },
         };
-        Self::new(idle, Vec3::Y, seed)
+        Self::new(activity, up, next_seed)
     }
 
     #[cfg(test)]
@@ -138,38 +160,6 @@ impl Sparrow {
             }
         }
         Self::ground_spot_near(center, up, hash, world)
-    }
-
-    /// Anchors this sparrow into an initial role around `listener` (0: Flying, 1: GroundPecking, 2: TreePerched).
-    pub fn anchor_around(&mut self, slot: usize, listener: Vec3, world: &dyn PlanetaryWorld) {
-        self.up = world.surface_up_at(listener);
-        self.seed = Self::next_hash(self.seed ^ (slot as u32).wrapping_mul(1_664_525));
-        let yaw = ((self.seed % 628) as f32) * 0.01;
-        let phase = (((self.seed >> 8) % 628) as f32) * 0.01;
-        let remaining = 3.2 + (((self.seed >> 16) % 40) as f32) * 0.10;
-        self.activity = match slot % 3 {
-            0 => {
-                let origin = Self::ground_spot_near(listener, self.up, self.seed, world) + self.up * 0.8;
-                let next_seed = Self::next_hash(self.seed);
-                let target = Self::tree_or_ground_target(listener, self.up, next_seed, (slot / 3) % 2 == 0, world);
-                SparrowActivity::Flying { origin, target, progress: ((slot as f32) * 0.19) % 0.65, wing_phase: phase }
-            }
-            1 => SparrowActivity::GroundPecking {
-                position: Self::ground_spot_near(listener, self.up, self.seed, world),
-                yaw,
-                peck_phase: phase,
-                remaining,
-            },
-            _ => match world.arboreal_perch_near(listener, slot).filter(|&p| !Self::frightened_by(p, listener, self.up)) {
-                Some(position) => SparrowActivity::TreePerched { position, yaw, perch_phase: phase, remaining },
-                None => SparrowActivity::GroundPecking {
-                    position: Self::ground_spot_near(listener, self.up, self.seed, world),
-                    yaw,
-                    peck_phase: phase,
-                    remaining,
-                },
-            },
-        };
     }
 
     /// Advances flight trajectory, ground pecking, or tree perching and returns `true` when vocalizing a chirp.

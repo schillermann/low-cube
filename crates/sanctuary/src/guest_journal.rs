@@ -32,6 +32,15 @@ impl GuestJournal {
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.link.companions(out); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.link.crafts(out); }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.link.blend_subtick(subtick_secs); }
+    pub fn step_wildlife(&mut self, dt: f32, listener: glam::Vec3, view_dir: glam::Vec3, world: &dyn PlanetaryWorld) -> Option<glam::Vec3> {
+        self.link.step_wildlife(dt, listener, view_dir, world)
+    }
+    pub fn intercept_boar_strike(&mut self, eye: glam::Vec3, view_dir: glam::Vec3, max_reach: f32, world: &dyn PlanetaryWorld) -> bool {
+        self.link.intercept_boar_strike(eye, view_dir, max_reach, world)
+    }
+    pub fn emit_wildlife(&self, cone: world::SightCone, world: &dyn PlanetaryWorld, target: &mut dyn world::MeshTarget) {
+        self.link.emit_wildlife(cone, world, target);
+    }
     pub fn ticket_string(&self) -> Option<String> { self.link.ticket_string() }
     pub fn phrase_string(&self) -> Option<String> { self.link.phrase_string() }
 

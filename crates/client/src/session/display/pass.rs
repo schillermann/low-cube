@@ -1,4 +1,3 @@
-use fauna::WoodlandFauna;
 use world::PlanetaryWorld;
 use crate::attire::{PhotoShutter, SightMode};
 use crate::avatar::Avatar;
@@ -14,14 +13,14 @@ pub trait ScenePass {
     fn capture_sight(
         &mut self,
         surface: &dyn PlatformSurface,
-        scene: (&dyn PlanetaryWorld, &dyn Avatar, &WoodlandFauna),
+        scene: (&dyn PlanetaryWorld, &dyn Avatar),
         sight: SightMode,
         sight_scale: f32,
     ) -> Vec<glam::Vec3>;
     fn draw_frame(
         &mut self,
         surface: &dyn PlatformSurface,
-        scene: (&dyn PlanetaryWorld, &dyn Avatar, &WoodlandFauna),
+        scene: (&dyn PlanetaryWorld, &dyn Avatar),
         modal: &dyn SessionModal,
         sight_scale: f32,
     );
@@ -30,11 +29,10 @@ pub trait ScenePass {
         surface: &dyn PlatformSurface,
         world: &dyn PlanetaryWorld,
         avatar: &mut dyn Avatar,
-        fauna: &WoodlandFauna,
         modal: &dyn SessionModal,
         sight_scale: f32,
     ) {
-        self.draw_frame(surface, (world, avatar, fauna), modal, sight_scale);
+        self.draw_frame(surface, (world, avatar), modal, sight_scale);
     }
 }
 
@@ -70,7 +68,7 @@ impl<P: ScenePass> ScenePass for PolaroidScenePass<P> {
     fn capture_sight(
         &mut self,
         surface: &dyn PlatformSurface,
-        scene: (&dyn PlanetaryWorld, &dyn Avatar, &WoodlandFauna),
+        scene: (&dyn PlanetaryWorld, &dyn Avatar),
         sight: SightMode,
         sight_scale: f32,
     ) -> Vec<glam::Vec3> {
@@ -80,7 +78,7 @@ impl<P: ScenePass> ScenePass for PolaroidScenePass<P> {
     fn draw_frame(
         &mut self,
         surface: &dyn PlatformSurface,
-        scene: (&dyn PlanetaryWorld, &dyn Avatar, &WoodlandFauna),
+        scene: (&dyn PlanetaryWorld, &dyn Avatar),
         modal: &dyn SessionModal,
         sight_scale: f32,
     ) {
@@ -92,14 +90,13 @@ impl<P: ScenePass> ScenePass for PolaroidScenePass<P> {
         surface: &dyn PlatformSurface,
         world: &dyn PlanetaryWorld,
         avatar: &mut dyn Avatar,
-        fauna: &WoodlandFauna,
         modal: &dyn SessionModal,
         sight_scale: f32,
     ) {
         if let PhotoShutter::Triggered(sight) = avatar.take_photo_shutter() {
-            let mosaic = self.origin.capture_sight(surface, (world, avatar, fauna), sight, sight_scale);
+            let mosaic = self.origin.capture_sight(surface, (world, avatar), sight, sight_scale);
             avatar.apply_polaroid_mosaic(mosaic);
         }
-        self.origin.draw_frame(surface, (world, avatar, fauna), modal, sight_scale);
+        self.origin.draw_frame(surface, (world, avatar), modal, sight_scale);
     }
 }

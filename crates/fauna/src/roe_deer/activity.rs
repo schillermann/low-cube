@@ -53,15 +53,25 @@ impl RoeDeer {
         Self { activity, up, seed, antlered }
     }
 
-    /// Secondary constructor initializing an unanchored roe deer with deterministic seed and antler trait.
-    pub const fn seeded(seed: u32, antlered: bool) -> Self {
-        let calm = RoeActivity::Grazing {
-            position: Vec3::Y,
-            yaw: 0.0,
-            chew_phase: 0.0,
-            remaining: 2.0,
+    /// Secondary constructor birthing a roe deer directly onto `ClimateZone::Temperate` without intermediate state.
+    pub fn inhabiting(seed: u32, antlered: bool, slot: usize, listener: Vec3, world: &dyn PlanetaryWorld) -> Self {
+        let glade = TemperateGlade::around(listener, world);
+        let mut next_seed = Self::next_hash(seed ^ (slot as u32).wrapping_mul(2_654_435_761));
+        let position = glade.meadow_spot(next_seed, 9.5, 9.0, world);
+        let up = world.surface_up_at(position);
+        let yaw = ((next_seed % 628) as f32) * 0.01;
+        let phase = (((next_seed >> 8) % 628) as f32) * 0.01;
+        let remaining = 3.8 + (((next_seed >> 16) % 45) as f32) * 0.10;
+        let activity = match slot % 4 {
+            1 => RoeActivity::AlertStance { position, yaw, scan_phase: phase, remaining },
+            3 => {
+                next_seed = Self::next_hash(next_seed);
+                let target = TemperateGlade::new(position).meadow_spot(next_seed, 5.5, 5.5, world);
+                RoeActivity::Trotting { position, target, stride_phase: phase, remaining: 6.0 }
+            }
+            _ => RoeActivity::Grazing { position, yaw, chew_phase: phase, remaining },
         };
-        Self::new(calm, Vec3::Y, seed, antlered)
+        Self::new(activity, up, next_seed, antlered)
     }
 
     #[cfg(test)]
@@ -122,26 +132,6 @@ impl RoeDeer {
 
     fn yaw_toward(from: Vec3, toward: Vec3) -> f32 {
         (toward.z - from.z).atan2(toward.x - from.x)
-    }
-
-    /// Anchors this roe deer on `ClimateZone::Temperate` in a peaceful herd formation.
-    pub fn anchor_in_temperate(&mut self, slot: usize, listener: Vec3, world: &dyn PlanetaryWorld) {
-        let glade = TemperateGlade::around(listener, world);
-        self.seed = Self::next_hash(self.seed ^ (slot as u32).wrapping_mul(2_654_435_761));
-        let position = glade.meadow_spot(self.seed, 9.5, 9.0, world);
-        self.up = world.surface_up_at(position);
-        let yaw = ((self.seed % 628) as f32) * 0.01;
-        let phase = (((self.seed >> 8) % 628) as f32) * 0.01;
-        let remaining = 3.8 + (((self.seed >> 16) % 45) as f32) * 0.10;
-        self.activity = match slot % 4 {
-            1 => RoeActivity::AlertStance { position, yaw, scan_phase: phase, remaining },
-            3 => {
-                let next_seed = Self::next_hash(self.seed);
-                let target = TemperateGlade::new(position).meadow_spot(next_seed, 5.5, 5.5, world);
-                RoeActivity::Trotting { position, target, stride_phase: phase, remaining: 6.0 }
-            }
-            _ => RoeActivity::Grazing { position, yaw, chew_phase: phase, remaining },
-        };
     }
 
     /// Advances grazing, alert watching, calm trotting, or bounding flight; returns `true` when bounding away.

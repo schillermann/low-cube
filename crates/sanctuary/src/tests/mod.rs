@@ -1,6 +1,7 @@
 mod conduit;
 mod driving;
 mod simultaneous;
+mod wildlife;
 mod wormhole;
 
 use std::net::UdpSocket;

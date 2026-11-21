@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.93.0] - 2026-11-21
+
+### Added
+- Added authoritative multiplayer wild boar synchronization (`BoarPresence`, `BoarStance`, `SounderPresence`, `GoreStamp`, and `WildlifePulse` in `crates/world/src/presence/boar.rs`, `WorldFact::BoarStruck` in `crates/world/src/chronicle/`, `HostSounder` in `crates/sanctuary/src/host_sounder.rs`, `RemoteWildlife` in `crates/sanctuary/src/remote_wildlife.rs`, and `RemoteSounder` in `crates/fauna/src/wild_boar/remote.rs`), simulating one shared 3-boar sounder on `SanctuaryHost` across all co-op companions, streaming interpolated boar kinematics and deduplicated tusk knockback impulses in `SanctuaryEnvelope::HostPulse`, vetting melee `BoarStruck` petitions through `WardedPlanet` / `HostState` reach guards, and chronicling dropped `SurfaceFind::BoarMeat` to all players (`crates/sanctuary/src/tests/wildlife.rs`).
+- Added `WoodlandPlanet` and `AmbientWoodland` `PlanetaryWorld` wildlife decorators (`crates/fauna/src/planet/mod.rs` and `ambient.rs`, plus `PlanetaryWorld::step_wildlife`, `PlanetaryWorld::emit_wildlife`, `WorldEarthworks::strike_boar`, and `SightCone` in `crates/world/src/sight_cone.rs`), encapsulating fauna inside the world boundary instead of `SessionStage` so joining a multiplayer server atomically discards solitary boars (`crates/client/src/wild_boar_tests.rs`).
+
+### Fixed
+- Eliminated phantom and underground wild boar attacks (`BoarTerrain` in `crates/fauna/src/wild_boar/kinematics.rs`, plus polymorphic `SounderRoster`, `HerdRoster`, and `FlockRoster` replacing `anchored: bool` half-born sky states in `crates/fauna/src/wild_boar/mod.rs`, `roe_deer/mod.rs`, and `sparrow/mod.rs`), keeping boars reconciled to live ground beneath oak canopies, relocating boars buried under newly built structures, and blocking tusk charges across walls, pedestals, and excavated shafts (`crates/fauna/src/wild_boar_tests.rs`).
+
 ## [0.92.2] - 2026-11-21
 
 ### Fixed

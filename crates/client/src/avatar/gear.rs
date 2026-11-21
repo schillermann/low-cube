@@ -6,7 +6,6 @@ use crate::controls::{ActionBindings, InputTrigger};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
 use crate::envelope::BodyEnvelope;
 use crate::order::LocomotionOrder;
-use fauna::WoodlandFauna;
 use crate::server_satchel::StartingSatchel;
 use super::bearing::AvatarBearing;
 use super::body::AvatarBody;
@@ -228,7 +227,7 @@ impl AvatarGear {
     }
 
     pub fn strike_fauna(
-        &self, side: f32, reach: SurfaceReach, bearing: &mut AvatarBearing, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld,
+        &self, side: f32, reach: SurfaceReach, bearing: &mut AvatarBearing, world: &mut dyn PlanetaryWorld,
     ) -> (bool, bool) {
         let (active, other) = self.attire.hand_pair(side);
         let (weapon, swing_side) = if active.hunting_power() > 1 {
@@ -239,7 +238,7 @@ impl AvatarGear {
             (active, side)
         };
         let (struck, dropped) =
-            fauna.strike_boar(reach.eye(), reach.view_dir(), weapon.hunting_power(), weapon.hunting_reach(), world);
+            world.strike_boar(reach.eye(), reach.view_dir(), weapon.hunting_power(), weapon.hunting_reach());
         if struck {
             bearing.apply_rhythm(SurfaceReach::swing_rhythm(self.attire, bearing.rhythm(), swing_side));
         }

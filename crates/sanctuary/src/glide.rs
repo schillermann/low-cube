@@ -1,4 +1,5 @@
-use world::{CompanionPresence, DrivenCraft, PilotCraft};
+use world::{CompanionPresence, DrivenCraft, PilotCraft, WildlifePulse};
+use crate::remote_wildlife::RemoteWildlife;
 
 /// Monotonic tick and packet-arrival timing state for smooth companion snapshot interpolation.
 #[derive(Clone, Copy, Debug)]
@@ -19,10 +20,22 @@ impl GlideClock {
     }
 
     pub const fn awaiting_first() -> Self {
-        Self::new(0.030, 0.030, 1.0)
+        Self::new(0.0, 0.0, 1.0)
     }
 
-    fn advance_tick(self, dt: f32) -> Self {
+    pub const fn live(self) -> bool {
+        self.span_secs > 0.0
+    }
+
+    pub const fn stale(self) -> bool {
+        self.since_arrival >= 0.50
+    }
+
+    pub fn interval_secs(self) -> f32 {
+        (self.since_arrival * 1.15).clamp(0.024, 0.220)
+    }
+
+    pub(crate) fn advance_tick(self, dt: f32) -> Self {
         Self::new(
             (self.tick_elapsed + dt).min(self.span_secs),
             self.span_secs,
@@ -30,7 +43,7 @@ impl GlideClock {
         )
     }
 
-    fn alpha(self, subtick_secs: f32) -> f32 {
+    pub(crate) fn alpha(self, subtick_secs: f32) -> f32 {
         ((self.tick_elapsed + subtick_secs) / self.span_secs.max(1e-4)).clamp(0.0, 1.0)
     }
 }
@@ -68,6 +81,10 @@ impl CompanionGlide {
         )
     }
 
+    pub const fn live(&self) -> bool {
+        self.clock.live()
+    }
+
     pub const fn authoritative_presence(&self) -> CompanionPresence {
         self.to.0
     }
@@ -89,7 +106,7 @@ impl CompanionGlide {
     }
 
     pub fn absorb(&mut self, next_presence: CompanionPresence, next_craft: PilotCraft) {
-        if self.to.0 == next_presence && self.to.1 == next_craft {
+        if self.clock.live() && self.to.0 == next_presence && self.to.1 == next_craft {
             return;
         }
         let cur_pres = self.smooth_presence();
@@ -97,12 +114,12 @@ impl CompanionGlide {
             cur_pres.transfer(|_, kin, _, _| kin.transfer(|p, _, _, _, _| p)),
             8.0,
         );
-        if teleport || self.clock.since_arrival >= 0.50 {
+        if !self.clock.live() || teleport || self.clock.stale() {
             *self = Self::anchored(next_presence, next_craft);
             return;
         }
         let cur_craft = self.smooth_craft();
-        let interval = (self.clock.since_arrival * 1.15).clamp(0.024, 0.220);
+        let interval = self.clock.interval_secs();
         self.from = (cur_pres, cur_craft);
         self.to = (next_presence, next_craft);
         self.clock = GlideClock::new(0.0, interval, 0.0);
@@ -118,19 +135,32 @@ impl CompanionGlide {
     }
 }
 
-/// Smoothly interpolated remote companion and vehicle roster on a P2P guest client.
+/// Smoothly interpolated remote companion, vehicle, and wild-boar roster on a P2P guest client.
 pub struct SmoothRoster {
     entries: Vec<(u32, CompanionGlide)>,
+    wildlife: RemoteWildlife,
 }
 
 impl SmoothRoster {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(entries: Vec<(u32, CompanionGlide)>) -> Self {
-        Self { entries }
+    pub const fn new(entries: Vec<(u32, CompanionGlide)>, wildlife: RemoteWildlife) -> Self {
+        Self { entries, wildlife }
     }
 
     pub const fn empty() -> Self {
-        Self::new(Vec::new())
+        Self::new(Vec::new(), RemoteWildlife::calm())
+    }
+
+    pub const fn wildlife(&self) -> &RemoteWildlife {
+        &self.wildlife
+    }
+
+    pub fn wildlife_mut(&mut self) -> &mut RemoteWildlife {
+        &mut self.wildlife
+    }
+
+    pub fn reconcile_wildlife(&mut self, pulse: WildlifePulse) {
+        self.wildlife.absorb(pulse);
     }
 
     pub fn reconcile_snapshot(&mut self, companions: &[CompanionPresence], crafts: &[DrivenCraft]) {
@@ -154,12 +184,14 @@ impl SmoothRoster {
         for (_, glide) in &mut self.entries {
             glide.advance_tick(dt);
         }
+        self.wildlife.advance_tick(dt);
     }
 
     pub fn blend_subtick(&mut self, subtick_secs: f32) {
         for (_, glide) in &mut self.entries {
             glide.blend_subtick(subtick_secs);
         }
+        self.wildlife.blend_subtick(subtick_secs);
     }
 
     pub fn copy_companions(&self, out: &mut Vec<CompanionPresence>) {

@@ -1,7 +1,9 @@
 use std::net::SocketAddr;
-use world::{CompanionPresence, DrivenCraft, PilotCraft};
+use glam::Vec3;
+use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld};
 use crate::envelope::CrackNotice;
 use crate::fleet_ledger::FleetLedger;
+use crate::host_sounder::HostSounder;
 use crate::seal::HandshakeIdentity;
 
 /// Cryptographic identity, grid resolution, and advertised P2P endpoint of a `SanctuaryHost`.
@@ -51,51 +53,67 @@ impl PeerCrack {
     }
 }
 
-/// Strictly encapsulated local host presence, piloted craft, crack queue, and authoritative `FleetLedger`.
+/// Strictly encapsulated local host seat, crack queue, `FleetLedger`, and authoritative `HostSounder`.
 pub struct HostAura {
-    presence: HostPresence,
-    craft: PilotCraft,
+    seat: (HostPresence, PilotCraft),
     cracks: Vec<PeerCrack>,
     fleet: FleetLedger,
+    wildlife: HostSounder,
 }
 
 impl HostAura {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(
-        presence: HostPresence,
-        craft: PilotCraft,
+        seat: (HostPresence, PilotCraft),
         cracks: Vec<PeerCrack>,
         fleet: FleetLedger,
+        wildlife: HostSounder,
     ) -> Self {
-        Self { presence, craft, cracks, fleet }
+        Self { seat, cracks, fleet, wildlife }
     }
 
     pub const fn headless() -> Self {
-        Self::new(HostPresence::Headless, PilotCraft::Pedestrian, Vec::new(), FleetLedger::empty())
+        Self::new(
+            (HostPresence::Headless, PilotCraft::Pedestrian),
+            Vec::new(),
+            FleetLedger::empty(),
+            HostSounder::seeded(),
+        )
     }
 
     pub fn occupy(&mut self, presence: CompanionPresence) {
-        self.presence = HostPresence::Occupied(presence.with_slot(1));
+        self.seat.0 = HostPresence::Occupied(presence.with_slot(1));
     }
 
     pub fn pilot(&mut self, craft: PilotCraft) {
-        self.craft = craft.with_slot(1);
+        self.seat.1 = craft.with_slot(1);
     }
 
     pub const fn presence(&self) -> HostPresence {
-        self.presence
+        self.seat.0
     }
 
-    pub const fn fleet(&self) -> &FleetLedger {
-        &self.fleet
+    pub fn pedestrian_observer(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, bool)> {
+        if matches!(self.seat.1, PilotCraft::Driving(_)) {
+            return None;
+        }
+        let HostPresence::Occupied(p) = self.seat.0 else {
+            return None;
+        };
+        p.transfer(|_, kin, _, _| {
+            kin.transfer(|pos, _, _, eye_h, _| {
+                world.woodland_habitat(pos).then_some((pos, eye_h > 0.05 && eye_h < 0.62))
+            })
+        })
     }
 
-    pub fn fleet_mut(&mut self) -> &mut FleetLedger {
-        &mut self.fleet
-    }
+    pub const fn fleet(&self) -> &FleetLedger { &self.fleet }
+    pub fn fleet_mut(&mut self) -> &mut FleetLedger { &mut self.fleet }
+    pub const fn wildlife(&self) -> &HostSounder { &self.wildlife }
+    pub fn wildlife_mut(&mut self) -> &mut HostSounder { &mut self.wildlife }
 
     pub fn push_host_craft(&self, out: &mut Vec<DrivenCraft>) {
-        self.craft.push_active(out);
+        self.seat.1.push_active(out);
     }
 
     pub fn record_crack(&mut self, author_slot: u32, notice: CrackNotice) {

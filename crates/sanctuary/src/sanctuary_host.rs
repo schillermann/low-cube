@@ -2,12 +2,14 @@ use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
     CompanionPresence, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum,
-    MeshTarget, PilotCraft, PlanetaryWorld, WorldFact,
+    MeshTarget, PilotCraft, PlanetaryWorld, SightCone, WorldFact,
 };
+use fauna::BoarSounder;
 use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_log::ChronicleLog;
 use crate::chronicled_planet::ChronicledPlanet;
-use crate::cohort::{GuestCohort, HostState};
+use crate::cohort::GuestCohort;
+use crate::host_state::HostState;
 use crate::nat::NatAperture;
 use crate::seal::HandshakeIdentity;
 use crate::ticket::PortalTicket;
@@ -39,11 +41,7 @@ impl SanctuaryHost {
     }
 
     /// Binds a non-blocking UDP socket and discovers the external P2P endpoint via STUN & UPnP/NAT-PMP.
-    pub fn bind(
-        bind_addr: &str,
-        world: Box<dyn PlanetaryWorld>,
-        blocks_per_edge: u32,
-    ) -> std::io::Result<Self> {
+    pub fn bind(bind_addr: &str, world: Box<dyn PlanetaryWorld>, blocks_per_edge: u32) -> std::io::Result<Self> {
         let secret = PortalCode::draw_secret();
         let socket = Self::bind_slot_socket(bind_addr, secret)?;
         socket.set_nonblocking(true)?;
@@ -86,34 +84,30 @@ impl SanctuaryHost {
     pub fn world_mut(&mut self) -> &mut dyn PlanetaryWorld { self.world.as_mut() }
     pub fn local_addr(&self) -> std::io::Result<SocketAddr> { self.socket.local_addr() }
     pub const fn code(&self) -> PortalCode { self.state.code() }
+    pub fn ticket(&self) -> PortalTicket { PortalTicket::new(self.identity.keys().public_bytes(), self.identity.endpoint()) }
+    pub fn punch_nat_peer(&mut self, peer: SocketAddr) { self.state.punch_peer(&self.socket, peer); }
+    pub fn sync_host_presence(&mut self, presence: CompanionPresence) { self.state.occupy_host(presence); }
+    pub fn sync_host_craft(&mut self, craft: PilotCraft) { self.state.pilot_host(craft); }
+    pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) { self.state.guest_companions(out); }
+    pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) { self.state.guest_crafts(out); }
+    pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) { self.state.emit_guest_crafts(target); }
+    pub fn blend_companions(&mut self, subtick_secs: f32) { self.state.blend_subtick(subtick_secs); }
 
-    pub fn ticket(&self) -> PortalTicket {
-        PortalTicket::new(self.identity.keys().public_bytes(), self.identity.endpoint())
+    pub fn step_host_wildlife(&mut self, listener: Vec3, view_dir: Vec3) -> Option<Vec3> {
+        self.state.wildlife_mut().step_host_listener(listener, view_dir, self.world.as_ref())
     }
 
-    /// Punches an outbound UDP hole through the host's FRITZ!Box / NAT router toward `peer`.
-    pub fn punch_nat_peer(&mut self, peer: SocketAddr) {
-        self.state.punch_peer(&self.socket, peer);
+    pub fn emit_wildlife(&self, cone: SightCone, target: &mut dyn MeshTarget) {
+        self.state.wildlife().emit_visible(cone, target);
     }
 
-    pub fn sync_host_presence(&mut self, presence: CompanionPresence) {
-        self.state.occupy_host(presence);
-    }
-
-    pub fn sync_host_craft(&mut self, craft: PilotCraft) {
-        self.state.pilot_host(craft);
-    }
-
-    pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) {
-        self.state.guest_companions(out);
-    }
-
-    pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) {
-        self.state.guest_crafts(out);
-    }
-
-    pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) {
-        self.state.emit_guest_crafts(target);
+    pub fn strike_host_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
+        let (hit, drops) = self
+            .state
+            .wildlife_mut()
+            .evaluate_strike(eye, direction, power, max_reach, true, self.world.as_ref());
+        let dropped = drops.is_some_and(|d| self.with_chronicled(|w| BoarSounder::cast_meat_drops(d, w)));
+        (hit, dropped)
     }
 
     pub fn present_guest_vessels(&self, sink: &mut dyn world::VesselSink) {
@@ -170,10 +164,6 @@ impl SanctuaryHost {
             .fleet()
             .constrain_craft_by_id(&crafts, craft, position, player_height)
             .or_else(|| self.world.constrain_on_craft(craft, position, player_height))
-    }
-
-    pub fn blend_companions(&mut self, subtick_secs: f32) {
-        self.state.blend_subtick(subtick_secs);
     }
 
     pub fn flush_disclosures(&mut self) {
@@ -233,7 +223,7 @@ impl SanctuaryHost {
         mutated
     }
 
-    /// Advances P2P UDP sockets, NAT hole-punch pulses, and guest wards (`true` if geometry changed).
+    /// Advances P2P UDP sockets, NAT hole-punch pulses, authoritative wildlife, and guest wards (`true` if geometry changed).
     pub fn pump_network(&mut self, dt: f32) -> bool {
         let (pulse_ready, mut mutated) = self.state.step_clocks(&self.socket, dt, self.world.as_mut());
         let mut buf = [0u8; 1500];

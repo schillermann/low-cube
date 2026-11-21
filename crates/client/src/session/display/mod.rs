@@ -2,7 +2,6 @@ mod pass;
 mod shaded;
 mod vessel_stage;
 
-use fauna::WoodlandFauna;
 use world::PlanetaryWorld;
 use crate::avatar::Avatar;
 use crate::menu::SessionModal;
@@ -67,10 +66,9 @@ impl SessionDisplay {
         &mut self,
         world: &dyn PlanetaryWorld,
         avatar: &mut dyn Avatar,
-        fauna: &WoodlandFauna,
         modal: &dyn SessionModal,
         sight_scale: f32,
     ) {
-        self.pass.render_with_shutter(self.surface.as_ref(), world, avatar, fauna, modal, sight_scale);
+        self.pass.render_with_shutter(self.surface.as_ref(), world, avatar, modal, sight_scale);
     }
 }

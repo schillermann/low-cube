@@ -1,4 +1,3 @@
-use fauna::WoodlandFauna;
 use world::PlanetaryWorld;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
@@ -10,33 +9,31 @@ use super::display::SessionDisplay;
 use super::overlay::{OverlayTransition, StageOverlay};
 use super::pulse::PulseBeat;
 
-/// Encapsulated planetary world, player avatar, woodland fauna, and modal/control overlay.
+/// Encapsulated planetary world, player avatar, and modal/control overlay.
 pub struct SessionStage {
     world: Box<dyn PlanetaryWorld>,
     avatar: Box<dyn Avatar>,
-    fauna: WoodlandFauna,
     overlay: StageOverlay,
 }
 
 impl SessionStage {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) fn with_fauna(
+    pub(super) fn with_overlay(
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
-        fauna: WoodlandFauna,
         overlay: StageOverlay,
     ) -> Self {
-        Self { world, avatar, fauna, overlay }
+        Self { world, avatar, overlay }
     }
 
-    /// Secondary constructor initializing seeded woodland wildlife alongside the stage.
+    /// Secondary constructor assembling the stage from world, avatar, controls, and modal.
     pub fn new(
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
         controls: Box<dyn KeyboardControls>,
         modal: Box<dyn SessionModal>,
     ) -> Self {
-        Self::with_fauna(world, avatar, WoodlandFauna::seeded(), StageOverlay::new(controls, modal))
+        Self::with_overlay(world, avatar, StageOverlay::new(controls, modal))
     }
 
     pub(super) fn modal_open(&self) -> bool { self.overlay.modal_open() }
@@ -67,19 +64,18 @@ impl SessionStage {
         display.render_scene(
             self.world.as_ref(),
             self.avatar.as_mut(),
-            &self.fauna,
             self.overlay.modal(),
             sight_scale,
         );
     }
 
     pub(super) fn use_left(&mut self) -> bool {
-        let (struck, dropped) = self.avatar.hunt_fauna(-1.0, &mut self.fauna, self.world.as_mut());
+        let (struck, dropped) = self.avatar.hunt_fauna(-1.0, self.world.as_mut());
         if struck { dropped } else { self.avatar.use_left_hand(self.world.as_mut()) }
     }
 
     pub(super) fn use_right(&mut self) -> bool {
-        let (struck, dropped) = self.avatar.hunt_fauna(1.0, &mut self.fauna, self.world.as_mut());
+        let (struck, dropped) = self.avatar.hunt_fauna(1.0, self.world.as_mut());
         if struck { dropped } else { self.avatar.use_right_hand(self.world.as_mut()) }
     }
 
@@ -210,7 +206,7 @@ impl SessionStage {
             let mut changed = false;
             for _ in 0..ticks {
                 self.avatar.step_motion(step, self.overlay.controls(), self.world.as_ref());
-                self.avatar.step_fauna(step, &mut self.fauna, self.world.as_ref());
+                self.avatar.step_fauna(step, self.world.as_mut());
                 let dug = self.avatar.step_digging(self.world.as_mut());
                 let stepped = self.world.step_surface(step);
                 if dug || stepped {

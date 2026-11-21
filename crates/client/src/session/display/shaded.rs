@@ -2,7 +2,6 @@ use engine::{
     CoarseMesh, CompositeMesh, CpuMeshBatch, GraphicPipeline, PlanetaryMesh, SectorGridMesh,
     ShaderProgram, StreamingMesh,
 };
-use fauna::WoodlandFauna;
 use world::{MeadowRing, PlanetaryWorld, MEADOW_RING_SLOTS};
 use crate::attire::SightMode;
 use crate::avatar::Avatar;
@@ -57,7 +56,6 @@ impl ShadedScenePass {
         surface: &dyn PlatformSurface,
         world: &dyn PlanetaryWorld,
         avatar: &dyn Avatar,
-        fauna: &WoodlandFauna,
         sight_scale: f32,
     ) {
         self.actors.reset();
@@ -69,7 +67,7 @@ impl ShadedScenePass {
         avatar.emit_figure(figures);
         avatar.emit_placement_preview(world, figures);
         CompanionFigure::emit_figures(world, figures);
-        fauna.emit_visible(avatar.sight_cone().scaled(sight_scale), figures);
+        world.emit_wildlife(avatar.sight_cone().scaled(sight_scale), figures);
     }
 
     fn populate_sight_actors(
@@ -77,7 +75,6 @@ impl ShadedScenePass {
         surface: &dyn PlatformSurface,
         world: &dyn PlanetaryWorld,
         avatar: &dyn Avatar,
-        fauna: &WoodlandFauna,
         sight: SightMode,
         sight_scale: f32,
     ) {
@@ -89,7 +86,7 @@ impl ShadedScenePass {
         let figures = self.actors.figures_mut();
         avatar.emit_figure_for_sight(sight, figures);
         CompanionFigure::emit_figures(world, figures);
-        fauna.emit_visible(avatar.sight_cone_for_mode(sight).scaled(sight_scale), figures);
+        world.emit_wildlife(avatar.sight_cone_for_mode(sight).scaled(sight_scale), figures);
     }
 }
 
@@ -169,11 +166,11 @@ impl ScenePass for ShadedScenePass {
     fn capture_sight(
         &mut self,
         surface: &dyn PlatformSurface,
-        (world, avatar, fauna): (&dyn PlanetaryWorld, &dyn Avatar, &WoodlandFauna),
+        (world, avatar): (&dyn PlanetaryWorld, &dyn Avatar),
         sight: SightMode,
         sight_scale: f32,
     ) -> Vec<glam::Vec3> {
-        self.populate_sight_actors(surface, world, avatar, fauna, sight, sight_scale);
+        self.populate_sight_actors(surface, world, avatar, sight, sight_scale);
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
         surface.capture_sight_frame(
             self.program.0.as_ref(),
@@ -188,11 +185,11 @@ impl ScenePass for ShadedScenePass {
     fn draw_frame(
         &mut self,
         surface: &dyn PlatformSurface,
-        (world, avatar, fauna): (&dyn PlanetaryWorld, &dyn Avatar, &WoodlandFauna),
+        (world, avatar): (&dyn PlanetaryWorld, &dyn Avatar),
         modal: &dyn SessionModal,
         sight_scale: f32,
     ) {
-        self.populate_actors(surface, world, avatar, fauna, sight_scale);
+        self.populate_actors(surface, world, avatar, sight_scale);
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
         let coarse_terrain = CoarseMesh::new(&self.mesh, world.face_count() * 2);
         let coarse_composed = CompositeMesh::new(&coarse_terrain, &self.actors);

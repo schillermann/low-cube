@@ -1,5 +1,5 @@
 use glam::{Mat4, Quat, Vec3};
-use fauna::{SightCone, WoodlandFauna};
+use fauna::SightCone;
 use world::{CompanionPresence, MeshTarget, PlanetaryWorld, PresenceAttire, PresenceKinematics};
 use crate::attire::{PhotoShutter, SightMode, YouthAttire};
 use crate::avatar::{Avatar, AvatarMotor, AvatarOptics, AvatarPresence, BlackBoxDeck, PhotoPort};
@@ -226,8 +226,8 @@ impl AvatarMotor for BlackBoxAvatar {
         self.tape.record_tick(blocks, trace);
     }
 
-    fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        self.origin.hunt_fauna(side, fauna, world)
+    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+        self.origin.hunt_fauna(side, world)
     }
 
     fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
@@ -242,7 +242,7 @@ impl Avatar for BlackBoxAvatar {
     fn typing_text(&self) -> bool { self.origin.typing_text() }
     fn accept_typed_text(&mut self, text: &str) -> bool { self.origin.accept_typed_text(text) }
     fn blend_subtick(&mut self, alpha: f32) { self.origin.blend_subtick(alpha); }
-    fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) { self.origin.step_fauna(dt, fauna, world); }
+    fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) { self.origin.step_fauna(dt, world); }
     #[cfg(test)]
     fn install_blueprint_archive(&mut self, archive: Box<dyn crate::blueprint::BlueprintArchive>) {
         self.origin.install_blueprint_archive(archive);

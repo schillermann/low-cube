@@ -1,5 +1,5 @@
 use glam::{Mat4, Quat, Vec3};
-use fauna::{SightCone, WoodlandFauna};
+use fauna::SightCone;
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{PhotoShutter, SightMode, YouthAttire};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
@@ -75,11 +75,11 @@ impl<M: AvatarMotor + AvatarCondition> AvatarMotor for MortalMotor<M> {
         }
     }
 
-    fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
         if self.incapacitated(world) {
             (false, false)
         } else {
-            self.origin.hunt_fauna(side, fauna, world)
+            self.origin.hunt_fauna(side, world)
         }
     }
 
@@ -192,7 +192,7 @@ impl AvatarMotor for PlanetaryAvatar {
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool { self.motor.adjust_aimed_rig(trigger, world) }
     fn cast_triggered_relic(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool { self.motor.cast_triggered_relic(trigger, world) }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) { self.motor.step_motion(dt, controls, world); }
-    fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) { self.motor.hunt_fauna(side, fauna, world) }
+    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) { self.motor.hunt_fauna(side, world) }
     fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
         self.motor.emit_reticle_for_aspect(aspect, target);
     }
@@ -205,7 +205,7 @@ impl Avatar for PlanetaryAvatar {
     fn typing_text(&self) -> bool { self.core().typing_text() }
     fn accept_typed_text(&mut self, text: &str) -> bool { self.core_mut().accept_typed_text(text) }
     fn blend_subtick(&mut self, alpha: f32) { self.core_mut().blend_subtick(alpha); }
-    fn step_fauna(&mut self, dt: f32, fauna: &mut WoodlandFauna, world: &dyn PlanetaryWorld) { self.core_mut().step_fauna(dt, fauna, world); }
+    fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) { self.core_mut().step_fauna(dt, world); }
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.core_mut().land_on_world(world); }
     #[cfg(test)]
     fn install_blueprint_archive(&mut self, archive: Box<dyn crate::blueprint::BlueprintArchive>) {

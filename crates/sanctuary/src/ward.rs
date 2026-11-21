@@ -1,6 +1,6 @@
 use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
-use world::{CompanionPresence, CraftPose, DrivenCraft, PilotCraft, PlanetaryWorld};
+use world::{CompanionPresence, CraftPose, DrivenCraft, GoreStamp, PilotCraft, PlanetaryWorld};
 use crate::glide::CompanionGlide;
 use crate::seal::SessionSeal;
 
@@ -10,31 +10,30 @@ const MAX_DIG_BURST_TOKENS: f32 = 2.0;
 const DIG_REFILL_PER_SEC: f32 = 5.0;
 const INITIAL_STARTER_BLOCKS: u32 = 64;
 
-/// Authoritative per-guest anti-cheat vitals: chronicle ack, dig rate tokens, timeout, and block tally.
+/// Authoritative per-guest anti-cheat vitals: chronicle ack, block tally, dig cadence, and tusk impact stamp.
 pub struct WardVitals {
-    ack_seq: u32,
-    dig_tokens: f32,
-    silence_secs: f32,
-    earned_blocks: u32,
+    ledger: (u32, u32),
+    cadence: (f32, f32),
+    gore: GoreStamp,
 }
 
 impl WardVitals {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(ack_seq: u32, dig_tokens: f32, silence_secs: f32, earned_blocks: u32) -> Self {
-        Self { ack_seq, dig_tokens, silence_secs, earned_blocks }
+    pub const fn new(ledger: (u32, u32), cadence: (f32, f32), gore: GoreStamp) -> Self {
+        Self { ledger, cadence, gore }
     }
 
     pub const fn fresh() -> Self {
-        Self::new(0, MAX_DIG_BURST_TOKENS, 0.0, INITIAL_STARTER_BLOCKS)
+        Self::new((0, INITIAL_STARTER_BLOCKS), (MAX_DIG_BURST_TOKENS, 0.0), GoreStamp::calm())
     }
 
     pub fn advance(&mut self, dt: f32) {
-        self.silence_secs += dt;
-        self.dig_tokens = (self.dig_tokens + dt * DIG_REFILL_PER_SEC).min(MAX_DIG_BURST_TOKENS);
+        let next_tokens = (self.cadence.0 + dt * DIG_REFILL_PER_SEC).min(MAX_DIG_BURST_TOKENS);
+        self.cadence = (next_tokens, self.cadence.1 + dt);
     }
 
     pub fn alive(&self) -> bool {
-        self.silence_secs < 12.0
+        self.cadence.1 < 12.0
     }
 }
 
@@ -81,7 +80,15 @@ impl GuestWard {
     }
 
     pub const fn ack_seq(&self) -> u32 {
-        self.vitals.ack_seq
+        self.vitals.ledger.0
+    }
+
+    pub const fn gore_stamp(&self) -> GoreStamp {
+        self.vitals.gore
+    }
+
+    pub fn record_gore(&mut self, impulse: Vec3) {
+        self.vitals.gore = self.vitals.gore.advanced(impulse);
     }
 
     pub const fn presence(&self) -> CompanionPresence {
@@ -90,6 +97,17 @@ impl GuestWard {
 
     pub fn smooth_presence(&self) -> CompanionPresence {
         self.glide.smooth_presence()
+    }
+
+    pub fn pedestrian_observer(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, bool)> {
+        if !self.glide.live() || matches!(self.glide.authoritative_craft(), PilotCraft::Driving(_)) {
+            return None;
+        }
+        self.presence().transfer(|_, kin, _, _| {
+            kin.transfer(|pos, _, _, eye_h, _| {
+                world.woodland_habitat(pos).then_some((pos, eye_h > 0.05 && eye_h < 0.62))
+            })
+        })
     }
 
     pub fn push_authoritative_craft(&self, out: &mut Vec<DrivenCraft>) {
@@ -107,7 +125,7 @@ impl GuestWard {
     pub fn open_datagram(&mut self, src: SocketAddr, frame: &[u8]) -> Option<Vec<u8>> {
         let (_, body) = self.seal.open_frame(frame)?;
         self.peer = src;
-        self.vitals.silence_secs = 0.0;
+        self.vitals.cadence.1 = 0.0;
         Some(body)
     }
 
@@ -119,7 +137,7 @@ impl GuestWard {
         craft: PilotCraft,
         world: &dyn PlanetaryWorld,
     ) {
-        self.vitals.ack_seq = self.vitals.ack_seq.max(ack_seq);
+        self.vitals.ledger.0 = self.vitals.ledger.0.max(ack_seq);
         let rec_pres = self.glide.authoritative_presence().reconciled(companion_id, presence, world);
         let rec_craft = self.glide.authoritative_craft().reconciled(companion_id, craft, world);
         self.glide.absorb(rec_pres, rec_craft);
@@ -137,8 +155,8 @@ impl GuestWard {
     }
 
     pub fn consume_harvest_token(&mut self) -> bool {
-        if self.vitals.dig_tokens >= 1.0 {
-            self.vitals.dig_tokens -= 1.0;
+        if self.vitals.cadence.0 >= 1.0 {
+            self.vitals.cadence.0 -= 1.0;
             true
         } else {
             false
@@ -146,7 +164,7 @@ impl GuestWard {
     }
 
     pub fn credit_blocks(&mut self, count: u32) {
-        self.vitals.earned_blocks = self.vitals.earned_blocks.saturating_add(count);
+        self.vitals.ledger.1 = self.vitals.ledger.1.saturating_add(count);
     }
 
     pub fn spend_block(&mut self) -> bool {
@@ -154,8 +172,8 @@ impl GuestWard {
     }
 
     pub fn spend_blocks(&mut self, count: u32) -> bool {
-        if count > 0 && self.vitals.earned_blocks >= count {
-            self.vitals.earned_blocks -= count;
+        if count > 0 && self.vitals.ledger.1 >= count {
+            self.vitals.ledger.1 -= count;
             true
         } else {
             false

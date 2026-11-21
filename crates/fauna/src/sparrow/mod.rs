@@ -2,52 +2,65 @@ mod activity;
 mod mesh;
 
 use glam::Vec3;
-use world::{MeshTarget, PlanetaryWorld};
+use world::{MeshTarget, PlanetaryWorld, SightCone};
 use acoustics::{AcousticWave, SparrowChirp};
-use crate::SightCone;
 use self::activity::Sparrow;
 pub use self::activity::{Sparrow as TestSparrow, SparrowActivity};
+
+/// Polymorphic sparrow flock state avoiding `anchored: bool` flags and half-born entities.
+#[derive(Clone, Copy, Debug)]
+enum FlockRoster {
+    Seeds([u32; 9]),
+    Active([Sparrow; 9]),
+}
 
 /// Flock of woodland house sparrows flying, pecking seeds on the ground, perching on trees, and chirping.
 #[derive(Clone, Copy, Debug)]
 pub struct SparrowFlock {
-    birds: [Sparrow; 9],
+    roster: FlockRoster,
     chirp_cooldown: f32,
-    anchored: bool,
 }
 
 impl SparrowFlock {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(birds: [Sparrow; 9], chirp_cooldown: f32, anchored: bool) -> Self {
-        Self {
-            birds,
-            chirp_cooldown,
-            anchored,
-        }
+    const fn from_roster(roster: FlockRoster, chirp_cooldown: f32) -> Self {
+        Self { roster, chirp_cooldown }
     }
 
-    /// Secondary constructor initializing 9 deterministically seeded sparrows ready to anchor near the player.
+    /// Secondary constructor storing 9 deterministic sparrow seeds prior to first world contact.
     pub const fn seeded() -> Self {
-        Self::new(
-            [
-                Sparrow::seeded(101),
-                Sparrow::seeded(203),
-                Sparrow::seeded(307),
-                Sparrow::seeded(409),
-                Sparrow::seeded(503),
-                Sparrow::seeded(607),
-                Sparrow::seeded(709),
-                Sparrow::seeded(811),
-                Sparrow::seeded(919),
-            ],
+        Self::from_roster(
+            FlockRoster::Seeds([101, 203, 307, 409, 503, 607, 709, 811, 919]),
             0.85,
-            false,
         )
     }
 
     #[cfg(test)]
-    pub const fn birds(&self) -> &[Sparrow; 9] {
-        &self.birds
+    pub const fn birds(&self) -> &[Sparrow] {
+        match &self.roster {
+            FlockRoster::Seeds(_) => &[],
+            FlockRoster::Active(birds) => birds,
+        }
+    }
+
+    fn ensure_active(&mut self, listener: Vec3, world: &dyn PlanetaryWorld) -> &mut [Sparrow; 9] {
+        if let FlockRoster::Seeds(seeds) = self.roster {
+            self.roster = FlockRoster::Active([
+                Sparrow::inhabiting(seeds[0], 0, listener, world),
+                Sparrow::inhabiting(seeds[1], 1, listener, world),
+                Sparrow::inhabiting(seeds[2], 2, listener, world),
+                Sparrow::inhabiting(seeds[3], 3, listener, world),
+                Sparrow::inhabiting(seeds[4], 4, listener, world),
+                Sparrow::inhabiting(seeds[5], 5, listener, world),
+                Sparrow::inhabiting(seeds[6], 6, listener, world),
+                Sparrow::inhabiting(seeds[7], 7, listener, world),
+                Sparrow::inhabiting(seeds[8], 8, listener, world),
+            ]);
+        }
+        match &mut self.roster {
+            FlockRoster::Active(birds) => birds,
+            FlockRoster::Seeds(_) => unreachable!(),
+        }
     }
 
     /// Steps all sparrows in the flock and triggers a 3D spatialized birdsong chirp when a nearby sparrow vocalizes.
@@ -55,15 +68,10 @@ impl SparrowFlock {
         if !world.woodland_habitat(listener) {
             return false;
         }
-        if !self.anchored {
-            for (idx, bird) in self.birds.iter_mut().enumerate() {
-                bird.anchor_around(idx, listener, world);
-            }
-            self.anchored = true;
-        }
         self.chirp_cooldown = (self.chirp_cooldown - dt).max(0.0);
+        let birds = self.ensure_active(listener, world);
         let mut vocalizer: Option<(usize, Vec3, f32)> = None;
-        for (idx, bird) in self.birds.iter_mut().enumerate() {
+        for (idx, bird) in birds.iter_mut().enumerate() {
             if bird.step(dt, listener, world) {
                 let pos = bird.position();
                 let dist_sq = (pos - listener).length_squared();
@@ -86,8 +94,8 @@ impl SparrowFlock {
 
     /// Emits 3D faceted geometry for sparrows within `cone`.
     pub fn emit_visible(&self, cone: SightCone, target: &mut dyn MeshTarget) {
-        if self.anchored {
-            for bird in &self.birds {
+        if let FlockRoster::Active(ref birds) = self.roster {
+            for bird in birds {
                 if cone.reaches(bird.position(), 42.0) {
                     bird.emit(target);
                 }
@@ -97,10 +105,8 @@ impl SparrowFlock {
 
     #[cfg(test)]
     pub fn emit(&self, target: &mut dyn MeshTarget) {
-        if self.anchored {
-            for bird in &self.birds {
-                bird.emit(target);
-            }
+        for bird in self.birds() {
+            bird.emit(target);
         }
     }
 }

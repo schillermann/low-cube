@@ -102,3 +102,45 @@ fn test_wild_boar_snorts_in_warning_and_gores_intruder_with_tusk_charge() {
     }
     assert!(gored.is_some(), "Charging wild boar must reach intruder and deliver tusk knockback");
 }
+
+#[test]
+fn test_buried_or_walled_wild_boar_relocates_and_never_gores_through_obstacles() {
+    use world::{BlockMold, WorldEarthworks};
+
+    let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
+    let spot = world.constrain_to_surface(Vec3::new(3.25, 24.0, 0.25), 0.0);
+    let mut buried = WildBoar::new(
+        BoarActivity::Rooting { pos: spot, heading: Vec3::NEG_X, timer: 4.0, phase: 0.0 },
+        Vec3::Y,
+        411,
+        (8, 0),
+    );
+
+    // Build a 2m (4-layer) column directly on top of the rooting boar's spot
+    let avatar_stand = world.constrain_to_surface(Vec3::new(5.25, 24.0, 0.25), 1.0);
+    for layer in 0..4 {
+        let aim_y = spot.y + (layer as f32) * 0.5;
+        let eye = Vec3::new(spot.x, aim_y + 1.4, spot.z);
+        assert!(world.place_molded_surface_block(eye, Vec3::NEG_Y, avatar_stand, BlockMold::cube()));
+    }
+    let roof_top = world.constrain_to_surface(Vec3::new(spot.x, spot.y + 5.0, spot.z), 1.0);
+    assert!(roof_top.y > spot.y + 2.5);
+
+    // Stepping the buried boar must relocate it onto open Temperate ground rather than goring through the roof
+    let (_, hit_from_underground) = buried.step(1.0 / 60.0, roof_top, false, &world);
+    assert!(hit_from_underground.is_none());
+    assert!((buried.position() - spot).length() > 3.0, "Buried boar must relocate out from beneath solid structures");
+
+    // Place a player on top of the 2m stone pedestal and aim a charging boar directly at the pedestal base
+    let base_start = world.constrain_to_surface(Vec3::new(spot.x - 2.0, 24.0, spot.z), 0.0);
+    let mut charger = WildBoar::new(
+        BoarActivity::TuskCharge { pos: base_start, target: roof_top, phase: 0.0, timer: 2.5 },
+        Vec3::Y,
+        523,
+        (8, 0),
+    );
+    for _ in 0..45 {
+        let (_, ped_hit) = charger.step(1.0 / 30.0, roof_top, false, &world);
+        assert!(ped_hit.is_none(), "Charging boar at base of 2m stone pedestal must never gore player on top");
+    }
+}

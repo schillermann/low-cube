@@ -66,6 +66,9 @@ impl WorldEarthworks for ConduitPlanet {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.write_world(|w| w.harvest_surface(eye, direction)) }
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.write_world(|w| w.loosen_surface(eye, direction, stage)) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.write_world(|w| w.strike_timber(eye, direction)) }
+    fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
+        self.write_world(|w| w.strike_boar(eye, direction, power, max_reach))
+    }
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind { self.write_world(|w| w.forage_surface(eye, direction)) }
     fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool { self.write_world(|w| w.cast_surface_find(eye, direction, find)) }
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool { self.write_world(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold)) }
@@ -128,6 +131,12 @@ impl PlanetaryWorld for ConduitPlanet {
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.read_world(|w| w.emit_meadow_around(center, view_dir, target)); }
     fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.read_world(|w| w.arboreal_perch_near(center, selector)) }
     fn woodland_habitat(&self, position: Vec3) -> bool { self.read_world(|w| w.woodland_habitat(position)) }
+    fn step_wildlife(&mut self, dt: f32, listener: Vec3, view_dir: Vec3, crouching: bool) -> Option<Vec3> {
+        self.write_world(|w| w.step_wildlife(dt, listener, view_dir, crouching))
+    }
+    fn emit_wildlife(&self, cone: world::SightCone, target: &mut dyn MeshTarget) {
+        self.read_world(|w| w.emit_wildlife(cone, target));
+    }
     fn local_body_point(&self, position: Vec3) -> Vec3 { self.read_world(|w| w.local_body_point(position)) }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.read_world(|w| w.visible_slice_mask(position)) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.write_world(|w| w.drain_disclosures(out)); }

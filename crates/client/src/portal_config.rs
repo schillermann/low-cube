@@ -1,4 +1,5 @@
 use std::time::Duration;
+use fauna::{AmbientWoodland, WoodlandPlanet};
 use sanctuary::{ConduitPlanet, HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
 use world::{CelestialSystem, PlanetaryWorld};
 use crate::command_flags::CommandFlags;
@@ -29,6 +30,12 @@ pub enum PortalDial {
 }
 
 impl PortalDial {
+    fn wrap_remote(link: RemoteLink, blocks: u32) -> Box<dyn PlanetaryWorld> {
+        let remote = RemotePlanet::from_link(link, blocks, 1.0);
+        let conduit = Box::new(ConduitPlanet::spawning(Box::new(remote)));
+        Box::new(AmbientWoodland::wrapping(conduit))
+    }
+
     #[cfg(test)]
     pub fn from_link(link: RemoteLink) -> (Self, String) {
         let reply_code = link
@@ -44,8 +51,7 @@ impl PortalDial {
         };
         if let Some(blocks) = link.try_welcome_within(Duration::from_millis(240)) {
             println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-            let remote = RemotePlanet::from_link(link, blocks, 1.0);
-            return (Self::Idle, DialOutcome::Connected(Box::new(ConduitPlanet::spawning(Box::new(remote)))));
+            return (Self::Idle, DialOutcome::Connected(Self::wrap_remote(link, blocks)));
         }
         if let Some(punch) = link.punch_code() {
             let reply_code = punch.encode();
@@ -54,8 +60,7 @@ impl PortalDial {
         }
         if let Some(blocks) = link.try_welcome_within(Duration::from_millis(210)) {
             println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-            let remote = RemotePlanet::from_link(link, blocks, 1.0);
-            return (Self::Idle, DialOutcome::Connected(Box::new(ConduitPlanet::spawning(Box::new(remote)))));
+            return (Self::Idle, DialOutcome::Connected(Self::wrap_remote(link, blocks)));
         }
         (Self::Idle, DialOutcome::Failed)
     }
@@ -75,8 +80,7 @@ impl PortalDial {
         if let Some(blocks) = ready_blocks {
             if let Self::Punching { link, .. } = std::mem::replace(self, Self::Idle) {
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-                let remote = RemotePlanet::from_link(link, blocks, 1.0);
-                return DialStep::Connected(Box::new(ConduitPlanet::spawning(Box::new(remote))));
+                return DialStep::Connected(Self::wrap_remote(link, blocks));
             }
         }
         if let Self::Punching { elapsed, .. } = *self {
@@ -120,7 +124,8 @@ impl LivePortal {
         println!("Direct Address: {}", host.ticket().direct());
         println!("Invite Ticket:  {ticket}");
         let hosted = Box::new(HostedPlanet::new(host));
-        (Box::new(ConduitPlanet::spawning(hosted)), PortalInvite::hosted(code, ticket))
+        let conduit = Box::new(ConduitPlanet::spawning(hosted));
+        (Box::new(AmbientWoodland::wrapping(conduit)), PortalInvite::hosted(code, ticket))
     }
 }
 
@@ -155,7 +160,7 @@ impl PortalConfig {
             CelestialSystem::authoritative(blocks, 1.0)
         };
         match *self {
-            Self::Solitary => local_authoritative(),
+            Self::Solitary => Box::new(WoodlandPlanet::wrapping(local_authoritative())),
             Self::HostSanctuary { port } => {
                 let bind_spec = format!("0.0.0.0:{port}");
                 let host = SanctuaryHost::bind(&bind_spec, local_authoritative(), blocks)
@@ -166,13 +171,15 @@ impl PortalConfig {
                 println!("Portal Code:    {code}");
                 println!("Direct Address: {}", host.ticket().direct());
                 println!("Invite Ticket:  {ticket}");
-                Box::new(ConduitPlanet::spawning(Box::new(HostedPlanet::new(host))))
+                let conduit = Box::new(ConduitPlanet::spawning(Box::new(HostedPlanet::new(host))));
+                Box::new(AmbientWoodland::wrapping(conduit))
             }
             Self::JoinRemote { target } => {
                 let remote = RemotePlanet::connect(target, blocks, 1.0)
                     .expect("Failed to connect multiplayer RemotePlanet UDP socket");
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-                Box::new(ConduitPlanet::spawning(Box::new(remote)))
+                let conduit = Box::new(ConduitPlanet::spawning(Box::new(remote)));
+                Box::new(AmbientWoodland::wrapping(conduit))
             }
         }
     }

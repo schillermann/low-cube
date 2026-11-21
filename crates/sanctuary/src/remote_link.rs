@@ -109,6 +109,18 @@ impl RemoteLink {
         self.sync.blend_subtick(subtick_secs);
     }
 
+    pub fn step_wildlife(&mut self, dt: f32, listener: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> Option<Vec3> {
+        self.sync.wildlife_mut().step_listener(dt, listener, view_dir, world)
+    }
+
+    pub fn intercept_boar_strike(&mut self, eye: Vec3, view_dir: Vec3, max_reach: f32, world: &dyn PlanetaryWorld) -> bool {
+        self.sync.wildlife_mut().intercept_strike(eye, view_dir, max_reach, world)
+    }
+
+    pub fn emit_wildlife(&self, cone: world::SightCone, world: &dyn PlanetaryWorld, target: &mut dyn world::MeshTarget) {
+        self.sync.wildlife().emit_visible(cone, world, target);
+    }
+
     pub fn ticket_string(&self) -> Option<String> {
         match self.target {
             JoinTarget::Ticket(t) => Some(t.encode()),

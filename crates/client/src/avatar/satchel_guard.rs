@@ -1,4 +1,3 @@
-use fauna::WoodlandFauna;
 use world::{MeshTarget, PlanetaryWorld};
 use crate::controls::{InputTrigger, KeyboardControls};
 use super::condition::AvatarCondition;
@@ -73,11 +72,11 @@ impl<M: AvatarMotor + AvatarCondition> AvatarMotor for SatchelAvatar<M> {
         }
     }
 
-    fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
         if self.origin.satchel_open() || self.origin.driving() {
             (false, false)
         } else {
-            self.origin.hunt_fauna(side, fauna, world)
+            self.origin.hunt_fauna(side, world)
         }
     }
 

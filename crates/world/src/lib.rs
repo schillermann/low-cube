@@ -13,6 +13,7 @@ mod planet;
 mod presence;
 mod quad;
 mod relief;
+mod sight_cone;
 mod topology;
 mod tree;
 mod wire_vector;
@@ -48,7 +49,11 @@ pub use mesh_target::{
 pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
 pub use planet::{CubePlanet, PatchCoord};
-pub use presence::{CompanionPresence, DrivenCraft, PilotCraft, PresenceAttire, PresenceKinematics};
+pub use presence::{
+    BoarPresence, BoarStance, CompanionPresence, DrivenCraft, GoreStamp, PilotCraft,
+    PresenceAttire, PresenceKinematics, SounderPresence, WildlifePulse,
+};
+pub use sight_cone::SightCone;
 pub use relief::{
     BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, CrustVault, DeckFrame,
     ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins, HullOptic, LivingVeins, MeadowRing,
@@ -94,6 +99,7 @@ pub trait WorldEarthworks {
     fn harvest_surface(&mut self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> { None }
     fn loosen_surface(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> Option<BlockMedium> { None }
     fn strike_timber(&mut self, _eye: Vec3, _direction: Vec3) -> CleaveOutcome { CleaveOutcome::Missed }
+    fn strike_boar(&mut self, _eye: Vec3, _direction: Vec3, _power: u8, _max_reach: f32) -> (bool, bool) { (false, false) }
     fn forage_surface(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind { SurfaceFind::EmptyHanded }
     fn cast_surface_find(&mut self, _eye: Vec3, _direction: Vec3, _find: SurfaceFind) -> bool { false }
     fn place_molded_surface_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool { false }
@@ -131,6 +137,8 @@ pub trait PlanetaryWorld: GravityField + WorldEarthworks + Send {
     fn emit_meadow_around(&self, _center: Vec3, _view_dir: Vec3, _target: &mut dyn MeshTarget) {}
     fn arboreal_perch_near(&self, _center: Vec3, _selector: usize) -> Option<Vec3> { None }
     fn woodland_habitat(&self, _position: Vec3) -> bool { true }
+    fn step_wildlife(&mut self, _dt: f32, _listener: Vec3, _view_dir: Vec3, _crouching: bool) -> Option<Vec3> { None }
+    fn emit_wildlife(&self, _cone: SightCone, _target: &mut dyn MeshTarget) {}
     fn local_body_point(&self, position: Vec3) -> Vec3 { position }
     fn visible_slice_mask(&self, _position: Vec3) -> u32 { u32::MAX }
     fn drain_disclosures(&mut self, _out: &mut Vec<(u8, ExposedStratum)>) {}

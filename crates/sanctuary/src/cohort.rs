@@ -2,18 +2,13 @@ use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
 use glam::{Quat, Vec3};
 use world::{
-    CompanionPresence, CraftBlueprint, CraftIdentity, DrivenCraft, ExposedStratum, MeshTarget,
-    PilotCraft, PlanetaryWorld, PresenceAttire, PresenceKinematics, WorldFact,
+    CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceAttire, PresenceKinematics,
+    WildlifePulse,
 };
 use crate::aura::{HostAura, HostIdentity, HostPresence, PeerCrack};
 use crate::chronicle_log::ChronicleLog;
-use crate::chronicled_planet::FactJournal;
 use crate::envelope::{CrackNotice, SanctuaryEnvelope};
-use crate::fleet_ledger::FleetLedger;
-use crate::ticket::PortalTicket;
 use crate::ward::{GuestWard, WardVitals};
-use crate::warded_planet::WardedPlanet;
-use crate::wormhole::{PortalCode, WormholeGate};
 
 /// Connected companion wards indexed by `companion_id` and X25519 public key.
 pub struct GuestCohort {
@@ -35,6 +30,20 @@ impl GuestCohort {
 
     pub fn ward_mut(&mut self, cid: u32) -> Option<&mut GuestWard> {
         self.wards.get_mut(&cid)
+    }
+
+    pub fn record_guest_gore(&mut self, cid: u32, impulse: Vec3) {
+        if let Some(ward) = self.wards.get_mut(&cid) {
+            ward.record_gore(impulse);
+        }
+    }
+
+    pub fn push_pedestrian_observers(&self, world: &dyn PlanetaryWorld, out: &mut Vec<(u32, Vec3, bool)>) {
+        for (&cid, ward) in &self.wards {
+            if let Some((pos, crouching)) = ward.pedestrian_observer(world) {
+                out.push((cid, pos, crouching));
+            }
+        }
     }
 
     pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) {
@@ -107,6 +116,7 @@ impl GuestCohort {
             roster.push(ward.presence());
             ward.push_authoritative_craft(&mut crafts);
         }
+        let sounder = aura.wildlife().presence();
         let peer_cracks = aura.drain_cracks();
         let total_facts = chronicle.total();
         for (&cid, ward) in &mut self.wards {
@@ -122,149 +132,16 @@ impl GuestCohort {
                 .filter(|c| !c.authored_by(cid))
                 .map(PeerCrack::notice)
                 .collect();
+            let wildlife = WildlifePulse::new(sounder, ward.gore_stamp());
             SanctuaryEnvelope::HostPulse {
                 total_facts,
                 cracks,
                 companions: others,
                 crafts: other_crafts,
+                wildlife,
             }
             .inscribe(&mut payload);
             ward.send_sealed(socket, cid, &payload, &mut scratch);
         }
-    }
-}
-
-/// Strictly encapsulated chronicle, guest cohort, host aura, and SPAKE2 wormhole gate of `SanctuaryHost`.
-pub struct HostState {
-    chronicle: ChronicleLog,
-    cohort: GuestCohort,
-    aura: HostAura,
-    wormhole: WormholeGate,
-}
-
-impl HostState {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        chronicle: ChronicleLog,
-        cohort: GuestCohort,
-        aura: HostAura,
-        wormhole: WormholeGate,
-    ) -> Self {
-        Self { chronicle, cohort, aura, wormhole }
-    }
-
-    pub const fn code(&self) -> PortalCode { self.wormhole.code() }
-    pub fn punch_peer(&mut self, socket: &UdpSocket, peer: SocketAddr) { self.wormhole.punch_peer(socket, peer); }
-    pub fn occupy_host(&mut self, presence: CompanionPresence) { self.aura.occupy(presence); }
-    pub fn pilot_host(&mut self, craft: PilotCraft) { self.aura.pilot(craft); }
-    pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) { self.cohort.guest_companions(out); }
-    pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) { self.cohort.guest_crafts(out); }
-    pub const fn fleet(&self) -> &FleetLedger { self.aura.fleet() }
-    pub fn blend_subtick(&mut self, subtick_secs: f32) { self.cohort.blend_subtick(subtick_secs); }
-    pub fn answer_wormhole(&mut self, socket: &UdpSocket, src: SocketAddr, pkt: &[u8], ticket: PortalTicket) {
-        self.wormhole.answer_hello(socket, src, pkt, ticket);
-    }
-
-    pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) {
-        let mut crafts = Vec::new();
-        self.cohort.guest_crafts(&mut crafts);
-        self.aura.fleet().emit_crafts(&crafts, target);
-    }
-
-    pub fn admit_guest(&mut self, identity: &HostIdentity, world: &dyn PlanetaryWorld, peer: SocketAddr, guest_pub: [u8; 32]) -> u32 {
-        self.cohort.admit_guest(identity, world, peer, guest_pub)
-    }
-
-    pub fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
-        if let WorldFact::Loosened { eye, direction, stage } = fact {
-            self.aura.record_crack(author_slot, CrackNotice::new(eye, direction, stage.min(4)));
-        }
-        self.chronicle.record(fact);
-    }
-
-    pub fn record_disclosure(&mut self, face: u8, stratum: ExposedStratum) {
-        self.chronicle.record(WorldFact::StratumDisclosed { face, stratum });
-    }
-
-    pub fn process_companion_datagram(&mut self, cid: u32, src: SocketAddr, pkt: &[u8], world: &mut dyn PlanetaryWorld) -> bool {
-        let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else {
-            return false;
-        };
-        match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft }) => {
-                let vetted_craft = match craft {
-                    PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
-                    other => other,
-                };
-                if let Some(ward) = self.cohort.ward_mut(cid) {
-                    ward.absorb_pulse(cid, ack_seq, presence, vetted_craft, world);
-                }
-                false
-            }
-            Some(SanctuaryEnvelope::GuestPetition { fact }) if !matches!(fact, WorldFact::StratumDisclosed { .. }) => {
-                let stamped = match fact {
-                    WorldFact::HelmClaimed { craft, eye, direction, .. } => {
-                        WorldFact::HelmClaimed { craft, pilot_slot: cid, eye, direction }
-                    }
-                    other => other,
-                };
-                let fleet = self.aura.fleet_mut();
-                let enacted = self
-                    .cohort
-                    .ward_mut(cid)
-                    .is_some_and(|ward| stamped.enact_on(&mut WardedPlanet::new(world, ward, fleet, cid)));
-                if enacted {
-                    self.record_authored_fact(cid, stamped);
-                }
-                enacted
-            }
-            _ => false,
-        }
-    }
-
-    pub fn step_clocks(&mut self, socket: &UdpSocket, dt: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        self.wormhole.step(socket, dt);
-        let mut abandoned = Vec::new();
-        let pulse_ready = self.cohort.advance_wards(dt, &mut abandoned);
-        let mut parked_any = false;
-        for (cid, pilot_craft) in abandoned {
-            if let PilotCraft::Driving(dc) = pilot_craft {
-                if self.aura.fleet_mut().park_by_id(dc.identity(), dc.pose(), world) {
-                    self.chronicle.record(WorldFact::HelmReleased {
-                        craft: dc.identity(),
-                        pose: dc.pose(),
-                    });
-                    parked_any = true;
-                }
-            }
-            self.aura.fleet_mut().release_slot(cid);
-        }
-        (pulse_ready, parked_any)
-    }
-
-    pub fn broadcast(&mut self, socket: &UdpSocket) {
-        self.cohort.broadcast(socket, &self.chronicle, &mut self.aura);
-    }
-}
-
-impl FactJournal for HostState {
-    fn inscribe_fact(&mut self, fact: WorldFact) {
-        self.record_authored_fact(1, fact);
-    }
-
-    fn local_slot(&self) -> u32 {
-        1
-    }
-
-    fn register_local_blueprint(&mut self, blueprint: CraftBlueprint) -> bool {
-        self.aura.fleet_mut().register_blueprint(blueprint)
-    }
-
-    fn claim_local_helm(&mut self, craft: CraftIdentity, pilot_slot: u32) -> bool {
-        self.aura.fleet_mut().claim_helm(craft, pilot_slot)
-    }
-
-    fn release_local_helm(&mut self, craft: CraftIdentity) {
-        let _ = self.aura.fleet_mut().release_helm(craft, 1);
     }
 }

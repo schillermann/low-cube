@@ -2,7 +2,10 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, SurfaceFind};
 use acoustics::{AcousticWave, HeartyBite};
-use fauna::{BoarActivity, BoarSounder, RoeHerd, SparrowFlock, TestWildBoar as WildBoar, WoodlandFauna};
+use fauna::{
+    BoarActivity, BoarSounder, RoeHerd, SparrowFlock, TestWildBoar as WildBoar, WoodlandFauna,
+    WoodlandPlanet,
+};
 use crate::attire::{HeldRelic, YouthAttire};
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::controls::{KeyMotion, KeyboardControls};
@@ -57,7 +60,7 @@ fn test_hunting_wild_boar_with_sword_drops_boar_meat_that_heals_and_invigorates_
     let bite_peak = (0..16).map(|k| bite.amplitude_at(0.03 + (k as f32) * 0.002).abs()).fold(0.0_f32, f32::max);
     assert!(bite_peak > 0.15 && &bite.riff_wave()[0..4] == b"RIFF");
 
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let world = BiomedCubeWorld::beveled(32, 1.0);
     let hunter_pos = world.constrain_to_surface(Vec3::new(0.0, 20.0, 3.0), 1.0);
     let armed = YouthAttire::squire().with_relics(HeldRelic::KnightlySword, HeldRelic::EmptyPalm);
     let mut hunter = PlanetaryAvatar::with_attire(hunter_pos, Box::new(SurfaceFlight::terrestrial(1.0)), armed);
@@ -78,13 +81,14 @@ fn test_hunting_wild_boar_with_sword_drops_boar_meat_that_heals_and_invigorates_
         404,
         (8, 0),
     );
-    let mut far_fauna = WoodlandFauna::new(
+    let far_fauna = WoodlandFauna::new(
         SparrowFlock::seeded(),
         RoeHerd::seeded(),
-        BoarSounder::new([distant_boar, far_boar, far_boar], 0.0, true, 0),
+        BoarSounder::active([distant_boar, far_boar, far_boar]),
     );
+    let mut far_world = WoodlandPlanet::new(Box::new(BiomedCubeWorld::beveled(32, 1.0)), far_fauna);
     assert_eq!(
-        hunter.hunt_fauna(1.0, &mut far_fauna, &mut world),
+        hunter.hunt_fauna(1.0, &mut far_world),
         (false, false),
         "Melee strike from 3.6m horizontal distance must not hit a wild boar from afar"
     );
@@ -105,22 +109,23 @@ fn test_hunting_wild_boar_with_sword_drops_boar_meat_that_heals_and_invigorates_
         305,
         (8, 0),
     );
-    let mut fauna = WoodlandFauna::new(
+    let fauna = WoodlandFauna::new(
         SparrowFlock::seeded(),
         RoeHerd::seeded(),
-        BoarSounder::new([target_boar, mate_boar, far_boar], 0.0, true, 0),
+        BoarSounder::active([target_boar, mate_boar, far_boar]),
     );
+    let mut world = WoodlandPlanet::new(Box::new(world), fauna);
 
     // First KnightlySword strike (power = 4) wounds boar to 4 HP, provokes TuskCharge, and alerts nearby sounder mate
-    let (hit_first, dropped_first) = hunter.hunt_fauna(1.0, &mut fauna, &mut world);
+    let (hit_first, dropped_first) = hunter.hunt_fauna(1.0, &mut world);
     assert!(hit_first && !dropped_first);
-    assert!(fauna.boars().boars()[0].vitality_at(4));
-    assert!(fauna.boars().boars()[0].charging());
-    assert!(fauna.boars().boars()[1].bristled());
+    assert!(world.fauna().boars().boars()[0].vitality_at(4));
+    assert!(world.fauna().boars().boars()[0].charging());
+    assert!(world.fauna().boars().boars()[1].bristled());
 
     // Second KnightlySword strike slays boar (0 HP) and drops SurfaceFind::BoarMeat on the ground
-    let (hit_second, dropped_second) = hunter.hunt_fauna(1.0, &mut fauna, &mut world);
-    assert!(hit_second && dropped_second && !fauna.boars().boars()[0].alive());
+    let (hit_second, dropped_second) = hunter.hunt_fauna(1.0, &mut world);
+    assert!(hit_second && dropped_second && !world.fauna().boars().boars()[0].alive());
 
     // Aim downward onto the fallen boar's ground spot to forage BoarMeat into empty left palm
     hunter.rotate_degrees(0.0, 8.0);
@@ -142,4 +147,67 @@ fn test_hunting_wild_boar_with_sword_drops_boar_meat_that_heals_and_invigorates_
     assert_eq!(HeldRelic::from_surface_find(SurfaceFind::BoarMeat), HeldRelic::BoarMeat);
     assert_eq!(HeldRelic::BoarMeat.surface_find(), SurfaceFind::BoarMeat);
     hunter.step_motion(1.0 / 60.0, &walk, &world);
+}
+
+#[test]
+fn test_joining_multiplayer_discards_solitary_boars_without_phantom_gore() {
+    use std::net::UdpSocket;
+    use sanctuary::{RemoteLink, SanctuaryHost};
+    use crate::black_box::{BlackBoxAvatar, LiveTape};
+    use crate::session::HeadlessSession;
+
+    // Solitary world has an aggressive charging boar 1.8m away from the player, about to gore
+    let solitary_terrain = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let spawn = solitary_terrain.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 1.0);
+    let boar_pos = solitary_terrain.constrain_to_surface(Vec3::new(spawn.x + 1.8, 12.0, spawn.z), 0.0);
+    let solitary_charger = WildBoar::new(
+        BoarActivity::TuskCharge { pos: boar_pos, target: spawn, phase: 0.0, timer: 3.0 },
+        Vec3::Y,
+        777,
+        (8, 0),
+    );
+    let solitary_fauna = WoodlandFauna::new(
+        SparrowFlock::seeded(),
+        RoeHerd::seeded(),
+        BoarSounder::active([solitary_charger, solitary_charger, solitary_charger]),
+    );
+    let solitary_world: Box<dyn PlanetaryWorld> =
+        Box::new(WoodlandPlanet::new(Box::new(solitary_terrain), solitary_fauna));
+
+    let avatar = Box::new(BlackBoxAvatar::wrapping(
+        Box::new(PlanetaryAvatar::at(spawn)),
+        Box::new(LiveTape::fresh()),
+    ));
+    let mut session = HeadlessSession::with_world_and_modal(
+        solitary_world,
+        avatar,
+        HeadlessSession::closed_modal(),
+    );
+
+    // Join a remote SanctuaryHost via bound P2P dial (simulating Esc -> MULTIPLAYER -> JOIN)
+    let remote_terrain: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::barren_beveled(16, 1.0));
+    let mut host = SanctuaryHost::bind("127.0.0.1:0", remote_terrain, 16).expect("bind host");
+    let host_code = host.code();
+    let guest_sock = UdpSocket::bind("127.0.0.1:0").expect("bind guest");
+    let guest_addr = guest_sock.local_addr().expect("guest addr");
+    let link = RemoteLink::bind_on_socket(guest_sock, guest_addr, sanctuary::JoinTarget::Wormhole(host_code));
+    let _ = session.begin_bound_dial(link);
+    host.punch_nat_peer(guest_addr);
+
+    for _ in 0..12 {
+        let _ = host.tick(0.03);
+        session.advance_ticks(4);
+    }
+    assert!(!session.dialing_active(), "Guest session must complete join and activate RemotePlanet");
+
+    // Step 60 ticks on the joined multiplayer server: the old solitary charging boar must NOT exist or gore!
+    for _ in 0..15 {
+        let _ = host.tick(0.03);
+        session.advance_ticks(4);
+    }
+    assert_eq!(
+        session.ui_quad_count(),
+        10,
+        "HUD must show only clean 10-quad crosshair with zero crimson tusk-hit vignette after joining server"
+    );
 }

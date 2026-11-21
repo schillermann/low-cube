@@ -1,6 +1,6 @@
 [package]
 name = "sanctuary"
-version = "0.92.2"
+version = "0.93.0"
 edition = "2024"
 
 [lib]
@@ -12,6 +12,7 @@ name = "sanctuary"
 path = "src/main.rs"
 
 [dependencies]
+fauna = { path = "../fauna" }
 world = { path = "../world" }
 glam = "0.29"
 x25519-dalek = { version = "2", default-features = false, features = ["alloc", "static_secrets"] }
