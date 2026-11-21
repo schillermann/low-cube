@@ -9,7 +9,7 @@ use world::{BiomedCubeWorld, PlanetaryWorld, Quad};
 use crate::attire::YouthAttire;
 use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::black_box::{BlackBoxAvatar, LiveTape};
-use crate::controls::{ActionBindings, InputTrigger, KeyMotion};
+use crate::controls::{ActionBindings, InputTrigger, SprintControls};
 use crate::menu::{EscapeMenu, InspectionModal, ScreenPoint, SessionModal};
 use crate::server_satchel::ServerSatchel;
 use crate::surface::PlatformSurface;
@@ -60,7 +60,7 @@ impl HeadlessSession {
             world::MeadowRing::cold(),
         ));
         let display = SessionDisplay::new(surface, Box::new(shaded));
-        let controls = Box::new(KeyMotion::with_bindings(ActionBindings::seeded()));
+        let controls = Box::new(SprintControls::with_bindings(ActionBindings::seeded()));
         let stage = SessionStage::new(world, avatar, controls, modal);
         Self::new(stage, display, ui_quads)
     }

@@ -8,7 +8,6 @@ mod aurora_canopy;
 mod avatar;
 mod black_box;
 mod blueprint;
-mod cadence;
 mod celestial;
 mod clock;
 mod command_flags;
@@ -74,8 +73,6 @@ mod black_box_tests;
 #[cfg(test)]
 mod blueprint_tests;
 #[cfg(test)]
-mod cadence_tests;
-#[cfg(test)]
 mod celestial_tests;
 #[cfg(test)]
 mod circuit_tests;
@@ -97,6 +94,8 @@ mod physics_tests;
 mod posture_tests;
 #[cfg(test)]
 mod seam_clearance_tests;
+#[cfg(test)]
+mod sprint_tests;
 #[cfg(test)]
 mod threshold_tests;
 #[cfg(test)]

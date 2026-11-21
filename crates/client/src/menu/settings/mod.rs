@@ -4,7 +4,7 @@ use glam::Vec3;
 use world::MeshTarget;
 use crate::avatar::Avatar;
 use crate::controls::{
-    ActionBindings, BindingProfile, ControlAction, InputTrigger, KeyboardControls, TriggerNotation,
+    ActionBindings, BindingProfile, ControlAction, InputTrigger, KeyboardControls,
 };
 use super::glyph::PixelStamp;
 use super::view::MenuView;
@@ -59,7 +59,7 @@ impl MenuView for &dyn ControlPanel {
     }
 }
 
-/// Stateless screen bounds layout for the 18-slot Keybindings studio.
+/// Stateless screen bounds layout for the 14-slot Keybindings studio.
 pub struct ControlLayout;
 
 impl ControlLayout {
@@ -70,12 +70,12 @@ impl ControlLayout {
 
     pub fn action_bounds(&self, action: ControlAction) -> ScreenBounds {
         let idx = action.slot_index();
-        let (x0, x1, y1) = if idx < 6 {
+        let (x0, x1, y1) = if idx < 7 {
             (-0.92, -0.07, 0.67 - (idx as f32) * 0.16)
-        } else if idx < 10 {
-            (0.07, 0.92, 0.67 - ((idx - 6) as f32) * 0.16)
+        } else if idx < 11 {
+            (0.07, 0.92, 0.67 - ((idx - 7) as f32) * 0.16)
         } else {
-            (0.07, 0.92, -0.14 - ((idx - 10) as f32) * 0.16)
+            (0.07, 0.92, -0.14 - ((idx - 11) as f32) * 0.16)
         };
         ScreenBounds::new(x0, y1 - 0.11, x1, y1)
     }
@@ -139,7 +139,7 @@ impl MenuView for ControlStudio {
             let label = if awaiting {
                 format!("{}: PRESS KEY", action.title())
             } else {
-                format!("{}: {}", action.title(), self.bindings.trigger_for(action).label())
+                format!("{}: {}", action.title(), self.bindings.label_for(action))
             };
             layout.action_bounds(action).emit_button(&label, self.pointer, btn_col, awaiting, target);
         }

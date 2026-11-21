@@ -92,6 +92,7 @@ fn test_unified_locomotion_messaging() {
     let swapped = ActionBindings::seeded().with_key_binding(ControlAction::MoveForward, KeyCode::KeyS);
     assert_eq!(swapped.trigger_for(ControlAction::MoveForward), InputTrigger::Key(KeyCode::KeyS));
     assert_eq!(swapped.trigger_for(ControlAction::MoveBackward), InputTrigger::Key(KeyCode::KeyW));
+    assert_eq!(swapped.trigger_for(ControlAction::Sprint), InputTrigger::Key(KeyCode::ControlLeft));
     assert_eq!(swapped.trigger_for(ControlAction::MoldForm), InputTrigger::WheelClick);
     assert_eq!(swapped.trigger_for(ControlAction::MoldLeft), InputTrigger::WheelUp);
     assert_eq!(swapped.trigger_for(ControlAction::MoldRight), InputTrigger::WheelDown);

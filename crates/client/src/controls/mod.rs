@@ -2,20 +2,22 @@ use std::collections::HashSet;
 use glam::Vec3;
 #[cfg(test)]
 use winit::keyboard::KeyCode;
-use crate::cadence::{RestingCadence, SprintCadence, TransitioningCadence};
-use crate::clock::{MonotonicTime, SystemClock};
 
 mod bindings;
 mod file_bindings;
 #[cfg(test)]
 mod modulation;
+mod sprint;
 
-pub use bindings::{ActionBindings, ControlAction, InputTrigger, TriggerNotation};
+pub use bindings::{ActionBindings, ControlAction, InputTrigger};
 pub use file_bindings::{BindingProfile, FileBindings};
 #[cfg(test)]
 pub use modulation::{
     DampedLocomotionTarget, GroundedLocomotionTarget, MutedControls, TallyLocomotionTarget,
 };
+pub use sprint::SprintControls;
+#[cfg(test)]
+pub use sprint::{ChordGrip, SprintChord, SprintTarget};
 
 /// Interface for receiving unified locomotion messages ("Tell, Don't Ask").
 pub trait LocomotionTarget {
@@ -42,44 +44,34 @@ pub trait KeyboardControls {
     );
 }
 
-/// Encapsulated active trigger registry implementing KeyboardControls with single-trigger bindings.
+/// Momentary trigger registry mapping held directional, jump, and sneak actions onto a `LocomotionTarget`.
 pub struct KeyMotion {
     active_triggers: HashSet<InputTrigger>,
     bindings: ActionBindings,
-    cadence: Box<dyn SprintCadence>,
-    clock: Box<dyn MonotonicTime>,
 }
 
 impl KeyMotion {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(
-        active_triggers: HashSet<InputTrigger>,
-        bindings: ActionBindings,
-        cadence: Box<dyn SprintCadence>,
-        clock: Box<dyn MonotonicTime>,
-    ) -> Self {
+    pub const fn new(active_triggers: HashSet<InputTrigger>, bindings: ActionBindings) -> Self {
         Self {
             active_triggers,
             bindings,
-            cadence,
-            clock,
         }
     }
 
-    /// Secondary constructor initializing with an empty trigger registry, given bindings, brisk cadence, and system clock.
+    /// Secondary constructor initializing with an empty trigger registry and given bindings.
     pub fn with_bindings(bindings: ActionBindings) -> Self {
-        Self::new(
-            HashSet::new(),
-            bindings,
-            Box::new(RestingCadence::brisk()),
-            Box::new(SystemClock::new()),
-        )
+        Self::new(HashSet::new(), bindings)
     }
 
-    /// Secondary constructor initializing with an empty trigger registry, seeded bindings, brisk cadence, and system clock.
+    /// Secondary constructor initializing with an empty trigger registry and seeded bindings.
     #[cfg(test)]
     pub fn idle() -> Self {
         Self::with_bindings(ActionBindings::seeded())
+    }
+
+    fn held(&self, action: ControlAction) -> bool {
+        self.bindings.active_in(action, &self.active_triggers)
     }
 }
 
@@ -90,23 +82,10 @@ impl KeyboardControls for KeyMotion {
         } else {
             self.active_triggers.remove(&trigger);
         }
-
-        if self.bindings.matches(ControlAction::MoveForward, trigger) {
-            let now = self.clock.current_instant();
-            let current = std::mem::replace(&mut self.cadence, Box::new(TransitioningCadence));
-            self.cadence = if pressed {
-                current.on_press(now)
-            } else {
-                current.on_release(now)
-            };
-        } else if self.bindings.matches(ControlAction::MoveBackward, trigger) && pressed {
-            self.cadence = Box::new(RestingCadence::brisk());
-        }
     }
 
     fn clear_triggers(&mut self) {
         self.active_triggers.clear();
-        self.cadence = Box::new(RestingCadence::brisk());
     }
 
     fn apply_bindings(&mut self, bindings: ActionBindings) {
@@ -121,31 +100,28 @@ impl KeyboardControls for KeyMotion {
         target: &mut dyn LocomotionTarget,
     ) {
         let mut direction = Vec3::ZERO;
-        if self.active_triggers.contains(&self.bindings.trigger_for(ControlAction::MoveForward)) {
+        if self.held(ControlAction::MoveForward) {
             direction += forward;
         }
-        if self.active_triggers.contains(&self.bindings.trigger_for(ControlAction::MoveBackward)) {
+        if self.held(ControlAction::MoveBackward) {
             direction -= forward;
         }
-        if self.active_triggers.contains(&self.bindings.trigger_for(ControlAction::MoveRight)) {
+        if self.held(ControlAction::MoveRight) {
             direction += right;
         }
-        if self.active_triggers.contains(&self.bindings.trigger_for(ControlAction::MoveLeft)) {
+        if self.held(ControlAction::MoveLeft) {
             direction -= right;
         }
 
         if direction.length_squared() > 1e-4 {
             target.travel(direction.normalize());
-            if self.active_triggers.contains(&self.bindings.trigger_for(ControlAction::MoveForward)) {
-                self.cadence.dispatch_sprint(target);
-            }
         }
 
-        if self.active_triggers.contains(&self.bindings.trigger_for(ControlAction::Jump)) {
+        if self.held(ControlAction::Jump) {
             target.jump();
         }
 
-        if self.active_triggers.contains(&self.bindings.trigger_for(ControlAction::Sneak)) {
+        if self.held(ControlAction::Sneak) {
             target.sneak();
         }
     }

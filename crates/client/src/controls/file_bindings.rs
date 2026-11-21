@@ -1,6 +1,6 @@
 use std::fs;
 use crate::toml_document::TomlDocument;
-use super::bindings::{ActionBindings, ControlAction, TriggerNotation};
+use super::bindings::{ActionBindings, ControlAction};
 
 /// Interface for persistent TOML storage of player keybindings.
 pub trait BindingProfile {
@@ -33,9 +33,7 @@ impl BindingProfile for FileBindings {
         let mut bindings = ActionBindings::seeded();
         for action in ControlAction::all() {
             if let Some(token) = doc.property(action.config_key()) {
-                if let Some(trigger) = bindings.trigger_for(action).parse_token(&token) {
-                    bindings = bindings.with_binding(action, trigger);
-                }
+                bindings = bindings.rebind_token(action, &token);
             }
         }
         bindings
@@ -44,7 +42,7 @@ impl BindingProfile for FileBindings {
     fn save(&self, bindings: &ActionBindings) {
         let mut text = String::from("# Low-Cube Single-Trigger Action Bindings\n[controls]\n");
         for action in ControlAction::all() {
-            text.push_str(&format!("{} = \"{}\"\n", action.config_key(), bindings.trigger_for(action).label()));
+            text.push_str(&format!("{} = \"{}\"\n", action.config_key(), bindings.label_for(action)));
         }
         fs::write(&self.path, text).expect("Failed to persist ActionBindings profile to disk");
     }

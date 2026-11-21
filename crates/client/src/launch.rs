@@ -9,7 +9,7 @@ use crate::aurora_canopy::CalibratedCanopy;
 use crate::avatar::PlanetaryAvatar;
 use crate::black_box::{BlackBoxAvatar, FileBlackBox};
 use crate::celestial::CelestialCadence;
-use crate::controls::{BindingProfile, FileBindings, KeyMotion};
+use crate::controls::{BindingProfile, FileBindings, SprintControls};
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
 use crate::menu::{AutoPunchModal, EscapeMenu, InspectionModal, PortalInvite};
 use crate::physics::PlanetaryPhysics;
@@ -151,7 +151,7 @@ impl SessionAssembly for SessionLaunch {
             star_mesh,
         ));
 
-        let controls = Box::new(KeyMotion::with_bindings(bindings));
+        let controls = Box::new(SprintControls::with_bindings(bindings));
         let modal = Box::new(AutoPunchModal::wrapping(
             InspectionModal::new(EscapeMenu::with_clipboards(
                 initial_invite.clone(),

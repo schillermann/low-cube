@@ -3,7 +3,7 @@ use winit::keyboard::KeyCode;
 use world::{GravityField, MeshTarget, PlanetaryWorld};
 use crate::avatar::{AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::horizon::CameraHorizon;
-use crate::controls::{KeyboardControls, KeyMotion};
+use crate::controls::{KeyboardControls, KeyMotion, SprintControls};
 use crate::gait::{LocomotionGait, SneakGait, WalkGait};
 use crate::orientation::MouseLook;
 use crate::posture::AvatarPosture;
@@ -86,14 +86,14 @@ fn test_avatar_lowers_viewpoint_when_sneaking() {
 fn test_avatar_expands_fov_when_sprinting() {
     let world = FlatGroundWorld;
     let mut avatar = PlanetaryAvatar::at(Vec3::new(0.0, 1.0, 0.0));
-    let mut controls = KeyMotion::idle();
+    let mut controls = SprintControls::idle();
 
     let normal_matrix = avatar.view_projection_matrix(16.0 / 9.0);
 
-    // Double-tap W to initiate sprint
+    // Press Ctrl + W to initiate sprint, then release Ctrl while keeping W held
+    controls.register_key(KeyCode::ControlLeft, true);
     controls.register_key(KeyCode::KeyW, true);
-    controls.register_key(KeyCode::KeyW, false);
-    controls.register_key(KeyCode::KeyW, true);
+    controls.register_key(KeyCode::ControlLeft, false);
 
     for _ in 0..30 {
         avatar.step_motion(1.0 / 60.0, &controls, &world);

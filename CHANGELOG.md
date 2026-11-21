@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.94.0] - 2026-11-21
+
+### Added
+- Added customizable `ControlAction::Sprint` (`LCTRL` + `W` by default, rebindable under `MOVEMENT` in `ControlStudio` and persisted as `sprint` in `controls.toml`) along with the `SprintControls` `KeyboardControls` decorator, stack-allocated `SprintTarget` `LocomotionTarget` decorator, and self-governing `SprintChord` / `ChordGrip` state machine (`crates/client/src/controls/sprint.rs`, `crates/client/src/controls/bindings.rs`, `crates/client/src/menu/settings/mod.rs`, and `crates/client/src/sprint_tests.rs`).
+
+### Changed
+- Simplified `KeyMotion` (`crates/client/src/controls/mod.rs`) into a pure two-field momentary trigger registry and encapsulated Tell-Don't-Ask `active_in`, `label_for`, and `rebind_token` methods on `ActionBindings` (`crates/client/src/controls/bindings.rs` and `crates/client/src/controls/file_bindings.rs`).
+
+### Removed
+- Removed double-tap `W` sprint cadence (`crates/client/src/cadence.rs`) in favor of `SprintControls` chord latching while `MoveForward` remains held.
+
 ## [0.93.1] - 2026-11-21
 
 ### Fixed
