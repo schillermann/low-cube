@@ -156,7 +156,8 @@ fn test_nose_camera_marks_lunar_target_without_releasing_console_and_renders_orr
 
     struct OrreryHudProbe {
         orrery_quads: usize,
-        gold_rocket_quads: usize,
+        gold_arrow_quads: usize,
+        top_right_strip_quads: usize,
         total_quads: usize,
     }
     impl MeshTarget for OrreryHudProbe {
@@ -164,21 +165,31 @@ fn test_nose_camera_marks_lunar_target_without_releasing_console_and_renders_orr
             self.total_quads += 1;
             quad.transfer(|v0, _, v2, _, _, col| {
                 let c = (v0 + v2) * 0.5;
-                if c.x > 0.45 && c.y < -0.20 {
+                if c.x.abs() < 0.36 && c.y < -0.30 {
                     self.orrery_quads += 1;
-                    if col.x > 0.95 && col.y > 0.78 && col.z < 0.32 {
-                        self.gold_rocket_quads += 1;
+                    if col.x > 0.95 && col.y > 0.65 && col.z < 0.55 {
+                        self.gold_arrow_quads += 1;
                     }
+                }
+                if c.x > 0.55 && c.y > 0.78 {
+                    self.top_right_strip_quads += 1;
                 }
             });
         }
     }
 
-    let mut uncharted_hud = OrreryHudProbe { orrery_quads: 0, gold_rocket_quads: 0, total_quads: 0 };
+    let mut uncharted_hud = OrreryHudProbe {
+        orrery_quads: 0,
+        gold_arrow_quads: 0,
+        top_right_strip_quads: 0,
+        total_quads: 0,
+    };
     pilot.emit_reticle_for_aspect(16.0 / 9.0, &mut uncharted_hud);
     assert!(
-        uncharted_hud.orrery_quads > 45 && uncharted_hud.gold_rocket_quads >= 8,
-        "Nose camera must project bottom-right Steuerkonsolen-Orrery with golden rocket symbol"
+        uncharted_hud.orrery_quads > 45
+            && uncharted_hud.gold_arrow_quads >= 8
+            && uncharted_hud.top_right_strip_quads > 30,
+        "Nose camera must render bottom-center Orrery with golden directional arrow and top-right camera strip"
     );
 
     let inv = pilot.view_projection_matrix(1.0).inverse();
@@ -194,7 +205,12 @@ fn test_nose_camera_marks_lunar_target_without_releasing_console_and_renders_orr
     assert!(pilot.use_left_hand(world.as_mut()), "Left-click in Nose Camera must mark lunar target");
     assert_eq!(pilot.collect_camera_previews(1.62, &mut Vec::new()), 1, "Left-click in Nose Camera must keep pilot at FlightConsole");
 
-    let mut charted_hud = OrreryHudProbe { orrery_quads: 0, gold_rocket_quads: 0, total_quads: 0 };
+    let mut charted_hud = OrreryHudProbe {
+        orrery_quads: 0,
+        gold_arrow_quads: 0,
+        top_right_strip_quads: 0,
+        total_quads: 0,
+    };
     pilot.emit_reticle_for_aspect(16.0 / 9.0, &mut charted_hud);
     assert!(
         charted_hud.total_quads > uncharted_hud.total_quads + 70,

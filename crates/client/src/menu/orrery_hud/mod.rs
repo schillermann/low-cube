@@ -23,8 +23,8 @@ impl OrreryFrame {
             let world_w = world_u.cross(ref_axis).normalize_or_zero();
             let world_v = world_w.cross(world_u).normalize_or_zero();
 
-            let earth_holo = Vec3::new(-0.36, -0.08, 0.14);
-            let moon_holo = Vec3::new(0.52, 0.22, -0.18);
+            let earth_holo = Vec3::new(-0.42, -0.06, 0.12);
+            let moon_holo = Vec3::new(0.44, 0.18, -0.14);
             let span = (moon_holo - earth_holo).length();
             let holo_u = (moon_holo - earth_holo) / span;
             let holo_w = (Vec3::Y - holo_u * holo_u.y).normalize_or_zero();
@@ -167,14 +167,14 @@ impl NoseOrreryHud {
             } else {
                 (Vec3::new(1.00, 0.72, 0.28), format!("OFF COURSE {:.1}", angle_deg))
             };
-            PixelStamp::new(0.0046 * ux, 0.0068, col).emit_centered(&label, cx + 0.02 * ux, cy + 0.245, target);
+            PixelStamp::new(0.0046 * ux, 0.0068, col).emit_centered(&label, cx, cy + 0.245, target);
         });
     }
 
     pub fn emit(self, target: &mut dyn MeshTarget) {
         let ux = self.inv_aspect;
-        let (cx, cy) = (1.0 - 0.36 * ux, -0.57);
-        let canvas = OrreryCanvas::new((cx, cy), 0.255, ux);
+        let (cx, cy) = (0.0, -0.63);
+        let canvas = OrreryCanvas::new((cx, cy), 0.275, ux);
         self.snapshot.transfer(|atlas, ship_pos, (nose_axis, flight_vec), course| {
             let frame = OrreryFrame::from_atlas(atlas);
             let (_, _, vis_earth, vis_moon) = frame.radii;
@@ -205,7 +205,7 @@ impl NoseOrreryHud {
             let ship_holo = frame.map_point(ship_pos);
             let nose_holo = frame.rotate_dir(nose_axis);
             let flight_holo = frame.rotate_dir(flight_vec);
-            canvas.emit_rocket_symbol(ship_holo, nose_holo, flight_holo, target);
+            canvas.emit_pyramid_frame(ship_holo, nose_holo, flight_holo, target);
         });
     }
 }

@@ -8,6 +8,12 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.99.0] - 2026-11-21
+
+### Changed
+- Repositioned the nose-camera 3D `NoseOrreryHud` (`crates/client/src/menu/orrery_hud/mod.rs`) to bottom-center (`cx = 0.0`) and relocated the multi-camera / Intercom preview strip (`PreviewStripLayout::slot_bounds` in `crates/client/src/menu/viewfinder.rs`) to a top-right cluster with 4-column wrapping so the forward reticle and `FLIGHT COMPUTER` banner remain unobstructed.
+- Replaced the hologram rocket mesh inside `OrreryCanvas` (`emit_pyramid_frame` in `crates/client/src/menu/orrery_hud/canvas.rs`) with a 3D wireframe triangular-tip pyramid matching the wireframe `Earth-Cube` and `Moon-Cube` hologram aesthetic for clear 3D heading orientation.
+
 ## [0.98.0] - 2026-11-21
 
 ### Added

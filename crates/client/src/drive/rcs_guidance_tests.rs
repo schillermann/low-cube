@@ -95,7 +95,7 @@ fn test_flight_computer_toggle_shows_on_nose_camera_and_switches_vacuum_spin_dam
         fn push_quad(&mut self, quad: Quad) {
             quad.transfer(|v0, _, v2, _, _, col| {
                 let c = (v0 + v2) * 0.5;
-                if c.y > 0.84 {
+                if c.y > 0.84 && c.x.abs() < 0.35 {
                     self.top_quads += 1;
                     if col.y > 0.90 && col.x < 0.30 {
                         self.emerald_lamp = true;

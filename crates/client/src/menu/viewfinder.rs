@@ -65,13 +65,18 @@ impl PreviewStripLayout {
 
     pub fn slot_bounds(self, slot: u8) -> (f32, f32, f32, f32) {
         let ux = self.inv_aspect;
-        let tile_h = 0.100;
+        let tile_h = 0.096;
         let tile_w = tile_h * Self::TILE_ASPECT * ux;
-        let gap = 0.022 * ux;
-        let n = f32::from(self.slot_count.max(1));
-        let bar_w = n * tile_w + (n - 1.0).max(0.0) * gap;
-        let x0 = -bar_w * 0.5 + f32::from(slot) * (tile_w + gap);
-        let bar_y = -0.888;
+        let gap_x = 0.020 * ux;
+        let gap_y = 0.024;
+        let max_cols = 4u8;
+        let total = self.slot_count.max(1);
+        let row = slot / max_cols;
+        let col = slot % max_cols;
+        let cols_in_row = (total - row * max_cols).min(max_cols);
+        let row_w = f32::from(cols_in_row) * tile_w + f32::from(cols_in_row.saturating_sub(1)) * gap_x;
+        let x0 = 0.968 - row_w + f32::from(col) * (tile_w + gap_x);
+        let bar_y = 0.892 - f32::from(row) * (tile_h + gap_y);
         (x0, bar_y - tile_h * 0.5, x0 + tile_w, bar_y + tile_h * 0.5)
     }
 }

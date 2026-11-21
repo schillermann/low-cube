@@ -153,7 +153,7 @@ impl OrreryCanvas {
         }
     }
 
-    pub(super) fn emit_rocket_symbol(
+    pub(super) fn emit_pyramid_frame(
         self,
         pos: Vec3,
         nose_dir: Vec3,
@@ -164,28 +164,29 @@ impl OrreryCanvas {
         let ref_up = if fwd.y.abs() < 0.9 { Vec3::Y } else { Vec3::Z };
         let side = fwd.cross(ref_up).normalize_or_zero();
         let dorsal = side.cross(fwd).normalize_or_zero();
-        let gold = Vec3::new(1.00, 0.84, 0.24);
-        let flame = Vec3::new(1.00, 0.56, 0.18);
+        let edge_gold = Vec3::new(1.00, 0.88, 0.28);
+        let base_gold = Vec3::new(0.96, 0.74, 0.20);
         let magenta = Vec3::new(0.98, 0.36, 0.80);
 
-        let tip = pos + fwd * 0.072;
-        let shoulder = pos + fwd * 0.022;
+        let tip = pos + fwd * 0.115;
         let tail = pos - fwd * 0.052;
-        let r = 0.022;
-        let ring = [shoulder + side * r, shoulder + dorsal * r, shoulder - side * r, shoulder - dorsal * r];
-        let base = [tail + side * r, tail + dorsal * r, tail - side * r, tail - dorsal * r];
-        for idx in 0..4 {
-            let next = (idx + 1) % 4;
-            self.emit_holo_panel([ring[idx], ring[next], tip, tip], gold, 0.45, target);
-            self.emit_holo_panel([base[idx], base[next], ring[next], ring[idx]], gold, 0.36, target);
-            self.emit_strut_3d(tip, ring[idx], 0.0020, gold, 0.98, target);
-            self.emit_strut_3d(ring[idx], base[idx], 0.0020, gold, 0.98, target);
+        let b0 = tail + dorsal * 0.044;
+        let b1 = tail - dorsal * 0.024 + side * 0.042;
+        let b2 = tail - dorsal * 0.024 - side * 0.042;
+
+        for face in [[b0, b1, tip, tip], [b1, b2, tip, tip], [b2, b0, tip, tip], [b0, b2, b1, b1]] {
+            self.emit_holo_panel(face, edge_gold, 0.16, target);
         }
-        self.emit_strut_3d(tail + side * (r * 1.85), shoulder + side * (r * 0.6), 0.0022, gold, 0.98, target);
-        self.emit_strut_3d(tail - side * (r * 1.85), shoulder - side * (r * 0.6), 0.0022, gold, 0.98, target);
-        self.emit_strut_3d(tail, tail - fwd * 0.032, 0.0032, flame, 0.98, target);
+        for rear in [b0, b1, b2] {
+            self.emit_strut_3d(tip, rear, 0.0023, edge_gold, 0.98, target);
+        }
+        for (a, b) in [(b0, b1), (b1, b2), (b2, b0)] {
+            self.emit_strut_3d(a, b, 0.0020, base_gold, 0.96, target);
+        }
 
         let vec_dir = if flight_dir.length_squared() > 0.1 { flight_dir.normalize() } else { fwd };
-        self.emit_strut_3d(pos + vec_dir * 0.035, pos + vec_dir * 0.155, 0.0024, magenta, 0.98, target);
+        if vec_dir.dot(fwd) < 0.992 {
+            self.emit_strut_3d(tip, tip + vec_dir * 0.105, 0.0020, magenta, 0.98, target);
+        }
     }
 }
