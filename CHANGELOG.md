@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.92.1] - 2026-11-21
+
+### Changed
+- Redesigned `BlueprintBlockMesh` (`crates/world/src/block/blueprint_block/mod.rs` and `schematic.rs`) from a flat wooden crate into a vertically wall-mounted medieval guildmaster's blueprint tablet ("Zunftmeister-Holz-Pad") without a kickstand, featuring a flush upright carved-oak bezel, rear forged-iron wall cleats with brass studs, hammered brass L-corner brackets with rivets, a glowing brass compass-gear medallion button, a leather-looped walnut-and-brass stylus ("Griffel"), and a recessed cobalt-sapphire slate display showing glowing cyan rover and rocket schematics (`crates/world/src/block/blueprint_block/tests.rs`).
+
 ## [0.92.0] - 2026-11-21
 
 ### Added
