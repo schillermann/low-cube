@@ -214,6 +214,7 @@ impl SurfaceSightRay {
         &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32, avatar_pos: Vec3,
     ) -> Option<(i32, i32, f32)> {
         self.resolve_placement(frame, relief, half_blocks, half_size, avatar_pos, true, true)
+            .map(|(cu, cv, base, _)| (cu, cv, base))
     }
 
     /// Resolves a placement cell for `mold`, honoring side-wall pod rules and cantilever crane redirects.
@@ -226,7 +227,21 @@ impl SurfaceSightRay {
         avatar_pos: Vec3,
         mold: BlockMold,
     ) -> Option<(i32, i32, f32)> {
-        self.resolve_placement(
+        self.oriented_placement_for_mold(frame, relief, half_blocks, half_size, avatar_pos, mold)
+            .map(|(cu, cv, base, _)| (cu, cv, base))
+    }
+
+    /// Resolves a placement cell and surface-oriented `BlockMold` (auto-inverting underside rocket cameras to `BellyPod`).
+    pub fn oriented_placement_for_mold(
+        &self,
+        frame: &SurfaceFrame,
+        relief: &dyn ReliefElevation,
+        half_blocks: i32,
+        half_size: f32,
+        avatar_pos: Vec3,
+        mold: BlockMold,
+    ) -> Option<(i32, i32, f32, BlockMold)> {
+        let (cu, cv, base, underside) = self.resolve_placement(
             frame,
             relief,
             half_blocks,
@@ -234,7 +249,9 @@ impl SurfaceSightRay {
             avatar_pos,
             !mold.wall_mounted_pod(),
             mold.medium() != BlockMedium::CantileverRig,
-        )
+        )?;
+        let effective = if underside { mold.mounted_on_underside() } else { mold };
+        Some((cu, cv, base, effective))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -247,9 +264,10 @@ impl SurfaceSightRay {
         avatar_pos: Vec3,
         allow_underside: bool,
         rig_eligible: bool,
-    ) -> Option<(i32, i32, f32)> {
+    ) -> Option<(i32, i32, f32, bool)> {
         let contact = self.trace_contact(frame, relief, half_blocks, half_size)?;
-        if !allow_underside && contact.underside_contact() {
+        let underside = contact.underside_contact();
+        if !allow_underside && underside {
             return None;
         }
         let d_up = self.direction.normalize_or_zero().dot(frame.normal());
@@ -257,6 +275,7 @@ impl SurfaceSightRay {
         let guarded = StanceClearance::around_avatar(
             target, avatar_pos, d_up, frame, relief, (-half_blocks + 1, half_blocks - 2),
         );
-        guarded.cell_and_base(relief)
+        let (cu, cv, base) = guarded.cell_and_base(relief)?;
+        Some((cu, cv, base, underside))
     }
 }

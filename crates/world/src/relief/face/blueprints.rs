@@ -18,18 +18,18 @@ impl ReliefDomain {
 
     pub(super) fn plan_molded(&self, half: i32, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
         let half_size = self.frame.step_elevation(half);
-        let (cu, cv, base) = SurfaceSightRay::new(eye, direction)
-            .placement_for_mold(&self.frame, self.relief.as_ref(), half, half_size, avatar_pos, mold)?;
-        let (cell, floor_elev, domain) = self.relief.resolve_planned_site(cu, cv, base, mold.medium())?;
-        Some(PlannedMount::new(MountSite::new(self.frame, cell, floor_elev), mold, direction, domain))
+        let (cu, cv, base, effective) = SurfaceSightRay::new(eye, direction)
+            .oriented_placement_for_mold(&self.frame, self.relief.as_ref(), half, half_size, avatar_pos, mold)?;
+        let (cell, floor_elev, domain) = self.relief.resolve_planned_site(cu, cv, base, effective.medium())?;
+        Some(PlannedMount::new(MountSite::new(self.frame, cell, floor_elev), effective, direction, domain))
     }
 
     pub(super) fn place_molded(&mut self, half: i32, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<(i32, i32)> {
         let half_size = self.frame.step_elevation(half);
-        let (cu, cv, base) = SurfaceSightRay::new(eye, direction)
-            .placement_for_mold(&self.frame, self.relief.as_ref(), half, half_size, avatar_pos, mold)?;
-        self.relief.resolve_planned_site(cu, cv, base, mold.medium())?;
-        let shape = mold.shape_for(direction, &self.frame);
+        let (cu, cv, base, effective) = SurfaceSightRay::new(eye, direction)
+            .oriented_placement_for_mold(&self.frame, self.relief.as_ref(), half, half_size, avatar_pos, mold)?;
+        self.relief.resolve_planned_site(cu, cv, base, effective.medium())?;
+        let shape = effective.shape_for(direction, &self.frame);
         self.relief.stack_molded_cell(cu, cv, base, shape).then_some((cu, cv))
     }
 

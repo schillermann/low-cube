@@ -178,4 +178,13 @@ impl<'a> PosedHull<'a> {
             Some((shift + hub, fwd, up))
         })
     }
+
+    pub(in crate::relief) fn visit_soles(self, mut visitor: impl FnMut(Vec3)) {
+        let car_frame = self.pose.surface_frame();
+        let shift = self.pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
+        let lift = self.blueprint.wheel_ground_lift();
+        for part in self.blueprint.parts() {
+            visitor(shift + part.world_sole_center(lift, &car_frame));
+        }
+    }
 }

@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.91.1] - 2026-11-21
+
+### Fixed
+- Fixed cameras attached underneath crane-suspended rockets rendering the hollow interior of the World-Cube (`SensorPodAxis::lens_ray` in `crates/world/src/block/space_parts/rocket_camera.rs`, `BlueprintOptics` in `crates/world/src/relief/craft_entity/blueprint/optics.rs`, `BlockMold::mounted_on_underside` and `SurfaceSightRay::oriented_placement_for_mold` in `crates/world/src/relief/sight_ray/mod.rs`, `PadCommission` in `crates/world/src/relief/craft_cluster/commission.rs`, and `TouchdownStep` in `crates/client/src/drive/space_step.rs`), anchoring the `BellyPod` lens directly outside its half-block sapphire dome (`+0.20m` above the cell floor instead of `-0.325m` below `min_floor`), auto-orienting underside `RocketCamera` placements to `BellyPod`, and clearing full multi-column rocket soles across stepped terrain (`crates/client/src/drive/camera_look_tests.rs`).
+
 ## [0.91.0] - 2026-11-20
 
 ### Added

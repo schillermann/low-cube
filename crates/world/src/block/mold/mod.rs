@@ -101,6 +101,13 @@ impl BlockMold {
         self.attitude_thruster()
             || (matches!(self.medium, BlockMedium::RocketCamera) && (self.archetype.code() % 3 == 2))
     }
+    pub const fn mounted_on_underside(self) -> Self {
+        if matches!(self.medium, BlockMedium::RocketCamera) && (self.archetype.code() % 3 == 0) {
+            Self::with_medium(MoldArchetype::HalfSlab, self.turn, self.medium)
+        } else {
+            self
+        }
+    }
     pub const fn chronicle_bytes(self) -> [u8; 3] {
         [self.archetype.code(), self.turn.code(), self.medium.code()]
     }

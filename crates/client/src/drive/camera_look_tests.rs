@@ -181,3 +181,52 @@ fn test_side_rocket_camera_and_handheld_field_camera_follow_mouse_look_without_s
         "Mouse movement must orbit handheld FieldCamera view around the flying rocket ({shot_dir_a:?} vs {shot_dir_b:?})"
     );
 }
+
+#[test]
+fn test_camera_attached_under_crane_rocket_stays_above_world_cube_surface() {
+    for cam_mold in [
+        BlockMold::cube().in_medium(BlockMedium::RocketCamera),
+        BlockMold::cube().next_form().in_medium(BlockMedium::RocketCamera),
+    ] {
+        let mut world = CelestialSystem::barren_authoritative(32, 1.0);
+        let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+        let av = Vec3::new(0.25, g0, 1.75);
+        let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
+        for med in [BlockMedium::CantileverRig, BlockMedium::RocketNozzle] {
+            assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.5, 1.25), crane_dir, av, BlockMold::cube().in_medium(med)));
+        }
+        assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 2.90, 0.25), Vec3::NEG_Y, av, BlockMold::cube().turn_clockwise().in_medium(BlockMedium::FlightConsole)));
+        assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 1.75, 0.75), Vec3::NEG_Z, av, BlockMold::cube().in_medium(BlockMedium::CabinSeat)));
+        assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 1.75, 1.25), Vec3::NEG_Z, av, BlockMold::cube().in_medium(BlockMedium::PlanedPlanks)));
+        assert!(world.plan_molded_block(Vec3::new(1.25, g0 + 0.90, 1.25), Vec3::Y, Vec3::new(1.25, g0, 2.25), cam_mold).is_some());
+        assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 0.90, 1.25), Vec3::Y, Vec3::new(1.25, g0, 2.25), cam_mold));
+        assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 0.90, 0.75), Vec3::Y, Vec3::new(1.25, g0, 2.25), cam_mold));
+        assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 0.40, 1.25), Vec3::NEG_Y, Vec3::new(1.25, g0, 2.25), BlockMold::cube().in_medium(BlockMedium::QuarriedStone)));
+
+        let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+        let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
+            spawn,
+            Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
+            YouthAttire::squire(),
+            ActionBindings::seeded(),
+        );
+        pilot.rotate_degrees(-90.0, 10.0);
+        assert!(HandGesture::RightTap.perform(&mut pilot, world.as_mut()));
+        pilot.rotate_degrees(0.0, -20.0);
+        assert!(pilot.use_right_hand(world.as_mut()));
+
+        let (pad_eye, pad_dir) = camera_ray(&pilot);
+        let ground_under_cam = world.constrain_to_surface(Vec3::new(pad_eye.x, 22.0, pad_eye.z), 0.0).y;
+        assert!(
+            pad_eye.y >= ground_under_cam + 0.15 && pad_dir.y < -0.99,
+            "Under-rocket camera must look down from ABOVE World-Cube surface (eye={pad_eye:?}, ground={ground_under_cam:.2}, dir={pad_dir:?})"
+        );
+        let idle = KeyMotion::idle();
+        for _ in 0..30 {
+            pilot.step_motion(1.0 / 120.0, &idle, world.as_ref());
+            let (eye, dir) = camera_ray(&pilot);
+            let ground_y = world.constrain_to_surface(Vec3::new(eye.x, 22.0, eye.z), 0.0).y;
+            assert!(eye.y >= ground_y + 0.15 && dir.y < -0.99, "Ticked pad camera dipped below ground: {eye:?} < {ground_y}");
+        }
+    }
+}

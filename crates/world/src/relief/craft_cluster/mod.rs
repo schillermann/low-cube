@@ -1,9 +1,10 @@
+mod commission;
 mod fleet;
 mod helm;
 
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape, WedgeHeading};
+use crate::block::{BlockMedium, GridCell, VoxelShape, WedgeHeading};
 use crate::frame::SurfaceFrame;
 use super::craft_entity::{CraftBlueprint, CraftIdentity};
 use super::molded_structure::{MoldedStructure, VoxelCells, WorldBlocks};
@@ -11,7 +12,8 @@ use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
 use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
-use super::vehicle_assembly::{VehicleAssembly, VehicleAxes, VehiclePart};
+use super::vehicle_assembly::{VehicleAssembly, VehicleAxes};
+use self::commission::PadCommission;
 pub use self::fleet::ParkedFleet;
 use self::helm::ClusterHelm;
 
@@ -216,33 +218,7 @@ impl CraftCluster {
             .nearest_seat(eu, ev)
             .map(|(su, sv, _, _)| (su, sv))
             .or_else(|| self.claw_anchor().map(|(u, v, _)| (u, v)))?;
-        let parts = self.extract_parts(anchor, frame);
-        (!parts.is_empty()).then(|| CraftBlueprint::commission(Vec3::ZERO, parts))
-    }
-
-    fn extract_parts(&self, anchor: (i32, i32), frame: &SurfaceFrame) -> Vec<VehiclePart> {
-        let mut floor_min = f32::MAX;
-        self.grid.visit_cells(|_, list| {
-            for b in list {
-                floor_min = floor_min.min(b.floor());
-            }
-        });
-        let flip_v = frame.tangent().cross(frame.bitangent()).dot(frame.normal()) > 0.0;
-        let v_sign = if flip_v { -1 } else { 1 };
-        let mut parts = Vec::new();
-        self.grid.visit_cells(|(cu, cv), list| {
-            for b in list {
-                let floor_off = (b.floor() - floor_min).max(0.0);
-                let mut shape = BlockMold::shape_from_stamp(b.shape_stamp());
-                if flip_v && matches!(shape.block_heading(), WedgeHeading::North | WedgeHeading::South) {
-                    shape.rotate_quarter();
-                    shape.rotate_quarter();
-                }
-                parts.push(VehiclePart::new((cu - anchor.0, (cv - anchor.1) * v_sign), floor_off, shape));
-            }
-        });
-        parts.sort_by_key(VehiclePart::canonical_key);
-        parts
+        PadCommission::new(&self.grid).draft_blueprint(anchor, frame)
     }
 
     pub fn into_vehicle_with_id(
@@ -257,19 +233,7 @@ impl CraftCluster {
         }
         let (eu, ev) = frame.decompose(ray.sample_point(0.0));
         let Some((seat_u, seat_v, _, _)) = self.nearest_seat(eu, ev) else { return Err(self) };
-        let ground_top = ground_fn(seat_u, seat_v);
-        let flip_v = frame.tangent().cross(frame.bitangent()).dot(frame.normal()) > 0.0;
-        let v_sign = if flip_v { -1 } else { 1 };
-        let axes = VehicleAxes::new(frame.tangent(), frame.bitangent() * (v_sign as f32), frame.normal());
-        let canonical_frame = SurfaceFrame::new(frame.tangent(), frame.bitangent() * (v_sign as f32), frame.normal(), 0.0);
-        let parts = self.extract_parts((seat_u, seat_v), frame);
-        let heading = parts
-            .iter()
-            .find_map(|p| p.console_heading(&canonical_frame))
-            .or_else(|| parts.iter().find_map(|p| p.steering_heading(&canonical_frame)))
-            .unwrap_or_else(|| ray.align_heading(frame));
-        let (cx, cy) = GridCell::new(seat_u, seat_v).center();
-        Ok(VehicleAssembly::with_identity(identity, frame.point_at(cx, cy, ground_top), axes, heading, parts))
+        Ok(PadCommission::new(&self.grid).assemble_vehicle(identity, (seat_u, seat_v), ground_fn, ray, frame))
     }
 }
 

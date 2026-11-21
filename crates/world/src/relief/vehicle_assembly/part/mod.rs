@@ -192,6 +192,11 @@ impl VehiclePart {
         (self.shape.block_medium() == BlockMedium::SteeringWheel).then(|| self.shape.block_heading().forward_vector(frame))
     }
 
+    pub(in crate::relief) fn world_sole_center(&self, lift: f32, frame: &SurfaceFrame) -> Vec3 {
+        let (uc, vc) = GridCell::new(self.offset.0, self.offset.1).center();
+        frame.point_at(uc, vc, self.floor_offset + lift)
+    }
+
     pub(in crate::relief) fn world_mass_center(&self, lift: f32, frame: &SurfaceFrame) -> Vec3 {
         let (uc, vc) = GridCell::new(self.offset.0, self.offset.1).center();
         frame.point_at(uc, vc, self.floor_offset + lift + 0.25)

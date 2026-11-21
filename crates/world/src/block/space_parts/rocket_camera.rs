@@ -34,7 +34,7 @@ impl SensorPodAxis {
     }
 
     /// Optical `(eye_offset_from_cell_base, forward, up)` ray in the craft's local `SurfaceFrame`.
-    pub fn lens_ray(self, cell: GridCell, base_elev: f32, col_top: f32, min_floor: f32, ship_fwd: Vec3, frame: &SurfaceFrame) -> (Vec3, Vec3, Vec3) {
+    pub fn lens_ray(self, cell: GridCell, base_elev: f32, col_top: f32, col_bottom: f32, ship_fwd: Vec3, frame: &SurfaceFrame) -> (Vec3, Vec3, Vec3) {
         let (uc, vc) = cell.center();
         let ship_up = frame.normal().normalize_or_zero();
         let base = frame.point_at(uc, vc, base_elev);
@@ -44,8 +44,12 @@ impl SensorPodAxis {
                 (base + ship_up * lift, ship_up, -ship_fwd)
             }
             Self::BellyPod => {
-                let drop = (base_elev - min_floor).max(0.0) + 0.325;
-                (base - ship_up * drop, -ship_up, ship_fwd)
+                let lens_h = if col_bottom < base_elev - 0.05 {
+                    (col_bottom - 0.25).max(0.20)
+                } else {
+                    base_elev + 0.20
+                };
+                (frame.point_at(uc, vc, lens_h), -ship_up, ship_fwd)
             }
             Self::SideFairing(heading) => {
                 let out_dir = -heading.forward_vector(frame).normalize_or_zero();

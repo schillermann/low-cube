@@ -170,7 +170,7 @@ impl<S: SpaceStep> SpaceStep for TouchdownStep<'_, S> {
         let ground_base = FaceContact::new(s.origin).ground(0.0, self.world);
         let nose_pt = s.origin + rotated_up * hull_top;
         let ground_nose = FaceContact::new(nose_pt).ground(0.0, self.world);
-        let ground = if rotated_up.dot(surf_up) < 0.75
+        let mut ground = if rotated_up.dot(surf_up) < 0.75
             && self.world.surface_up_at(nose_pt).dot(surf_up) > 0.5
             && (ground_nose - ground_base).dot(surf_up) > 0.0
         {
@@ -178,6 +178,18 @@ impl<S: SpaceStep> SpaceStep for TouchdownStep<'_, S> {
         } else {
             ground_base
         };
+        if rotated_up.dot(surf_up) >= 0.75
+            && (s.origin - ground_base).dot(surf_up) <= hull_top + hull_radius + 4.0
+        {
+            let posed = self.assembly.pose().with_origin(s.origin).rotated(s.rotation);
+            self.assembly.visit_hull_soles(posed, |sole_pt| {
+                let sole_ground = FaceContact::new(sole_pt).ground(0.0, self.world);
+                let deficit = (sole_ground - (sole_pt - s.origin) - ground).dot(surf_up);
+                if deficit > 0.0 && deficit <= 3.0 {
+                    ground += surf_up * deficit;
+                }
+            });
+        }
         let clearance = Self::hull_clearance(rotated_up, surf_up, hull_top, hull_radius);
         let alt = (s.origin - ground).dot(surf_up) - clearance;
         let v_norm = s.velocity.dot(surf_up);
