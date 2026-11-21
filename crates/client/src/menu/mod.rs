@@ -10,6 +10,7 @@ use crate::surface::PlatformSurface;
 mod archetype;
 mod black_box_panel;
 mod clipboard;
+mod controls_slate;
 mod escape_menu;
 mod glyph;
 mod inspection_modal;
@@ -33,6 +34,7 @@ pub use black_box_panel::{BlackBoxLayout, BlackBoxPanel};
 #[cfg(test)]
 pub use clipboard::{MemoryClipboard, ScratchClipboard};
 pub use clipboard::{SystemClipboard, TextClipboard};
+pub use controls_slate::{ControlsSlate, ControlsSlateHud, SlateContext};
 pub use escape_menu::EscapeMenu;
 pub use glyph::PixelStamp;
 pub use inspection_modal::InspectionModal;

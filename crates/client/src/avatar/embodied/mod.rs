@@ -3,7 +3,7 @@ mod optics;
 use glam::{Mat4, Quat, Vec3};
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{BodyPose, CameraMount, SightMode, StrideRhythm, YouthAttire};
-use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
+use crate::controls::{ActionBindings, ControlAction, InputTrigger, KeyboardControls};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
 use crate::flight::GravitationalFlight;
 use crate::lens::PerspectiveLens;
@@ -160,11 +160,17 @@ impl AvatarMotor for EmbodiedAvatar {
     }
 
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
+        if self.body.driving() {
+            return false;
+        }
         let reach = self.surface_reach();
         self.gear.try_adjust_rig(trigger, &mut self.bearing, reach.eye(), reach.view_dir(), world)
     }
 
     fn cast_triggered_relic(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
+        if self.body.driving() {
+            return false;
+        }
         let reach = self.surface_reach();
         self.gear.try_cast_relic(trigger, &mut self.bearing, reach.eye(), reach.view_dir(), world)
     }
@@ -217,6 +223,7 @@ impl AvatarMotor for EmbodiedAvatar {
         if let Some(channel_feed) = feed {
             crate::menu::ViewfinderHud::new(channel_feed, aspect).emit(target);
         }
+        self.body.emit_controls_slate(self.gear.bindings(), aspect, target);
         self.bearing.emit_polaroid(target);
     }
 }
@@ -234,6 +241,12 @@ impl Avatar for EmbodiedAvatar {
             }
             if self.body.handle_cockpit_trigger(trigger, self.gear.bindings()) {
                 return true;
+            }
+            if self.body.driving()
+                && (self.gear.bindings().matches(ControlAction::RollLeft, trigger)
+                    || self.gear.bindings().matches(ControlAction::RollRight, trigger))
+            {
+                return false;
             }
         }
         self.gear.dispatch_trigger(trigger, &mut self.bearing, self.body.perished())

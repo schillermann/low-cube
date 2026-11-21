@@ -163,9 +163,35 @@ fn test_flight_computer_toggle_shows_on_nose_camera_and_switches_vacuum_spin_dam
 }
 
 #[test]
-fn test_extended_spaceflight_bindings_roll_and_strafe_without_yawing() {
+fn test_qe_roll_strafe_and_h_controls_slate_toggle() {
     let mut world = CelestialSystem::barren_authoritative(32, 1.0);
     let mut pilot = build_deep_space_rocket(world.as_mut());
+
+    struct CountQuads(usize);
+    impl MeshTarget for CountQuads {
+        fn push_quad(&mut self, _quad: Quad) { self.0 += 1; }
+    }
+    let mut base_hud = CountQuads(0);
+    pilot.emit_reticle_for_aspect(16.0 / 9.0, &mut base_hud);
+    assert!(pilot.dispatch_trigger(InputTrigger::Key(KeyCode::KeyH)));
+    let mut shown_hud = CountQuads(0);
+    pilot.emit_reticle_for_aspect(16.0 / 9.0, &mut shown_hud);
+    assert!(
+        shown_hud.0 > base_hud.0 + 120,
+        "Pressing H must show the on-screen controls slate ({} -> {})",
+        base_hud.0,
+        shown_hud.0
+    );
+    assert!(pilot.dispatch_trigger(InputTrigger::Key(KeyCode::KeyH)));
+    let mut hidden_hud = CountQuads(0);
+    pilot.emit_reticle_for_aspect(16.0 / 9.0, &mut hidden_hud);
+    assert_eq!(hidden_hud.0, base_hud.0, "Pressing H again must hide the controls slate");
+
+    assert!(
+        !pilot.dispatch_trigger(InputTrigger::Key(KeyCode::KeyQ))
+            && !pilot.dispatch_trigger(InputTrigger::Key(KeyCode::KeyE)),
+        "Q and E while piloting must pass straight to continuous Roll without emptying hands"
+    );
 
     let mut ascent = KeyMotion::idle();
     ascent.register_key(KeyCode::Space, true);
@@ -175,7 +201,7 @@ fn test_extended_spaceflight_bindings_roll_and_strafe_without_yawing() {
 
     let before_roll = ship_pose(&pilot);
     let mut roll_right = KeyMotion::idle();
-    roll_right.register_trigger(InputTrigger::Key(KeyCode::KeyX), true);
+    roll_right.register_trigger(InputTrigger::Key(KeyCode::KeyE), true);
     for _ in 0..45 {
         pilot.step_motion(1.0 / 120.0, &roll_right, world.as_ref());
     }
@@ -183,7 +209,18 @@ fn test_extended_spaceflight_bindings_roll_and_strafe_without_yawing() {
     assert!(
         before_roll.normal().dot(after_roll.normal()) < 0.97
             && before_roll.heading().dot(after_roll.heading()) > 0.98,
-        "RollRight binding (X) must roll normal around longitudinal heading"
+        "RollRight binding (E) must roll normal around longitudinal heading"
+    );
+
+    let mut roll_left = KeyMotion::idle();
+    roll_left.register_trigger(InputTrigger::Key(KeyCode::KeyQ), true);
+    for _ in 0..45 {
+        pilot.step_motion(1.0 / 120.0, &roll_left, world.as_ref());
+    }
+    let after_roll_back = ship_pose(&pilot);
+    assert!(
+        after_roll_back.normal().dot(before_roll.normal()) > 0.97,
+        "RollLeft binding (Q) must roll back in the opposite direction"
     );
 
     let idle = KeyMotion::idle();

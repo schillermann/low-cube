@@ -3,7 +3,7 @@ use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
 use crate::attire::BodyPose;
 use crate::controls::{ActionBindings, ControlAction, InputTrigger, KeyboardControls};
 use crate::drive::VehiclePilot;
-use crate::menu::CameraFeed;
+use crate::menu::{CameraFeed, ControlsSlate, ControlsSlateHud, GuidanceReadout, SlateContext};
 use crate::order::LocomotionOrder;
 use crate::posture::AvatarPosture;
 use super::deck::DeckFooting;
@@ -11,21 +11,32 @@ use super::helm_optics::HelmOptics;
 use super::sight::AvatarSight;
 use super::span::BodySpan;
 
-/// Encapsulated cockpit seating, helm optics, ship-deck footing, and vehicle mesh delegation.
+/// Encapsulated cockpit seating, helm optics, ship-deck footing, and toggleable controls legend slate.
 pub(super) struct CockpitBerth {
     pilot: VehiclePilot,
     footing: DeckFooting,
     optics: HelmOptics,
+    slate: ControlsSlate,
 }
 
 impl CockpitBerth {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(pilot: VehiclePilot, footing: DeckFooting, optics: HelmOptics) -> Self {
-        Self { pilot, footing, optics }
+    pub(super) const fn new(
+        pilot: VehiclePilot,
+        footing: DeckFooting,
+        optics: HelmOptics,
+        slate: ControlsSlate,
+    ) -> Self {
+        Self { pilot, footing, optics, slate }
     }
 
     pub(super) fn pedestrian() -> Self {
-        Self::new(VehiclePilot::Pedestrian, DeckFooting::Planetary, HelmOptics::cockpit())
+        Self::new(
+            VehiclePilot::Pedestrian,
+            DeckFooting::Planetary,
+            HelmOptics::cockpit(),
+            ControlsSlate::Hidden,
+        )
     }
 
     pub(super) const fn standing(&self) -> bool { self.pilot.standing() }
@@ -97,7 +108,30 @@ impl CockpitBerth {
         }
     }
 
+    pub(super) fn emit_controls_slate(
+        &self,
+        bindings: &ActionBindings,
+        aspect: f32,
+        target: &mut dyn MeshTarget,
+    ) {
+        if !self.slate.visible() {
+            return;
+        }
+        let context = if !self.pilot.driving() {
+            SlateContext::Pedestrian
+        } else if self.pilot.guidance_readout() != GuidanceReadout::Absent {
+            SlateContext::Spacecraft
+        } else {
+            SlateContext::Wheeled
+        };
+        ControlsSlateHud::new(bindings, context, aspect).emit(target);
+    }
+
     pub(super) fn handle_cockpit_trigger(&mut self, trigger: InputTrigger, bindings: &ActionBindings) -> bool {
+        if bindings.matches(ControlAction::ControlsLegend, trigger) {
+            self.slate = self.slate.toggled();
+            return true;
+        }
         if !self.pilot.driving() {
             return false;
         }

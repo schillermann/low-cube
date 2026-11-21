@@ -50,6 +50,9 @@ impl AvatarBody {
     pub fn hull_camera_hud(&self) -> (Option<((Vec3, Vec3, Vec3), Vec3)>, Option<crate::menu::CameraFeed>) {
         self.berth.hull_camera_hud()
     }
+    pub fn emit_controls_slate(&self, bindings: &ActionBindings, aspect: f32, target: &mut dyn MeshTarget) {
+        self.berth.emit_controls_slate(bindings, aspect, target);
+    }
     pub fn rotate_view(&mut self, dx: f32, dy: f32, sight_line: &mut AvatarSight) {
         self.berth.rotate_view(dx, dy, sight_line);
     }

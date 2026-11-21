@@ -8,17 +8,18 @@ pub enum ControlAction {
     Jump, Sneak, Sprint,
     Satchel, CraftingBook, SatchelLeft, SatchelRight,
     MoldForm, MoldLeft, MoldRight,
-    FlightGuidance, RollLeft, RollRight, RcsTranslate, RetroFlip,
+    FlightGuidance, RollLeft, RollRight, RcsTranslate, RetroFlip, ControlsLegend,
 }
 
 impl ControlAction {
-    pub const fn all() -> [Self; 19] {
+    pub const fn all() -> [Self; 20] {
         [
             Self::MoveForward, Self::MoveBackward, Self::MoveLeft, Self::MoveRight,
             Self::Jump, Self::Sneak, Self::Sprint,
             Self::Satchel, Self::CraftingBook, Self::SatchelLeft, Self::SatchelRight,
             Self::MoldForm, Self::MoldLeft, Self::MoldRight,
-            Self::FlightGuidance, Self::RollLeft, Self::RollRight, Self::RcsTranslate, Self::RetroFlip,
+            Self::FlightGuidance, Self::RollLeft, Self::RollRight,
+            Self::RcsTranslate, Self::RetroFlip, Self::ControlsLegend,
         ]
     }
 
@@ -29,8 +30,12 @@ impl ControlAction {
             Self::Satchel => 7, Self::CraftingBook => 8, Self::SatchelLeft => 9, Self::SatchelRight => 10,
             Self::MoldForm => 11, Self::MoldLeft => 12, Self::MoldRight => 13,
             Self::FlightGuidance => 14, Self::RollLeft => 15, Self::RollRight => 16,
-            Self::RcsTranslate => 17, Self::RetroFlip => 18,
+            Self::RcsTranslate => 17, Self::RetroFlip => 18, Self::ControlsLegend => 19,
         }
+    }
+
+    pub const fn spaceflight_domain(self) -> bool {
+        self.slot_index() >= 14
     }
 
     pub const fn title(self) -> &'static str {
@@ -43,7 +48,7 @@ impl ControlAction {
             Self::MoldForm => "TURN BLOCK", Self::MoldLeft => "PREV SHAPE", Self::MoldRight => "NEXT SHAPE",
             Self::FlightGuidance => "FLUGCOMPUTER", Self::RollLeft => "ROLL LEFT",
             Self::RollRight => "ROLL RIGHT", Self::RcsTranslate => "RCS STRAFE",
-            Self::RetroFlip => "RETRO FLIP",
+            Self::RetroFlip => "RETRO FLIP", Self::ControlsLegend => "STEUERUNG HUD",
         }
     }
 
@@ -57,7 +62,7 @@ impl ControlAction {
             Self::MoldForm => "mold_form", Self::MoldLeft => "mold_left", Self::MoldRight => "mold_right",
             Self::FlightGuidance => "flight_guidance", Self::RollLeft => "roll_left",
             Self::RollRight => "roll_right", Self::RcsTranslate => "rcs_translate",
-            Self::RetroFlip => "retro_flip",
+            Self::RetroFlip => "retro_flip", Self::ControlsLegend => "controls_legend",
         }
     }
 }
@@ -116,16 +121,16 @@ impl TriggerNotation for InputTrigger {
 /// Immutable one-to-one mapping assigning strictly one InputTrigger to each ControlAction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActionBindings {
-    triggers: [InputTrigger; 19],
+    triggers: [InputTrigger; 20],
 }
 
 impl ActionBindings {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(triggers: [InputTrigger; 19]) -> Self {
+    pub const fn new(triggers: [InputTrigger; 20]) -> Self {
         Self { triggers }
     }
 
-    /// Secondary constructor initializing all 19 actions with their single seeded triggers.
+    /// Secondary constructor initializing all 20 actions with their single seeded triggers.
     pub const fn seeded() -> Self {
         Self::new([
             InputTrigger::Key(KeyCode::KeyW), InputTrigger::Key(KeyCode::KeyS),
@@ -135,9 +140,9 @@ impl ActionBindings {
             InputTrigger::Key(KeyCode::KeyC), InputTrigger::Key(KeyCode::KeyQ),
             InputTrigger::Key(KeyCode::KeyE), InputTrigger::WheelClick,
             InputTrigger::WheelUp, InputTrigger::WheelDown,
-            InputTrigger::Key(KeyCode::KeyT), InputTrigger::Key(KeyCode::KeyZ),
-            InputTrigger::Key(KeyCode::KeyX), InputTrigger::Key(KeyCode::AltLeft),
-            InputTrigger::Key(KeyCode::KeyR),
+            InputTrigger::Key(KeyCode::KeyT), InputTrigger::Key(KeyCode::KeyQ),
+            InputTrigger::Key(KeyCode::KeyE), InputTrigger::Key(KeyCode::AltLeft),
+            InputTrigger::Key(KeyCode::KeyR), InputTrigger::Key(KeyCode::KeyH),
         ])
     }
 
@@ -165,7 +170,7 @@ impl ActionBindings {
         }
     }
 
-    /// Rebinds `action` to `trigger`, swapping with any existing action using `trigger` so every action keeps a single unique binding.
+    /// Rebinds `action` to `trigger`, swapping within the same control domain so every domain action stays unique.
     pub fn with_binding(self, action: ControlAction, trigger: InputTrigger) -> Self {
         if trigger == InputTrigger::Key(KeyCode::Escape) {
             return self;
@@ -173,9 +178,11 @@ impl ActionBindings {
         let mut next = self.triggers;
         let idx = action.slot_index();
         let previous = next[idx];
-        for slot in &mut next {
-            if *slot == trigger {
-                *slot = previous;
+        let domain = action.spaceflight_domain();
+        for peer in ControlAction::all() {
+            let pidx = peer.slot_index();
+            if peer.spaceflight_domain() == domain && next[pidx] == trigger {
+                next[pidx] = previous;
             }
         }
         next[idx] = trigger;

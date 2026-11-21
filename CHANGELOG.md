@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.97.0] - 2026-11-21
+
+### Added
+- Added toggleable on-screen controls HUD (`ControlsSlate`, `ControlsSlateHud`, and `SlateContext` in `crates/client/src/menu/controls_slate.rs`, bound to `ControlAction::ControlsLegend` / `H` by default and rebindable in `ControlStudio`) displaying live bound shortcuts tailored to pedestrian, wheeled vehicle, and spacecraft flight contexts (`crates/client/src/drive/rcs_guidance_tests.rs`).
+
+### Changed
+- Bound `ControlAction::RollLeft` and `ControlAction::RollRight` to `Q` and `E` by default with domain-scoped swap uniqueness (`ControlAction::spaceflight_domain` in `crates/client/src/controls/bindings.rs`) and cockpit trigger routing (`EmbodiedAvatar` in `crates/client/src/avatar/embodied/mod.rs`) so holding `Q` / `E` rolls spacecraft without stowing or casting held palm items.
+
 ## [0.96.0] - 2026-11-21
 
 ### Added
