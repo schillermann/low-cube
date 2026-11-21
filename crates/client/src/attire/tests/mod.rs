@@ -228,3 +228,38 @@ fn test_spade_and_dirt_block_replaces_held_block_when_excavating_different_mediu
     satchel_after_wheel.with_stowed_relic(HeldRelic::CarWheel, 7).with_open(true).emit_for_attire(&pose, attire_after_wheel, &mut tray_eight);
     assert_ne!(tray_one.quads.len(), tray_eight.quads.len());
 }
+
+#[test]
+fn test_sculpted_visage_voyager_crest_and_three_quarter_intercom_portrait() {
+    let mut voyager = YouthAttire::squire();
+    for _ in 0..7 {
+        voyager = voyager.with_next_crown();
+    }
+    let roundtrip = YouthAttire::from_multiplayer_bytes(voyager.multiplayer_bytes());
+    assert_eq!(roundtrip.multiplayer_bytes(), voyager.multiplayer_bytes());
+
+    let mut clean_bust = QuadLedger::empty();
+    let mut bearded_bust = QuadLedger::empty();
+    let vp = super::IntercomBust::new(voyager, (0.0, 0.0)).emit(1.62, &mut bearded_bust);
+    let _ = super::IntercomBust::new(YouthAttire::squire(), (0.0, 0.0)).emit(1.62, &mut clean_bust);
+
+    assert!(
+        bearded_bust.quads.len() > clean_bust.quads.len() + 30,
+        "VoyagerCrest must layer sculpted jawline beard, sideburns, and mustache over parted hair"
+    );
+    let cam_eye = vp.inverse().project_point3(Vec3::ZERO);
+    assert!(
+        cam_eye.x.abs() > 0.08,
+        "IntercomBust portrait camera must frame the pilot from a sculpted 3/4 offset angle (eye={cam_eye:?})"
+    );
+
+    for fem in [false, true] {
+        let mut cur = YouthAttire::squire().with_feminine(fem);
+        for _ in 0..8 {
+            let mut quads = QuadLedger::empty();
+            let _ = super::IntercomBust::new(cur, (0.1, -0.05)).emit(1.62, &mut quads);
+            assert!(quads.quads.len() > 120, "Every male and female CrownStyle decorator chain must emit sculpted geometry");
+            cur = cur.with_next_crown();
+        }
+    }
+}

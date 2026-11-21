@@ -159,4 +159,9 @@ impl PlanetaryWorld for CubePlanet {
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 {
         self.active_face(position).confine_beneath_crust(position)
     }
+
+    fn celestial_atlas(&self) -> crate::CelestialAtlas {
+        let half = self.constrain_to_surface(Vec3::new(0.25, 2048.0, 0.25), 0.0).y.round().max(4.0);
+        crate::CelestialAtlas::solitary(half)
+    }
 }

@@ -115,4 +115,21 @@ impl HelmOptics {
         let lens = (eye, (aimed * Vec3::NEG_Z).normalize(), (aimed * Vec3::Y).normalize());
         Some((lens, eye + fwd))
     }
+
+    pub(super) fn nose_channel_active(&self, views: &[HullOptic]) -> bool {
+        if self.cockpit_view() {
+            return false;
+        }
+        views
+            .get((self.channel as usize).saturating_sub(1))
+            .is_some_and(|v| matches!(v.transfer(|_, _, _, m| m), world::OpticMount::RocketNose))
+    }
+
+    pub(super) fn nose_sight_rays(&self, views: &[HullOptic]) -> Option<((Vec3, Vec3), (Vec3, Vec3))> {
+        if !self.nose_channel_active(views) {
+            return None;
+        }
+        let ((eye, aimed_fwd, _), aim_world) = self.resolve_boresight(views)?;
+        Some(((eye, (aim_world - eye).normalize_or_zero()), (eye, aimed_fwd)))
+    }
 }

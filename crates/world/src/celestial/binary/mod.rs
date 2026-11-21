@@ -232,6 +232,10 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
     fn local_body_point(&self, position: Vec3) -> Vec3 {
         if self.near_moon(position) { self.moon.local_body_point(position) } else { position }
     }
+
+    fn celestial_atlas(&self) -> crate::CelestialAtlas {
+        self.moon.compose_atlas(self.home_half, LunarWorld::HALF_SIZE)
+    }
 }
 
 fn position_near_home(pos: Vec3, home_half: f32) -> bool {

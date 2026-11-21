@@ -123,7 +123,7 @@ impl ViewfinderHud {
             GuidanceReadout::Manual => false,
         };
         let ux = self.inv_aspect;
-        let (x0, y0, x1, y1) = (-0.345 * ux, 0.852, 0.345 * ux, 0.932);
+        let (x0, y0, x1, y1) = (-0.385 * ux, 0.852, 0.385 * ux, 0.932);
         let cy = (y0 + y1) * 0.5;
         let (rim, lamp, lamp_rim, text_col, label) = if engaged {
             (
@@ -131,7 +131,7 @@ impl ViewfinderHud {
                 Vec3::new(0.18, 0.98, 0.56),
                 Vec3::new(0.05, 0.24, 0.14),
                 Vec3::new(0.66, 1.00, 0.84),
-                "FLUGCOMPUTER: EIN",
+                "FLIGHT COMPUTER: ON",
             )
         } else {
             (
@@ -139,7 +139,7 @@ impl ViewfinderHud {
                 Vec3::new(0.98, 0.26, 0.18),
                 Vec3::new(0.26, 0.06, 0.05),
                 Vec3::new(1.00, 0.70, 0.34),
-                "FLUGCOMPUTER: AUS",
+                "FLIGHT COMPUTER: OFF",
             )
         };
         ScreenBounds::new(x0, y0, x1, y1).emit_fill(Vec3::new(0.04, 0.09, 0.15), target);

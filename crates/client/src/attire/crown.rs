@@ -1,9 +1,61 @@
 use glam::Vec3;
 use world::MeshTarget;
-use super::headgear::PolygonHeadgear;
-use super::limb::{FacetedSolid, TaperedPrism};
+use super::beard::{BeardCut, BeardedHead};
+use super::coiffure::{HairCoiffure, TressedHead};
+use super::headgear::{BrowAdornment, CrownedHead};
+use super::limb::{AxialLimb, FacetedSolid, TaperedPrism};
 use super::palette::{ComplexionSwatch, PigmentSwatch};
 use super::pose::BodyPose;
+use super::visage::BareVisage;
+
+/// Focused 1-method contract for composable anatomical head, hair, beard, collar, and headwear decorators.
+pub trait HeadSculpture {
+    fn emit(&self, pose: &BodyPose, target: &mut dyn MeshTarget);
+}
+
+/// `HeadSculpture` decorator framing the neck with a tailored stand-collar and contrasting V-lapel.
+#[derive(Clone, Copy, Debug)]
+pub struct CollaredHead<S> {
+    origin: S,
+    trim: Vec3,
+    lapel: Vec3,
+}
+
+impl<S> CollaredHead<S> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(origin: S, trim: Vec3, lapel: Vec3) -> Self {
+        Self { origin, trim, lapel }
+    }
+}
+
+impl<S: HeadSculpture> HeadSculpture for CollaredHead<S> {
+    fn emit(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
+        self.origin.emit(pose, target);
+        let torso = pose.torso_frame();
+        let collar_y = pose.torso_span(0.72);
+        TaperedPrism::new(
+            8,
+            Vec3::new(0.0, collar_y - 0.02, -0.072),
+            Vec3::new(0.0, collar_y + 0.045, -0.062),
+            pose.scale(0.098),
+            pose.torso_depth(0.082),
+            pose.scale(0.076),
+            pose.torso_depth(0.070),
+            self.trim,
+        )
+        .emit(&torso, true, target);
+        for side in [-1.0_f32, 1.0_f32] {
+            AxialLimb::new(
+                Vec3::new(side * pose.scale(0.018), collar_y - 0.015, pose.torso_depth(0.016)),
+                Vec3::new(side * pose.scale(0.058), collar_y + 0.052, pose.torso_depth(-0.022)),
+                pose.scale(0.016),
+                pose.scale(0.021),
+                self.lapel,
+            )
+            .emit(&torso, true, target);
+        }
+    }
+}
 
 /// Head, hair, beard, helmet, and hat style visible to multiplayer peers and in Looking-Glass / Studio view.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -15,6 +67,7 @@ pub enum CrownStyle {
     VisoredHelm,
     SmithGoggles,
     KettleHelm,
+    VoyagerCrest,
 }
 
 impl CrownStyle {
@@ -23,14 +76,15 @@ impl CrownStyle {
     }
 
     pub fn from_code(code: u8) -> Self {
-        match code % 7 {
+        match code % 8 {
             0 => Self::TousledMop,
             1 => Self::SquireCrop,
             2 => Self::MedievalGugel,
             3 => Self::MerchantCap,
             4 => Self::VisoredHelm,
             5 => Self::SmithGoggles,
-            _ => Self::KettleHelm,
+            6 => Self::KettleHelm,
+            _ => Self::VoyagerCrest,
         }
     }
 
@@ -43,10 +97,14 @@ impl CrownStyle {
             Self::VisoredHelm => 4,
             Self::SmithGoggles => 5,
             Self::KettleHelm => 6,
+            Self::VoyagerCrest => 7,
         }
     }
 
-    /// Emits neck, sculpted Polygon-style head, detailed facial features, collar, and headgear.
+    pub const fn sculpture(self, complexion: ComplexionSwatch, pigment: PigmentSwatch) -> StyledCrown {
+        StyledCrown::new(self, complexion, pigment)
+    }
+
     pub fn emit(
         self,
         pose: &BodyPose,
@@ -54,73 +112,113 @@ impl CrownStyle {
         pigment: PigmentSwatch,
         target: &mut dyn MeshTarget,
     ) {
-        let frame = pose.crown_frame();
-        let skin = complexion.skin();
-        let shade_skin = skin * 0.89;
+        self.sculpture(complexion, pigment).emit(pose, target);
+    }
+}
+
+/// Stack-allocated `HeadSculpture` assembling the full Decorator chain for any `CrownStyle`.
+#[derive(Clone, Copy, Debug)]
+pub struct StyledCrown {
+    style: CrownStyle,
+    complexion: ComplexionSwatch,
+    pigment: PigmentSwatch,
+}
+
+impl StyledCrown {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(style: CrownStyle, complexion: ComplexionSwatch, pigment: PigmentSwatch) -> Self {
+        Self { style, complexion, pigment }
+    }
+}
+
+impl HeadSculpture for StyledCrown {
+    fn emit(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
+        let skin = self.complexion.skin();
+        let cloth = self.pigment.cloth();
+        let trim = self.pigment.trim();
+        let lapel = (trim * 0.45 + Vec3::new(0.42, 0.56, 0.64)).min(Vec3::ONE);
+        let espresso = (Vec3::new(0.23, 0.14, 0.09), Vec3::new(0.32, 0.20, 0.12));
+        let auburn = (Vec3::new(0.36, 0.19, 0.10), Vec3::new(0.45, 0.25, 0.13));
+        let golden = (Vec3::new(0.84, 0.66, 0.28), Vec3::new(0.92, 0.76, 0.36));
+
         let fem = pose.feminine();
-        let lip_col = if fem { skin * Vec3::new(0.86, 0.54, 0.56) } else { skin * 0.72 };
-        let sclera = Vec3::new(0.95, 0.95, 0.96);
-        let iris = Vec3::new(0.14, 0.12, 0.10);
-        let hair_col = Vec3::new(0.28, 0.18, 0.11);
-        let trim = pigment.trim();
-        let hs = |y: f32| pose.crown_size(y);
-        let hw = |r: f32| pose.crown_span(r);
+        let brow_col = if fem && matches!(self.style, CrownStyle::VisoredHelm) {
+            Vec3::new(0.56, 0.42, 0.18)
+        } else {
+            espresso.0
+        };
+        let collared = CollaredHead::new(BareVisage::new(skin, brow_col, fem), trim, lapel);
+        let sw = (cloth, trim);
 
-        // Neck column anchored to the upper torso collar so tilting the head never breaks the neck off the torso
-        let neck = pose.neck_frame();
-        TaperedPrism::hexagonal(
-            Vec3::new(0.0, hs(-0.15), hw(-0.022)),
-            Vec3::new(0.0, hs(0.025), hw(-0.004)),
-            pose.crown_girth(if fem { 0.048 } else { 0.056 }),
-            pose.crown_girth(if fem { 0.044 } else { 0.050 }),
-            shade_skin,
-        )
-        .emit(&neck, true, target);
-
-        // Tier 1: Sculpted chin and jawline tapering upward to cheekbones
-        TaperedPrism::new(8, Vec3::new(0.0, hs(-0.018), hw(0.018)), Vec3::new(0.0, hs(0.065), hw(0.008)), hw(if fem { 0.042 } else { 0.052 }), hw(0.064), hw(if fem { 0.082 } else { 0.088 }), hw(0.090), skin)
-            .emit(&frame, false, target);
-        // Tier 2: Cheekbones and mid-face rising to pronounced brow ridge
-        TaperedPrism::new(8, Vec3::new(0.0, hs(0.065), hw(0.008)), Vec3::new(0.0, hs(0.146), hw(0.010)), hw(0.088), hw(0.092), hw(0.090), hw(0.094), skin)
-            .emit(&frame, false, target);
-        // Tier 3: Forehead rounding inward into the upper cranium
-        TaperedPrism::new(8, Vec3::new(0.0, hs(0.146), hw(0.010)), Vec3::new(0.0, hs(0.198), hw(0.008)), hw(0.090), hw(0.094), hw(0.064), hw(0.068), skin)
-            .emit(&frame, true, target);
-
-        // Sculpted Polygon-style nose bridge and tip on the front (+Z) of the face
-        TaperedPrism::new(4, Vec3::new(0.0, hs(0.062), hw(0.098)), Vec3::new(0.0, hs(0.120), hw(0.090)), hw(0.017), hw(0.020), hw(0.010), hw(0.012), shade_skin)
-            .emit(&frame, true, target);
-        // Mouth and lip line below the nose
-        TaperedPrism::new(4, Vec3::new(0.0, hs(0.024), hw(0.084)), Vec3::new(0.0, hs(0.036), hw(0.084)), hw(0.025), hw(0.010), hw(0.022), hw(0.010), lip_col)
-            .emit(&frame, true, target);
-
-        // Expressive multi-part eyes (sclera + dark iris), eyebrows, and sculpted side ears
-        for side in [-1.0f32, 1.0f32] {
-            TaperedPrism::new(6, Vec3::new(side * hw(0.036), hs(0.095), hw(0.085)), Vec3::new(side * hw(0.036), hs(0.122), hw(0.085)), hw(0.016), hw(0.009), hw(0.015), hw(0.009), sclera)
-                .emit(&frame, true, target);
-            TaperedPrism::new(6, Vec3::new(side * hw(0.036), hs(0.099), hw(0.089)), Vec3::new(side * hw(0.036), hs(0.118), hw(0.089)), hw(0.010), hw(0.008), hw(0.010), hw(0.008), iris)
-                .emit(&frame, true, target);
-            TaperedPrism::new(4, Vec3::new(side * hw(0.037), hs(0.126), hw(0.091)), Vec3::new(side * hw(0.037), hs(0.138), hw(0.091)), hw(0.021), hw(0.011), hw(0.019), hw(0.011), hair_col)
-                .emit(&frame, true, target);
-            TaperedPrism::new(4, Vec3::new(side * hw(0.089), hs(0.066), hw(-0.004)), Vec3::new(side * hw(0.092), hs(0.122), hw(-0.002)), hw(0.013), hw(0.019), hw(0.015), hw(0.021), shade_skin)
-                .emit(&frame, true, target);
+        if fem {
+            match self.style {
+                CrownStyle::VisoredHelm => {
+                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, golden), BrowAdornment::WingedDiadem, sw)
+                        .emit(pose, target);
+                }
+                CrownStyle::MedievalGugel => {
+                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, espresso), BrowAdornment::RangerHood, sw)
+                        .emit(pose, target);
+                }
+                CrownStyle::MerchantCap => {
+                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, auburn), BrowAdornment::FloralWreath, sw)
+                        .emit(pose, target);
+                }
+                CrownStyle::SmithGoggles => {
+                    TressedHead::new(collared, HairCoiffure::SilkTopknot, espresso).emit(pose, target);
+                }
+                CrownStyle::KettleHelm => {
+                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, espresso), BrowAdornment::BattleCirclet, sw)
+                        .emit(pose, target);
+                }
+                CrownStyle::TousledMop => {
+                    TressedHead::new(collared, HairCoiffure::FlowingBraids, espresso).emit(pose, target);
+                }
+                CrownStyle::SquireCrop | CrownStyle::VoyagerCrest => {
+                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, auburn), BrowAdornment::RoyalTiara, sw)
+                        .emit(pose, target);
+                }
+            }
+            return;
         }
 
-        // Tailored stand collar on upper torso
-        let torso = pose.torso_frame();
-        let collar_y = pose.torso_span(0.72);
-        TaperedPrism::new(
-            8,
-            Vec3::new(0.0, collar_y - 0.02, -0.072),
-            Vec3::new(0.0, collar_y + 0.045, -0.062),
-            pose.scale(0.096),
-            pose.torso_depth(0.080),
-            pose.scale(0.074),
-            pose.torso_depth(0.068),
-            trim,
-        )
-        .emit(&torso, true, target);
-
-        PolygonHeadgear::new(self).emit(pose, &frame, pigment, target);
+        match self.style {
+            CrownStyle::TousledMop => {
+                TressedHead::new(collared, HairCoiffure::PartedWave, espresso).emit(pose, target);
+            }
+            CrownStyle::VoyagerCrest => {
+                let bearded = BeardedHead::new(collared, BeardCut::FullJawline, (auburn.0, espresso.0));
+                TressedHead::new(bearded, HairCoiffure::PartedWave, espresso).emit(pose, target);
+            }
+            CrownStyle::SquireCrop => {
+                let bearded = BeardedHead::new(collared, BeardCut::PointedGoatee, auburn);
+                let tressed = TressedHead::new(bearded, HairCoiffure::CroppedTemples, auburn);
+                CrownedHead::new(tressed, BrowAdornment::SquireBeret, sw).emit(pose, target);
+            }
+            CrownStyle::MedievalGugel => {
+                let bearded = BeardedHead::new(collared, BeardCut::RangerStubble, espresso);
+                let tressed = TressedHead::new(bearded, HairCoiffure::CroppedTemples, espresso);
+                CrownedHead::new(tressed, BrowAdornment::RangerHood, sw).emit(pose, target);
+            }
+            CrownStyle::MerchantCap => {
+                let bearded = BeardedHead::new(collared, BeardCut::FullJawline, (auburn.0, espresso.0));
+                let tressed = TressedHead::new(bearded, HairCoiffure::CroppedTemples, auburn);
+                CrownedHead::new(tressed, BrowAdornment::VelvetCap, sw).emit(pose, target);
+            }
+            CrownStyle::VisoredHelm => {
+                let tressed = TressedHead::new(collared, HairCoiffure::CroppedTemples, espresso);
+                CrownedHead::new(tressed, BrowAdornment::RaisedSallet, sw).emit(pose, target);
+            }
+            CrownStyle::SmithGoggles => {
+                let bearded = BeardedHead::new(collared, BeardCut::BraidedFork, espresso);
+                let tressed = TressedHead::new(bearded, HairCoiffure::PartedWave, espresso);
+                CrownedHead::new(tressed, BrowAdornment::BrowGoggles, sw).emit(pose, target);
+            }
+            CrownStyle::KettleHelm => {
+                let bearded = BeardedHead::new(collared, BeardCut::GarrisonMustache, espresso);
+                let tressed = TressedHead::new(bearded, HairCoiffure::CroppedTemples, espresso);
+                CrownedHead::new(tressed, BrowAdornment::KettleBrim, sw).emit(pose, target);
+            }
+        }
     }
 }

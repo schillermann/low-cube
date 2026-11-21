@@ -115,6 +115,7 @@ impl PlanetaryWorld for HostedPlanet {
     fn lethal_at(&self, position: Vec3) -> bool { self.host.world().lethal_at(position) }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.host.world().confine_beneath_crust(position) }
     fn local_body_point(&self, position: Vec3) -> Vec3 { self.host.world().local_body_point(position) }
+    fn celestial_atlas(&self) -> world::CelestialAtlas { self.host.world().celestial_atlas() }
 }
 
 impl WorldEarthworks for HostedPlanet {

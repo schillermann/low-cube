@@ -1,3 +1,4 @@
+mod atlas;
 mod binary;
 mod gravity;
 mod lunar;
@@ -8,6 +9,7 @@ mod translated;
 use glam::Vec3;
 use crate::{BeveledGravity, BiomedCubeWorld, ClimateZone, GravityField, PlanetaryWorld};
 
+pub use self::atlas::CelestialAtlas;
 pub use self::binary::BinaryPlanet;
 pub use self::gravity::{BinaryGravity, RadialWell};
 pub use self::lunar::{LunarCraterRelief, LunarWorld};

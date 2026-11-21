@@ -243,9 +243,9 @@ impl PreviewAtlas {
                 gl.enable(glow::SCISSOR_TEST);
                 gl.viewport(px0, py0, pw, ph);
                 gl.scissor(px0, py0, pw, ph);
-                gl.clear_color(0.055, 0.145, 0.195, 1.0);
+                gl.clear_color(0.085, 0.125, 0.175, 1.0);
                 gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
-                shader.bind(gl, &bust_vp, Vec3::new(0.32, 0.48, 0.82).normalize());
+                shader.bind(gl, &bust_vp, Vec3::new(0.46, 0.52, 0.72).normalize());
                 bust_mesh.draw(gl);
                 gl.disable(glow::SCISSOR_TEST);
                 gl.viewport(0, 0, win_w, win_h);

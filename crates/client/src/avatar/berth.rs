@@ -91,6 +91,27 @@ impl CockpitBerth {
         (self.optics.resolve_boresight(&views), self.optics.channel_feed(&views, guidance))
     }
 
+    pub(super) fn mark_nose_target(&mut self, world: &dyn PlanetaryWorld) -> bool {
+        if !self.pilot.driving() {
+            return false;
+        }
+        let mut views = Vec::new();
+        self.pilot.camera_views(&mut views);
+        let Some(rays) = self.optics.nose_sight_rays(&views) else {
+            return false;
+        };
+        self.pilot.mark_nose_target(rays, world)
+    }
+
+    pub(super) fn nose_orrery(&self) -> Option<crate::drive::OrrerySnapshot> {
+        if !self.pilot.driving() {
+            return None;
+        }
+        let mut views = Vec::new();
+        self.pilot.camera_views(&mut views);
+        self.optics.nose_channel_active(&views).then(|| self.pilot.orrery_snapshot()).flatten()
+    }
+
     pub(super) fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
         if self.optics.cockpit_view() || !self.pilot.driving() {
             return None;

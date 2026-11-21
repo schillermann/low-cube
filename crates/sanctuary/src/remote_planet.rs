@@ -242,4 +242,5 @@ impl PlanetaryWorld for RemotePlanet {
     fn lethal_at(&self, position: Vec3) -> bool { self.world.lethal_at(position) }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.world.confine_beneath_crust(position) }
     fn local_body_point(&self, position: Vec3) -> Vec3 { self.world.local_body_point(position) }
+    fn celestial_atlas(&self) -> world::CelestialAtlas { self.world.celestial_atlas() }
 }

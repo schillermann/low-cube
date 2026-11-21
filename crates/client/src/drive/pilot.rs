@@ -54,6 +54,20 @@ impl VehiclePilot {
         }
     }
 
+    pub fn mark_nose_target(&mut self, rays: ((Vec3, Vec3), (Vec3, Vec3)), world: &dyn PlanetaryWorld) -> bool {
+        match self {
+            Self::Driving(craft) => craft.mark_nose_target(rays, world),
+            _ => false,
+        }
+    }
+
+    pub fn orrery_snapshot(&self) -> Option<super::OrrerySnapshot> {
+        match self {
+            Self::Driving(craft) => craft.orrery_snapshot(),
+            _ => None,
+        }
+    }
+
     pub fn camera_views(&self, out: &mut Vec<HullOptic>) {
         if let Self::Driving(craft) = self {
             craft.camera_views(out);
@@ -63,7 +77,7 @@ impl VehiclePilot {
     pub fn mount(&mut self, assembly: VehicleAssembly, world: &dyn PlanetaryWorld) -> (Vec3, Vec3) {
         let heading = assembly.heading();
         let drivable = assembly.drivable();
-        let craft = HelmedCraft::boarded(assembly);
+        let craft = HelmedCraft::boarded_in(assembly, world);
         let pos = if drivable { craft.seat_position(world) } else { craft.perch_position() };
         *self = if drivable { Self::Driving(craft) } else { Self::Perch(craft) };
         (pos, heading)

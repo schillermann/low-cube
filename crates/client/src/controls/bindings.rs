@@ -46,9 +46,9 @@ impl ControlAction {
             Self::Satchel => "SATCHEL", Self::CraftingBook => "CRAFTING BOOK",
             Self::SatchelLeft => "EMPTY LEFT", Self::SatchelRight => "EMPTY RIGHT",
             Self::MoldForm => "TURN BLOCK", Self::MoldLeft => "PREV SHAPE", Self::MoldRight => "NEXT SHAPE",
-            Self::FlightGuidance => "FLUGCOMPUTER", Self::RollLeft => "ROLL LEFT",
+            Self::FlightGuidance => "FLIGHT COMPUTER", Self::RollLeft => "ROLL LEFT",
             Self::RollRight => "ROLL RIGHT", Self::RcsTranslate => "RCS STRAFE",
-            Self::RetroFlip => "RETRO FLIP", Self::ControlsLegend => "STEUERUNG HUD",
+            Self::RetroFlip => "RETRO FLIP", Self::ControlsLegend => "CONTROLS HUD",
         }
     }
 

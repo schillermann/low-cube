@@ -235,4 +235,5 @@ impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position) }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.origin.confine_beneath_crust(position) }
     fn local_body_point(&self, position: Vec3) -> Vec3 { self.origin.local_body_point(position) }
+    fn celestial_atlas(&self) -> crate::CelestialAtlas { self.origin.celestial_atlas() }
 }

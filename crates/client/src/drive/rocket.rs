@@ -1,5 +1,5 @@
 use glam::{Quat, Vec3};
-use world::{AttitudeGuidance, CockpitAxes, PilotOrder, PlanetaryWorld, VehicleAssembly};
+use world::{AttitudeGuidance, CelestialAtlas, CockpitAxes, PilotOrder, PlanetaryWorld, VehicleAssembly};
 use acoustics::{AcousticWave, NozzleRoar};
 use crate::attire::{BodyPose, RocketControls};
 use crate::controls::{KeyboardControls, LocomotionTarget};
@@ -7,6 +7,7 @@ use crate::menu::GuidanceReadout;
 use super::space_step::{
     GravitationStep, GyroStep, InertialDrift, NozzleThrustStep, SpaceStep, TouchdownStep,
 };
+use super::transfer_arc::{HelmChart, OrrerySnapshot};
 use super::{CraftDrive, SEAT_EYE_SUPPORT};
 
 /// Cockpit 6-DOF directional thruster burn collector implementing `LocomotionTarget` for `FlightConsole`.
@@ -85,45 +86,68 @@ impl HelmTrim {
     }
 }
 
-/// 6-DOF spacecraft propulsion composing linear & angular velocity, cockpit controls, and `SpaceStep` chain.
+/// Encapsulated linear and angular 6-DOF spacecraft momentum vectors.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct SpaceKinematics {
+    linear: Vec3,
+    angular: Vec3,
+}
+
+impl SpaceKinematics {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub(super) const fn new(linear: Vec3, angular: Vec3) -> Self {
+        Self { linear, angular }
+    }
+
+    pub(super) const fn at_rest() -> Self {
+        Self::new(Vec3::ZERO, Vec3::ZERO)
+    }
+}
+
+/// 6-DOF spacecraft propulsion composing `SpaceKinematics`, cockpit controls, `HelmTrim`, and `HelmChart`.
 pub struct RocketDrive {
-    velocity: Vec3,
-    angular_velocity: Vec3,
+    kinematics: SpaceKinematics,
     controls: RocketControls,
     trim: HelmTrim,
+    chart: HelmChart,
 }
 
 impl RocketDrive {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        velocity: Vec3,
-        angular_velocity: Vec3,
+    pub(super) const fn new(
+        kinematics: SpaceKinematics,
         controls: RocketControls,
         trim: HelmTrim,
+        chart: HelmChart,
     ) -> Self {
-        Self { velocity, angular_velocity, controls, trim }
+        Self { kinematics, controls, trim, chart }
     }
 
-    pub const fn pad_idle() -> Self {
-        Self::new(Vec3::ZERO, Vec3::ZERO, RocketControls::neutral(), HelmTrim::pad_engaged())
+    pub const fn pad_with_atlas(atlas: CelestialAtlas) -> Self {
+        Self::new(
+            SpaceKinematics::at_rest(),
+            RocketControls::neutral(),
+            HelmTrim::pad_engaged(),
+            HelmChart::uncharted(atlas),
+        )
     }
 
     fn step_retro_flip(&mut self, assembly: &mut VehicleAssembly, dt: f32) -> bool {
         if !self.trim.flip_retro {
             return false;
         }
-        let speed_sq = self.velocity.length_squared();
+        let speed_sq = self.kinematics.linear.length_squared();
         if speed_sq <= 1.0 || !assembly.attitude_capable() || !self.trim.guidance.engaged() {
             self.trim.flip_retro = false;
             return false;
         }
-        let retro_dir = -self.velocity / speed_sq.sqrt();
+        let retro_dir = -self.kinematics.linear / speed_sq.sqrt();
         let ship_up = assembly.normal().normalize_or_zero();
         let dot = ship_up.dot(retro_dir).clamp(-1.0, 1.0);
         if dot > 0.9992 {
             let snap = Quat::from_rotation_arc(ship_up, retro_dir);
             assembly.rotate_3d(snap);
-            self.angular_velocity = Vec3::ZERO;
+            self.kinematics.angular = Vec3::ZERO;
             self.trim.flip_retro = false;
             return false;
         }
@@ -163,7 +187,7 @@ impl CraftDrive for RocketDrive {
     fn toggle_retro_flip(&mut self, assembly: &VehicleAssembly) -> bool {
         if !assembly.attitude_capable()
             || !self.trim.guidance.engaged()
-            || self.velocity.length_squared() <= 1.0
+            || self.kinematics.linear.length_squared() <= 1.0
         {
             return false;
         }
@@ -190,6 +214,19 @@ impl CraftDrive for RocketDrive {
         }
     }
 
+    fn mark_nose_target(
+        &mut self,
+        rays: ((Vec3, Vec3), (Vec3, Vec3)),
+        assembly: &VehicleAssembly,
+        world: &dyn PlanetaryWorld,
+    ) -> bool {
+        self.chart.mark_target(rays, (assembly.origin(), self.kinematics.linear), world)
+    }
+
+    fn orrery_snapshot(&self, assembly: &VehicleAssembly) -> Option<OrrerySnapshot> {
+        Some(self.chart.snapshot(assembly.origin(), assembly.normal(), self.kinematics.linear))
+    }
+
     fn advance(
         &mut self,
         assembly: &mut VehicleAssembly,
@@ -197,10 +234,11 @@ impl CraftDrive for RocketDrive {
         controls: &dyn KeyboardControls,
         world: &dyn PlanetaryWorld,
     ) -> (Vec3, Vec3, f32) {
+        self.chart.sync_world(world);
         let mut pedals = ConsolePedals::idle();
         controls.drive_locomotion(Vec3::Y, Vec3::X, &mut pedals);
         let axes = CockpitAxes::from_pose(assembly.pose());
-        let omega_local = axes.to_local(self.angular_velocity);
+        let omega_local = axes.to_local(self.kinematics.angular);
         let order = pedals.to_order(omega_local, self.trim.guidance);
         if order.manual_input() {
             self.trim.flip_retro = false;
@@ -222,7 +260,7 @@ impl CraftDrive for RocketDrive {
             GyroStep::new(
                 NozzleThrustStep::new(
                     GravitationStep::new(
-                        InertialDrift::new(assembly.origin(), self.velocity, self.angular_velocity),
+                        InertialDrift::new(assembly.origin(), self.kinematics.linear, self.kinematics.angular),
                         world,
                     ),
                     assembly,
@@ -236,8 +274,7 @@ impl CraftDrive for RocketDrive {
         );
         let stepped = chain.resolve(dt);
         let (next_origin, next_vel, next_omega, step_rot) = stepped.transfer(|o, v, w, r| (o, v, w, r));
-        self.velocity = next_vel;
-        self.angular_velocity = next_omega;
+        self.kinematics = SpaceKinematics::new(next_vel, next_omega);
         if step_rot != Quat::IDENTITY {
             assembly.rotate_3d(step_rot);
         }

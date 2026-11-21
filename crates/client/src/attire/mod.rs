@@ -2,7 +2,9 @@ use winit::keyboard::KeyCode;
 use world::{MeshTarget, PalmMolds};
 
 mod accoutrement;
+mod beard;
 mod burden;
+mod coiffure;
 mod compartment;
 mod crown;
 mod file_attire;
@@ -22,6 +24,7 @@ mod sack;
 mod sight;
 mod tome;
 mod tray;
+mod visage;
 mod wardrobe;
 #[cfg(test)]
 mod tests;
@@ -240,10 +243,12 @@ impl YouthAttire {
         pose.with_physique(self.identity.physique)
     }
 
-    pub(super) fn emit_upper_bust(&self, pose: &BodyPose, target: &mut dyn MeshTarget) -> BodyPose {
+    pub(super) fn emit_bust_with_headset(&self, pose: &BodyPose, target: &mut dyn MeshTarget) -> BodyPose {
+        use self::crown::HeadSculpture;
         let scaled = self.scaled_pose(pose);
         self.garments.tunic.emit(&scaled, self.identity.pigment, target);
-        self.identity.crown.emit(&scaled, self.identity.complexion, self.identity.pigment, target);
+        let crown = self.identity.crown.sculpture(self.identity.complexion, self.identity.pigment);
+        intercom::HeadsetHead::aviation(crown).emit(&scaled, target);
         scaled
     }
 

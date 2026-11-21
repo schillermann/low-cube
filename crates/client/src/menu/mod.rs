@@ -14,6 +14,7 @@ mod controls_slate;
 mod escape_menu;
 mod glyph;
 mod inspection_modal;
+mod orrery_hud;
 mod pause_panel;
 mod portal;
 mod settings;
@@ -38,6 +39,7 @@ pub use controls_slate::{ControlsSlate, ControlsSlateHud, SlateContext};
 pub use escape_menu::EscapeMenu;
 pub use glyph::PixelStamp;
 pub use inspection_modal::InspectionModal;
+pub use orrery_hud::NoseOrreryHud;
 #[cfg(test)]
 pub use pause_panel::PausePanel;
 pub use portal::{AutoPunchModal, PortalInvite};

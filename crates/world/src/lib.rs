@@ -31,8 +31,8 @@ mod mesh_target_tests;
 pub use beveled_world::BeveledGravity;
 pub use biome::BiomedCubeWorld;
 pub use celestial::{
-    BinaryGravity, BinaryPlanet, CelestialSystem, LunarCraterRelief, LunarWorld, OrbitalFleetWorld,
-    RadialWell, StarVault, TranslatedWorld,
+    BinaryGravity, BinaryPlanet, CelestialAtlas, CelestialSystem, LunarCraterRelief, LunarWorld,
+    OrbitalFleetWorld, RadialWell, StarVault, TranslatedWorld,
 };
 pub use block::{
     AttitudeNozzleMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,

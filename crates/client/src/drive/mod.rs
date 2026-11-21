@@ -4,6 +4,7 @@ mod road;
 mod rocket;
 mod space_step;
 mod track;
+mod transfer_arc;
 mod wheeled;
 #[cfg(test)]
 mod camera_look_tests;
@@ -19,6 +20,8 @@ mod lunar_tests;
 mod multiplayer_tests;
 #[cfg(test)]
 mod nozzle_tests;
+#[cfg(test)]
+mod orrery_route_tests;
 #[cfg(test)]
 mod preview_vessel_tests;
 #[cfg(test)]
@@ -39,6 +42,7 @@ use crate::controls::{KeyboardControls, LocomotionTarget};
 pub use self::pilot::VehiclePilot;
 use self::rocket::RocketDrive;
 use self::track::FaceContact;
+pub use self::transfer_arc::{ARC_NODES, NavigationCourse, OrrerySnapshot, TransferArc};
 pub use self::wheeled::WheeledDrive;
 
 pub(super) const SEAT_EYE_SUPPORT: f32 = 1.0;
@@ -52,6 +56,15 @@ pub trait CraftDrive: Send + Sync {
     fn toggle_retro_flip(&mut self, _assembly: &VehicleAssembly) -> bool { false }
     fn toggle_flight_guidance(&mut self, _assembly: &VehicleAssembly) -> bool { false }
     fn guidance_readout(&self) -> crate::menu::GuidanceReadout { crate::menu::GuidanceReadout::Absent }
+    fn mark_nose_target(
+        &mut self,
+        _rays: ((Vec3, Vec3), (Vec3, Vec3)),
+        _assembly: &VehicleAssembly,
+        _world: &dyn PlanetaryWorld,
+    ) -> bool {
+        false
+    }
+    fn orrery_snapshot(&self, _assembly: &VehicleAssembly) -> Option<OrrerySnapshot> { None }
     fn advance(
         &mut self,
         assembly: &mut VehicleAssembly,
@@ -113,10 +126,10 @@ impl HelmedCraft {
         Self { assembly, drive, origin_span }
     }
 
-    pub fn boarded(assembly: VehicleAssembly) -> Self {
+    pub fn boarded_in(assembly: VehicleAssembly, world: &dyn PlanetaryWorld) -> Self {
         let origin = assembly.origin();
         let drive: Box<dyn CraftDrive> = if assembly.spacefaring() {
-            Box::new(RocketDrive::pad_idle())
+            Box::new(RocketDrive::pad_with_atlas(world.celestial_atlas()))
         } else {
             Box::new(WheeledDrive::parked())
         };
@@ -134,6 +147,10 @@ impl HelmedCraft {
     pub fn toggle_retro_flip(&mut self) -> bool { self.drive.toggle_retro_flip(&self.assembly) }
     pub fn toggle_flight_guidance(&mut self) -> bool { self.drive.toggle_flight_guidance(&self.assembly) }
     pub fn guidance_readout(&self) -> crate::menu::GuidanceReadout { self.drive.guidance_readout() }
+    pub fn mark_nose_target(&mut self, rays: ((Vec3, Vec3), (Vec3, Vec3)), world: &dyn PlanetaryWorld) -> bool {
+        self.drive.mark_nose_target(rays, &self.assembly, world)
+    }
+    pub fn orrery_snapshot(&self) -> Option<OrrerySnapshot> { self.drive.orrery_snapshot(&self.assembly) }
 
     pub fn camera_views(&self, out: &mut Vec<HullOptic>) {
         let (prev, alpha) = self.origin_span;
@@ -173,12 +190,12 @@ impl HelmedCraft {
         let in_orbit = Self::orbital_at(raw_origin, world);
         let _ = world.park_vehicle(self.assembly);
         if in_orbit {
-            return Self::boarded(shell);
+            return Self::boarded_in(shell, world);
         }
         let face_up = ClimateZone::dominant(world.surface_up_at(raw_origin)).normal();
         let base_ground = FaceContact::new(raw_origin).ground(0.0, world) - face_up * 0.5;
         shell.relocate(base_ground, face_up);
-        Self::boarded(shell)
+        Self::boarded_in(shell, world)
     }
 
     pub fn body_rotation(&self) -> Quat {

@@ -139,6 +139,10 @@ impl AvatarMotor for EmbodiedAvatar {
     fn act_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
         let eye = self.pose_at(self.body.position()).eye_origin();
         if !self.gear.satchel_open() {
+            if side < 0.0 && self.body.mark_nose_target(world) {
+                self.bearing.calm();
+                return true;
+            }
             if let Some(outcome) = self.body.interact_seated_vehicle(eye, self.sight_line.view_direction(), &mut self.sight_line, world) {
                 self.bearing.calm();
                 return outcome;
@@ -220,6 +224,10 @@ impl AvatarMotor for EmbodiedAvatar {
         let (boresight, feed) = self.body.hull_camera_hud();
         let aim = self.sight_line.reticle_point(aspect, boresight);
         self.body.posture().emit_reticle_at(aim, target);
+        if let Some(orrery) = self.body.nose_orrery() {
+            let vp = self.project_at_sight(aspect, self.bearing.sight(), self.body.hull_camera_lens());
+            crate::menu::NoseOrreryHud::new(orrery, vp, aspect).emit(target);
+        }
         if let Some(channel_feed) = feed {
             crate::menu::ViewfinderHud::new(channel_feed, aspect).emit(target);
         }

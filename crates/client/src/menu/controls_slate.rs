@@ -53,35 +53,36 @@ impl<'a> ControlsSlateHud<'a> {
     pub fn emit(self, target: &mut dyn MeshTarget) {
         let b = self.bindings;
         let title = match self.context {
-            SlateContext::Spacecraft => "RAKETEN-STEUERUNG",
-            SlateContext::Wheeled => "FAHRZEUG-STEUERUNG",
-            SlateContext::Pedestrian => "STEUERUNG",
+            SlateContext::Spacecraft => "ROCKET CONTROLS",
+            SlateContext::Wheeled => "VEHICLE CONTROLS",
+            SlateContext::Pedestrian => "CONTROLS",
         };
         let rows: Vec<(&str, String)> = match self.context {
             SlateContext::Spacecraft => vec![
-                ("SCHUB / BREMSEN", format!("{} / {}", b.label_for(ControlAction::Jump), b.label_for(ControlAction::Sneak))),
-                ("NICKEN", format!("{} / {}", b.label_for(ControlAction::MoveForward), b.label_for(ControlAction::MoveBackward))),
-                ("GIEREN", format!("{} / {}", b.label_for(ControlAction::MoveLeft), b.label_for(ControlAction::MoveRight))),
-                ("ROLLEN", format!("{} / {}", b.label_for(ControlAction::RollLeft), b.label_for(ControlAction::RollRight))),
-                ("RCS DRIFT", format!("{} + WASD", b.label_for(ControlAction::RcsTranslate))),
-                ("FLUGCOMPUTER", b.label_for(ControlAction::FlightGuidance).to_string()),
+                ("THRUST / BRAKE", format!("{} / {}", b.label_for(ControlAction::Jump), b.label_for(ControlAction::Sneak))),
+                ("PITCH", format!("{} / {}", b.label_for(ControlAction::MoveForward), b.label_for(ControlAction::MoveBackward))),
+                ("YAW", format!("{} / {}", b.label_for(ControlAction::MoveLeft), b.label_for(ControlAction::MoveRight))),
+                ("ROLL", format!("{} / {}", b.label_for(ControlAction::RollLeft), b.label_for(ControlAction::RollRight))),
+                ("RCS STRAFE", format!("{} + WASD", b.label_for(ControlAction::RcsTranslate))),
+                ("FLIGHT COMP.", b.label_for(ControlAction::FlightGuidance).to_string()),
                 ("FLIP + BURN", b.label_for(ControlAction::RetroFlip).to_string()),
-                ("KAMERA", format!("{} / {}", b.label_for(ControlAction::MoldLeft), b.label_for(ControlAction::MoldRight))),
+                ("MARK TARGET", "L-CLICK (NOSE)".to_string()),
+                ("CAMERA", format!("{} / {}", b.label_for(ControlAction::MoldLeft), b.label_for(ControlAction::MoldRight))),
             ],
             SlateContext::Wheeled => vec![
-                ("FAHREN / RUECK", format!("{} / {}", b.label_for(ControlAction::MoveForward), b.label_for(ControlAction::MoveBackward))),
-                ("LENKEN", format!("{} / {}", b.label_for(ControlAction::MoveLeft), b.label_for(ControlAction::MoveRight))),
-                ("BREMSE", b.label_for(ControlAction::Jump).to_string()),
-                ("KAMERA", format!("{} / {}", b.label_for(ControlAction::MoldLeft), b.label_for(ControlAction::MoldRight))),
+                ("DRIVE / REV", format!("{} / {}", b.label_for(ControlAction::MoveForward), b.label_for(ControlAction::MoveBackward))),
+                ("STEER", format!("{} / {}", b.label_for(ControlAction::MoveLeft), b.label_for(ControlAction::MoveRight))),
+                ("BRAKE", b.label_for(ControlAction::Jump).to_string()),
+                ("CAMERA", format!("{} / {}", b.label_for(ControlAction::MoldLeft), b.label_for(ControlAction::MoldRight))),
             ],
             SlateContext::Pedestrian => vec![
-                ("BEWEGEN", format!("{}{}{}{}", b.label_for(ControlAction::MoveForward), b.label_for(ControlAction::MoveLeft), b.label_for(ControlAction::MoveBackward), b.label_for(ControlAction::MoveRight))),
-                ("SPRUNG / SCHLEICH", format!("{} / {}", b.label_for(ControlAction::Jump), b.label_for(ControlAction::Sneak))),
-                ("SPRINTEN", format!("{} + {}", b.label_for(ControlAction::Sprint), b.label_for(ControlAction::MoveForward))),
-                ("TASCHE / BUCH", format!("{} / {}", b.label_for(ControlAction::Satchel), b.label_for(ControlAction::CraftingBook))),
-                ("HAND LEEREN", format!("{} / {}", b.label_for(ControlAction::SatchelLeft), b.label_for(ControlAction::SatchelRight))),
-                ("BLOCK DREHEN", b.label_for(ControlAction::MoldForm).to_string()),
-                ("FORM WECHSELN", format!("{} / {}", b.label_for(ControlAction::MoldLeft), b.label_for(ControlAction::MoldRight))),
+                ("MOVE", format!("{}{}{}{}", b.label_for(ControlAction::MoveForward), b.label_for(ControlAction::MoveLeft), b.label_for(ControlAction::MoveBackward), b.label_for(ControlAction::MoveRight))),
+                ("JUMP / SNEAK", format!("{} / {}", b.label_for(ControlAction::Jump), b.label_for(ControlAction::Sneak))),
+                ("SPRINT", format!("{} + {}", b.label_for(ControlAction::Sprint), b.label_for(ControlAction::MoveForward))),
+                ("BAG / BOOK", format!("{} / {}", b.label_for(ControlAction::Satchel), b.label_for(ControlAction::CraftingBook))),
+                ("EMPTY HAND", format!("{} / {}", b.label_for(ControlAction::SatchelLeft), b.label_for(ControlAction::SatchelRight))),
+                ("TURN BLOCK", b.label_for(ControlAction::MoldForm).to_string()),
+                ("CYCLE SHAPE", format!("{} / {}", b.label_for(ControlAction::MoldLeft), b.label_for(ControlAction::MoldRight))),
             ],
         };
 
@@ -106,7 +107,7 @@ impl<'a> ControlsSlateHud<'a> {
                 .emit_centered(keys, x0 + 0.672 * ux, ry, target);
         }
 
-        let hide_hint = format!("[{}] AUSBLENDEN", b.label_for(ControlAction::ControlsLegend));
+        let hide_hint = format!("[{}] HIDE", b.label_for(ControlAction::ControlsLegend));
         PixelStamp::new(0.0042 * ux, 0.0062, Vec3::new(0.54, 0.68, 0.80))
             .emit_centered(&hide_hint, cx, y0 + 0.028, target);
     }

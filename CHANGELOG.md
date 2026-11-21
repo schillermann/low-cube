@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.98.0] - 2026-11-21
+
+### Added
+- Added cosmic nose-camera target locking and holographic 3D `ConsoleOrrery`-style trajectory guidance (`CelestialAtlas` in `crates/world/src/celestial/atlas.rs`, `TransferArc`, `NavigationCourse`, `RouteTelemetry`, `OrrerySnapshot`, and `HelmChart` in `crates/client/src/drive/transfer_arc.rs`, and `NoseOrreryHud` / `OrreryCanvas` in `crates/client/src/menu/orrery_hud/`): left-clicking in `OpticMount::RocketNose` locks onto lunar or homeworld terrain without releasing `FlightConsole`, integrates two-body `BinaryGravity` (`PlanetaryWorld::apply_pull`) via symplectic shooting into a 3D transfer curve, frames the marked destination with `[ + ]` brackets, and renders a live 3D golden rocket symbol with magenta flight vector and `ON COURSE` / `OFF COURSE` telemetry inside the bottom-right wireframe orrery (`crates/client/src/drive/orrery_route_tests.rs`).
+- Added composable stack-allocated `HeadSculpture` decorator hierarchy (`BareVisage` in `crates/client/src/attire/visage.rs`, `CollaredHead` and `StyledCrown` in `crates/client/src/attire/crown.rs`, `TressedHead` / `HairCoiffure` in `crates/client/src/attire/coiffure.rs`, `BeardedHead` / `BeardCut` in `crates/client/src/attire/beard.rs`, `CrownedHead` / `BrowAdornment` in `crates/client/src/attire/headgear.rs`, and `HeadsetHead` in `crates/client/src/attire/intercom.rs`) plus `CrownStyle::VoyagerCrest`, sculpting cheekbone planes, 3D nasal bridges, almond eyes with corneal catchlights, anatomical facial hair, open-faced hoods/helms, and 3/4 portrait Intercom lighting across all male and female characters.
+
+### Changed
+- Localized the `H` controls legend (`ControlsSlateHud` in `crates/client/src/menu/controls_slate.rs`), `ControlAction::title` (`crates/client/src/controls/bindings.rs`), and nose-camera flight computer banner (`ViewfinderHud` in `crates/client/src/menu/viewfinder.rs`) to English (`ROCKET CONTROLS`, `VEHICLE CONTROLS`, `CONTROLS`, `FLIGHT COMPUTER: ON/OFF`, `MARK TARGET`).
+
 ## [0.97.0] - 2026-11-21
 
 ### Added

@@ -47,6 +47,10 @@ impl<W> TranslatedWorld<W> {
         (position - self.center).abs().max_element() <= cheb_bound
     }
 
+    pub const fn compose_atlas(&self, home_half: f32, moon_half: f32) -> crate::CelestialAtlas {
+        crate::CelestialAtlas::new(home_half, self.center, moon_half)
+    }
+
     pub fn visible_faces_from(&self, position: Vec3, half_size: f32) -> u32 {
         let rel = position - self.center;
         let mut mask = 0u32;

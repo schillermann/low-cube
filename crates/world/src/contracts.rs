@@ -1,9 +1,9 @@
 use std::net::SocketAddr;
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
-    CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
-    PilotCraft, PlannedMount, SightCone, SurfaceFind, VehicleAssembly, VesselSink,
+    BlockMedium, BlockMold, CelestialAtlas, CleaveOutcome, CompanionPresence, CraftBlueprint,
+    CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing,
+    MeshTarget, PilotCraft, PlannedMount, SightCone, SurfaceFind, VehicleAssembly, VesselSink,
 };
 
 /// Focused surface earthworks, harvesting, building, and vehicle docking contract.
@@ -99,4 +99,5 @@ pub trait PlanetaryWorld:
     fn lethal_at(&self, _position: Vec3) -> bool { false }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { position }
     fn local_body_point(&self, position: Vec3) -> Vec3 { position }
+    fn celestial_atlas(&self) -> CelestialAtlas { CelestialAtlas::solitary(16.0) }
 }
