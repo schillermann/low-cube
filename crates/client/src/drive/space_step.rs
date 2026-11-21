@@ -1,6 +1,6 @@
 use glam::{Quat, Vec3};
 use world::{PilotOrder, PlanetaryWorld, VehicleAssembly};
-use super::track::FaceContact;
+use super::clearance::HullClearance;
 
 pub(crate) const MAX_COSMIC_SPEED: f32 = 45.0;
 
@@ -171,12 +171,6 @@ impl<'a, S> TouchdownStep<'a, S> {
     pub(super) const fn new(origin: S, assembly: &'a VehicleAssembly, world: &'a dyn PlanetaryWorld) -> Self {
         Self { origin, assembly, world }
     }
-
-    fn hull_clearance(rot_up: Vec3, surf_up: Vec3, hull_top: f32, hull_radius: f32) -> f32 {
-        let c = rot_up.dot(surf_up).clamp(-1.0, 1.0);
-        let sin_perp = (1.0 - c * c).max(0.0).sqrt();
-        -((c * hull_top).min(0.0) - sin_perp * hull_radius)
-    }
 }
 
 impl<S: SpaceStep> SpaceStep for TouchdownStep<'_, S> {
@@ -185,35 +179,10 @@ impl<S: SpaceStep> SpaceStep for TouchdownStep<'_, S> {
         if self.world.apply_pull(s.origin, 1.0).length_squared() <= 0.04 {
             return s;
         }
-        let surf_up = self.world.surface_up_at(s.origin);
-        let (hull_top, hull_radius) = self.assembly.hull_envelope();
+        let probe = HullClearance::new(self.assembly, s.origin, s.velocity, s.rotation);
+        let (ground, surf_up, alt, v_norm) = probe.local_contact(self.world);
         let rotated_up = (s.rotation * self.assembly.normal()).normalize_or_zero();
-        let ground_base = FaceContact::new(s.origin).ground(0.0, self.world);
-        let nose_pt = s.origin + rotated_up * hull_top;
-        let ground_nose = FaceContact::new(nose_pt).ground(0.0, self.world);
-        let mut ground = if rotated_up.dot(surf_up) < 0.75
-            && self.world.surface_up_at(nose_pt).dot(surf_up) > 0.5
-            && (ground_nose - ground_base).dot(surf_up) > 0.0
-        {
-            s.origin + surf_up * (ground_nose - s.origin).dot(surf_up)
-        } else {
-            ground_base
-        };
-        if rotated_up.dot(surf_up) >= 0.75
-            && (s.origin - ground_base).dot(surf_up) <= hull_top + hull_radius + 4.0
-        {
-            let posed = self.assembly.pose().with_origin(s.origin).rotated(s.rotation);
-            self.assembly.visit_hull_soles(posed, |sole_pt| {
-                let sole_ground = FaceContact::new(sole_pt).ground(0.0, self.world);
-                let deficit = (sole_ground - (sole_pt - s.origin) - ground).dot(surf_up);
-                if deficit > 0.0 && deficit <= 3.0 {
-                    ground += surf_up * deficit;
-                }
-            });
-        }
-        let clearance = Self::hull_clearance(rotated_up, surf_up, hull_top, hull_radius);
-        let alt = (s.origin - ground).dot(surf_up) - clearance;
-        let v_norm = s.velocity.dot(surf_up);
+        let clearance = probe.span_projection(surf_up, rotated_up);
         if alt > 0.005 || (alt >= 0.0 && v_norm > 0.0) {
             return s;
         }
@@ -240,7 +209,7 @@ impl<S: SpaceStep> SpaceStep for TouchdownStep<'_, S> {
         };
         let next_rot = (settle_arc * s.rotation).normalize();
         let next_up = (next_rot * self.assembly.normal()).normalize_or_zero();
-        let next_clear = Self::hull_clearance(next_up, surf_up, hull_top, hull_radius);
+        let next_clear = probe.span_projection(surf_up, next_up);
         SpaceState::new(ground + surf_up * next_clear, next_v, pad_omega, next_rot)
     }
 }

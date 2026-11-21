@@ -53,8 +53,8 @@ impl AvatarBody {
     pub fn mark_nose_target(&mut self, world: &dyn PlanetaryWorld) -> bool {
         self.berth.mark_nose_target(world)
     }
-    pub fn nose_orrery(&self) -> Option<crate::drive::OrrerySnapshot> {
-        self.berth.nose_orrery()
+    pub fn optic_telemetry(&self) -> crate::drive::OpticTelemetry {
+        self.berth.optic_telemetry()
     }
     pub fn emit_controls_slate(&self, bindings: &ActionBindings, aspect: f32, target: &mut dyn MeshTarget) {
         self.berth.emit_controls_slate(bindings, aspect, target);

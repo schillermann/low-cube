@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{CelestialAtlas, PlanetaryWorld};
+use world::PlanetaryWorld;
 use super::space_step::MAX_COSMIC_SPEED;
 
 pub const ARC_NODES: usize = 33;
@@ -129,6 +129,20 @@ impl TransferArc {
         f(&self.nodes, self.target_normal);
     }
 
+    /// Transfers `(target_world, distance_meters, signed_range_rate_mps)` without getters.
+    pub fn sample_range<R>(
+        &self,
+        ship_pos: Vec3,
+        velocity: Vec3,
+        f: impl FnOnce(Vec3, f32, f32) -> R,
+    ) -> R {
+        let target = self.nodes[ARC_NODES - 1];
+        let away = ship_pos - target;
+        let dist = away.length();
+        let rate = if dist > 1e-4 { velocity.dot(away / dist) } else { 0.0 };
+        f(target, dist, rate)
+    }
+
     /// Projects `ship_pos` and `flight_dir` onto the trajectory polyline to evaluate course alignment.
     pub fn sample_telemetry(&self, ship_pos: Vec3, flight_dir: Vec3) -> RouteTelemetry {
         let mut best_anchor = self.nodes[0];
@@ -195,73 +209,6 @@ impl NavigationCourse {
             *self = Self::Uncharted;
             true
         }
-    }
-}
-
-/// Immutable telemetry packet for the Nose-Camera 3D Steuerkonsolen-Orrery (`<= 4` fields).
-#[derive(Clone, Copy, Debug)]
-pub struct OrrerySnapshot {
-    atlas: CelestialAtlas,
-    ship_pos: Vec3,
-    ship_axes: (Vec3, Vec3),
-    course: NavigationCourse,
-}
-
-impl OrrerySnapshot {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        atlas: CelestialAtlas,
-        ship_pos: Vec3,
-        ship_axes: (Vec3, Vec3),
-        course: NavigationCourse,
-    ) -> Self {
-        Self { atlas, ship_pos, ship_axes, course }
-    }
-
-    /// Transfers `(atlas, ship_pos, (nose_axis, flight_vector), course)` to a HUD view without getters.
-    pub fn transfer<R>(
-        self,
-        f: impl FnOnce(CelestialAtlas, Vec3, (Vec3, Vec3), NavigationCourse) -> R,
-    ) -> R {
-        f(self.atlas, self.ship_pos, self.ship_axes, self.course)
-    }
-}
-
-/// Encapsulated spacecraft celestial atlas and plotted `NavigationCourse` (`<= 4` fields).
-#[derive(Clone, Copy, Debug)]
-pub struct HelmChart {
-    atlas: CelestialAtlas,
-    course: NavigationCourse,
-}
-
-impl HelmChart {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(atlas: CelestialAtlas, course: NavigationCourse) -> Self {
-        Self { atlas, course }
-    }
-
-    pub const fn uncharted(atlas: CelestialAtlas) -> Self {
-        Self::new(atlas, NavigationCourse::Uncharted)
-    }
-
-    pub fn sync_world(&mut self, world: &dyn PlanetaryWorld) {
-        self.atlas = world.celestial_atlas();
-    }
-
-    pub fn mark_target(
-        &mut self,
-        rays: ((Vec3, Vec3), (Vec3, Vec3)),
-        ship_state: (Vec3, Vec3),
-        world: &dyn PlanetaryWorld,
-    ) -> bool {
-        self.atlas = world.celestial_atlas();
-        self.course.mark_along(rays, ship_state, world)
-    }
-
-    pub fn snapshot(&self, ship_pos: Vec3, ship_nose: Vec3, velocity: Vec3) -> OrrerySnapshot {
-        let nose = ship_nose.normalize_or_zero();
-        let flight = if velocity.length_squared() > 2.25 { velocity.normalize_or_zero() } else { nose };
-        OrrerySnapshot::new(self.atlas, ship_pos, (nose, flight), self.course)
     }
 }
 

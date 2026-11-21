@@ -224,10 +224,11 @@ impl AvatarMotor for EmbodiedAvatar {
         let (boresight, feed) = self.body.hull_camera_hud();
         let aim = self.sight_line.reticle_point(aspect, boresight);
         self.body.posture().emit_reticle_at(aim, target);
-        if let Some(orrery) = self.body.nose_orrery() {
-            let vp = self.project_at_sight(aspect, self.bearing.sight(), self.body.hull_camera_lens());
-            crate::menu::NoseOrreryHud::new(orrery, vp, aspect).emit(target);
-        }
+        let vp = self.project_at_sight(aspect, self.bearing.sight(), self.body.hull_camera_lens());
+        crate::menu::OpticOverlay::emit(
+            &crate::menu::ShipOpticHud::new(self.body.optic_telemetry(), vp, aspect),
+            target,
+        );
         if let Some(channel_feed) = feed {
             crate::menu::ViewfinderHud::new(channel_feed, aspect).emit(target);
         }

@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{CraftIdentity, HullOptic, MeshTarget, PilotCraft, PlanetaryWorld, VehicleAssembly};
+use world::{CraftIdentity, HullOptic, MeshTarget, OpticMount, PilotCraft, PlanetaryWorld, VehicleAssembly};
 use crate::controls::KeyboardControls;
 use super::passenger::PassengerBerth;
 use super::track::FaceContact;
@@ -61,10 +61,10 @@ impl VehiclePilot {
         }
     }
 
-    pub fn orrery_snapshot(&self) -> Option<super::OrrerySnapshot> {
+    pub fn optic_telemetry(&self, mount: OpticMount) -> super::OpticTelemetry {
         match self {
-            Self::Driving(craft) => craft.orrery_snapshot(),
-            _ => None,
+            Self::Driving(craft) => craft.optic_telemetry(mount),
+            _ => super::OpticTelemetry::Silent,
         }
     }
 
@@ -72,6 +72,12 @@ impl VehiclePilot {
         if let Self::Driving(craft) = self {
             craft.camera_views(out);
         }
+    }
+
+    pub fn collected_views(&self) -> Vec<HullOptic> {
+        let mut views = Vec::new();
+        self.camera_views(&mut views);
+        views
     }
 
     pub fn mount(&mut self, assembly: VehicleAssembly, world: &dyn PlanetaryWorld) -> (Vec3, Vec3) {

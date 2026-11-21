@@ -8,6 +8,12 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.100.0] - 2026-11-21
+
+### Added
+- Added decorator-composed vertical hull-camera laser range scales (`RangeScale`, `ScaleDomain`, `GraduatedSpine`, `ApproachZoneScale`, and `ChevronReadoutScale` in `crates/client/src/menu/orrery_hud/spine.rs` and `scale_decorators.rs`, composed via `OpticOverlay`, `SilentOverlay`, `TargetLockOverlay`, `RangeTapeOverlay`, and `ShipOpticHud` in `crates/client/src/menu/orrery_hud/overlays.rs`): `OpticMount::RocketNose` projects a `0–1000m` `TGT` target-distance and closing-speed scale once a `TransferArc` destination is locked, while `OpticMount::RocketBelly` projects a high-resolution `0–100m` `ALT` skid-clearance radar scale with dynamic sink-rate caution/danger alerts alongside `[ + ]` surface target brackets (`crates/client/src/drive/optic_scale_tests.rs`).
+- Added polymorphic `OpticTelemetry`, `BellySnapshot`, `PadClearance`, and `HullClearance` (`crates/client/src/drive/clearance.rs` and `helm_chart.rs`), sharing hull-sole and nadir terrain clearance across `TouchdownStep` physics and Belly-Camera radar telemetry up to `105m` above Homeworld and Moon surfaces without `Option` state fields.
+
 ## [0.99.0] - 2026-11-21
 
 ### Changed

@@ -1,5 +1,6 @@
 use glam::{Mat3, Quat, Vec3};
 use world::HullOptic;
+use crate::drive::{OpticTelemetry, VehiclePilot};
 use crate::menu::{ActiveChannel, CameraFeed, GuidanceReadout};
 use crate::orientation::{ConeLook, MouseLook, SensitivityLook, ViewOrientation};
 
@@ -116,17 +117,21 @@ impl HelmOptics {
         Some((lens, eye + fwd))
     }
 
-    pub(super) fn nose_channel_active(&self, views: &[HullOptic]) -> bool {
+    pub(super) fn optic_telemetry(&self, views: &[HullOptic], pilot: &VehiclePilot) -> OpticTelemetry {
         if self.cockpit_view() {
-            return false;
+            return OpticTelemetry::Silent;
         }
-        views
-            .get((self.channel as usize).saturating_sub(1))
-            .is_some_and(|v| matches!(v.transfer(|_, _, _, m| m), world::OpticMount::RocketNose))
+        let Some(selected) = views.get((self.channel as usize).saturating_sub(1)) else {
+            return OpticTelemetry::Silent;
+        };
+        pilot.optic_telemetry(selected.transfer(|_, _, _, m| m))
     }
 
     pub(super) fn nose_sight_rays(&self, views: &[HullOptic]) -> Option<((Vec3, Vec3), (Vec3, Vec3))> {
-        if !self.nose_channel_active(views) {
+        let selected = (!self.cockpit_view())
+            .then(|| views.get((self.channel as usize).saturating_sub(1)))
+            .flatten()?;
+        if !matches!(selected.transfer(|_, _, _, m| m), world::OpticMount::RocketNose) {
             return None;
         }
         let ((eye, aimed_fwd, _), aim_world) = self.resolve_boresight(views)?;

@@ -67,17 +67,11 @@ impl CockpitBerth {
         if !self.pilot.driving() {
             return 0;
         }
-        let mut views = Vec::new();
-        self.pilot.camera_views(&mut views);
-        self.optics.push_preview_rays(&views, out)
+        self.optics.push_preview_rays(&self.pilot.collected_views(), out)
     }
 
     pub(super) fn intercom_gimbal(&self) -> Option<Option<(f32, f32)>> {
-        if !self.pilot.driving() {
-            return None;
-        }
-        let mut views = Vec::new();
-        self.pilot.camera_views(&mut views);
+        let views = self.pilot.collected_views();
         (!views.is_empty()).then(|| self.optics.gimbal_head_angles())
     }
 
@@ -85,40 +79,29 @@ impl CockpitBerth {
         if !self.pilot.driving() {
             return (None, None);
         }
-        let mut views = Vec::new();
-        self.pilot.camera_views(&mut views);
+        let views = self.pilot.collected_views();
         let guidance = self.pilot.guidance_readout();
         (self.optics.resolve_boresight(&views), self.optics.channel_feed(&views, guidance))
     }
 
     pub(super) fn mark_nose_target(&mut self, world: &dyn PlanetaryWorld) -> bool {
-        if !self.pilot.driving() {
-            return false;
-        }
-        let mut views = Vec::new();
-        self.pilot.camera_views(&mut views);
+        let views = self.pilot.collected_views();
         let Some(rays) = self.optics.nose_sight_rays(&views) else {
             return false;
         };
         self.pilot.mark_nose_target(rays, world)
     }
 
-    pub(super) fn nose_orrery(&self) -> Option<crate::drive::OrrerySnapshot> {
-        if !self.pilot.driving() {
-            return None;
-        }
-        let mut views = Vec::new();
-        self.pilot.camera_views(&mut views);
-        self.optics.nose_channel_active(&views).then(|| self.pilot.orrery_snapshot()).flatten()
+    pub(super) fn optic_telemetry(&self) -> crate::drive::OpticTelemetry {
+        let views = self.pilot.collected_views();
+        self.optics.optic_telemetry(&views, &self.pilot)
     }
 
     pub(super) fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
         if self.optics.cockpit_view() || !self.pilot.driving() {
             return None;
         }
-        let mut views = Vec::new();
-        self.pilot.camera_views(&mut views);
-        self.optics.resolve_boresight(&views).map(|(lens, _)| lens)
+        self.optics.resolve_boresight(&self.pilot.collected_views()).map(|(lens, _)| lens)
     }
 
     pub(super) fn rotate_view(&mut self, dx: f32, dy: f32, sight_line: &mut AvatarSight) {

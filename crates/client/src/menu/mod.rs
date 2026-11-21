@@ -39,7 +39,13 @@ pub use controls_slate::{ControlsSlate, ControlsSlateHud, SlateContext};
 pub use escape_menu::EscapeMenu;
 pub use glyph::PixelStamp;
 pub use inspection_modal::InspectionModal;
-pub use orrery_hud::NoseOrreryHud;
+pub use orrery_hud::{OpticOverlay, ShipOpticHud};
+#[cfg(test)]
+pub use orrery_hud::{
+    RangeScale, ScaleDomain, SilentOverlay, TestApproachZoneScale as ApproachZoneScale,
+    TestChevronReadoutScale as ChevronReadoutScale, TestGraduatedSpine as GraduatedSpine,
+    TestRangeTapeOverlay as RangeTapeOverlay, TestTargetLockOverlay as TargetLockOverlay,
+};
 #[cfg(test)]
 pub use pause_panel::PausePanel;
 pub use portal::{AutoPunchModal, PortalInvite};
