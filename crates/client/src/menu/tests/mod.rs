@@ -34,7 +34,7 @@ impl PlatformSurface for MockSurface {
     fn upload_mesh(&self, _b: &CpuMeshBatch) -> Box<dyn Mesh> { panic!("unused") }
     fn compile_shader(&self, _s: &dyn ShaderSource) -> Box<dyn ShaderProgram> { panic!("unused") }
     fn assemble_diurnal_pipeline(&self, _c: Box<dyn CelestialCadence>, _a: Box<dyn AuroraCadence>, _p: Box<dyn AuroraCanopy>) -> Box<dyn GraphicPipeline> { panic!("unused") }
-    fn render_frame(&self, _p: &dyn GraphicPipeline, _s: &dyn ShaderProgram, _m: &dyn Mesh, _a: &dyn Avatar, _mo: &dyn SessionModal) {}
+    fn render_frame(&self, _p: &dyn GraphicPipeline, _s: &dyn ShaderProgram, _m: (&dyn Mesh, &dyn Mesh), _a: &dyn Avatar, _mo: &dyn SessionModal) {}
 }
 
 pub(super) struct QuadCapture { quads: Vec<Quad> }

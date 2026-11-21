@@ -142,8 +142,13 @@ impl AvatarPosture {
         self.vital.cardiac_fov()
     }
 
+    #[cfg(test)]
     pub fn emit_reticle(&self, target: &mut dyn world::MeshTarget) {
-        self.vital.emit_reticle(target);
+        self.emit_reticle_at(crate::menu::ScreenPoint::center(), target);
+    }
+
+    pub fn emit_reticle_at(&self, crosshair: crate::menu::ScreenPoint, target: &mut dyn world::MeshTarget) {
+        self.vital.emit_reticle_at(crosshair, target);
     }
 
     pub fn advance_perish(self, dt: f32) -> (Self, bool) {

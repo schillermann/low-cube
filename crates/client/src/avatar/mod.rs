@@ -35,6 +35,8 @@ pub trait AvatarOptics {
     fn view_projection_for_sight(&self, aspect: f32, _sight: SightMode) -> Mat4 {
         self.view_projection_matrix(aspect)
     }
+    fn collect_camera_previews(&self, _aspect: f32, _out: &mut Vec<Mat4>) -> u8 { 0 }
+    fn emit_intercom_bust(&self, _aspect: f32, _target: &mut dyn MeshTarget) -> Option<Mat4> { None }
     fn surface_rotation(&self) -> Quat;
 }
 
@@ -98,7 +100,13 @@ pub trait AvatarMotor {
     fn hunt_fauna(&mut self, _side: f32, _fauna: &mut WoodlandFauna, _world: &mut dyn PlanetaryWorld) -> (bool, bool) {
         (false, false)
     }
-    fn emit_reticle(&self, target: &mut dyn MeshTarget) { ScreenPoint::center().emit_crosshair(target); }
+    fn emit_reticle_for_aspect(&self, _aspect: f32, target: &mut dyn MeshTarget) {
+        ScreenPoint::center().emit_crosshair(target);
+    }
+    #[cfg(test)]
+    fn emit_reticle(&self, target: &mut dyn MeshTarget) {
+        self.emit_reticle_for_aspect(16.0 / 9.0, target);
+    }
 }
 
 /// Unified player avatar interface composed from focused optics, presence, photo, black-box, and motor contracts.

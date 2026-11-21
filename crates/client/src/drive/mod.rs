@@ -29,7 +29,7 @@ mod seam_tests;
 mod tests;
 
 use glam::{Mat3, Quat, Vec3};
-use world::{ClimateZone, MeshTarget, PlanetaryWorld, VehicleAssembly};
+use world::{ClimateZone, HullOptic, MeshTarget, PlanetaryWorld, VehicleAssembly};
 use crate::attire::BodyPose;
 use crate::controls::{KeyboardControls, LocomotionTarget};
 pub use self::pilot::VehiclePilot;
@@ -127,7 +127,7 @@ impl HelmedCraft {
     pub fn blend_subtick(&mut self, alpha: f32) { self.origin_span.1 = alpha.clamp(0.0, 1.0); }
     pub fn toggle_retro_flip(&mut self) -> bool { self.drive.toggle_retro_flip(&self.assembly) }
 
-    pub fn camera_views(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) {
+    pub fn camera_views(&self, out: &mut Vec<HullOptic>) {
         let (prev, alpha) = self.origin_span;
         let cur = self.assembly.origin();
         let visual_shift = if (cur - prev).length_squared() > 64.0 {
@@ -138,7 +138,7 @@ impl HelmedCraft {
         let start = out.len();
         self.assembly.push_camera_views(out);
         for view in &mut out[start..] {
-            view.0 += visual_shift;
+            *view = view.shifted(visual_shift);
         }
     }
 

@@ -171,10 +171,10 @@ impl VitalStrain {
         }
     }
 
-    pub fn emit_reticle(self, target: &mut dyn world::MeshTarget) {
+    pub fn emit_reticle_at(self, crosshair: crate::menu::ScreenPoint, target: &mut dyn world::MeshTarget) {
         let constrict = self.cardiac_constriction();
         if !self.perished && constrict < 0.65 {
-            crate::menu::ScreenPoint::center().emit_crosshair(target);
+            crosshair.emit_crosshair(target);
         }
         if constrict <= 0.01 {
             return;

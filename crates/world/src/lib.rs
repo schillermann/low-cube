@@ -51,10 +51,11 @@ pub use planet::{CubePlanet, PatchCoord};
 pub use presence::{CompanionPresence, DrivenCraft, PilotCraft, PresenceAttire, PresenceKinematics};
 pub use relief::{
     BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, CrustVault, DeckFrame,
-    ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins, LivingVeins, MeadowRing,
-    MeadowStamp, MountDomain, MountSite, PilotOrder, PlannedMount, ReliefElevation, ReliefFacet,
-    ReliefPalette, RigidImpulse, SeatOccupancy, SubterraneanVeins, SurfaceSightRay, TerracedRelief,
-    VehicleAssembly, VehicleAxes, VehiclePart, VesselSink, WorldCraft, MEADOW_RING_SLOTS,
+    ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins, HullOptic, LivingVeins, MeadowRing,
+    MeadowStamp, MountDomain, MountSite, OpticMount, PilotOrder, PlannedMount, ReliefElevation,
+    ReliefFacet, ReliefPalette, RigidImpulse, SeatOccupancy, SubterraneanVeins, SurfaceSightRay,
+    TerracedRelief, VehicleAssembly, VehicleAxes, VehiclePart, VesselSink, WorldCraft,
+    MEADOW_RING_SLOTS,
 };
 pub use topology::{
     BevelTransition, BeveledBoundary, ClimateZone, CoordinateFold, CubicBoundary, FacePerimeter,

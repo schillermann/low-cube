@@ -4,7 +4,7 @@ mod part;
 
 use glam::{Quat, Vec3};
 use crate::MeshTarget;
-use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose, PosedHull};
+use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose, HullOptic, PosedHull};
 pub use self::axes::VehicleAxes;
 pub(in crate::relief) use self::impulse::{
     CockpitAxes, ConsoleGyroStage, HullBallast, ImpulseStage, MainBellStage, VernierAttitudeStage,
@@ -57,7 +57,7 @@ impl VehicleAssembly {
     pub fn spacefaring(&self) -> bool { self.blueprint.spacefaring() }
     pub fn attitude_capable(&self) -> bool { self.blueprint.attitude_capable() }
     pub fn camera_equipped(&self) -> bool { self.blueprint.camera_equipped() }
-    pub fn push_camera_views(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) { self.blueprint.push_camera_views(self.pose, out); }
+    pub fn push_camera_views(&self, out: &mut Vec<HullOptic>) { self.blueprint.push_camera_views(self.pose, out); }
     pub fn visit_hull_soles(&self, pose: CraftPose, visitor: impl FnMut(Vec3)) {
         PosedHull::new(&self.blueprint, pose).visit_soles(visitor);
     }

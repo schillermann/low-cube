@@ -10,6 +10,7 @@ mod footwear;
 mod garments;
 mod hands;
 mod headgear;
+mod intercom;
 mod limb;
 mod palette;
 mod pose;
@@ -31,6 +32,7 @@ pub use file_attire::{AttireProfile, FileAttire};
 pub use footwear::FootwearStyle;
 pub use garments::{GirdleStyle, TunicStyle};
 pub use hands::{HeldPalms, VambraceStyle};
+pub use intercom::IntercomBust;
 pub use limb::{FacetedSolid, LimbFrame, TaperedPrism};
 pub use palette::{ComplexionSwatch, PigmentSwatch};
 pub use pose::{BodyPose, RocketControls};
@@ -236,6 +238,13 @@ impl YouthAttire {
 
     pub(super) fn scaled_pose(&self, pose: &BodyPose) -> BodyPose {
         pose.with_physique(self.identity.physique)
+    }
+
+    pub(super) fn emit_upper_bust(&self, pose: &BodyPose, target: &mut dyn MeshTarget) -> BodyPose {
+        let scaled = self.scaled_pose(pose);
+        self.garments.tunic.emit(&scaled, self.identity.pigment, target);
+        self.identity.crown.emit(&scaled, self.identity.complexion, self.identity.pigment, target);
+        scaled
     }
 
     pub(super) fn emit_garments(

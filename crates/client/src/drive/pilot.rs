@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{CraftIdentity, MeshTarget, PilotCraft, PlanetaryWorld, VehicleAssembly};
+use world::{CraftIdentity, HullOptic, MeshTarget, PilotCraft, PlanetaryWorld, VehicleAssembly};
 use crate::controls::KeyboardControls;
 use super::passenger::PassengerBerth;
 use super::track::FaceContact;
@@ -40,7 +40,7 @@ impl VehiclePilot {
         }
     }
 
-    pub fn camera_views(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) {
+    pub fn camera_views(&self, out: &mut Vec<HullOptic>) {
         if let Self::Driving(craft) = self {
             craft.camera_views(out);
         }

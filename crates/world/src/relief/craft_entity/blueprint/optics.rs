@@ -2,6 +2,7 @@ use glam::Vec3;
 use crate::block::{GridCell, SensorPodAxis};
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
+use super::mount::{HullOptic, OpticMount};
 use super::CraftBlueprint;
 use super::super::pose::CraftPose;
 
@@ -36,7 +37,7 @@ impl<'a> BlueprintOptics<'a> {
         Self { blueprint }
     }
 
-    pub(super) fn push_views(&self, pose: CraftPose, out: &mut Vec<(Vec3, Vec3, Vec3)>) {
+    pub(super) fn push_views(&self, pose: CraftPose, out: &mut Vec<HullOptic>) {
         let bp = self.blueprint;
         let car_frame = pose.surface_frame();
         let shift = pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
@@ -57,11 +58,16 @@ impl<'a> BlueprintOptics<'a> {
                 let (col_bottom, col_top) = self.column_span(*ox, *oy, *part_floor, lift);
                 let (local_eye, fwd, up) =
                     axis.lens_ray(GridCell::new(*ox, *oy), *part_floor, col_top, col_bottom, ship_fwd, &car_frame);
-                out.push((shift + local_eye, fwd, up));
+                let mount = match axis {
+                    SensorPodAxis::NoseCone => OpticMount::RocketNose,
+                    SensorPodAxis::BellyPod => OpticMount::RocketBelly,
+                    SensorPodAxis::SideFairing(_) => OpticMount::rocket_side(fwd, ship_fwd, ship_up),
+                };
+                out.push(HullOptic::new(shift + local_eye, fwd, up, mount));
                 if matches!(axis, SensorPodAxis::NoseCone) && !dedicated_belly && !ventral_emitted {
                     let (belly_eye, bfwd, bup) =
                         self.synthetic_ventral_ray((*ox, *oy), col_bottom, lift, ship_fwd, &car_frame);
-                    out.push((shift + belly_eye, bfwd, bup));
+                    out.push(HullOptic::new(shift + belly_eye, bfwd, bup, OpticMount::RocketBelly));
                     ventral_emitted = true;
                 }
             }
@@ -69,7 +75,8 @@ impl<'a> BlueprintOptics<'a> {
         }
         for part in bp.parts() {
             if let Some((hub, lens_fwd, _, _)) = part.camera_lens_at(lift, &car_frame) {
-                out.push((shift + hub + lens_fwd * 0.22 + ship_up * 0.02, lens_fwd, ship_up));
+                let mount = OpticMount::vehicle_direction(lens_fwd, ship_fwd, ship_up);
+                out.push(HullOptic::new(shift + hub + lens_fwd * 0.22 + ship_up * 0.02, lens_fwd, ship_up, mount));
             }
         }
     }

@@ -43,6 +43,13 @@ impl AvatarBody {
     pub fn emit_vehicle(&self, target: &mut dyn MeshTarget) { self.berth.emit(target); }
     pub fn present_vessel(&self, sink: &mut dyn world::VesselSink) { self.berth.present_vessel(sink); }
     pub fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> { self.berth.hull_camera_lens() }
+    pub fn push_hull_camera_rays(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) -> u8 {
+        self.berth.push_hull_camera_rays(out)
+    }
+    pub fn intercom_gimbal(&self) -> Option<Option<(f32, f32)>> { self.berth.intercom_gimbal() }
+    pub fn hull_camera_hud(&self) -> (Option<((Vec3, Vec3, Vec3), Vec3)>, Option<crate::menu::CameraFeed>) {
+        self.berth.hull_camera_hud()
+    }
     pub fn rotate_view(&mut self, dx: f32, dy: f32, sight_line: &mut AvatarSight) {
         self.berth.rotate_view(dx, dy, sight_line);
     }

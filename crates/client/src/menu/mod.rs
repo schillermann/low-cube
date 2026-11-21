@@ -22,6 +22,7 @@ mod studio;
 mod tests;
 mod version_stamp;
 mod view;
+mod viewfinder;
 mod widget;
 
 #[cfg(test)]
@@ -50,6 +51,7 @@ pub use studio::{SavedWardrobe, WardrobePanel, WardrobeStudio};
 pub use version_stamp::VersionStamp;
 #[cfg(test)]
 pub use view::{MenuView, VersionedView};
+pub use viewfinder::{ActiveChannel, CameraFeed, PreviewStripLayout, ViewfinderHud};
 pub use widget::ScreenPoint;
 
 /// Directive returned when interacting with the Escape menu, Character studio, Settings, or Portal panel.
@@ -85,6 +87,7 @@ pub trait SessionModal {
     fn complete_join(&mut self, _surface: &dyn PlatformSurface) {}
     fn report_join_failure(&mut self) {}
     fn step(&mut self, dt: f32);
+    #[cfg(test)]
     fn emit_ui(&self, avatar: &dyn Avatar, target: &mut dyn MeshTarget);
     fn emit_studio(&self, target: &mut dyn MeshTarget);
     fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, avatar: &dyn Avatar, aspect: f32);

@@ -291,4 +291,8 @@ impl AvatarGear {
     pub fn planned_mount(&self, reach: SurfaceReach, world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> {
         (!self.folio.open()).then(|| self.earthworks.planned_mount(reach, self.attire, world)).flatten()
     }
+
+    pub fn emit_intercom(&self, aspect: f32, head_angles: (f32, f32), target: &mut dyn MeshTarget) -> glam::Mat4 {
+        crate::attire::IntercomBust::new(self.attire, head_angles).emit(aspect, target)
+    }
 }

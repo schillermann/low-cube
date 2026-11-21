@@ -81,9 +81,9 @@ impl<M: AvatarMotor + AvatarCondition> AvatarMotor for SatchelAvatar<M> {
         }
     }
 
-    fn emit_reticle(&self, target: &mut dyn MeshTarget) {
+    fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
         if !self.origin.satchel_open() {
-            self.origin.emit_reticle(target);
+            self.origin.emit_reticle_for_aspect(aspect, target);
         }
     }
 }

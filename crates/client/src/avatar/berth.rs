@@ -4,6 +4,7 @@ use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
 use crate::attire::BodyPose;
 use crate::controls::{ActionBindings, ControlAction, InputTrigger, KeyboardControls};
 use crate::drive::VehiclePilot;
+use crate::menu::CameraFeed;
 use crate::order::LocomotionOrder;
 use crate::posture::AvatarPosture;
 use super::deck::DeckFooting;
@@ -52,13 +53,40 @@ impl CockpitBerth {
         self.pilot.present_vessel(sink);
     }
 
+    pub(super) fn push_hull_camera_rays(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) -> u8 {
+        if !self.pilot.driving() {
+            return 0;
+        }
+        let mut views = Vec::new();
+        self.pilot.camera_views(&mut views);
+        self.optics.push_preview_rays(&views, out)
+    }
+
+    pub(super) fn intercom_gimbal(&self) -> Option<Option<(f32, f32)>> {
+        if !self.pilot.driving() {
+            return None;
+        }
+        let mut views = Vec::new();
+        self.pilot.camera_views(&mut views);
+        (!views.is_empty()).then(|| self.optics.gimbal_head_angles())
+    }
+
+    pub(super) fn hull_camera_hud(&self) -> (Option<((Vec3, Vec3, Vec3), Vec3)>, Option<CameraFeed>) {
+        if !self.pilot.driving() {
+            return (None, None);
+        }
+        let mut views = Vec::new();
+        self.pilot.camera_views(&mut views);
+        (self.optics.resolve_boresight(&views), self.optics.channel_feed(&views))
+    }
+
     pub(super) fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
         if self.optics.cockpit_view() || !self.pilot.driving() {
             return None;
         }
         let mut views = Vec::new();
         self.pilot.camera_views(&mut views);
-        self.optics.resolve_lens(&views)
+        self.optics.resolve_boresight(&views).map(|(lens, _)| lens)
     }
 
     pub(super) fn rotate_view(&mut self, dx: f32, dy: f32, sight_line: &mut AvatarSight) {

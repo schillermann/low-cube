@@ -188,18 +188,19 @@ impl PortalStatus {
 /// Focused `MenuView` adapter emitting the gameplay avatar reticle.
 pub struct ReticleHud<'a> {
     motor: &'a dyn AvatarMotor,
+    aspect: f32,
 }
 
 impl<'a> ReticleHud<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(motor: &'a dyn AvatarMotor) -> Self {
-        Self { motor }
+    pub const fn new(motor: &'a dyn AvatarMotor, aspect: f32) -> Self {
+        Self { motor, aspect }
     }
 }
 
 impl MenuView for ReticleHud<'_> {
     fn emit(&self, target: &mut dyn MeshTarget) {
-        self.motor.emit_reticle(target);
+        self.motor.emit_reticle_for_aspect(self.aspect, target);
     }
 }
 

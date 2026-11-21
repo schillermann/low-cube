@@ -1,3 +1,4 @@
+mod mount;
 mod optics;
 
 use glam::Vec3;
@@ -11,6 +12,7 @@ use super::super::vehicle_assembly::{
 };
 use super::identity::CraftIdentity;
 use super::pose::CraftPose;
+pub use self::mount::{HullOptic, OpticMount};
 use self::optics::BlueprintOptics;
 pub(in crate::relief::craft_entity) use self::optics::ShiftedMeshTarget;
 
@@ -68,7 +70,7 @@ impl CraftBlueprint {
         }
     }
 
-    pub fn push_camera_views(&self, pose: CraftPose, out: &mut Vec<(Vec3, Vec3, Vec3)>) {
+    pub fn push_camera_views(&self, pose: CraftPose, out: &mut Vec<HullOptic>) {
         BlueprintOptics::new(self).push_views(pose, out);
     }
 

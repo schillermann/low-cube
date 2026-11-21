@@ -83,8 +83,8 @@ impl<M: AvatarMotor + AvatarCondition> AvatarMotor for MortalMotor<M> {
         }
     }
 
-    fn emit_reticle(&self, target: &mut dyn MeshTarget) {
-        self.origin.emit_reticle(target);
+    fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
+        self.origin.emit_reticle_for_aspect(aspect, target);
     }
 }
 
@@ -146,6 +146,12 @@ impl AvatarOptics for PlanetaryAvatar {
     fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone { self.core().sight_cone_for_mode(sight) }
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 { self.core().view_projection_matrix(aspect) }
     fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 { self.core().view_projection_for_sight(aspect, sight) }
+    fn collect_camera_previews(&self, aspect: f32, out: &mut Vec<Mat4>) -> u8 {
+        self.core().collect_camera_previews(aspect, out)
+    }
+    fn emit_intercom_bust(&self, aspect: f32, target: &mut dyn MeshTarget) -> Option<Mat4> {
+        self.core().emit_intercom_bust(aspect, target)
+    }
     fn surface_rotation(&self) -> Quat { self.core().surface_rotation() }
 }
 
@@ -184,7 +190,9 @@ impl AvatarMotor for PlanetaryAvatar {
     fn cast_triggered_relic(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool { self.motor.cast_triggered_relic(trigger, world) }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) { self.motor.step_motion(dt, controls, world); }
     fn hunt_fauna(&mut self, side: f32, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld) -> (bool, bool) { self.motor.hunt_fauna(side, fauna, world) }
-    fn emit_reticle(&self, target: &mut dyn MeshTarget) { self.motor.emit_reticle(target); }
+    fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
+        self.motor.emit_reticle_for_aspect(aspect, target);
+    }
 }
 
 impl Avatar for PlanetaryAvatar {

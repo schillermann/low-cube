@@ -114,6 +114,12 @@ impl AvatarOptics for BlackBoxAvatar {
     fn sight_cone_for_mode(&self, sight: SightMode) -> SightCone { self.origin.sight_cone_for_mode(sight) }
     fn view_projection_matrix(&self, aspect: f32) -> Mat4 { self.origin.view_projection_matrix(aspect) }
     fn view_projection_for_sight(&self, aspect: f32, sight: SightMode) -> Mat4 { self.origin.view_projection_for_sight(aspect, sight) }
+    fn collect_camera_previews(&self, aspect: f32, out: &mut Vec<Mat4>) -> u8 {
+        self.origin.collect_camera_previews(aspect, out)
+    }
+    fn emit_intercom_bust(&self, aspect: f32, target: &mut dyn MeshTarget) -> Option<Mat4> {
+        self.origin.emit_intercom_bust(aspect, target)
+    }
     fn surface_rotation(&self) -> Quat { self.origin.surface_rotation() }
 }
 
@@ -221,7 +227,9 @@ impl AvatarMotor for BlackBoxAvatar {
         self.origin.hunt_fauna(side, fauna, world)
     }
 
-    fn emit_reticle(&self, target: &mut dyn MeshTarget) { self.origin.emit_reticle(target); }
+    fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
+        self.origin.emit_reticle_for_aspect(aspect, target);
+    }
 }
 
 impl Avatar for BlackBoxAvatar {

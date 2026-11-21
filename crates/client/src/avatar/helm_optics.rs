@@ -1,7 +1,9 @@
 use glam::{Mat3, Quat, Vec3};
+use world::HullOptic;
+use crate::menu::{ActiveChannel, CameraFeed};
 use crate::orientation::{ConeLook, MouseLook, SensitivityLook, ViewOrientation};
 
-const GIMBAL_RADIUS: f32 = 0.26;
+const GIMBAL_RADIUS: f32 = 0.52;
 
 /// Encapsulated cockpit camera channel selector and small-radius pan-tilt gimbal for hull-mounted sensor pods.
 pub(super) struct HelmOptics {
@@ -50,11 +52,52 @@ impl HelmOptics {
         self.gimbal.rotate(dx, dy);
     }
 
-    pub(super) fn resolve_lens(&self, views: &[(Vec3, Vec3, Vec3)]) -> Option<(Vec3, Vec3, Vec3)> {
+    pub(super) fn gimbal_head_angles(&self) -> Option<(f32, f32)> {
         if self.cockpit_view() {
             return None;
         }
-        let (eye, base_fwd, base_up) = *views.get((self.channel as usize).saturating_sub(1))?;
+        let dir = (self.gimbal.combine_with_surface(Quat::IDENTITY) * Vec3::NEG_Z).normalize_or_zero();
+        Some((-dir.x.atan2(-dir.z), dir.y.clamp(-0.9, 0.9).asin()))
+    }
+
+    pub(super) fn push_preview_rays(&self, views: &[HullOptic], out: &mut Vec<(Vec3, Vec3, Vec3)>) -> u8 {
+        for optic in views {
+            let (eye, base_fwd, base_up) = optic.transfer(|e, f, u, _| (e, f, u));
+            let fwd = base_fwd.normalize_or_zero();
+            let raw_right = fwd.cross(base_up);
+            let right = if raw_right.length_squared() > 1e-6 {
+                raw_right.normalize()
+            } else {
+                fwd.any_orthonormal_vector()
+            };
+            let up = right.cross(fwd).normalize_or_zero();
+            out.push((eye, fwd, up));
+        }
+        self.channel
+    }
+
+    pub(super) fn channel_feed(&self, views: &[HullOptic]) -> Option<CameraFeed> {
+        if views.is_empty() {
+            return None;
+        }
+        let total = views.len().min(u8::MAX as usize) as u8;
+        if self.cockpit_view() {
+            return Some(CameraFeed::new(ActiveChannel::Cockpit, total));
+        }
+        let selected = *views.get((self.channel as usize).saturating_sub(1))?;
+        let mount = selected.transfer(|_, _, _, m| m);
+        Some(CameraFeed::new(ActiveChannel::Camera(self.channel, mount), total))
+    }
+
+    pub(super) fn resolve_boresight(
+        &self,
+        views: &[HullOptic],
+    ) -> Option<((Vec3, Vec3, Vec3), Vec3)> {
+        if self.cockpit_view() {
+            return None;
+        }
+        let selected = *views.get((self.channel as usize).saturating_sub(1))?;
+        let (eye, base_fwd, base_up) = selected.transfer(|e, f, u, _| (e, f, u));
         let fwd = base_fwd.normalize_or_zero();
         let raw_right = fwd.cross(base_up);
         let right = if raw_right.length_squared() > 1e-6 {
@@ -65,6 +108,7 @@ impl HelmOptics {
         let up = right.cross(fwd).normalize_or_zero();
         let basis = Quat::from_mat3(&Mat3::from_cols(right, up, -fwd)).normalize();
         let aimed = self.gimbal.combine_with_surface(basis);
-        Some((eye, (aimed * Vec3::NEG_Z).normalize(), (aimed * Vec3::Y).normalize()))
+        let lens = (eye, (aimed * Vec3::NEG_Z).normalize(), (aimed * Vec3::Y).normalize());
+        Some((lens, eye + fwd))
     }
 }

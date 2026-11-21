@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.92.0] - 2026-11-21
+
+### Added
+- Added a bottom-center multi-camera telemetry HUD strip (`PreviewAtlas` in `crates/client/src/preview_strip.rs`, `ViewfinderHud`, `PreviewStripLayout`, `CameraFeed`, and `ActiveChannel` in `crates/client/src/menu/viewfinder.rs`, `IntercomBust` in `crates/client/src/attire/intercom.rs`, `CoarseMesh` in `crates/engine/src/composite_mesh.rs`, and `HullOptic` / `OpticMount` in `crates/world/src/relief/craft_entity/blueprint/mount.rs`), combining a live studio-lit 3D `YouthAttire` flight-comms bust in Slot `0` (whose head turns with mouse input) with an active `● CAM X / NOSE|BELLY|SIDE` status badge and MSAA-compatible round-robin `24×16` `NEAREST` coarse previews of all inactive hull cameras (`crates/client/src/drive/camera_look_tests.rs`).
+
+### Changed
+- Doubled the hull-mounted camera pan-tilt cone radius to `0.52 rad` (`~30°`) and projected the HUD crosshair onto each active camera's fixed 3D boresight target (`HelmOptics::resolve_boresight`, `AvatarSight::reticle_point`, `VitalStrain::emit_reticle_at`, and `ReticleHud`) so the reticle remains locked on the craft's flight or landing target while panning the camera view (`crates/client/src/drive/camera_look_tests.rs`).
+
 ## [0.91.2] - 2026-11-21
 
 ### Changed

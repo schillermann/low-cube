@@ -83,6 +83,19 @@ impl ScreenBounds {
         self.emit_fill(fill, target);
     }
 
+    pub fn emit_outline(&self, color: Vec3, border_x: f32, border_y: f32, target: &mut dyn MeshTarget) {
+        let (ox0, oy0, ox1, oy1) = (
+            self.min_x - border_x,
+            self.min_y - border_y,
+            self.max_x + border_x,
+            self.max_y + border_y,
+        );
+        Self::new(ox0, self.max_y, ox1, oy1).emit_fill(color, target);
+        Self::new(ox0, oy0, ox1, self.min_y).emit_fill(color, target);
+        Self::new(ox0, self.min_y, self.min_x, self.max_y).emit_fill(color, target);
+        Self::new(self.max_x, self.min_y, ox1, self.max_y).emit_fill(color, target);
+    }
+
     pub fn emit_button(
         &self,
         label: &str,

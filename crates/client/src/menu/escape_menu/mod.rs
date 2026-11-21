@@ -217,8 +217,9 @@ impl SessionModal for EscapeMenu {
         self.panels.step_overlays(self.phase, dt);
     }
 
+    #[cfg(test)]
     fn emit_ui(&self, avatar: &dyn Avatar, target: &mut dyn MeshTarget) {
-        self.panels.emit_ui(self.phase, self.pointer, avatar, target);
+        self.panels.emit_ui(self.phase, self.pointer, avatar, 16.0 / 9.0, target);
     }
 
     fn emit_studio(&self, target: &mut dyn MeshTarget) {
@@ -231,7 +232,7 @@ impl SessionModal for EscapeMenu {
         let mut stage_batch = CpuMeshBatch::empty();
         self.emit_studio(&mut stage_batch);
         let mut ui_batch = CpuMeshBatch::empty();
-        self.emit_ui(avatar, &mut ui_batch);
+        self.panels.emit_ui(self.phase, self.pointer, avatar, aspect, &mut ui_batch);
         self.panels.draw_overlay(self.phase, gl, shader, stage_batch, ui_batch, aspect);
     }
 }

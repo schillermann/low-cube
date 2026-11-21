@@ -228,11 +228,12 @@ impl StudioPanels {
         phase: ModalPhase,
         pointer: ScreenPoint,
         avatar: &dyn Avatar,
+        aspect: f32,
         target: &mut dyn MeshTarget,
     ) {
         match phase {
             ModalPhase::Gameplay => {
-                BeaconHud::new(self.portal.beacon(), ReticleHud::new(avatar)).emit(target);
+                BeaconHud::new(self.portal.beacon(), ReticleHud::new(avatar, aspect)).emit(target);
             }
             ModalPhase::EscapePause => {
                 let pause = PausePanel::new().view(pointer, self.portal.hosted_active());

@@ -114,10 +114,14 @@ impl PlatformSurface for HeadlessSurface {
         &self,
         _pipeline: &dyn GraphicPipeline,
         _shader: &dyn ShaderProgram,
-        _mesh: &dyn Mesh,
+        _scenes: (&dyn Mesh, &dyn Mesh),
         avatar: &dyn Avatar,
         modal: &dyn SessionModal,
     ) {
+        let mut previews = Vec::new();
+        let _ = avatar.collect_camera_previews(1.62, &mut previews);
+        let mut intercom = QuadSink { quads: Vec::new() };
+        let _ = avatar.emit_intercom_bust(1.62, &mut intercom);
         let mut sink = QuadSink { quads: Vec::with_capacity(256) };
         modal.emit_ui(avatar, &mut sink);
         *self.ui_quads.borrow_mut() = sink.quads;

@@ -133,6 +133,7 @@ impl<M: SessionModal> SessionModal for AutoPunchModal<M> {
         self.origin.step(dt);
     }
 
+    #[cfg(test)]
     fn emit_ui(&self, avatar: &dyn Avatar, target: &mut dyn MeshTarget) {
         self.origin.emit_ui(avatar, target);
     }

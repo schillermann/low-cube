@@ -103,16 +103,41 @@ impl PlanetaryMesh {
 
 impl Mesh for PlanetaryMesh {
     fn draw(&self, gl: &glow::Context) {
-        for (idx, face) in self.faces.iter().enumerate() {
-            if (self.visible_mask >> idx.min(31)) & 1 != 0 {
-                face.draw(gl);
-            }
-        }
+        self.draw_excluding(gl, usize::MAX);
     }
 
     fn release(&self, gl: &glow::Context) {
         for face in &self.faces {
             face.release(gl);
         }
+    }
+}
+
+impl PlanetaryMesh {
+    fn draw_excluding(&self, gl: &glow::Context, excluded: usize) {
+        for (idx, face) in self.faces.iter().enumerate() {
+            if idx != excluded && (self.visible_mask >> idx.min(31)) & 1 != 0 {
+                face.draw(gl);
+            }
+        }
+    }
+}
+
+/// `Mesh` decorator omitting a single fine-detail slice (such as `MeadowRing`) during coarse preview passes.
+pub struct CoarseMesh<'a> {
+    planet: &'a PlanetaryMesh,
+    excluded_slice: usize,
+}
+
+impl<'a> CoarseMesh<'a> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(planet: &'a PlanetaryMesh, excluded_slice: usize) -> Self {
+        Self { planet, excluded_slice }
+    }
+}
+
+impl Mesh for CoarseMesh<'_> {
+    fn draw(&self, gl: &glow::Context) {
+        self.planet.draw_excluding(gl, self.excluded_slice);
     }
 }

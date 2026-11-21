@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::num::NonZeroU32;
 use glow::HasContext;
 use glutin::context::PossiblyCurrentContext;
@@ -14,8 +15,9 @@ use crate::aurora_canopy::AuroraCanopy;
 use crate::avatar::Avatar;
 use crate::celestial::CelestialCadence;
 use crate::diurnal_pipeline::DiurnalPipeline;
-use crate::menu::{ScreenPoint, SessionModal, SystemClipboard, TextClipboard};
+use crate::menu::{PreviewStripLayout, ScreenPoint, SessionModal, SystemClipboard, TextClipboard};
 use crate::photo_plate::PhotoPlate;
+use crate::preview_strip::PreviewAtlas;
 
 /// Interface for platform window and display surface operations.
 pub trait PlatformSurface {
@@ -41,7 +43,7 @@ pub trait PlatformSurface {
         &self,
         pipeline: &dyn GraphicPipeline,
         shader: &dyn ShaderProgram,
-        mesh: &dyn Mesh,
+        scenes: (&dyn Mesh, &dyn Mesh),
         avatar: &dyn Avatar,
         modal: &dyn SessionModal,
     );
@@ -60,28 +62,57 @@ pub trait PlatformSurface {
     }
 }
 
-/// Encapsulated platform window, OpenGL context, and surface implementation.
+struct GlSwapSurface {
+    context: PossiblyCurrentContext,
+    surface: Surface<WindowSurface>,
+}
+
+impl GlSwapSurface {
+    const fn new(context: PossiblyCurrentContext, surface: Surface<WindowSurface>) -> Self {
+        Self { context, surface }
+    }
+
+    fn resize(&self, width: NonZeroU32, height: NonZeroU32) {
+        self.surface.resize(&self.context, width, height);
+    }
+
+    fn swap(&self) {
+        self.surface.swap_buffers(&self.context).expect("Buffer swap failed");
+    }
+}
+
+/// Encapsulated platform window, OpenGL context, swap surface, and coarse camera preview atlas.
 pub struct GlPlatformSurface {
     window: Window,
-    gl_context: PossiblyCurrentContext,
-    gl_surface: Surface<WindowSurface>,
+    swap: GlSwapSurface,
     gl: glow::Context,
+    previews: RefCell<PreviewAtlas>,
 }
 
 impl GlPlatformSurface {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    fn with_atlas(
+        window: Window,
+        swap: GlSwapSurface,
+        gl: glow::Context,
+        previews: RefCell<PreviewAtlas>,
+    ) -> Self {
+        Self { window, swap, gl, previews }
+    }
+
+    /// Secondary constructor assembling swap surface and dormant preview atlas.
     pub fn new(
         window: Window,
         gl_context: PossiblyCurrentContext,
         gl_surface: Surface<WindowSurface>,
         gl: glow::Context,
     ) -> Self {
-        Self {
+        Self::with_atlas(
             window,
-            gl_context,
-            gl_surface,
+            GlSwapSurface::new(gl_context, gl_surface),
             gl,
-        }
+            RefCell::new(PreviewAtlas::dormant()),
+        )
     }
 
     fn aspect_ratio(&self) -> f32 {
@@ -93,11 +124,7 @@ impl GlPlatformSurface {
 impl PlatformSurface for GlPlatformSurface {
     fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
-            self.gl_surface.resize(
-                &self.gl_context,
-                NonZeroU32::new(width).unwrap(),
-                NonZeroU32::new(height).unwrap(),
-            );
+            self.swap.resize(NonZeroU32::new(width).unwrap(), NonZeroU32::new(height).unwrap());
             unsafe {
                 self.gl.viewport(0, 0, width as i32, height as i32);
             }
@@ -153,18 +180,37 @@ impl PlatformSurface for GlPlatformSurface {
         &self,
         pipeline: &dyn GraphicPipeline,
         shader: &dyn ShaderProgram,
-        mesh: &dyn Mesh,
+        (mesh, coarse_mesh): (&dyn Mesh, &dyn Mesh),
         avatar: &dyn Avatar,
         modal: &dyn SessionModal,
     ) {
+        let size = self.window.inner_size();
         let aspect = self.aspect_ratio();
+        let surface_rot = avatar.surface_rotation();
         let view_proj = avatar.view_projection_matrix(aspect);
-        pipeline.render(&self.gl, shader, mesh, &view_proj, avatar.surface_rotation());
+        pipeline.render(&self.gl, shader, mesh, &view_proj, surface_rot);
+        if !modal.open() {
+            let mut views = Vec::new();
+            let active_slot = avatar.collect_camera_previews(PreviewStripLayout::TILE_ASPECT, &mut views);
+            let mut intercom_batch = CpuMeshBatch::empty();
+            let intercom = avatar
+                .emit_intercom_bust(PreviewStripLayout::TILE_ASPECT, &mut intercom_batch)
+                .map(|vp| (vp, &intercom_batch));
+            self.previews.borrow_mut().render_and_blit(
+                &self.gl,
+                (pipeline, shader),
+                coarse_mesh,
+                (&views, active_slot),
+                intercom,
+                surface_rot,
+                (size.width, size.height),
+            );
+        }
         modal.draw_layer(&self.gl, shader, avatar, aspect);
     }
 
     fn present_frame(&self) {
-        self.gl_surface.swap_buffers(&self.gl_context).expect("Buffer swap failed");
+        self.swap.swap();
     }
 
     fn request_redraw(&self) {

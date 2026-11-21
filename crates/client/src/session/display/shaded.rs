@@ -1,6 +1,6 @@
 use engine::{
-    CompositeMesh, CpuMeshBatch, GraphicPipeline, PlanetaryMesh, SectorGridMesh, ShaderProgram,
-    StreamingMesh,
+    CoarseMesh, CompositeMesh, CpuMeshBatch, GraphicPipeline, PlanetaryMesh, SectorGridMesh,
+    ShaderProgram, StreamingMesh,
 };
 use fauna::WoodlandFauna;
 use world::{MeadowRing, PlanetaryWorld, MEADOW_RING_SLOTS};
@@ -194,6 +194,14 @@ impl ScenePass for ShadedScenePass {
     ) {
         self.populate_actors(surface, world, avatar, fauna, sight_scale);
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
-        surface.render_frame(self.program.0.as_ref(), self.program.1.as_ref(), &composed, avatar, modal);
+        let coarse_terrain = CoarseMesh::new(&self.mesh, world.face_count() * 2);
+        let coarse_composed = CompositeMesh::new(&coarse_terrain, &self.actors);
+        surface.render_frame(
+            self.program.0.as_ref(),
+            self.program.1.as_ref(),
+            (&composed, &coarse_composed),
+            avatar,
+            modal,
+        );
     }
 }

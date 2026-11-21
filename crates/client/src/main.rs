@@ -44,6 +44,7 @@ mod photo_plate;
 mod physics;
 mod portal_config;
 mod posture;
+mod preview_strip;
 mod server_aurora;
 mod server_celestial;
 mod server_physics;

@@ -8,7 +8,7 @@ mod shader;
 mod streaming_mesh;
 
 pub use buffer::{CpuMeshBatch, GlMesh};
-pub use composite_mesh::{CompositeMesh, PlanetaryMesh, StarryPipeline};
+pub use composite_mesh::{CoarseMesh, CompositeMesh, PlanetaryMesh, StarryPipeline};
 pub use pipeline::ForwardPipeline;
 pub use sector_mesh::SectorGridMesh;
 pub use shader::{VoxelProgram, VoxelShaderSource};
