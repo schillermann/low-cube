@@ -2,7 +2,7 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, CraftBlueprint, CraftPose, MeshTarget, MountDomain,
-    PlanetaryWorld, Quad, VesselSink, WorldEarthworks as _,
+    PlanetaryWorld, Quad, TerrainMesh as _, VesselDeck as _, VesselSink, WorldEarthworks as _,
 };
 use crate::attire::{HeldRelic, YouthAttire};
 use crate::avatar::{Avatar as _, AvatarPresence as _, HandGesture, PlanetaryAvatar};

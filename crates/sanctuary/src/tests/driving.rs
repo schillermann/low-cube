@@ -1,8 +1,8 @@
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CompanionPresence, CraftBlueprint, CraftPose,
-    DrivenCraft, MeshTarget, PilotCraft, PlanetaryWorld, PresenceAttire, PresenceKinematics, Quad,
-    SurfaceFrame, VehicleAxes, VehiclePart, WorldEarthworks,
+    BiomedCubeWorld, BlockMedium, BlockMold, CompanionPortal, CompanionPresence, CraftBlueprint,
+    CraftPose, DrivenCraft, MeshTarget, PilotCraft, PlanetaryWorld, PresenceAttire,
+    PresenceKinematics, Quad, SurfaceFrame, VehicleAxes, VehiclePart, VesselDeck, WorldEarthworks,
 };
 use crate::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
 

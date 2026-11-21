@@ -7,9 +7,9 @@ mod wormhole;
 use std::net::UdpSocket;
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CompanionPresence, CubePlanet, Face,
-    FacetedReliefFace, HollowVeins, LivingVeins, NullFace, PlanetaryWorld,
-    PresenceAttire, PresenceKinematics, WorldEarthworks, WorldFact,
+    BiomedCubeWorld, BlockMedium, BlockMold, CompanionPortal, CompanionPresence, CubePlanet, Face,
+    FacetedReliefFace, HollowVeins, LivingVeins, NullFace, PlanetaryWorld, PresenceAttire,
+    PresenceKinematics, WorldEarthworks, WorldFact,
 };
 use crate::{JoinTarget, PortalTicket, RemotePlanet, SanctuaryEnvelope, SanctuaryHost};
 

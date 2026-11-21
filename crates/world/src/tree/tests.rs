@@ -125,7 +125,7 @@ fn all_climate_zones_render_and_yield_distinct_resources() {
 
 #[test]
 fn test_biomed_cube_world_contains_trees_across_biomes() {
-    use crate::{BiomedCubeWorld, PlanetaryWorld};
+    use crate::{BiomedCubeWorld, TerrainMesh};
     let world = BiomedCubeWorld::of_size(32);
     let mut target = TestMeshTarget::empty();
     world.emit_surface(&mut target);
@@ -195,7 +195,7 @@ fn test_axe_cleave_shudder_heartwood_notch_woodchips_and_falling_leaves() {
 
 #[test]
 fn test_striking_and_felling_tree_refreshes_isolated_flora_slice_without_terrain_rebuild() {
-    use crate::{BiomedCubeWorld, PlanetaryWorld};
+    use crate::{BiomedCubeWorld, PlanetaryWorld, TerrainMesh};
     let mut world = BiomedCubeWorld::beveled(32, 1.0);
     let mut terrain_slice = TestMeshTarget::empty();
     let mut initial_flora = TestMeshTarget::empty();

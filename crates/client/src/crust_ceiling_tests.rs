@@ -1,6 +1,6 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, WorldEarthworks as _};
+use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, TerrainMesh as _, WorldEarthworks as _};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
 };

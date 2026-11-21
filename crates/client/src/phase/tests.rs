@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{GravityField, MeshTarget, PlanetaryWorld};
+use world::{CompanionPortal, GravityField, MeshTarget, PlanetaryWorld, TerrainMesh, VesselDeck, WoodlandLife};
 use super::canopy::CanopyBraking;
 use super::gravity::{AsymmetricGravity, FlightGravity, UniformGravity};
 use super::slope::{SkiLaunch, SlopeSurfing};
@@ -17,9 +17,12 @@ impl GravityField for FlatPlane {
 }
 
 impl world::WorldEarthworks for FlatPlane {}
+impl TerrainMesh for FlatPlane { fn emit_surface(&self, _target: &mut dyn MeshTarget) {} }
+impl WoodlandLife for FlatPlane {}
+impl VesselDeck for FlatPlane {}
+impl CompanionPortal for FlatPlane {}
 
 impl PlanetaryWorld for FlatPlane {
-    fn emit_surface(&self, _target: &mut dyn MeshTarget) {}
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
         Vec3::new(position.x, player_height, position.z)
     }
@@ -39,9 +42,12 @@ impl GravityField for RampWorld {
 }
 
 impl world::WorldEarthworks for RampWorld {}
+impl TerrainMesh for RampWorld { fn emit_surface(&self, _target: &mut dyn MeshTarget) {} }
+impl WoodlandLife for RampWorld {}
+impl VesselDeck for RampWorld {}
+impl CompanionPortal for RampWorld {}
 
 impl PlanetaryWorld for RampWorld {
-    fn emit_surface(&self, _target: &mut dyn MeshTarget) {}
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
         Vec3::new(position.x, position.z * self.slope + player_height, position.z)
     }

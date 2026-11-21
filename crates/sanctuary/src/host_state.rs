@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use world::{
     CompanionPresence, CraftBlueprint, CraftIdentity, DrivenCraft, ExposedStratum, MeshTarget,
@@ -38,6 +39,7 @@ impl HostState {
     pub fn punch_peer(&mut self, socket: &UdpSocket, peer: SocketAddr) { self.wormhole.punch_peer(socket, peer); }
     pub fn occupy_host(&mut self, presence: CompanionPresence) { self.aura.occupy(presence); }
     pub fn pilot_host(&mut self, craft: PilotCraft) { self.aura.pilot(craft); }
+    pub fn active_craft_count(&self) -> usize { self.cohort.active_craft_count() }
     pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) { self.cohort.guest_companions(out); }
     pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) { self.cohort.guest_crafts(out); }
     pub fn constrain_guest_crafts(&self, position: glam::Vec3, player_height: f32, up: glam::Vec3) -> Option<glam::Vec3> {
@@ -60,8 +62,8 @@ impl HostState {
         self.aura.fleet().emit_crafts(&crafts, target);
     }
 
-    pub fn admit_guest(&mut self, identity: &HostIdentity, world: &dyn PlanetaryWorld, peer: SocketAddr, guest_pub: [u8; 32]) -> u32 {
-        self.cohort.admit_guest(identity, world, peer, guest_pub)
+    pub fn admit_guest(&mut self, identity: &HostIdentity, peer: SocketAddr, guest_pub: [u8; 32]) -> u32 {
+        self.cohort.admit_guest(identity, peer, guest_pub)
     }
 
     pub fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
@@ -75,24 +77,10 @@ impl HostState {
         self.chronicle.record(WorldFact::StratumDisclosed { face, stratum });
     }
 
-    pub fn process_companion_datagram(&mut self, cid: u32, src: SocketAddr, pkt: &[u8], world: &mut dyn PlanetaryWorld) -> bool {
-        let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else {
-            return false;
-        };
-        match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft }) => {
-                let vetted_craft = match craft {
-                    PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
-                    other => other,
-                };
-                if let Some(ward) = self.cohort.ward_mut(cid) {
-                    ward.absorb_pulse(cid, ack_seq, presence, vetted_craft, world);
-                }
-                false
-            }
-            Some(SanctuaryEnvelope::GuestPetition {
-                fact: WorldFact::BoarStruck { eye, direction, power, reach_cm },
-            }) => {
+    pub fn enact_guest_petition(&mut self, cid: u32, fact: WorldFact, world: &mut dyn PlanetaryWorld) -> bool {
+        match fact {
+            WorldFact::StratumDisclosed { .. } => false,
+            WorldFact::BoarStruck { eye, direction, power, reach_cm } => {
                 if !self.cohort.ward_mut(cid).is_some_and(|w| w.eye_within_reach(eye, direction)) {
                     return false;
                 }
@@ -108,12 +96,12 @@ impl HostState {
                 let mut decorated = ChronicledPlanet::new(world, self);
                 BoarSounder::cast_meat_drops(meat_rays, &mut decorated)
             }
-            Some(SanctuaryEnvelope::GuestPetition { fact }) if !matches!(fact, WorldFact::StratumDisclosed { .. }) => {
-                let stamped = match fact {
+            other => {
+                let stamped = match other {
                     WorldFact::HelmClaimed { craft, eye, direction, .. } => {
                         WorldFact::HelmClaimed { craft, pilot_slot: cid, eye, direction }
                     }
-                    other => other,
+                    rest => rest,
                 };
                 let fleet = self.aura.fleet_mut();
                 let enacted = self
@@ -125,7 +113,75 @@ impl HostState {
                 }
                 enacted
             }
+        }
+    }
+
+    pub fn process_companion_datagram(&mut self, cid: u32, src: SocketAddr, pkt: &[u8], world: &mut dyn PlanetaryWorld) -> bool {
+        let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else {
+            return false;
+        };
+        let now = self.cohort.tick_secs();
+        match SanctuaryEnvelope::decode(&body) {
+            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft }) => {
+                let vetted_craft = match craft {
+                    PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
+                    other => other,
+                };
+                if let Some(ward) = self.cohort.ward_mut(cid) {
+                    ward.absorb_pulse(cid, ack_seq, now, presence, vetted_craft, world);
+                }
+                false
+            }
+            Some(SanctuaryEnvelope::GuestPetition { fact }) => self.enact_guest_petition(cid, fact, world),
             _ => false,
+        }
+    }
+
+    pub fn process_standby_datagram(
+        &mut self,
+        cid: u32,
+        src: SocketAddr,
+        pkt: &[u8],
+        max_extent: f32,
+        deferred: &mut VecDeque<(u32, WorldFact)>,
+    ) {
+        let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else {
+            return;
+        };
+        let now = self.cohort.tick_secs();
+        match SanctuaryEnvelope::decode(&body) {
+            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft }) => {
+                let vetted_craft = match craft {
+                    PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
+                    other => other,
+                };
+                if let Some(ward) = self.cohort.ward_mut(cid) {
+                    ward.absorb_standby_pulse(cid, ack_seq, now, presence, vetted_craft, max_extent);
+                }
+            }
+            Some(SanctuaryEnvelope::GuestPetition { fact }) => {
+                if deferred.len() < 64 {
+                    deferred.push_back((cid, fact));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    pub fn step_standby_clocks(&mut self, socket: &UdpSocket, dt: f32, deferred: &mut VecDeque<(u32, WorldFact)>) {
+        self.wormhole.step(socket, dt);
+        let mut abandoned = Vec::new();
+        let pulse_ready = self.cohort.advance_wards(dt, &mut abandoned);
+        for (cid, pilot_craft) in abandoned {
+            if let PilotCraft::Driving(dc) = pilot_craft {
+                if deferred.len() < 64 {
+                    deferred.push_back((cid, WorldFact::HelmReleased { craft: dc.identity(), pose: dc.pose() }));
+                }
+            }
+            self.aura.fleet_mut().release_slot(cid);
+        }
+        if pulse_ready {
+            self.broadcast(socket);
         }
     }
 

@@ -1,6 +1,8 @@
 use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
-use world::{CompanionPresence, CraftPose, DrivenCraft, GoreStamp, PilotCraft, PlanetaryWorld};
+use world::{
+    CompanionPresence, CraftPose, DrivenCraft, GoreStamp, PilotCraft, PlanetaryWorld,
+};
 use crate::glide::CompanionGlide;
 use crate::seal::SessionSeal;
 
@@ -68,11 +70,6 @@ impl GuestWard {
 
     pub fn step(&mut self, dt: f32) {
         self.vitals.advance(dt);
-        self.glide.advance_tick(dt);
-    }
-
-    pub fn blend_subtick(&mut self, subtick_secs: f32) {
-        self.glide.blend_subtick(subtick_secs);
     }
 
     pub fn alive(&self) -> bool {
@@ -95,8 +92,12 @@ impl GuestWard {
         self.glide.authoritative_presence()
     }
 
-    pub fn smooth_presence(&self) -> CompanionPresence {
-        self.glide.smooth_presence()
+    pub fn presence_at(&self, render_secs: f64) -> CompanionPresence {
+        self.glide.presence_at(render_secs)
+    }
+
+    pub fn craft_at(&self, render_secs: f64) -> PilotCraft {
+        self.glide.craft_at(render_secs)
     }
 
     pub fn pedestrian_observer(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, bool)> {
@@ -114,12 +115,8 @@ impl GuestWard {
         self.glide.authoritative_craft().push_active(out);
     }
 
-    pub fn smooth_craft(&self) -> PilotCraft {
-        self.glide.smooth_craft()
-    }
-
-    pub fn push_smooth_craft(&self, out: &mut Vec<DrivenCraft>) {
-        self.glide.smooth_craft().push_active(out);
+    pub fn push_craft_at(&self, render_secs: f64, out: &mut Vec<DrivenCraft>) {
+        self.glide.craft_at(render_secs).push_active(out);
     }
 
     pub fn into_pilot_craft(self) -> PilotCraft {
@@ -137,6 +134,7 @@ impl GuestWard {
         &mut self,
         companion_id: u32,
         ack_seq: u32,
+        now: f64,
         presence: CompanionPresence,
         craft: PilotCraft,
         world: &dyn PlanetaryWorld,
@@ -144,7 +142,35 @@ impl GuestWard {
         self.vitals.ledger.0 = self.vitals.ledger.0.max(ack_seq);
         let rec_pres = self.glide.authoritative_presence().reconciled(companion_id, presence, world);
         let rec_craft = self.glide.authoritative_craft().reconciled(companion_id, craft, world);
-        self.glide.absorb(rec_pres, rec_craft);
+        self.glide = self.glide.absorbed(now, rec_pres, rec_craft);
+    }
+
+    pub fn absorb_standby_pulse(
+        &mut self,
+        companion_id: u32,
+        ack_seq: u32,
+        now: f64,
+        presence: CompanionPresence,
+        craft: PilotCraft,
+        max_extent: f32,
+    ) {
+        self.vitals.ledger.0 = self.vitals.ledger.0.max(ack_seq);
+        let valid_pos = presence.transfer(|_, kin, _, _| {
+            kin.transfer(|p, _, _, _, _| p.is_finite() && p.abs().max_element() <= max_extent)
+        });
+        let rec_pres = if valid_pos {
+            presence.with_slot(companion_id)
+        } else {
+            self.glide.authoritative_presence().with_slot(companion_id)
+        };
+        let rec_craft = match craft {
+            PilotCraft::Pedestrian => PilotCraft::Pedestrian,
+            PilotCraft::Driving(dc) if dc.pose().origin().is_finite() && dc.identity().assigned() => {
+                PilotCraft::Driving(dc.with_slot(companion_id))
+            }
+            PilotCraft::Driving(_) => self.glide.authoritative_craft().with_slot(companion_id),
+        };
+        self.glide = self.glide.absorbed(now, rec_pres, rec_craft);
     }
 
     pub fn eye_within_reach(&self, eye: Vec3, direction: Vec3) -> bool {

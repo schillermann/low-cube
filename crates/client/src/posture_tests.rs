@@ -1,6 +1,9 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use world::{GravityField, MeshTarget, PlanetaryWorld};
+use world::{
+    CompanionPortal, GravityField, MeshTarget, PlanetaryWorld, TerrainMesh, VesselDeck,
+    WoodlandLife,
+};
 use crate::avatar::{AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::horizon::CameraHorizon;
 use crate::controls::{KeyboardControls, KeyMotion, SprintControls};
@@ -16,9 +19,12 @@ impl GravityField for FlatGroundWorld {
 }
 
 impl world::WorldEarthworks for FlatGroundWorld {}
+impl TerrainMesh for FlatGroundWorld { fn emit_surface(&self, _target: &mut dyn MeshTarget) {} }
+impl WoodlandLife for FlatGroundWorld {}
+impl VesselDeck for FlatGroundWorld {}
+impl CompanionPortal for FlatGroundWorld {}
 
 impl PlanetaryWorld for FlatGroundWorld {
-    fn emit_surface(&self, _target: &mut dyn MeshTarget) {}
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 { Vec3::new(position.x, player_height, position.z) }
 }
 
@@ -137,8 +143,11 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
     struct DoorframeWorld(TerracedRelief);
     impl GravityField for DoorframeWorld { fn pull_direction_at(&self, _: Vec3) -> Vec3 { Vec3::NEG_Y } fn surface_up_at(&self, _: Vec3) -> Vec3 { Vec3::Y } }
     impl world::WorldEarthworks for DoorframeWorld {}
+    impl TerrainMesh for DoorframeWorld { fn emit_surface(&self, _: &mut dyn MeshTarget) {} }
+    impl WoodlandLife for DoorframeWorld {}
+    impl VesselDeck for DoorframeWorld {}
+    impl CompanionPortal for DoorframeWorld {}
     impl PlanetaryWorld for DoorframeWorld {
-        fn emit_surface(&self, _: &mut dyn MeshTarget) {}
         fn constrain_to_surface(&self, p: Vec3, d: f32) -> Vec3 { Vec3::new(p.x, self.0.support_height_at(p.x, p.z, p.y - d, d) + d, p.z) }
         fn confine_beneath_crust(&self, p: Vec3) -> Vec3 { let (u, v, z) = self.0.confine(p.x, p.z, p.y); Vec3::new(u, z, v) }
     }

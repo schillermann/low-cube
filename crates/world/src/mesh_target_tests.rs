@@ -81,7 +81,7 @@ fn test_low_poly_grass_emits_3d_pyramid_blades_on_verdant_turf() {
 
 #[test]
 fn test_local_camera_meadow_is_constant_o1_across_world_cube_scales() {
-    use crate::{BiomedCubeWorld, PlanetaryWorld};
+    use crate::{BiomedCubeWorld, TerrainMesh};
 
     let small_world = BiomedCubeWorld::beveled(96, 1.0);
     let large_world = BiomedCubeWorld::beveled(160, 1.0);
@@ -104,7 +104,7 @@ fn test_local_camera_meadow_is_constant_o1_across_world_cube_scales() {
 
 #[test]
 fn test_sector_patch_grid_and_toroidal_meadow_ring_update_o1_subpatches() {
-    use crate::{BiomedCubeWorld, MeadowRing, PlanetaryWorld, MEADOW_RING_SLOTS};
+    use crate::{BiomedCubeWorld, MeadowRing, PlanetaryWorld, TerrainMesh, MEADOW_RING_SLOTS};
 
     let mut world = BiomedCubeWorld::barren_beveled(64, 1.0);
     assert_eq!(world.face_patch_count(0), 64, "64-block face (128 half-meter cells) must partition into 8x8 = 64 sectors");

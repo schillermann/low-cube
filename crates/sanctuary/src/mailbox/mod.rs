@@ -1,17 +1,22 @@
 mod socket_loop;
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::time::Instant;
 pub use self::socket_loop::SocketLoop;
 
 const STANDBY_THRESHOLD_NANOS: u64 = 20_000_000;
 
-/// Lock-free atomic status and main-loop heartbeat mailbox coordinating `SocketLoop` standby failover.
+/// Focused 1-method background P2P socket heartbeat decoupled from `PlanetaryWorld` terrain and meshes.
+pub trait PortalBeat: Send {
+    fn step_standby(&mut self, dt: f32) -> usize;
+}
+
+/// Lock-free atomic heartbeat and active-fleet mailbox coordinating `SocketLoop` standby failover.
 pub struct PortalMailbox {
     epoch: Instant,
     main_beat_nanos: AtomicU64,
     alive: AtomicBool,
-    surface_dirty: AtomicBool,
+    active_crafts: AtomicUsize,
 }
 
 impl PortalMailbox {
@@ -20,9 +25,9 @@ impl PortalMailbox {
         epoch: Instant,
         main_beat_nanos: AtomicU64,
         alive: AtomicBool,
-        surface_dirty: AtomicBool,
+        active_crafts: AtomicUsize,
     ) -> Self {
-        Self { epoch, main_beat_nanos, alive, surface_dirty }
+        Self { epoch, main_beat_nanos, alive, active_crafts }
     }
 
     pub fn active() -> Self {
@@ -30,7 +35,7 @@ impl PortalMailbox {
             Instant::now(),
             AtomicU64::new(0),
             AtomicBool::new(true),
-            AtomicBool::new(false),
+            AtomicUsize::new(0),
         )
     }
 
@@ -53,11 +58,11 @@ impl PortalMailbox {
         cur.saturating_sub(last) >= STANDBY_THRESHOLD_NANOS
     }
 
-    pub fn note_surface_change(&self) {
-        self.surface_dirty.store(true, Ordering::Release);
+    pub fn note_active_crafts(&self, count: usize) {
+        self.active_crafts.store(count, Ordering::Release);
     }
 
-    pub fn take_surface_change(&self) -> bool {
-        self.surface_dirty.swap(false, Ordering::AcqRel)
+    pub fn active_crafts(&self) -> usize {
+        self.active_crafts.load(Ordering::Acquire)
     }
 }

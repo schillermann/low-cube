@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{BiomedCubeWorld, ClimateZone, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology, PlanetaryWorld, Quad, Topology};
+use world::{BiomedCubeWorld, ClimateZone, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology, Quad, TerrainMesh as _, Topology};
 
 struct QuadLedger {
     quads: Vec<Quad>,

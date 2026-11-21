@@ -1,13 +1,14 @@
 use std::net::SocketAddr;
 use glam::Vec3;
 use world::{
-    BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
-    CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
-    PilotCraft, PlanetaryWorld, SightCone, SurfaceFind, VehicleAssembly, WorldEarthworks,
+    BlockMedium, BlockMold, CleaveOutcome, CompanionPortal, CompanionPresence, CraftBlueprint,
+    CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing,
+    MeshTarget, PilotCraft, PlanetaryWorld, SightCone, SurfaceFind, TerrainMesh, VehicleAssembly,
+    VesselDeck, WorldEarthworks, WoodlandLife,
 };
 use crate::sanctuary_host::SanctuaryHost;
 
-/// Decorator turning any authoritative `PlanetaryWorld` into a live multiplayer host via `ChronicledPlanet`.
+/// Decorator turning any authoritative `PlanetaryWorld` into a live lock-free multiplayer host.
 pub struct HostedPlanet {
     host: SanctuaryHost,
 }
@@ -17,6 +18,15 @@ impl HostedPlanet {
     pub fn new(host: SanctuaryHost) -> Self {
         Self { host }
     }
+
+    /// Secondary constructor spawning the lock-free `SocketLoop` standby heartbeat over `HostWire`.
+    pub fn spawning(host: SanctuaryHost) -> Self {
+        Self::new(host.spawn_standby())
+    }
+
+    pub fn active(&self) -> bool {
+        self.host.standby_active()
+    }
 }
 
 impl GravityField for HostedPlanet {
@@ -25,21 +35,8 @@ impl GravityField for HostedPlanet {
     fn apply_pull(&self, position: Vec3, dt: f32) -> Vec3 { self.host.world().apply_pull(position, dt) }
 }
 
-impl PlanetaryWorld for HostedPlanet {
+impl TerrainMesh for HostedPlanet {
     fn emit_surface(&self, target: &mut dyn MeshTarget) { self.host.world().emit_surface(target); }
-    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 { self.host.constrain_with_crafts(position, player_height) }
-    fn canopy_drag(&self, position: Vec3) -> f32 { self.host.world().canopy_drag(position) }
-    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.host.world().placed_camera_tripod() }
-
-    fn step_surface(&mut self, dt: f32) -> bool {
-        let regrown = self.host.world_mut().step_surface(dt);
-        let net_changed = self.host.pump_network(dt);
-        regrown || net_changed || self.host.world().pending_slices()
-    }
-
-    fn step_local_flora(&mut self, dt: f32) -> bool { self.host.world_mut().step_surface(dt) }
-    fn lethal_at(&self, position: Vec3) -> bool { self.host.world().lethal_at(position) }
-    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.host.world().confine_beneath_crust(position) }
     fn face_count(&self) -> usize { self.host.world().face_count() }
     fn emit_face(&self, index: usize, target: &mut dyn MeshTarget) { self.host.world().emit_face(index, target); }
     fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize { self.host.world().emit_modified_face(target) }
@@ -52,6 +49,11 @@ impl PlanetaryWorld for HostedPlanet {
         self.host.world().drain_stale_meadow_patch(center, ring, target)
     }
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.host.world().emit_meadow_around(center, view_dir, target); }
+    fn visible_slice_mask(&self, position: Vec3) -> u32 { self.host.world().visible_slice_mask(position) }
+    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.host.world_mut().drain_disclosures(out); }
+}
+
+impl WoodlandLife for HostedPlanet {
     fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.host.world().arboreal_perch_near(center, selector) }
     fn woodland_habitat(&self, position: Vec3) -> bool { self.host.world().woodland_habitat(position) }
     fn step_wildlife(&mut self, _dt: f32, listener: Vec3, view_dir: Vec3, _crouching: bool) -> Option<Vec3> {
@@ -60,46 +62,59 @@ impl PlanetaryWorld for HostedPlanet {
     fn emit_wildlife(&self, cone: SightCone, target: &mut dyn MeshTarget) {
         self.host.emit_wildlife(cone, target);
     }
-    fn local_body_point(&self, position: Vec3) -> Vec3 { self.host.world().local_body_point(position) }
-    fn visible_slice_mask(&self, position: Vec3) -> u32 { self.host.world().visible_slice_mask(position) }
-    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.host.world_mut().drain_disclosures(out); }
-    fn sync_presence(&mut self, presence: CompanionPresence) { self.host.sync_host_presence(presence); }
-    fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.host.sync_host_craft(craft); }
-    fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.host.guest_companions(out); }
-    fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.host.guest_crafts(out); }
+}
 
-    fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {
-        self.host.world().emit_active_crafts(target);
-        self.host.emit_guest_crafts(target);
-    }
-
-    fn present_vessels(&self, sink: &mut dyn world::VesselSink) {
-        self.host.world().present_vessels(sink);
-        self.host.present_guest_vessels(sink);
-    }
-
-    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<world::PlannedMount> {
-        self.host.world().plan_molded_block(eye, direction, avatar_pos, mold)
-    }
-    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> { self.host.world().capture_vehicle_blueprint(eye, direction) }
-    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool { self.host.world().aimed_empty_rig(eye, direction, avatar_pos) }
+impl VesselDeck for HostedPlanet {
     fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> { self.host.board_passenger_seat(eye, direction) }
     fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> { self.host.passenger_seat_frame(craft, local_seat) }
     fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> { self.host.sample_deck_frame(position, player_height) }
     fn resolve_deck_pose(&self, craft: CraftIdentity) -> Option<(CraftPose, f32)> { self.host.resolve_deck_pose(craft) }
     fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> { self.host.constrain_on_craft(craft, position, player_height) }
+    fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {
+        self.host.world().emit_active_crafts(target);
+        self.host.emit_guest_crafts(target);
+    }
+    fn present_vessels(&self, sink: &mut dyn world::VesselSink) {
+        self.host.world().present_vessels(sink);
+        self.host.present_guest_vessels(sink);
+    }
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<world::PlannedMount> {
+        self.host.world().plan_molded_block(eye, direction, avatar_pos, mold)
+    }
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> { self.host.world().capture_vehicle_blueprint(eye, direction) }
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool { self.host.world().aimed_empty_rig(eye, direction, avatar_pos) }
+}
+
+impl CompanionPortal for HostedPlanet {
+    fn sync_presence(&mut self, presence: CompanionPresence) { self.host.sync_host_presence(presence); }
+    fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.host.sync_host_craft(craft); }
+    fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.host.guest_companions(out); }
+    fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.host.guest_crafts(out); }
     fn blend_companions(&mut self, subtick_secs: f32) { self.host.blend_companions(subtick_secs); }
     fn portal_ticket(&self) -> Option<String> { Some(self.host.ticket().encode()) }
     fn portal_phrase(&self) -> Option<String> { Some(self.host.code().encode()) }
-
     fn punch_nat_peer(&mut self, peer: SocketAddr) -> bool {
         self.host.punch_nat_peer(peer);
         true
     }
-
     fn pump_portal(&mut self, dt: f32) -> bool {
         self.host.pump_network(dt) || self.host.world().pending_slices()
     }
+}
+
+impl PlanetaryWorld for HostedPlanet {
+    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 { self.host.constrain_with_crafts(position, player_height) }
+    fn canopy_drag(&self, position: Vec3) -> f32 { self.host.world().canopy_drag(position) }
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.host.world().placed_camera_tripod() }
+    fn step_surface(&mut self, dt: f32) -> bool {
+        let regrown = self.host.world_mut().step_surface(dt);
+        let net_changed = self.host.pump_network(dt);
+        regrown || net_changed || self.host.world().pending_slices()
+    }
+    fn step_local_flora(&mut self, dt: f32) -> bool { self.host.world_mut().step_surface(dt) }
+    fn lethal_at(&self, position: Vec3) -> bool { self.host.world().lethal_at(position) }
+    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.host.world().confine_beneath_crust(position) }
+    fn local_body_point(&self, position: Vec3) -> Vec3 { self.host.world().local_body_point(position) }
 }
 
 impl WorldEarthworks for HostedPlanet {

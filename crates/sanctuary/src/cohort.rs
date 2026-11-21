@@ -9,6 +9,7 @@ use crate::aura::{HostAura, HostIdentity, HostPresence, PeerCrack};
 use crate::chronicle_log::ChronicleLog;
 use crate::envelope::{CrackNotice, SanctuaryEnvelope};
 use crate::fleet_ledger::FleetLedger;
+use crate::glide::TimelineClock;
 use crate::ward::{GuestWard, WardVitals};
 
 const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
@@ -18,17 +19,34 @@ pub struct GuestCohort {
     wards: HashMap<u32, GuestWard>,
     key_index: HashMap<[u8; 32], u32>,
     next_id: u32,
-    pulse_clock: f32,
+    timeline: (TimelineClock, f32),
 }
 
 impl GuestCohort {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(wards: HashMap<u32, GuestWard>, key_index: HashMap<[u8; 32], u32>, next_id: u32, pulse_clock: f32) -> Self {
-        Self { wards, key_index, next_id, pulse_clock }
+    pub fn new(
+        wards: HashMap<u32, GuestWard>,
+        key_index: HashMap<[u8; 32], u32>,
+        next_id: u32,
+        timeline: (TimelineClock, f32),
+    ) -> Self {
+        Self { wards, key_index, next_id, timeline }
     }
 
     pub fn empty() -> Self {
-        Self::new(HashMap::new(), HashMap::new(), 2, 0.0)
+        Self::new(HashMap::new(), HashMap::new(), 2, (TimelineClock::origin(), 0.0))
+    }
+
+    pub const fn tick_secs(&self) -> f64 {
+        self.timeline.0.tick_secs()
+    }
+
+    pub fn active_craft_count(&self) -> usize {
+        let at = self.timeline.0.render_secs();
+        self.wards
+            .values()
+            .filter(|w| matches!(w.craft_at(at), PilotCraft::Driving(_)))
+            .count()
     }
 
     pub fn ward_mut(&mut self, cid: u32) -> Option<&mut GuestWard> {
@@ -50,16 +68,18 @@ impl GuestCohort {
     }
 
     pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) {
+        let at = self.timeline.0.render_secs();
         out.clear();
         for ward in self.wards.values() {
-            out.push(ward.smooth_presence());
+            out.push(ward.presence_at(at));
         }
     }
 
     pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) {
+        let at = self.timeline.0.render_secs();
         out.clear();
         for ward in self.wards.values() {
-            ward.push_smooth_craft(out);
+            ward.push_craft_at(at, out);
         }
     }
 
@@ -70,9 +90,10 @@ impl GuestCohort {
         player_height: f32,
         up: Vec3,
     ) -> Option<Vec3> {
+        let at = self.timeline.0.render_secs();
         let mut best: Option<Vec3> = None;
         for ward in self.wards.values() {
-            if let PilotCraft::Driving(craft) = ward.smooth_craft() {
+            if let PilotCraft::Driving(craft) = ward.craft_at(at) {
                 if let Some(top) = fleet.constrain_crafts(std::slice::from_ref(&craft), position, player_height) {
                     if best.is_none_or(|prev| top.dot(up) > prev.dot(up)) {
                         best = Some(top);
@@ -89,8 +110,9 @@ impl GuestCohort {
         position: Vec3,
         player_height: f32,
     ) -> Option<DeckFrame> {
+        let at = self.timeline.0.render_secs();
         for ward in self.wards.values() {
-            if let PilotCraft::Driving(craft) = ward.smooth_craft() {
+            if let PilotCraft::Driving(craft) = ward.craft_at(at) {
                 if let Some(deck) = fleet.sample_deck_at(std::slice::from_ref(&craft), position, player_height) {
                     return Some(deck);
                 }
@@ -100,12 +122,10 @@ impl GuestCohort {
     }
 
     pub fn blend_subtick(&mut self, subtick_secs: f32) {
-        for ward in self.wards.values_mut() {
-            ward.blend_subtick(subtick_secs);
-        }
+        self.timeline.0 = self.timeline.0.blended(subtick_secs);
     }
 
-    pub fn admit_guest(&mut self, identity: &HostIdentity, world: &dyn PlanetaryWorld, peer: SocketAddr, guest_pub: [u8; 32]) -> u32 {
+    pub fn admit_guest(&mut self, identity: &HostIdentity, peer: SocketAddr, guest_pub: [u8; 32]) -> u32 {
         let cid = if let Some(&existing) = self.key_index.get(&guest_pub) {
             existing
         } else {
@@ -115,14 +135,15 @@ impl GuestCohort {
             id
         };
         let seal = identity.keys().establish(guest_pub, false);
-        let spawn = world.constrain_to_surface(Vec3::new(0.0, 64.0, 0.0), 0.0);
-        let kin = PresenceKinematics::new(spawn, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
+        let half = (identity.blocks_per_edge() as f32) * 0.5;
+        let kin = PresenceKinematics::new(Vec3::new(0.0, half, 0.0), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
         let pres = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
         self.wards.entry(cid).or_insert_with(|| GuestWard::new(seal, peer, pres, WardVitals::fresh()));
         cid
     }
 
     pub fn advance_wards(&mut self, dt: f32, abandoned_out: &mut Vec<(u32, PilotCraft)>) -> bool {
+        self.timeline.0 = self.timeline.0.advanced(dt);
         for ward in self.wards.values_mut() {
             ward.step(dt);
         }
@@ -136,9 +157,9 @@ impl GuestCohort {
                 abandoned_out.push((cid, dead.into_pilot_craft()));
             }
         }
-        self.pulse_clock += dt;
-        if self.pulse_clock >= PULSE_INTERVAL_SECS {
-            self.pulse_clock = (self.pulse_clock - PULSE_INTERVAL_SECS).min(PULSE_INTERVAL_SECS);
+        self.timeline.1 += dt;
+        if self.timeline.1 >= PULSE_INTERVAL_SECS {
+            self.timeline.1 = (self.timeline.1 - PULSE_INTERVAL_SECS).min(PULSE_INTERVAL_SECS);
             true
         } else {
             false

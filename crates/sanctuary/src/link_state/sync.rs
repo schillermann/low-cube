@@ -4,60 +4,7 @@ use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, WorldFac
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::SmoothRoster;
-use crate::seal::{HandshakeIdentity, SessionSeal};
-use crate::ticket::{JoinTarget, PortalTicket};
-use crate::wormhole::{PunchCode, WormholePledge};
-
-/// Polymorphic P2P session establishment phase without nullable cipher fields.
-pub enum LinkPhase {
-    SeekingWormhole {
-        pledge: WormholePledge,
-        keys: HandshakeIdentity,
-        retry_clock: f32,
-    },
-    Knocking {
-        keys: HandshakeIdentity,
-        retry_clock: f32,
-    },
-    Sealed {
-        companion_id: u32,
-        seal: SessionSeal,
-        peer: SocketAddr,
-    },
-}
-
-impl LinkPhase {
-    pub fn emit_knock(target: JoinTarget, socket: &UdpSocket, keys: &HandshakeIdentity) {
-        let mut knock = Vec::with_capacity(36);
-        knock.extend_from_slice(b"LKNK");
-        knock.extend_from_slice(&keys.public_bytes());
-        match target {
-            JoinTarget::Direct(addr) => {
-                let _ = socket.send_to(&knock, addr);
-            }
-            JoinTarget::Ticket(ticket) => {
-                let _ = socket.send_to(&knock, ticket.direct());
-            }
-            JoinTarget::Wormhole(_) => {}
-        }
-    }
-
-    pub fn try_resolve_wormhole(&self, src: SocketAddr, pkt: &[u8]) -> Option<PortalTicket> {
-        if let Self::SeekingWormhole { ref pledge, .. } = *self {
-            pledge.unseal_reply(src, pkt)
-        } else {
-            None
-        }
-    }
-
-    pub fn punch_code(&self) -> Option<PunchCode> {
-        if let Self::SeekingWormhole { ref pledge, .. } = *self {
-            Some(pledge.punch_code())
-        } else {
-            None
-        }
-    }
-}
+use crate::seal::SessionSeal;
 
 const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
 
@@ -212,6 +159,30 @@ impl LinkSync {
         }
     }
 
+    pub fn absorb_standby_envelope(&mut self, env: SanctuaryEnvelope, deferred: &mut VecDeque<SanctuaryEnvelope>) {
+        match env {
+            SanctuaryEnvelope::HostPulse { total_facts, cracks, companions, crafts, wildlife } => {
+                self.roster.reconcile_snapshot(&companions, &crafts);
+                self.roster.reconcile_wildlife(wildlife);
+                if !cracks.is_empty() && deferred.len() < 64 {
+                    deferred.push_back(SanctuaryEnvelope::HostPulse {
+                        total_facts,
+                        cracks,
+                        companions: Vec::new(),
+                        crafts: Vec::new(),
+                        wildlife: world::WildlifePulse::calm(),
+                    });
+                }
+            }
+            SanctuaryEnvelope::HostChronicle { .. } => {
+                if deferred.len() < 64 {
+                    deferred.push_back(env);
+                }
+            }
+            _ => {}
+        }
+    }
+
     pub fn absorb_envelope(
         &mut self,
         env: SanctuaryEnvelope,
@@ -235,8 +206,10 @@ impl LinkSync {
                 changed
             }
             SanctuaryEnvelope::HostPulse { cracks, companions, crafts, wildlife, .. } => {
-                self.roster.reconcile_snapshot(&companions, &crafts);
-                self.roster.reconcile_wildlife(wildlife);
+                if !companions.is_empty() || !crafts.is_empty() || !matches!(wildlife.sounder(), world::SounderPresence::Unseen) || wildlife.gore() != world::GoreStamp::calm() {
+                    self.roster.reconcile_snapshot(&companions, &crafts);
+                    self.roster.reconcile_wildlife(wildlife);
+                }
                 let mut changed = false;
                 for crack in cracks {
                     if crack.enact_on(world) {

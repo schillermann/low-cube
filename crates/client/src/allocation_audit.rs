@@ -1,7 +1,7 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use glam::Vec3;
-use world::PlanetaryWorld;
+use world::{CompanionPortal as _, PlanetaryWorld};
 use crate::avatar::{AvatarMotor as _, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 

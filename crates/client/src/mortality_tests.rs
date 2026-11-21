@@ -1,7 +1,7 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
-use world::{BiomedCubeWorld, PlanetaryWorld, WorldEarthworks};
+use world::{BiomedCubeWorld, CompanionPortal as _, PlanetaryWorld, WorldEarthworks};
 use crate::attire::{HeldRelic, YouthAttire};
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::controls::KeyMotion;

@@ -1,5 +1,8 @@
 use glam::Vec3;
-use world::{GravityField, MeshTarget, PlanetaryWorld, WorldEarthworks as _};
+use world::{
+    CompanionPortal, GravityField, MeshTarget, PlanetaryWorld, TerrainMesh, VesselDeck,
+    WoodlandLife, WorldEarthworks as _,
+};
 use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::gait::WalkGait;
 
@@ -15,9 +18,12 @@ impl GravityField for FlatWorld {
 }
 
 impl world::WorldEarthworks for FlatWorld {}
+impl TerrainMesh for FlatWorld { fn emit_surface(&self, _target: &mut dyn MeshTarget) {} }
+impl WoodlandLife for FlatWorld {}
+impl VesselDeck for FlatWorld {}
+impl CompanionPortal for FlatWorld {}
 
 impl PlanetaryWorld for FlatWorld {
-    fn emit_surface(&self, _target: &mut dyn MeshTarget) {}
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
         Vec3::new(position.x, player_height, position.z)
     }
@@ -49,9 +55,12 @@ impl GravityField for CliffWorld {
 }
 
 impl world::WorldEarthworks for CliffWorld {}
+impl TerrainMesh for CliffWorld { fn emit_surface(&self, _target: &mut dyn MeshTarget) {} }
+impl WoodlandLife for CliffWorld {}
+impl VesselDeck for CliffWorld {}
+impl CompanionPortal for CliffWorld {}
 
 impl PlanetaryWorld for CliffWorld {
-    fn emit_surface(&self, _target: &mut dyn MeshTarget) {}
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
         let y = if position.z >= self.cliff_z {
             self.cliff_y

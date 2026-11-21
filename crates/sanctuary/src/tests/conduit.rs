@@ -1,16 +1,15 @@
 use std::time::{Duration, Instant};
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, CompanionPresence, PilotCraft, PlanetaryWorld, PresenceAttire,
-    PresenceKinematics, PresenceRhythm,
+    BiomedCubeWorld, CompanionPortal, CompanionPresence, PilotCraft, PlanetaryWorld,
+    PresenceAttire, PresenceKinematics, PresenceRhythm,
 };
 use crate::{
-    CompanionGlide, ConduitPlanet, HostedPlanet, JoinTarget, PortalMailbox, RemotePlanet,
-    SanctuaryHost,
+    CompanionGlide, HostedPlanet, JoinTarget, PortalMailbox, RemotePlanet, SanctuaryHost,
 };
 
 #[test]
-fn test_portal_mailbox_atomic_latch_and_halt() {
+fn test_portal_mailbox_atomic_standby_and_craft_count() {
     let now = Instant::now();
     let mailbox = PortalMailbox::active();
     assert!(mailbox.running());
@@ -23,16 +22,15 @@ fn test_portal_mailbox_atomic_latch_and_halt() {
         mailbox.standby_needed(now + Duration::from_millis(25)),
         "SocketLoop standby must activate once main simulation loop stalls >= 20ms"
     );
-    assert!(!mailbox.take_surface_change());
-    mailbox.note_surface_change();
-    assert!(mailbox.take_surface_change());
-    assert!(!mailbox.take_surface_change(), "Surface latch must clear atomically upon consumption");
+    assert_eq!(mailbox.active_crafts(), 0);
+    mailbox.note_active_crafts(2);
+    assert_eq!(mailbox.active_crafts(), 2);
     mailbox.halt();
     assert!(!mailbox.running());
 }
 
 #[test]
-fn test_conduit_planet_relays_guest_motion_while_host_render_loop_stalls() {
+fn test_hosted_planet_standby_wire_relays_guest_motion_without_planet_mutex() {
     let host = SanctuaryHost::bind(
         "127.0.0.1:0",
         Box::new(BiomedCubeWorld::barren_beveled(16, 0.5)),
@@ -40,13 +38,15 @@ fn test_conduit_planet_relays_guest_motion_while_host_render_loop_stalls() {
     )
     .expect("bind host");
     let addr = host.local_addr().expect("host addr");
-    let conduit_host = ConduitPlanet::spawning(Box::new(HostedPlanet::new(host)));
-    assert!(conduit_host.active());
+    let standby_host = HostedPlanet::spawning(host);
+    assert!(standby_host.active());
 
     let mut guest_a = RemotePlanet::connect(JoinTarget::Direct(addr), 16, 0.5)
-        .expect("guest A connects purely via autonomous SocketLoop while host render thread is idle");
+        .expect("guest A connects purely via HostWire standby while host render thread is idle")
+        .spawning();
     let mut guest_b = RemotePlanet::connect(JoinTarget::Direct(addr), 16, 0.5)
-        .expect("guest B connects purely via autonomous SocketLoop while host render thread is idle");
+        .expect("guest B connects purely via HostWire standby while host render thread is idle")
+        .spawning();
 
     let spawn = guest_a.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0);
     let moved_pos = Vec3::new(3.25, spawn.y, 0.25);
@@ -60,7 +60,7 @@ fn test_conduit_planet_relays_guest_motion_while_host_render_loop_stalls() {
     // Host render thread calls ZERO step_surface / RedrawRequested frames during this entire window:
     let started = Instant::now();
     let mut reached_b = false;
-    while started.elapsed() < Duration::from_millis(220) {
+    while started.elapsed() < Duration::from_millis(260) {
         let _ = guest_a.step_surface(1.0 / 120.0);
         let _ = guest_b.step_surface(1.0 / 120.0);
         let mut peers = Vec::new();
@@ -73,9 +73,9 @@ fn test_conduit_planet_relays_guest_motion_while_host_render_loop_stalls() {
     }
     assert!(
         reached_b,
-        "Autonomous SocketLoop must relay Guest A motion to Guest B even while Host render loop is completely stalled"
+        "Standby HostWire must relay Guest A motion to Guest B without locking PlanetaryWorld"
     );
-    drop(conduit_host);
+    drop(standby_host);
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn test_presence_rhythm_wraps_stride_phase_and_cleave_forward_without_backwards_
 }
 
 #[test]
-fn test_companion_glide_maintains_dead_stop_free_stride_under_arrival_jitter() {
+fn test_immutable_companion_glide_maintains_dead_stop_free_stride_under_arrival_jitter() {
     let make_pres = |x: f32| {
         CompanionPresence::new(
             2,
@@ -106,27 +106,26 @@ fn test_companion_glide_maintains_dead_stop_free_stride_under_arrival_jitter() {
             PresenceAttire::squire(),
         )
     };
-    let mut glide = CompanionGlide::anchored(make_pres(0.0), PilotCraft::Pedestrian);
-    let dt = 1.0 / 120.0;
-    let speed = 6.0;
-    let mut sim_time = 0.0f32;
-    let mut next_arrival = 0.012f32;
+    let mut glide = CompanionGlide::anchored(0.0, make_pres(0.0), PilotCraft::Pedestrian);
+    let dt = 1.0 / 120.0_f64;
+    let speed = 6.0_f32;
+    let mut sim_time = 0.0_f64;
+    let mut next_arrival = 0.012_f64;
     let mut short_leg = false;
-    let mut prev_x = 0.0f32;
+    let mut prev_x = 0.0_f32;
     let mut frozen_ticks = 0usize;
 
     for tick in 0..72 {
         sim_time += dt;
-        glide.advance_tick(dt);
         if sim_time >= next_arrival {
-            glide.absorb(make_pres(speed * sim_time), PilotCraft::Pedestrian);
+            glide = glide.absorbed(sim_time, make_pres(speed * (sim_time as f32)), PilotCraft::Pedestrian);
             let jittered = if short_leg { 0.012 } else { 0.026 };
             short_leg = !short_leg;
             next_arrival = sim_time + jittered;
         }
-        let cur_x = glide.smooth_presence().transfer(|_, k, _, _| k.transfer(|p, _, _, _, _| p.x));
+        let cur_x = glide.presence_at(sim_time).transfer(|_, k, _, _| k.transfer(|p, _, _, _, _| p.x));
         if tick >= 6 {
-            assert!(cur_x >= prev_x - 1e-5, "Glide must never step backwards ({cur_x} < {prev_x})");
+            assert!(cur_x >= prev_x - 1e-5, "Immutable trajectory must never step backwards ({cur_x} < {prev_x})");
             if (cur_x - prev_x).abs() < 1e-4 {
                 frozen_ticks += 1;
             }
@@ -137,7 +136,7 @@ fn test_companion_glide_maintains_dead_stop_free_stride_under_arrival_jitter() {
 }
 
 #[test]
-fn test_conduit_planet_monotonic_subbeat_prevents_sawtooth_time_reversal() {
+fn test_standby_host_ignores_uncorrelated_sawtooth_subtick_without_time_reversal() {
     let host = SanctuaryHost::bind(
         "127.0.0.1:0",
         Box::new(BiomedCubeWorld::barren_beveled(16, 0.5)),
@@ -145,7 +144,7 @@ fn test_conduit_planet_monotonic_subbeat_prevents_sawtooth_time_reversal() {
     )
     .expect("bind host");
     let addr = host.local_addr().expect("host addr");
-    let mut conduit_host = ConduitPlanet::spawning(Box::new(HostedPlanet::new(host)));
+    let mut standby_host = HostedPlanet::spawning(host);
     let mut walker = RemotePlanet::connect(JoinTarget::Direct(addr), 16, 0.5).expect("connect walker");
 
     let mut x = 0.25f32;
@@ -159,17 +158,16 @@ fn test_conduit_planet_monotonic_subbeat_prevents_sawtooth_time_reversal() {
             PresenceAttire::squire(),
         ));
         let _ = walker.step_surface(1.0 / 120.0);
-        // Deliberately feed an oscillating uncorrelated render subtick sawtooth into ConduitPlanet:
         let uncorrelated_sawtooth = if step_idx % 2 == 0 { 0.0082 } else { 0.0001 };
-        conduit_host.blend_companions(uncorrelated_sawtooth);
+        standby_host.blend_companions(uncorrelated_sawtooth);
         let mut peers = Vec::new();
-        conduit_host.active_companions(&mut peers);
+        standby_host.active_companions(&mut peers);
         if let Some(peer) = peers.first() {
             let seen_x = peer.transfer(|_, k, _, _| k.transfer(|p, _, _, _, _| p.x));
             if prev_seen_x > 0.30 {
                 assert!(
                     seen_x >= prev_seen_x - 1e-5,
-                    "ConduitPlanet monotonic beat must never reverse companion stride ({seen_x} < {prev_seen_x})"
+                    "Standby HostedPlanet must never reverse companion stride ({seen_x} < {prev_seen_x})"
                 );
             }
             prev_seen_x = seen_x;

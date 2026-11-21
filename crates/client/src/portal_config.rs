@@ -1,6 +1,6 @@
 use std::time::Duration;
 use fauna::{AmbientWoodland, WoodlandPlanet};
-use sanctuary::{ConduitPlanet, HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
+use sanctuary::{HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
 use world::{CelestialSystem, PlanetaryWorld};
 use crate::command_flags::CommandFlags;
 use crate::menu::PortalInvite;
@@ -31,9 +31,8 @@ pub enum PortalDial {
 
 impl PortalDial {
     fn wrap_remote(link: RemoteLink, blocks: u32) -> Box<dyn PlanetaryWorld> {
-        let remote = RemotePlanet::from_link(link, blocks, 1.0);
-        let conduit = Box::new(ConduitPlanet::spawning(Box::new(remote)));
-        Box::new(AmbientWoodland::wrapping(conduit))
+        let remote = Box::new(RemotePlanet::from_link(link, blocks, 1.0).spawning());
+        Box::new(AmbientWoodland::ambient(remote))
     }
 
     #[cfg(test)]
@@ -123,9 +122,8 @@ impl LivePortal {
         println!("Portal Code:    {code}");
         println!("Direct Address: {}", host.ticket().direct());
         println!("Invite Ticket:  {ticket}");
-        let hosted = Box::new(HostedPlanet::new(host));
-        let conduit = Box::new(ConduitPlanet::spawning(hosted));
-        (Box::new(AmbientWoodland::wrapping(conduit)), PortalInvite::hosted(code, ticket))
+        let hosted = Box::new(HostedPlanet::spawning(host));
+        (Box::new(AmbientWoodland::ambient(hosted)), PortalInvite::hosted(code, ticket))
     }
 }
 
@@ -171,15 +169,15 @@ impl PortalConfig {
                 println!("Portal Code:    {code}");
                 println!("Direct Address: {}", host.ticket().direct());
                 println!("Invite Ticket:  {ticket}");
-                let conduit = Box::new(ConduitPlanet::spawning(Box::new(HostedPlanet::new(host))));
-                Box::new(AmbientWoodland::wrapping(conduit))
+                let hosted = Box::new(HostedPlanet::spawning(host));
+                Box::new(AmbientWoodland::ambient(hosted))
             }
             Self::JoinRemote { target } => {
                 let remote = RemotePlanet::connect(target, blocks, 1.0)
-                    .expect("Failed to connect multiplayer RemotePlanet UDP socket");
+                    .expect("Failed to connect multiplayer RemotePlanet UDP socket")
+                    .spawning();
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-                let conduit = Box::new(ConduitPlanet::spawning(Box::new(remote)));
-                Box::new(AmbientWoodland::wrapping(conduit))
+                Box::new(AmbientWoodland::ambient(Box::new(remote)))
             }
         }
     }

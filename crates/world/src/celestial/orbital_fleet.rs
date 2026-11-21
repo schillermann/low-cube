@@ -1,9 +1,9 @@
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
-    CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
-    PilotCraft, PlanetaryWorld, PlannedMount, SurfaceFind, VehicleAssembly, VesselSink,
-    WorldEarthworks,
+    BlockMedium, BlockMold, CleaveOutcome, CompanionPortal, CompanionPresence, CraftBlueprint,
+    CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing,
+    MeshTarget, PilotCraft, PlanetaryWorld, PlannedMount, SightCone, SurfaceFind, TerrainMesh,
+    VehicleAssembly, VesselDeck, VesselSink, WoodlandLife, WorldEarthworks,
 };
 
 const SURFACE_PARK_CLEARANCE: f32 = 4.5;
@@ -65,6 +65,9 @@ impl<W: PlanetaryWorld> WorldEarthworks for OrbitalFleetWorld<W> {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.origin.harvest_surface(eye, direction) }
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.origin.loosen_surface(eye, direction, stage) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.origin.strike_timber(eye, direction) }
+    fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
+        self.origin.strike_boar(eye, direction, power, max_reach)
+    }
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind { self.origin.forage_surface(eye, direction) }
     fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool { self.origin.cast_surface_find(eye, direction, find) }
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
@@ -74,7 +77,6 @@ impl<W: PlanetaryWorld> WorldEarthworks for OrbitalFleetWorld<W> {
         self.origin.adjust_rig(eye, direction, delta_steps, rotate_quarter)
     }
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool { self.origin.lower_rig(eye, direction) }
-
     fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
         self.origin.build_rig_blueprint(eye, direction, blueprint)
     }
@@ -118,9 +120,100 @@ impl<W: PlanetaryWorld> WorldEarthworks for OrbitalFleetWorld<W> {
     }
 }
 
-impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
+impl<W: TerrainMesh> TerrainMesh for OrbitalFleetWorld<W> {
     fn emit_surface(&self, target: &mut dyn MeshTarget) { self.origin.emit_surface(target); }
+    fn face_count(&self) -> usize { self.origin.face_count() }
+    fn emit_face(&self, index: usize, target: &mut dyn MeshTarget) { self.origin.emit_face(index, target); }
+    fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize { self.origin.emit_modified_face(target) }
+    fn pending_slices(&self) -> bool { self.origin.pending_slices() }
+    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> { self.origin.drain_modified_slice(target) }
+    fn face_patch_count(&self, slice: usize) -> usize { self.origin.face_patch_count(slice) }
+    fn emit_face_patch(&self, slice: usize, patch_slot: usize, target: &mut dyn MeshTarget) { self.origin.emit_face_patch(slice, patch_slot, target); }
+    fn drain_modified_patch(&mut self, target: &mut dyn MeshTarget) -> Option<(usize, usize)> { self.origin.drain_modified_patch(target) }
+    fn drain_stale_meadow_patch(&self, center: Vec3, ring: &mut MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
+        self.origin.drain_stale_meadow_patch(center, ring, target)
+    }
+    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.origin.emit_meadow_around(center, view_dir, target); }
+    fn visible_slice_mask(&self, position: Vec3) -> u32 { self.origin.visible_slice_mask(position) }
+    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.origin.drain_disclosures(out); }
+}
 
+impl<W: WoodlandLife> WoodlandLife for OrbitalFleetWorld<W> {
+    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.origin.arboreal_perch_near(center, selector) }
+    fn woodland_habitat(&self, position: Vec3) -> bool { self.origin.woodland_habitat(position) }
+    fn step_wildlife(&mut self, dt: f32, listener: Vec3, view_dir: Vec3, crouching: bool) -> Option<Vec3> {
+        self.origin.step_wildlife(dt, listener, view_dir, crouching)
+    }
+    fn emit_wildlife(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.origin.emit_wildlife(cone, target); }
+}
+
+impl<W: VesselDeck> VesselDeck for OrbitalFleetWorld<W> {
+    fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
+        self.origin.board_passenger_seat(eye, direction)
+    }
+    fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
+        self.origin.passenger_seat_frame(craft, local_seat)
+    }
+    fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> {
+        for craft in &self.drifting {
+            if let Some(frame) = DeckFrame::probe(craft.blueprint(), craft.pose(), position, player_height) {
+                return Some(frame);
+            }
+        }
+        self.origin.sample_deck_frame(position, player_height)
+    }
+    fn resolve_deck_pose(&self, id: CraftIdentity) -> Option<(CraftPose, f32)> {
+        if let Some(craft) = self.drifting.iter().find(|c| c.identity() == id) {
+            return Some((craft.pose(), DeckFrame::thrust_from_pose(craft.pose())));
+        }
+        self.origin.resolve_deck_pose(id)
+    }
+    fn constrain_on_craft(&self, id: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> {
+        if let Some(craft) = self.drifting.iter().find(|c| c.identity() == id) {
+            return craft.blueprint().constrain_at(craft.pose(), position, player_height);
+        }
+        self.origin.constrain_on_craft(id, position, player_height)
+    }
+    fn helm_revoked(&mut self, craft: CraftIdentity) -> bool { self.origin.helm_revoked(craft) }
+    fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {
+        self.origin.emit_active_crafts(target);
+        for craft in &self.drifting {
+            craft.emit(target);
+        }
+    }
+    fn present_vessels(&self, sink: &mut dyn VesselSink) {
+        self.origin.present_vessels(sink);
+        for craft in &self.drifting {
+            sink.receive_vessel(craft.blueprint(), craft.pose());
+        }
+    }
+    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
+        self.origin.plan_molded_block(eye, direction, avatar_pos, mold)
+    }
+    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
+        if let Some(idx) = self.aimed_orbital_index(eye, direction) {
+            return Some(self.drifting[idx].blueprint().clone());
+        }
+        self.origin.capture_vehicle_blueprint(eye, direction)
+    }
+    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
+        self.origin.aimed_empty_rig(eye, direction, avatar_pos)
+    }
+}
+
+impl<W: CompanionPortal> CompanionPortal for OrbitalFleetWorld<W> {
+    fn sync_presence(&mut self, presence: CompanionPresence) { self.origin.sync_presence(presence); }
+    fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.origin.sync_pilot_craft(craft); }
+    fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.origin.active_companions(out); }
+    fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.origin.active_crafts(out); }
+    fn blend_companions(&mut self, subtick_secs: f32) { self.origin.blend_companions(subtick_secs); }
+    fn portal_ticket(&self) -> Option<String> { self.origin.portal_ticket() }
+    fn portal_phrase(&self) -> Option<String> { self.origin.portal_phrase() }
+    fn punch_nat_peer(&mut self, peer: std::net::SocketAddr) -> bool { self.origin.punch_nat_peer(peer) }
+    fn pump_portal(&mut self, dt: f32) -> bool { self.origin.pump_portal(dt) }
+}
+
+impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
         let ground = self.origin.constrain_to_surface(position, player_height);
         let up = self.origin.surface_up_at(position);
@@ -141,90 +234,5 @@ impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
     fn step_local_flora(&mut self, dt: f32) -> bool { self.origin.step_local_flora(dt) }
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position) }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.origin.confine_beneath_crust(position) }
-    fn face_count(&self) -> usize { self.origin.face_count() }
-    fn emit_face(&self, index: usize, target: &mut dyn MeshTarget) { self.origin.emit_face(index, target); }
-    fn emit_modified_face(&self, target: &mut dyn MeshTarget) -> usize { self.origin.emit_modified_face(target) }
-    fn pending_slices(&self) -> bool { self.origin.pending_slices() }
-    fn drain_modified_slice(&mut self, target: &mut dyn MeshTarget) -> Option<usize> { self.origin.drain_modified_slice(target) }
-    fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.origin.emit_meadow_around(center, view_dir, target); }
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.origin.arboreal_perch_near(center, selector) }
-    fn visible_slice_mask(&self, position: Vec3) -> u32 { self.origin.visible_slice_mask(position) }
-    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.origin.drain_disclosures(out); }
-    fn sync_presence(&mut self, presence: CompanionPresence) { self.origin.sync_presence(presence); }
-    fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.origin.sync_pilot_craft(craft); }
-    fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.origin.active_companions(out); }
-    fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.origin.active_crafts(out); }
-    fn blend_companions(&mut self, subtick_secs: f32) { self.origin.blend_companions(subtick_secs); }
-    fn portal_ticket(&self) -> Option<String> { self.origin.portal_ticket() }
-    fn portal_phrase(&self) -> Option<String> { self.origin.portal_phrase() }
-    fn punch_nat_peer(&mut self, peer: std::net::SocketAddr) -> bool { self.origin.punch_nat_peer(peer) }
-    fn pump_portal(&mut self, dt: f32) -> bool { self.origin.pump_portal(dt) }
-    fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
-        self.origin.board_passenger_seat(eye, direction)
-    }
-    fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
-        self.origin.passenger_seat_frame(craft, local_seat)
-    }
-
-    fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> {
-        for craft in &self.drifting {
-            if let Some(frame) = DeckFrame::probe(craft.blueprint(), craft.pose(), position, player_height) {
-                return Some(frame);
-            }
-        }
-        self.origin.sample_deck_frame(position, player_height)
-    }
-
-    fn resolve_deck_pose(&self, id: CraftIdentity) -> Option<(CraftPose, f32)> {
-        if let Some(craft) = self.drifting.iter().find(|c| c.identity() == id) {
-            return Some((craft.pose(), DeckFrame::thrust_from_pose(craft.pose())));
-        }
-        self.origin.resolve_deck_pose(id)
-    }
-
-    fn constrain_on_craft(&self, id: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> {
-        if let Some(craft) = self.drifting.iter().find(|c| c.identity() == id) {
-            return craft.blueprint().constrain_at(craft.pose(), position, player_height);
-        }
-        self.origin.constrain_on_craft(id, position, player_height)
-    }
-    fn helm_revoked(&mut self, craft: CraftIdentity) -> bool { self.origin.helm_revoked(craft) }
-
-    fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {
-        self.origin.emit_active_crafts(target);
-        for craft in &self.drifting {
-            craft.emit(target);
-        }
-    }
-
-    fn present_vessels(&self, sink: &mut dyn VesselSink) {
-        self.origin.present_vessels(sink);
-        for craft in &self.drifting {
-            sink.receive_vessel(craft.blueprint(), craft.pose());
-        }
-    }
-
-    fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
-        self.origin.plan_molded_block(eye, direction, avatar_pos, mold)
-    }
-
-    fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
-        if let Some(idx) = self.aimed_orbital_index(eye, direction) {
-            return Some(self.drifting[idx].blueprint().clone());
-        }
-        self.origin.capture_vehicle_blueprint(eye, direction)
-    }
-
-    fn aimed_empty_rig(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3) -> bool {
-        self.origin.aimed_empty_rig(eye, direction, avatar_pos)
-    }
-
-    fn face_patch_count(&self, slice: usize) -> usize { self.origin.face_patch_count(slice) }
-    fn emit_face_patch(&self, slice: usize, patch_slot: usize, target: &mut dyn MeshTarget) { self.origin.emit_face_patch(slice, patch_slot, target); }
-    fn drain_modified_patch(&mut self, target: &mut dyn MeshTarget) -> Option<(usize, usize)> { self.origin.drain_modified_patch(target) }
-    fn woodland_habitat(&self, position: Vec3) -> bool { self.origin.woodland_habitat(position) }
     fn local_body_point(&self, position: Vec3) -> Vec3 { self.origin.local_body_point(position) }
-    fn drain_stale_meadow_patch(&self, center: Vec3, ring: &mut MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
-        self.origin.drain_stale_meadow_patch(center, ring, target)
-    }
 }

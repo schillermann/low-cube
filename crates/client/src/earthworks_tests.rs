@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad};
+use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, TerrainMesh as _};
 use crate::attire::{HeldRelic, YouthAttire};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,

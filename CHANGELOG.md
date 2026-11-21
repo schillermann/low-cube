@@ -8,6 +8,18 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.95.0] - 2026-11-21
+
+### Added
+- Segregated `PlanetaryWorld` into focused, narrow decorator contracts (`TerrainMesh`, `WoodlandLife`, `VesselDeck`, and `CompanionPortal` alongside `GravityField` and `WorldEarthworks` in `crates/world/src/contracts.rs` and `crates/world/src/planet/facets.rs`), plus the 3-method `FaunaRealm` wildlife contract (`AmbientRealm` in `crates/fauna/src/planet/ambient.rs`), the 1-method `PortalBeat` standby UDP socket contract (`HostWire` in `crates/sanctuary/src/host_wire.rs` and `StandbyLink` in `crates/sanctuary/src/standby_link.rs`), and the 1-method immutable `PresenceCurve` trajectory decorator chain (`CircularStrideCurve(WaypointCurve)` and `TimelineClock` in `crates/sanctuary/src/glide/`).
+
+### Changed
+- Decoupled `PlanetaryWorld` terrain, meshes, and flora completely from cross-thread `Mutex` locking (`SanctuaryHost` / `HostedPlanet::spawning` and `GuestJournal` / `RemotePlanet::spawning` in `crates/sanctuary/src/`), keeping `Box<dyn PlanetaryWorld>` owned lock-free on the main simulation thread while restricting `SocketLoop` standby (`>= 20 ms`) strictly to `Arc<Mutex<dyn PortalBeat>>` UDP wire sessions (`crates/sanctuary/src/tests/conduit.rs`).
+- Converted `CompanionGlide` and `RemoteWildlife` (`crates/sanctuary/src/glide/mod.rs` and `remote_wildlife.rs`) into pure `Copy` immutable time-window trajectories evaluated at `render_secs` (`presence_at`, `craft_at`, `sounder_at`) without mutable `subtick_secs` fields or per-entity `advance_tick` / `blend_subtick` mutation.
+
+### Removed
+- Removed `ConduitPlanet` (`crates/sanctuary/src/conduit_planet.rs`) and its `Arc<Mutex<Box<dyn PlanetaryWorld>>>` global planet lock, as well as duplicated `PlanetaryWorld` pass-through boilerplate in `crates/fauna/src/planet/ambient.rs`.
+
 ## [0.94.1] - 2026-11-21
 
 ### Fixed

@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, WorldEarthworks as _};
+use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, WoodlandLife as _, WorldEarthworks as _};
 use acoustics::{AcousticWave, SparrowChirp};
 use crate::sparrow::{SparrowActivity, SparrowFlock, TestSparrow as Sparrow};
 

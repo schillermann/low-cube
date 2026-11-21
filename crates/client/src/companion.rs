@@ -1,4 +1,6 @@
-use world::{CompanionPresence, MeshTarget, PlanetaryWorld};
+use world::{CompanionPortal, CompanionPresence, MeshTarget};
+#[cfg(test)]
+use world::PlanetaryWorld;
 use crate::attire::{BodyPose, MoldedWardrobe, SightMode, StrideRhythm, Wardrobe, YouthPhysique};
 
 /// 3D figure decorator rendering active multiplayer companions on the World-Cube and in Polaroids.
@@ -32,9 +34,9 @@ impl CompanionFigure {
         });
     }
 
-    pub fn emit_figures(world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
+    pub fn emit_figures(portal: &dyn CompanionPortal, target: &mut dyn MeshTarget) {
         let mut roster = Vec::new();
-        world.active_companions(&mut roster);
+        portal.active_companions(&mut roster);
         for companion in roster {
             Self::new(companion).emit(target);
         }

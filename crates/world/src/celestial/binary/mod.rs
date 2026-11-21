@@ -2,8 +2,9 @@ mod earthworks;
 
 use glam::Vec3;
 use crate::{
-    BlockMold, ClimateZone, CraftBlueprint, CubePlanet, ExposedStratum, GravityField, MeadowRing,
-    MeshTarget, PlanetaryWorld, PlannedMount, VesselSink,
+    BlockMold, ClimateZone, CompanionPortal, CraftBlueprint, CubePlanet, ExposedStratum,
+    GravityField, MeadowRing, MeshTarget, PlanetaryWorld, PlannedMount, TerrainMesh, VesselDeck,
+    VesselSink, WoodlandLife,
 };
 use super::lunar::LunarWorld;
 use super::translated::TranslatedWorld;
@@ -46,46 +47,10 @@ impl<G: GravityField> GravityField for BinaryPlanet<G> {
     fn apply_pull(&self, position: Vec3, dt: f32) -> Vec3 { self.gravity.apply_pull(position, dt) }
 }
 
-impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
+impl<G> TerrainMesh for BinaryPlanet<G> {
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         self.home.emit_surface(target);
         self.moon.emit_surface(target);
-    }
-
-    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
-        if self.near_moon(position) {
-            self.moon.constrain_to_surface(position, player_height)
-        } else {
-            self.home.constrain_to_surface(position, player_height)
-        }
-    }
-
-    fn canopy_drag(&self, position: Vec3) -> f32 {
-        if self.near_moon(position) { 0.0 } else { self.home.canopy_drag(position) }
-    }
-
-    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
-        self.home.placed_camera_tripod().or_else(|| self.moon.placed_camera_tripod())
-    }
-
-    fn step_surface(&mut self, dt: f32) -> bool {
-        let a = self.home.step_surface(dt);
-        let b = self.moon.step_surface(dt);
-        a || b
-    }
-
-    fn lethal_at(&self, position: Vec3) -> bool {
-        if self.near_moon(position) { self.moon.lethal_at(position) } else { self.home.lethal_at(position) }
-    }
-
-    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 {
-        if self.near_moon(position) {
-            self.moon.confine_beneath_crust(position)
-        } else if position.abs().max_element() <= self.home_half + 36.0 {
-            self.home.confine_beneath_crust(position)
-        } else {
-            position
-        }
     }
 
     fn face_count(&self) -> usize { 12 }
@@ -155,6 +120,36 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
         }
     }
 
+    fn visible_slice_mask(&self, position: Vec3) -> u32 {
+        let mut mask = self.moon.visible_faces_from(position, LunarWorld::HALF_SIZE) << 6;
+        let show_flora = position.length() <= self.home_half + 420.0;
+        let up = self.home.surface_up_at(position);
+        for (idx, zone) in ClimateZone::all().into_iter().enumerate() {
+            let n = zone.normal();
+            if position.dot(n) > -self.home_half * 0.45 || n.dot(up) > -0.5 {
+                mask |= 1u32 << idx;
+                if show_flora {
+                    mask |= 1u32 << (12 + idx);
+                }
+            }
+        }
+        if position_near_home(position, self.home_half) {
+            mask |= 1u32 << 24;
+        }
+        mask
+    }
+
+    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {
+        self.home.drain_disclosures(out);
+        let mut moon_buf = Vec::new();
+        self.moon.drain_disclosures(&mut moon_buf);
+        for (face, stratum) in moon_buf {
+            out.push((face + 6, stratum));
+        }
+    }
+}
+
+impl<G> WoodlandLife for BinaryPlanet<G> {
     fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
         if self.near_moon(center) { None } else { self.home.arboreal_perch_near(center, selector) }
     }
@@ -162,11 +157,9 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
     fn woodland_habitat(&self, position: Vec3) -> bool {
         !self.near_moon(position) && position_near_home(position, self.home_half)
     }
+}
 
-    fn local_body_point(&self, position: Vec3) -> Vec3 {
-        if self.near_moon(position) { self.moon.local_body_point(position) } else { position }
-    }
-
+impl<G> VesselDeck for BinaryPlanet<G> {
     fn present_vessels(&self, sink: &mut dyn VesselSink) {
         self.home.present_vessels(sink);
         self.moon.present_vessels(sink);
@@ -195,33 +188,49 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
             self.home.aimed_empty_rig(eye, direction, avatar_pos)
         }
     }
+}
 
-    fn visible_slice_mask(&self, position: Vec3) -> u32 {
-        let mut mask = self.moon.visible_faces_from(position, LunarWorld::HALF_SIZE) << 6;
-        let show_flora = position.length() <= self.home_half + 420.0;
-        let up = self.home.surface_up_at(position);
-        for (idx, zone) in ClimateZone::all().into_iter().enumerate() {
-            let n = zone.normal();
-            if position.dot(n) > -self.home_half * 0.45 || n.dot(up) > -0.5 {
-                mask |= 1u32 << idx;
-                if show_flora {
-                    mask |= 1u32 << (12 + idx);
-                }
-            }
+impl<G> CompanionPortal for BinaryPlanet<G> {}
+
+impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
+    fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
+        if self.near_moon(position) {
+            self.moon.constrain_to_surface(position, player_height)
+        } else {
+            self.home.constrain_to_surface(position, player_height)
         }
-        if position_near_home(position, self.home_half) {
-            mask |= 1u32 << 24;
-        }
-        mask
     }
 
-    fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {
-        self.home.drain_disclosures(out);
-        let mut moon_buf = Vec::new();
-        self.moon.drain_disclosures(&mut moon_buf);
-        for (face, stratum) in moon_buf {
-            out.push((face + 6, stratum));
+    fn canopy_drag(&self, position: Vec3) -> f32 {
+        if self.near_moon(position) { 0.0 } else { self.home.canopy_drag(position) }
+    }
+
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
+        self.home.placed_camera_tripod().or_else(|| self.moon.placed_camera_tripod())
+    }
+
+    fn step_surface(&mut self, dt: f32) -> bool {
+        let a = self.home.step_surface(dt);
+        let b = self.moon.step_surface(dt);
+        a || b
+    }
+
+    fn lethal_at(&self, position: Vec3) -> bool {
+        if self.near_moon(position) { self.moon.lethal_at(position) } else { self.home.lethal_at(position) }
+    }
+
+    fn confine_beneath_crust(&self, position: Vec3) -> Vec3 {
+        if self.near_moon(position) {
+            self.moon.confine_beneath_crust(position)
+        } else if position.abs().max_element() <= self.home_half + 36.0 {
+            self.home.confine_beneath_crust(position)
+        } else {
+            position
         }
+    }
+
+    fn local_body_point(&self, position: Vec3) -> Vec3 {
+        if self.near_moon(position) { self.moon.local_body_point(position) } else { position }
     }
 }
 

@@ -1,7 +1,8 @@
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, CompanionPresence, MeshTarget, PlanetaryWorld, PresenceAttire,
-    PresenceKinematics, Quad, SightCone, SurfaceFind, WorldEarthworks,
+    BiomedCubeWorld, CompanionPortal, CompanionPresence, MeshTarget, PlanetaryWorld,
+    PresenceAttire, PresenceKinematics, Quad, SightCone, SurfaceFind, WoodlandLife,
+    WorldEarthworks,
 };
 use crate::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
 
