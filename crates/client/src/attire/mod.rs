@@ -42,7 +42,7 @@ pub use relic::{HeldRelic, MartialStyle};
 pub use rhythm::StrideRhythm;
 pub use sight::{CameraMount, PhotoShutter, SightMode};
 pub use tome::ArtisanTome;
-pub use wardrobe::{MoldedWardrobe, SatchelWardrobe, Wardrobe};
+pub use wardrobe::{MoldedWardrobe, Wardrobe};
 
 /// Encapsulated four-piece medieval garment selection.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

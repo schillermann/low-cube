@@ -46,6 +46,16 @@ impl AvatarOptics for EmbodiedAvatar {
         Some(self.gear.emit_intercom(aspect, angles, target))
     }
 
+    fn emit_inspection_stage(&self, aspect: f32, target: &mut dyn MeshTarget) -> Option<(Mat4, Vec3)> {
+        if !self.gear.satchel_open() || self.body.perished() {
+            return None;
+        }
+        let pose = self.visual_pose();
+        self.gear.emit_inspection(&pose, target);
+        let vp = self.project_at_sight(aspect, SightMode::FirstPersonSight, None);
+        Some((vp, pose.inspection_light()))
+    }
+
     fn surface_rotation(&self) -> Quat {
         self.sight_line.surface_rotation()
     }

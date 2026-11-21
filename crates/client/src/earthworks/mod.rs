@@ -5,7 +5,7 @@ mod toss;
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, PlanetaryWorld, PresenceAttire};
 use crate::attire::{
-    ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, SatchelWardrobe, SightMode,
+    ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, MoldedWardrobe, SightMode,
     StrideRhythm, Wardrobe, YouthAttire,
 };
 use crate::blueprint::BlueprintFolio;
@@ -175,14 +175,22 @@ impl PalmEarthworks {
         false
     }
 
-    pub fn emit_attire(&self, attire: &YouthAttire, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
-        let (dig_r, dig_l) = self.dig.bare_hand_digging(attire);
-        SatchelWardrobe::new(*attire, self.satchel, dig_r, dig_l).emit(pose, sight, target);
-        self.tome.emit_book(&self.satchel, *attire, pose, target);
+    pub fn emit_attire(
+        &self,
+        attire: &YouthAttire,
+        pose: &BodyPose,
+        sight: SightMode,
+        inspection_open: bool,
+        target: &mut dyn MeshTarget,
+    ) {
+        let active = self.dig.bare_hand_attire(*attire);
+        MoldedWardrobe::new(active, self.satchel.palm_molds(), inspection_open).emit(pose, sight, target);
     }
 
-    pub fn emit_folio(&self, folio: &BlueprintFolio, attire: &YouthAttire, pose: &BodyPose, target: &mut dyn MeshTarget) {
-        folio.emit(&self.satchel, *attire, pose, target);
+    pub fn emit_inspection(&self, folio: &BlueprintFolio, attire: YouthAttire, pose: &BodyPose, target: &mut dyn MeshTarget) {
+        self.satchel.emit_for_attire(pose, attire, target);
+        self.tome.emit_book(&self.satchel, attire, pose, target);
+        folio.emit(&self.satchel, attire, pose, target);
     }
 
     pub fn act_folio(
@@ -210,12 +218,7 @@ impl PalmEarthworks {
     }
 
     pub fn presence_attire(&self, attire: YouthAttire) -> PresenceAttire {
-        let (r, l) = attire.held_pair();
-        let (dig_r, dig_l) = self.dig.bare_hand_digging(&attire);
-        let active = attire.with_relics(
-            if dig_r { HeldRelic::EmptyPalm } else { r },
-            if dig_l { HeldRelic::EmptyPalm } else { l },
-        );
+        let active = self.dig.bare_hand_attire(attire);
         PresenceAttire::new(active.multiplayer_bytes(), active.region_bytes(), self.satchel.palm_molds())
     }
 

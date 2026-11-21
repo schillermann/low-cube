@@ -109,6 +109,11 @@ impl BodyPose {
         )
     }
 
+    pub fn inspection_light(&self) -> Vec3 {
+        let (up, fwd, right) = self.view_axes();
+        (right * 0.35 + up * 0.65 - fwd * 0.67).normalize()
+    }
+
     pub fn striking_on(&self, side: f32) -> bool { self.motion.rhythm.hand_cleave(side) > 0.0 }
     pub fn feminine(&self) -> bool { self.motion.physique.feminine() }
     pub fn scale(&self, measure: f32) -> f32 { self.motion.physique.scale(measure) }

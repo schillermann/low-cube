@@ -12,6 +12,7 @@ mod black_box_panel;
 mod clipboard;
 mod escape_menu;
 mod glyph;
+mod inspection_modal;
 mod pause_panel;
 mod portal;
 mod settings;
@@ -34,6 +35,7 @@ pub use clipboard::{MemoryClipboard, ScratchClipboard};
 pub use clipboard::{SystemClipboard, TextClipboard};
 pub use escape_menu::EscapeMenu;
 pub use glyph::PixelStamp;
+pub use inspection_modal::InspectionModal;
 #[cfg(test)]
 pub use pause_panel::PausePanel;
 pub use portal::{AutoPunchModal, PortalInvite};

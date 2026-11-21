@@ -168,17 +168,19 @@ fn test_satchel_open_shows_weapons_behind_and_outside_satchel_without_overlap() 
     let mut closed_unarmed = QuadLedger::empty();
     unarmed.emit_appearance(&mut closed_unarmed);
     assert!(unarmed.dispatch_wardrobe_key(KeyCode::Tab) && armed.dispatch_wardrobe_key(KeyCode::Tab));
-    let (mut open_unarmed, mut open_armed) = (QuadLedger::empty(), QuadLedger::empty());
+    let (mut open_unarmed, mut open_armed, mut satchel_mesh) =
+        (QuadLedger::empty(), QuadLedger::empty(), QuadLedger::empty());
     unarmed.emit_appearance(&mut open_unarmed);
     armed.emit_appearance(&mut open_armed);
+    armed.emit_inspection(&mut satchel_mesh);
+    assert_eq!(open_unarmed.count(), closed_unarmed.count(), "World figure must omit satchel UI quads");
     assert!(open_armed.count() > open_unarmed.count(), "Held tools and weapons must remain visible while satchel menu is open");
+    assert!(satchel_mesh.count() > 100, "Foreground inspection stage must emit 3D satchel quads");
 
     let vp = armed.view_projection_matrix(16.0 / 9.0);
-    let satchel_len = open_unarmed.count() - closed_unarmed.count();
-    let satchel_quads = &open_unarmed.quads[closed_unarmed.count()..];
-    let satchel_max_x = satchel_quads.iter().flat_map(|q| q.transfer(|v0, v1, v2, v3, _, _| [v0, v1, v2, v3]))
+    let satchel_max_x = satchel_mesh.quads.iter().flat_map(|q| q.transfer(|v0, v1, v2, v3, _, _| [v0, v1, v2, v3]))
         .map(|v| { let c = vp * v.extend(1.0); (c.x / c.w).abs() }).fold(0.0_f32, f32::max);
-    let weapon_quads = &open_armed.quads[closed_unarmed.count()..(open_armed.count() - satchel_len)];
+    let weapon_quads = &open_armed.quads[closed_unarmed.count()..];
     let weapon_min_x = weapon_quads.iter().flat_map(|q| q.transfer(|v0, v1, v2, v3, _, _| [v0, v1, v2, v3]))
         .map(|v| { let c = vp * v.extend(1.0); (c.x / c.w).abs() }).fold(f32::INFINITY, f32::min);
     assert!(satchel_max_x + 0.05 < weapon_min_x, "Satchel ({satchel_max_x}) and held weapons ({weapon_min_x}) must not overlap on screen");

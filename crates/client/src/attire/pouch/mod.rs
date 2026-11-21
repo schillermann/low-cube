@@ -260,6 +260,7 @@ impl BeltSatchel {
     }
 
     pub fn emit_for_attire(&self, pose: &BodyPose, attire: YouthAttire, target: &mut dyn MeshTarget) {
-        self.tray.emit_with_burden(pose, self.carried_burden(attire), target);
+        let scaled = attire.scaled_pose(pose);
+        self.tray.emit_with_burden(&scaled, self.carried_burden(attire), target);
     }
 }

@@ -120,6 +120,9 @@ impl AvatarOptics for BlackBoxAvatar {
     fn emit_intercom_bust(&self, aspect: f32, target: &mut dyn MeshTarget) -> Option<Mat4> {
         self.origin.emit_intercom_bust(aspect, target)
     }
+    fn emit_inspection_stage(&self, aspect: f32, target: &mut dyn MeshTarget) -> Option<(Mat4, Vec3)> {
+        self.origin.emit_inspection_stage(aspect, target)
+    }
     fn surface_rotation(&self) -> Quat { self.origin.surface_rotation() }
 }
 

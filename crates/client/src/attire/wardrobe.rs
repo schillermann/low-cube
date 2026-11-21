@@ -1,6 +1,5 @@
 use world::{MeshTarget, PalmMolds, PresenceAttire};
 use super::pose::BodyPose;
-use super::pouch::BeltSatchel;
 use super::proportion::YouthPhysique;
 use super::relic::HeldRelic;
 use super::sight::SightMode;
@@ -48,35 +47,5 @@ impl Wardrobe for MoldedWardrobe {
             self.attire
         };
         active.emit_garments(pose, sight, self.molds, self.tray_open, target);
-    }
-}
-
-/// Wardrobe decorator equipping a `BeltSatchel` and bare-hand digging posture onto `YouthAttire`.
-pub struct SatchelWardrobe {
-    attire: YouthAttire,
-    satchel: BeltSatchel,
-    dig_right: bool,
-    dig_left: bool,
-}
-
-impl SatchelWardrobe {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(attire: YouthAttire, satchel: BeltSatchel, dig_right: bool, dig_left: bool) -> Self {
-        Self { attire, satchel, dig_right, dig_left }
-    }
-}
-
-impl Wardrobe for SatchelWardrobe {
-    fn emit(&self, pose: &BodyPose, sight: SightMode, target: &mut dyn MeshTarget) {
-        let (r, l) = self.attire.held_pair();
-        let driving = pose.driving_factor() > 0.5 && !self.satchel.open();
-        let active = self.attire.with_relics(
-            if self.dig_right || driving { HeldRelic::EmptyPalm } else { r },
-            if self.dig_left || driving { HeldRelic::EmptyPalm } else { l },
-        );
-        MoldedWardrobe::new(active, self.satchel.palm_molds(), self.satchel.open())
-            .emit(pose, sight, target);
-        let scaled_pose = active.scaled_pose(pose);
-        self.satchel.emit_for_attire(&scaled_pose, active, target);
     }
 }

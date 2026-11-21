@@ -228,12 +228,7 @@ impl AvatarGear {
     }
 
     pub fn strike_fauna(
-        &self,
-        side: f32,
-        reach: SurfaceReach,
-        bearing: &mut AvatarBearing,
-        fauna: &mut WoodlandFauna,
-        world: &mut dyn PlanetaryWorld,
+        &self, side: f32, reach: SurfaceReach, bearing: &mut AvatarBearing, fauna: &mut WoodlandFauna, world: &mut dyn PlanetaryWorld,
     ) -> (bool, bool) {
         let (active, other) = self.attire.hand_pair(side);
         let (weapon, swing_side) = if active.hunting_power() > 1 {
@@ -243,13 +238,8 @@ impl AvatarGear {
         } else {
             (active, side)
         };
-        let (struck, dropped) = fauna.strike_boar(
-            reach.eye(),
-            reach.view_dir(),
-            weapon.hunting_power(),
-            weapon.hunting_reach(),
-            world,
-        );
+        let (struck, dropped) =
+            fauna.strike_boar(reach.eye(), reach.view_dir(), weapon.hunting_power(), weapon.hunting_reach(), world);
         if struck {
             bearing.apply_rhythm(SurfaceReach::swing_rhythm(self.attire, bearing.rhythm(), swing_side));
         }
@@ -257,12 +247,7 @@ impl AvatarGear {
     }
 
     pub fn release_hand(
-        &mut self,
-        reach: SurfaceReach,
-        body: &mut AvatarBody,
-        sight_line: &mut AvatarSight,
-        bearing: &mut AvatarBearing,
-        world: &mut dyn PlanetaryWorld,
+        &mut self, reach: SurfaceReach, body: &mut AvatarBody, sight_line: &mut AvatarSight, bearing: &mut AvatarBearing, world: &mut dyn PlanetaryWorld,
     ) -> bool {
         let (next_ew, next_attire, perch_ready, changed) =
             self.earthworks.release_hand(reach, self.attire, world);
@@ -283,9 +268,12 @@ impl AvatarGear {
     }
 
     pub fn emit_appearance(&self, pose: &BodyPose, sight: SightMode, view_dir: Vec3, up: Vec3, rhythm: StrideRhythm, target: &mut dyn MeshTarget) {
-        self.earthworks.emit_attire(&self.attire, pose, sight, target);
-        self.earthworks.emit_folio(&self.folio, &self.attire, pose, target);
+        self.earthworks.emit_attire(&self.attire, pose, sight, self.satchel_open(), target);
         self.earthworks.emit_debris(view_dir, up, rhythm, target);
+    }
+
+    pub fn emit_inspection(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
+        self.earthworks.emit_inspection(&self.folio, self.attire, pose, target);
     }
 
     pub fn planned_mount(&self, reach: SurfaceReach, world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> {

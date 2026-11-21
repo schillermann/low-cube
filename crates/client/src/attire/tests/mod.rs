@@ -173,10 +173,16 @@ fn test_foraging_deadwood_and_flint_into_hand_or_satchel_crafts_axe_in_crafting_
     avatar_flint.rotate_view(0.0, 410.0);
     assert!(avatar_flint.use_left_hand(&mut world));
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::FlintStone));
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyC) && { avatar.emit_appearance(&mut book_mesh); book_mesh.exceeds(&deadwood_mesh) });
-    assert!(!avatar.use_right_hand(&mut world) && avatar.dispatch_wardrobe_key(KeyCode::KeyC));
+    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyC) && { avatar.emit_inspection(&mut book_mesh); book_mesh.populated() });
+    assert!(!avatar.use_right_hand(&mut world));
+    let mut closed_book = QuadLedger::empty();
+    avatar.emit_inspection(&mut closed_book);
+    assert!(!closed_book.populated(), "Crafting an item must auto-close the Crafting Book");
     avatar.emit_appearance(&mut axe_mesh);
-    assert!(axe_mesh.exceeds(&deadwood_mesh), "Crafting WoodmanAxe from stowed Deadwood + held Flint must equip the axe in hand");
+    assert!(
+        axe_mesh.exceeds(&empty_mesh) && axe_mesh.quads.len() != deadwood_mesh.quads.len(),
+        "Crafting WoodmanAxe from stowed Deadwood + held Flint must equip the axe in hand"
+    );
     let (satchel, attire) = super::BeltSatchel::empty().collect_felled_timber(1.0, YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::EmptyPalm));
     assert_eq!(attire.held_pair(), (HeldRelic::WoodmanAxe, HeldRelic::TimberBlock));
     assert_eq!(satchel.resource_tally(HeldRelic::TimberBlock, attire), 3, "Felling a tree must yield 3 WOOD BLOCKs into hand + satchel");

@@ -37,6 +37,11 @@ pub trait AvatarOptics {
     }
     fn collect_camera_previews(&self, _aspect: f32, _out: &mut Vec<Mat4>) -> u8 { 0 }
     fn emit_intercom_bust(&self, _aspect: f32, _target: &mut dyn MeshTarget) -> Option<Mat4> { None }
+    fn emit_inspection_stage(&self, _aspect: f32, _target: &mut dyn MeshTarget) -> Option<(Mat4, Vec3)> { None }
+    #[cfg(test)]
+    fn emit_inspection(&self, target: &mut dyn MeshTarget) {
+        let _ = self.emit_inspection_stage(16.0 / 9.0, target);
+    }
     fn surface_rotation(&self) -> Quat;
 }
 

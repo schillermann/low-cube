@@ -1,7 +1,9 @@
 use glam::Vec3;
 use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad};
 use crate::attire::{HeldRelic, YouthAttire};
-use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
+};
 use crate::controls::{InputTrigger, KeyMotion};
 
 struct SurfaceLedger { quads: Vec<Quad> }
@@ -121,21 +123,30 @@ fn test_satchel_stows_and_retrieves_blocks_and_tools_invisibly_when_closed() {
     let mut world = BiomedCubeWorld::beveled(16, 1.0);
     let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.0, 16.5, 0.0), 1.0));
     avatar.rotate_degrees(0.0, 70.5);
-    let (mut empty_hands_mesh, mut empty_satchel_mesh, mut closed_mesh, mut open_mesh) = (
-        SurfaceLedger::empty(), SurfaceLedger::empty(), SurfaceLedger::empty(), SurfaceLedger::empty(),
+    let (mut empty_hands_mesh, mut open_world_mesh, mut empty_satchel_mesh, mut closed_mesh, mut open_mesh) = (
+        SurfaceLedger::empty(),
+        SurfaceLedger::empty(),
+        SurfaceLedger::empty(),
+        SurfaceLedger::empty(),
+        SurfaceLedger::empty(),
     );
     avatar.emit_appearance(&mut empty_hands_mesh);
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
-    avatar.emit_appearance(&mut empty_satchel_mesh);
+    avatar.emit_appearance(&mut open_world_mesh);
+    assert_eq!(open_world_mesh.count(), empty_hands_mesh.count(), "Open satchel must not emit 3D world quads that clip into blocks");
+    avatar.emit_inspection(&mut empty_satchel_mesh);
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
 
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::ExcavatedEarth));
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE));
     avatar.emit_appearance(&mut closed_mesh);
     assert_eq!(closed_mesh.count(), empty_hands_mesh.count());
+    let mut closed_inspection = SurfaceLedger::empty();
+    avatar.emit_inspection(&mut closed_inspection);
+    assert_eq!(closed_inspection.count(), 0);
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
-    avatar.emit_appearance(&mut open_mesh);
-    assert!(empty_satchel_mesh.count() > empty_hands_mesh.count() + 100 && open_mesh.count() > empty_satchel_mesh.count());
+    avatar.emit_inspection(&mut open_mesh);
+    assert!(empty_satchel_mesh.count() > 100 && open_mesh.count() > empty_satchel_mesh.count());
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyD) && !avatar.use_left_hand(&mut world));
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab) && !avatar.use_right_hand(&mut world));
     let mut equipped_both = SurfaceLedger::empty();

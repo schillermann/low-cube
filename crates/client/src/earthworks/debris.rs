@@ -177,9 +177,13 @@ impl DigOperation {
         self.grip
     }
 
-    pub fn bare_hand_digging(self, attire: &YouthAttire) -> (bool, bool) {
+    pub fn bare_hand_attire(self, attire: YouthAttire) -> YouthAttire {
         let (r, l) = attire.held_pair();
-        self.grip.bare_hand_digging(r.placeable_block(), l.placeable_block(), self.dig_progress)
+        let (dig_r, dig_l) = self.grip.bare_hand_digging(r.placeable_block(), l.placeable_block(), self.dig_progress);
+        attire.with_relics(
+            if dig_r { HeldRelic::EmptyPalm } else { r },
+            if dig_l { HeldRelic::EmptyPalm } else { l },
+        )
     }
 
     pub const fn ready_to_perch(self) -> bool {

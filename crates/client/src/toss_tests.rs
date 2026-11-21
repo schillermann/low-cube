@@ -2,7 +2,9 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{BiomedCubeWorld, BlockMedium, MeshTarget, PlanetaryWorld, Quad, SurfaceFind, WorldFact};
 use crate::attire::{HeldRelic, YouthAttire};
-use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
+use crate::avatar::{
+    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
+};
 use crate::controls::KeyMotion;
 
 struct QuadTally {
@@ -36,7 +38,7 @@ fn test_single_tap_stows_while_double_tap_casts_to_ground_and_retrieves() {
     let (mut empty_hands, mut empty_satchel) = (QuadTally::empty(), QuadTally::empty());
     avatar.emit_appearance(&mut empty_hands);
     assert!(avatar.dispatch_wardrobe_key(KeyCode::Tab));
-    avatar.emit_appearance(&mut empty_satchel);
+    avatar.emit_inspection(&mut empty_satchel);
     assert!(avatar.dispatch_wardrobe_key(KeyCode::Tab));
 
     let mut base_flora = QuadTally::empty();
@@ -77,7 +79,7 @@ fn test_single_tap_stows_while_double_tap_casts_to_ground_and_retrieves() {
 
     assert!(avatar.dispatch_wardrobe_key(KeyCode::Tab));
     let mut check_satchel = QuadTally::empty();
-    avatar.emit_appearance(&mut check_satchel);
+    avatar.emit_inspection(&mut check_satchel);
     assert_eq!(check_satchel.quad_count(), empty_satchel.quad_count(), "Dropped items must leave satchel empty");
     assert!(avatar.dispatch_wardrobe_key(KeyCode::Tab));
 

@@ -84,8 +84,19 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     assert!(engineer.accept_typed_text("n #1"));
 
     let mut sink = NullMeshSink;
-    let mut plaque_quads = CountedMeshTarget::new(&mut sink);
-    engineer.emit_appearance(&mut plaque_quads);
+    let mut world_figure = CountedMeshTarget::new(&mut sink);
+    engineer.emit_appearance(&mut world_figure);
+    let mut closed_probe = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 22.0, 2.25), 1.0));
+    closed_probe.apply_attire(YouthAttire::squire().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
+    closed_probe.rotate_degrees(0.0, -10.0);
+    let mut sink_closed = NullMeshSink;
+    let mut baseline_figure = CountedMeshTarget::new(&mut sink_closed);
+    closed_probe.emit_appearance(&mut baseline_figure);
+    assert_eq!(world_figure.count(), baseline_figure.count(), "Open blueprint folio must not leak quads into 3D world mesh");
+
+    let mut sink_plaque = NullMeshSink;
+    let mut plaque_quads = CountedMeshTarget::new(&mut sink_plaque);
+    engineer.emit_inspection(&mut plaque_quads);
     assert!(plaque_quads.count() > 80);
 
     assert!(engineer.press_world_key(KeyCode::Enter, &mut world));

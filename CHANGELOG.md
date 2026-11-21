@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.92.2] - 2026-11-21
+
+### Fixed
+- Isolated open 3D satchel (`SatchelTray`), crafting book (`ArtisanTome`), and vehicle blueprint (`BlueprintFolio`) stages from world and rocket hull depth buffers via the `InspectionModal` `SessionModal` decorator (`crates/client/src/menu/inspection_modal.rs`, `AvatarOptics::emit_inspection_stage` in `crates/client/src/avatar/embodied/optics.rs`, `BodyPose::inspection_light` in `crates/client/src/attire/pose/mod.rs`, `AvatarGear::emit_inspection` in `crates/client/src/avatar/gear.rs`, and `PalmEarthworks::emit_inspection` in `crates/client/src/earthworks/mod.rs`), clearing `DEPTH_BUFFER_BIT` after world, firmament, and hull-camera preview passes so close-up rocket or terrain blocks never clip through open inspection menus and external cameras never film floating UI trays (`crates/client/src/menu/tests/inspection_tests.rs`).
+
+### Removed
+- Removed the legacy `SatchelWardrobe` wrapper (`crates/client/src/attire/wardrobe.rs`), `DigOperation::bare_hand_digging` tuple extraction (`crates/client/src/earthworks/debris.rs`), and `PalmEarthworks::emit_folio` world-actor coupling (`crates/client/src/earthworks/mod.rs`) in favor of `DigOperation::bare_hand_attire` and `MoldedWardrobe`.
+
 ## [0.92.1] - 2026-11-21
 
 ### Changed

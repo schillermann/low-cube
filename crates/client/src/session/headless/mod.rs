@@ -10,7 +10,7 @@ use crate::attire::YouthAttire;
 use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::black_box::{BlackBoxAvatar, LiveTape};
 use crate::controls::{ActionBindings, InputTrigger, KeyMotion};
-use crate::menu::{EscapeMenu, ScreenPoint, SessionModal};
+use crate::menu::{EscapeMenu, InspectionModal, ScreenPoint, SessionModal};
 use crate::server_satchel::ServerSatchel;
 use crate::surface::PlatformSurface;
 use super::display::{PolaroidScenePass, SessionDisplay, ShadedScenePass};
@@ -145,9 +145,9 @@ impl HeadlessSession {
     }
 
     pub fn closed_modal() -> Box<dyn SessionModal> {
-        Box::new(EscapeMenu::with_clipboard(
+        Box::new(InspectionModal::new(EscapeMenu::with_clipboard(
             crate::menu::PortalInvite::empty(),
             crate::menu::SystemClipboard::new().detached(),
-        ))
+        )))
     }
 }
