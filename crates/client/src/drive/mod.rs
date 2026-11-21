@@ -10,6 +10,8 @@ mod camera_look_tests;
 #[cfg(test)]
 mod expanse_tests;
 #[cfg(test)]
+mod hollow_nozzle_tests;
+#[cfg(test)]
 mod liftoff_tests;
 #[cfg(test)]
 mod lunar_tests;
@@ -19,6 +21,8 @@ mod multiplayer_tests;
 mod nozzle_tests;
 #[cfg(test)]
 mod preview_vessel_tests;
+#[cfg(test)]
+mod rcs_guidance_tests;
 #[cfg(test)]
 mod rocket_pose_tests;
 #[cfg(test)]
@@ -46,6 +50,8 @@ pub trait CraftDrive: Send + Sync {
     fn free_look(&self) -> bool;
     fn helm_optic_channel(&self, _assembly: &VehicleAssembly) -> u8 { 0 }
     fn toggle_retro_flip(&mut self, _assembly: &VehicleAssembly) -> bool { false }
+    fn toggle_flight_guidance(&mut self, _assembly: &VehicleAssembly) -> bool { false }
+    fn guidance_readout(&self) -> crate::menu::GuidanceReadout { crate::menu::GuidanceReadout::Absent }
     fn advance(
         &mut self,
         assembly: &mut VehicleAssembly,
@@ -126,6 +132,8 @@ impl HelmedCraft {
     pub fn chassis_up(&self) -> Vec3 { self.assembly.normal().normalize_or_zero() }
     pub fn blend_subtick(&mut self, alpha: f32) { self.origin_span.1 = alpha.clamp(0.0, 1.0); }
     pub fn toggle_retro_flip(&mut self) -> bool { self.drive.toggle_retro_flip(&self.assembly) }
+    pub fn toggle_flight_guidance(&mut self) -> bool { self.drive.toggle_flight_guidance(&self.assembly) }
+    pub fn guidance_readout(&self) -> crate::menu::GuidanceReadout { self.drive.guidance_readout() }
 
     pub fn camera_views(&self, out: &mut Vec<HullOptic>) {
         let (prev, alpha) = self.origin_span;

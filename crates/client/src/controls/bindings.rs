@@ -8,15 +8,17 @@ pub enum ControlAction {
     Jump, Sneak, Sprint,
     Satchel, CraftingBook, SatchelLeft, SatchelRight,
     MoldForm, MoldLeft, MoldRight,
+    FlightGuidance, RollLeft, RollRight, RcsTranslate, RetroFlip,
 }
 
 impl ControlAction {
-    pub const fn all() -> [Self; 14] {
+    pub const fn all() -> [Self; 19] {
         [
             Self::MoveForward, Self::MoveBackward, Self::MoveLeft, Self::MoveRight,
             Self::Jump, Self::Sneak, Self::Sprint,
             Self::Satchel, Self::CraftingBook, Self::SatchelLeft, Self::SatchelRight,
             Self::MoldForm, Self::MoldLeft, Self::MoldRight,
+            Self::FlightGuidance, Self::RollLeft, Self::RollRight, Self::RcsTranslate, Self::RetroFlip,
         ]
     }
 
@@ -26,6 +28,8 @@ impl ControlAction {
             Self::Jump => 4, Self::Sneak => 5, Self::Sprint => 6,
             Self::Satchel => 7, Self::CraftingBook => 8, Self::SatchelLeft => 9, Self::SatchelRight => 10,
             Self::MoldForm => 11, Self::MoldLeft => 12, Self::MoldRight => 13,
+            Self::FlightGuidance => 14, Self::RollLeft => 15, Self::RollRight => 16,
+            Self::RcsTranslate => 17, Self::RetroFlip => 18,
         }
     }
 
@@ -35,8 +39,11 @@ impl ControlAction {
             Self::MoveLeft => "MOVE LEFT", Self::MoveRight => "MOVE RIGHT",
             Self::Jump => "JUMP", Self::Sneak => "SNEAK", Self::Sprint => "SPRINT",
             Self::Satchel => "SATCHEL", Self::CraftingBook => "CRAFTING BOOK",
-            Self::SatchelLeft => "EMPTY LEFT HAND", Self::SatchelRight => "EMPTY RIGHT HAND",
+            Self::SatchelLeft => "EMPTY LEFT", Self::SatchelRight => "EMPTY RIGHT",
             Self::MoldForm => "TURN BLOCK", Self::MoldLeft => "PREV SHAPE", Self::MoldRight => "NEXT SHAPE",
+            Self::FlightGuidance => "FLUGCOMPUTER", Self::RollLeft => "ROLL LEFT",
+            Self::RollRight => "ROLL RIGHT", Self::RcsTranslate => "RCS STRAFE",
+            Self::RetroFlip => "RETRO FLIP",
         }
     }
 
@@ -48,6 +55,9 @@ impl ControlAction {
             Self::Satchel => "satchel", Self::CraftingBook => "crafting_book",
             Self::SatchelLeft => "satchel_left", Self::SatchelRight => "satchel_right",
             Self::MoldForm => "mold_form", Self::MoldLeft => "mold_left", Self::MoldRight => "mold_right",
+            Self::FlightGuidance => "flight_guidance", Self::RollLeft => "roll_left",
+            Self::RollRight => "roll_right", Self::RcsTranslate => "rcs_translate",
+            Self::RetroFlip => "retro_flip",
         }
     }
 }
@@ -106,16 +116,16 @@ impl TriggerNotation for InputTrigger {
 /// Immutable one-to-one mapping assigning strictly one InputTrigger to each ControlAction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ActionBindings {
-    triggers: [InputTrigger; 14],
+    triggers: [InputTrigger; 19],
 }
 
 impl ActionBindings {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(triggers: [InputTrigger; 14]) -> Self {
+    pub const fn new(triggers: [InputTrigger; 19]) -> Self {
         Self { triggers }
     }
 
-    /// Secondary constructor initializing all 14 actions with their single seeded triggers.
+    /// Secondary constructor initializing all 19 actions with their single seeded triggers.
     pub const fn seeded() -> Self {
         Self::new([
             InputTrigger::Key(KeyCode::KeyW), InputTrigger::Key(KeyCode::KeyS),
@@ -125,6 +135,9 @@ impl ActionBindings {
             InputTrigger::Key(KeyCode::KeyC), InputTrigger::Key(KeyCode::KeyQ),
             InputTrigger::Key(KeyCode::KeyE), InputTrigger::WheelClick,
             InputTrigger::WheelUp, InputTrigger::WheelDown,
+            InputTrigger::Key(KeyCode::KeyT), InputTrigger::Key(KeyCode::KeyZ),
+            InputTrigger::Key(KeyCode::KeyX), InputTrigger::Key(KeyCode::AltLeft),
+            InputTrigger::Key(KeyCode::KeyR),
         ])
     }
 

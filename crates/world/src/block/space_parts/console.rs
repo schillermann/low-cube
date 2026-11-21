@@ -10,12 +10,18 @@ use super::super::wedge::WedgeHeading;
 pub struct FlightConsoleMesh {
     heading: WedgeHeading,
     motion: (f32, f32),
+    guidance_engaged: bool,
 }
 
 impl FlightConsoleMesh {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_guidance(heading: WedgeHeading, motion: (f32, f32), guidance_engaged: bool) -> Self {
+        Self { heading, motion, guidance_engaged }
+    }
+
+    /// Secondary constructor defaulting guidance indicator to engaged.
     pub const fn new(heading: WedgeHeading, motion: (f32, f32)) -> Self {
-        Self { heading, motion }
+        Self::with_guidance(heading, motion, true)
     }
 
     pub fn emit(&self, cell: GridCell, floor_elev: f32, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
@@ -59,8 +65,13 @@ impl FlightConsoleMesh {
             local_frame.point_at(0.14, 0.035, 0.45),
             local_frame.point_at(-0.14, 0.035, 0.45),
         ];
+        let (screen_col, screen_glow) = if self.guidance_engaged {
+            (screen_emerald, 0.92)
+        } else {
+            (Vec3::new(0.86, 0.42, 0.14), 0.72)
+        };
         let screen_norm = (-fwd + up * 0.22).normalize_or_zero();
-        out.push_quad(Quad::glowing(s0, s1, s2, s3, screen_norm, screen_emerald, 0.92));
+        out.push_quad(Quad::glowing(s0, s1, s2, s3, screen_norm, screen_col, screen_glow));
 
         let (thrust, stick_defl) = (self.motion.0.clamp(-1.0, 1.0), self.motion.1.clamp(-1.0, 1.0));
         let needle = (stick_defl * 0.06).clamp(-0.08, 0.08);

@@ -38,15 +38,6 @@ impl RocketControls {
         )
     }
 
-    pub fn plume_channels(self) -> (f32, f32) {
-        let planar = if self.stick.1.abs() >= self.stick.0.abs() {
-            self.stick.1
-        } else {
-            self.stick.0
-        };
-        (self.thrust, planar)
-    }
-
     pub fn studio_showcase(cycle_progress: f32) -> Self {
         let u = cycle_progress.rem_euclid(1.0) * 4.0;
         let phase_idx = (u as usize) % 4;

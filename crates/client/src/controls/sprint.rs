@@ -82,6 +82,14 @@ impl<'a> LocomotionTarget for SprintTarget<'a> {
     fn sprint(&mut self) {
         self.origin.sprint();
     }
+
+    fn roll(&mut self, roll_dir: f32) {
+        self.origin.roll(roll_dir);
+    }
+
+    fn strafe_shift(&mut self) {
+        self.origin.strafe_shift();
+    }
 }
 
 /// Polymorphic self-governing sprint-chord momentum state (Calm vs. Latched).

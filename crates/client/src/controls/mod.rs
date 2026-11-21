@@ -25,6 +25,8 @@ pub trait LocomotionTarget {
     fn jump(&mut self);
     fn sneak(&mut self);
     fn sprint(&mut self);
+    fn roll(&mut self, _roll_dir: f32) {}
+    fn strafe_shift(&mut self) {}
 }
 
 /// Interface representing player keyboard navigation state and bound action matching.
@@ -123,6 +125,21 @@ impl KeyboardControls for KeyMotion {
 
         if self.held(ControlAction::Sneak) {
             target.sneak();
+        }
+
+        let mut roll_dir = 0.0f32;
+        if self.held(ControlAction::RollRight) {
+            roll_dir += 1.0;
+        }
+        if self.held(ControlAction::RollLeft) {
+            roll_dir -= 1.0;
+        }
+        if roll_dir.abs() > 1e-4 {
+            target.roll(roll_dir);
+        }
+
+        if self.held(ControlAction::RcsTranslate) {
+            target.strafe_shift();
         }
     }
 }

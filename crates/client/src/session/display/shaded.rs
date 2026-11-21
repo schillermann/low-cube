@@ -37,7 +37,8 @@ impl ShadedScenePass {
         figures: StreamingMesh,
         meadow_ring: MeadowRing,
     ) -> Self {
-        Self::with_stage(program, mesh, SceneActors::new(figures, VesselStage::empty()), meadow_ring)
+        let actors = SceneActors::new(figures, StreamingMesh::with_quad_capacity(256), VesselStage::empty());
+        Self::with_stage(program, mesh, actors, meadow_ring)
     }
 
     fn ensure_meadow_grid(&mut self, surface: &dyn PlatformSurface, meadow_idx: usize) {
@@ -63,11 +64,12 @@ impl ShadedScenePass {
             avatar.present_vessel(sink);
             world.present_vessels(sink);
         });
-        let figures = self.actors.figures_mut();
-        avatar.emit_figure(figures);
-        avatar.emit_placement_preview(world, figures);
-        CompanionFigure::emit_figures(world, figures);
-        world.emit_wildlife(avatar.sight_cone().scaled(sight_scale), figures);
+        self.actors.emit_actors(|figures| {
+            avatar.emit_figure(figures);
+            avatar.emit_placement_preview(world, figures);
+            CompanionFigure::emit_figures(world, figures);
+            world.emit_wildlife(avatar.sight_cone().scaled(sight_scale), figures);
+        });
     }
 
     fn populate_sight_actors(
@@ -83,10 +85,11 @@ impl ShadedScenePass {
             avatar.present_vessel(sink);
             world.present_vessels(sink);
         });
-        let figures = self.actors.figures_mut();
-        avatar.emit_figure_for_sight(sight, figures);
-        CompanionFigure::emit_figures(world, figures);
-        world.emit_wildlife(avatar.sight_cone_for_mode(sight).scaled(sight_scale), figures);
+        self.actors.emit_actors(|figures| {
+            avatar.emit_figure_for_sight(sight, figures);
+            CompanionFigure::emit_figures(world, figures);
+            world.emit_wildlife(avatar.sight_cone_for_mode(sight).scaled(sight_scale), figures);
+        });
     }
 }
 

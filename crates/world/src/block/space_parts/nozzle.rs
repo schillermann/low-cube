@@ -3,9 +3,10 @@ use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
 use super::super::cell::GridCell;
+use super::hollow_bell::HollowBell;
 use super::NozzleAxis;
 
-/// Sculpted De Laval main rocket bell nozzle with top mounting bulkhead and downward exhaust plume.
+/// Sculpted hollow De Laval main rocket bell nozzle with top mounting bulkhead and translucent exhaust plume.
 pub struct RocketNozzleMesh {
     axis: NozzleAxis,
     plume_glow: f32,
@@ -32,7 +33,7 @@ impl RocketNozzleMesh {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn emit_frustum(
+    fn emit_collar(
         center: Vec3,
         sa: Vec3,
         sb: Vec3,
@@ -42,7 +43,6 @@ impl RocketNozzleMesh {
         z1: f32,
         r1: f32,
         col: Vec3,
-        glow: f32,
         caps: (bool, bool),
         target: &mut dyn MeshTarget,
     ) {
@@ -54,12 +54,12 @@ impl RocketNozzleMesh {
             let [a0, a1] = [mid0 + d0 * r0, mid0 + d1 * r0];
             let [b0, b1] = [mid1 + d0 * r1, mid1 + d1 * r1];
             let norm = (a1 - a0).cross(b0 - a0).normalize_or_zero();
-            target.push_quad(Quad::glowing(a0, a1, b1, b0, norm, col, glow));
+            target.push_quad(Quad::new(a0, a1, b1, b0, norm, col));
             if caps.0 {
-                target.push_quad(Quad::glowing(mid0, a1, a0, a0, -ex, col, glow));
+                target.push_quad(Quad::new(mid0, a1, a0, a0, -ex, col));
             }
             if caps.1 {
-                target.push_quad(Quad::glowing(mid1, b0, b1, b1, ex, col, glow));
+                target.push_quad(Quad::new(mid1, b0, b1, b1, ex, col));
             }
         }
     }
@@ -70,30 +70,23 @@ impl RocketNozzleMesh {
         let chamber_slate = Vec3::new(0.20, 0.22, 0.28);
         let bell_graphite = Vec3::new(0.14, 0.15, 0.19);
         let brass_ring = Vec3::new(0.88, 0.68, 0.22);
-        let throat_ember = if self.plume_glow > 0.02 {
-            Vec3::new(1.00, 0.86, 0.42)
-        } else {
-            Vec3::new(0.86, 0.28, 0.12)
-        };
+        let titanium_rim = Vec3::new(0.46, 0.50, 0.58);
 
-        Self::emit_frustum(center, sa, sb, ex, -0.25, 0.18, -0.19, 0.18, bulkhead_steel, 0.0, (true, true), target);
-        Self::emit_frustum(center, sa, sb, ex, -0.255, 0.09, -0.245, 0.09, brass_ring, 0.0, (true, false), target);
-        Self::emit_frustum(center, sa, sb, ex, -0.19, 0.125, -0.07, 0.105, chamber_slate, 0.0, (false, false), target);
-        Self::emit_frustum(center, sa, sb, ex, -0.08, 0.12, -0.02, 0.088, brass_ring, 0.0, (true, true), target);
-        Self::emit_frustum(center, sa, sb, ex, -0.02, 0.085, 0.11, 0.175, bell_graphite, 0.0, (false, false), target);
-        Self::emit_frustum(center, sa, sb, ex, 0.11, 0.175, 0.24, 0.238, bell_graphite, 0.0, (false, false), target);
-        Self::emit_frustum(center, sa, sb, ex, 0.08, 0.168, 0.105, 0.182, brass_ring, 0.0, (true, true), target);
-        Self::emit_frustum(center, sa, sb, ex, 0.175, 0.212, 0.20, 0.224, brass_ring, 0.0, (true, true), target);
+        Self::emit_collar(center, sa, sb, ex, -0.25, 0.18, -0.19, 0.18, bulkhead_steel, (true, true), target);
+        Self::emit_collar(center, sa, sb, ex, -0.255, 0.09, -0.245, 0.09, brass_ring, (true, false), target);
+        Self::emit_collar(center, sa, sb, ex, -0.19, 0.125, -0.06, 0.105, chamber_slate, (false, false), target);
+        Self::emit_collar(center, sa, sb, ex, -0.08, 0.122, -0.03, 0.098, brass_ring, (true, true), target);
+        Self::emit_collar(center, sa, sb, ex, 0.08, 0.186, 0.105, 0.196, brass_ring, (true, true), target);
+        Self::emit_collar(center, sa, sb, ex, 0.175, 0.218, 0.198, 0.228, brass_ring, (true, true), target);
 
-        let throat_glow = if self.plume_glow > 0.02 { 0.98 } else { 0.55 };
-        Self::emit_frustum(center, sa, sb, ex, 0.225, 0.205, 0.242, 0.205, throat_ember, throat_glow, (false, true), target);
+        let bell = HollowBell::new(center - ex * 0.03, (ex, sa), (0.275, 0.238), 8);
+        bell.emit_hollow_shell(brass_ring, bell_graphite, titanium_rim, self.plume_glow, target);
 
-        if self.plume_glow > 0.02 {
-            let reach = 0.52 + 0.34 * self.plume_glow;
-            let core_col = Vec3::new(0.98, 0.94, 0.68);
-            let outer_col = Vec3::new(0.99, 0.38, 0.10);
-            Self::emit_frustum(center, sa, sb, ex, 0.24, 0.16, 0.24 + reach * 0.55, 0.06, core_col, 0.99, (false, true), target);
-            Self::emit_frustum(center, sa, sb, ex, 0.25, 0.20, 0.24 + reach, 0.02, outer_col, 0.94, (false, true), target);
-        }
+        let flame_palette = (
+            Vec3::new(1.00, 0.96, 0.76),
+            Vec3::new(1.00, 0.52, 0.14),
+            Vec3::new(0.96, 0.24, 0.06),
+        );
+        bell.emit_translucent_jet(self.plume_glow, flame_palette, 0.88, target);
     }
 }

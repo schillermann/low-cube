@@ -74,26 +74,53 @@ impl CraftBlueprint {
         BlueprintOptics::new(self).push_views(pose, out);
     }
 
+    pub(in crate::relief) fn mass_center(&self, lift: f32, frame: &SurfaceFrame) -> Vec3 {
+        let (weighted, total_mass) = self.parts.iter().fold((Vec3::ZERO, 0.0f32), |(sum, m_acc), p| {
+            let m = p.part_mass();
+            (sum + p.world_mass_center(lift, frame) * m, m_acc + m)
+        });
+        if total_mass > 1e-5 { weighted / total_mass } else { Vec3::ZERO }
+    }
+
+    pub(in crate::relief) fn rcs_demands(
+        &self,
+        order: &PilotOrder,
+        pose: CraftPose,
+        frame: &SurfaceFrame,
+    ) -> (Vec3, Vec3) {
+        let axes = CockpitAxes::from_pose(pose);
+        let raw_lin = order.world_linear(axes);
+        let lift_dir = frame.normal().normalize_or_zero();
+        let main_lifting = order.vertical_burn() > 0.02 && self.parts.iter().any(VehiclePart::main_bell);
+        let rcs_lin = if main_lifting {
+            raw_lin - lift_dir * raw_lin.dot(lift_dir).max(0.0)
+        } else {
+            raw_lin
+        };
+        (rcs_lin, order.world_torque(axes))
+    }
+
     pub fn sample_impulse(&self, order: &PilotOrder, pose: CraftPose) -> RigidImpulse {
         if self.parts.is_empty() {
             return RigidImpulse::zero();
         }
         let car_frame = pose.surface_frame();
         let lift = self.wheel_ground_lift();
-        let com = self
-            .parts
-            .iter()
-            .fold(Vec3::ZERO, |acc, p| acc + p.world_mass_center(lift, &car_frame))
-            / (self.parts.len() as f32);
+        let com = self.mass_center(lift, &car_frame);
         let axes = CockpitAxes::from_pose(pose);
         let chain = VernierAttitudeStage::new(
             MainBellStage::new(
-                ConsoleGyroStage::new(HullBallast::new(&self.parts), &self.parts),
+                ConsoleGyroStage::new(
+                    HullBallast::new(&self.parts, &car_frame, (lift, com)),
+                    &self.parts,
+                    (*order, axes),
+                ),
                 (&self.parts, &car_frame),
                 (lift, com),
                 (*order, axes),
             ),
             (&self.parts, &car_frame),
+            (lift, com),
             (*order, axes),
         );
         chain.resolve()
@@ -203,11 +230,21 @@ impl CraftBlueprint {
         let car_frame = pose.surface_frame();
         let shift = pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
         let lift = self.wheel_ground_lift();
+        let space = self.spacefaring();
+        let com = if space { self.mass_center(lift, &car_frame) } else { Vec3::ZERO };
+        let order = PilotOrder::from_pose_motion(pose.wheel_spin(), pose.steer_turn());
+        let (rcs_lin, rcs_torque) = if space {
+            self.rcs_demands(&order, pose, &car_frame)
+        } else {
+            (Vec3::ZERO, Vec3::ZERO)
+        };
         {
             let mut shifted = ShiftedMeshTarget::new(shift, target);
             let (top_col, wall_col) = (Vec3::new(0.45, 0.30, 0.17), Vec3::new(0.41, 0.27, 0.15));
             for part in &self.parts {
-                part.emit_driven(lift, pose.wheel_spin(), pose.steer_turn(), &car_frame, top_col, wall_col, &mut shifted);
+                if !space || !part.emit_space_kinematic(lift, &car_frame, com, &order, rcs_lin, rcs_torque, &mut shifted) {
+                    part.emit_driven(lift, pose.wheel_spin(), pose.steer_turn(), &car_frame, top_col, wall_col, &mut shifted);
+                }
             }
         }
         for part in &self.parts {

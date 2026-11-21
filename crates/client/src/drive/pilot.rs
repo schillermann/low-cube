@@ -40,6 +40,20 @@ impl VehiclePilot {
         }
     }
 
+    pub fn toggle_flight_guidance(&mut self) -> bool {
+        match self {
+            Self::Driving(craft) => craft.toggle_flight_guidance(),
+            _ => false,
+        }
+    }
+
+    pub fn guidance_readout(&self) -> crate::menu::GuidanceReadout {
+        match self {
+            Self::Driving(craft) => craft.guidance_readout(),
+            _ => crate::menu::GuidanceReadout::Absent,
+        }
+    }
+
     pub fn camera_views(&self, out: &mut Vec<HullOptic>) {
         if let Self::Driving(craft) = self {
             craft.camera_views(out);

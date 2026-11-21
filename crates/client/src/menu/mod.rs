@@ -53,7 +53,7 @@ pub use studio::{SavedWardrobe, WardrobePanel, WardrobeStudio};
 pub use version_stamp::VersionStamp;
 #[cfg(test)]
 pub use view::{MenuView, VersionedView};
-pub use viewfinder::{ActiveChannel, CameraFeed, PreviewStripLayout, ViewfinderHud};
+pub use viewfinder::{ActiveChannel, CameraFeed, GuidanceReadout, PreviewStripLayout, ViewfinderHud};
 pub use widget::ScreenPoint;
 
 /// Directive returned when interacting with the Escape menu, Character studio, Settings, or Portal panel.

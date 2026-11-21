@@ -1,5 +1,4 @@
 use glam::Vec3;
-use winit::keyboard::KeyCode;
 use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
 use crate::attire::BodyPose;
 use crate::controls::{ActionBindings, ControlAction, InputTrigger, KeyboardControls};
@@ -77,7 +76,8 @@ impl CockpitBerth {
         }
         let mut views = Vec::new();
         self.pilot.camera_views(&mut views);
-        (self.optics.resolve_boresight(&views), self.optics.channel_feed(&views))
+        let guidance = self.pilot.guidance_readout();
+        (self.optics.resolve_boresight(&views), self.optics.channel_feed(&views, guidance))
     }
 
     pub(super) fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
@@ -110,8 +110,11 @@ impl CockpitBerth {
                 return true;
             }
         }
+        if bindings.matches(ControlAction::FlightGuidance, trigger) {
+            return self.pilot.toggle_flight_guidance();
+        }
         if (self.optics.cockpit_view() && bindings.matches(ControlAction::MoldForm, trigger))
-            || trigger == InputTrigger::Key(KeyCode::KeyR)
+            || bindings.matches(ControlAction::RetroFlip, trigger)
         {
             return self.pilot.toggle_retro_flip();
         }

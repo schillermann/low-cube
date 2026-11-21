@@ -203,7 +203,11 @@ impl VehiclePart {
     }
 
     pub(in crate::relief) fn part_mass(&self) -> f32 {
-        PartPropulsion::new(self.shape.as_ref(), Vec3::ZERO).part_mass()
+        PartPropulsion::new(self.shape.as_ref(), GridCell::new(self.offset.0, self.offset.1), self.floor_offset).part_mass()
+    }
+
+    pub(in crate::relief) fn main_bell(&self) -> bool {
+        self.shape.block_medium() == BlockMedium::RocketNozzle && !self.attitude_pod()
     }
 
     pub(in crate::relief) fn bell_burn(
@@ -215,19 +219,39 @@ impl VehiclePart {
         axes: CockpitAxes,
         impulse: RigidImpulse,
     ) -> RigidImpulse {
-        PartPropulsion::new(self.shape.as_ref(), self.world_mass_center(lift, frame))
+        let cell = GridCell::new(self.offset.0, self.offset.1);
+        PartPropulsion::new(self.shape.as_ref(), cell, self.floor_offset + lift)
             .bell_burn(frame, center_of_mass, order, axes, impulse)
     }
 
     pub(in crate::relief) fn attitude_burn(
         &self,
+        lift: f32,
         frame: &SurfaceFrame,
-        order: &PilotOrder,
-        axes: CockpitAxes,
+        center_of_mass: Vec3,
+        linear_demand: Vec3,
+        torque_demand: Vec3,
         impulse: RigidImpulse,
-    ) -> (RigidImpulse, f32) {
-        PartPropulsion::new(self.shape.as_ref(), Vec3::ZERO)
-            .attitude_burn(frame, order, axes, impulse)
+    ) -> RigidImpulse {
+        let cell = GridCell::new(self.offset.0, self.offset.1);
+        PartPropulsion::new(self.shape.as_ref(), cell, self.floor_offset + lift)
+            .attitude_burn(frame, center_of_mass, linear_demand, torque_demand, impulse)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(in crate::relief) fn emit_space_kinematic(
+        &self,
+        lift: f32,
+        frame: &SurfaceFrame,
+        center_of_mass: Vec3,
+        order: &PilotOrder,
+        linear_demand: Vec3,
+        torque_demand: Vec3,
+        out: &mut dyn MeshTarget,
+    ) -> bool {
+        let cell = GridCell::new(self.offset.0, self.offset.1);
+        PartPropulsion::new(self.shape.as_ref(), cell, self.floor_offset + lift)
+            .emit_space_part(frame, center_of_mass, order, linear_demand, torque_demand, out)
     }
 
     pub(in crate::relief) fn emit_driven(&self, lift: f32, spin: f32, turn: f32, frame: &SurfaceFrame, top: Vec3, wall: Vec3, out: &mut dyn MeshTarget) {

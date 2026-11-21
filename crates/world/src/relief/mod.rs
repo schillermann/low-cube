@@ -53,7 +53,10 @@ pub use palette::ReliefPalette;
 pub use planned_mount::{MountDomain, MountSite, PlannedMount};
 pub use sight_ray::SurfaceSightRay;
 pub use terraced::TerracedRelief;
-pub use vehicle_assembly::{PilotOrder, RigidImpulse, VehicleAssembly, VehicleAxes, VehiclePart};
+pub use vehicle_assembly::{
+    AttitudeGuidance, CockpitAxes, PilotOrder, RigidImpulse, VehicleAssembly, VehicleAxes,
+    VehiclePart,
+};
 #[cfg(test)]
 pub use elevation::ZonedRelief;
 #[cfg(test)]

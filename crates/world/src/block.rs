@@ -47,8 +47,8 @@ pub use pyramid::PyramidPeak;
 pub use ridge::RidgeCorner;
 pub use shape::VoxelShape;
 pub use space_parts::{
-    AttitudeNozzleMesh, ConsoleOrrery, FlightConsoleMesh, NozzleAxis, RocketNozzleMesh,
-    SensorPodAxis,
+    AttitudeNozzleMesh, ConsoleOrrery, FlightConsoleMesh, NozzleAxis, RcsManifold,
+    RocketNozzleMesh, SensorPodAxis,
 };
 pub use stair::StairFlight;
 pub use stair_corner::StairCorner;

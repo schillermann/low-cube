@@ -59,12 +59,12 @@ pub use presence::{
 };
 pub use sight_cone::SightCone;
 pub use relief::{
-    BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, CrustVault, DeckFrame,
-    ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins, HullOptic, LivingVeins, MeadowRing,
-    MeadowStamp, MountDomain, MountSite, OpticMount, PilotOrder, PlannedMount, ReliefElevation,
-    ReliefFacet, ReliefPalette, RigidImpulse, SeatOccupancy, SubterraneanVeins, SurfaceSightRay,
-    TerracedRelief, VehicleAssembly, VehicleAxes, VehiclePart, VesselSink, WorldCraft,
-    MEADOW_RING_SLOTS,
+    AttitudeGuidance, BlueprintCatalog, CockpitAxes, CraftBlueprint, CraftIdentity, CraftPose,
+    CrustVault, DeckFrame, ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins, HullOptic,
+    LivingVeins, MeadowRing, MeadowStamp, MountDomain, MountSite, OpticMount, PilotOrder,
+    PlannedMount, ReliefElevation, ReliefFacet, ReliefPalette, RigidImpulse, SeatOccupancy,
+    SubterraneanVeins, SurfaceSightRay, TerracedRelief, VehicleAssembly, VehicleAxes, VehiclePart,
+    VesselSink, WorldCraft, MEADOW_RING_SLOTS,
 };
 pub use topology::{
     BevelTransition, BeveledBoundary, ClimateZone, CoordinateFold, CubicBoundary, FacePerimeter,

@@ -104,9 +104,6 @@ impl GraphicPipeline for DiurnalPipeline {
             gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
         }
 
-        shader.bind(gl, view_proj, light_direction);
-        mesh.draw_posed(gl, shader);
-
         let inv_view_proj = Mat4::from_cols(
             view_proj.x_axis.with_z(0.0),
             view_proj.y_axis.with_z(0.0),
@@ -126,5 +123,8 @@ impl GraphicPipeline for DiurnalPipeline {
             elapsed as f32,
             self.sky_mesh.as_ref(),
         );
+
+        shader.bind(gl, view_proj, light_direction);
+        mesh.draw_posed(gl, shader);
     }
 }

@@ -19,7 +19,7 @@ out vec2 v_uv;
 
 void main() {
     vec4 world_pos = u_model * vec4(in_position, 1.0);
-    v_normal = (in_glow < 0.0) ? in_normal : (mat3(u_model) * in_normal);
+    v_normal = (in_glow < 0.0 && in_glow > -1.5) ? in_normal : (mat3(u_model) * in_normal);
     v_color = in_color;
     v_glow = in_glow;
     v_world = in_position;
@@ -56,6 +56,14 @@ vec3 tier_scale(int t) {
 }
 
 void main() {
+    if (v_glow < -1.5) {
+        float base_alpha = clamp(-v_glow - 2.0, 0.0, 1.0);
+        float axial = clamp(1.0 - 0.72 * v_uv.y * v_uv.y, 0.08, 1.0);
+        float mach = 0.88 + 0.12 * cos(v_uv.y * 12.56637);
+        vec3 hot_col = min(v_color * (1.10 + 0.22 * (1.0 - v_uv.y)) * mach, vec3(1.0));
+        frag_color = vec4(hot_col, clamp(base_alpha * axial, 0.03, 0.90));
+        return;
+    }
     if (v_glow < 0.0) {
         float ramp = clamp((length(v_world.xy) - v_normal.x) / max(v_normal.y, 0.0001), 0.0, 1.0);
         float alpha = clamp(-v_glow * mix(v_normal.z, 1.0, ramp), 0.0, 1.0);

@@ -10,17 +10,33 @@ use crate::controls::{ActionBindings, InputTrigger, KeyMotion, KeyboardControls}
 use crate::flight::SurfaceFlight;
 use crate::zero_g_flight::ZeroGFlight;
 
-struct GlowProbe {
-    normals: Vec<Vec3>,
+struct NozzleProbe {
+    lip_normals: Vec<Vec3>,
+    plume_count: usize,
+    glow_count: usize,
     count: usize,
 }
 
-impl MeshTarget for GlowProbe {
+impl NozzleProbe {
+    fn empty() -> Self {
+        Self { lip_normals: Vec::new(), plume_count: 0, glow_count: 0, count: 0 }
+    }
+}
+
+impl MeshTarget for NozzleProbe {
     fn push_quad(&mut self, quad: Quad) {
         self.count += 1;
-        if quad.radiate(|g| g > 0.4) {
-            quad.transfer(|_, _, _, _, n, _| self.normals.push(n));
+        let g = quad.radiate(|g| g);
+        if g < -1.5 {
+            self.plume_count += 1;
+        } else if g > 0.2 {
+            self.glow_count += 1;
         }
+        quad.transfer(|v0, v1, v2, _, n, _| {
+            if (v1 - v0).length() < 0.20 && (v2 - v1).length() < 0.06 {
+                self.lip_normals.push(n);
+            }
+        });
     }
 }
 
@@ -59,21 +75,24 @@ fn test_nozzle_in_palm_starts_downward_and_mouse_wheel_toggles_steuerduese() {
     assert_eq!(right_mold_code(&avatar), 0, "Second wheel scroll must return to Main Nozzle");
 
     let palm_frame = LimbFrame::new(Vec3::ZERO, Vec3::NEG_Y, Vec3::X, Vec3::NEG_Z);
-    let mut main_probe = GlowProbe { normals: Vec::new(), count: 0 };
+    let mut main_probe = NozzleProbe::empty();
     HeldRelic::RocketNozzle.figure(BlockMold::cube()).emit_in_palm(1.0, &palm_frame, &mut main_probe);
-    assert!(!main_probe.normals.is_empty());
+    assert_eq!(main_probe.plume_count, 0, "Idle Main Nozzle in palm must not emit exhaust fire");
+    assert_eq!(main_probe.glow_count, 0, "Idle Main Nozzle must be unlit hollow metal");
     assert!(
-        main_probe.normals.iter().any(|n| n.y < -0.95) && main_probe.normals.iter().all(|n| n.y <= 0.01),
-        "Main Nozzle mouth in palm must point downward (-Y) and never upward, got {:?}",
-        main_probe.normals
+        main_probe.lip_normals.iter().any(|n| n.y < -0.95),
+        "Main Nozzle hollow mouth rim in palm must point downward (-Y), got {:?}",
+        main_probe.lip_normals
     );
-    let mut rcs_probe = GlowProbe { normals: Vec::new(), count: 0 };
+    let mut rcs_probe = NozzleProbe::empty();
     HeldRelic::RocketNozzle.figure(BlockMold::cube().next_form()).emit_in_palm(1.0, &palm_frame, &mut rcs_probe);
-    assert_ne!(main_probe.count, rcs_probe.count, "Steuerdüse must emit distinct RCS geometry in palm");
+    assert_ne!(main_probe.count, rcs_probe.count, "Steuerdüse must emit distinct 5-horn RCS geometry in palm");
+    assert_eq!(rcs_probe.plume_count, 0, "Idle Steuerdüse in palm must not emit exhaust fire");
+    assert_eq!(rcs_probe.glow_count, 0, "Idle Steuerdüse must be unlit hollow metal");
     assert!(
-        rcs_probe.normals.iter().any(|n| n.z > 0.90) && rcs_probe.normals.iter().all(|n| n.z >= -0.30),
-        "Steuerdüse nozzle cone in palm must point toward the player (+Z) with flange at the back (-Z), got {:?}",
-        rcs_probe.normals
+        rcs_probe.lip_normals.iter().any(|n| n.z > 0.90),
+        "Steuerdüse outward horn mouth rim in palm must point toward the player (+Z), got {:?}",
+        rcs_probe.lip_normals
     );
 }
 

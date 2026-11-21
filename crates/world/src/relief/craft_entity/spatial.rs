@@ -34,11 +34,33 @@ impl<'a> PosedHull<'a> {
         let car_frame = self.pose.surface_frame();
         let shift = self.pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
         let lift = self.blueprint.wheel_ground_lift();
+        let space = self.blueprint.spacefaring();
+        let com = if space { self.blueprint.mass_center(lift, &car_frame) } else { Vec3::ZERO };
+        let order = super::super::vehicle_assembly::PilotOrder::from_pose_motion(
+            self.pose.wheel_spin(),
+            self.pose.steer_turn(),
+        );
+        let (rcs_lin, rcs_torque) = if space {
+            self.blueprint.rcs_demands(&order, self.pose, &car_frame)
+        } else {
+            (Vec3::ZERO, Vec3::ZERO)
+        };
         {
             let mut shifted = super::blueprint::ShiftedMeshTarget::new(shift, target);
             let (top_col, wall_col) = (Vec3::new(0.45, 0.30, 0.17), Vec3::new(0.41, 0.27, 0.15));
             for part in self.blueprint.parts() {
-                if part.kinematic_part() {
+                if part.kinematic_part()
+                    && (!space
+                        || !part.emit_space_kinematic(
+                            lift,
+                            &car_frame,
+                            com,
+                            &order,
+                            rcs_lin,
+                            rcs_torque,
+                            &mut shifted,
+                        ))
+                {
                     part.emit_driven(
                         lift,
                         self.pose.wheel_spin(),

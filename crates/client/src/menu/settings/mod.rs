@@ -59,7 +59,7 @@ impl MenuView for &dyn ControlPanel {
     }
 }
 
-/// Stateless screen bounds layout for the 14-slot Keybindings studio.
+/// Stateless screen bounds layout for the 19-slot Keybindings studio.
 pub struct ControlLayout;
 
 impl ControlLayout {
@@ -71,11 +71,11 @@ impl ControlLayout {
     pub fn action_bounds(&self, action: ControlAction) -> ScreenBounds {
         let idx = action.slot_index();
         let (x0, x1, y1) = if idx < 7 {
-            (-0.92, -0.07, 0.67 - (idx as f32) * 0.16)
-        } else if idx < 11 {
-            (0.07, 0.92, 0.67 - ((idx - 7) as f32) * 0.16)
+            (-0.94, -0.37, 0.67 - (idx as f32) * 0.16)
+        } else if idx < 14 {
+            (-0.28, 0.28, 0.67 - ((idx - 7) as f32) * 0.16)
         } else {
-            (0.07, 0.92, -0.14 - ((idx - 11) as f32) * 0.16)
+            (0.37, 0.94, 0.67 - ((idx - 14) as f32) * 0.16)
         };
         ScreenBounds::new(x0, y1 - 0.11, x1, y1)
     }
@@ -125,14 +125,14 @@ impl MenuView for ControlStudio {
         ScreenBounds::new(-0.97, 0.84, 0.97, 0.96).emit_framed(panel_bg, panel_rim, 0.006, target);
         PixelStamp::title(gold).emit_centered("KEYBINDINGS", 0.0, 0.90, target);
 
-        ScreenBounds::new(-0.97, -0.81, -0.02, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
-        PixelStamp::caption(gold).emit_centered("MOVEMENT", -0.495, 0.75, target);
+        ScreenBounds::new(-0.97, -0.81, -0.34, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
+        PixelStamp::caption(gold).emit_centered("MOVEMENT", -0.655, 0.75, target);
 
-        ScreenBounds::new(0.02, 0.04, 0.97, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
-        PixelStamp::caption(gold).emit_centered("SATCHEL", 0.495, 0.75, target);
+        ScreenBounds::new(-0.31, -0.81, 0.31, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
+        PixelStamp::caption(gold).emit_centered("SATCHEL + MOLD", 0.0, 0.75, target);
 
-        ScreenBounds::new(0.02, -0.81, 0.97, 0.00).emit_framed(panel_bg, panel_rim, 0.006, target);
-        PixelStamp::caption(gold).emit_centered("MOLD", 0.495, -0.06, target);
+        ScreenBounds::new(0.34, -0.81, 0.97, 0.81).emit_framed(panel_bg, panel_rim, 0.006, target);
+        PixelStamp::caption(gold).emit_centered("SPACEFLIGHT", 0.655, 0.75, target);
 
         for action in ControlAction::all() {
             let awaiting = self.focus == RebindFocus::Awaiting(action);

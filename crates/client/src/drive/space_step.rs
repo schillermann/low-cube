@@ -9,26 +9,37 @@ pub(crate) const MAX_COSMIC_SPEED: f32 = 45.0;
 pub(super) struct SpaceState {
     origin: Vec3,
     velocity: Vec3,
+    angular_velocity: Vec3,
     rotation: Quat,
 }
 
 impl SpaceState {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(origin: Vec3, velocity: Vec3, rotation: Quat) -> Self {
-        Self { origin, velocity, rotation }
+    pub(super) const fn new(
+        origin: Vec3,
+        velocity: Vec3,
+        angular_velocity: Vec3,
+        rotation: Quat,
+    ) -> Self {
+        Self { origin, velocity, angular_velocity, rotation }
     }
 
-    pub(super) fn bounded(origin: Vec3, raw_velocity: Vec3, rotation: Quat) -> Self {
+    pub(super) fn bounded(
+        origin: Vec3,
+        raw_velocity: Vec3,
+        angular_velocity: Vec3,
+        rotation: Quat,
+    ) -> Self {
         let velocity = if raw_velocity.length_squared() > MAX_COSMIC_SPEED * MAX_COSMIC_SPEED {
             raw_velocity.normalize() * MAX_COSMIC_SPEED
         } else {
             raw_velocity
         };
-        Self::new(origin, velocity, rotation)
+        Self::new(origin, velocity, angular_velocity, rotation)
     }
 
-    pub(super) fn transfer<R>(self, f: impl FnOnce(Vec3, Vec3, Quat) -> R) -> R {
-        f(self.origin, self.velocity, self.rotation)
+    pub(super) fn transfer<R>(self, f: impl FnOnce(Vec3, Vec3, Vec3, Quat) -> R) -> R {
+        f(self.origin, self.velocity, self.angular_velocity, self.rotation)
     }
 }
 
@@ -41,18 +52,24 @@ pub(super) trait SpaceStep {
 pub(super) struct InertialDrift {
     origin: Vec3,
     velocity: Vec3,
+    angular_velocity: Vec3,
 }
 
 impl InertialDrift {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(origin: Vec3, velocity: Vec3) -> Self {
-        Self { origin, velocity }
+    pub(super) const fn new(origin: Vec3, velocity: Vec3, angular_velocity: Vec3) -> Self {
+        Self { origin, velocity, angular_velocity }
     }
 }
 
 impl SpaceStep for InertialDrift {
     fn resolve(&self, dt: f32) -> SpaceState {
-        SpaceState::new(self.origin + self.velocity * dt, self.velocity, Quat::IDENTITY)
+        SpaceState::new(
+            self.origin + self.velocity * dt,
+            self.velocity,
+            self.angular_velocity,
+            Quat::IDENTITY,
+        )
     }
 }
 
@@ -73,11 +90,11 @@ impl<S: SpaceStep> SpaceStep for GravitationStep<'_, S> {
     fn resolve(&self, dt: f32) -> SpaceState {
         let s = self.origin.resolve(dt);
         let dv = self.world.apply_pull(s.origin, dt);
-        SpaceState::bounded(s.origin + dv * (0.5 * dt), s.velocity + dv, s.rotation)
+        SpaceState::bounded(s.origin + dv * (0.5 * dt), s.velocity + dv, s.angular_velocity, s.rotation)
     }
 }
 
-/// `SpaceStep` decorator firing directional `RocketNozzle` reaction thrust across all ship parts.
+/// `SpaceStep` decorator firing directional `RocketNozzle` and `RcsManifold` reaction thrust.
 pub(super) struct NozzleThrustStep<'a, S> {
     origin: S,
     assembly: &'a VehicleAssembly,
@@ -111,11 +128,11 @@ impl<S: SpaceStep> SpaceStep for NozzleThrustStep<'_, S> {
         } else {
             raw_dv
         };
-        SpaceState::bounded(s.origin + dv * (0.5 * dt), s.velocity + dv, s.rotation)
+        SpaceState::bounded(s.origin + dv * (0.5 * dt), s.velocity + dv, s.angular_velocity, s.rotation)
     }
 }
 
-/// `SpaceStep` decorator resolving `FlightConsole` gyro stabilization against off-center nozzle torque.
+/// `SpaceStep` decorator integrating physical `r × F` lever moments and `FlightConsole` guidance.
 pub(super) struct GyroStep<'a, S> {
     origin: S,
     assembly: &'a VehicleAssembly,
@@ -133,8 +150,12 @@ impl<S: SpaceStep> SpaceStep for GyroStep<'_, S> {
     fn resolve(&self, dt: f32) -> SpaceState {
         let s = self.origin.resolve(dt);
         let impulse = self.assembly.sample_impulse(&self.order);
-        let step_rot = impulse.attitude_step(dt);
-        SpaceState::new(s.origin, s.velocity, (step_rot * s.rotation).normalize())
+        let (next_omega, step_rot) = impulse.integrate_attitude(
+            s.angular_velocity,
+            self.order.guidance(),
+            dt,
+        );
+        SpaceState::new(s.origin, s.velocity, next_omega, (step_rot * s.rotation).normalize())
     }
 }
 
@@ -197,9 +218,15 @@ impl<S: SpaceStep> SpaceStep for TouchdownStep<'_, S> {
             return s;
         }
         if v_norm > 0.0 {
-            return SpaceState::new(ground + surf_up * (clearance + 0.006), s.velocity, s.rotation);
+            return SpaceState::new(
+                ground + surf_up * (clearance + 0.006),
+                s.velocity,
+                s.angular_velocity,
+                s.rotation,
+            );
         }
         let next_v = (s.velocity - surf_up * v_norm.min(0.0)) * (1.0 - (5.5 * dt).clamp(0.0, 1.0));
+        let pad_omega = surf_up * s.angular_velocity.dot(surf_up) * (1.0 - (0.6 * dt).clamp(0.0, 1.0));
         let dot = rotated_up.dot(surf_up).clamp(-1.0, 1.0);
         let max_turn = (7.5 * dt).clamp(0.0, 0.35);
         let settle_arc = if dot >= 0.9999 {
@@ -214,6 +241,6 @@ impl<S: SpaceStep> SpaceStep for TouchdownStep<'_, S> {
         let next_rot = (settle_arc * s.rotation).normalize();
         let next_up = (next_rot * self.assembly.normal()).normalize_or_zero();
         let next_clear = Self::hull_clearance(next_up, surf_up, hull_top, hull_radius);
-        SpaceState::new(ground + surf_up * next_clear, next_v, next_rot)
+        SpaceState::new(ground + surf_up * next_clear, next_v, pad_omega, next_rot)
     }
 }

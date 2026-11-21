@@ -1,7 +1,9 @@
 mod attitude_nozzle;
 mod console;
+mod hollow_bell;
 mod nozzle;
 mod orrery;
+mod rcs_manifold;
 mod rocket_camera;
 
 use glam::Vec3;
@@ -16,6 +18,7 @@ pub use self::attitude_nozzle::AttitudeNozzleMesh;
 pub use self::console::FlightConsoleMesh;
 pub use self::nozzle::RocketNozzleMesh;
 pub use self::orrery::ConsoleOrrery;
+pub use self::rcs_manifold::RcsManifold;
 pub use self::rocket_camera::{RocketCameraMesh, SensorPodAxis};
 
 /// Propulsion mode of a mounted `RocketNozzle` block toggled via mouse wheel scroll (`Downward` main bell vs. `Attitude` Steuerdüse).

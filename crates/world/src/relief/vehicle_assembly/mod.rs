@@ -7,9 +7,9 @@ use crate::MeshTarget;
 use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose, HullOptic, PosedHull};
 pub use self::axes::VehicleAxes;
 pub(in crate::relief) use self::impulse::{
-    CockpitAxes, ConsoleGyroStage, HullBallast, ImpulseStage, MainBellStage, VernierAttitudeStage,
+    ConsoleGyroStage, HullBallast, ImpulseStage, MainBellStage, VernierAttitudeStage,
 };
-pub use self::impulse::{PilotOrder, RigidImpulse};
+pub use self::impulse::{AttitudeGuidance, CockpitAxes, PilotOrder, RigidImpulse};
 pub use self::part::VehiclePart;
 
 /// Drivable multi-block vehicle assembly uniting its immutable `CraftBlueprint` and live `CraftPose`.

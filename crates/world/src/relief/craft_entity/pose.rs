@@ -109,7 +109,11 @@ impl CraftPose {
         } else {
             target.wheel_motion.0
         };
-        let steer = self.wheel_motion.1 + (target.wheel_motion.1 - self.wheel_motion.1) * t;
+        let steer = if target.wheel_motion.1 >= 3.5 || self.wheel_motion.1 >= 3.5 {
+            target.wheel_motion.1
+        } else {
+            self.wheel_motion.1 + (target.wheel_motion.1 - self.wheel_motion.1) * t
+        };
         Self::new(origin, axes, heading, (spin, steer))
     }
 

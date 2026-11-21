@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.96.0] - 2026-11-21
+
+### Added
+- Added 5-nozzle `RcsManifold` (`Outward`, `Dorsal`, `Ventral`, `Port`, `Starboard` in `crates/world/src/block/space_parts/rcs_manifold.rs`) shared 1:1 between 3D mesh emission (`AttitudeNozzleMesh`) and rigid-body `r × F` lever-moment propulsion (`PartPropulsion::attitude_burn` and `VernierAttitudeStage`), plus mass-weighted center-of-mass and principal-axis `InertiaTensor` integration (`HullBallast` and `RigidImpulse` in `crates/world/src/relief/vehicle_assembly/impulse/`) so missing or asymmetric side thrusters produce authentic rotational coupling and lateral drift (`crates/client/src/drive/hollow_nozzle_tests.rs`).
+- Added toggleable spacecraft flight guidance (`AttitudeGuidance::Engaged` vs. `AttitudeGuidance::Manual` in `crates/world/src/relief/vehicle_assembly/impulse/` and `RocketDrive` in `crates/client/src/drive/rocket.rs`) with persistent 3D vacuum `angular_velocity`, console screen status feedback (`FlightConsoleMesh`), and a live `FLUGCOMPUTER: EIN` / `FLUGCOMPUTER: AUS` telemetry badge in the nose camera viewfinder (`ViewfinderHud` and `GuidanceReadout` in `crates/client/src/menu/viewfinder.rs` and `crates/client/src/drive/rcs_guidance_tests.rs`).
+- Extended customizable keybindings (`ActionBindings` and `ControlAction` in `crates/client/src/controls/bindings.rs` and 3-column `SPACEFLIGHT` studio in `crates/client/src/menu/settings/mod.rs`) with `FlightGuidance` (`T`), `RollLeft` (`Z`), `RollRight` (`X`), `RcsTranslate` (`LALT` + `WASD` pure linear translation), and `RetroFlip` (`R`).
+
+### Changed
+- Sculpted `RocketNozzleMesh` and `AttitudeNozzleMesh` around hollow 3D De Laval bells (`HollowBell` in `crates/world/src/block/space_parts/hollow_bell.rs`) that remain dark and unlit when idle and emit layered, alpha-blended supersonic exhaust plumes (`VoxelShaderSource` in `crates/engine/src/shader.rs`, `DiurnalPipeline` in `crates/client/src/diurnal_pipeline.rs`, and `PlumeSplitTarget` / `SceneActors` in `crates/client/src/session/display/vessel_stage.rs`) strictly from active bells and individual firing RCS horns.
+
 ## [0.95.0] - 2026-11-21
 
 ### Added

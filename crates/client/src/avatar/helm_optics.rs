@@ -1,6 +1,6 @@
 use glam::{Mat3, Quat, Vec3};
 use world::HullOptic;
-use crate::menu::{ActiveChannel, CameraFeed};
+use crate::menu::{ActiveChannel, CameraFeed, GuidanceReadout};
 use crate::orientation::{ConeLook, MouseLook, SensitivityLook, ViewOrientation};
 
 const GIMBAL_RADIUS: f32 = 0.52;
@@ -76,17 +76,21 @@ impl HelmOptics {
         self.channel
     }
 
-    pub(super) fn channel_feed(&self, views: &[HullOptic]) -> Option<CameraFeed> {
+    pub(super) fn channel_feed(
+        &self,
+        views: &[HullOptic],
+        guidance: GuidanceReadout,
+    ) -> Option<CameraFeed> {
         if views.is_empty() {
             return None;
         }
         let total = views.len().min(u8::MAX as usize) as u8;
         if self.cockpit_view() {
-            return Some(CameraFeed::new(ActiveChannel::Cockpit, total));
+            return Some(CameraFeed::new(ActiveChannel::Cockpit, total, guidance));
         }
         let selected = *views.get((self.channel as usize).saturating_sub(1))?;
         let mount = selected.transfer(|_, _, _, m| m);
-        Some(CameraFeed::new(ActiveChannel::Camera(self.channel, mount), total))
+        Some(CameraFeed::new(ActiveChannel::Camera(self.channel, mount), total, guidance))
     }
 
     pub(super) fn resolve_boresight(

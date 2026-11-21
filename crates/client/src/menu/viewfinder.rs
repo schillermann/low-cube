@@ -19,17 +19,26 @@ impl ActiveChannel {
     }
 }
 
-/// Camera-channel strip telemetry uniting active slot and total hull camera count.
+/// Polymorphic flight-guidance telemetry state displayed in the rocket nose camera viewfinder.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GuidanceReadout {
+    Absent,
+    Engaged,
+    Manual,
+}
+
+/// Camera-channel strip telemetry uniting active slot, total hull camera count, and nose guidance readout.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CameraFeed {
     active: ActiveChannel,
     total: u8,
+    guidance: GuidanceReadout,
 }
 
 impl CameraFeed {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(active: ActiveChannel, total: u8) -> Self {
-        Self { active, total }
+    pub const fn new(active: ActiveChannel, total: u8, guidance: GuidanceReadout) -> Self {
+        Self { active, total, guidance }
     }
 }
 
@@ -102,6 +111,43 @@ impl ViewfinderHud {
                 self.emit_inactive_window(bounds, Vec3::new(0.26, 0.36, 0.48), target);
             }
         }
+        if matches!(self.feed.active, ActiveChannel::Camera(_, OpticMount::RocketNose)) {
+            self.emit_nose_guidance_hud(target);
+        }
+    }
+
+    fn emit_nose_guidance_hud(self, target: &mut dyn MeshTarget) {
+        let engaged = match self.feed.guidance {
+            GuidanceReadout::Absent => return,
+            GuidanceReadout::Engaged => true,
+            GuidanceReadout::Manual => false,
+        };
+        let ux = self.inv_aspect;
+        let (x0, y0, x1, y1) = (-0.345 * ux, 0.852, 0.345 * ux, 0.932);
+        let cy = (y0 + y1) * 0.5;
+        let (rim, lamp, lamp_rim, text_col, label) = if engaged {
+            (
+                Vec3::new(0.24, 0.94, 0.68),
+                Vec3::new(0.18, 0.98, 0.56),
+                Vec3::new(0.05, 0.24, 0.14),
+                Vec3::new(0.66, 1.00, 0.84),
+                "FLUGCOMPUTER: EIN",
+            )
+        } else {
+            (
+                Vec3::new(0.98, 0.46, 0.18),
+                Vec3::new(0.98, 0.26, 0.18),
+                Vec3::new(0.26, 0.06, 0.05),
+                Vec3::new(1.00, 0.70, 0.34),
+                "FLUGCOMPUTER: AUS",
+            )
+        };
+        ScreenBounds::new(x0, y0, x1, y1).emit_fill(Vec3::new(0.04, 0.09, 0.15), target);
+        ScreenBounds::new(x0, y0, x1, y1).emit_outline(rim, 0.0042 * ux, 0.0042, target);
+        let dot_x = x0 + 0.036 * ux;
+        ScreenBounds::new(dot_x - 0.011 * ux, cy - 0.011, dot_x + 0.011 * ux, cy + 0.011)
+            .emit_framed(lamp, lamp_rim, 0.0020, target);
+        PixelStamp::new(0.0062 * ux, 0.0086, text_col).emit_centered(label, 0.020 * ux, cy, target);
     }
 
     fn emit_intercom_frame(
