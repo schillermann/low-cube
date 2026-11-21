@@ -90,6 +90,8 @@ mod crust_ceiling_tests;
 #[cfg(test)]
 mod flight_tests;
 #[cfg(test)]
+mod mortality_tests;
+#[cfg(test)]
 mod physics_tests;
 #[cfg(test)]
 mod posture_tests;

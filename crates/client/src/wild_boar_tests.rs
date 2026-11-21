@@ -156,10 +156,10 @@ fn test_joining_multiplayer_discards_solitary_boars_without_phantom_gore() {
     use crate::black_box::{BlackBoxAvatar, LiveTape};
     use crate::session::HeadlessSession;
 
-    // Solitary world has an aggressive charging boar 1.8m away from the player, about to gore
-    let solitary_terrain = BiomedCubeWorld::barren_beveled(16, 1.0);
-    let spawn = solitary_terrain.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 1.0);
-    let boar_pos = solitary_terrain.constrain_to_surface(Vec3::new(spawn.x + 1.8, 12.0, spawn.z), 0.0);
+    // Solitary world has an aggressive charging boar 3.6m away (reaches player in ~0.35s if not discarded on join)
+    let solitary_terrain = BiomedCubeWorld::barren_beveled(32, 1.0);
+    let spawn = solitary_terrain.constrain_to_surface(Vec3::new(0.25, 24.0, 0.25), 1.0);
+    let boar_pos = solitary_terrain.constrain_to_surface(Vec3::new(spawn.x + 3.6, 24.0, spawn.z), 0.0);
     let solitary_charger = WildBoar::new(
         BoarActivity::TuskCharge { pos: boar_pos, target: spawn, phase: 0.0, timer: 3.0 },
         Vec3::Y,
@@ -185,8 +185,8 @@ fn test_joining_multiplayer_discards_solitary_boars_without_phantom_gore() {
     );
 
     // Join a remote SanctuaryHost via bound P2P dial (simulating Esc -> MULTIPLAYER -> JOIN)
-    let remote_terrain: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::barren_beveled(16, 1.0));
-    let mut host = SanctuaryHost::bind("127.0.0.1:0", remote_terrain, 16).expect("bind host");
+    let remote_terrain: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::barren_beveled(32, 1.0));
+    let mut host = SanctuaryHost::bind("127.0.0.1:0", remote_terrain, 32).expect("bind host");
     let host_code = host.code();
     let guest_sock = UdpSocket::bind("127.0.0.1:0").expect("bind guest");
     let guest_addr = guest_sock.local_addr().expect("guest addr");

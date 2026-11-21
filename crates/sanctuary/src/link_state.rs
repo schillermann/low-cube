@@ -82,7 +82,15 @@ impl LinkSync {
         self.local_avatar.0.slot()
     }
 
+    pub const fn urgent_pulse(&self) -> bool {
+        self.pulse_clock >= 0.025
+    }
+
     pub fn update_presence(&mut self, presence: CompanionPresence, cid: u32) {
+        let prev_pos = self.local_avatar.0.transfer(|_, kin, _, _| kin.transfer(|p, _, _, _, _| p));
+        if !presence.within_reach(prev_pos, 4.0) {
+            self.pulse_clock = 1.0;
+        }
         self.local_avatar.0 = presence.with_slot(cid);
     }
 

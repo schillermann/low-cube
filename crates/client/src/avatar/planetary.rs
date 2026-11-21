@@ -48,7 +48,7 @@ impl<M: AvatarMotor + AvatarCondition> AvatarMotor for MortalMotor<M> {
     }
 
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.origin.perished() {
+        if self.incapacitated(world) {
             self.origin.abort_hands(world)
         } else {
             self.origin.release_hand(world)
@@ -56,11 +56,15 @@ impl<M: AvatarMotor + AvatarCondition> AvatarMotor for MortalMotor<M> {
     }
 
     fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        !self.origin.perished() && self.origin.step_digging(world)
+        if self.incapacitated(world) {
+            self.origin.abort_hands(world)
+        } else {
+            self.origin.step_digging(world)
+        }
     }
 
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
-        !self.origin.perished() && self.origin.adjust_aimed_rig(trigger, world)
+        !self.incapacitated(world) && self.origin.adjust_aimed_rig(trigger, world)
     }
 
     fn cast_triggered_relic(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {

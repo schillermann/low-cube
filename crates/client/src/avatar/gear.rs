@@ -110,6 +110,11 @@ impl AvatarGear {
         self.folio.close();
     }
 
+    pub fn relinquish_perished(&mut self) {
+        self.earthworks = self.earthworks.relinquish_perished();
+        self.folio.close();
+    }
+
     pub fn abort_hands(&mut self, reach: SurfaceReach, world: &mut dyn PlanetaryWorld) -> bool {
         let (next_ew, cleared) = self.earthworks.abort_hand(reach, world);
         self.earthworks = next_ew;
@@ -117,13 +122,15 @@ impl AvatarGear {
     }
 
     pub fn dispatch_trigger(&mut self, trigger: InputTrigger, bearing: &mut AvatarBearing, perished: bool) -> bool {
+        if perished {
+            return false;
+        }
         if self.folio.handle_trigger(trigger, &self.bindings) {
             bearing.reconcile_mount(self.active_camera_mount());
             return true;
         }
         if trigger == InputTrigger::WheelClick
             && !self.satchel_open()
-            && !perished
             && bearing.press_shutter(self.active_camera_mount())
         {
             return true;

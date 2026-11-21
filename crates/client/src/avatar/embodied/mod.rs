@@ -87,6 +87,7 @@ impl EmbodiedAvatar {
             self.reset_to_world(world);
             return;
         }
+        self.gear.relinquish_perished();
         self.bearing.step_perish_pulse(dt, beat);
         self.sight_line.transition_perish_lens(self.body.posture(), dt);
     }

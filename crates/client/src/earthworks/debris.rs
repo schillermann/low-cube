@@ -7,24 +7,17 @@ use crate::grip::{DigGrip, DigStroke};
 const SUBTERRANEAN_ROOF_OFFSET: f32 = 0.5;
 const OVERHEAD_AIM_DOT: f32 = 0.7;
 
-/// Encapsulated excavation debris spray at a world site with material tones.
+/// Polymorphic excavation debris state avoiding `active: bool` flags and dummy coordinates.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct DebrisSplash {
-    site: Vec3,
-    medium: BlockMedium,
-    active: bool,
+pub enum DebrisSplash {
+    Calm,
+    Spraying {
+        site: Vec3,
+        medium: BlockMedium,
+    },
 }
 
 impl DebrisSplash {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(site: Vec3, medium: BlockMedium, active: bool) -> Self {
-        Self { site, medium, active }
-    }
-
-    pub const fn halted(self) -> Self {
-        Self::new(self.site, self.medium, false)
-    }
-
     pub fn sub_eye(eye: Vec3, up: Vec3, world: &dyn PlanetaryWorld) -> bool {
         (world.constrain_to_surface(eye, 1.0) - up - eye).dot(up) > SUBTERRANEAN_ROOF_OFFSET
     }
@@ -50,30 +43,33 @@ impl DebrisSplash {
     }
 
     pub fn resolve_site(self, eye: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> Vec3 {
-        if self.active {
-            self.site
-        } else {
-            Self::locate_site(eye, view_dir, world)
+        match self {
+            Self::Spraying { site, .. } => site,
+            Self::Calm => Self::locate_site(eye, view_dir, world),
         }
     }
 
     pub fn clear_aim(self, eye: Vec3, fallback_dir: Vec3) -> Vec3 {
-        let aimed = (self.site - eye).normalize_or_zero();
-        if aimed.length_squared() > 0.25 {
-            aimed
-        } else {
-            fallback_dir
+        match self {
+            Self::Spraying { site, .. } => {
+                let aimed = (site - eye).normalize_or_zero();
+                if aimed.length_squared() > 0.25 { aimed } else { fallback_dir }
+            }
+            Self::Calm => fallback_dir,
         }
     }
 
     pub fn emit(self, view_dir: Vec3, surface_up: Vec3, rhythm: StrideRhythm, target: &mut dyn MeshTarget) {
+        let Self::Spraying { site, medium } = self else {
+            return;
+        };
         let t = rhythm.strike_progress();
-        if !self.active || t <= 0.01 {
+        if t <= 0.01 {
             return;
         }
         let right = view_dir.cross(surface_up).normalize_or_zero();
-        let frame = LimbFrame::new(self.site, right, surface_up, surface_up.cross(right).normalize_or_zero());
-        let (col_a, col_b) = self.medium.debris_tones();
+        let frame = LimbFrame::new(site, right, surface_up, surface_up.cross(right).normalize_or_zero());
+        let (col_a, col_b) = medium.debris_tones();
         let spray = [
             (-0.85, 0.42, 0.30, 0.24, 0.019, 0.00),
             (0.78, 0.55, 0.34, 0.28, 0.022, 0.04),
@@ -125,15 +121,15 @@ impl DigOperation {
     }
 
     pub const fn idle() -> Self {
-        Self::new(0, 0, DigGrip::idle(), DebrisSplash::new(Vec3::ZERO, BlockMedium::TurfEarth, false))
+        Self::new(0, 0, DigGrip::idle(), DebrisSplash::Calm)
     }
 
     pub const fn halted(self) -> Self {
-        Self::new(0, self.cadence, DigGrip::idle(), self.splash.halted())
+        Self::new(0, self.cadence, DigGrip::idle(), DebrisSplash::Calm)
     }
 
     pub const fn with_grip(self, grip: DigGrip) -> Self {
-        Self::new(0, self.cadence, grip, DebrisSplash::new(Vec3::ZERO, BlockMedium::TurfEarth, false))
+        Self::new(0, self.cadence, grip, DebrisSplash::Calm)
     }
 
     pub const fn promoted(self, grip: DigGrip) -> Self {
@@ -144,7 +140,7 @@ impl DigOperation {
         self, progress: u32, grip: DigGrip, site: Vec3, medium: BlockMedium, instrument: &dyn StrokeResonance,
     ) -> Self {
         instrument.resonate(self.cadence);
-        Self::new(progress, self.cadence.wrapping_add(1), grip, DebrisSplash::new(site, medium, true))
+        Self::new(progress, self.cadence.wrapping_add(1), grip, DebrisSplash::Spraying { site, medium })
     }
 
     pub fn loosen_stroke(
@@ -153,7 +149,7 @@ impl DigOperation {
         if progress > self.dig_progress {
             self.advanced_stroke(progress, grip, site, medium, instrument)
         } else {
-            Self::new(progress, self.cadence, grip, DebrisSplash::new(site, medium, true))
+            Self::new(progress, self.cadence, grip, DebrisSplash::Spraying { site, medium })
         }
     }
 

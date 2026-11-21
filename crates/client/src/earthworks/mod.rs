@@ -235,12 +235,17 @@ impl PalmEarthworks {
     }
 
     pub const fn halt_dig(self) -> Self {
-        Self::with_state(self.satchel, self.tome, self.dig.halted(), TossCadence::Quiet)
+        Self::with_state(self.satchel.with_open(false), ArtisanTome::closed(), self.dig.halted(), TossCadence::Quiet)
+    }
+
+    pub const fn relinquish_perished(self) -> Self {
+        let next_dig = if self.dig.untouched() { self.dig.halted() } else { self.dig };
+        Self::with_state(self.satchel.with_open(false), ArtisanTome::closed(), next_dig, TossCadence::Quiet)
     }
 
     pub fn abort_hand(self, reach: SurfaceReach, world: &mut dyn PlanetaryWorld) -> (Self, bool) {
         let cleared = self.dig.clear_cracks(reach.eye(), reach.view_dir(), world);
-        (self.halt_dig(), cleared)
+        (Self::with_state(self.satchel, self.tome, self.dig.halted(), TossCadence::Quiet), cleared)
     }
 
     pub fn release_hand(

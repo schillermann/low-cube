@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.93.1] - 2026-11-21
+
+### Fixed
+- Aborted active digging, partial `TurfScars` wall cracks, `bare_hand_attire` digging hand posture, and open inspection overlays immediately upon lethal core contact or fatal strain (`MortalMotor` in `crates/client/src/avatar/planetary.rs`, `EmbodiedAvatar::advance_blackout` in `crates/client/src/avatar/embodied/mod.rs`, `AvatarGear::relinquish_perished` and `dispatch_trigger` in `crates/client/src/avatar/gear.rs`, and `PalmEarthworks::relinquish_perished` in `crates/client/src/earthworks/mod.rs`), and flushed urgent `GuestPulse` updates before post-respawn petitions (`LinkSync::update_presence` and `RemoteLink::send_petition` in `crates/sanctuary/src/link_state.rs` and `remote_link.rs`) so companions never observe lingering digging hands during the 2.6-second blackout and immediate surface actions after respawning enact on `SanctuaryHost` (`crates/client/src/mortality_tests.rs`).
+
+### Changed
+- Replaced boolean state flags in `VitalStrain` (`perished: bool` in `crates/client/src/posture/vital.rs`) and `DebrisSplash` (`active: bool` in `crates/client/src/earthworks/debris.rs`) with polymorphic `VitalStrain::Breathing` / `VitalStrain::Perishing` and `DebrisSplash::Calm` / `DebrisSplash::Spraying` representations.
+
 ## [0.93.0] - 2026-11-21
 
 ### Added

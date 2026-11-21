@@ -219,12 +219,14 @@ impl RemoteLink {
 
     pub fn send_petition(&mut self, fact: WorldFact) {
         if let LinkPhase::Sealed { companion_id, ref mut seal, peer } = self.phase {
-            if matches!(
-                fact,
-                WorldFact::CraftCommissioned { .. }
-                    | WorldFact::HelmClaimed { .. }
-                    | WorldFact::HelmReleased { .. }
-            ) {
+            if self.sync.urgent_pulse()
+                || matches!(
+                    fact,
+                    WorldFact::CraftCommissioned { .. }
+                        | WorldFact::HelmClaimed { .. }
+                        | WorldFact::HelmReleased { .. }
+                )
+            {
                 self.sync.flush_pulse(companion_id, seal, peer, &self.socket);
             }
             let (mut payload, mut frame) = (Vec::new(), Vec::new());
