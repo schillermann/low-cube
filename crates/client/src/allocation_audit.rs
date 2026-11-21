@@ -136,4 +136,39 @@ fn test_hot_simulation_loop_zero_runtime_allocations() {
         }
     });
     assert_eq!(mini_allocs, 0, "Miniature block emission in hand/satchel must perform zero heap allocations");
+
+    // Audit multiplayer walking on HostedPlanet & RemotePlanet while a companion drives a vehicle
+    let host = sanctuary::SanctuaryHost::bind(
+        "127.0.0.1:0",
+        Box::new(world::BiomedCubeWorld::barren_beveled(16, 0.5)),
+        16,
+    )
+    .expect("bind host");
+    let addr = host.local_addr().expect("host addr");
+    let mut hosted = sanctuary::HostedPlanet::new(host);
+    let mut guest = sanctuary::RemotePlanet::dial(sanctuary::JoinTarget::Direct(addr), 16, 0.5).expect("dial guest");
+    for _ in 0..6 {
+        let _ = guest.step_surface(0.03);
+        let _ = hosted.step_surface(0.03);
+    }
+    let craft_id = world::CraftIdentity::new(1);
+    let axes = world::VehicleAxes::new(Vec3::X, Vec3::Z, Vec3::Y);
+    let driven = world::DrivenCraft::new(
+        0,
+        craft_id,
+        world::CraftPose::parked(spawn + Vec3::X * 4.0, axes, Vec3::Z),
+    );
+    guest.sync_pilot_craft(world::PilotCraft::Driving(driven));
+    let _ = guest.step_surface(0.03);
+    let _ = hosted.step_surface(0.03);
+    avatar.step_motion(dt, &walk_ctrl, &hosted);
+    let mp_walk_allocs = count_allocations(|| {
+        for _ in 0..120 {
+            avatar.step_motion(dt, &walk_ctrl, &hosted);
+        }
+    });
+    assert_eq!(
+        mp_walk_allocs, 0,
+        "Multiplayer walking alongside active companion vehicles must perform zero heap allocations"
+    );
 }

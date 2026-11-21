@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.94.1] - 2026-11-21
+
+### Fixed
+- Eliminated fundamental local and remote walking stutter in multiplayer (`ConduitPlanet`, `PortalMailbox`, and `SocketLoop` in `crates/sanctuary/src/conduit_planet.rs` and `crates/sanctuary/src/mailbox/`, `WakeGate` and `ElasticHorizon` in `crates/client/src/session/pulse/cadence.rs` and `mod.rs`, `GlideClock` and `CompanionGlide` in `crates/sanctuary/src/glide/`, `LinkSync` and `GuestCohort` in `crates/sanctuary/src/link_state.rs` and `cohort.rs`, `PresenceRhythm` in `crates/world/src/presence/rhythm.rs`, `MeadowRing` / `MeadowSweep` and `MeadowScan` in `crates/world/src/relief/face/meadow_ring.rs` and `crates/world/src/planet/patches.rs`, and `SessionStage` / `ShadedScenePass` in `crates/client/src/session/`): drove P2P socket pumping synchronously on the 120 Hz `EpochPulse` simulation tick while keeping `SocketLoop` as a lock-free standby heartbeat (`>= 20 ms` stall failover) so active gameplay incurs zero cross-thread `Mutex` contention or clock drift, anchored `WakeGate` frame pacing to pre-swap `frame_origin` rather than post-VSync `presented_at` so 60 Hz VSync never shifts sampling phase or drops to 30 FPS under load, replaced unsmoothed 40 Hz `GlideClock` clamping with 60 Hz phase-preserving pulses and an asymmetric EMA playout horizon, wrapped companion stride phase modulo `TAU` and swing arcs forward via `PresenceRhythm`, removed per-tick `Vec<DrivenCraft>` heap allocations in multiplayer surface/deck collision, guarded `SectorGridMesh` against monolithic full-face rebuilds, and streamed stale `MeadowRing` grass sectors center-outward across frames (`crates/sanctuary/src/tests/conduit.rs`, `crates/client/src/session/pulse_tests.rs`, and `crates/client/src/allocation_audit.rs`).
+
 ## [0.94.0] - 2026-11-21
 
 ### Added

@@ -31,6 +31,12 @@ impl GuestJournal {
     pub fn sync_local_craft(&mut self, craft: PilotCraft) { self.link.sync_local_craft(craft); }
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.link.companions(out); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.link.crafts(out); }
+    pub fn constrain_crafts(&self, position: glam::Vec3, player_height: f32, up: glam::Vec3) -> Option<glam::Vec3> {
+        self.link.roster().constrain_crafts(&self.fleet, position, player_height, up)
+    }
+    pub fn sample_deck_at(&self, position: glam::Vec3, player_height: f32) -> Option<world::DeckFrame> {
+        self.link.roster().sample_deck_at(&self.fleet, position, player_height)
+    }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.link.blend_subtick(subtick_secs); }
     pub fn step_wildlife(&mut self, dt: f32, listener: glam::Vec3, view_dir: glam::Vec3, world: &dyn PlanetaryWorld) -> Option<glam::Vec3> {
         self.link.step_wildlife(dt, listener, view_dir, world)

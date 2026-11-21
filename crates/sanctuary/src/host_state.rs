@@ -40,6 +40,12 @@ impl HostState {
     pub fn pilot_host(&mut self, craft: PilotCraft) { self.aura.pilot(craft); }
     pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) { self.cohort.guest_companions(out); }
     pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) { self.cohort.guest_crafts(out); }
+    pub fn constrain_guest_crafts(&self, position: glam::Vec3, player_height: f32, up: glam::Vec3) -> Option<glam::Vec3> {
+        self.cohort.constrain_crafts(self.aura.fleet(), position, player_height, up)
+    }
+    pub fn sample_guest_deck(&self, position: glam::Vec3, player_height: f32) -> Option<world::DeckFrame> {
+        self.cohort.sample_deck_at(self.aura.fleet(), position, player_height)
+    }
     pub const fn fleet(&self) -> &FleetLedger { self.aura.fleet() }
     pub const fn wildlife(&self) -> &HostSounder { self.aura.wildlife() }
     pub fn wildlife_mut(&mut self) -> &mut HostSounder { self.aura.wildlife_mut() }

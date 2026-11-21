@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPresence, CraftBlueprint, CraftIdentity,
@@ -42,7 +43,7 @@ impl ConduitPlanet {
         op(guard.as_ref())
     }
 
-    fn write_world<R>(&mut self, op: impl FnOnce(&mut dyn PlanetaryWorld) -> R) -> R {
+    fn write_world<R>(&self, op: impl FnOnce(&mut dyn PlanetaryWorld) -> R) -> R {
         let mut guard = self.shared.lock().expect("ConduitPlanet mutex poisoned");
         op(guard.as_mut())
     }
@@ -109,10 +110,11 @@ impl PlanetaryWorld for ConduitPlanet {
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.read_world(|w| w.placed_camera_tripod()) }
 
     fn step_surface(&mut self, dt: f32) -> bool {
-        let net_changed = self.mailbox.take_surface_change();
+        let standby_dirty = self.mailbox.take_surface_change();
         self.write_world(|w| {
-            let regrown = w.step_local_flora(dt);
-            regrown || net_changed || w.pending_slices()
+            self.mailbox.record_main_beat(Instant::now());
+            let stepped = w.step_surface(dt);
+            stepped || standby_dirty || w.pending_slices()
         })
     }
 
@@ -144,11 +146,19 @@ impl PlanetaryWorld for ConduitPlanet {
     fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.write_world(|w| w.sync_pilot_craft(craft)); }
     fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.read_world(|w| w.active_companions(out)); }
     fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.read_world(|w| w.active_crafts(out)); }
-    fn blend_companions(&mut self, subtick_secs: f32) { self.write_world(|w| w.blend_companions(subtick_secs)); }
+    fn blend_companions(&mut self, subtick_secs: f32) {
+        let blend = if self.mailbox.standby_needed(Instant::now()) { 0.0 } else { subtick_secs };
+        self.write_world(|w| w.blend_companions(blend));
+    }
     fn portal_ticket(&self) -> Option<String> { self.read_world(|w| w.portal_ticket()) }
     fn portal_phrase(&self) -> Option<String> { self.read_world(|w| w.portal_phrase()) }
     fn punch_nat_peer(&mut self, peer: SocketAddr) -> bool { self.write_world(|w| w.punch_nat_peer(peer)) }
-    fn pump_portal(&mut self, _dt: f32) -> bool {
-        self.mailbox.take_surface_change() || self.read_world(|w| w.pending_slices())
+    fn pump_portal(&mut self, dt: f32) -> bool {
+        let standby_dirty = self.mailbox.take_surface_change();
+        self.write_world(|w| {
+            self.mailbox.record_main_beat(Instant::now());
+            let pumped = w.pump_portal(dt);
+            pumped || standby_dirty || w.pending_slices()
+        })
     }
 }

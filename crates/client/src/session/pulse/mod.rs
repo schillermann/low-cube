@@ -75,7 +75,7 @@ impl EpochPulse {
 
     pub(super) fn begin_frame(&mut self) -> (Instant, PulseBeat) {
         let now = self.clock.current_instant();
-        self.cadence = self.cadence.frame_begun();
+        self.cadence = self.cadence.frame_begun(now);
         let elapsed_nanos = now.duration_since(self.epoch).as_nanos();
         let target_ticks = ((elapsed_nanos * TICKS_PER_SEC) / NANOS_PER_SEC) as u64;
         let raw_due = target_ticks.saturating_sub(self.completed_ticks);
@@ -91,15 +91,19 @@ impl EpochPulse {
     pub(super) fn record_work(&mut self, work_started: Instant) {
         let work_done = self.clock.current_instant();
         let work_elapsed = work_done.duration_since(work_started);
-        self.cadence = self.cadence.frame_completed(work_elapsed, work_done);
+        self.cadence = self.cadence.frame_completed(work_elapsed);
+    }
+
+    #[cfg(test)]
+    pub(super) fn next_deadline(&self, modal_open: bool) -> Instant {
+        self.cadence.deadline_at(self.next_tick_instant(), modal_open)
     }
 
     pub(super) fn complete_frame(&mut self, work_started: Instant, display: &SessionDisplay) {
         let work_done = self.clock.current_instant();
         let work_elapsed = work_done.duration_since(work_started);
         display.present();
-        let presented_at = self.clock.current_instant();
-        self.cadence = self.cadence.frame_completed(work_elapsed, presented_at);
+        self.cadence = self.cadence.frame_completed(work_elapsed);
     }
 
     fn next_tick_instant(&self) -> Instant {

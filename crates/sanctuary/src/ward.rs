@@ -114,6 +114,10 @@ impl GuestWard {
         self.glide.authoritative_craft().push_active(out);
     }
 
+    pub fn smooth_craft(&self) -> PilotCraft {
+        self.glide.smooth_craft()
+    }
+
     pub fn push_smooth_craft(&self, out: &mut Vec<DrivenCraft>) {
         self.glide.smooth_craft().push_active(out);
     }

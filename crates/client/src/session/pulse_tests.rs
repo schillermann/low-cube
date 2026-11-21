@@ -3,7 +3,7 @@ use glam::Vec3;
 use fauna::SparrowFlock;
 use world::{BiomedCubeWorld, PlanetaryWorld};
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
-use crate::clock::ControllableClock;
+use crate::clock::{ControllableClock, MonotonicTime as _};
 use crate::controls::{ActionBindings, InputTrigger, KeyMotion, KeyboardControls};
 use super::pulse::EpochPulse;
 
@@ -123,4 +123,24 @@ fn test_stall_resync_and_subtick_avatar_interpolation_preserve_continuity() {
 
     assert_ne!(view_start, view_mid, "Half-tick blend must advance camera past prior tick");
     assert_ne!(view_mid, view_end, "Half-tick blend must interpolate smoothly before current tick");
+}
+
+#[test]
+fn test_wake_gate_anchors_to_frame_origin_so_60hz_vsync_never_halves_to_30fps() {
+    let clock = ControllableClock::starting_at(Instant::now());
+    let mut pulse = EpochPulse::anchored_to(Box::new(clock.replica()));
+
+    for _ in 0..24 {
+        let (started, _) = pulse.begin_frame();
+        // Simulate heavy 9.5ms multiplayer CPU/GPU work followed by blocking 60Hz VSync swap to 16.667ms:
+        clock.advance_by(Duration::from_micros(9_500));
+        pulse.record_work(started);
+        clock.advance_by(Duration::from_micros(7_167));
+        let post_vsync_now = clock.current_instant();
+        let deadline = pulse.next_deadline(false);
+        assert!(
+            post_vsync_now >= deadline,
+            "After 16.67ms VSync swap, WakeGate must schedule the next frame immediately instead of sleeping past the next VBlank"
+        );
+    }
 }

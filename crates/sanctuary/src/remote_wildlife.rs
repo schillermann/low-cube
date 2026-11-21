@@ -52,9 +52,8 @@ impl RemoteWildlife {
             return;
         }
         let cur = self.smooth_sounder();
-        let interval = self.clock.0.interval_secs();
         self.span = (cur, next);
-        self.clock = (GlideClock::new(0.0, interval, 0.0), 0.0);
+        self.clock = (self.clock.0.absorbed(), 0.0);
     }
 
     pub fn advance_tick(&mut self, dt: f32) {

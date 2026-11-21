@@ -2,13 +2,16 @@ use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
 use glam::{Quat, Vec3};
 use world::{
-    CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceAttire, PresenceKinematics,
-    WildlifePulse,
+    CompanionPresence, DeckFrame, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceAttire,
+    PresenceKinematics, WildlifePulse,
 };
 use crate::aura::{HostAura, HostIdentity, HostPresence, PeerCrack};
 use crate::chronicle_log::ChronicleLog;
 use crate::envelope::{CrackNotice, SanctuaryEnvelope};
+use crate::fleet_ledger::FleetLedger;
 use crate::ward::{GuestWard, WardVitals};
+
+const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
 
 /// Connected companion wards indexed by `companion_id` and X25519 public key.
 pub struct GuestCohort {
@@ -60,6 +63,42 @@ impl GuestCohort {
         }
     }
 
+    pub fn constrain_crafts(
+        &self,
+        fleet: &FleetLedger,
+        position: Vec3,
+        player_height: f32,
+        up: Vec3,
+    ) -> Option<Vec3> {
+        let mut best: Option<Vec3> = None;
+        for ward in self.wards.values() {
+            if let PilotCraft::Driving(craft) = ward.smooth_craft() {
+                if let Some(top) = fleet.constrain_crafts(std::slice::from_ref(&craft), position, player_height) {
+                    if best.is_none_or(|prev| top.dot(up) > prev.dot(up)) {
+                        best = Some(top);
+                    }
+                }
+            }
+        }
+        best
+    }
+
+    pub fn sample_deck_at(
+        &self,
+        fleet: &FleetLedger,
+        position: Vec3,
+        player_height: f32,
+    ) -> Option<DeckFrame> {
+        for ward in self.wards.values() {
+            if let PilotCraft::Driving(craft) = ward.smooth_craft() {
+                if let Some(deck) = fleet.sample_deck_at(std::slice::from_ref(&craft), position, player_height) {
+                    return Some(deck);
+                }
+            }
+        }
+        None
+    }
+
     pub fn blend_subtick(&mut self, subtick_secs: f32) {
         for ward in self.wards.values_mut() {
             ward.blend_subtick(subtick_secs);
@@ -98,8 +137,8 @@ impl GuestCohort {
             }
         }
         self.pulse_clock += dt;
-        if self.pulse_clock >= 0.025 {
-            self.pulse_clock = 0.0;
+        if self.pulse_clock >= PULSE_INTERVAL_SECS {
+            self.pulse_clock = (self.pulse_clock - PULSE_INTERVAL_SECS).min(PULSE_INTERVAL_SECS);
             true
         } else {
             false

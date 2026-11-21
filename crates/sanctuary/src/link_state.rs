@@ -59,6 +59,8 @@ impl LinkPhase {
     }
 }
 
+const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
+
 /// Synchronized chronicle cursor, smoothly interpolated companion roster, and outbound avatar/craft state.
 pub struct LinkSync {
     ack_seq: u32,
@@ -83,7 +85,7 @@ impl LinkSync {
     }
 
     pub const fn urgent_pulse(&self) -> bool {
-        self.pulse_clock >= 0.025
+        self.pulse_clock >= PULSE_INTERVAL_SECS
     }
 
     pub fn update_presence(&mut self, presence: CompanionPresence, cid: u32) {
@@ -101,6 +103,10 @@ impl LinkSync {
     pub fn assign_slot(&mut self, cid: u32) {
         self.local_avatar.0 = self.local_avatar.0.with_slot(cid);
         self.local_avatar.1 = self.local_avatar.1.with_slot(cid);
+    }
+
+    pub const fn roster(&self) -> &SmoothRoster {
+        &self.roster
     }
 
     pub fn copy_companions(&self, out: &mut Vec<CompanionPresence>) {
@@ -139,8 +145,10 @@ impl LinkSync {
     pub fn step_pulse(&mut self, dt: f32, cid: u32, seal: &mut SessionSeal, peer: SocketAddr, socket: &UdpSocket) {
         self.roster.advance_tick(dt);
         self.pulse_clock += dt;
-        if self.pulse_clock >= 0.025 {
+        if self.pulse_clock >= PULSE_INTERVAL_SECS {
+            let remainder = (self.pulse_clock - PULSE_INTERVAL_SECS).min(PULSE_INTERVAL_SECS);
             self.flush_pulse(cid, seal, peer, socket);
+            self.pulse_clock = remainder;
         }
     }
 

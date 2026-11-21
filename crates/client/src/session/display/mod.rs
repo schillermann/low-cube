@@ -51,6 +51,14 @@ impl SessionDisplay {
         self.pass.refresh_meadow_slice(self.surface.as_ref(), world, avatar);
     }
 
+    pub(super) fn stream_meadow_slice(&mut self, world: &dyn PlanetaryWorld, avatar: &dyn Avatar, reopen: bool) {
+        if reopen {
+            let mask = avatar.visible_slices(world);
+            self.pass.select_visible(mask);
+        }
+        self.pass.stream_meadow_slice(self.surface.as_ref(), world, avatar, reopen);
+    }
+
     pub(super) fn refresh_modified_face(&mut self, world: &mut dyn PlanetaryWorld) {
         self.pass.refresh_modified_face(self.surface.as_ref(), world);
     }

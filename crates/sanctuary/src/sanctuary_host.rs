@@ -118,12 +118,10 @@ impl SanctuaryHost {
 
     pub fn constrain_with_crafts(&self, position: Vec3, player_height: f32) -> Vec3 {
         let ground = self.world.constrain_to_surface(position, player_height);
-        let mut crafts = Vec::new();
-        self.state.guest_crafts(&mut crafts);
-        let Some(craft_top) = self.state.fleet().constrain_crafts(&crafts, position, player_height) else {
+        let up = self.world.surface_up_at(position);
+        let Some(craft_top) = self.state.constrain_guest_crafts(position, player_height, up) else {
             return ground;
         };
-        let up = self.world.surface_up_at(position);
         if craft_top.dot(up) > ground.dot(up) { craft_top } else { ground }
     }
 
@@ -140,11 +138,8 @@ impl SanctuaryHost {
     }
 
     pub fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> {
-        let mut crafts = Vec::new();
-        self.state.guest_crafts(&mut crafts);
         self.state
-            .fleet()
-            .sample_deck_at(&crafts, position, player_height)
+            .sample_guest_deck(position, player_height)
             .or_else(|| self.world.sample_deck_frame(position, player_height))
     }
 

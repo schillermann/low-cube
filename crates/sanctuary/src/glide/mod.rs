@@ -1,52 +1,10 @@
-use world::{CompanionPresence, DrivenCraft, PilotCraft, WildlifePulse};
+mod clock;
+
+use glam::Vec3;
+use world::{CompanionPresence, DeckFrame, DrivenCraft, PilotCraft, WildlifePulse};
+use crate::fleet_ledger::FleetLedger;
 use crate::remote_wildlife::RemoteWildlife;
-
-/// Monotonic tick and packet-arrival timing state for smooth companion snapshot interpolation.
-#[derive(Clone, Copy, Debug)]
-pub struct GlideClock {
-    tick_elapsed: f32,
-    span_secs: f32,
-    since_arrival: f32,
-}
-
-impl GlideClock {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(tick_elapsed: f32, span_secs: f32, since_arrival: f32) -> Self {
-        Self { tick_elapsed, span_secs, since_arrival }
-    }
-
-    pub const fn settled() -> Self {
-        Self::new(0.030, 0.030, 0.0)
-    }
-
-    pub const fn awaiting_first() -> Self {
-        Self::new(0.0, 0.0, 1.0)
-    }
-
-    pub const fn live(self) -> bool {
-        self.span_secs > 0.0
-    }
-
-    pub const fn stale(self) -> bool {
-        self.since_arrival >= 0.50
-    }
-
-    pub fn interval_secs(self) -> f32 {
-        (self.since_arrival * 1.15).clamp(0.024, 0.220)
-    }
-
-    pub(crate) fn advance_tick(self, dt: f32) -> Self {
-        Self::new(
-            (self.tick_elapsed + dt).min(self.span_secs),
-            self.span_secs,
-            (self.since_arrival + dt).min(1.0),
-        )
-    }
-
-    pub(crate) fn alpha(self, subtick_secs: f32) -> f32 {
-        ((self.tick_elapsed + subtick_secs) / self.span_secs.max(1e-4)).clamp(0.0, 1.0)
-    }
-}
+pub use self::clock::GlideClock;
 
 /// Per-companion smooth interpolation buffer locking driver posture and driven vehicle in phase.
 #[derive(Clone, Debug)]
@@ -119,10 +77,10 @@ impl CompanionGlide {
             return;
         }
         let cur_craft = self.smooth_craft();
-        let interval = self.clock.interval_secs();
         self.from = (cur_pres, cur_craft);
         self.to = (next_presence, next_craft);
-        self.clock = GlideClock::new(0.0, interval, 0.0);
+        self.clock = self.clock.absorbed();
+        self.subtick_secs = 0.0;
     }
 
     pub fn advance_tick(&mut self, dt: f32) {
@@ -206,5 +164,41 @@ impl SmoothRoster {
         for (_, glide) in &self.entries {
             glide.smooth_craft().push_active(out);
         }
+    }
+
+    pub fn constrain_crafts(
+        &self,
+        fleet: &FleetLedger,
+        position: Vec3,
+        player_height: f32,
+        up: Vec3,
+    ) -> Option<Vec3> {
+        let mut best: Option<Vec3> = None;
+        for (_, glide) in &self.entries {
+            if let PilotCraft::Driving(craft) = glide.smooth_craft() {
+                if let Some(top) = fleet.constrain_crafts(std::slice::from_ref(&craft), position, player_height) {
+                    if best.is_none_or(|prev| top.dot(up) > prev.dot(up)) {
+                        best = Some(top);
+                    }
+                }
+            }
+        }
+        best
+    }
+
+    pub fn sample_deck_at(
+        &self,
+        fleet: &FleetLedger,
+        position: Vec3,
+        player_height: f32,
+    ) -> Option<DeckFrame> {
+        for (_, glide) in &self.entries {
+            if let PilotCraft::Driving(craft) = glide.smooth_craft() {
+                if let Some(deck) = fleet.sample_deck_at(std::slice::from_ref(&craft), position, player_height) {
+                    return Some(deck);
+                }
+            }
+        }
+        None
     }
 }

@@ -21,7 +21,7 @@ impl PatchCoord {
     pub const fn sector_v(self) -> i16 { self.sector_v }
 }
 
-/// Toroidal `9×9` meadow sector evaluator scanning stale VRAM slots around a 3D viewpoint.
+/// Toroidal `9×9` meadow sector evaluator scanning stale VRAM slots center-outward around a 3D viewpoint.
 pub struct MeadowScan<'a> {
     face_idx: usize,
     face: &'a dyn Face,
@@ -36,22 +36,27 @@ impl<'a> MeadowScan<'a> {
 
     pub fn drain_one(&self, ring: &mut MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
         let (csu, csv) = self.face.meadow_center_sector(self.center);
-        for dsv in -4i32..=4 {
-            for dsu in -4i32..=4 {
-                let (gsu, gsv) = (csu + dsu, csv + dsv);
-                let cheb = dsu.abs().max(dsv.abs());
-                let lod = if cheb > 3 { 3 } else if cheb <= 1 { 2 } else { 0 };
-                let rev = if cheb > 3 { 0 } else { self.face.meadow_sector_revision(gsu, gsv) };
-                let slot = MeadowRing::ring_slot(gsu, gsv);
-                let stamp = MeadowStamp::new(self.face_idx as u8, (gsu, gsv), (lod, rev));
-                if ring.accept_if_stale(slot, stamp) {
-                    if cheb <= 3 {
-                        self.face.emit_meadow_sector(gsu, gsv, lod, target);
+        for radius in 0i32..=4 {
+            for dsv in -radius..=radius {
+                for dsu in -radius..=radius {
+                    if dsu.abs().max(dsv.abs()) != radius {
+                        continue;
                     }
-                    return Some(slot);
+                    let (gsu, gsv) = (csu + dsu, csv + dsv);
+                    let lod = if radius > 3 { 3 } else if radius <= 1 { 2 } else { 0 };
+                    let rev = if radius > 3 { 0 } else { self.face.meadow_sector_revision(gsu, gsv) };
+                    let slot = MeadowRing::ring_slot(gsu, gsv);
+                    let stamp = MeadowStamp::new(self.face_idx as u8, (gsu, gsv), (lod, rev));
+                    if ring.accept_if_stale(slot, stamp) {
+                        if radius <= 3 {
+                            self.face.emit_meadow_sector(gsu, gsv, lod, target);
+                        }
+                        return Some(slot);
+                    }
                 }
             }
         }
+        ring.mark_complete();
         None
     }
 }

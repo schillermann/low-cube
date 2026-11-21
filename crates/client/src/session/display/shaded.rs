@@ -124,8 +124,37 @@ impl ScenePass for ShadedScenePass {
     fn refresh_meadow_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
         let meadow_idx = world.face_count() * 2;
         self.ensure_meadow_grid(surface, meadow_idx);
+        self.meadow_ring.reopen();
         let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
         while let Some(slot) = avatar.drain_meadow(world, &mut self.meadow_ring, &mut patch_buf) {
+            if let Some(prev) = self.mesh.patch_at(meadow_idx, slot) {
+                let next = surface.replace_mesh(prev, &patch_buf);
+                self.mesh.store_patch(meadow_idx, slot, next);
+            }
+            patch_buf.clear();
+        }
+    }
+
+    fn stream_meadow_slice(
+        &mut self,
+        surface: &dyn PlatformSurface,
+        world: &dyn PlanetaryWorld,
+        avatar: &dyn Avatar,
+        reopen: bool,
+    ) {
+        if reopen {
+            self.meadow_ring.reopen();
+        }
+        if !self.meadow_ring.streaming() {
+            return;
+        }
+        let meadow_idx = world.face_count() * 2;
+        self.ensure_meadow_grid(surface, meadow_idx);
+        let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
+        for _ in 0..4 {
+            let Some(slot) = avatar.drain_meadow(world, &mut self.meadow_ring, &mut patch_buf) else {
+                break;
+            };
             if let Some(prev) = self.mesh.patch_at(meadow_idx, slot) {
                 let next = surface.replace_mesh(prev, &patch_buf);
                 self.mesh.store_patch(meadow_idx, slot, next);
@@ -146,7 +175,7 @@ impl ScenePass for ShadedScenePass {
             patch_buf.clear();
         }
         if !world.pending_slices() {
-            if !updated_patch {
+            if !updated_patch && self.mesh.patch_at(0, 0).is_none() {
                 let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
                 let idx = world.emit_modified_face(&mut cpu_buf);
                 let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);

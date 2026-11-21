@@ -1,11 +1,13 @@
 mod attire;
 mod boar;
 mod craft;
+mod rhythm;
 
 use glam::{Quat, Vec3};
 pub use self::attire::PresenceAttire;
 pub use self::boar::{BoarPresence, BoarStance, GoreStamp, SounderPresence, WildlifePulse};
 pub use self::craft::{DrivenCraft, PilotCraft};
+pub use self::rhythm::PresenceRhythm;
 
 /// Encapsulated 3D stance and orientation of a companion avatar on the World-Cube.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -90,17 +92,9 @@ impl CompanionPresence {
 
     pub fn interpolated(self, target: Self, alpha: f32) -> Self {
         let t = alpha.clamp(0.0, 1.0);
-        let r0 = if (target.rhythm.0 - self.rhythm.0).abs() < 6.0 {
-            self.rhythm.0 + (target.rhythm.0 - self.rhythm.0) * t
-        } else {
-            target.rhythm.0
-        };
-        let rhythm = (
-            r0,
-            self.rhythm.1 + (target.rhythm.1 - self.rhythm.1) * t,
-            self.rhythm.2 + (target.rhythm.2 - self.rhythm.2) * t,
-            self.rhythm.3 + (target.rhythm.3 - self.rhythm.3) * t,
-        );
+        let rhythm = PresenceRhythm::from_wire(self.rhythm)
+            .interpolated(PresenceRhythm::from_wire(target.rhythm), t)
+            .wire_tuple();
         Self::new(target.slot, self.kinematics.interpolated(target.kinematics, t), rhythm, target.attire)
     }
 

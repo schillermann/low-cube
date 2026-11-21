@@ -194,6 +194,7 @@ impl SessionStage {
             return;
         }
         let ticks = beat.due_ticks();
+        let mut reopen_meadow = false;
         if ticks > 0 {
             let prev_sector = self.avatar.sector_stamp();
             let step = beat.tick_seconds();
@@ -213,16 +214,15 @@ impl SessionStage {
                     changed = true;
                 }
             }
-            self.avatar.sync_world_presence(self.world.as_mut());
             let dirty_slices = self.world.pending_slices();
             if changed || dirty_slices {
                 display.refresh_modified_face(self.world.as_mut());
             }
-            if changed || dirty_slices || self.avatar.sector_stamp() != prev_sector {
-                display.refresh_meadow_slice(self.world.as_ref(), self.avatar.as_ref());
-            }
+            reopen_meadow = changed || dirty_slices || self.avatar.sector_stamp() != prev_sector;
         }
         self.avatar.blend_subtick(beat.subtick_blend());
+        self.avatar.sync_world_presence(self.world.as_mut());
+        display.stream_meadow_slice(self.world.as_ref(), self.avatar.as_ref(), reopen_meadow);
         self.world.blend_companions(beat.subtick_blend() * beat.tick_seconds());
     }
 }

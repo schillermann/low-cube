@@ -9,6 +9,17 @@ pub trait ScenePass {
     fn select_visible(&mut self, mask: u32);
     fn refresh_face_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, idx: usize);
     fn refresh_meadow_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, avatar: &dyn Avatar);
+    fn stream_meadow_slice(
+        &mut self,
+        surface: &dyn PlatformSurface,
+        world: &dyn PlanetaryWorld,
+        avatar: &dyn Avatar,
+        reopen: bool,
+    ) {
+        if reopen {
+            self.refresh_meadow_slice(surface, world, avatar);
+        }
+    }
     fn refresh_modified_face(&mut self, surface: &dyn PlatformSurface, world: &mut dyn PlanetaryWorld);
     fn capture_sight(
         &mut self,
@@ -59,6 +70,16 @@ impl<P: ScenePass> ScenePass for PolaroidScenePass<P> {
 
     fn refresh_meadow_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
         self.origin.refresh_meadow_slice(surface, world, avatar);
+    }
+
+    fn stream_meadow_slice(
+        &mut self,
+        surface: &dyn PlatformSurface,
+        world: &dyn PlanetaryWorld,
+        avatar: &dyn Avatar,
+        reopen: bool,
+    ) {
+        self.origin.stream_meadow_slice(surface, world, avatar, reopen);
     }
 
     fn refresh_modified_face(&mut self, surface: &dyn PlatformSurface, world: &mut dyn PlanetaryWorld) {

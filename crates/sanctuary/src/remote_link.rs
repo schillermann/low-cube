@@ -97,6 +97,10 @@ impl RemoteLink {
         self.sync.update_craft(craft, cid);
     }
 
+    pub(crate) const fn roster(&self) -> &SmoothRoster {
+        self.sync.roster()
+    }
+
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) {
         self.sync.copy_companions(out);
     }

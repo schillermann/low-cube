@@ -2,6 +2,9 @@ use std::time::{Duration, Instant};
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use super::super::display::SessionDisplay;
 
+const MIN_FRAME_PERIOD: Duration = Duration::from_nanos(4_166_667);
+const RELAXED_FRAME_PERIOD: Duration = Duration::from_nanos(15_500_000);
+
 /// Homeostatic perception scale and rest cadence adapting to measured pre-swap hardware work.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct ElasticHorizon {
@@ -33,33 +36,23 @@ impl ElasticHorizon {
         }
     }
 
-    pub(super) fn urgent_interval(self) -> Duration {
-        if self.smoothed_work_secs <= 0.003 {
-            Duration::from_nanos(4_166_667)
-        } else if self.smoothed_work_secs <= 0.007 {
-            Duration::from_nanos(8_333_334)
-        } else {
-            Duration::from_nanos(16_666_667)
-        }
-    }
-
     pub(super) fn strained(self) -> bool {
-        self.smoothed_work_secs > 0.006
+        self.smoothed_work_secs > 0.008
     }
 }
 
-/// Encapsulated frame presentation timestamp and input-urgency latches for kernel sleep pacing.
+/// Encapsulated frame-origin timestamp and input-urgency latches for VSync-harmonious pacing.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct WakeGate {
-    last_present: Instant,
+    frame_origin: Instant,
     urgent_input: bool,
     redraw_queued: bool,
 }
 
 impl WakeGate {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(last_present: Instant, urgent_input: bool, redraw_queued: bool) -> Self {
-        Self { last_present, urgent_input, redraw_queued }
+    pub(super) const fn new(frame_origin: Instant, urgent_input: bool, redraw_queued: bool) -> Self {
+        Self { frame_origin, urgent_input, redraw_queued }
     }
 
     pub(super) const fn initial(now: Instant) -> Self {
@@ -71,29 +64,25 @@ impl WakeGate {
     }
 
     pub(super) const fn marked_urgent(self) -> Self {
-        Self::new(self.last_present, true, self.redraw_queued)
+        Self::new(self.frame_origin, true, self.redraw_queued)
     }
 
     pub(super) const fn queued_now(self) -> Self {
-        Self::new(self.last_present, self.urgent_input, true)
+        Self::new(self.frame_origin, self.urgent_input, true)
     }
 
-    pub(super) const fn frame_begun(self) -> Self {
-        Self::new(self.last_present, false, false)
-    }
-
-    pub(super) const fn frame_presented(self, presented_at: Instant) -> Self {
-        Self::new(presented_at, self.urgent_input, self.redraw_queued)
+    pub(super) const fn frame_begun(self, started_at: Instant) -> Self {
+        Self::new(started_at, false, false)
     }
 
     pub(super) fn deadline(self, horizon: ElasticHorizon, next_tick_at: Instant, modal_open: bool) -> Instant {
-        if self.urgent_input {
-            return self.last_present + horizon.urgent_interval();
-        }
         if modal_open || horizon.strained() {
-            return self.last_present + Duration::from_nanos(16_666_667);
+            return self.frame_origin + RELAXED_FRAME_PERIOD;
         }
-        next_tick_at.max(self.last_present + horizon.urgent_interval())
+        if self.urgent_input {
+            return self.frame_origin + MIN_FRAME_PERIOD;
+        }
+        next_tick_at.max(self.frame_origin + MIN_FRAME_PERIOD)
     }
 }
 
@@ -122,12 +111,17 @@ impl PulseCadence {
         Self::new(self.horizon, self.gate.marked_urgent())
     }
 
-    pub(super) const fn frame_begun(self) -> Self {
-        Self::new(self.horizon, self.gate.frame_begun())
+    pub(super) const fn frame_begun(self, started_at: Instant) -> Self {
+        Self::new(self.horizon, self.gate.frame_begun(started_at))
     }
 
-    pub(super) fn frame_completed(self, work: Duration, presented_at: Instant) -> Self {
-        Self::new(self.horizon.absorb_work(work), self.gate.frame_presented(presented_at))
+    pub(super) fn frame_completed(self, work: Duration) -> Self {
+        Self::new(self.horizon.absorb_work(work), self.gate)
+    }
+
+    #[cfg(test)]
+    pub(super) fn deadline_at(self, next_tick_at: Instant, modal_open: bool) -> Instant {
+        self.gate.deadline(self.horizon, next_tick_at, modal_open)
     }
 
     pub(super) fn pace_loop(

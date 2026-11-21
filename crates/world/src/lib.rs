@@ -51,7 +51,7 @@ pub use null_face::NullFace;
 pub use planet::{CubePlanet, PatchCoord};
 pub use presence::{
     BoarPresence, BoarStance, CompanionPresence, DrivenCraft, GoreStamp, PilotCraft,
-    PresenceAttire, PresenceKinematics, SounderPresence, WildlifePulse,
+    PresenceAttire, PresenceKinematics, PresenceRhythm, SounderPresence, WildlifePulse,
 };
 pub use sight_cone::SightCone;
 pub use relief::{

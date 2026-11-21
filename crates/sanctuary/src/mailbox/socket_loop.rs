@@ -5,7 +5,6 @@ use world::PlanetaryWorld;
 use super::PortalMailbox;
 
 const BEAT_NANOS: u64 = 8_333_333;
-const BEAT_SECS: f32 = 1.0 / 120.0;
 
 /// Polymorphic thread handle state avoiding `Option<JoinHandle<()>>`.
 enum SocketThread {
@@ -13,7 +12,7 @@ enum SocketThread {
     Running(JoinHandle<()>),
 }
 
-/// Autonomous 120 Hz P2P socket heartbeat decoupled from `winit` and OpenGL frame pacing.
+/// Autonomous 120 Hz P2P standby socket heartbeat taking over only when the main simulation loop stalls.
 pub struct SocketLoop {
     mailbox: Arc<PortalMailbox>,
     thread_state: SocketThread,
@@ -39,14 +38,29 @@ impl SocketLoop {
 
     fn drive_cadence(shared: Arc<Mutex<Box<dyn PlanetaryWorld>>>, mailbox: Arc<PortalMailbox>) {
         let step_dur = Duration::from_nanos(BEAT_NANOS);
-        let mut next_wake = Instant::now() + step_dur;
+        let mut last_beat = Instant::now();
+        let mut next_wake = last_beat + step_dur;
         while mailbox.running() {
-            let changed = shared
-                .lock()
-                .ok()
-                .is_some_and(|mut w| w.pump_portal(BEAT_SECS));
-            if changed {
-                mailbox.note_surface_change();
+            let check_at = Instant::now();
+            if mailbox.standby_needed(check_at) {
+                let changed = shared
+                    .lock()
+                    .ok()
+                    .is_some_and(|mut w| {
+                        let beat_at = Instant::now();
+                        if !mailbox.standby_needed(beat_at) {
+                            last_beat = beat_at;
+                            return false;
+                        }
+                        let dt = beat_at.saturating_duration_since(last_beat).as_secs_f32().clamp(0.0005, 0.020);
+                        last_beat = beat_at;
+                        w.pump_portal(dt)
+                    });
+                if changed {
+                    mailbox.note_surface_change();
+                }
+            } else {
+                last_beat = check_at;
             }
             let now = Instant::now();
             if next_wake > now {
