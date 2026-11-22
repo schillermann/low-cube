@@ -1,4 +1,5 @@
 mod canvas;
+mod frame;
 mod overlays;
 mod phosphor;
 mod scale_decorators;
@@ -6,10 +7,13 @@ mod spine;
 mod standoff;
 
 use glam::Vec3;
-use world::{CelestialAtlas, MeshTarget};
+use world::MeshTarget;
 use crate::drive::{ARC_NODES, FlipBurnReadout, NavigationCourse, OrrerySnapshot, TransferArc};
 use super::glyph::PixelStamp;
 use self::canvas::OrreryCanvas;
+use self::frame::OrreryFrame;
+#[cfg(test)]
+pub use self::frame::OrreryFrame as TestOrreryFrame;
 pub use self::overlays::{ChannelStripOverlay, OpticOverlay, ShipOpticHud};
 #[cfg(test)]
 pub use self::overlays::{
@@ -27,84 +31,6 @@ pub use self::scale_decorators::{
 pub use self::spine::{GraduatedSpine as TestGraduatedSpine, RangeScale, ScaleDomain};
 #[cfg(test)]
 pub use self::standoff::{BoresightTape, ReticleStandoffScale};
-
-struct OrreryFrame {
-    bases: ([Vec3; 3], [Vec3; 3]),
-    earth_holo: Vec3,
-    moon_world: Vec3,
-    radii: (f32, f32, f32, f32),
-}
-
-impl OrreryFrame {
-    const fn new(
-        bases: ([Vec3; 3], [Vec3; 3]),
-        earth_holo: Vec3,
-        moon_world: Vec3,
-        radii: (f32, f32, f32, f32),
-    ) -> Self {
-        Self { bases, earth_holo, moon_world, radii }
-    }
-
-    fn from_atlas(atlas: CelestialAtlas) -> Self {
-        atlas.transfer(|home_half, moon_center, moon_half| {
-            let dist = moon_center.length().max(48.0);
-            let world_u = if moon_center.length_squared() > 1.0 { moon_center / dist } else { Vec3::Y };
-            let ref_axis = if world_u.x.abs() < 0.85 { Vec3::X } else { Vec3::Z };
-            let world_w = world_u.cross(ref_axis).normalize_or_zero();
-            let world_v = world_w.cross(world_u).normalize_or_zero();
-
-            let earth_holo = Vec3::new(-0.42, -0.06, 0.12);
-            let moon_holo = Vec3::new(0.44, 0.18, -0.14);
-            let span = (moon_holo - earth_holo).length();
-            let holo_u = (moon_holo - earth_holo) / span;
-            let holo_w = (Vec3::Y - holo_u * holo_u.y).normalize_or_zero();
-            let holo_v = holo_u.cross(holo_w).normalize_or_zero();
-
-            let scale = span / dist;
-            let vis_earth = (home_half * scale).clamp(0.18, 0.24);
-            let vis_moon = if moon_half > 0.0 { (moon_half * scale).clamp(0.10, 0.14) } else { 0.0 };
-            Self::new(
-                ([world_u, world_v, world_w], [holo_u, holo_v, holo_w]),
-                earth_holo,
-                moon_center,
-                (scale, home_half.max(1.0), vis_earth, vis_moon),
-            )
-        })
-    }
-
-    fn rotate_dir(&self, d: Vec3) -> Vec3 {
-        let ([wu, wv, ww], [hu, hv, hw]) = self.bases;
-        hu * d.dot(wu) + hv * d.dot(wv) + hw * d.dot(ww)
-    }
-
-    fn map_point(&self, world_pt: Vec3) -> Vec3 {
-        let (scale, home_half, vis_earth, vis_moon) = self.radii;
-        let base = self.earth_holo + self.rotate_dir(world_pt) * scale;
-        let home_cheb = world_pt.abs().max_element();
-        let earth_lift = (vis_earth - home_half * scale).max(0.0);
-        let after_earth = if earth_lift > 1e-4 && home_cheb < home_half * 2.2 {
-            let w = (1.0 - ((home_cheb - home_half) / (home_half * 1.2)).clamp(0.0, 1.0)).max(0.0);
-            let dir = self.rotate_dir(world_pt).normalize_or_zero();
-            base + dir * (earth_lift * w)
-        } else {
-            base
-        };
-        if vis_moon <= 0.0 {
-            return after_earth;
-        }
-        let moon_half = 16.0_f32;
-        let rel_moon = world_pt - self.moon_world;
-        let moon_cheb = rel_moon.abs().max_element();
-        let moon_lift = (vis_moon - moon_half * scale).max(0.0);
-        if moon_lift > 1e-4 && moon_cheb < moon_half * 2.6 {
-            let w = (1.0 - ((moon_cheb - moon_half) / (moon_half * 1.6)).clamp(0.0, 1.0)).max(0.0);
-            let dir = self.rotate_dir(rel_moon).normalize_or_zero();
-            after_earth + dir * (moon_lift * w)
-        } else {
-            after_earth
-        }
-    }
-}
 
 /// Core 3D Steuerkonsolen-Orrery viewport implementing `OpticOverlay` as the base layer for Nose-Cam decorators.
 #[derive(Clone, Copy, Debug)]
@@ -189,23 +115,28 @@ impl OpticOverlay for OrreryConsole {
             } else {
                 nose_axis
             };
-            let frame = OrreryFrame::from_atlas(atlas);
-            let (_, _, vis_earth, vis_moon) = frame.radii;
-            let earth_holo = frame.earth_holo;
-            let moon_holo = frame.map_point(frame.moon_world);
+            let frame = OrreryFrame::for_ship(atlas, ship_pos);
+            let (vis_earth, vis_moon) = frame.visual_radii();
+            let earth_holo = frame.earth_holo();
+            let moon_holo = frame.map_point(frame.moon_world());
 
             canvas.emit_projector_base(target);
-            canvas.emit_gravity_shell(earth_holo, vis_earth * 1.68, 14, Vec3::new(0.22, 0.88, 0.72), target);
-            canvas.emit_wire_cube(earth_holo, vis_earth, Vec3::new(0.20, 0.96, 0.72), 0.14, target);
+            if frame.approach_zoom() {
+                PixelStamp::new(0.0040 * self.inv_aspect, 0.0058, Vec3::new(0.52, 0.94, 1.00))
+                    .emit_centered("LUNAR APPROACH ZOOM", cx, cy - 0.245, target);
+            } else {
+                canvas.emit_gravity_shell(earth_holo, (vis_earth * 1.68).max(0.035), 14, Vec3::new(0.22, 0.88, 0.72), target);
+                canvas.emit_wire_cube(earth_holo, vis_earth, Vec3::new(0.20, 0.96, 0.72), 0.14, target);
+            }
 
             if vis_moon > 0.0 {
-                canvas.emit_gravity_shell(moon_holo, vis_moon * 1.85, 10, Vec3::new(0.68, 0.82, 0.98), target);
+                canvas.emit_gravity_shell(moon_holo, (vis_moon * 1.85).max(0.025), 10, Vec3::new(0.68, 0.82, 0.98), target);
                 canvas.emit_wire_cube(moon_holo, vis_moon, Vec3::new(0.84, 0.92, 1.00), 0.15, target);
             }
 
             match course {
                 NavigationCourse::Uncharted => {
-                    if vis_moon > 0.0 {
+                    if vis_moon > 0.0 && !frame.approach_zoom() {
                         canvas.emit_strut_3d(earth_holo, moon_holo, 0.0014, Vec3::new(0.20, 0.62, 0.80), -0.34, target);
                     }
                 }

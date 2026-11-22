@@ -8,6 +8,22 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.103.0] - 2026-11-22
+
+### Added
+- Added Outerra-style logarithmic depth buffer (`0.03 m .. 100,000,000 m` in `VoxelShaderSource` in `crates/engine/src/shader.rs` and `PerspectiveLens` in `crates/client/src/lens.rs`), rendering all 21 solar-system bodies (`SOL`, 8 planets, 11 moons) and procedural belt asteroids (`CosmicBodyCube`, `GiantCloudShell`, and `AsteroidBelt` in `crates/world/src/celestial/`) at true 1:1 metric coordinates and radii without `4096 m` far-plane clipping or `2800 m` proxy shrinking (`crates/client/src/heliosphere_tests.rs`).
+- Added unified `[cosmos] scale` solar-system scale factor (`server.toml`, `CosmosScale` in `crates/client/src/cosmos_scale.rs`, `CosmosServerConfig` in `crates/sanctuary/src/config/cosmos.rs`, and `SolarProportions::with_system_scale` in `crates/world/src/celestial/proportions.rs`) governing planetary/lunar orbital distances, planet sizes, moon sizes, and Sun size across both 3D world geometry and holographic charts (`OrreryFrame` and `SolarChartModal`, verified in `crates/client/src/cosmos_scale_tests.rs`).
+- Added dual-slot LRU off-world terrain pool (`VicinityCache` and `ActiveVicinity` in `crates/world/src/celestial/heliosphere/vicinity.rs` and `awakened.rs`, backed by `24` GPU terrain slices in `CompositeVoxelMesh`), keeping two nearby rocky bodies (such as Mars and Phobos or two Co-Op destinations) simultaneously awakened without mutual eviction.
+- Added multi-world `AtmosphericShell` (`crates/client/src/rayleigh_shell/mod.rs`, `DiurnalPipeline`, and `FIRMAMENT_FRAGMENT_SRC` in `crates/client/src/firmament_glsl.rs`) casting azure Rayleigh sky on `Earth`, salmon-butterscotch dust haze on `Mars`, amber haze on `Venus` and `Titan`, and pure vacuum black sky on airless moons such as `Luna` even in broad daylight.
+- Added `1× / 6× / 24×` hull-camera optical telescope magnification (`OpticZoom` in `crates/client/src/avatar/helm_optics.rs`, cycled via `ControlAction::MoldForm` / `F`), moving-ephemeris `CourseProfile::MovingBody` target locks (`crates/client/src/drive/transfer_arc/`), and right-handed `SO(3)` two-stage `OrreryFrame` (`TRANSFER` 1:1 scale vs. automatic `LUNAR APPROACH ZOOM` in `crates/client/src/menu/orrery_hud/frame.rs`).
+
+### Changed
+- Removed legacy duplicate sky structures (`StarVault`, `StarryPipeline`, and 2D shader planet/moon billboards) in favor of the unified 3D metric `Heliosphere` + infinite firmament starfield and subpixel planet beacons.
+
+### Fixed
+- Fixed central `SOL` appearing to follow spacecraft steering by decoupling `DiurnalPipeline` solar/firmament directions from avatar `surface_rot`, tilting `EARTH`'s orbital plane by `23.4°` (`SolarCatalog` in `crates/world/src/celestial/catalog.rs`) for natural spawn daylight, and rendering `SOL` as a fixed 3D solar cube at the center of the Solar System.
+- Fixed Nose-Cam lunar approach where `OrreryConsole` displayed the spacecraft inside the Moon-Cube while no 3D Moon appeared ahead due to `4096 m` far-plane clipping, improper reflection basis in `OrreryCanvas`, and unawakened off-world GPU slices (`crates/client/src/session/stage.rs` and `shaded.rs`).
+
 ## [0.102.0] - 2026-11-22
 
 ### Added

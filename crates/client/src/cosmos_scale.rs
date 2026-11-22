@@ -40,6 +40,13 @@ impl ScaleOverride {
             Self::Specified(factor) => f(current, factor),
         }
     }
+
+    const fn or_fallback(self, fallback: Self) -> Self {
+        match self {
+            Self::Inherited => fallback,
+            Self::Specified(_) => self,
+        }
+    }
 }
 
 /// Four-factor encapsulated override bundle (`<= 4` fields) applied by file, environment, or CLI decorators.
@@ -118,9 +125,19 @@ impl FileCosmos {
 
     pub fn from_document(doc: &TomlDocument, source: &str, fallback: Box<dyn CosmosScale>) -> Self {
         let prop = |key: &str| doc.section_property("cosmos", key, false).or_else(|| doc.section_property("world", key, false));
-        let body = prop("body_scale").map_or(ScaleOverride::Inherited, |v| ScaleOverride::parse_positive(&v, source));
-        let sun = prop("sun_scale").map_or(ScaleOverride::Inherited, |v| ScaleOverride::parse_positive(&v, source));
-        let dist = prop("distance_scale").map_or(ScaleOverride::Inherited, |v| ScaleOverride::parse_positive(&v, source));
+        let sys = doc
+            .section_property("cosmos", "scale", false)
+            .or_else(|| prop("cosmos_scale"))
+            .map_or(ScaleOverride::Inherited, |v| ScaleOverride::parse_positive(&v, source));
+        let body = prop("body_scale")
+            .map_or(ScaleOverride::Inherited, |v| ScaleOverride::parse_positive(&v, source))
+            .or_fallback(sys);
+        let sun = prop("sun_scale")
+            .map_or(ScaleOverride::Inherited, |v| ScaleOverride::parse_positive(&v, source))
+            .or_fallback(sys);
+        let dist = prop("distance_scale")
+            .map_or(ScaleOverride::Inherited, |v| ScaleOverride::parse_positive(&v, source))
+            .or_fallback(sys);
         let belt = prop("asteroid_density")
             .or_else(|| prop("belt_density"))
             .map_or(ScaleOverride::Inherited, |v| ScaleOverride::parse_non_negative(&v, source));
@@ -157,12 +174,13 @@ impl EnvironmentCosmos {
             .map_or(ScaleOverride::Inherited, |v| {
                 ScaleOverride::parse_non_negative(&v, "LOW_CUBE_ASTEROID_DENSITY")
             });
+        let sys = pos("LOW_CUBE_COSMOS_SCALE");
         Self::new(
             fallback,
             CosmosOverrides::new(
-                pos("LOW_CUBE_BODY_SCALE"),
-                pos("LOW_CUBE_SUN_SCALE"),
-                pos("LOW_CUBE_DISTANCE_SCALE"),
+                pos("LOW_CUBE_BODY_SCALE").or_fallback(sys),
+                pos("LOW_CUBE_SUN_SCALE").or_fallback(sys),
+                pos("LOW_CUBE_DISTANCE_SCALE").or_fallback(sys),
                 belt,
             ),
         )
@@ -203,12 +221,13 @@ impl ArgumentCosmos {
             .value_of("--asteroid-density")
             .or_else(|| flags.value_of("--belt-density"))
             .map_or(ScaleOverride::Inherited, |v| ScaleOverride::parse_non_negative(&v, "--asteroid-density"));
+        let sys = pos("--cosmos-scale");
         Self::new(
             fallback,
             CosmosOverrides::new(
-                pos("--body-scale"),
-                pos("--sun-scale"),
-                pos("--distance-scale"),
+                pos("--body-scale").or_fallback(sys),
+                pos("--sun-scale").or_fallback(sys),
+                pos("--distance-scale").or_fallback(sys),
                 belt,
             ),
         )

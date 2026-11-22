@@ -1,8 +1,8 @@
 use glam::Vec3;
 use winit::event_loop::ActiveEventLoop;
 
-use engine::{CpuMeshBatch, PlanetaryMesh, StarryPipeline, VoxelShaderSource};
-use world::{PlanetaryWorld, SolarProportions, StarVault};
+use engine::{CpuMeshBatch, PlanetaryMesh, VoxelShaderSource};
+use world::{PlanetaryWorld, SolarProportions};
 use crate::attire::{AttireProfile, FileAttire, HeldRelic};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::CalibratedCanopy;
@@ -140,17 +140,11 @@ impl SessionAssembly for SessionLaunch {
         let primary_mesh = PlanetaryMesh::with_mask(primary_faces, initial_mask);
         let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
         let canopy = Box::new(CalibratedCanopy::planetary(world_blocks));
-        let mut star_cpu = CpuMeshBatch::with_quad_capacity(384);
-        StarVault::cosmic().emit(&mut star_cpu);
-        let star_mesh = surface.upload_mesh(&star_cpu);
-        let primary_pipeline = Box::new(StarryPipeline::new(
-            surface.assemble_diurnal_pipeline(
-                self.cosmos.celestial.clone_cadence(),
-                self.cosmos.aurora.clone_cadence(),
-                canopy,
-            ),
-            star_mesh,
-        ));
+        let primary_pipeline = surface.assemble_diurnal_pipeline(
+            self.cosmos.celestial.clone_cadence(),
+            self.cosmos.aurora.clone_cadence(),
+            canopy,
+        );
 
         let controls = Box::new(SprintControls::with_bindings(bindings));
         let modal = Box::new(SolarChartModal::with_bindings(

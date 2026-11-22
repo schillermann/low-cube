@@ -25,22 +25,30 @@ impl<'a> ServerCosmosScale<'a> {
     fn apply_toml(&self, mut p: SolarProportions) -> SolarProportions {
         if let Some(v) = self
             .toml
+            .section_property("cosmos", "scale", false)
+            .or_else(|| self.toml.section_property("cosmos", "cosmos_scale", false))
+            .and_then(|s| Self::parse_positive(&s, 0.0005, 8.0))
+        {
+            p = p.with_system_scale(v);
+        }
+        if let Some(v) = self
+            .toml
             .section_property("cosmos", "distance_scale", false)
-            .and_then(|s| Self::parse_positive(&s, 0.0005, 4.0))
+            .and_then(|s| Self::parse_positive(&s, 0.0005, 8.0))
         {
             p = p.with_distance_scale(v);
         }
         if let Some(v) = self
             .toml
             .section_property("cosmos", "body_scale", false)
-            .and_then(|s| Self::parse_positive(&s, 0.05, 8.0))
+            .and_then(|s| Self::parse_positive(&s, 0.02, 8.0))
         {
             p = p.with_body_scale(v);
         }
         if let Some(v) = self
             .toml
             .section_property("cosmos", "sun_scale", false)
-            .and_then(|s| Self::parse_positive(&s, 0.02, 8.0))
+            .and_then(|s| Self::parse_positive(&s, 0.01, 8.0))
         {
             p = p.with_sun_scale(v);
         }
@@ -56,18 +64,23 @@ impl<'a> ServerCosmosScale<'a> {
     }
 
     fn apply_env(mut p: SolarProportions) -> SolarProportions {
+        if let Ok(s) = env::var("LOW_CUBE_COSMOS_SCALE") {
+            if let Some(v) = Self::parse_positive(&s, 0.0005, 8.0) {
+                p = p.with_system_scale(v);
+            }
+        }
         if let Ok(s) = env::var("LOW_CUBE_DISTANCE_SCALE") {
-            if let Some(v) = Self::parse_positive(&s, 0.0005, 4.0) {
+            if let Some(v) = Self::parse_positive(&s, 0.0005, 8.0) {
                 p = p.with_distance_scale(v);
             }
         }
         if let Ok(s) = env::var("LOW_CUBE_BODY_SCALE") {
-            if let Some(v) = Self::parse_positive(&s, 0.05, 8.0) {
+            if let Some(v) = Self::parse_positive(&s, 0.02, 8.0) {
                 p = p.with_body_scale(v);
             }
         }
         if let Ok(s) = env::var("LOW_CUBE_SUN_SCALE") {
-            if let Some(v) = Self::parse_positive(&s, 0.02, 8.0) {
+            if let Some(v) = Self::parse_positive(&s, 0.01, 8.0) {
                 p = p.with_sun_scale(v);
             }
         }
@@ -83,33 +96,43 @@ impl<'a> ServerCosmosScale<'a> {
         let mut i = 1;
         while i < self.args.len() {
             let arg = self.args[i].as_str();
-            if let Some(val) = arg.strip_prefix("--distance-scale=") {
-                if let Some(v) = Self::parse_positive(val, 0.0005, 4.0) {
+            if let Some(val) = arg.strip_prefix("--cosmos-scale=") {
+                if let Some(v) = Self::parse_positive(val, 0.0005, 8.0) {
+                    p = p.with_system_scale(v);
+                }
+                i += 1;
+            } else if arg == "--cosmos-scale" && i + 1 < self.args.len() {
+                if let Some(v) = Self::parse_positive(&self.args[i + 1], 0.0005, 8.0) {
+                    p = p.with_system_scale(v);
+                }
+                i += 2;
+            } else if let Some(val) = arg.strip_prefix("--distance-scale=") {
+                if let Some(v) = Self::parse_positive(val, 0.0005, 8.0) {
                     p = p.with_distance_scale(v);
                 }
                 i += 1;
             } else if arg == "--distance-scale" && i + 1 < self.args.len() {
-                if let Some(v) = Self::parse_positive(&self.args[i + 1], 0.0005, 4.0) {
+                if let Some(v) = Self::parse_positive(&self.args[i + 1], 0.0005, 8.0) {
                     p = p.with_distance_scale(v);
                 }
                 i += 2;
             } else if let Some(val) = arg.strip_prefix("--body-scale=") {
-                if let Some(v) = Self::parse_positive(val, 0.05, 8.0) {
+                if let Some(v) = Self::parse_positive(val, 0.02, 8.0) {
                     p = p.with_body_scale(v);
                 }
                 i += 1;
             } else if arg == "--body-scale" && i + 1 < self.args.len() {
-                if let Some(v) = Self::parse_positive(&self.args[i + 1], 0.05, 8.0) {
+                if let Some(v) = Self::parse_positive(&self.args[i + 1], 0.02, 8.0) {
                     p = p.with_body_scale(v);
                 }
                 i += 2;
             } else if let Some(val) = arg.strip_prefix("--sun-scale=") {
-                if let Some(v) = Self::parse_positive(val, 0.02, 8.0) {
+                if let Some(v) = Self::parse_positive(val, 0.01, 8.0) {
                     p = p.with_sun_scale(v);
                 }
                 i += 1;
             } else if arg == "--sun-scale" && i + 1 < self.args.len() {
-                if let Some(v) = Self::parse_positive(&self.args[i + 1], 0.02, 8.0) {
+                if let Some(v) = Self::parse_positive(&self.args[i + 1], 0.01, 8.0) {
                     p = p.with_sun_scale(v);
                 }
                 i += 2;

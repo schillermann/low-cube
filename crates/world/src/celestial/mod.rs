@@ -9,7 +9,6 @@ mod heliosphere;
 mod lunar;
 mod orbital_fleet;
 mod proportions;
-mod stars;
 mod translated;
 
 use glam::Vec3;
@@ -28,7 +27,6 @@ pub use self::heliosphere::{ActiveVicinity, AwakenedBody, HeliosphereWorld, Vici
 pub use self::lunar::{LunarCraterRelief, LunarWorld};
 pub use self::orbital_fleet::OrbitalFleetWorld;
 pub use self::proportions::{BeltAndReach, BodyRatios, SolarProportions};
-pub use self::stars::StarVault;
 pub use self::translated::TranslatedWorld;
 
 /// Cardinal cubic gravity field resolving the dominant climate-zone normal around an origin.

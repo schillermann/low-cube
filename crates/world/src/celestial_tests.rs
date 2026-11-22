@@ -1,8 +1,8 @@
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CardinalTurn, CelestialSystem, ClimateZone, CountedMeshTarget,
-    CraftBlueprint, CraftPose, LunarWorld, MeshTarget, MoldArchetype, NozzleAxis, PilotOrder,
-    Quad, StarVault, SurfaceFrame, VehicleAssembly, VehicleAxes, VehiclePart, WedgeHeading,
+    BlockMedium, BlockMold, CardinalTurn, CelestialSystem, ClimateZone,
+    CraftBlueprint, CraftPose, LunarWorld, MoldArchetype, NozzleAxis, PilotOrder,
+    SurfaceFrame, VehicleAssembly, VehicleAxes, VehiclePart, WedgeHeading,
 };
 
 #[test]
@@ -144,15 +144,6 @@ fn test_binary_gravity_and_orbital_fleet_across_homeworld_vacuum_and_moon() {
         .board_vehicle(deep_space - Vec3::Z * 2.0, Vec3::Z, true)
         .expect("Astronaut must re-board weightless orbital craft in deep space");
     assert!((reboarded.origin() - deep_space).length() < 1e-4);
-
-    struct NullSink;
-    impl MeshTarget for NullSink {
-        fn push_quad(&mut self, _quad: Quad) {}
-    }
-    let mut sink = NullSink;
-    let mut stars = CountedMeshTarget::new(&mut sink);
-    StarVault::cosmic().emit(&mut stars);
-    assert_eq!(stars.count(), 360);
 
     let moon_south = moon_pos + Vec3::new(0.25, -LunarWorld::HALF_SIZE - 1.0, 0.25);
     assert_eq!(cosmos.surface_up_at(moon_south), ClimateZone::Volcanic.normal());

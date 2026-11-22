@@ -227,6 +227,7 @@ impl SessionStage {
                     changed = true;
                 }
             }
+            let _ = self.avatar.visible_slices(self.world.as_ref());
             let dirty_slices = self.world.pending_slices();
             if changed || dirty_slices {
                 display.refresh_modified_face(self.world.as_mut());

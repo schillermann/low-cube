@@ -50,6 +50,9 @@ impl<W> OrbitalFleetWorld<W> {
 impl<W: PlanetaryWorld> OrbitalFleetWorld<W> {
     fn above_surface(&self, pos: Vec3) -> bool {
         let ground = self.origin.constrain_to_surface(pos, 0.0);
+        if (pos - ground).length_squared() < 1e-6 {
+            return self.origin.apply_pull(pos, 1.0).length_squared() < 0.25;
+        }
         let up = self.origin.surface_up_at(pos);
         (pos - ground).dot(up) > SURFACE_PARK_CLEARANCE
     }

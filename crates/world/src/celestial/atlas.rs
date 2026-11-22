@@ -170,21 +170,28 @@ impl CelestialAtlas {
                 }
             }
             if let Some((t_hit, snap, span)) = nearest {
-                if t_hit <= 4_096.0 && snap.nature().landable_crust() {
+                let near_body = (eye_d - snap.center()).abs().max_element() <= snap.half_size() + 384.0;
+                if near_body && snap.nature().landable_crust() {
                     if let Some(hit) = Self::march_surface(eye, dir, (span.0 as f32, span.1 as f32), world) {
                         return Some(hit);
                     }
                 }
-                let hit_pt = eye_d + dir_d * t_hit;
+                let exact_t = Self::slab_span_dvec(eye_d, dir_d, snap.center(), snap.half_size(), max_r)
+                    .map_or(t_hit, |(t0, _)| t0);
+                let hit_pt = eye_d + dir_d * exact_t;
                 let rel = (hit_pt - snap.center()).as_vec3();
                 let n = crate::ClimateZone::dominant(rel).normal();
-                return Some(((snap.center() + n.as_dvec3() * snap.half_size()).as_vec3(), n));
+                let clamped = (hit_pt - snap.center()).clamp(
+                    DVec3::splat(-snap.half_size()),
+                    DVec3::splat(snap.half_size()),
+                );
+                return Some(((snap.center() + clamped).as_vec3(), n));
             }
             return None;
         }
 
         let (eye_d, dir_d) = (eye.as_dvec3(), dir.as_dvec3());
-        let home_hit = Self::slab_span_dvec(eye_d, dir_d, DVec3::ZERO, f64::from(self.home_half + 6.0), 4_096.0)
+        let home_hit = Self::slab_span_dvec(eye_d, dir_d, DVec3::ZERO, f64::from(self.home_half + 6.0), 1.0e8)
             .map(|(a, b)| (a as f32, b as f32));
         let moon_hit = (self.moon_spec.1 > 0.0)
             .then(|| {
@@ -193,7 +200,7 @@ impl CelestialAtlas {
                     dir_d,
                     self.moon_spec.0.as_dvec3(),
                     f64::from(self.moon_spec.1 + 4.0),
-                    4_096.0,
+                    1.0e8,
                 )
                 .map(|(a, b)| (a as f32, b as f32))
             })

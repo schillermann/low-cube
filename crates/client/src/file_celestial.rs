@@ -1,4 +1,4 @@
-use glam::{Vec3, Vec4};
+use glam::Vec3;
 use crate::celestial::{CelestialCadence, TunedCadence};
 use crate::cycle_duration::CycleDuration;
 use crate::toml_document::TomlDocument;
@@ -45,10 +45,6 @@ impl CelestialCadence for FileCelestial {
 
     fn sun_direction(&self, progress: f32) -> Vec3 {
         self.cadence.sun_direction(progress)
-    }
-
-    fn sky_color(&self, progress: f32) -> Vec4 {
-        self.cadence.sky_color(progress)
     }
 
     fn clone_cadence(&self) -> Box<dyn CelestialCadence> {

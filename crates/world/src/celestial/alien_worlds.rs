@@ -16,16 +16,13 @@ impl AlienWorld {
         Self
     }
 
-    fn palette_for(id: BodyId, zone: ClimateZone) -> ReliefPalette {
+    pub(super) fn zone_tones(id: BodyId, zone: ClimateZone) -> (Vec3, Vec3) {
         if id == BodyId::LUNA || id == BodyId::MERCURY || id == BodyId::CERES {
-            return ReliefPalette::lunar_regolith(zone);
+            let pal = ReliefPalette::lunar_regolith(zone);
+            return pal.inspect_surface(|top| pal.inspect_subterranean(|floor, _| (top, floor)));
         }
         if id.belt_slot().is_some() {
-            return ReliefPalette::uniform(
-                Vec3::new(0.42, 0.40, 0.38),
-                Vec3::new(0.22, 0.21, 0.22),
-                Vec3::new(0.31, 0.30, 0.31),
-            );
+            return (Vec3::new(0.42, 0.40, 0.38), Vec3::new(0.22, 0.21, 0.22));
         }
         let spec = SolarCatalog::new().spec_for(id);
         let (surf, deep) = spec.map_or(
@@ -38,8 +35,23 @@ impl AlienWorld {
             ClimateZone::Volcanic | ClimateZone::Steppe => 0.88,
         };
         let top = (surf * shade).clamp(Vec3::ZERO, Vec3::ONE);
-        let wall = ((surf * 0.55 + deep * 0.45) * shade).clamp(Vec3::ZERO, Vec3::ONE);
         let floor = (deep * 0.78).clamp(Vec3::ZERO, Vec3::ONE);
+        (top, floor)
+    }
+
+    fn palette_for(id: BodyId, zone: ClimateZone) -> ReliefPalette {
+        if id == BodyId::LUNA || id == BodyId::MERCURY || id == BodyId::CERES {
+            return ReliefPalette::lunar_regolith(zone);
+        }
+        if id.belt_slot().is_some() {
+            return ReliefPalette::uniform(
+                Vec3::new(0.42, 0.40, 0.38),
+                Vec3::new(0.22, 0.21, 0.22),
+                Vec3::new(0.31, 0.30, 0.31),
+            );
+        }
+        let (top, floor) = Self::zone_tones(id, zone);
+        let wall = (top * 0.55 + floor * 0.58).clamp(Vec3::ZERO, Vec3::ONE);
         ReliefPalette::uniform(top, floor, wall)
     }
 
@@ -47,8 +59,7 @@ impl AlienWorld {
     pub fn build_body(id: BodyId, proportions: SolarProportions, authoritative: bool) -> (CubePlanet, f32) {
         let blocks = if let Some(slot) = id.belt_slot() {
             let tier = u32::from(slot & 0x3) % 3;
-            let b = 16 + tier * 8;
-            ((b as f32 * proportions.body_scale().clamp(0.5, 2.0)).round() as u32).clamp(16, 48) & !1
+            proportions.belt_rock_blocks(tier)
         } else if let Some(spec) = SolarCatalog::new().spec_for(id) {
             proportions.voxel_blocks(spec.physique().diameter_ratio())
         } else {

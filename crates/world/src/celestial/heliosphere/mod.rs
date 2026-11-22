@@ -1,3 +1,5 @@
+mod awakened;
+mod cosmic_sky;
 mod earthworks;
 mod facets;
 mod vicinity;
@@ -7,9 +9,10 @@ use glam::Vec3;
 use crate::{CompanionPortal, CubePlanet, GravityField, PlanetaryWorld, TerrainMesh};
 use super::catalog::SurfaceNature;
 use super::ephemeris::SolarEphemeris;
-pub use self::vicinity::{ActiveVicinity, AwakenedBody, VicinityCache};
+pub use self::awakened::{ActiveVicinity, AwakenedBody};
+pub use self::vicinity::VicinityCache;
 
-/// Scaled solar-system world uniting Earth (`0..6`), on-demand off-world `VicinityCache` (`6..12`), `NBodyGravity`, and `AsteroidBelt`.
+/// Scaled solar-system world uniting Earth (`0..6`), dual-slot `VicinityCache` (`6..12` & `18..24`), `NBodyGravity`, and `AsteroidBelt`.
 pub struct HeliosphereWorld {
     pub(super) earth: CubePlanet,
     pub(super) ephemeris: SolarEphemeris,
@@ -34,45 +37,45 @@ impl HeliosphereWorld {
         pos.abs().max_element() <= self.ephemeris.proportions().earth_half() + 64.0
     }
 
-    pub(super) fn map_earth_slice(idx: usize) -> usize {
+    pub(super) const fn map_earth_slice(idx: usize) -> usize {
         if idx < 6 { idx } else { idx + 6 }
     }
 
-    pub(super) fn map_vicinity_slice(idx: usize) -> usize {
-        if idx < 6 { idx + 6 } else { idx + 12 }
+    pub(super) const fn map_slot_slice(slot: usize, face_idx: usize) -> Option<usize> {
+        if face_idx >= 6 {
+            None
+        } else if slot == 0 {
+            Some(face_idx + 6)
+        } else {
+            Some(face_idx + 18)
+        }
     }
 }
 
 impl GravityField for HeliosphereWorld {
     fn pull_direction_at(&self, position: Vec3) -> Vec3 {
-        if let Some(body) = self.vicinity.borrow().active_body() {
-            if body.near(position, 48.0) {
-                return body.planet().pull_direction_at(position);
-            }
+        if let Some(body) = self.vicinity.borrow().body_near(position, 48.0) {
+            return body.planet().pull_direction_at(position);
         }
         -self.ephemeris.dominant_up_at(position.as_dvec3())
     }
 
     fn surface_up_at(&self, position: Vec3) -> Vec3 {
-        if let Some(body) = self.vicinity.borrow().active_body() {
-            if body.near(position, 48.0) {
-                return body.planet().surface_up_at(position);
-            }
+        if let Some(body) = self.vicinity.borrow().body_near(position, 48.0) {
+            return body.planet().surface_up_at(position);
         }
         self.ephemeris.dominant_up_at(position.as_dvec3())
     }
 
     fn apply_pull(&self, position: Vec3, dt: f32) -> Vec3 {
-        if let Some(body) = self.vicinity.borrow().active_body() {
-            if body.near(position, 32.0) {
-                let g = self
-                    .ephemeris
-                    .snapshot_all(0.0)
-                    .into_iter()
-                    .find(|s| s.id() == body.body_id())
-                    .map_or(1.62, |s| s.surface_g());
-                return body.planet().pull_direction_at(position) * (g * dt);
-            }
+        if let Some(body) = self.vicinity.borrow().body_near(position, 32.0) {
+            let g = self
+                .ephemeris
+                .snapshot_all(0.0)
+                .into_iter()
+                .find(|s| s.id() == body.body_id())
+                .map_or(1.62, |s| s.surface_g());
+            return body.planet().pull_direction_at(position) * (g * dt);
         }
         (self.ephemeris.gravity_accel_at(position.as_dvec3(), 0.0) * f64::from(dt)).as_vec3()
     }
@@ -111,21 +114,29 @@ impl PlanetaryWorld for HeliosphereWorld {
 
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
         self.earth.placed_camera_tripod().or_else(|| {
-            self.vicinity.borrow().active_body().and_then(|b| b.planet().placed_camera_tripod())
+            let vic = self.vicinity.borrow();
+            [0usize, 1]
+                .into_iter()
+                .filter_map(|i| vic.slot_body(i))
+                .find_map(|b| b.planet().placed_camera_tripod())
         })
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
-        let locked = self.vicinity.borrow().active_body().is_some();
+        let locked = self.vicinity.borrow().any_active();
         if !locked {
             self.ephemeris = self.ephemeris.advanced(f64::from(dt));
         }
         let a = self.earth.step_surface(dt);
-        let b = self
-            .vicinity
-            .borrow_mut()
-            .active_body_mut()
-            .is_some_and(|w| w.planet_mut().step_surface(dt));
+        let mut b = false;
+        {
+            let mut vic = self.vicinity.borrow_mut();
+            for slot in 0..2 {
+                if let Some(body) = vic.slot_body_mut(slot) {
+                    b |= body.planet_mut().step_surface(dt);
+                }
+            }
+        }
         a || b || self.pending_slices()
     }
 
@@ -133,10 +144,8 @@ impl PlanetaryWorld for HeliosphereWorld {
         if self.near_earth(position) {
             return self.earth.lethal_at(position);
         }
-        if let Some(body) = self.vicinity.borrow().active_body() {
-            if body.near(position, 8.0) {
-                return body.planet().lethal_at(position);
-            }
+        if let Some(body) = self.vicinity.borrow().body_near(position, 8.0) {
+            return body.planet().lethal_at(position);
         }
         let pd = position.as_dvec3();
         for snap in self.ephemeris.snapshot_all(0.0) {
@@ -154,19 +163,15 @@ impl PlanetaryWorld for HeliosphereWorld {
         if self.near_earth(position) {
             return self.earth.confine_beneath_crust(position);
         }
-        if let Some(body) = self.vicinity.borrow().active_body() {
-            if body.near(position, 36.0) {
-                return body.planet().confine_beneath_crust(position);
-            }
+        if let Some(body) = self.vicinity.borrow().body_near(position, 36.0) {
+            return body.planet().confine_beneath_crust(position);
         }
         position
     }
 
     fn local_body_point(&self, position: Vec3) -> Vec3 {
-        if let Some(body) = self.vicinity.borrow().active_body() {
-            if body.near(position, 48.0) {
-                return body.planet().local_body_point(position);
-            }
+        if let Some(body) = self.vicinity.borrow().body_near(position, 48.0) {
+            return body.planet().local_body_point(position);
         }
         position
     }

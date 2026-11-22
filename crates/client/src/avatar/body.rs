@@ -42,7 +42,7 @@ impl AvatarBody {
     pub fn pilot_craft(&self) -> world::PilotCraft { self.berth.pilot_craft() }
     pub fn emit_vehicle(&self, target: &mut dyn MeshTarget) { self.berth.emit(target); }
     pub fn present_vessel(&self, sink: &mut dyn world::VesselSink) { self.berth.present_vessel(sink); }
-    pub fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> { self.berth.hull_camera_lens() }
+    pub fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3, f32)> { self.berth.hull_camera_lens() }
     pub fn push_hull_camera_rays(&self, out: &mut Vec<(Vec3, Vec3, Vec3)>) -> u8 {
         self.berth.push_hull_camera_rays(out)
     }

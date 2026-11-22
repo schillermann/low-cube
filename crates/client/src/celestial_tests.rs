@@ -35,16 +35,22 @@ fn test_terrestrial_cadence_sun_direction() {
 }
 
 #[test]
-fn test_terrestrial_cadence_sky_color_transitions() {
+fn test_terrestrial_atmospheric_shell_sky_color_transitions() {
+    use glam::Vec3;
+    use crate::rayleigh_shell::AtmosphericShell;
     let cadence = TerrestrialCadence::new();
-    let noon_sky = cadence.sky_color(0.25);
-    assert!(noon_sky.z > noon_sky.x, "Noon sky must be dominantly blue");
+    let shell = AtmosphericShell::terrestrial_at(Vec3::new(0.0, 17.0, 0.0));
+    let (_, noon_sky, noon_night) = shell.sky_illumination(cadence.sun_direction(0.25));
+    assert!(noon_sky.z > noon_sky.x && noon_night == 0.0, "Noon sky must be dominantly blue");
 
-    let sunset_sky = cadence.sky_color(0.5);
+    let (_, sunset_sky, _) = shell.sky_illumination(cadence.sun_direction(0.5));
     assert!(sunset_sky.x > 0.7, "Sunset sky must have golden/crimson red tint");
 
-    let midnight_sky = cadence.sky_color(0.75);
-    assert!(midnight_sky.x < 0.03 && midnight_sky.y < 0.03 && midnight_sky.z < 0.05, "Midnight sky must be space black");
+    let (_, midnight_sky, mid_night) = shell.sky_illumination(cadence.sun_direction(0.75));
+    assert!(
+        midnight_sky.x < 0.03 && midnight_sky.y < 0.03 && midnight_sky.z < 0.05 && mid_night > 0.99,
+        "Midnight sky must be space black",
+    );
 }
 
 #[test]

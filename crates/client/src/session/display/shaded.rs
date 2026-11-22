@@ -206,6 +206,7 @@ impl ScenePass for ShadedScenePass {
         sight: SightMode,
         sight_scale: f32,
     ) -> Vec<glam::Vec3> {
+        self.mesh.select_visible(avatar.visible_slices(world));
         self.populate_sight_actors(surface, world, avatar, sight, sight_scale);
         let viewer = avatar.sight_cone_for_mode(sight).observe_from(|eye| eye);
         crate::rayleigh_shell::FirmamentPlanets::from_atlas(world.celestial_atlas(), viewer)
@@ -228,6 +229,7 @@ impl ScenePass for ShadedScenePass {
         modal: &dyn SessionModal,
         sight_scale: f32,
     ) {
+        self.mesh.select_visible(avatar.visible_slices(world));
         self.populate_actors(surface, world, avatar, sight_scale);
         let viewer = avatar.sight_cone().observe_from(|eye| eye);
         crate::rayleigh_shell::FirmamentPlanets::from_atlas(world.celestial_atlas(), viewer)

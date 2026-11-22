@@ -2,14 +2,48 @@ use glam::{Mat3, Mat4, Quat, Vec3};
 use world::{HullOptic, MeshTarget};
 use crate::drive::{OpticTelemetry, VehiclePilot};
 use crate::menu::{
-    ActiveChannel, CameraFeed, ChannelStripOverlay, GuidanceReadout, OpticOverlay, ScreenPoint,
-    ShipOpticHud,
+    ActiveChannel, CameraFeed, ChannelStripOverlay, GuidanceReadout, OpticOverlay, PixelStamp,
+    ScreenPoint, ShipOpticHud,
 };
 use crate::orientation::{ConeLook, MouseLook, SensitivityLook, ViewOrientation};
 use crate::posture::AvatarPosture;
 use super::sight::AvatarSight;
 
 const GIMBAL_RADIUS: f32 = 0.52;
+
+/// Polymorphic optical telescope magnification stages for spacecraft hull cameras (`1×`, `6×`, `24×`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum OpticZoom {
+    Wide,
+    Medium,
+    Telephoto,
+}
+
+impl OpticZoom {
+    pub(super) const fn cycled(self) -> Self {
+        match self {
+            Self::Wide => Self::Medium,
+            Self::Medium => Self::Telephoto,
+            Self::Telephoto => Self::Wide,
+        }
+    }
+
+    pub(super) const fn factor(self) -> f32 {
+        match self {
+            Self::Wide => 1.0,
+            Self::Medium => 6.0,
+            Self::Telephoto => 24.0,
+        }
+    }
+
+    pub(super) const fn badge(self) -> Option<&'static str> {
+        match self {
+            Self::Wide => None,
+            Self::Medium => Some("OPTIC 6X"),
+            Self::Telephoto => Some("OPTIC 24X"),
+        }
+    }
+}
 
 /// Immutable 3D gimbaled camera lens and fixed physical hull boresight target.
 #[derive(Clone, Copy, Debug)]
@@ -26,37 +60,38 @@ impl HullBoresight {
         Self { eye, aimed_fwd, aimed_up, aim_world }
     }
 
-    pub(super) const fn lens_frame(self) -> (Vec3, Vec3, Vec3) {
-        (self.eye, self.aimed_fwd, self.aimed_up)
+    pub(super) fn lens_with_zoom(self, zoom: OpticZoom) -> (Vec3, Vec3, Vec3, f32) {
+        (self.eye, self.aimed_fwd, self.aimed_up, zoom.factor())
     }
 
     pub(super) fn sight_rays(self) -> ((Vec3, Vec3), (Vec3, Vec3)) {
         ((self.eye, (self.aim_world - self.eye).normalize_or_zero()), (self.eye, self.aimed_fwd))
     }
 
-    pub(super) fn reticle_point(self, sight: &AvatarSight, aspect: f32) -> ScreenPoint {
+    pub(super) fn reticle_point(self, sight: &AvatarSight, aspect: f32, zoom: OpticZoom) -> ScreenPoint {
         let ndc = sight
-            .project_lens_view(aspect, self.eye, self.aimed_fwd, self.aimed_up)
+            .project_zoomed_lens(aspect, self.lens_with_zoom(zoom))
             .project_point3(self.aim_world);
         ScreenPoint::new(ndc.x.clamp(-0.96, 0.96), ndc.y.clamp(-0.96, 0.96))
     }
 }
 
-/// Encapsulated cockpit camera channel selector and small-radius pan-tilt gimbal for hull-mounted sensor pods.
+/// Encapsulated cockpit camera channel, optical zoom, and pan-tilt gimbal for hull-mounted sensor pods.
 pub(super) struct HelmOptics {
     channel: u8,
+    zoom: OpticZoom,
     gimbal: SensitivityLook,
 }
 
 impl HelmOptics {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(channel: u8, gimbal: SensitivityLook) -> Self {
-        Self { channel, gimbal }
+    pub(super) const fn new(channel: u8, zoom: OpticZoom, gimbal: SensitivityLook) -> Self {
+        Self { channel, zoom, gimbal }
     }
 
     pub(super) fn cockpit() -> Self {
         let cone = ConeLook::centered(Box::new(MouseLook::idle()), GIMBAL_RADIUS);
-        Self::new(0, SensitivityLook::calibrated(Box::new(cone)))
+        Self::new(0, OpticZoom::Wide, SensitivityLook::calibrated(Box::new(cone)))
     }
 
     pub(super) const fn cockpit_view(&self) -> bool {
@@ -67,8 +102,17 @@ impl HelmOptics {
         self.channel > 0
     }
 
+    pub(super) const fn zoom(&self) -> OpticZoom {
+        self.zoom
+    }
+
+    pub(super) fn cycle_zoom(&mut self) {
+        self.zoom = self.zoom.cycled();
+    }
+
     pub(super) fn select_channel(&mut self, channel: u8) {
         self.channel = channel;
+        self.zoom = OpticZoom::Wide;
         self.gimbal.anchor_heading(0.0, 0.0);
     }
 
@@ -86,7 +130,8 @@ impl HelmOptics {
     }
 
     pub(super) fn rotate(&mut self, dx: f32, dy: f32) {
-        self.gimbal.rotate(dx, dy);
+        let s = 1.0 / self.zoom.factor();
+        self.gimbal.rotate(dx * s, dy * s);
     }
 
     pub(super) fn gimbal_head_angles(&self) -> Option<(f32, f32)> {
@@ -186,13 +231,18 @@ impl HelmOptics {
         let views = pilot.collected_views();
         let aim = self
             .resolve_boresight(&views)
-            .map_or_else(ScreenPoint::center, |b| b.reticle_point(sight, aspect));
+            .map_or_else(ScreenPoint::center, |b| b.reticle_point(sight, aspect, self.zoom));
         posture.emit_reticle_at(aim, target);
         let ship_hud = ShipOpticHud::new(self.optic_telemetry(&views, pilot), vp, aim, aspect);
         if let Some(feed) = self.channel_feed(&views, pilot.guidance_readout(), pilot.flip_burn_readout()) {
             ChannelStripOverlay::new(ship_hud, feed, aspect).emit(target);
         } else {
             ship_hud.emit(target);
+        }
+        if let Some(badge) = self.zoom.badge().filter(|_| self.active()) {
+            let ux = (1.0 / aspect.max(0.5)).clamp(0.25, 1.5);
+            PixelStamp::new(0.0052 * ux, 0.0076, Vec3::new(0.42, 1.00, 0.78))
+                .emit_centered(badge, 0.0, 0.88, target);
         }
     }
 

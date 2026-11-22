@@ -21,7 +21,12 @@ struct FirmamentAtmosphereUniforms {
 
 struct FirmamentCanopyUniforms {
     aurora_locs: (glow::UniformLocation, glow::UniformLocation, glow::UniformLocation),
-    ephemeris_locs: (glow::UniformLocation, glow::UniformLocation),
+    ephemeris_locs: (
+        glow::UniformLocation,
+        glow::UniformLocation,
+        glow::UniformLocation,
+        glow::UniformLocation,
+    ),
     canopy: Box<dyn AuroraCanopy>,
 }
 
@@ -47,7 +52,12 @@ impl GlFirmament {
         u_aurora_factor: glow::UniformLocation,
         u_time: glow::UniformLocation,
         aurora_locs: (glow::UniformLocation, glow::UniformLocation, glow::UniformLocation),
-        ephemeris_locs: (glow::UniformLocation, glow::UniformLocation),
+        ephemeris_locs: (
+            glow::UniformLocation,
+            glow::UniformLocation,
+            glow::UniformLocation,
+            glow::UniformLocation,
+        ),
         canopy: Box<dyn AuroraCanopy>,
     ) -> Self {
         Self {
@@ -108,6 +118,8 @@ impl GlFirmament {
             .or_else(|| gl.get_uniform_location(program, "u_planet_cubes"))
             .expect("missing u_planet_cubes");
         let u_eclipse = loc("u_eclipse_occluder");
+        let u_atmo_geom = loc("u_atmo_geom");
+        let u_atmo_tint = loc("u_atmo_tint");
 
         Self::new(
             program,
@@ -120,7 +132,7 @@ impl GlFirmament {
             loc("u_aurora_factor"),
             loc("u_time"),
             (loc("u_face_half"), loc("u_aurora_radius"), loc("u_ceiling_altitude")),
-            (u_planets, u_eclipse),
+            (u_planets, u_eclipse, u_atmo_geom, u_atmo_tint),
             canopy,
         )
     }
@@ -138,15 +150,15 @@ impl SkyFirmament for GlFirmament {
         night_factor: f32,
         aurora_factor: f32,
         time: f32,
-        (planets, occluder): (&[[f32; 4]; 7], [f32; 4]),
+        (planets, occluder, (atmo_geom, atmo_tint)): (&[[f32; 4]; 8], [f32; 4], ([f32; 4], [f32; 4])),
         mesh: &dyn Mesh,
     ) {
-        let mut flat_planets = [0.0_f32; 28];
+        let mut flat_planets = [0.0_f32; 32];
         for (i, cube) in planets.iter().enumerate() {
             flat_planets[i * 4..i * 4 + 4].copy_from_slice(cube);
         }
         let (ref u_face, ref u_rad, ref u_ceil) = self.canopy_uniforms.aurora_locs;
-        let (ref u_planets, ref u_eclipse) = self.canopy_uniforms.ephemeris_locs;
+        let (ref u_planets, ref u_eclipse, ref u_atmo_g, ref u_atmo_t) = self.canopy_uniforms.ephemeris_locs;
         unsafe {
             gl.use_program(Some(self.program));
             gl.uniform_matrix_4_f32_slice(Some(&self.orientation.u_inv_view_proj), false, &inv_view_proj.to_cols_array());
@@ -159,6 +171,8 @@ impl SkyFirmament for GlFirmament {
             gl.uniform_1_f32(Some(&self.atmosphere.u_time), time);
             gl.uniform_4_f32_slice(Some(u_planets), &flat_planets);
             gl.uniform_4_f32(Some(u_eclipse), occluder[0], occluder[1], occluder[2], occluder[3]);
+            gl.uniform_4_f32(Some(u_atmo_g), atmo_geom[0], atmo_geom[1], atmo_geom[2], atmo_geom[3]);
+            gl.uniform_4_f32(Some(u_atmo_t), atmo_tint[0], atmo_tint[1], atmo_tint[2], atmo_tint[3]);
             self.canopy_uniforms.canopy.bind_canopy(gl, u_face, u_rad, u_ceil);
             gl.depth_mask(false);
             gl.depth_func(glow::LEQUAL);

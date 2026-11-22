@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 use std::time::Instant;
-use glam::{Mat4, Quat, Vec3};
+use glam::{Mat4, Quat, Vec3, Vec4};
 use glow::HasContext;
 
 use engine::{GraphicPipeline, Mesh, ShaderProgram};
@@ -14,6 +14,9 @@ use crate::aurora_cadence::NightlyAuroraCadence;
 #[cfg(test)]
 use crate::firmament::{VoidFirmament, VoidMesh};
 use crate::gl_firmament::GlFirmament;
+use crate::rayleigh_shell::AtmosphericShell;
+
+type EphemerisUniformState = ([[f32; 4]; 8], [f32; 4], ([f32; 4], [f32; 4]));
 
 struct CelestialEpoch {
     cadence: Box<dyn CelestialCadence>,
@@ -22,12 +25,12 @@ struct CelestialEpoch {
     epoch: Instant,
 }
 
-/// Graphic pipeline dynamically driving terrain lighting and celestial firmament display.
+/// Graphic pipeline driving planetary atmosphere sky, world-space solar lighting, and firmament display.
 pub struct DiurnalPipeline {
     celestial_epoch: CelestialEpoch,
     sky: Box<dyn SkyFirmament>,
     sky_mesh: Box<dyn Mesh>,
-    ephemeris_state: Mutex<([[f32; 4]; 7], [f32; 4])>,
+    ephemeris_state: Mutex<EphemerisUniformState>,
 }
 
 impl DiurnalPipeline {
@@ -36,7 +39,7 @@ impl DiurnalPipeline {
         celestial_epoch: CelestialEpoch,
         sky: Box<dyn SkyFirmament>,
         sky_mesh: Box<dyn Mesh>,
-        ephemeris_state: Mutex<([[f32; 4]; 7], [f32; 4])>,
+        ephemeris_state: Mutex<EphemerisUniformState>,
     ) -> Self {
         Self { celestial_epoch, sky, sky_mesh, ephemeris_state }
     }
@@ -53,7 +56,7 @@ impl DiurnalPipeline {
             CelestialEpoch { cadence, aurora, clock, epoch },
             sky,
             sky_mesh,
-            Mutex::new(([[0.0; 4]; 7], [0.0; 4])),
+            Mutex::new(([[0.0; 4]; 8], [0.0; 4], ([0.0; 4], [0.0; 4]))),
         )
     }
 
@@ -90,9 +93,14 @@ impl DiurnalPipeline {
 }
 
 impl GraphicPipeline for DiurnalPipeline {
-    fn sync_ephemeris(&self, planet_cubes: &[[f32; 4]; 7], eclipse_occluder: [f32; 4]) {
+    fn sync_ephemeris(
+        &self,
+        planet_cubes: &[[f32; 4]; 8],
+        eclipse_occluder: [f32; 4],
+        atmo_shell: ([f32; 4], [f32; 4]),
+    ) {
         if let Ok(mut guard) = self.ephemeris_state.lock() {
-            *guard = (*planet_cubes, eclipse_occluder);
+            *guard = (*planet_cubes, eclipse_occluder, atmo_shell);
         }
     }
 
@@ -102,30 +110,16 @@ impl GraphicPipeline for DiurnalPipeline {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         view_proj: &Mat4,
-        surface_rot: Quat,
+        _surface_rot: Quat,
     ) {
         let now = self.celestial_epoch.clock.current_instant();
         let elapsed = now.duration_since(self.celestial_epoch.epoch).as_secs_f64();
         let progress = self.celestial_epoch.cadence.day_progress(elapsed);
-        let clear_color = self.celestial_epoch.cadence.sky_color(progress);
-        let local_sun = self.celestial_epoch.cadence.sun_direction(progress);
-
-        let light_direction = surface_rot * local_sun;
-        let local_up = surface_rot * Vec3::Y;
-        let celestial_pole = surface_rot * Vec3::Z;
-
-        let night_factor = (-local_sun.y / 0.15).clamp(0.0, 1.0);
-        let aurora_factor = self.celestial_epoch.aurora.activity(progress, elapsed, night_factor);
-        let (planets, occluder) = self
+        let (planets, occluder, (atmo_geom, atmo_tint)) = self
             .ephemeris_state
             .lock()
             .map(|g| *g)
-            .unwrap_or(([[0.0; 4]; 7], [0.0; 4]));
-
-        unsafe {
-            gl.clear_color(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-            gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
-        }
+            .unwrap_or(([[0.0; 4]; 8], [0.0; 4], ([0.0; 4], [0.0; 4])));
 
         let inv_view_proj = Mat4::from_cols(
             view_proj.x_axis.with_z(0.0),
@@ -134,6 +128,24 @@ impl GraphicPipeline for DiurnalPipeline {
             view_proj.w_axis.with_z(1.0),
         )
         .inverse();
+        let cam_pos = (inv_view_proj * Vec4::new(0.0, 0.0, 1.0, 0.0)).truncate();
+
+        let (light_direction, celestial_pole, local_up, clear_color, night_factor) = if planets[7][3] > 0.0001 {
+            let helio_sun = Vec3::new(planets[7][0], planets[7][1], planets[7][2]).normalize_or_zero();
+            let (body_up, clear, night) = AtmosphericShell::new(atmo_geom, atmo_tint).sky_illumination(helio_sun);
+            (helio_sun, Vec3::Y, body_up, clear, night)
+        } else {
+            let world_sun = self.celestial_epoch.cadence.sun_direction(progress);
+            let (earth_up, clear, night) = AtmosphericShell::terrestrial_at(cam_pos).sky_illumination(world_sun);
+            (world_sun, Vec3::Z, earth_up, clear, night)
+        };
+        let aurora_factor = self.celestial_epoch.aurora.activity(progress, elapsed, night_factor);
+
+        unsafe {
+            gl.clear_color(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+            gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+        }
+
         self.sky.draw_firmament(
             gl,
             &inv_view_proj,
@@ -144,7 +156,7 @@ impl GraphicPipeline for DiurnalPipeline {
             night_factor,
             aurora_factor,
             elapsed as f32,
-            (&planets, occluder),
+            (&planets, occluder, (atmo_geom, atmo_tint)),
             self.sky_mesh.as_ref(),
         );
 

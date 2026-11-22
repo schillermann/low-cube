@@ -112,7 +112,27 @@ impl ChartHologram {
         }
     }
 
-    fn emit_heliosphere_bodies(&self, snaps: &[BodySnapshot], au: f64, ux: f32, target: &mut dyn MeshTarget) {
+    fn chart_cube_radius(&self, s: &BodySnapshot, earth_half: f32) -> f32 {
+        let metric_r = ((s.half_size() / self.viewport.half_span().max(1.0)) as f32) * 0.72;
+        let ref_earth = f64::from(earth_half.max(4.0));
+        let schematic = if s.id() == BodyId::SOL {
+            let sun_rel = (s.half_size() / (ref_earth * 109.2)).max(0.01) as f32;
+            (0.024 * sun_rel.sqrt()).clamp(0.006, 0.060)
+        } else {
+            let body_rel = (s.half_size() / ref_earth).max(0.01) as f32;
+            (0.011 * body_rel.powf(0.32)).clamp(0.004, 0.048)
+        };
+        metric_r.max(schematic).min(0.45)
+    }
+
+    fn emit_heliosphere_bodies(
+        &self,
+        snaps: &[BodySnapshot],
+        props: world::SolarProportions,
+        ux: f32,
+        target: &mut dyn MeshTarget,
+    ) {
+        let au = props.astronomical_unit();
         let sun_c = snaps[0].center();
         self.emit_belt_torus(sun_c, au, ux, target);
         let entries = SolarCatalog::new().entries();
@@ -126,11 +146,6 @@ impl ChartHologram {
             self.emit_orbit_ring(parent_c, s.orbit_radius(), entries[idx].orbit().inclination_rad(), ux, ring_col, target);
         }
 
-        let hovered = self.viewport.pick_body(CelestialAtlas::heliosphere(
-            world::SolarEphemeris::new(world::SolarProportions::true_scale(32), 0.0),
-        ), ux);
-        let _ = hovered;
-
         for s in snaps {
             if s.parent_id() != BodyId::SOL && s.id() != BodyId::SOL && s.orbit_radius() < self.viewport.half_span() * 0.035 {
                 continue;
@@ -140,13 +155,7 @@ impl ChartHologram {
                 continue;
             }
             let (col, _) = s.palette();
-            let rad = if s.id() == BodyId::SOL {
-                0.026
-            } else if s.parent_id() == BodyId::SOL {
-                0.015
-            } else {
-                0.009
-            };
+            let rad = self.chart_cube_radius(s, props.earth_half());
             Self::emit_iso_cube(bx, by, rad, ux, col, s.nature().ringed_giant(), target);
             if self.selection == ChartSelection::Locked(s.id()) {
                 let b = rad * 1.65;
@@ -218,17 +227,20 @@ impl ChartHologram {
         self.snapshot.transfer(|atlas, ship_pos, (_, vel), course| {
             if let Some(eph) = atlas.ephemeris() {
                 let snaps = eph.snapshot_all(0.0);
-                self.emit_heliosphere_bodies(&snaps, eph.proportions().astronomical_unit(), ux, target);
+                self.emit_heliosphere_bodies(&snaps, eph.proportions(), ux, target);
             } else {
-                atlas.transfer(|_, moon_c, moon_h| {
+                atlas.transfer(|home_h, moon_c, moon_h| {
+                    let span = self.viewport.half_span().max(1.0) as f32;
+                    let er = ((home_h / span) * 0.72).clamp(0.012, 0.35);
                     let (ex, ey) = self.viewport.project(DVec3::ZERO, ux);
-                    Self::emit_iso_cube(ex, ey, 0.022, ux, Vec3::new(0.22, 0.82, 0.64), false, target);
-                    PixelStamp::new(0.0042 * ux, 0.0060, Vec3::new(0.62, 0.96, 0.84)).emit_centered("EARTH", ex, ey - 0.038, target);
+                    Self::emit_iso_cube(ex, ey, er, ux, Vec3::new(0.22, 0.82, 0.64), false, target);
+                    PixelStamp::new(0.0042 * ux, 0.0060, Vec3::new(0.62, 0.96, 0.84)).emit_centered("EARTH", ex, ey - er - 0.018, target);
                     if moon_h > 0.0 {
+                        let mr = ((moon_h / span) * 0.72).clamp(0.007, 0.25);
                         self.emit_orbit_ring(DVec3::ZERO, moon_c.as_dvec3().length(), 0.0, ux, Vec3::new(0.24, 0.44, 0.64), target);
                         let (mx, my) = self.viewport.project(moon_c.as_dvec3(), ux);
-                        Self::emit_iso_cube(mx, my, 0.014, ux, Vec3::new(0.80, 0.86, 0.96), false, target);
-                        PixelStamp::new(0.0042 * ux, 0.0060, Vec3::new(0.84, 0.90, 0.98)).emit_centered("LUNA", mx, my - 0.030, target);
+                        Self::emit_iso_cube(mx, my, mr, ux, Vec3::new(0.80, 0.86, 0.96), false, target);
+                        PixelStamp::new(0.0042 * ux, 0.0060, Vec3::new(0.84, 0.90, 0.98)).emit_centered("LUNA", mx, my - mr - 0.016, target);
                     }
                 });
             }

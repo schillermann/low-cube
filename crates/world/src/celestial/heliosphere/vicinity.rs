@@ -1,68 +1,17 @@
 use std::collections::HashMap;
 use glam::Vec3;
-use crate::{CubePlanet, TerrainMesh, TranslatedWorld, WorldFact};
+use crate::{TerrainMesh, TranslatedWorld, WorldFact};
 use super::super::alien_worlds::AlienWorld;
 use super::super::belt::AsteroidBelt;
 use super::super::catalog::BodyId;
 use super::super::ephemeris::SolarEphemeris;
+use super::super::proportions::SolarProportions;
+use super::awakened::{ActiveVicinity, AwakenedBody};
 
-/// Live off-world rocky planet, moon, or landed belt asteroid occupying slices `6..11`.
-pub struct AwakenedBody {
-    id_and_half: (BodyId, f32),
-    center: Vec3,
-    planet: TranslatedWorld<CubePlanet>,
-    dirty_slices: u8,
-}
-
-impl AwakenedBody {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        id_and_half: (BodyId, f32),
-        center: Vec3,
-        planet: TranslatedWorld<CubePlanet>,
-        dirty_slices: u8,
-    ) -> Self {
-        Self { id_and_half, center, planet, dirty_slices }
-    }
-
-    pub const fn body_id(&self) -> BodyId { self.id_and_half.0 }
-    pub const fn half_size(&self) -> f32 { self.id_and_half.1 }
-    pub const fn center(&self) -> Vec3 { self.center }
-    pub const fn planet(&self) -> &TranslatedWorld<CubePlanet> { &self.planet }
-    pub fn planet_mut(&mut self) -> &mut TranslatedWorld<CubePlanet> { &mut self.planet }
-
-    pub fn near(&self, pos: Vec3, pad: f32) -> bool {
-        (pos - self.center).abs().max_element() <= self.id_and_half.1 + pad
-    }
-
-    pub const fn pending_upload(&self) -> bool {
-        self.dirty_slices != 0
-    }
-
-    pub fn mark_all_dirty(&mut self) {
-        self.dirty_slices = 0b0011_1111;
-    }
-
-    pub fn take_dirty_slice(&mut self) -> Option<usize> {
-        for bit in 0..6u8 {
-            if (self.dirty_slices & (1 << bit)) != 0 {
-                self.dirty_slices &= !(1 << bit);
-                return Some(usize::from(bit));
-            }
-        }
-        None
-    }
-}
-
-/// Polymorphic off-world terrain slot avoiding `Option<AwakenedBody>`.
-pub enum ActiveVicinity {
-    Dormant,
-    Awakened(AwakenedBody),
-}
-
-/// On-demand off-world `CubePlanet` cache with per-`BodyId` `WorldFact` persistence (`<= 4` fields).
+/// Dual-slot LRU off-world `CubePlanet` pool (`slices 6..11` & `18..23`) with `WorldFact` persistence (`<= 4` fields).
 pub struct VicinityCache {
-    slot: ActiveVicinity,
+    slots: [ActiveVicinity; 2],
+    stamps: ([u64; 2], u64),
     authoritative: bool,
     chronicles: HashMap<BodyId, Vec<WorldFact>>,
 }
@@ -70,54 +19,178 @@ pub struct VicinityCache {
 impl VicinityCache {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(
-        slot: ActiveVicinity,
+        slots: [ActiveVicinity; 2],
+        stamps: ([u64; 2], u64),
         authoritative: bool,
         chronicles: HashMap<BodyId, Vec<WorldFact>>,
     ) -> Self {
-        Self { slot, authoritative, chronicles }
+        Self { slots, stamps, authoritative, chronicles }
     }
 
     pub fn empty(authoritative: bool) -> Self {
-        Self::new(ActiveVicinity::Dormant, authoritative, HashMap::new())
+        Self::new([ActiveVicinity::Dormant, ActiveVicinity::Dormant], ([0, 0], 0), authoritative, HashMap::new())
     }
 
-    pub const fn active_id(&self) -> Option<BodyId> {
-        match &self.slot {
-            ActiveVicinity::Dormant => None,
-            ActiveVicinity::Awakened(b) => Some(b.body_id()),
-        }
+    pub const fn active_ids(&self) -> [Option<BodyId>; 2] {
+        [self.slots[0].active_id(), self.slots[1].active_id()]
     }
 
-    pub const fn active_body(&self) -> Option<&AwakenedBody> {
-        match &self.slot {
-            ActiveVicinity::Dormant => None,
-            ActiveVicinity::Awakened(b) => Some(b),
-        }
+    pub const fn uploaded_ids(&self) -> [Option<BodyId>; 2] {
+        [self.slots[0].uploaded_id(), self.slots[1].uploaded_id()]
     }
 
-    pub fn active_body_mut(&mut self) -> Option<&mut AwakenedBody> {
-        match &mut self.slot {
-            ActiveVicinity::Dormant => None,
-            ActiveVicinity::Awakened(b) => Some(b),
-        }
+    pub const fn any_active(&self) -> bool {
+        self.slots[0].body().is_some() || self.slots[1].body().is_some()
+    }
+
+    pub const fn slot_body(&self, idx: usize) -> Option<&AwakenedBody> {
+        if idx < 2 { self.slots[idx].body() } else { None }
+    }
+
+    pub fn slot_body_mut(&mut self, idx: usize) -> Option<&mut AwakenedBody> {
+        if idx < 2 { self.slots[idx].body_mut() } else { None }
+    }
+
+    pub fn body_near(&self, pos: Vec3, pad: f32) -> Option<&AwakenedBody> {
+        [0usize, 1]
+            .into_iter()
+            .filter_map(|i| self.slots[i].body())
+            .filter(|b| b.near(pos, pad))
+            .min_by(|a, b| a.surface_gap(pos).total_cmp(&b.surface_gap(pos)))
+    }
+
+    pub fn find_body(&self, id: BodyId) -> Option<&AwakenedBody> {
+        [0usize, 1].into_iter().filter_map(|i| self.slots[i].body()).find(|b| b.body_id() == id)
     }
 
     pub fn record_local_fact(&mut self, id: BodyId, fact: WorldFact) {
         self.chronicles.entry(id).or_default().push(fact);
     }
 
-    /// Ensures the landable off-world body or belt asteroid nearest `probe` (within landing range) is awakened.
+    fn mount_in_slot(&mut self, id: BodyId, center: Vec3, proportions: SolarProportions) -> usize {
+        for idx in 0..2 {
+            if self.slots[idx].body().is_some_and(|b| b.body_id() == id) {
+                self.stamps.1 += 1;
+                self.stamps.0[idx] = self.stamps.1;
+                return idx;
+            }
+        }
+        let target_idx = if self.slots[0].body().is_none() {
+            0
+        } else if self.slots[1].body().is_none() {
+            1
+        } else if self.stamps.0[0] <= self.stamps.0[1] {
+            0
+        } else {
+            1
+        };
+        let (mut cube, half) = AlienWorld::build_body(id, proportions, self.authoritative);
+        if let Some(facts) = self.chronicles.get(&id) {
+            for fact in facts {
+                let _ = fact.clone().enact_on(&mut cube);
+            }
+            struct DrainSink;
+            impl crate::MeshTarget for DrainSink {
+                fn push_quad(&mut self, _q: crate::Quad) {}
+            }
+            let mut sink = DrainSink;
+            while cube.drain_modified_patch(&mut sink).is_some() {}
+            while cube.drain_modified_slice(&mut sink).is_some() {}
+        }
+        self.stamps.1 += 1;
+        self.stamps.0[target_idx] = self.stamps.1;
+        self.slots[target_idx] = ActiveVicinity::Awakened(AwakenedBody::new(
+            (id, half),
+            center,
+            TranslatedWorld::new(cube, center),
+            0b0011_1111,
+        ));
+        target_idx
+    }
+
+    fn prune_distant(&mut self, probe: Vec3) {
+        for slot in &mut self.slots {
+            let keep = slot.body().is_some_and(|b| {
+                let pad = if b.body_id().belt_slot().is_some() {
+                    96.0
+                } else {
+                    (b.half_size() * 26.0).clamp(144.0, 1_050.0)
+                };
+                b.near(probe, pad)
+            });
+            if !keep {
+                *slot = ActiveVicinity::Dormant;
+            }
+        }
+    }
+
+    /// Zero-allocation stack scan awakening up to 2 simultaneously nearby bodies (e.g. Mars + Phobos).
+    pub fn awaken_visible(&mut self, probe: Vec3, ephemeris: SolarEphemeris) {
+        let earth_h = ephemeris.proportions().earth_half();
+        if probe.abs().max_element() <= earth_h + 64.0 {
+            return;
+        }
+        self.prune_distant(probe);
+        let probe_d = probe.as_dvec3();
+        let snaps = ephemeris.snapshot_all(0.0);
+        let mut first: Option<(f64, BodyId, Vec3)> = None;
+        let mut second: Option<(f64, BodyId, Vec3)> = None;
+        for snap in snaps {
+            if snap.id() == BodyId::EARTH || !snap.nature().landable_crust() {
+                continue;
+            }
+            let awaken_d = (snap.half_size() * 22.0).clamp(96.0, 900.0);
+            let surf_d = (probe_d - snap.center()).abs().max_element() - snap.half_size();
+            if surf_d <= awaken_d {
+                let entry = (surf_d, snap.id(), snap.center().as_vec3());
+                if first.map_or(true, |f| surf_d < f.0) {
+                    second = first;
+                    first = Some(entry);
+                } else if second.map_or(true, |s| surf_d < s.0) {
+                    second = Some(entry);
+                }
+            }
+        }
+        if first.is_none() {
+            let sun = snaps[0];
+            let belt = AsteroidBelt::new(ephemeris.proportions(), ephemeris.epoch_secs());
+            if let Some(rock) = belt.nearest_rock(probe_d, sun.center(), sun.gm(), 64.0) {
+                let _ = self.mount_in_slot(rock.id(), rock.center().as_vec3(), ephemeris.proportions());
+            }
+            return;
+        }
+        for hit in [first, second].into_iter().flatten() {
+            let _ = self.mount_in_slot(hit.1, hit.2, ephemeris.proportions());
+        }
+    }
+
+    /// Ensures the landable off-world body or belt asteroid nearest `probe` is awakened in an LRU slot.
     pub fn ensure_near(&mut self, probe: Vec3, ephemeris: SolarEphemeris) -> Option<&AwakenedBody> {
         let earth_h = ephemeris.proportions().earth_half();
         if probe.abs().max_element() <= earth_h + 64.0 {
             return None;
         }
-        if let ActiveVicinity::Awakened(ref existing) = self.slot {
-            if existing.near(probe, 24.0) {
-                return self.active_body();
+        let mut best_slot: Option<(usize, f32)> = None;
+        for idx in 0..2 {
+            if let Some(b) = self.slots[idx].body() {
+                let pad = if b.body_id().belt_slot().is_some() {
+                    96.0
+                } else {
+                    (b.half_size() * 26.0).clamp(144.0, 1_050.0)
+                };
+                if b.near(probe, pad) {
+                    let gap = b.surface_gap(probe);
+                    if best_slot.map_or(true, |(_, g)| gap < g) {
+                        best_slot = Some((idx, gap));
+                    }
+                }
             }
         }
-
+        if let Some((idx, _)) = best_slot {
+            self.stamps.1 += 1;
+            self.stamps.0[idx] = self.stamps.1;
+            return self.slots[idx].body();
+        }
         let probe_d = probe.as_dvec3();
         let snaps = ephemeris.snapshot_all(0.0);
         let mut best: Option<(f64, BodyId, Vec3)> = None;
@@ -125,8 +198,9 @@ impl VicinityCache {
             if snap.id() == BodyId::EARTH || !snap.nature().landable_crust() {
                 continue;
             }
+            let awaken_d = (snap.half_size() * 22.0).clamp(96.0, 900.0);
             let surf_d = (probe_d - snap.center()).abs().max_element() - snap.half_size();
-            if surf_d <= 96.0 && best.map_or(true, |(b, _, _)| surf_d < b) {
+            if surf_d <= awaken_d && best.map_or(true, |(b, _, _)| surf_d < b) {
                 best = Some((surf_d, snap.id(), snap.center().as_vec3()));
             }
         }
@@ -138,57 +212,34 @@ impl VicinityCache {
                 candidate = Some((rock.id(), rock.center().as_vec3()));
             }
         }
-
-        let Some((id, center)) = candidate else {
-            self.slot = ActiveVicinity::Dormant;
-            return None;
-        };
-        if self.active_id() != Some(id) {
-            let (mut cube, half) = AlienWorld::build_body(id, ephemeris.proportions(), self.authoritative);
-            if let Some(facts) = self.chronicles.get(&id) {
-                for fact in facts {
-                    let _ = fact.clone().enact_on(&mut cube);
-                }
-                struct DrainSink;
-                impl crate::MeshTarget for DrainSink {
-                    fn push_quad(&mut self, _q: crate::Quad) {}
-                }
-                let mut sink = DrainSink;
-                while cube.drain_modified_patch(&mut sink).is_some() {}
-                while cube.drain_modified_slice(&mut sink).is_some() {}
-            }
-            let translated = TranslatedWorld::new(cube, center);
-            self.slot = ActiveVicinity::Awakened(AwakenedBody::new((id, half), center, translated, 0b0011_1111));
-        }
-        self.active_body()
+        let (id, center) = candidate?;
+        let slot_idx = self.mount_in_slot(id, center, ephemeris.proportions());
+        self.slots[slot_idx].body()
     }
 
     pub fn ensure_near_mut(&mut self, probe: Vec3, ephemeris: SolarEphemeris) -> Option<&mut AwakenedBody> {
         let _ = self.ensure_near(probe, ephemeris)?;
-        self.active_body_mut()
+        let idx = [0usize, 1]
+            .into_iter()
+            .filter(|&i| self.slots[i].body().is_some())
+            .min_by(|&a, &b| {
+                self.slots[a].body().unwrap().surface_gap(probe).total_cmp(&self.slots[b].body().unwrap().surface_gap(probe))
+            })?;
+        self.slots[idx].body_mut()
     }
 
-    /// Enacts a body-local `WorldFact` onto `id` without evicting a distinct locally awakened world.
-    pub fn enact_on_body(
-        &mut self,
-        id: BodyId,
-        local_fact: &WorldFact,
-        proportions: super::super::proportions::SolarProportions,
-    ) -> bool {
-        if self.active_id() == Some(id) {
-            let ok = self
-                .active_body_mut()
-                .is_some_and(|b| {
-                    let applied = local_fact.enact_on(b.planet_mut().inner_mut());
-                    if applied {
-                        b.mark_all_dirty();
+    pub fn enact_on_body(&mut self, id: BodyId, local_fact: &WorldFact, proportions: SolarProportions) -> bool {
+        for slot in &mut self.slots {
+            if let Some(b) = slot.body_mut().filter(|b| b.body_id() == id) {
+                let ok = local_fact.enact_on(b.planet_mut().inner_mut());
+                if ok {
+                    b.mark_all_dirty();
+                    if local_fact.durable() {
+                        self.chronicles.entry(id).or_default().push(local_fact.clone());
                     }
-                    applied
-                });
-            if ok && local_fact.durable() {
-                self.record_local_fact(id, local_fact.clone());
+                }
+                return ok;
             }
-            return ok;
         }
         let (mut cube, _) = AlienWorld::build_body(id, proportions, self.authoritative);
         if let Some(facts) = self.chronicles.get(&id) {

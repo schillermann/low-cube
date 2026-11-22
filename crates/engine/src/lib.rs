@@ -8,7 +8,7 @@ mod shader;
 mod streaming_mesh;
 
 pub use buffer::{CpuMeshBatch, GlMesh};
-pub use composite_mesh::{CoarseMesh, CompositeMesh, PlanetaryMesh, StarryPipeline};
+pub use composite_mesh::{CoarseMesh, CompositeMesh, PlanetaryMesh};
 pub use pipeline::ForwardPipeline;
 pub use sector_mesh::SectorGridMesh;
 pub use shader::{VoxelProgram, VoxelShaderSource};
@@ -40,7 +40,13 @@ pub trait ShaderProgram {
 
 /// Interface for scene rendering.
 pub trait GraphicPipeline {
-    fn sync_ephemeris(&self, _planet_cubes: &[[f32; 4]; 7], _eclipse_occluder: [f32; 4]) {}
+    fn sync_ephemeris(
+        &self,
+        _planet_cubes: &[[f32; 4]; 8],
+        _eclipse_occluder: [f32; 4],
+        _atmo_shell: ([f32; 4], [f32; 4]),
+    ) {
+    }
 
     fn render(
         &self,

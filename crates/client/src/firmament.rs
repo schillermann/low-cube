@@ -16,7 +16,7 @@ pub trait SkyFirmament: Send + Sync {
         night_factor: f32,
         aurora_factor: f32,
         time: f32,
-        ephemeris: (&[[f32; 4]; 7], [f32; 4]),
+        ephemeris: (&[[f32; 4]; 8], [f32; 4], ([f32; 4], [f32; 4])),
         mesh: &dyn Mesh,
     );
 }
@@ -46,7 +46,7 @@ impl SkyFirmament for VoidFirmament {
         _night_factor: f32,
         _aurora_factor: f32,
         _time: f32,
-        _ephemeris: (&[[f32; 4]; 7], [f32; 4]),
+        _ephemeris: (&[[f32; 4]; 8], [f32; 4], ([f32; 4], [f32; 4])),
         _mesh: &dyn Mesh,
     ) {}
 }

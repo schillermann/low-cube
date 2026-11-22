@@ -64,8 +64,8 @@ fn test_orbital_earth_rayleigh_shell_shows_azure_day_limb_crimson_terminator_and
     FirmamentPlanets::from_atlas(atlas, Vec3::ZERO).transfer(|planets, _occ| {
         let gpu_jup_dir = Vec3::new(planets[3][0], planets[3][1], planets[3][2]);
         assert!(
-            gpu_jup_dir.dot(expected_jup_dir) > 0.9999 && planets[3][3] > 0.001,
-            "Firmament uniform slot 3 (Jupiter) must match live SolarEphemeris direction"
+            gpu_jup_dir.dot(expected_jup_dir) > 0.9999 && planets[3][3] > 0.00005 && planets[7][3] > 0.004,
+            "Firmament slots must match live SolarEphemeris Jupiter direction and solar angular half-size"
         );
     });
 }
@@ -176,4 +176,117 @@ fn test_on_demand_mars_and_asteroid_belt_landing_persists_placed_blocks_across_p
         (rock_ground - rock.center().as_vec3()).abs().max_element() <= rock.half_size() + 3.0,
         "Belt asteroid must materialize on-demand as a landable CubePlanet"
     );
+}
+
+#[test]
+fn test_nose_cam_sees_3d_moon_across_entire_flight_and_holo_orrery_matches_lunar_surface() {
+    use glam::Mat3;
+    use world::{MeshTarget, Quad, SightCone};
+    use crate::drive::{ARC_NODES, NavigationCourse};
+    use crate::lens::{PerspectiveLens, ProjectionLens};
+    use crate::menu::OrreryFrame;
+
+    let prop = SolarProportions::true_scale(256);
+    let mut world = CelestialSystem::barren_heliosphere(prop, 1.0);
+    let atlas0 = world.celestial_atlas();
+    let moon_center = world.body_center(BodyId::LUNA).expect("Luna center");
+    let moon_half = atlas0.transfer(|_, _, mh| mh);
+    assert!(moon_center.length() > 7_000.0, "256-block true-scale Luna orbits beyond 4096m far plane");
+
+    // 1. OrreryFrame must be right-handed SO(3) (det = +1) and strictly exterior to vis_moon outside moon_half
+    let frame = OrreryFrame::from_atlas(atlas0);
+    let det = Mat3::from_cols(
+        frame.rotate_dir(Vec3::X),
+        frame.rotate_dir(Vec3::Y),
+        frame.rotate_dir(Vec3::Z),
+    )
+    .determinant();
+    assert!((det - 1.0).abs() < 1e-4, "OrreryFrame rotation must be right-handed SO(3), got det={det}");
+    let (_, vis_moon) = frame.visual_radii();
+    let moon_holo = frame.map_point(moon_center);
+    let axis_to_earth = (Vec3::ZERO - moon_center).normalize();
+    for stand_off in [800.0_f32, 414.0, 200.0, 90.0] {
+        let ship_holo = frame.map_point(moon_center + axis_to_earth * stand_off);
+        let holo_cheb = (ship_holo - moon_holo).abs().max_element();
+        assert!(
+            holo_cheb > vis_moon + 0.002,
+            "Rocket {stand_off}m outside Moon must remain outside Holo Moon-Cube ({holo_cheb} <= {vis_moon})"
+        );
+    }
+    let lateral_miss = frame.map_point(moon_center + Vec3::Y * 220.0);
+    assert!((lateral_miss - moon_holo).abs().max_element() > vis_moon + 0.004);
+    let on_crust = frame.map_point(moon_center + Vec3::Z * moon_half);
+    assert!(((on_crust - moon_holo).length() - vis_moon).abs() < 1e-4);
+    let approach_frame = OrreryFrame::for_ship(atlas0, moon_center + axis_to_earth * (moon_half * 6.0));
+    assert!(approach_frame.approach_zoom() && !frame.approach_zoom());
+
+    // 2. Nose-Cam projection sees 3D Moon-Cube from launchpad (7,705m > 4,096m far clip) through mid-course
+    let lens = PerspectiveLens::human_eye().projection_matrix(16.0 / 9.0);
+    struct BoresightMoonProbe {
+        vp: glam::Mat4,
+        hits: usize,
+    }
+    impl MeshTarget for BoresightMoonProbe {
+        fn push_quad(&mut self, q: Quad) {
+            q.transfer(|v0, v1, v2, v3, _, _| {
+                let c = (v0 + v1 + v2 + v3) * 0.25;
+                let clip = self.vp * c.extend(1.0);
+                if clip.w > 0.1 {
+                    let ndc = clip.truncate() / clip.w;
+                    if ndc.x.abs() < 0.08 && ndc.y.abs() < 0.08 && (0.0..1.0).contains(&ndc.z) {
+                        self.hits += 1;
+                    }
+                }
+            });
+        }
+    }
+    for range_m in [7_500.0_f32, 2_400.0, 520.0] {
+        let eye = moon_center + axis_to_earth * range_m;
+        let fwd = (moon_center - eye).normalize();
+        let vp = lens * glam::Mat4::look_to_rh(eye, fwd, Vec3::Y);
+        let mut probe = BoresightMoonProbe { vp, hits: 0 };
+        world.emit_cosmic_field(SightCone::from_view(eye, fwd), &mut probe);
+        assert!(probe.hits >= 3, "Nose-Cam aimed at Moon from {range_m}m must see 3D Moon-Cube quads, got {}", probe.hits);
+    }
+
+    // 3. Entering <= 384m awakens full 6-face LunarWorld into slices 6..11 without eviction at 105m radar ceiling
+    let approach_pos = moon_center + axis_to_earth * (moon_half + 240.0);
+    let mask = world.visible_slice_mask(approach_pos);
+    assert_ne!((mask >> 6) & 0x3F, 0, "Approaching within 240m must enable lunar slice mask bits 6..11");
+    assert!(world.pending_slices());
+    let mut drained_slices = Vec::new();
+    struct QuadCounter(usize);
+    impl MeshTarget for QuadCounter {
+        fn push_quad(&mut self, _: Quad) {
+            self.0 += 1;
+        }
+    }
+    let mut lunar_quads = QuadCounter(0);
+    while let Some(slice_idx) = world.drain_modified_slice(&mut lunar_quads) {
+        drained_slices.push(slice_idx);
+    }
+    assert_eq!(drained_slices, vec![6, 7, 8, 9, 10, 11]);
+    assert!(lunar_quads.0 > 500, "Awakened Moon slices 6..11 must upload cratered voxel quads");
+    let mask_radar = world.visible_slice_mask(moon_center + axis_to_earth * (moon_half + 104.0));
+    assert_ne!((mask_radar >> 6) & 0x3F, 0, "Radar-ceiling altitude (104m) must retain awakened Moon");
+
+    // 4. Nose-Cam target lock (`mark_along`) tracks moving Luna across SolarEphemeris ticks
+    let mut world_moving = CelestialSystem::barren_heliosphere(SolarProportions::true_scale(64), 1.0);
+    let eye0 = Vec3::new(0.0, 40.0, 0.0);
+    let moon0 = world_moving.body_center(BodyId::LUNA).expect("Luna");
+    let dir0 = (moon0 - eye0).normalize();
+    let mut course = NavigationCourse::Uncharted;
+    assert!(course.mark_along(((eye0, dir0), (eye0, dir0)), (eye0, Vec3::ZERO), world_moving.as_ref()));
+    let _ = world_moving.step_surface(45.0);
+    let moon1 = world_moving.body_center(BodyId::LUNA).expect("Moved Luna");
+    assert!((moon1 - moon0).length() > 40.0);
+    course.sync_ephemeris(world_moving.celestial_atlas());
+    if let NavigationCourse::Charted(arc) = course {
+        arc.feed_nodes(|nodes, _| {
+            let surf_cheb = (nodes[ARC_NODES - 1] - moon1).abs().max_element();
+            assert!(surf_cheb <= 12.0, "Synced target lock must ride with moving Luna, got cheb={surf_cheb}");
+        });
+    } else {
+        panic!("Expected charted lunar course");
+    }
 }

@@ -91,6 +91,7 @@ impl HelmChart {
         world: &dyn PlanetaryWorld,
     ) {
         self.atlas = world.celestial_atlas();
+        self.course.sync_ephemeris(self.atlas);
         self.pad = HullClearance::at_pose(assembly, velocity).sample_pad(self.atlas, world);
     }
 

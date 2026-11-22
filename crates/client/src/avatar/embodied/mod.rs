@@ -92,14 +92,21 @@ impl EmbodiedAvatar {
         self.sight_line.transition_perish_lens(self.body.posture(), dt);
     }
 
-    fn project_at_sight(&self, aspect: f32, sight: SightMode, placed: Option<(Vec3, Vec3, Vec3)>) -> Mat4 {
+    fn project_at_sight(
+        &self,
+        aspect: f32,
+        sight: SightMode,
+        placed: Option<(Vec3, Vec3, Vec3, f32)>,
+    ) -> Mat4 {
         let vpos = self.body.visual_position();
         let tilt = self.bearing.tilt_radians() + self.body.posture().vertigo_sway();
         self.sight_line.project_placed_or_sight(aspect, tilt, sight, self.body.posture(), vpos, &self.pose_at(vpos), placed)
     }
 
-    fn active_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
-        self.body.hull_camera_lens().or_else(|| self.gear.placed_camera_lens())
+    fn active_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3, f32)> {
+        self.body
+            .hull_camera_lens()
+            .or_else(|| self.gear.placed_camera_lens().map(|(e, f, u)| (e, f, u, 1.0)))
     }
 
     fn current_presence(&self) -> world::CompanionPresence {

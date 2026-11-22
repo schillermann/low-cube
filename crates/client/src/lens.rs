@@ -23,9 +23,15 @@ impl PerspectiveLens {
         }
     }
 
-    /// Secondary constructor with first-person field of view and close clipping clearance.
+    /// Secondary constructor with first-person field of view and cosmic logarithmic-depth reach (`100,000,000 m`).
     pub fn human_eye() -> Self {
-        Self::new(65.0f32.to_radians(), 0.03, 4096.0)
+        Self::new(65.0f32.to_radians(), 0.03, 1.0e8)
+    }
+
+    /// Returns a zoomed copy with `fov_radians / factor` while preserving near/far clipping bounds.
+    pub fn magnified(self, factor: f32) -> Self {
+        let zoomed_fov = (self.fov_radians / factor.max(1.0)).clamp(1.2f32.to_radians(), 110.0f32.to_radians());
+        Self::new(zoomed_fov, self.near_plane, self.far_plane)
     }
 
     /// Smoothly transitions field of view towards a target angle across elapsed time.

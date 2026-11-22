@@ -151,13 +151,14 @@ impl WorldEarthworks for HeliosphereWorld {
     }
 
     fn register_craft_blueprint(&mut self, blueprint: CraftBlueprint) -> bool {
-        let a = self.earth.register_craft_blueprint(blueprint.clone());
-        let b = self
-            .vicinity
-            .borrow_mut()
-            .active_body_mut()
-            .is_some_and(|w| w.planet_mut().register_craft_blueprint(blueprint));
-        a || b
+        let mut ok = self.earth.register_craft_blueprint(blueprint.clone());
+        let mut vic = self.vicinity.borrow_mut();
+        for slot in 0..2 {
+            if let Some(body) = vic.slot_body_mut(slot) {
+                ok |= body.planet_mut().register_craft_blueprint(blueprint.clone());
+            }
+        }
+        ok
     }
 
     fn claim_vehicle_helm(&mut self, craft: CraftIdentity, pilot_slot: u32, eye: Vec3, direction: Vec3) -> bool {
@@ -183,8 +184,14 @@ impl WorldEarthworks for HeliosphereWorld {
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
         if face_index < 6 {
             self.earth.disclose_stratum(face_index, stratum);
-        } else if let Some(body) = self.vicinity.borrow_mut().active_body_mut() {
-            body.planet_mut().disclose_stratum(face_index - 6, stratum);
+        } else if face_index < 12 {
+            if let Some(body) = self.vicinity.borrow_mut().slot_body_mut(0) {
+                body.planet_mut().disclose_stratum(face_index - 6, stratum);
+            }
+        } else if (18..24).contains(&face_index) {
+            if let Some(body) = self.vicinity.borrow_mut().slot_body_mut(1) {
+                body.planet_mut().disclose_stratum(face_index - 18, stratum);
+            }
         }
     }
 
@@ -202,10 +209,8 @@ impl WorldEarthworks for HeliosphereWorld {
         if body == crate::BodyId::EARTH {
             return Some(Vec3::ZERO);
         }
-        if let Some(active) = self.vicinity.borrow().active_body() {
-            if active.body_id() == body {
-                return Some(active.center());
-            }
+        if let Some(active) = self.vicinity.borrow().find_body(body) {
+            return Some(active.center());
         }
         self.ephemeris
             .snapshot_all(0.0)

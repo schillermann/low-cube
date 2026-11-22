@@ -35,7 +35,7 @@ pub use celestial::{
     BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique, BodyRatios, BodySnapshot,
     CelestialAtlas, CelestialSystem, HeliosphereWorld, LunarCraterRelief, LunarWorld, OrbitElements,
     OrbitalFleetWorld, OrbitalSpec, RadialWell, SolarCatalog, SolarEphemeris, SolarProportions,
-    StarVault, SurfaceNature, TranslatedWorld, VicinityCache, MAJOR_BODY_COUNT,
+    SurfaceNature, TranslatedWorld, VicinityCache, MAJOR_BODY_COUNT,
 };
 pub use block::{
     AttitudeNozzleMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,

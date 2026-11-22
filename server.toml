@@ -14,9 +14,22 @@ port = 27777
 gravity = 10
 
 [world]
+# World-Cube edge multiple (integer >= 1; 1 = 128 blocks, 2 = 256 blocks, ...).
+# Scales Earth as well as baseline planet, moon, Sun, and orbital dimensions.
+size = 1
+
 # Day/night cycle rotation in minutes (default: 20 min).
 # Set to 0 to freeze the sun at permanent noon.
 cycle = 20
+
+[cosmos]
+# Unified Solar-System scale factor (1.0 = true 1:1 astronomical proportions relative to Earth).
+# Scales orbital distances, planet sizes, Sun size, and moon sizes together unless overridden below:
+#   distance_scale   = 1.0   # Orbital radii of planets and moons
+#   body_scale       = 1.0   # Sizes of planets, moons, and belt asteroids
+#   sun_scale        = 1.0   # Size of the cubic Sun
+#   asteroid_density = 1.0   # Procedural Asteroid Belt occupancy
+scale = 1.0
 
 [aurora]
 # Nocturnal polar lights over Arctic.

@@ -133,12 +133,13 @@ impl OrreryCanvas {
         for face in [[c[3], c[2], c[6], c[7]], [c[4], c[5], c[6], c[7]], [c[1], c[2], c[6], c[5]]] {
             self.emit_holo_panel(face, edge_col, fill_alpha, target);
         }
+        let strut_w = (half * 0.20).clamp(0.0008, 0.0022);
         for (i, j) in [
             (0, 1), (1, 2), (2, 3), (3, 0),
             (4, 5), (5, 6), (6, 7), (7, 4),
             (0, 4), (1, 5), (2, 6), (3, 7),
         ] {
-            self.emit_strut_3d(c[i], c[j], 0.0022, edge_col, 0.96, target);
+            self.emit_strut_3d(c[i], c[j], strut_w, edge_col, 0.96, target);
         }
     }
 
@@ -168,11 +169,11 @@ impl OrreryCanvas {
         let base_gold = Vec3::new(0.96, 0.74, 0.20);
         let magenta = Vec3::new(0.98, 0.36, 0.80);
 
-        let tip = pos + fwd * 0.115;
-        let tail = pos - fwd * 0.052;
-        let b0 = tail + dorsal * 0.044;
-        let b1 = tail - dorsal * 0.024 + side * 0.042;
-        let b2 = tail - dorsal * 0.024 - side * 0.042;
+        let tip = pos + fwd * 0.088;
+        let tail = pos - fwd * 0.042;
+        let b0 = tail + dorsal * 0.036;
+        let b1 = tail - dorsal * 0.020 + side * 0.034;
+        let b2 = tail - dorsal * 0.020 - side * 0.034;
 
         for face in [[b0, b1, tip, tip], [b1, b2, tip, tip], [b2, b0, tip, tip], [b0, b2, b1, b1]] {
             self.emit_holo_panel(face, edge_gold, 0.16, target);

@@ -74,6 +74,15 @@ impl SolarProportions {
         Self::new(earth_blocks, BodyRatios::true_scale(), BeltAndReach::new(distance_scale, 1.0))
     }
 
+    /// Uniformly scales orbital spans, planet/moon sizes, and solar size by `factor`.
+    pub const fn with_system_scale(self, factor: f32) -> Self {
+        Self::new(
+            self.earth_blocks,
+            BodyRatios::new(factor, factor),
+            BeltAndReach::new(factor, self.reach.density_factor()),
+        )
+    }
+
     pub const fn with_body_scale(self, factor: f32) -> Self {
         Self::new(
             self.earth_blocks,
@@ -118,14 +127,14 @@ impl SolarProportions {
     pub fn astronomical_unit(self) -> f64 {
         let edge = (self.earth_blocks.max(8) as f64) * 11_740.0;
         let d_factor = f64::from(self.reach.distance_factor().max(0.0005));
-        (edge * d_factor).max(f64::from(self.earth_blocks) * 28.0)
+        (edge * d_factor).max(f64::from(self.earth_blocks) * 6.0)
     }
 
     /// Half-size of the cubic Sun (`54.6 × Earth_Diameter × sun_scale`, bounded inside Mercury's inner orbit).
     pub fn sun_half(self) -> f64 {
-        let raw = (self.earth_blocks.max(8) as f64) * 54.6 * f64::from(self.ratios.sun_factor().max(0.02));
+        let raw = (self.earth_blocks.max(8) as f64) * 54.6 * f64::from(self.ratios.sun_factor().max(0.01));
         let mercury_clearance = self.astronomical_unit() * 0.387 * 0.45;
-        raw.min(mercury_clearance).max(f64::from(self.earth_half()) * 1.5)
+        raw.min(mercury_clearance).max(4.0)
     }
 
     /// Half-size of a celestial cube with diameter `earth_ratio × Earth_Diameter`.
@@ -133,15 +142,23 @@ impl SolarProportions {
         let scaled = (self.earth_blocks.max(8) as f64)
             * 0.5
             * earth_ratio
-            * f64::from(self.ratios.body_factor().max(0.05));
-        scaled.max(4.0)
+            * f64::from(self.ratios.body_factor().max(0.02));
+        scaled.max(2.0)
     }
 
-    /// Even voxel block count (`16..=256`) for on-demand rocky planets and moons scaled for hardware budget.
+    /// Even voxel block count (`4..=512`) for on-demand rocky planets and moons scaled to `earth_blocks` and `body_scale`.
     pub fn voxel_blocks(self, earth_ratio: f32) -> u32 {
-        let raw = (self.earth_blocks as f32) * earth_ratio * self.ratios.body_factor().max(0.1);
-        let clamped = (raw.round() as u32).clamp(16, 256);
-        (clamped / 2) * 2
+        let raw = (self.earth_blocks as f32) * earth_ratio * self.ratios.body_factor().max(0.02);
+        let clamped = (raw.round() as u32).clamp(4, 512);
+        clamped.div_ceil(2) * 2
+    }
+
+    /// Even voxel block count (`4..=128`) for procedural belt asteroids scaled to `earth_blocks` and `body_scale`.
+    pub fn belt_rock_blocks(self, tier: u32) -> u32 {
+        let base = (16 + (tier % 3) * 8) as f32;
+        let raw = base * (self.earth_blocks.max(8) as f32 / 128.0) * self.ratios.body_factor().max(0.02);
+        let clamped = (raw.round() as u32).clamp(4, 128);
+        clamped.div_ceil(2) * 2
     }
 
     pub const fn belt_density(self) -> f32 {
@@ -199,8 +216,8 @@ impl SolarProportions {
                 .filter(|v| v.is_finite() && *v >= 0.0)
                 .unwrap_or(fallback)
         };
-        let body = f(0..4, 1.0).max(0.05);
-        let sun = f(4..8, 1.0).max(0.02);
+        let body = f(0..4, 1.0).max(0.02);
+        let sun = f(4..8, 1.0).max(0.01);
         let dist = f(8..12, 1.0).max(0.0005);
         let belt = f(12..16, 1.0).clamp(0.0, 8.0);
         Self::new(earth_blocks, BodyRatios::new(body, sun), BeltAndReach::new(dist, belt))

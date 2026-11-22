@@ -7,7 +7,7 @@ use crate::menu::{ControlsSlate, ControlsSlateHud, GuidanceReadout, SlateContext
 use crate::order::LocomotionOrder;
 use crate::posture::AvatarPosture;
 use super::deck::DeckFooting;
-use super::helm_optics::{HelmOptics, HullBoresight};
+use super::helm_optics::HelmOptics;
 use super::sight::AvatarSight;
 use super::span::BodySpan;
 
@@ -91,11 +91,14 @@ impl CockpitBerth {
         self.pilot.mark_nose_target(rays, world)
     }
 
-    pub(super) fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
+    pub(super) fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3, f32)> {
         if self.optics.cockpit_view() || !self.pilot.driving() {
             return None;
         }
-        self.optics.resolve_boresight(&self.pilot.collected_views()).map(HullBoresight::lens_frame)
+        let zoom = self.optics.zoom();
+        self.optics
+            .resolve_boresight(&self.pilot.collected_views())
+            .map(|b| b.lens_with_zoom(zoom))
     }
 
     pub(super) fn rotate_view(&mut self, dx: f32, dy: f32, sight_line: &mut AvatarSight) {
@@ -157,6 +160,10 @@ impl CockpitBerth {
         }
         if bindings.matches(ControlAction::FlightGuidance, trigger) {
             return self.pilot.toggle_flight_guidance();
+        }
+        if self.optics.active() && bindings.matches(ControlAction::MoldForm, trigger) {
+            self.optics.cycle_zoom();
+            return true;
         }
         if (self.optics.cockpit_view() && bindings.matches(ControlAction::MoldForm, trigger))
             || bindings.matches(ControlAction::RetroFlip, trigger)

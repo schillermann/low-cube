@@ -1,4 +1,5 @@
 mod brachistochrone;
+mod course;
 mod telemetry;
 mod verlet;
 
@@ -6,6 +7,7 @@ use glam::Vec3;
 use world::{BodyId, CelestialAtlas, PlanetaryWorld};
 use super::space_step::MAX_COSMIC_SPEED;
 pub use self::brachistochrone::BrachistochroneArc;
+pub use self::course::NavigationCourse;
 pub use self::telemetry::{CourseMode, CourseProfile, FlipBurnReadout, RouteTelemetry};
 pub use self::verlet::SymplecticOrbit;
 
@@ -58,6 +60,29 @@ impl TransferArc {
         out
     }
 
+    fn attach_moving_body(self, target: Vec3, eph: world::SolarEphemeris) -> Self {
+        let anchored = self.profile.anchored_to_ephemeris(target, eph);
+        Self::with_profile(self.nodes, self.target_normal, self.corridor_radius, anchored)
+    }
+
+    pub fn synced_with_atlas(self, atlas: CelestialAtlas) -> Self {
+        let Some(live_target) = self.profile.live_destination(atlas) else {
+            return self;
+        };
+        let shift = live_target - self.nodes[ARC_NODES - 1];
+        if shift.length_squared() <= 1e-8 {
+            return self;
+        }
+        let denom = (ARC_NODES - 1) as f32;
+        let mut updated = self.nodes;
+        for (i, slot) in updated.iter_mut().enumerate() {
+            let s = (i as f32) / denom;
+            *slot += shift * (s * s * (3.0 - 2.0 * s));
+        }
+        updated[ARC_NODES - 1] = live_target;
+        Self::with_profile(updated, self.target_normal, self.corridor_radius, self.profile)
+    }
+
     /// Integrates `PlanetaryWorld` gravity via symplectic Velocity-Verlet shooting to connect `origin` to `target`.
     pub fn charted(
         origin: Vec3,
@@ -70,12 +95,9 @@ impl TransferArc {
         let dist = chord.length();
         if let Some(eph) = world.celestial_atlas().ephemeris() {
             if dist > eph.proportions().earth_half() * 4.5 {
-                return SymplecticOrbit::new(eph, 6).point_intercept(
-                    origin.as_dvec3(),
-                    velocity.as_dvec3(),
-                    target.as_dvec3(),
-                    target_normal,
-                );
+                return SymplecticOrbit::new(eph, 6)
+                    .point_intercept(origin.as_dvec3(), velocity.as_dvec3(), target.as_dvec3(), target_normal)
+                    .attach_moving_body(target, eph);
             }
         }
         let corridor = (dist * 0.055).clamp(2.5, 16.0);
@@ -115,7 +137,11 @@ impl TransferArc {
         }
         nodes[0] = origin;
         nodes[ARC_NODES - 1] = target;
-        Self::with_profile(nodes, target_normal.normalize_or_zero(), corridor, CourseProfile::Ballistic { arrival_secs: duration })
+        let base = Self::with_profile(nodes, target_normal.normalize_or_zero(), corridor, CourseProfile::Ballistic { arrival_secs: duration });
+        match world.celestial_atlas().ephemeris() {
+            Some(eph) => base.attach_moving_body(target, eph),
+            None => base,
+        }
     }
 
     /// Computes a lead-compensated multi-body Keplerian or Brachistochrone intercept to `body`.
@@ -147,7 +173,7 @@ impl TransferArc {
 
     pub const fn flip_marker(&self) -> Option<Vec3> {
         match self.profile {
-            CourseProfile::Ballistic { .. } => None,
+            CourseProfile::Ballistic { .. } | CourseProfile::MovingBody { .. } => None,
             CourseProfile::Brachistochrone { flip_point, .. } => Some(flip_point),
         }
     }
@@ -227,39 +253,5 @@ impl TransferArc {
         let near_destination = (ship_pos - self.nodes[ARC_NODES - 1]).length_squared() <= 9.0;
         let aligned = near_destination || (cross_track <= self.corridor_radius && angle_deg <= 22.0);
         RouteTelemetry::new(best_anchor, cross_track, angle_deg, aligned)
-    }
-}
-
-/// Polymorphic spacecraft navigation state avoiding `Option<TransferArc>`.
-#[derive(Clone, Copy, Debug)]
-pub enum NavigationCourse {
-    Uncharted,
-    Charted(TransferArc),
-}
-
-impl NavigationCourse {
-    pub fn mark_along(
-        &mut self,
-        (boresight, gimbal): ((Vec3, Vec3), (Vec3, Vec3)),
-        (ship_origin, velocity): (Vec3, Vec3),
-        world: &dyn PlanetaryWorld,
-    ) -> bool {
-        let atlas = world.celestial_atlas();
-        let hit = atlas
-            .lock_sight_surface(boresight.0, boresight.1, world)
-            .or_else(|| atlas.lock_sight_surface(gimbal.0, gimbal.1, world));
-        if let Some((hit_pos, hit_norm)) = hit {
-            if let Self::Charted(prev) = self {
-                if !prev.retargets(hit_pos) {
-                    *self = Self::Uncharted;
-                    return true;
-                }
-            }
-            *self = Self::Charted(TransferArc::charted(ship_origin, velocity, hit_pos, hit_norm, world));
-            true
-        } else {
-            *self = Self::Uncharted;
-            true
-        }
     }
 }

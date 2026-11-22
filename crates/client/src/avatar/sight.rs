@@ -135,7 +135,11 @@ impl AvatarSight {
     }
 
     pub fn project_lens_view(&self, aspect: f32, eye: Vec3, forward: Vec3, up: Vec3) -> Mat4 {
-        self.lens.projection_matrix(aspect) * Mat4::look_to_rh(eye, forward, up)
+        self.project_zoomed_lens(aspect, (eye, forward, up, 1.0))
+    }
+
+    pub fn project_zoomed_lens(&self, aspect: f32, (eye, forward, up, zoom): (Vec3, Vec3, Vec3, f32)) -> Mat4 {
+        self.lens.magnified(zoom).projection_matrix(aspect) * Mat4::look_to_rh(eye, forward, up)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -147,10 +151,10 @@ impl AvatarSight {
         posture: AvatarPosture,
         position: Vec3,
         pose: &BodyPose,
-        placed_lens: Option<(Vec3, Vec3, Vec3)>,
+        placed_lens: Option<(Vec3, Vec3, Vec3, f32)>,
     ) -> Mat4 {
-        if let Some((eye, fwd, up)) = placed_lens {
-            return self.project_lens_view(aspect, eye, fwd, up);
+        if let Some(zoomed) = placed_lens {
+            return self.project_zoomed_lens(aspect, zoomed);
         }
         self.project_view(aspect, tilt_radians, sight, posture, position, pose)
     }
@@ -160,9 +164,9 @@ impl AvatarSight {
         sight: SightMode,
         visual_pos: Vec3,
         pose: &BodyPose,
-        placed_lens: Option<(Vec3, Vec3, Vec3)>,
+        placed_lens: Option<(Vec3, Vec3, Vec3, f32)>,
     ) -> SightCone {
-        if let Some((eye, fwd, _)) = placed_lens {
+        if let Some((eye, fwd, _, _)) = placed_lens {
             return SightCone::from_view(eye, fwd);
         }
         if matches!(sight, SightMode::FirstPersonSight) {

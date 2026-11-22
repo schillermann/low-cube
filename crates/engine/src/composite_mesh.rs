@@ -1,36 +1,4 @@
-use glam::{Mat4, Quat};
-use crate::{GraphicPipeline, Mesh, ShaderProgram};
-
-/// `GraphicPipeline` decorator composing a static 3D star-vault `Mesh` into every rendered scene and Polaroid pass.
-pub struct StarryPipeline {
-    origin: Box<dyn GraphicPipeline>,
-    stars: Box<dyn Mesh>,
-}
-
-impl StarryPipeline {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(origin: Box<dyn GraphicPipeline>, stars: Box<dyn Mesh>) -> Self {
-        Self { origin, stars }
-    }
-}
-
-impl GraphicPipeline for StarryPipeline {
-    fn sync_ephemeris(&self, planet_cubes: &[[f32; 4]; 7], eclipse_occluder: [f32; 4]) {
-        self.origin.sync_ephemeris(planet_cubes, eclipse_occluder);
-    }
-
-    fn render(
-        &self,
-        gl: &glow::Context,
-        shader: &dyn ShaderProgram,
-        mesh: &dyn Mesh,
-        view_proj: &Mat4,
-        surface_rot: Quat,
-    ) {
-        let composed = CompositeMesh::new(mesh, self.stars.as_ref());
-        self.origin.render(gl, shader, &composed, view_proj, surface_rot);
-    }
-}
+use crate::{Mesh, ShaderProgram};
 
 /// Decorator combining two GPU-renderable meshes into a unified draw sequence.
 pub struct CompositeMesh<'a> {

@@ -64,7 +64,7 @@ impl ChartViewport {
     }
 
     pub fn zoom(&mut self, factor: f64, max_span: f64) {
-        self.half_span = (self.half_span * factor).clamp(120.0, max_span.max(1_200.0));
+        self.half_span = (self.half_span * factor).clamp(16.0, max_span.max(1_200.0));
     }
 
     pub fn recenter_on(&mut self, world_pt: DVec3) {

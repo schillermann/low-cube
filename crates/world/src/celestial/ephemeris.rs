@@ -141,12 +141,13 @@ impl SolarEphemeris {
             }
         }
 
+        let d_scale = f64::from(self.proportions.distance_scale().max(0.0005));
         for (i, &spec) in entries.iter().enumerate() {
             let parent = spec.orbit().parent();
             if parent != BodyId::SOL {
                 if let Some(p_idx) = entries.iter().position(|s| s.id() == parent) {
-                    let min_clear = halves[p_idx] * 2.4 + halves[i] * 2.2;
-                    let r = (spec.orbit().orbit_units() * halves[p_idx] * 2.0).max(min_clear);
+                    let min_clear = halves[p_idx] * 1.6 + halves[i] * 1.6 + 8.0;
+                    let r = (spec.orbit().orbit_units() * halves[p_idx] * 2.0 * d_scale).max(min_clear);
                     radii[i] = r;
                     let (lp, lv) = Self::circular_orbit(
                         r,

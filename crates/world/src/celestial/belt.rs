@@ -99,10 +99,7 @@ impl AsteroidBelt {
         let y = f64::from(y_slot) * spacing * 0.65 + jy;
         let center = sun_center + DVec3::new(r * cos_t, y, r * sin_t);
         let tier = ((h >> 40) & 0x3) as u16 % 3;
-        let base_blocks = 16 + tier * 8;
-        let scaled_blocks = ((f32::from(base_blocks) * self.proportions.body_scale().clamp(0.5, 2.0)).round() as u32)
-            .clamp(16, 48)
-            & !1;
+        let scaled_blocks = self.proportions.belt_rock_blocks(u32::from(tier));
         let half = (scaled_blocks as f32) * 0.5;
         let hash13 = (((h >> 48) as u16) ^ ((r_slot as u16).wrapping_mul(31))) & 0x1FFF;
         let rock_id = BodyId::belt_rock((hash13 << 2) | tier);
@@ -151,7 +148,7 @@ impl AsteroidBelt {
         cone: crate::SightCone,
         sun_center: DVec3,
         sun_gm: f64,
-        awakened_id: Option<BodyId>,
+        awakened_ids: [Option<BodyId>; 2],
         target: &mut dyn MeshTarget,
     ) {
         let viewer = cone.observe_from(|eye| eye.as_dvec3());
@@ -177,7 +174,7 @@ impl AsteroidBelt {
                     let Some(rock) = self.rock_in_cell((rc, ac + da, y_slot + dy), sun_center, sun_gm) else {
                         continue;
                     };
-                    if awakened_id == Some(rock.id()) {
+                    if awakened_ids.contains(&Some(rock.id())) {
                         continue;
                     }
                     if cone.reaches(rock.center().as_vec3(), 2_400.0) {

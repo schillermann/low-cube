@@ -16,6 +16,8 @@ out vec3 v_color;
 out float v_glow;
 out vec3 v_world;
 out vec2 v_uv;
+out float v_logz;
+out float v_persp;
 
 void main() {
     vec4 world_pos = u_model * vec4(in_position, 1.0);
@@ -25,7 +27,20 @@ void main() {
     v_world = in_position;
     int corner = gl_VertexID & 3;
     v_uv = vec2(float(corner == 1 || corner == 2), float(corner >= 2));
-    gl_Position = u_view_proj * world_pos;
+    vec4 clip_pos = u_view_proj * world_pos;
+    v_persp = (u_view_proj[2][3] < -0.5) ? 1.0 : 0.0;
+    if (v_persp > 0.5) {
+        if (clip_pos.w >= 0.03) {
+            v_logz = 1.0 + (clip_pos.w - 0.03);
+            clip_pos.z = (log2(v_logz) * 0.0752575 - 1.0) * clip_pos.w;
+        } else {
+            v_logz = 1.0;
+            clip_pos.z = -2.0 * abs(clip_pos.w) - 1.0;
+        }
+    } else {
+        v_logz = 1.0;
+    }
+    gl_Position = clip_pos;
 }
 "#;
 
@@ -35,6 +50,8 @@ in vec3 v_color;
 in float v_glow;
 in vec3 v_world;
 in vec2 v_uv;
+in float v_logz;
+in float v_persp;
 
 uniform vec3 u_light_dir;
 
@@ -56,6 +73,9 @@ vec3 tier_scale(int t) {
 }
 
 void main() {
+    gl_FragDepth = (v_persp > 0.5)
+        ? clamp(log2(max(v_logz, 1.0)) * 0.03762875, 0.0, 0.999999)
+        : gl_FragCoord.z;
     if (v_glow < -1.5) {
         float base_alpha = clamp(-v_glow - 2.0, 0.0, 1.0);
         float axial = clamp(1.0 - 0.72 * v_uv.y * v_uv.y, 0.08, 1.0);

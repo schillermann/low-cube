@@ -179,7 +179,7 @@ static CATALOG: [OrbitalSpec; MAJOR_BODY_COUNT] = [
     ),
     OrbitalSpec::new(
         (BodyId::EARTH, "EARTH"),
-        OrbitElements::new(BodyId::SOL, 1.000, (0.00, 0.00)),
+        OrbitElements::new(BodyId::SOL, 1.000, (0.41, -1.20)),
         BodyPhysique::new(1.000, 9.81, SurfaceNature::Homeworld, (v3(0.22, 0.56, 0.88), v3(0.26, 0.64, 0.28))),
     ),
     OrbitalSpec::new(
