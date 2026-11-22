@@ -39,6 +39,20 @@ impl Quad {
         Self::glowing(v0, v1, v2, v3, normal, color, 0.0)
     }
 
+    /// Produces a translated copy of this quad without exposing corner fields.
+    pub fn shifted(self, offset: Vec3) -> Self {
+        let c = self.corners;
+        Self {
+            corners: QuadCorners {
+                v0: c.v0 + offset,
+                v1: c.v1 + offset,
+                v2: c.v2 + offset,
+                v3: c.v3 + offset,
+            },
+            shading: self.shading,
+        }
+    }
+
     /// Feeds its encapsulated data to a target without exposing raw getters.
     pub fn transfer<T>(&self, consumer: impl FnOnce(Vec3, Vec3, Vec3, Vec3, Vec3, Vec3) -> T) -> T {
         let c = self.corners;

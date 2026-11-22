@@ -1,4 +1,4 @@
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::BodyPose;
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
@@ -47,14 +47,8 @@ impl AvatarBody {
         self.berth.push_hull_camera_rays(out)
     }
     pub fn intercom_gimbal(&self) -> Option<Option<(f32, f32)>> { self.berth.intercom_gimbal() }
-    pub fn hull_camera_hud(&self) -> (Option<((Vec3, Vec3, Vec3), Vec3)>, Option<crate::menu::CameraFeed>) {
-        self.berth.hull_camera_hud()
-    }
     pub fn mark_nose_target(&mut self, world: &dyn PlanetaryWorld) -> bool {
         self.berth.mark_nose_target(world)
-    }
-    pub fn optic_telemetry(&self) -> crate::drive::OpticTelemetry {
-        self.berth.optic_telemetry()
     }
     pub fn solar_chart_snapshot(&self) -> Option<(crate::drive::OrrerySnapshot, f32, bool)> {
         self.berth.solar_chart_snapshot()
@@ -62,8 +56,15 @@ impl AvatarBody {
     pub fn install_course(&mut self, course: crate::drive::NavigationCourse) {
         self.berth.install_course(course);
     }
-    pub fn emit_controls_slate(&self, bindings: &ActionBindings, aspect: f32, target: &mut dyn MeshTarget) {
-        self.berth.emit_controls_slate(bindings, aspect, target);
+    pub fn emit_hud(
+        &self,
+        sight: &AvatarSight,
+        bindings: &ActionBindings,
+        vp: Mat4,
+        aspect: f32,
+        target: &mut dyn MeshTarget,
+    ) {
+        self.berth.emit_hud(self.posture, sight, bindings, vp, aspect, target);
     }
     pub fn rotate_view(&mut self, dx: f32, dy: f32, sight_line: &mut AvatarSight) {
         self.berth.rotate_view(dx, dy, sight_line);

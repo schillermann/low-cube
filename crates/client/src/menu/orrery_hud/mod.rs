@@ -1,28 +1,32 @@
 mod canvas;
 mod overlays;
+mod phosphor;
 mod scale_decorators;
 mod spine;
+mod standoff;
 
-use glam::{Mat4, Vec3};
+use glam::Vec3;
 use world::{CelestialAtlas, MeshTarget};
 use crate::drive::{ARC_NODES, FlipBurnReadout, NavigationCourse, OrrerySnapshot, TransferArc};
 use super::glyph::PixelStamp;
 use self::canvas::OrreryCanvas;
-pub use self::overlays::{OpticOverlay, ShipOpticHud};
-use self::overlays::{RangeTapeOverlay, TargetLockOverlay};
+pub use self::overlays::{ChannelStripOverlay, OpticOverlay, ShipOpticHud};
 #[cfg(test)]
 pub use self::overlays::{
     RangeTapeOverlay as TestRangeTapeOverlay, SilentOverlay,
     TargetLockOverlay as TestTargetLockOverlay,
 };
-use self::scale_decorators::{ApproachZoneScale, ChevronReadoutScale};
+#[cfg(test)]
+pub use self::phosphor::PhosphorTone;
 #[cfg(test)]
 pub use self::scale_decorators::{
     ApproachZoneScale as TestApproachZoneScale, ChevronReadoutScale as TestChevronReadoutScale,
+    GlassPlateScale,
 };
-use self::spine::GraduatedSpine;
 #[cfg(test)]
 pub use self::spine::{GraduatedSpine as TestGraduatedSpine, RangeScale, ScaleDomain};
+#[cfg(test)]
+pub use self::standoff::{BoresightTape, ReticleStandoffScale};
 
 struct OrreryFrame {
     bases: ([Vec3; 3], [Vec3; 3]),
@@ -104,13 +108,13 @@ impl OrreryFrame {
 
 /// Core 3D Steuerkonsolen-Orrery viewport implementing `OpticOverlay` as the base layer for Nose-Cam decorators.
 #[derive(Clone, Copy, Debug)]
-struct OrreryConsole {
+pub(super) struct OrreryConsole {
     snapshot: OrrerySnapshot,
     inv_aspect: f32,
 }
 
 impl OrreryConsole {
-    const fn new(snapshot: OrrerySnapshot, inv_aspect: f32) -> Self {
+    pub(super) const fn new(snapshot: OrrerySnapshot, inv_aspect: f32) -> Self {
         Self { snapshot, inv_aspect }
     }
 
@@ -224,42 +228,6 @@ impl OpticOverlay for OrreryConsole {
             let nose_holo = frame.rotate_dir(nose_axis);
             let flight_holo = frame.rotate_dir(flight_vec);
             canvas.emit_pyramid_frame(ship_holo, nose_holo, flight_holo, target);
-        });
-    }
-}
-
-/// Nose-Camera HUD composing `OrreryConsole`, `TargetLockOverlay`, and `RangeTapeOverlay` decorators.
-#[derive(Clone, Copy, Debug)]
-pub struct NoseOrreryHud {
-    snapshot: OrrerySnapshot,
-    view_proj: Mat4,
-    inv_aspect: f32,
-}
-
-impl NoseOrreryHud {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(snapshot: OrrerySnapshot, view_proj: Mat4, inv_aspect: f32) -> Self {
-        Self { snapshot, view_proj, inv_aspect }
-    }
-}
-
-impl OpticOverlay for NoseOrreryHud {
-    fn emit(&self, target: &mut dyn MeshTarget) {
-        let ux = self.inv_aspect;
-        let console = OrreryConsole::new(self.snapshot, ux);
-        self.snapshot.transfer(|_, ship_pos, (_, velocity), course| match course {
-            NavigationCourse::Uncharted => console.emit(target),
-            NavigationCourse::Charted(ref arc) => {
-                arc.sample_range(ship_pos, velocity, |tgt_world, dist_m, rate_mps| {
-                    let locked = TargetLockOverlay::new(console, tgt_world, self.view_proj, ux);
-                    let scale = ChevronReadoutScale::nose_lock(
-                        ApproachZoneScale::nose_braking(GraduatedSpine::nose_target(ux), rate_mps),
-                        dist_m,
-                        rate_mps,
-                    );
-                    RangeTapeOverlay::new(locked, scale).emit(target);
-                });
-            }
         });
     }
 }

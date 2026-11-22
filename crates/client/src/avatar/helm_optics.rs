@@ -1,10 +1,46 @@
-use glam::{Mat3, Quat, Vec3};
-use world::HullOptic;
+use glam::{Mat3, Mat4, Quat, Vec3};
+use world::{HullOptic, MeshTarget};
 use crate::drive::{OpticTelemetry, VehiclePilot};
-use crate::menu::{ActiveChannel, CameraFeed, GuidanceReadout};
+use crate::menu::{
+    ActiveChannel, CameraFeed, ChannelStripOverlay, GuidanceReadout, OpticOverlay, ScreenPoint,
+    ShipOpticHud,
+};
 use crate::orientation::{ConeLook, MouseLook, SensitivityLook, ViewOrientation};
+use crate::posture::AvatarPosture;
+use super::sight::AvatarSight;
 
 const GIMBAL_RADIUS: f32 = 0.52;
+
+/// Immutable 3D gimbaled camera lens and fixed physical hull boresight target.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct HullBoresight {
+    eye: Vec3,
+    aimed_fwd: Vec3,
+    aimed_up: Vec3,
+    aim_world: Vec3,
+}
+
+impl HullBoresight {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub(super) const fn new(eye: Vec3, aimed_fwd: Vec3, aimed_up: Vec3, aim_world: Vec3) -> Self {
+        Self { eye, aimed_fwd, aimed_up, aim_world }
+    }
+
+    pub(super) const fn lens_frame(self) -> (Vec3, Vec3, Vec3) {
+        (self.eye, self.aimed_fwd, self.aimed_up)
+    }
+
+    pub(super) fn sight_rays(self) -> ((Vec3, Vec3), (Vec3, Vec3)) {
+        ((self.eye, (self.aim_world - self.eye).normalize_or_zero()), (self.eye, self.aimed_fwd))
+    }
+
+    pub(super) fn reticle_point(self, sight: &AvatarSight, aspect: f32) -> ScreenPoint {
+        let ndc = sight
+            .project_lens_view(aspect, self.eye, self.aimed_fwd, self.aimed_up)
+            .project_point3(self.aim_world);
+        ScreenPoint::new(ndc.x.clamp(-0.96, 0.96), ndc.y.clamp(-0.96, 0.96))
+    }
+}
 
 /// Encapsulated cockpit camera channel selector and small-radius pan-tilt gimbal for hull-mounted sensor pods.
 pub(super) struct HelmOptics {
@@ -77,7 +113,7 @@ impl HelmOptics {
         self.channel
     }
 
-    pub(super) fn channel_feed(
+    fn channel_feed(
         &self,
         views: &[HullOptic],
         guidance: GuidanceReadout,
@@ -100,10 +136,7 @@ impl HelmOptics {
         ))
     }
 
-    pub(super) fn resolve_boresight(
-        &self,
-        views: &[HullOptic],
-    ) -> Option<((Vec3, Vec3, Vec3), Vec3)> {
+    pub(super) fn resolve_boresight(&self, views: &[HullOptic]) -> Option<HullBoresight> {
         if self.cockpit_view() {
             return None;
         }
@@ -119,11 +152,15 @@ impl HelmOptics {
         let up = right.cross(fwd).normalize_or_zero();
         let basis = Quat::from_mat3(&Mat3::from_cols(right, up, -fwd)).normalize();
         let aimed = self.gimbal.combine_with_surface(basis);
-        let lens = (eye, (aimed * Vec3::NEG_Z).normalize(), (aimed * Vec3::Y).normalize());
-        Some((lens, eye + fwd))
+        Some(HullBoresight::new(
+            eye,
+            (aimed * Vec3::NEG_Z).normalize(),
+            (aimed * Vec3::Y).normalize(),
+            eye + fwd,
+        ))
     }
 
-    pub(super) fn optic_telemetry(&self, views: &[HullOptic], pilot: &VehiclePilot) -> OpticTelemetry {
+    fn optic_telemetry(&self, views: &[HullOptic], pilot: &VehiclePilot) -> OpticTelemetry {
         if self.cockpit_view() {
             return OpticTelemetry::Silent;
         }
@@ -133,6 +170,32 @@ impl HelmOptics {
         pilot.optic_telemetry(selected.transfer(|_, _, _, m| m))
     }
 
+    pub(super) fn emit_hud(
+        &self,
+        pilot: &VehiclePilot,
+        posture: AvatarPosture,
+        sight: &AvatarSight,
+        vp: Mat4,
+        aspect: f32,
+        target: &mut dyn MeshTarget,
+    ) {
+        if !pilot.driving() {
+            posture.emit_reticle_at(ScreenPoint::center(), target);
+            return;
+        }
+        let views = pilot.collected_views();
+        let aim = self
+            .resolve_boresight(&views)
+            .map_or_else(ScreenPoint::center, |b| b.reticle_point(sight, aspect));
+        posture.emit_reticle_at(aim, target);
+        let ship_hud = ShipOpticHud::new(self.optic_telemetry(&views, pilot), vp, aim, aspect);
+        if let Some(feed) = self.channel_feed(&views, pilot.guidance_readout(), pilot.flip_burn_readout()) {
+            ChannelStripOverlay::new(ship_hud, feed, aspect).emit(target);
+        } else {
+            ship_hud.emit(target);
+        }
+    }
+
     pub(super) fn nose_sight_rays(&self, views: &[HullOptic]) -> Option<((Vec3, Vec3), (Vec3, Vec3))> {
         let selected = (!self.cockpit_view())
             .then(|| views.get((self.channel as usize).saturating_sub(1)))
@@ -140,7 +203,6 @@ impl HelmOptics {
         if !matches!(selected.transfer(|_, _, _, m| m), world::OpticMount::RocketNose) {
             return None;
         }
-        let ((eye, aimed_fwd, _), aim_world) = self.resolve_boresight(views)?;
-        Some(((eye, (aim_world - eye).normalize_or_zero()), (eye, aimed_fwd)))
+        Some(self.resolve_boresight(views)?.sight_rays())
     }
 }

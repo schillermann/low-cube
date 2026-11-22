@@ -40,10 +40,11 @@ pub use controls_slate::{ControlsSlate, ControlsSlateHud, SlateContext};
 pub use escape_menu::EscapeMenu;
 pub use glyph::PixelStamp;
 pub use inspection_modal::InspectionModal;
-pub use orrery_hud::{OpticOverlay, ShipOpticHud};
+pub use orrery_hud::{ChannelStripOverlay, OpticOverlay, ShipOpticHud};
 #[cfg(test)]
 pub use orrery_hud::{
-    RangeScale, ScaleDomain, SilentOverlay, TestApproachZoneScale as ApproachZoneScale,
+    BoresightTape, GlassPlateScale, PhosphorTone, RangeScale, ReticleStandoffScale, ScaleDomain,
+    SilentOverlay, TestApproachZoneScale as ApproachZoneScale,
     TestChevronReadoutScale as ChevronReadoutScale, TestGraduatedSpine as GraduatedSpine,
     TestRangeTapeOverlay as RangeTapeOverlay, TestTargetLockOverlay as TargetLockOverlay,
 };
@@ -67,7 +68,7 @@ pub use studio::{SavedWardrobe, WardrobePanel, WardrobeStudio};
 pub use version_stamp::VersionStamp;
 #[cfg(test)]
 pub use view::{MenuView, VersionedView};
-pub use viewfinder::{ActiveChannel, CameraFeed, GuidanceReadout, PreviewStripLayout, ViewfinderHud};
+pub use viewfinder::{ActiveChannel, CameraFeed, GuidanceReadout, PreviewStripLayout};
 pub use widget::ScreenPoint;
 
 /// Directive returned when interacting with the Escape menu, Character studio, Settings, or Portal panel.

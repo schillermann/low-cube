@@ -1,10 +1,11 @@
 use glam::{Mat4, Vec3};
 use world::MeshTarget;
-use crate::drive::{BellySnapshot, NavigationCourse, OpticTelemetry};
-use crate::menu::widget::ScreenBounds;
-use super::NoseOrreryHud;
-use super::scale_decorators::{ApproachZoneScale, ChevronReadoutScale};
-use super::spine::{GraduatedSpine, RangeScale};
+use crate::drive::{BellySnapshot, NavigationCourse, OpticTelemetry, OrrerySnapshot};
+use crate::menu::viewfinder::{CameraFeed, ViewfinderHud};
+use crate::menu::widget::{ScreenBounds, ScreenPoint};
+use super::OrreryConsole;
+use super::standoff::BoresightTape;
+use super::spine::RangeScale;
 
 /// Focused spacecraft hull-camera HUD layer contract supporting decorator composition.
 pub trait OpticOverlay {
@@ -89,36 +90,103 @@ impl<O: OpticOverlay, S: RangeScale> OpticOverlay for RangeTapeOverlay<O, S> {
     }
 }
 
+/// `OpticOverlay` decorator layering the multi-camera intercom & preview strip over an inner HUD overlay.
+#[derive(Clone, Copy, Debug)]
+pub struct ChannelStripOverlay<O> {
+    origin: O,
+    feed: CameraFeed,
+    aspect: f32,
+}
+
+impl<O> ChannelStripOverlay<O> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(origin: O, feed: CameraFeed, aspect: f32) -> Self {
+        Self { origin, feed, aspect }
+    }
+}
+
+impl<O: OpticOverlay> OpticOverlay for ChannelStripOverlay<O> {
+    fn emit(&self, target: &mut dyn MeshTarget) {
+        self.origin.emit(target);
+        ViewfinderHud::new(self.feed, self.aspect).emit(target);
+    }
+}
+
+/// Nose-Camera HUD composing `OrreryConsole`, `TargetLockOverlay`, and `RangeTapeOverlay` decorators.
+#[derive(Clone, Copy, Debug)]
+pub struct NoseOrreryHud {
+    snapshot: OrrerySnapshot,
+    view_proj: Mat4,
+    reticle: ScreenPoint,
+    inv_aspect: f32,
+}
+
+impl NoseOrreryHud {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(
+        snapshot: OrrerySnapshot,
+        view_proj: Mat4,
+        reticle: ScreenPoint,
+        inv_aspect: f32,
+    ) -> Self {
+        Self { snapshot, view_proj, reticle, inv_aspect }
+    }
+}
+
+impl OpticOverlay for NoseOrreryHud {
+    fn emit(&self, target: &mut dyn MeshTarget) {
+        let ux = self.inv_aspect;
+        let console = OrreryConsole::new(self.snapshot, ux);
+        self.snapshot.transfer(|_, ship_pos, (_, velocity), course| match course {
+            NavigationCourse::Uncharted => console.emit(target),
+            NavigationCourse::Charted(ref arc) => {
+                arc.sample_range(ship_pos, velocity, |tgt_world, dist_m, rate_mps| {
+                    let locked = TargetLockOverlay::new(console, tgt_world, self.view_proj, ux);
+                    let tape = BoresightTape::nose(self.reticle, dist_m, rate_mps, ux);
+                    RangeTapeOverlay::new(locked, tape).emit(target);
+                });
+            }
+        });
+    }
+}
+
 /// Polymorphic spacecraft hull-optic HUD dispatching Nose and Belly decorator chains without `Option`.
 #[derive(Clone, Copy, Debug)]
 pub struct ShipOpticHud {
     telemetry: OpticTelemetry,
     view_proj: Mat4,
+    reticle: ScreenPoint,
     inv_aspect: f32,
 }
 
 impl ShipOpticHud {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn from_parts(telemetry: OpticTelemetry, view_proj: Mat4, inv_aspect: f32) -> Self {
-        Self { telemetry, view_proj, inv_aspect }
+    pub const fn from_parts(
+        telemetry: OpticTelemetry,
+        view_proj: Mat4,
+        reticle: ScreenPoint,
+        inv_aspect: f32,
+    ) -> Self {
+        Self { telemetry, view_proj, reticle, inv_aspect }
     }
 
-    pub fn new(telemetry: OpticTelemetry, view_proj: Mat4, aspect: f32) -> Self {
-        Self::from_parts(telemetry, view_proj, (1.0 / aspect.max(0.5)).clamp(0.25, 1.5))
+    pub fn new(telemetry: OpticTelemetry, view_proj: Mat4, reticle: ScreenPoint, aspect: f32) -> Self {
+        Self::from_parts(
+            telemetry,
+            view_proj,
+            reticle,
+            (1.0 / aspect.max(0.5)).clamp(0.25, 1.5),
+        )
     }
 
     fn emit_belly(&self, belly: BellySnapshot, target: &mut dyn MeshTarget) {
         let ux = self.inv_aspect;
         belly.transfer(|clearance, course, ship_pos| {
             clearance.transfer(|in_well, altitude, range_rate| {
-                let scale = ChevronReadoutScale::belly_radar(
-                    ApproachZoneScale::belly_touchdown(GraduatedSpine::belly_altitude(ux), range_rate),
-                    altitude,
-                    range_rate,
-                );
+                let tape = BoresightTape::belly(self.reticle, altitude, range_rate, ux);
                 match course {
                     NavigationCourse::Uncharted if in_well => {
-                        RangeTapeOverlay::new(SilentOverlay, scale).emit(target);
+                        RangeTapeOverlay::new(SilentOverlay, tape).emit(target);
                     }
                     NavigationCourse::Uncharted => {
                         SilentOverlay.emit(target);
@@ -127,7 +195,7 @@ impl ShipOpticHud {
                         arc.sample_range(ship_pos, Vec3::ZERO, |tgt_world, _, _| {
                             let locked = TargetLockOverlay::new(SilentOverlay, tgt_world, self.view_proj, ux);
                             if in_well {
-                                RangeTapeOverlay::new(locked, scale).emit(target);
+                                RangeTapeOverlay::new(locked, tape).emit(target);
                             } else {
                                 locked.emit(target);
                             }
@@ -144,7 +212,7 @@ impl OpticOverlay for ShipOpticHud {
         match self.telemetry {
             OpticTelemetry::Silent => SilentOverlay.emit(target),
             OpticTelemetry::Nose(orrery) => {
-                NoseOrreryHud::new(orrery, self.view_proj, self.inv_aspect).emit(target);
+                NoseOrreryHud::new(orrery, self.view_proj, self.reticle, self.inv_aspect).emit(target);
             }
             OpticTelemetry::Belly(belly) => self.emit_belly(belly, target),
         }

@@ -1,13 +1,13 @@
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use world::{MeshTarget, PlanetaryWorld, VehicleAssembly};
 use crate::attire::BodyPose;
 use crate::controls::{ActionBindings, ControlAction, InputTrigger, KeyboardControls};
 use crate::drive::VehiclePilot;
-use crate::menu::{CameraFeed, ControlsSlate, ControlsSlateHud, GuidanceReadout, SlateContext};
+use crate::menu::{ControlsSlate, ControlsSlateHud, GuidanceReadout, SlateContext};
 use crate::order::LocomotionOrder;
 use crate::posture::AvatarPosture;
 use super::deck::DeckFooting;
-use super::helm_optics::HelmOptics;
+use super::helm_optics::{HelmOptics, HullBoresight};
 use super::sight::AvatarSight;
 use super::span::BodySpan;
 
@@ -75,16 +75,6 @@ impl CockpitBerth {
         (!views.is_empty()).then(|| self.optics.gimbal_head_angles())
     }
 
-    pub(super) fn hull_camera_hud(&self) -> (Option<((Vec3, Vec3, Vec3), Vec3)>, Option<CameraFeed>) {
-        if !self.pilot.driving() {
-            return (None, None);
-        }
-        let views = self.pilot.collected_views();
-        let guidance = self.pilot.guidance_readout();
-        let flip_burn = self.pilot.flip_burn_readout();
-        (self.optics.resolve_boresight(&views), self.optics.channel_feed(&views, guidance, flip_burn))
-    }
-
     pub(super) fn solar_chart_snapshot(&self) -> Option<(crate::drive::OrrerySnapshot, f32, bool)> {
         self.pilot.solar_chart_snapshot()
     }
@@ -101,16 +91,11 @@ impl CockpitBerth {
         self.pilot.mark_nose_target(rays, world)
     }
 
-    pub(super) fn optic_telemetry(&self) -> crate::drive::OpticTelemetry {
-        let views = self.pilot.collected_views();
-        self.optics.optic_telemetry(&views, &self.pilot)
-    }
-
     pub(super) fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3)> {
         if self.optics.cockpit_view() || !self.pilot.driving() {
             return None;
         }
-        self.optics.resolve_boresight(&self.pilot.collected_views()).map(|(lens, _)| lens)
+        self.optics.resolve_boresight(&self.pilot.collected_views()).map(HullBoresight::lens_frame)
     }
 
     pub(super) fn rotate_view(&mut self, dx: f32, dy: f32, sight_line: &mut AvatarSight) {
@@ -121,7 +106,20 @@ impl CockpitBerth {
         }
     }
 
-    pub(super) fn emit_controls_slate(
+    pub(super) fn emit_hud(
+        &self,
+        posture: AvatarPosture,
+        sight: &AvatarSight,
+        bindings: &ActionBindings,
+        vp: Mat4,
+        aspect: f32,
+        target: &mut dyn MeshTarget,
+    ) {
+        self.optics.emit_hud(&self.pilot, posture, sight, vp, aspect, target);
+        self.emit_controls_slate(bindings, aspect, target);
+    }
+
+    fn emit_controls_slate(
         &self,
         bindings: &ActionBindings,
         aspect: f32,

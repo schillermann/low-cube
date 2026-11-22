@@ -221,18 +221,8 @@ impl AvatarMotor for EmbodiedAvatar {
     }
 
     fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
-        let (boresight, feed) = self.body.hull_camera_hud();
-        let aim = self.sight_line.reticle_point(aspect, boresight);
-        self.body.posture().emit_reticle_at(aim, target);
         let vp = self.project_at_sight(aspect, self.bearing.sight(), self.body.hull_camera_lens());
-        crate::menu::OpticOverlay::emit(
-            &crate::menu::ShipOpticHud::new(self.body.optic_telemetry(), vp, aspect),
-            target,
-        );
-        if let Some(channel_feed) = feed {
-            crate::menu::ViewfinderHud::new(channel_feed, aspect).emit(target);
-        }
-        self.body.emit_controls_slate(self.gear.bindings(), aspect, target);
+        self.body.emit_hud(&self.sight_line, self.gear.bindings(), vp, aspect, target);
         self.bearing.emit_polaroid(target);
     }
 }

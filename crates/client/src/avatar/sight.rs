@@ -138,14 +138,6 @@ impl AvatarSight {
         self.lens.projection_matrix(aspect) * Mat4::look_to_rh(eye, forward, up)
     }
 
-    pub fn reticle_point(&self, aspect: f32, boresight: Option<((Vec3, Vec3, Vec3), Vec3)>) -> crate::menu::ScreenPoint {
-        let Some(((eye, fwd, up), aim_world)) = boresight else {
-            return crate::menu::ScreenPoint::center();
-        };
-        let ndc = self.project_lens_view(aspect, eye, fwd, up).project_point3(aim_world);
-        crate::menu::ScreenPoint::new(ndc.x.clamp(-0.96, 0.96), ndc.y.clamp(-0.96, 0.96))
-    }
-
     #[allow(clippy::too_many_arguments)]
     pub fn project_placed_or_sight(
         &self,

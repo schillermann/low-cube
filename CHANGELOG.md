@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.102.0] - 2026-11-22
+
+### Added
+- Added 5-layer boresight-locked `RangeScale` decorator chain (`ReticleStandoffScale`, `BoresightTape`, and `ShiftedTarget` in `crates/client/src/menu/orrery_hud/standoff.rs`, `GlassPlateScale` in `scale_decorators.rs`, `PhosphorTone` and `ClosureKinematics` in `phosphor.rs`, and `Quad::shifted` in `crates/world/src/quad.rs`), plus `ChannelStripOverlay` (`overlays.rs`) and `HullBoresight` (`crates/client/src/avatar/helm_optics.rs`), consolidating cockpit HUD emission into Tell-Don't-Ask messages across `EmbodiedAvatar`, `AvatarBody`, `CockpitBerth`, and `HelmOptics`.
+
+### Changed
+- Anchored the `RocketNose` (`TGT`) and `RocketBelly` (`ALT`) vertical laser range scales rigidly to the projected 3D boresight reticle crosshair (`HullBoresight::reticle_point`) at a clear `0.25` horizontal standoff so the scale remains fixed beside the crosshair instead of following mouse gimbal gaze, and unified all scale layers onto a monochromatic 129° avionics Head-Up Display phosphor-green tonal palette (`PhosphorTone::GlassTint` .. `PeakPhosphor`, verified in `crates/client/src/drive/optic_scale_tests.rs`).
+
 ## [0.101.0] - 2026-11-22
 
 ### Added
