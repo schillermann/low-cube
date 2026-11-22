@@ -90,17 +90,25 @@ vec4 planetary_rayleigh_shell(vec3 rel_cam, vec3 dir, vec3 sun_dir, float body_h
     return vec4(col, clamp(tau * (day + twilight * 0.6), 0.0, 1.0));
 }
 
-vec3 polar_aurora(vec3 dir, vec3 cam_pos, vec3 local_up, float aurora_factor, float time) {
-    if (aurora_factor <= 0.01 || dir.x >= -0.01) return vec3(0.0);
+vec3 polar_aurora(vec3 dir, vec3 cam_pos, vec3 local_up, vec3 pole_axis, float aurora_factor, float peri_surge, float time, bool helio_active) {
+    vec3 axis = helio_active ? normalize(pole_axis) : vec3(-1.0, 0.0, 0.0);
+    float north_hemi = helio_active ? smoothstep(-0.10, 0.35, dot(local_up, axis)) : 1.0;
+    if (aurora_factor * north_hemi <= 0.01 || dot(dir, axis) <= 0.01) return vec3(0.0);
     float above_horizon = smoothstep(0.0, 0.12, dot(dir, local_up));
     if (above_horizon <= 0.0) return vec3(0.0);
-    float t = (-(u_face_half + u_ceiling_altitude) - cam_pos.x) / dir.x;
+    float apex_span = helio_active ? (u_face_half * 1.45 + u_ceiling_altitude) : (u_face_half + u_ceiling_altitude);
+    float t = (apex_span - dot(cam_pos, axis)) / dot(dir, axis);
     if (t <= 0.0) return vec3(0.0);
     vec3 hit = cam_pos + t * dir;
-    float face_dist = max(abs(hit.y), abs(hit.z));
-    float face_cutoff = smoothstep(u_face_half, u_face_half * 0.85, face_dist);
+    vec3 ref_v = (abs(axis.z) > 0.9) ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
+    vec3 tan_u = normalize(cross(axis, ref_v));
+    vec3 tan_v = cross(axis, tan_u);
+    vec2 apex_xy = vec2(dot(hit, tan_u), dot(hit, tan_v));
+    float bound = helio_active ? (u_face_half * 1.35) : u_face_half;
+    float face_dist = helio_active ? length(apex_xy) : max(abs(hit.y), abs(hit.z));
+    float face_cutoff = smoothstep(bound, bound * 0.82, face_dist);
     if (face_cutoff <= 0.001) return vec3(0.0);
-    vec2 p = hit.yz / u_aurora_radius;
+    vec2 p = (helio_active ? apex_xy : hit.yz) / (u_aurora_radius * (helio_active ? 1.25 : 1.0));
     float dist = length(p);
     float ring = smoothstep(0.12, 0.45, dist) * smoothstep(1.35, 0.80, dist);
     if (ring <= 0.005) return vec3(0.0);
@@ -111,7 +119,7 @@ vec3 polar_aurora(vec3 dir, vec3 cam_pos, vec3 local_up, float aurora_factor, fl
     float r2 = abs(dist - 1.20 + sin(angle * 7.0 - drift * 0.7) * 0.14);
     float c2 = exp(-r2 * 10.0) * 0.5;
     vec3 spectral = mix(vec3(0.08, 0.96, 0.46), vec3(0.62, 0.18, 0.92), clamp((dist - 0.75) * 1.5, 0.0, 1.0));
-    return spectral * ((c1 + c2) * ring * face_cutoff) * (aurora_factor * above_horizon * 1.8);
+    return spectral * ((c1 + c2) * ring * face_cutoff) * (aurora_factor * north_hemi * peri_surge * above_horizon * 1.8);
 }
 
 vec3 subpixel_planet_beacon(vec3 dir, vec3 p_dir, vec3 pole, float half_ang, vec3 col) {
@@ -140,7 +148,8 @@ void main() {
     float eclipse_occ = 0.0;
     if (u_eclipse_occluder.w > 0.0005 && dot(dir, u_eclipse_occluder.xyz) > 0.92) {
         vec3 occ_d = normalize(u_eclipse_occluder.xyz);
-        vec3 occ_r = normalize(cross(occ_d, u_celestial_pole));
+        vec3 occ_pole = (abs(dot(occ_d, u_celestial_pole)) > 0.96) ? vec3(1.0, 0.0, 0.0) : u_celestial_pole;
+        vec3 occ_r = normalize(cross(occ_d, occ_pole));
         vec3 occ_u = cross(occ_r, occ_d);
         vec2 occ_uv = vec2(dot(dir - occ_d, occ_r), dot(dir - occ_d, occ_u));
         eclipse_occ = 1.0 - smoothstep(u_eclipse_occluder.w * 0.92, u_eclipse_occluder.w, max(abs(occ_uv.x), abs(occ_uv.y)));
@@ -162,7 +171,7 @@ void main() {
     vec3 sun_halo = (vec3(1.0, 0.58, 0.14) * pow(sun_dot, 36.0 / sqrt(corona_scale)) * 0.44 + vec3(0.95, 0.34, 0.08) * pow(sun_dot, 9.0) * 0.16) * sqrt(corona_scale) * (1.0 - eclipse_occ * 0.85);
     vec3 sun_color = (sun_core + sun_halo) * sun_above;
 
-    float belt_plane = abs(dot(dir, u_celestial_pole));
+    float belt_plane = helio_active ? abs(dir.y) : abs(dot(dir, u_celestial_pole));
     float star_vis = max(u_night_factor, space_factor);
     vec3 belt_dust = vec3(0.42, 0.39, 0.36) * exp(-belt_plane * 26.0) * (0.04 + 0.03 * star_noise(floor(dir * 60.0))) * star_vis;
     vec3 beacons = vec3(0.0);
@@ -183,7 +192,8 @@ void main() {
     vec3 cosmos = sky_bg + (vec3(stars(dir) * star_vis * 1.5) + belt_dust) * star_occ + beacons;
     bool on_earth = length(v_cam_pos) < u_face_half * 3.0;
     if (on_earth) {
-        cosmos += polar_aurora(dir, v_cam_pos, u_local_up, u_aurora_factor * (1.0 - space_factor), u_time);
+        float peri_surge = helio_active ? clamp(s_half / 0.00465, 0.75, 1.55) : 1.0;
+        cosmos += polar_aurora(dir, v_cam_pos, u_local_up, u_celestial_pole, u_aurora_factor * (1.0 - space_factor), peri_surge, u_time, helio_active);
     }
     frag_color = vec4(cosmos + atmo.rgb + sun_color * (1.0 - atmo.a * 0.25), 1.0);
 }

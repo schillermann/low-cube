@@ -1,7 +1,9 @@
 use glam::{DVec3, Vec3};
 use crate::{BeveledGravity, GravityField};
 use super::catalog::{BodyId, OrbitalSpec, SolarCatalog, SurfaceNature, MAJOR_BODY_COUNT};
+use super::kepler::OrbitalLocus;
 use super::proportions::SolarProportions;
+use super::spin::{ApexSpin, PlanetarySpin};
 use super::ZoneGravity;
 
 /// Instantaneous position, velocity, and gravitational parameter of an orbiting body relative to Earth `(0, 0, 0)`.
@@ -52,7 +54,7 @@ impl BodySnapshot {
     pub const fn gm(self) -> f64 { self.kinematics.gm() }
 }
 
-/// Moving Keplerian ephemeris and exact `1/r²` N-body gravitational field in Earth-centered inertial coordinates.
+/// Moving Keplerian elliptical ephemeris and exact `1/r²` N-body gravitational field in Earth-centered inertial coordinates.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SolarEphemeris {
     proportions: SolarProportions,
@@ -86,25 +88,6 @@ impl SolarEphemeris {
         (half, g * half * half)
     }
 
-    fn circular_orbit(radius: f64, parent_gm: f64, tilt: f64, phase0: f64, t: f64) -> (DVec3, DVec3) {
-        if radius <= 1e-3 || parent_gm <= 1e-6 {
-            return (DVec3::ZERO, DVec3::ZERO);
-        }
-        let speed = (parent_gm / radius).sqrt();
-        let omega = speed / radius;
-        let retrograde = if tilt < -0.2 { -1.0 } else { 1.0 };
-        let angle = phase0 + retrograde * omega * t;
-        let (sin_a, cos_a) = angle.sin_cos();
-        let (sin_i, cos_i) = tilt.abs().sin_cos();
-        let pos = DVec3::new(radius * cos_a, radius * sin_a * sin_i, radius * sin_a * cos_i);
-        let vel = DVec3::new(
-            -speed * sin_a * retrograde,
-            speed * cos_a * sin_i * retrograde,
-            speed * cos_a * cos_i * retrograde,
-        );
-        (pos, vel)
-    }
-
     /// Resolves all 21 major bodies at `self.epoch_secs + delta_t` in Earth-centered inertial `DVec3` coordinates.
     pub fn snapshot_all(self, delta_t: f64) -> [BodySnapshot; MAJOR_BODY_COUNT] {
         let catalog = SolarCatalog::new();
@@ -115,7 +98,7 @@ impl SolarEphemeris {
 
         let mut helio_pos = [DVec3::ZERO; MAJOR_BODY_COUNT];
         let mut helio_vel = [DVec3::ZERO; MAJOR_BODY_COUNT];
-        let mut radii = [0.0_f64; MAJOR_BODY_COUNT];
+        let mut semi_majors = [0.0_f64; MAJOR_BODY_COUNT];
         let mut halves = [0.0_f64; MAJOR_BODY_COUNT];
         let mut gms = [0.0_f64; MAJOR_BODY_COUNT];
 
@@ -126,16 +109,11 @@ impl SolarEphemeris {
             if spec.id() == BodyId::SOL {
                 continue;
             }
-            if spec.orbit().parent() == BodyId::SOL {
-                let r = spec.orbit().orbit_units() * au;
-                radii[i] = r;
-                let (p, v) = Self::circular_orbit(
-                    r,
-                    sun_gm,
-                    f64::from(spec.orbit().inclination_rad()),
-                    f64::from(spec.orbit().phase_rad()),
-                    t,
-                );
+            let orbit = spec.orbit();
+            if orbit.heliocentric() {
+                let a = orbit.semi_major_meters(au);
+                semi_majors[i] = a;
+                let (p, v) = orbit.sample_state(a, sun_gm, t);
                 helio_pos[i] = p;
                 helio_vel[i] = v;
             }
@@ -143,19 +121,14 @@ impl SolarEphemeris {
 
         let d_scale = f64::from(self.proportions.distance_scale().max(0.0005));
         for (i, &spec) in entries.iter().enumerate() {
-            let parent = spec.orbit().parent();
-            if parent != BodyId::SOL {
+            let orbit = spec.orbit();
+            if !orbit.heliocentric() {
+                let parent = orbit.parent();
                 if let Some(p_idx) = entries.iter().position(|s| s.id() == parent) {
                     let min_clear = halves[p_idx] * 1.6 + halves[i] * 1.6 + 8.0;
-                    let r = (spec.orbit().orbit_units() * halves[p_idx] * 2.0 * d_scale).max(min_clear);
-                    radii[i] = r;
-                    let (lp, lv) = Self::circular_orbit(
-                        r,
-                        gms[p_idx],
-                        f64::from(spec.orbit().inclination_rad()),
-                        f64::from(spec.orbit().phase_rad()),
-                        t,
-                    );
+                    let a = orbit.semi_major_meters(halves[p_idx] * 2.0 * d_scale).max(min_clear);
+                    semi_majors[i] = a;
+                    let (lp, lv) = orbit.sample_state(a, gms[p_idx], t);
                     helio_pos[i] = helio_pos[p_idx] + lp;
                     helio_vel[i] = helio_vel[p_idx] + lv;
                 }
@@ -168,14 +141,16 @@ impl SolarEphemeris {
             BodySnapshot::new(
                 entries[i],
                 halves[i],
-                BodyKinematics::new(helio_pos[i] - earth_p, helio_vel[i] - earth_v, radii[i], gms[i]),
+                BodyKinematics::new(helio_pos[i] - earth_p, helio_vel[i] - earth_v, semi_majors[i], gms[i]),
             )
         })
     }
 
     pub fn sun_direction_from(self, world_pos: DVec3, delta_t: f64) -> Vec3 {
-        let bodies = self.snapshot_all(delta_t);
-        let to_sun = bodies[0].center() - world_pos;
+        let stepped = self.advanced(delta_t);
+        let bodies = stepped.snapshot_all(0.0);
+        let apparent_sun = ApexSpin::from_ephemeris(stepped).apparent_sun_center(bodies[0].center(), world_pos);
+        let to_sun = apparent_sun - world_pos;
         if to_sun.length_squared() > 1e-6 {
             to_sun.normalize().as_vec3()
         } else {

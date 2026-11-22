@@ -163,3 +163,59 @@ fn test_firmament_shader_contains_aurora_and_time() {
     assert!(FIRMAMENT_FRAGMENT_SRC.contains("polar_aurora"));
     assert!(FIRMAMENT_FRAGMENT_SRC.contains("u_night_factor"));
 }
+
+#[test]
+fn test_heliosphere_corner_spin_perihelion_flux_and_focal_ellipse_locus() {
+    use std::f64::consts::TAU;
+    use glam::{DVec3, Vec3};
+    use world::{
+        ApexSpin, BodyId, CelestialAtlas, OrbitalLocus, PlanetarySpin, SolarCatalog,
+        SolarEphemeris, SolarProportions,
+    };
+    use crate::rayleigh_shell::{AtmosphericShell, FirmamentPlanets};
+
+    let prop = SolarProportions::true_scale(64);
+    let au = prop.astronomical_unit();
+    let eph0 = SolarEphemeris::new(prop, 0.0);
+    let sun_gm = eph0.snapshot_all(0.0)[0].gm();
+    let year_secs = TAU * (au * au * au / sun_gm).sqrt();
+
+    let (mut min_ang, mut max_ang) = (f32::MAX, 0.0_f32);
+    for step in 0..48 {
+        let eph = eph0.advanced(year_secs * (f64::from(step) / 48.0));
+        let ang = FirmamentPlanets::from_atlas(CelestialAtlas::heliosphere(eph), Vec3::new(0.0, 33.0, 0.0))
+            .transfer(|cubes, _| cubes[7][3]);
+        min_ang = min_ang.min(ang);
+        max_ang = max_ang.max(ang);
+    }
+    assert!(
+        max_ang > min_ang * 1.45,
+        "Apparent cubic Sun must swell ~1.5x between Aphelion ({min_ang}) and Perihelion ({max_ang})",
+    );
+
+    let shell = AtmosphericShell::terrestrial_at(Vec3::new(17.0, 0.0, 0.0));
+    let (_, peri_sky, _) = shell.sky_illumination_with_flux(Vec3::X, max_ang);
+    let (_, aphel_sky, _) = shell.sky_illumination_with_flux(Vec3::X, min_ang);
+    assert!(peri_sky.length() > aphel_sky.length(), "Perihelion solar flux must brighten daytime sky scatter");
+
+    let spin = ApexSpin::from_ephemeris(eph0);
+    let sun_t0 = FirmamentPlanets::from_atlas(CelestialAtlas::heliosphere(eph0), Vec3::new(0.0, 33.0, 0.0))
+        .transfer(|cubes, _| Vec3::new(cubes[7][0], cubes[7][1], cubes[7][2]));
+    let sun_half_day = FirmamentPlanets::from_atlas(
+        CelestialAtlas::heliosphere(eph0.advanced(spin.epoch_after_turns(0.5))),
+        Vec3::new(0.0, 33.0, 0.0),
+    )
+    .transfer(|cubes, _| Vec3::new(cubes[7][0], cubes[7][1], cubes[7][2]));
+    assert!(
+        (sun_t0 - sun_half_day).length() > 1.1,
+        "Half a diurnal spin must swing the Firmament Sun across the sky vault",
+    );
+
+    let earth_orbit = SolarCatalog::new().spec_for(BodyId::EARTH).expect("Earth spec").orbit();
+    let (mut min_focus_d, mut max_focus_d) = (f64::MAX, 0.0_f64);
+    earth_orbit.trace_ellipse(DVec3::ZERO, 100.0, 48, &mut |a, b| {
+        min_focus_d = min_focus_d.min(a.length()).min(b.length());
+        max_focus_d = max_focus_d.max(a.length()).max(b.length());
+    });
+    assert!((min_focus_d - 80.0).abs() < 0.5 && (max_focus_d - 120.0).abs() < 0.5);
+}

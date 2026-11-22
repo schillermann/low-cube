@@ -1,4 +1,5 @@
 use glam::Vec3;
+use super::kepler::OrbitElements;
 
 /// Compact celestial body identifier addressing the Sun, 8 planets, dwarf planets, moons, and belt asteroids.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -70,26 +71,6 @@ impl SurfaceNature {
     }
 }
 
-/// Keplerian circular-inclined orbital elements (`AU` around `SOL`, parent-diameters around planets).
-#[derive(Clone, Copy, Debug)]
-pub struct OrbitElements {
-    parent: BodyId,
-    orbit_units: f64,
-    tilt_and_phase: (f32, f32),
-}
-
-impl OrbitElements {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(parent: BodyId, orbit_units: f64, tilt_and_phase: (f32, f32)) -> Self {
-        Self { parent, orbit_units, tilt_and_phase }
-    }
-
-    pub const fn parent(self) -> BodyId { self.parent }
-    pub const fn orbit_units(self) -> f64 { self.orbit_units }
-    pub const fn inclination_rad(self) -> f32 { self.tilt_and_phase.0 }
-    pub const fn phase_rad(self) -> f32 { self.tilt_and_phase.1 }
-}
-
 /// Physical proportions, surface gravity, nature, and primary/secondary cube tones of a celestial body.
 #[derive(Clone, Copy, Debug)]
 pub struct BodyPhysique {
@@ -142,7 +123,7 @@ impl OrbitalSpec {
 
 pub const MAJOR_BODY_COUNT: usize = 21;
 
-/// Authoritative catalog of the cubic Sun, all 8 planets, Ceres, and 11 major moons.
+/// Authoritative catalog of the cubic Sun, all 8 Keplerian planets, Ceres, and 11 major moons.
 pub struct SolarCatalog;
 
 impl SolarCatalog {
@@ -164,107 +145,107 @@ const fn v3(x: f32, y: f32, z: f32) -> Vec3 {
 static CATALOG: [OrbitalSpec; MAJOR_BODY_COUNT] = [
     OrbitalSpec::new(
         (BodyId::SOL, "SOL"),
-        OrbitElements::new(BodyId::SOL, 0.0, (0.0, 0.0)),
+        OrbitElements::stationary_star(),
         BodyPhysique::new(109.2, 274.0, SurfaceNature::SolarStar, (v3(1.0, 0.92, 0.55), v3(1.0, 0.48, 0.12))),
     ),
     OrbitalSpec::new(
         (BodyId::MERCURY, "MERCURY"),
-        OrbitElements::new(BodyId::SOL, 0.387, (0.12, 0.85)),
+        OrbitElements::keplerian(BodyId::SOL, 0.387, 0.206, (0.12, 0.50, 0.35)),
         BodyPhysique::new(0.383, 3.70, SurfaceNature::RockyWorld, (v3(0.58, 0.56, 0.54), v3(0.36, 0.34, 0.33))),
     ),
     OrbitalSpec::new(
         (BodyId::VENUS, "VENUS"),
-        OrbitElements::new(BodyId::SOL, 0.723, (0.06, 2.10)),
+        OrbitElements::keplerian(BodyId::SOL, 0.723, 0.007, (0.06, 1.10, 1.00)),
         BodyPhysique::new(0.949, 8.87, SurfaceNature::RockyWorld, (v3(0.92, 0.78, 0.46), v3(0.72, 0.52, 0.24))),
     ),
     OrbitalSpec::new(
         (BodyId::EARTH, "EARTH"),
-        OrbitElements::new(BodyId::SOL, 1.000, (0.41, -1.20)),
+        OrbitElements::keplerian(BodyId::SOL, 1.000, 0.200, (0.41, -2.663, 1.10)),
         BodyPhysique::new(1.000, 9.81, SurfaceNature::Homeworld, (v3(0.22, 0.56, 0.88), v3(0.26, 0.64, 0.28))),
     ),
     OrbitalSpec::new(
         (BodyId::LUNA, "LUNA"),
-        OrbitElements::new(BodyId::EARTH, 30.1, (0.09, 1.25)),
+        OrbitElements::keplerian(BodyId::EARTH, 30.1, 0.055, (0.09, 0.45, 0.80)),
         BodyPhysique::new(0.273, 1.62, SurfaceNature::RockyWorld, (v3(0.72, 0.74, 0.78), v3(0.42, 0.44, 0.49))),
     ),
     OrbitalSpec::new(
         (BodyId::MARS, "MARS"),
-        OrbitElements::new(BodyId::SOL, 1.524, (0.03, 0.52)),
+        OrbitElements::keplerian(BodyId::SOL, 1.524, 0.093, (0.03, -0.42, 0.94)),
         BodyPhysique::new(0.532, 3.72, SurfaceNature::RockyWorld, (v3(0.82, 0.36, 0.20), v3(0.48, 0.20, 0.12))),
     ),
     OrbitalSpec::new(
         (BodyId::PHOBOS, "PHOBOS"),
-        OrbitElements::new(BodyId::MARS, 2.8, (0.02, 0.40)),
+        OrbitElements::keplerian(BodyId::MARS, 2.8, 0.015, (0.02, 0.15, 0.25)),
         BodyPhysique::new(0.090, 0.55, SurfaceNature::RockyWorld, (v3(0.46, 0.40, 0.36), v3(0.28, 0.24, 0.22))),
     ),
     OrbitalSpec::new(
         (BodyId::DEIMOS, "DEIMOS"),
-        OrbitElements::new(BodyId::MARS, 6.9, (0.04, 3.60)),
+        OrbitElements::keplerian(BodyId::MARS, 6.9, 0.001, (0.04, 1.20, 2.40)),
         BodyPhysique::new(0.075, 0.42, SurfaceNature::RockyWorld, (v3(0.52, 0.46, 0.40), v3(0.32, 0.28, 0.25))),
     ),
     OrbitalSpec::new(
         (BodyId::CERES, "CERES"),
-        OrbitElements::new(BodyId::SOL, 2.768, (0.18, 1.95)),
+        OrbitElements::keplerian(BodyId::SOL, 2.768, 0.076, (0.18, 0.75, 1.20)),
         BodyPhysique::new(0.140, 0.85, SurfaceNature::RockyWorld, (v3(0.50, 0.50, 0.52), v3(0.30, 0.31, 0.34))),
     ),
     OrbitalSpec::new(
         (BodyId::JUPITER, "JUPITER"),
-        OrbitElements::new(BodyId::SOL, 5.203, (0.02, 1.15)),
+        OrbitElements::keplerian(BodyId::SOL, 5.203, 0.049, (0.02, 0.25, 0.90)),
         BodyPhysique::new(10.97, 24.79, SurfaceNature::GasGiant { ringed: false }, (v3(0.86, 0.68, 0.48), v3(0.74, 0.38, 0.22))),
     ),
     OrbitalSpec::new(
         (BodyId::IO, "IO"),
-        OrbitElements::new(BodyId::JUPITER, 3.2, (0.01, 0.30)),
+        OrbitElements::keplerian(BodyId::JUPITER, 3.2, 0.004, (0.01, 0.10, 0.20)),
         BodyPhysique::new(0.286, 1.80, SurfaceNature::RockyWorld, (v3(0.95, 0.82, 0.24), v3(0.82, 0.28, 0.12))),
     ),
     OrbitalSpec::new(
         (BodyId::EUROPA, "EUROPA"),
-        OrbitElements::new(BodyId::JUPITER, 5.1, (0.02, 1.80)),
+        OrbitElements::keplerian(BodyId::JUPITER, 5.1, 0.009, (0.02, 0.60, 1.20)),
         BodyPhysique::new(0.245, 1.31, SurfaceNature::RockyWorld, (v3(0.84, 0.92, 0.98), v3(0.52, 0.68, 0.82))),
     ),
     OrbitalSpec::new(
         (BodyId::GANYMEDE, "GANYMEDE"),
-        OrbitElements::new(BodyId::JUPITER, 8.2, (0.01, 3.10)),
+        OrbitElements::keplerian(BodyId::JUPITER, 8.2, 0.002, (0.01, 1.10, 2.00)),
         BodyPhysique::new(0.413, 1.43, SurfaceNature::RockyWorld, (v3(0.62, 0.60, 0.58), v3(0.38, 0.36, 0.35))),
     ),
     OrbitalSpec::new(
         (BodyId::CALLISTO, "CALLISTO"),
-        OrbitElements::new(BodyId::JUPITER, 13.8, (0.01, 4.70)),
+        OrbitElements::keplerian(BodyId::JUPITER, 13.8, 0.007, (0.01, 1.70, 3.00)),
         BodyPhysique::new(0.378, 1.24, SurfaceNature::RockyWorld, (v3(0.42, 0.40, 0.44), v3(0.24, 0.23, 0.27))),
     ),
     OrbitalSpec::new(
         (BodyId::SATURN, "SATURN"),
-        OrbitElements::new(BodyId::SOL, 9.537, (0.04, 2.55)),
+        OrbitElements::keplerian(BodyId::SOL, 9.537, 0.057, (0.04, 1.60, 0.95)),
         BodyPhysique::new(9.14, 10.44, SurfaceNature::GasGiant { ringed: true }, (v3(0.90, 0.80, 0.56), v3(0.72, 0.62, 0.42))),
     ),
     OrbitalSpec::new(
         (BodyId::ENCELADUS, "ENCELADUS"),
-        OrbitElements::new(BodyId::SATURN, 3.4, (0.01, 0.90)),
+        OrbitElements::keplerian(BodyId::SATURN, 3.4, 0.005, (0.01, 0.30, 0.60)),
         BodyPhysique::new(0.120, 0.65, SurfaceNature::RockyWorld, (v3(0.92, 0.96, 1.00), v3(0.62, 0.78, 0.92))),
     ),
     OrbitalSpec::new(
         (BodyId::TITAN, "TITAN"),
-        OrbitElements::new(BodyId::SATURN, 10.2, (0.02, 2.75)),
+        OrbitElements::keplerian(BodyId::SATURN, 10.2, 0.029, (0.02, 0.95, 1.80)),
         BodyPhysique::new(0.404, 1.35, SurfaceNature::RockyWorld, (v3(0.90, 0.62, 0.24), v3(0.58, 0.36, 0.14))),
     ),
     OrbitalSpec::new(
         (BodyId::URANUS, "URANUS"),
-        OrbitElements::new(BodyId::SOL, 19.19, (0.01, 4.05)),
+        OrbitElements::keplerian(BodyId::SOL, 19.19, 0.046, (0.01, 2.95, 1.10)),
         BodyPhysique::new(3.98, 8.69, SurfaceNature::GasGiant { ringed: false }, (v3(0.56, 0.88, 0.92), v3(0.36, 0.68, 0.76))),
     ),
     OrbitalSpec::new(
         (BodyId::TITANIA, "TITANIA"),
-        OrbitElements::new(BodyId::URANUS, 8.6, (0.05, 1.40)),
+        OrbitElements::keplerian(BodyId::URANUS, 8.6, 0.002, (0.05, 0.50, 0.90)),
         BodyPhysique::new(0.180, 0.78, SurfaceNature::RockyWorld, (v3(0.74, 0.78, 0.82), v3(0.45, 0.50, 0.56))),
     ),
     OrbitalSpec::new(
         (BodyId::NEPTUNE, "NEPTUNE"),
-        OrbitElements::new(BodyId::SOL, 30.07, (0.03, 5.15)),
+        OrbitElements::keplerian(BodyId::SOL, 30.07, 0.011, (0.03, 0.80, 4.35)),
         BodyPhysique::new(3.86, 11.15, SurfaceNature::GasGiant { ringed: false }, (v3(0.22, 0.42, 0.92), v3(0.14, 0.26, 0.68))),
     ),
     OrbitalSpec::new(
         (BodyId::TRITON, "TRITON"),
-        OrbitElements::new(BodyId::NEPTUNE, 7.4, (-0.28, 2.20)),
+        OrbitElements::keplerian(BodyId::NEPTUNE, 7.4, 0.016, (-0.28, 0.60, 1.60)),
         BodyPhysique::new(0.212, 0.78, SurfaceNature::RockyWorld, (v3(0.82, 0.86, 0.92), v3(0.52, 0.56, 0.66))),
     ),
 ];

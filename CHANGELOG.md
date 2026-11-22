@@ -8,6 +8,12 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.106.0] - 2026-11-22
+
+### Added
+- Added 3D focal Keplerian elliptical orbits (`OrbitalLocus`, `KeplerAnomaly`, `EllipticShape`, `OrbitalPlane`, and `OrbitElements` in `crates/world/src/celestial/kepler.rs` and `SolarCatalog` in `crates/world/src/celestial/catalog.rs`) solving `M = E - e sin E` with exact Vis-Viva energy and Kepler second-law velocities across all planets and moons, pairing `EARTH`'s `e = 0.20` perihelion (`0.80 AU`) with Southern Summer Solstice (`Desert`, `Volcanic`, `Jungle`) and aphelion (`1.20 AU`) with Northern Summer Solstice (`Arctic`, `Temperate`, `Steppe`), and rendering focal-displaced 3D ellipses on `ChartHologram` (`crates/client/src/menu/solar_chart/hologram.rs`).
+- Added corner-to-corner World-Cube diurnal rotation (`PlanetarySpin` and `ApexSpin` in `crates/world/src/celestial/spin.rs`, wired into `SolarEphemeris::sun_direction_from`, `CosmicBodyCube` in `crates/world/src/celestial/heliosphere/cosmic_sky.rs`, `FirmamentPlanets`, `AtmosphericShell::sky_illumination_with_flux`, `DiurnalPipeline`, and `polar_aurora` in `crates/client/src/firmament_glsl.rs`): spins the World-Cube every 20 minutes around its `(-1, +1, -1)` ↔ `(+1, -1, +1)` diagonal apex so all six fixed `ClimateZone` continents receive full diurnal day/night transitions without grazing-horizon dead zones, scales sky radiance with elliptical solar flux, crowns the northern `Arctic`/`Temperate`/`Steppe` tri-corner with perihelion-boosted aurora, and visibly rotates distant Earth from deep space (`crates/world/src/celestial_tests.rs` and `crates/client/src/celestial_tests.rs`).
+
 ## [0.105.0] - 2026-11-22
 
 ### Added

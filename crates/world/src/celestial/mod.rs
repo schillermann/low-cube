@@ -6,9 +6,11 @@ mod catalog;
 mod ephemeris;
 mod gravity;
 mod heliosphere;
+mod kepler;
 mod lunar;
 mod orbital_fleet;
 mod proportions;
+mod spin;
 mod translated;
 
 use glam::Vec3;
@@ -19,14 +21,16 @@ pub use self::atlas::{AtlasMode, CelestialAtlas};
 pub use self::belt::{AsteroidBelt, BeltRock};
 pub use self::binary::BinaryPlanet;
 pub use self::catalog::{
-    BodyId, BodyPhysique, OrbitElements, OrbitalSpec, SolarCatalog, SurfaceNature, MAJOR_BODY_COUNT,
+    BodyId, BodyPhysique, OrbitalSpec, SolarCatalog, SurfaceNature, MAJOR_BODY_COUNT,
 };
 pub use self::ephemeris::{BodyKinematics, BodySnapshot, SolarEphemeris};
 pub use self::gravity::{BinaryGravity, RadialWell};
 pub use self::heliosphere::{ActiveVicinity, AwakenedBody, HeliosphereWorld, VicinityCache};
+pub use self::kepler::{EllipticShape, KeplerAnomaly, OrbitElements, OrbitalLocus, OrbitalPlane};
 pub use self::lunar::{LunarCraterRelief, LunarWorld};
 pub use self::orbital_fleet::OrbitalFleetWorld;
 pub use self::proportions::{BeltAndReach, BodyRatios, SolarProportions};
+pub use self::spin::{ApexSpin, PlanetarySpin};
 pub use self::translated::TranslatedWorld;
 
 /// Cardinal cubic gravity field resolving the dominant climate-zone normal around an origin.

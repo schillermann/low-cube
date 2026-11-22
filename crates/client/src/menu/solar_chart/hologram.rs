@@ -1,6 +1,9 @@
 use std::f64::consts::TAU;
 use glam::{DVec3, Vec3};
-use world::{AsteroidBelt, BodyId, BodySnapshot, CelestialAtlas, MeshTarget, Quad, SolarCatalog};
+use world::{
+    AsteroidBelt, BodyId, BodySnapshot, CelestialAtlas, MeshTarget, OrbitElements, OrbitalLocus,
+    Quad, SolarCatalog,
+};
 use crate::drive::{ARC_NODES, CourseMode, NavigationCourse, OrrerySnapshot, TransferArc};
 use crate::menu::glyph::PixelStamp;
 use crate::menu::widget::ScreenBounds;
@@ -77,21 +80,23 @@ impl ChartHologram {
         }
     }
 
-    fn emit_orbit_ring(&self, parent: DVec3, radius: f64, tilt: f32, ux: f32, col: Vec3, target: &mut dyn MeshTarget) {
-        if radius <= 1.0 || radius < self.viewport.half_span() * 0.025 {
+    fn emit_orbit_ellipse(
+        &self,
+        orbit: &dyn OrbitalLocus,
+        focus: DVec3,
+        semi_major: f64,
+        ux: f32,
+        col: Vec3,
+        target: &mut dyn MeshTarget,
+    ) {
+        if semi_major <= 1.0 || semi_major < self.viewport.half_span() * 0.025 {
             return;
         }
-        let segs = 40usize;
-        let (sin_i, cos_i) = f64::from(tilt.abs()).sin_cos();
-        let mut prev = self.viewport.project(parent + DVec3::new(radius, 0.0, 0.0), ux);
-        for s in 1..=segs {
-            let a = (s as f64) * TAU / (segs as f64);
-            let (sa, ca) = a.sin_cos();
-            let pt = parent + DVec3::new(radius * ca, radius * sa * sin_i, radius * sa * cos_i);
-            let cur = self.viewport.project(pt, ux);
-            Self::emit_line_2d(prev, cur, 0.0014, col, -0.35, target);
-            prev = cur;
-        }
+        orbit.trace_ellipse(focus, semi_major, 48, &mut |pt_a, pt_b| {
+            let a2 = self.viewport.project(pt_a, ux);
+            let b2 = self.viewport.project(pt_b, ux);
+            Self::emit_line_2d(a2, b2, 0.0014, col, -0.35, target);
+        });
     }
 
     fn emit_belt_torus(&self, sun: DVec3, au: f64, ux: f32, target: &mut dyn MeshTarget) {
@@ -143,7 +148,8 @@ impl ChartHologram {
             } else {
                 Vec3::new(0.24, 0.36, 0.52)
             };
-            self.emit_orbit_ring(parent_c, s.orbit_radius(), entries[idx].orbit().inclination_rad(), ux, ring_col, target);
+            let orbit = entries[idx].orbit();
+            self.emit_orbit_ellipse(&orbit, parent_c, s.orbit_radius(), ux, ring_col, target);
         }
 
         for s in snaps {
@@ -237,7 +243,8 @@ impl ChartHologram {
                     PixelStamp::new(0.0042 * ux, 0.0060, Vec3::new(0.62, 0.96, 0.84)).emit_centered("EARTH", ex, ey - er - 0.018, target);
                     if moon_h > 0.0 {
                         let mr = ((moon_h / span) * 0.72).clamp(0.007, 0.25);
-                        self.emit_orbit_ring(DVec3::ZERO, moon_c.as_dvec3().length(), 0.0, ux, Vec3::new(0.24, 0.44, 0.64), target);
+                        let pocket_orbit = OrbitElements::keplerian(BodyId::EARTH, 1.0, 0.0, (0.0, 0.0, 0.0));
+                        self.emit_orbit_ellipse(&pocket_orbit, DVec3::ZERO, moon_c.as_dvec3().length(), ux, Vec3::new(0.24, 0.44, 0.64), target);
                         let (mx, my) = self.viewport.project(moon_c.as_dvec3(), ux);
                         Self::emit_iso_cube(mx, my, mr, ux, Vec3::new(0.80, 0.86, 0.96), false, target);
                         PixelStamp::new(0.0042 * ux, 0.0060, Vec3::new(0.84, 0.90, 0.98)).emit_centered("LUNA", mx, my - mr - 0.016, target);

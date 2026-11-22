@@ -2,6 +2,7 @@ use std::sync::Mutex;
 use std::time::Instant;
 use glam::{Mat4, Quat, Vec3, Vec4};
 use glow::HasContext;
+use world::{ApexSpin, PlanetarySpin};
 
 use engine::{GraphicPipeline, Mesh, ShaderProgram};
 use crate::aurora_cadence::AuroraCadence;
@@ -130,16 +131,21 @@ impl GraphicPipeline for DiurnalPipeline {
         .inverse();
         let cam_pos = (inv_view_proj * Vec4::new(0.0, 0.0, 1.0, 0.0)).truncate();
 
-        let (light_direction, celestial_pole, local_up, clear_color, night_factor) = if planets[7][3] > 0.0001 {
-            let helio_sun = Vec3::new(planets[7][0], planets[7][1], planets[7][2]).normalize_or_zero();
-            let (body_up, clear, night) = AtmosphericShell::new(atmo_geom, atmo_tint).sky_illumination(helio_sun);
-            (helio_sun, Vec3::Y, body_up, clear, night)
-        } else {
-            let world_sun = self.celestial_epoch.cadence.sun_direction(progress);
-            let (earth_up, clear, night) = AtmosphericShell::terrestrial_at(cam_pos).sky_illumination(world_sun);
-            (world_sun, Vec3::Z, earth_up, clear, night)
-        };
-        let aurora_factor = self.celestial_epoch.aurora.activity(progress, elapsed, night_factor);
+        let (light_direction, celestial_pole, local_up, clear_color, night_factor, local_progress) =
+            if planets[7][3] > 0.0001 {
+                let helio_sun = Vec3::new(planets[7][0], planets[7][1], planets[7][2]).normalize_or_zero();
+                let (body_up, clear, night) = AtmosphericShell::new(atmo_geom, atmo_tint)
+                    .sky_illumination_with_flux(helio_sun, planets[7][3]);
+                let (pole, hour_prog) =
+                    ApexSpin::terrestrial().diurnal_meridian(helio_sun, body_up, progress);
+                (helio_sun, pole, body_up, clear, night, hour_prog)
+            } else {
+                let world_sun = self.celestial_epoch.cadence.sun_direction(progress);
+                let (earth_up, clear, night) =
+                    AtmosphericShell::terrestrial_at(cam_pos).sky_illumination(world_sun);
+                (world_sun, Vec3::Z, earth_up, clear, night, progress)
+            };
+        let aurora_factor = self.celestial_epoch.aurora.activity(local_progress, elapsed, night_factor);
 
         unsafe {
             gl.clear_color(clear_color.x, clear_color.y, clear_color.z, clear_color.w);

@@ -4,6 +4,7 @@ use crate::{ClimateZone, MeshTarget, Quad};
 use super::super::alien_worlds::AlienWorld;
 use super::super::catalog::{BodyId, SurfaceNature};
 use super::super::ephemeris::BodySnapshot;
+use super::super::spin::{ApexSpin, PlanetarySpin};
 
 const COSMIC_HORIZON: f64 = 2.0e6;
 pub(super) const EARTH_VOXEL_HANDOFF: f32 = 40_000.0;
@@ -75,15 +76,16 @@ impl GiantCloudShell {
     }
 }
 
-/// True-metric 3D celestial cube emitter for `SOL`, distant `EARTH`, and unawakened rocky worlds/moons (`<= 4` fields).
+/// True-metric 3D celestial cube emitter for `SOL`, distant spinning `EARTH`, and rocky worlds (`<= 4` fields).
 pub(super) struct CosmicBodyCube {
     snap: BodySnapshot,
+    spin: ApexSpin,
 }
 
 impl CosmicBodyCube {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(snap: BodySnapshot) -> Self {
-        Self { snap }
+    pub(super) const fn new(snap: BodySnapshot, spin: ApexSpin) -> Self {
+        Self { snap, spin }
     }
 
     fn emit_mare_patches(
@@ -121,7 +123,9 @@ impl CosmicBodyCube {
     }
 
     fn emit_solar_star(self, viewer: Vec3, target: &mut dyn MeshTarget) {
-        let rel_d = self.snap.center() - viewer.as_dvec3();
+        let viewer_d = viewer.as_dvec3();
+        let apparent_sun = self.spin.apparent_sun_center(self.snap.center(), viewer_d);
+        let rel_d = apparent_sun - viewer_d;
         let dist = rel_d.length();
         let h_real = self.snap.half_size();
         if dist <= h_real * 1.02 {
@@ -154,12 +158,13 @@ impl CosmicBodyCube {
         let c = viewer + (rel_d * k).as_vec3();
         let h = ((self.snap.half_size() * k) as f32).max(0.05);
         for zone in ClimateZone::all() {
-            let n = zone.normal();
+            let n = self.spin.pose_distant_earth(zone.normal());
             let fc = c + n * h;
             if (fc - viewer).dot(n) >= 0.0 {
                 continue;
             }
-            let (u, v) = (zone.tangent() * h, zone.bitangent() * h);
+            let u = self.spin.pose_distant_earth(zone.tangent()) * h;
+            let v = self.spin.pose_distant_earth(zone.bitangent()) * h;
             let col = ReliefPalette::for_zone(zone).inspect_surface(|s| s);
             target.push_quad(Quad::glowing(fc - u - v, fc + u - v, fc + u + v, fc - u + v, n, col, 0.24));
         }

@@ -31,10 +31,11 @@ mod mesh_target_tests;
 pub use beveled_world::BeveledGravity;
 pub use biome::BiomedCubeWorld;
 pub use celestial::{
-    ActiveVicinity, AlienWorld, AsteroidBelt, AtlasMode, AwakenedBody, BeltAndReach, BeltRock,
-    BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique, BodyRatios, BodySnapshot,
-    CelestialAtlas, CelestialSystem, HeliosphereWorld, LunarCraterRelief, LunarWorld, OrbitElements,
-    OrbitalFleetWorld, OrbitalSpec, RadialWell, SolarCatalog, SolarEphemeris, SolarProportions,
+    ActiveVicinity, AlienWorld, ApexSpin, AsteroidBelt, AtlasMode, AwakenedBody, BeltAndReach,
+    BeltRock, BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique, BodyRatios,
+    BodySnapshot, CelestialAtlas, CelestialSystem, EllipticShape, HeliosphereWorld, KeplerAnomaly,
+    LunarCraterRelief, LunarWorld, OrbitElements, OrbitalFleetWorld, OrbitalLocus, OrbitalPlane,
+    OrbitalSpec, PlanetarySpin, RadialWell, SolarCatalog, SolarEphemeris, SolarProportions,
     SurfaceNature, TranslatedWorld, VicinityCache, MAJOR_BODY_COUNT,
 };
 pub use block::{

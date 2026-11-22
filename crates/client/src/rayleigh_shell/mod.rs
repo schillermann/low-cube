@@ -5,7 +5,7 @@ pub use optics::{CubicRayleighShell, CubicSolarBody};
 
 use glam::{Vec3, Vec4};
 use engine::GraphicPipeline;
-use world::{BodyId, BodySnapshot, CelestialAtlas, ClimateZone};
+use world::{ApexSpin, BodyId, BodySnapshot, CelestialAtlas, ClimateZone, PlanetarySpin};
 
 /// Camera-relative planetary atmosphere envelope (`Earth`, `Mars`, `Venus`, `Titan`; airless = `0.0`).
 #[derive(Clone, Copy, Debug)]
@@ -74,8 +74,13 @@ impl AtmosphericShell {
         best.map_or_else(Self::vacuum, |(_, shell)| shell)
     }
 
-    /// Evaluates `(local_up, zenith_clear_color, night_factor)` for `sun_dir`.
+    /// Evaluates `(local_up, zenith_clear_color, night_factor)` for `sun_dir` at mean 1 AU solar flux.
     pub fn sky_illumination(self, sun_dir: Vec3) -> (Vec3, Vec4, f32) {
+        self.sky_illumination_with_flux(sun_dir, 0.00465)
+    }
+
+    /// Evaluates `(local_up, zenith_clear_color, night_factor)` scaled by elliptical solar angular half-size.
+    pub fn sky_illumination_with_flux(self, sun_dir: Vec3, solar_half_ang: f32) -> (Vec3, Vec4, f32) {
         let rel_body = Vec3::new(self.rel_cam_and_half[0], self.rel_cam_and_half[1], self.rel_cam_and_half[2]);
         let body_up = ClimateZone::dominant(rel_body).normal();
         let space_black = Vec4::new(0.008, 0.012, 0.025, 1.0);
@@ -83,10 +88,11 @@ impl AtmosphericShell {
         if thick <= 0.01 || (rel_body.abs().max_element() - self.rel_cam_and_half[3]) > thick * 1.2 {
             return (body_up, space_black, 1.0);
         }
+        let flux = (solar_half_ang / 0.00465).clamp(0.80, 1.30);
         let sun_h = sun_dir.dot(body_up);
         let tint = Vec3::new(self.tint_and_thick[0], self.tint_and_thick[1], self.tint_and_thick[2]);
-        let day_col = (tint * 1.15).clamp(Vec3::ZERO, Vec3::ONE).extend(1.0);
-        let sunset_gold = Vec4::new(0.85, 0.38, 0.12, 1.0);
+        let day_col = (tint * (1.15 * flux)).clamp(Vec3::ZERO, Vec3::ONE).extend(1.0);
+        let sunset_gold = Vec4::new((0.85 * flux).min(1.0), (0.38 * flux).min(1.0), 0.12, 1.0);
         let clear = if sun_h > 0.15 {
             day_col
         } else if sun_h >= 0.0 {
@@ -132,7 +138,8 @@ impl FirmamentPlanets {
         };
         let viewer_d = viewer.as_dvec3();
         let snaps = eph.snapshot_all(0.0);
-        let to_sun = snaps[0].center() - viewer_d;
+        let apparent_sun = ApexSpin::from_ephemeris(eph).apparent_sun_center(snaps[0].center(), viewer_d);
+        let to_sun = apparent_sun - viewer_d;
         let sun_dist = to_sun.length().max(1.0);
         let sun_dir = (to_sun / sun_dist).as_vec3();
         let sun_half_ang = ((snaps[0].half_size() / sun_dist) as f32).clamp(0.0008, 0.55);

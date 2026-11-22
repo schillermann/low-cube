@@ -5,6 +5,7 @@ use crate::{
 };
 use super::super::belt::AsteroidBelt;
 use super::super::catalog::SurfaceNature;
+use super::super::spin::ApexSpin;
 use super::cosmic_sky::{CosmicBodyCube, GiantCloudShell, EARTH_VOXEL_HANDOFF};
 use super::HeliosphereWorld;
 
@@ -115,6 +116,7 @@ impl TerrainMesh for HeliosphereWorld {
         let viewer = cone.observe_from(|eye| eye);
         let snaps = self.ephemeris.snapshot_all(0.0);
         let epoch = self.ephemeris.epoch_secs() as f32;
+        let spin = ApexSpin::from_ephemeris(self.ephemeris);
         let (active_ids, uploaded_ids) = {
             let vic = self.vicinity.borrow();
             (vic.active_ids(), vic.uploaded_ids())
@@ -123,7 +125,7 @@ impl TerrainMesh for HeliosphereWorld {
             if matches!(snap.nature(), SurfaceNature::GasGiant { .. }) {
                 GiantCloudShell::new(snap, epoch).emit_near(viewer, target);
             } else {
-                CosmicBodyCube::new(snap).emit_for_viewer(viewer, uploaded_ids, target);
+                CosmicBodyCube::new(snap, spin).emit_for_viewer(viewer, uploaded_ids, target);
             }
         }
         let sun = snaps[0];
