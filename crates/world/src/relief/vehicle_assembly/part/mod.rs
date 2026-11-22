@@ -9,6 +9,7 @@ use crate::block::{
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::super::craft_cluster::CraftCluster;
+use super::super::craft_entity::{ExhaustJet, WireframeCell, MAX_EXHAUST_JETS, MAX_WIRE_CELLS};
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
 use super::impulse::{CockpitAxes, PilotOrder, RigidImpulse};
@@ -229,6 +230,22 @@ impl VehiclePart {
         &self, lift: f32, frame: &SurfaceFrame, com: Vec3, lin: Vec3, torq: Vec3, imp: RigidImpulse,
     ) -> RigidImpulse {
         self.prop(lift).attitude_burn(frame, com, lin, torq, imp)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(in crate::relief) fn collect_wireframe(
+        &self,
+        lift: f32,
+        frame: &SurfaceFrame,
+        axes: CockpitAxes,
+        hull_metrics: (Vec3, Vec3, f32),
+        command: (&PilotOrder, Vec3, Vec3),
+        sinks: (
+            &mut ([WireframeCell; MAX_WIRE_CELLS], usize),
+            &mut ([ExhaustJet; MAX_EXHAUST_JETS], usize),
+        ),
+    ) {
+        self.prop(lift).collect_wireframe(frame, axes, hull_metrics, command, sinks);
     }
 
     #[allow(clippy::too_many_arguments)]

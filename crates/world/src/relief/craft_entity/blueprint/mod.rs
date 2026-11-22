@@ -1,5 +1,6 @@
 mod mount;
 mod optics;
+mod wireframe;
 
 use glam::Vec3;
 use crate::block::{BlockMedium, ConsoleOrrery, GridCell};
@@ -15,6 +16,9 @@ use super::pose::CraftPose;
 pub use self::mount::{HullOptic, OpticMount};
 use self::optics::BlueprintOptics;
 pub(in crate::relief::craft_entity) use self::optics::ShiftedMeshTarget;
+pub use self::wireframe::{
+    CellRole, ExhaustJet, HullWireframe, JetTone, WireframeCell, MAX_EXHAUST_JETS, MAX_WIRE_CELLS,
+};
 
 const MAX_BLUEPRINT_PARTS: usize = 512;
 
@@ -117,6 +121,10 @@ impl CraftBlueprint {
         let bell = MainBellStage::new(gyro, hull, trim, cmd);
         let rcs = VernierAttitudeStage::new(bell, hull, trim, cmd);
         FusionTorchStage::new(rcs, hull, trim, cmd).resolve()
+    }
+
+    pub fn sample_wireframe(&self, order: &PilotOrder, pose: CraftPose) -> HullWireframe {
+        HullWireframe::sample(self, order, pose)
     }
 
     pub fn parts(&self) -> &[VehiclePart] { &self.parts }

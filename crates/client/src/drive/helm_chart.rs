@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{CelestialAtlas, OpticMount, PlanetaryWorld, VehicleAssembly};
+use world::{CelestialAtlas, HullWireframe, OpticMount, PilotOrder, PlanetaryWorld, VehicleAssembly};
 use super::clearance::{HullClearance, PadClearance};
 use super::transfer_arc::{FlipBurnReadout, NavigationCourse};
 
@@ -52,12 +52,13 @@ impl BellySnapshot {
     }
 }
 
-/// Polymorphic hull-optic HUD telemetry eliminating `Option` across cockpit, nose, and belly channels.
+/// Polymorphic hull-optic HUD telemetry eliminating `Option` across cockpit, nose, belly, and flank channels.
 #[derive(Clone, Copy, Debug)]
 pub enum OpticTelemetry {
     Silent,
-    Nose(OrrerySnapshot),
-    Belly(BellySnapshot),
+    Nose(OrrerySnapshot, HullWireframe),
+    Belly(BellySnapshot, HullWireframe),
+    Flank(HullWireframe),
 }
 
 /// Encapsulated spacecraft celestial atlas, plotted `NavigationCourse`, and live ventral `PadClearance`.
@@ -124,13 +125,22 @@ impl HelmChart {
         mount: OpticMount,
         assembly: &VehicleAssembly,
         velocity: Vec3,
+        order: &PilotOrder,
     ) -> OpticTelemetry {
         let pos = assembly.origin();
         match mount {
-            OpticMount::RocketNose => OpticTelemetry::Nose(self.cockpit_snapshot(assembly, velocity)),
-            OpticMount::RocketBelly => {
-                OpticTelemetry::Belly(BellySnapshot::new(self.pad, self.course, pos))
-            }
+            OpticMount::RocketNose => OpticTelemetry::Nose(
+                self.cockpit_snapshot(assembly, velocity),
+                assembly.sample_wireframe(order),
+            ),
+            OpticMount::RocketBelly => OpticTelemetry::Belly(
+                BellySnapshot::new(self.pad, self.course, pos),
+                assembly.sample_wireframe(order),
+            ),
+            OpticMount::RocketSideLeft
+            | OpticMount::RocketSideRight
+            | OpticMount::RocketSideFore
+            | OpticMount::RocketSideAft => OpticTelemetry::Flank(assembly.sample_wireframe(order)),
             _ => OpticTelemetry::Silent,
         }
     }

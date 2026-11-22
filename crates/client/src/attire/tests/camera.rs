@@ -39,7 +39,7 @@ fn test_server_satchel_parses_cli_and_custom_inventory_specs() {
     assert_eq!(root_satchel.resource_tally(HeldRelic::VehicleBlueprint, squire), 1);
     assert_eq!(root_satchel.resource_tally(HeldRelic::RocketCamera, squire), 4);
     assert_eq!(root_satchel.resource_tally(HeldRelic::FlightConsole, squire), 1);
-    assert_eq!(root_satchel.resource_tally(HeldRelic::RocketNozzle, squire), 4);
+    assert_eq!(root_satchel.resource_tally(HeldRelic::RocketNozzle, squire), 6);
 }
 
 #[test]

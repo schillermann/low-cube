@@ -41,8 +41,8 @@ mod wedge_seam_tests;
 
 pub(crate) use corner::NaturalCrown;
 pub use craft_entity::{
-    BlueprintCatalog, CraftBlueprint, CraftIdentity, CraftPose, DeckFrame, HelmLocks, HullOptic,
-    OpticMount, SeatOccupancy, VesselSink, WorldCraft,
+    BlueprintCatalog, CellRole, CraftBlueprint, CraftIdentity, CraftPose, DeckFrame, HelmLocks,
+    HullOptic, HullWireframe, JetTone, OpticMount, SeatOccupancy, VesselSink, WorldCraft,
 };
 pub use crust_vault::CrustVault;
 pub use elevation::ReliefElevation;

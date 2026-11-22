@@ -68,13 +68,13 @@ impl LocomotionTarget for ConsolePedals {
     }
 }
 
-/// Encapsulated flight guidance computer toggle, retro-flip state, acoustic phase, and packed pose telemetry.
+/// Encapsulated flight guidance computer toggle, retro-flip state, acoustic phase, and active `PilotOrder`.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct HelmTrim {
     guidance: AttitudeGuidance,
     flip_retro: bool,
     roar_phase: f32,
-    pose_motion: (f32, f32),
+    order: PilotOrder,
 }
 
 impl HelmTrim {
@@ -83,17 +83,21 @@ impl HelmTrim {
         guidance: AttitudeGuidance,
         flip_retro: bool,
         roar_phase: f32,
-        pose_motion: (f32, f32),
+        order: PilotOrder,
     ) -> Self {
-        Self { guidance, flip_retro, roar_phase, pose_motion }
+        Self { guidance, flip_retro, roar_phase, order }
     }
 
     pub(super) const fn pad_engaged() -> Self {
-        Self::new(AttitudeGuidance::Engaged, false, 0.0, (0.0, 0.0))
+        Self::new(AttitudeGuidance::Engaged, false, 0.0, PilotOrder::idle())
     }
 
-    pub(super) const fn pose_channels(self) -> (f32, f32) {
-        self.pose_motion
+    pub(super) fn pose_channels(self) -> (f32, f32) {
+        self.order.pose_motion()
+    }
+
+    pub(super) const fn active_order(self) -> PilotOrder {
+        self.order
     }
 
     pub(super) const fn attitude_guidance(self) -> AttitudeGuidance {
@@ -136,7 +140,7 @@ impl HelmTrim {
     }
 
     pub(super) fn advance_burn(&mut self, order: PilotOrder, fusion: bool, flipping: bool, dt: f32) {
-        self.pose_motion = order.pose_motion();
+        self.order = order;
         if order.active_burn() || flipping {
             let next_phase = self.roar_phase + dt * 3.4;
             if self.roar_phase.floor() != next_phase.floor() {

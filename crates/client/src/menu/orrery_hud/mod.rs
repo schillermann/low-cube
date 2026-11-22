@@ -5,6 +5,8 @@ mod phosphor;
 mod scale_decorators;
 mod spine;
 mod standoff;
+mod wire_ship;
+mod wire_stage;
 
 use glam::Vec3;
 use world::MeshTarget;
@@ -15,6 +17,8 @@ use self::frame::OrreryFrame;
 #[cfg(test)]
 pub use self::frame::OrreryFrame as TestOrreryFrame;
 pub use self::overlays::{ChannelStripOverlay, OpticOverlay, ShipOpticHud};
+#[cfg(test)]
+pub use self::wire_ship::WireframeShipOverlay;
 #[cfg(test)]
 pub use self::overlays::{
     RangeTapeOverlay as TestRangeTapeOverlay, SilentOverlay,

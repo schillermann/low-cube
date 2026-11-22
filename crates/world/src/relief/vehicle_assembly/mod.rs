@@ -4,7 +4,7 @@ mod part;
 
 use glam::{Quat, Vec3};
 use crate::MeshTarget;
-use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose, HullOptic, PosedHull};
+use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose, HullOptic, HullWireframe, PosedHull};
 pub use self::axes::VehicleAxes;
 pub(in crate::relief) use self::impulse::{
     ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage, MainBellStage,
@@ -64,6 +64,7 @@ impl VehicleAssembly {
         PosedHull::new(&self.blueprint, pose).visit_soles(visitor);
     }
     pub fn sample_impulse(&self, order: &PilotOrder) -> RigidImpulse { self.blueprint.sample_impulse(order, self.pose) }
+    pub fn sample_wireframe(&self, order: &PilotOrder) -> HullWireframe { self.blueprint.sample_wireframe(order, self.pose) }
     pub fn seat_floor_offset(&self) -> f32 { self.blueprint.seat_floor_offset() }
     pub fn wheel_radius(&self) -> f32 { self.blueprint.wheel_radius() }
     pub fn hull_envelope(&self) -> (f32, f32) { self.blueprint.hull_envelope() }

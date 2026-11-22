@@ -7,7 +7,10 @@ mod spatial;
 use glam::Vec3;
 use crate::MeshTarget;
 use crate::presence::DrivenCraft;
-pub use self::blueprint::{CraftBlueprint, HullOptic, OpticMount};
+pub use self::blueprint::{
+    CellRole, CraftBlueprint, ExhaustJet, HullOptic, HullWireframe, JetTone, OpticMount,
+    WireframeCell, MAX_EXHAUST_JETS, MAX_WIRE_CELLS,
+};
 pub use self::deck::DeckFrame;
 pub use self::identity::CraftIdentity;
 pub use self::pose::{CraftPose, SeatOccupancy};

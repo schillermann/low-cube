@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.104.0] - 2026-11-22
+
+### Added
+- Added camera-synchronized 3D wireframe rocket thruster HUD (`HullWireframe`, `WireframeCell`, `ExhaustJet`, `CellRole`, and `JetTone` in `crates/world/src/relief/craft_entity/blueprint/wireframe.rs`, `PartPropulsion::collect_wireframe` in `crates/world/src/relief/vehicle_assembly/part/propulsion.rs`, and `CameraStage`, `WireframeShipCard`, and `WireframeShipOverlay` in `crates/client/src/menu/orrery_hud/wire_stage.rs` and `wire_ship.rs`), projecting the assembled voxel craft, live 5-horn RCS / main-bell / fusion `EXHAUST` cones, and the resulting 6-DOF phosphor-green `STEER >` / `< STEER` vector in lockstep with `NOSE`, `BELLY`, and `SIDE` hull camera views (`crates/client/src/drive/wireframe_hud_tests.rs`).
+- Added `[`, `]`, and `%` 5×7 pixel glyph stamps to `PixelStamp` (`crates/client/src/menu/glyph.rs`).
+
+### Changed
+- Increased baseline starting `RocketNozzle` satchel provision from `4` to `6` (`server.toml`, `TestKitSatchel` in `crates/client/src/server_satchel.rs`, and `SatchelIntake` in `crates/client/src/attire/pouch/intake.rs`) so custom rockets can mount main bells alongside 4-way perimeter attitude pods out of the box.
+
 ## [0.103.0] - 2026-11-22
 
 ### Added

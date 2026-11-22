@@ -111,7 +111,8 @@ impl CraftDrive for RocketDrive {
     }
 
     fn optic_telemetry(&self, mount: OpticMount, assembly: &VehicleAssembly) -> OpticTelemetry {
-        self.kinematics.transfer(|vel, _| self.chart.optic_telemetry(mount, assembly, vel))
+        let order = self.trim.active_order();
+        self.kinematics.transfer(|vel, _| self.chart.optic_telemetry(mount, assembly, vel, &order))
     }
 
     fn advance(

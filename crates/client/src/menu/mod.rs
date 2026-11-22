@@ -47,7 +47,7 @@ pub use orrery_hud::{
     SilentOverlay, TestApproachZoneScale as ApproachZoneScale,
     TestChevronReadoutScale as ChevronReadoutScale, TestGraduatedSpine as GraduatedSpine,
     TestOrreryFrame as OrreryFrame, TestRangeTapeOverlay as RangeTapeOverlay,
-    TestTargetLockOverlay as TargetLockOverlay,
+    TestTargetLockOverlay as TargetLockOverlay, WireframeShipOverlay,
 };
 #[cfg(test)]
 pub use pause_panel::PausePanel;

@@ -1,11 +1,12 @@
 use glam::{Mat4, Vec3};
-use world::MeshTarget;
+use world::{HullWireframe, MeshTarget};
 use crate::drive::{BellySnapshot, NavigationCourse, OpticTelemetry, OrrerySnapshot};
 use crate::menu::viewfinder::{CameraFeed, ViewfinderHud};
 use crate::menu::widget::{ScreenBounds, ScreenPoint};
 use super::OrreryConsole;
 use super::standoff::BoresightTape;
 use super::spine::RangeScale;
+use super::wire_ship::WireframeShipOverlay;
 
 /// Focused spacecraft hull-camera HUD layer contract supporting decorator composition.
 pub trait OpticOverlay {
@@ -179,25 +180,28 @@ impl ShipOpticHud {
         )
     }
 
-    fn emit_belly(&self, belly: BellySnapshot, target: &mut dyn MeshTarget) {
+    fn emit_belly(&self, belly: BellySnapshot, wireframe: HullWireframe, target: &mut dyn MeshTarget) {
         let ux = self.inv_aspect;
+        let vp = self.view_proj;
         belly.transfer(|clearance, course, ship_pos| {
             clearance.transfer(|in_well, altitude, range_rate| {
                 let tape = BoresightTape::belly(self.reticle, altitude, range_rate, ux);
                 match course {
                     NavigationCourse::Uncharted if in_well => {
-                        RangeTapeOverlay::new(SilentOverlay, tape).emit(target);
+                        let radar = RangeTapeOverlay::new(SilentOverlay, tape);
+                        WireframeShipOverlay::new(radar, wireframe, vp, ux).emit(target);
                     }
                     NavigationCourse::Uncharted => {
-                        SilentOverlay.emit(target);
+                        WireframeShipOverlay::new(SilentOverlay, wireframe, vp, ux).emit(target);
                     }
                     NavigationCourse::Charted(ref arc) => {
                         arc.sample_range(ship_pos, Vec3::ZERO, |tgt_world, _, _| {
-                            let locked = TargetLockOverlay::new(SilentOverlay, tgt_world, self.view_proj, ux);
+                            let locked = TargetLockOverlay::new(SilentOverlay, tgt_world, vp, ux);
                             if in_well {
-                                RangeTapeOverlay::new(locked, tape).emit(target);
+                                let radar = RangeTapeOverlay::new(locked, tape);
+                                WireframeShipOverlay::new(radar, wireframe, vp, ux).emit(target);
                             } else {
-                                locked.emit(target);
+                                WireframeShipOverlay::new(locked, wireframe, vp, ux).emit(target);
                             }
                         });
                     }
@@ -209,12 +213,18 @@ impl ShipOpticHud {
 
 impl OpticOverlay for ShipOpticHud {
     fn emit(&self, target: &mut dyn MeshTarget) {
+        let ux = self.inv_aspect;
+        let vp = self.view_proj;
         match self.telemetry {
             OpticTelemetry::Silent => SilentOverlay.emit(target),
-            OpticTelemetry::Nose(orrery) => {
-                NoseOrreryHud::new(orrery, self.view_proj, self.reticle, self.inv_aspect).emit(target);
+            OpticTelemetry::Nose(orrery, wireframe) => {
+                let nose = NoseOrreryHud::new(orrery, vp, self.reticle, ux);
+                WireframeShipOverlay::new(nose, wireframe, vp, ux).emit(target);
             }
-            OpticTelemetry::Belly(belly) => self.emit_belly(belly, target),
+            OpticTelemetry::Belly(belly, wireframe) => self.emit_belly(belly, wireframe, target),
+            OpticTelemetry::Flank(wireframe) => {
+                WireframeShipOverlay::new(SilentOverlay, wireframe, vp, ux).emit(target);
+            }
         }
     }
 }

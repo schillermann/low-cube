@@ -39,6 +39,8 @@ mod rocket_tests;
 mod seam_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod wireframe_hud_tests;
 
 use glam::Vec3;
 use world::{OpticMount, PlanetaryWorld, VehicleAssembly};
