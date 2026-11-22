@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::block::{
-    AttitudeNozzleMesh, BlockMedium, FlightConsoleMesh, GridCell, MoldArchetype, NozzleAxis,
-    RcsManifold, VoxelShape,
+    AttitudeNozzleMesh, BlockMedium, FlightConsoleMesh, FusionTorchMesh, GridCell, MoldArchetype,
+    NozzleAxis, RcsManifold, VoxelShape,
 };
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
@@ -36,7 +36,7 @@ impl<'a> PartPropulsion<'a> {
 
     pub(super) fn part_mass(&self) -> f32 {
         match self.shape.block_medium() {
-            BlockMedium::CabinSeat | BlockMedium::FlightConsole => CORE_MODULE_MASS,
+            BlockMedium::CabinSeat | BlockMedium::FlightConsole | BlockMedium::FusionTorch => CORE_MODULE_MASS,
             BlockMedium::RocketCamera => OUTBOARD_POD_MASS,
             BlockMedium::RocketNozzle => match self.nozzle_axis() {
                 Some(axis) if axis.attitude_pod() => OUTBOARD_POD_MASS,
@@ -67,6 +67,24 @@ impl<'a> PartPropulsion<'a> {
         let thrust_dir = axis.thrust_vector(frame).normalize_or_zero();
         let throttle = order.bell_throttle(thrust_dir, axes);
         impulse.with_bell_burn(mass_center - center_of_mass, thrust_dir, throttle)
+    }
+
+    pub(super) fn fusion_burn(
+        &self,
+        frame: &SurfaceFrame,
+        center_of_mass: Vec3,
+        order: &PilotOrder,
+        axes: CockpitAxes,
+        impulse: RigidImpulse,
+    ) -> RigidImpulse {
+        if self.shape.block_medium() != BlockMedium::FusionTorch {
+            return impulse;
+        }
+        let (uc, vc) = self.cell.center();
+        let mass_center = frame.point_at(uc, vc, self.floor_elev + 0.25);
+        let thrust_dir = frame.normal().normalize_or_zero();
+        let throttle = order.bell_throttle(thrust_dir, axes);
+        impulse.with_fusion_burn(mass_center - center_of_mass, thrust_dir, throttle)
     }
 
     pub(super) fn attitude_throttles(
@@ -131,6 +149,11 @@ impl<'a> PartPropulsion<'a> {
                 order.guidance_engaged(),
             )
             .emit(self.cell, self.floor_elev, frame, out);
+            return true;
+        }
+        if self.shape.block_medium() == BlockMedium::FusionTorch {
+            let glow = order.vertical_burn().max(0.0).clamp(0.0, 1.2);
+            FusionTorchMesh::new(glow).emit(self.cell, self.floor_elev, frame, out);
             return true;
         }
         if let Some(throttles) = self.attitude_throttles(frame, center_of_mass, linear_demand, torque_demand) {

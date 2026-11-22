@@ -41,14 +41,8 @@ impl FacetedReliefFace {
         divisions: u32,
         veins: Box<dyn SubterraneanVeins>,
     ) -> Self {
-        let frame = zone.surface_frame(half_size);
         let zoned = Box::new(ZonedRelief::in_climate(zone, half_size));
-        let relief = Box::new(TerracedRelief::with_veins(zoned, (divisions as i32) / 2, veins));
-        Self::new(
-            ReliefDomain::new(frame, relief),
-            ReliefPalette::for_zone(zone),
-            ReliefCellCache::empty(ReliefStrata::new(), divisions),
-        )
+        Self::alien_with_palette(zone, half_size, divisions, zoned, ReliefPalette::for_zone(zone), veins)
     }
 
     /// Secondary constructor assembling an authoritative relief face with living mineral veins.
@@ -69,9 +63,20 @@ impl FacetedReliefFace {
         crater_relief: Box<dyn ReliefElevation>,
         veins: Box<dyn SubterraneanVeins>,
     ) -> Self {
+        Self::alien_with_palette(zone, half_size, divisions, crater_relief, ReliefPalette::lunar_regolith(zone), veins)
+    }
+
+    /// Secondary constructor assembling an alien planetary or asteroidal face with bespoke elevation and palette.
+    pub fn alien_with_palette(
+        zone: ClimateZone,
+        half_size: f32,
+        divisions: u32,
+        elevation: Box<dyn ReliefElevation>,
+        palette: ReliefPalette,
+        veins: Box<dyn SubterraneanVeins>,
+    ) -> Self {
         let frame = zone.surface_frame(half_size);
-        let relief = Box::new(TerracedRelief::with_veins(crater_relief, (divisions as i32) / 2, veins));
-        let palette = ReliefPalette::lunar_regolith(zone);
+        let relief = Box::new(TerracedRelief::with_veins(elevation, (divisions as i32) / 2, veins));
         Self::new(
             ReliefDomain::new(frame, relief),
             palette,

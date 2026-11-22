@@ -66,6 +66,7 @@ impl<'a> ControlsSlateHud<'a> {
                 ("RCS STRAFE", format!("{} + WASD", b.label_for(ControlAction::RcsTranslate))),
                 ("FLIGHT COMP.", b.label_for(ControlAction::FlightGuidance).to_string()),
                 ("FLIP + BURN", b.label_for(ControlAction::RetroFlip).to_string()),
+                ("SYSTEM MAP", b.label_for(ControlAction::SystemMap).to_string()),
                 ("MARK TARGET", "L-CLICK (NOSE)".to_string()),
                 ("CAMERA", format!("{} / {}", b.label_for(ControlAction::MoldLeft), b.label_for(ControlAction::MoldRight))),
             ],
@@ -83,11 +84,12 @@ impl<'a> ControlsSlateHud<'a> {
                 ("EMPTY HAND", format!("{} / {}", b.label_for(ControlAction::SatchelLeft), b.label_for(ControlAction::SatchelRight))),
                 ("TURN BLOCK", b.label_for(ControlAction::MoldForm).to_string()),
                 ("CYCLE SHAPE", format!("{} / {}", b.label_for(ControlAction::MoldLeft), b.label_for(ControlAction::MoldRight))),
+                ("SYSTEM MAP", b.label_for(ControlAction::SystemMap).to_string()),
             ],
         };
 
         let ux = self.inv_aspect;
-        let row_step = 0.068;
+        let row_step = 0.064;
         let card_h = 0.145 + (rows.len() as f32) * row_step;
         let (x0, y1) = (-0.955, 0.78);
         let (x1, y0) = (x0 + 0.92 * ux, y1 - card_h);

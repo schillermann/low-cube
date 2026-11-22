@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{
-    BlockMedium, BlockMold, CleaveOutcome, CraftBlueprint, CraftIdentity, CraftPose,
-    ExposedStratum, SurfaceFind, WorldEarthworks,
+    BlockMedium, BlockMold, BodyId, CleaveOutcome, CraftBlueprint, CraftIdentity, CraftPose,
+    ExposedStratum, SurfaceFind, WorldEarthworks, WorldFact,
 };
 use crate::fleet_ledger::FleetLedger;
 use crate::ward::GuestWard;
@@ -146,4 +146,85 @@ impl WorldEarthworks for WardedPlanet<'_> {
     }
 
     fn disclose_stratum(&mut self, _face_index: usize, _stratum: ExposedStratum) {}
+
+    fn offworld_frame(&self, probe: Vec3) -> Option<(BodyId, Vec3)> {
+        self.origin.offworld_frame(probe)
+    }
+
+    fn body_center(&self, body: BodyId) -> Option<Vec3> {
+        self.origin.body_center(body)
+    }
+
+    fn enact_offworld(&mut self, body: BodyId, fact: &WorldFact) -> bool {
+        let Some(c) = self.origin.body_center(body) else {
+            return false;
+        };
+        match *fact {
+            WorldFact::Loosened { eye, direction, stage } => {
+                self.ward.eye_within_reach(eye + c, direction)
+                    && self.origin.enact_offworld(body, &WorldFact::Loosened { eye, direction, stage: stage.min(4) })
+            }
+            WorldFact::Harvested { eye, direction } => {
+                if !self.ward.eye_within_reach(eye + c, direction) || !self.ward.consume_harvest_token() {
+                    return false;
+                }
+                let ok = self.origin.enact_offworld(body, fact);
+                if ok {
+                    self.ward.credit_blocks(1);
+                }
+                ok
+            }
+            WorldFact::MoldPlaced { eye, direction, .. } => {
+                if !self.ward.eye_within_reach(eye + c, direction) || !self.ward.spend_block() {
+                    return false;
+                }
+                if self.origin.enact_offworld(body, fact) {
+                    true
+                } else {
+                    self.ward.credit_blocks(1);
+                    false
+                }
+            }
+            WorldFact::LitterCast { eye, direction, find } => {
+                if !find.gathered() || !self.ward.eye_within_reach(eye + c, direction) || !self.ward.spend_block() {
+                    return false;
+                }
+                if self.origin.enact_offworld(body, fact) {
+                    true
+                } else {
+                    self.ward.credit_blocks(1);
+                    false
+                }
+            }
+            WorldFact::RigAdjusted { eye, direction, delta_steps, rotate_quarter } => {
+                self.ward.eye_within_reach(eye + c, direction)
+                    && self.origin.enact_offworld(
+                        body,
+                        &WorldFact::RigAdjusted { eye, direction, delta_steps: delta_steps.clamp(-1, 1), rotate_quarter },
+                    )
+            }
+            WorldFact::RigLowered { eye, direction } => {
+                self.ward.eye_within_reach(eye + c, direction) && self.origin.enact_offworld(body, fact)
+            }
+            WorldFact::RigBlueprintBuilt { eye, direction, ref blueprint } => {
+                let needed = blueprint.part_count() as u32;
+                if needed == 0 || !self.ward.eye_within_reach(eye + c, direction) || !self.ward.spend_blocks(needed) {
+                    return false;
+                }
+                if self.origin.enact_offworld(body, fact) {
+                    true
+                } else {
+                    self.ward.credit_blocks(needed);
+                    false
+                }
+            }
+            WorldFact::HelmClaimed { craft, pilot_slot, eye, direction } => {
+                self.claim_vehicle_helm(craft, pilot_slot, eye + c, direction)
+            }
+            WorldFact::HelmReleased { craft, pose } => {
+                self.park_craft_by_id(craft, pose.with_origin(pose.origin() + c))
+            }
+            _ => false,
+        }
+    }
 }

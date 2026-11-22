@@ -54,6 +54,33 @@ impl VehiclePilot {
         }
     }
 
+    pub fn proper_g_load(&self) -> f32 {
+        match self {
+            Self::Driving(craft) => craft.proper_g_load(),
+            _ => 0.0,
+        }
+    }
+
+    pub fn flip_burn_readout(&self) -> super::FlipBurnReadout {
+        match self {
+            Self::Driving(craft) => craft.flip_burn_readout(),
+            _ => super::FlipBurnReadout::Inactive,
+        }
+    }
+
+    pub fn solar_chart_snapshot(&self) -> Option<(super::OrrerySnapshot, f32, bool)> {
+        match self {
+            Self::Driving(craft) => craft.solar_chart_snapshot(),
+            _ => None,
+        }
+    }
+
+    pub fn install_course(&mut self, course: super::NavigationCourse) {
+        if let Self::Driving(craft) = self {
+            craft.install_course(course);
+        }
+    }
+
     pub fn mark_nose_target(&mut self, rays: ((Vec3, Vec3), (Vec3, Vec3)), world: &dyn PlanetaryWorld) -> bool {
         match self {
             Self::Driving(craft) => craft.mark_nose_target(rays, world),

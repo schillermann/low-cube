@@ -5,7 +5,7 @@ mod spine;
 
 use glam::{Mat4, Vec3};
 use world::{CelestialAtlas, MeshTarget};
-use crate::drive::{ARC_NODES, NavigationCourse, OrrerySnapshot, TransferArc};
+use crate::drive::{ARC_NODES, FlipBurnReadout, NavigationCourse, OrrerySnapshot, TransferArc};
 use super::glyph::PixelStamp;
 use self::canvas::OrreryCanvas;
 pub use self::overlays::{OpticOverlay, ShipOpticHud};
@@ -141,6 +141,15 @@ impl OrreryConsole {
             let mark_col = Vec3::new(0.42, 1.00, 0.86);
             canvas.emit_strut_3d(holo_tgt - t1, holo_tgt + t1, 0.0019, mark_col, 0.98, target);
             canvas.emit_strut_3d(holo_tgt - t2, holo_tgt + t2, 0.0019, mark_col, 0.98, target);
+            if let Some(flip_world) = arc.flip_marker() {
+                let fh = frame.map_point(flip_world);
+                let d = 0.032;
+                let gold = Vec3::new(1.00, 0.82, 0.28);
+                canvas.emit_strut_3d(fh + Vec3::Y * d, fh + Vec3::X * d, 0.0022, gold, 0.98, target);
+                canvas.emit_strut_3d(fh + Vec3::X * d, fh - Vec3::Y * d, 0.0022, gold, 0.98, target);
+                canvas.emit_strut_3d(fh - Vec3::Y * d, fh - Vec3::X * d, 0.0022, gold, 0.98, target);
+                canvas.emit_strut_3d(fh - Vec3::X * d, fh + Vec3::Y * d, 0.0022, gold, 0.98, target);
+            }
         });
         let telemetry = arc.sample_telemetry(ship_pos, flight_vec);
         telemetry.transfer(|anchor, _cross_m, angle_deg, aligned| {
@@ -198,6 +207,16 @@ impl OpticOverlay for OrreryConsole {
                 }
                 NavigationCourse::Charted(ref arc) => {
                     self.emit_charted_route(arc, &frame, canvas, (ship_pos, flight_vec), (cx, cy), target);
+                    let fb_text = match arc.sample_flip_burn(ship_pos, velocity, nose_axis) {
+                        FlipBurnReadout::Inactive => None,
+                        FlipBurnReadout::TimeToFlip(s) => Some((Vec3::new(0.56, 0.94, 1.00), format!("TIME TO FLIP {:.0}S", s))),
+                        FlipBurnReadout::FlipNow => Some((Vec3::new(1.00, 0.88, 0.32), "RETRO FLIP NOW".to_string())),
+                        FlipBurnReadout::BrakeBurn(s) => Some((Vec3::new(1.00, 0.52, 0.30), format!("BRAKE BURN {:.0}S", s))),
+                    };
+                    if let Some((col, txt)) = fb_text {
+                        PixelStamp::new(0.0044 * self.inv_aspect, 0.0064, col)
+                            .emit_centered(&txt, cx, cy + 0.305, target);
+                    }
                 }
             }
 

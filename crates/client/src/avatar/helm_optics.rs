@@ -81,17 +81,23 @@ impl HelmOptics {
         &self,
         views: &[HullOptic],
         guidance: GuidanceReadout,
+        flip_burn: crate::drive::FlipBurnReadout,
     ) -> Option<CameraFeed> {
-        if views.is_empty() {
+        if views.is_empty() && flip_burn == crate::drive::FlipBurnReadout::Inactive {
             return None;
         }
         let total = views.len().min(u8::MAX as usize) as u8;
-        if self.cockpit_view() {
-            return Some(CameraFeed::new(ActiveChannel::Cockpit, total, guidance));
+        if self.cockpit_view() || total == 0 {
+            return Some(CameraFeed::new(ActiveChannel::Cockpit, total, guidance, flip_burn));
         }
         let selected = *views.get((self.channel as usize).saturating_sub(1))?;
         let mount = selected.transfer(|_, _, _, m| m);
-        Some(CameraFeed::new(ActiveChannel::Camera(self.channel, mount), total, guidance))
+        Some(CameraFeed::new(
+            ActiveChannel::Camera(self.channel, mount),
+            total,
+            guidance,
+            flip_burn,
+        ))
     }
 
     pub(super) fn resolve_boresight(

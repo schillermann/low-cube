@@ -118,6 +118,15 @@ impl<W: PlanetaryWorld> WorldEarthworks for OrbitalFleetWorld<W> {
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
         self.origin.disclose_stratum(face_index, stratum);
     }
+    fn offworld_frame(&self, probe: Vec3) -> Option<(crate::BodyId, Vec3)> {
+        self.origin.offworld_frame(probe)
+    }
+    fn body_center(&self, body: crate::BodyId) -> Option<Vec3> {
+        self.origin.body_center(body)
+    }
+    fn enact_offworld(&mut self, body: crate::BodyId, fact: &crate::WorldFact) -> bool {
+        self.origin.enact_offworld(body, fact)
+    }
 }
 
 impl<W: TerrainMesh> TerrainMesh for OrbitalFleetWorld<W> {
@@ -134,6 +143,7 @@ impl<W: TerrainMesh> TerrainMesh for OrbitalFleetWorld<W> {
         self.origin.drain_stale_meadow_patch(center, ring, target)
     }
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.origin.emit_meadow_around(center, view_dir, target); }
+    fn emit_cosmic_field(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.origin.emit_cosmic_field(cone, target); }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.origin.visible_slice_mask(position) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.origin.drain_disclosures(out); }
 }

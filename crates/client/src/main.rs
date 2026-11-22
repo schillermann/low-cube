@@ -13,6 +13,7 @@ mod clock;
 mod command_flags;
 mod companion;
 mod controls;
+mod cosmos_scale;
 mod cycle_duration;
 mod diurnal_pipeline;
 mod drive;
@@ -44,6 +45,7 @@ mod physics;
 mod portal_config;
 mod posture;
 mod preview_strip;
+mod rayleigh_shell;
 mod server_aurora;
 mod server_celestial;
 mod server_physics;
@@ -79,6 +81,8 @@ mod circuit_tests;
 #[cfg(test)]
 mod controls_tests;
 #[cfg(test)]
+mod cosmos_scale_tests;
+#[cfg(test)]
 mod crane_drive_tests;
 #[cfg(test)]
 mod earthworks_tests;
@@ -87,6 +91,8 @@ mod crust_ceiling_tests;
 #[cfg(test)]
 mod flight_tests;
 #[cfg(test)]
+mod heliosphere_tests;
+#[cfg(test)]
 mod mortality_tests;
 #[cfg(test)]
 mod physics_tests;
@@ -94,6 +100,8 @@ mod physics_tests;
 mod posture_tests;
 #[cfg(test)]
 mod seam_clearance_tests;
+#[cfg(test)]
+mod solar_chart_tests;
 #[cfg(test)]
 mod sprint_tests;
 #[cfg(test)]
@@ -113,18 +121,18 @@ mod wild_boar_tests;
 
 use winit::event_loop::EventLoop;
 use app::LowCubeApp;
+use cosmos_scale::{AssembledCosmos, CosmosScale};
 use launch::SessionLaunch;
-use server_scale::{PlanetaryScale, ServerScale};
 
 fn main() {
     acoustics::SoundStage::live().activate();
     let event_loop = EventLoop::new().expect("Failed to create EventLoop");
 
-    let launch = SessionLaunch::windowed(
+    let launch = SessionLaunch::windowed_cosmos(
         "LowCube",
         1280.0,
         720.0,
-        ServerScale::assembled().blocks(),
+        AssembledCosmos::assembled().proportions(),
     );
     let mut app = LowCubeApp::launching(Box::new(launch));
     event_loop.run_app(&mut app).expect("Application run failed");

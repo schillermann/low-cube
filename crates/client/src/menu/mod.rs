@@ -19,6 +19,7 @@ mod pause_panel;
 mod portal;
 mod settings;
 mod settings_panel;
+mod solar_chart;
 mod stage;
 mod studio;
 #[cfg(test)]
@@ -56,6 +57,9 @@ pub use settings::{ControlLayout, ControlPanel, ControlStudio, SavedControls};
 #[cfg(test)]
 pub use settings_panel::SettingsPanel;
 #[cfg(test)]
+pub use solar_chart::{ChartSelection, ChartViewport};
+pub use solar_chart::SolarChartModal;
+#[cfg(test)]
 pub use stage::{StudioAnimation, TurntableStage};
 #[cfg(test)]
 pub use studio::{SavedWardrobe, WardrobePanel, WardrobeStudio};
@@ -82,6 +86,16 @@ pub trait SessionModal {
     fn open(&self) -> bool;
     #[cfg(test)]
     fn dialing_active(&self) -> bool { false }
+    fn toggle_gameplay_trigger(
+        &mut self,
+        _trigger: InputTrigger,
+        _surface: &dyn PlatformSurface,
+        _avatar: &mut dyn Avatar,
+        _world: &dyn world::PlanetaryWorld,
+    ) -> bool {
+        false
+    }
+    fn sync_world_chart(&mut self, _avatar: &dyn Avatar, _world: &dyn world::PlanetaryWorld) {}
     fn toggle_escape(&mut self, surface: &dyn PlatformSurface) -> ModalDirective;
     fn focus_regained(&mut self) -> ModalDirective { ModalDirective::ContinueSession }
     fn move_cursor(&mut self, point: ScreenPoint);

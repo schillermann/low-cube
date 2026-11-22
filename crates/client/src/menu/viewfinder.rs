@@ -1,5 +1,6 @@
 use glam::Vec3;
 use world::{MeshTarget, OpticMount};
+use crate::drive::FlipBurnReadout;
 use super::glyph::PixelStamp;
 use super::widget::ScreenBounds;
 
@@ -27,18 +28,24 @@ pub enum GuidanceReadout {
     Manual,
 }
 
-/// Camera-channel strip telemetry uniting active slot, total hull camera count, and nose guidance readout.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Camera-channel strip telemetry uniting active slot, camera count, guidance, and Flip-and-Burn readout.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CameraFeed {
     active: ActiveChannel,
     total: u8,
     guidance: GuidanceReadout,
+    flip_burn: FlipBurnReadout,
 }
 
 impl CameraFeed {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(active: ActiveChannel, total: u8, guidance: GuidanceReadout) -> Self {
-        Self { active, total, guidance }
+    pub const fn new(
+        active: ActiveChannel,
+        total: u8,
+        guidance: GuidanceReadout,
+        flip_burn: FlipBurnReadout,
+    ) -> Self {
+        Self { active, total, guidance, flip_burn }
     }
 }
 
@@ -99,6 +106,7 @@ impl ViewfinderHud {
     }
 
     pub fn emit(self, target: &mut dyn MeshTarget) {
+        self.emit_flip_burn_banner(target);
         if self.feed.total == 0 {
             return;
         }
@@ -119,6 +127,38 @@ impl ViewfinderHud {
         if matches!(self.feed.active, ActiveChannel::Camera(_, OpticMount::RocketNose)) {
             self.emit_nose_guidance_hud(target);
         }
+    }
+
+    fn emit_flip_burn_banner(self, target: &mut dyn MeshTarget) {
+        let (rim, text_col, label) = match self.feed.flip_burn {
+            FlipBurnReadout::Inactive => return,
+            FlipBurnReadout::TimeToFlip(secs) => {
+                let s = secs.round().max(0.0) as u32;
+                (
+                    Vec3::new(0.26, 0.88, 1.00),
+                    Vec3::new(0.66, 0.96, 1.00),
+                    format!("TIME TO FLIP {:02}:{:02}", s / 60, s % 60),
+                )
+            }
+            FlipBurnReadout::FlipNow => (
+                Vec3::new(1.00, 0.78, 0.22),
+                Vec3::new(1.00, 0.92, 0.42),
+                "RETRO FLIP NOW [R]".to_string(),
+            ),
+            FlipBurnReadout::BrakeBurn(secs) => {
+                let s = secs.round().max(0.0) as u32;
+                (
+                    Vec3::new(1.00, 0.42, 0.20),
+                    Vec3::new(1.00, 0.74, 0.46),
+                    format!("BRAKE BURN {:02}:{:02}", s / 60, s % 60),
+                )
+            }
+        };
+        let ux = self.inv_aspect;
+        let (x0, y0, x1, y1) = (-0.365 * ux, 0.758, 0.365 * ux, 0.834);
+        ScreenBounds::new(x0, y0, x1, y1).emit_fill(Vec3::new(0.04, 0.08, 0.14), target);
+        ScreenBounds::new(x0, y0, x1, y1).emit_outline(rim, 0.0038 * ux, 0.0038, target);
+        PixelStamp::new(0.0058 * ux, 0.0080, text_col).emit_centered(&label, 0.0, (y0 + y1) * 0.5, target);
     }
 
     fn emit_nose_guidance_hud(self, target: &mut dyn MeshTarget) {

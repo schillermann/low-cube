@@ -1,4 +1,5 @@
 use crate::block::{BlockMedium, BlockMold};
+use crate::celestial::BodyId;
 use crate::relief::{CraftBlueprint, CraftIdentity, CraftPose, ExposedStratum};
 use crate::tree::SurfaceFind;
 use crate::wire_vector::{WireSlice, WireVector};
@@ -101,6 +102,11 @@ impl<'a> FactCodec<'a> {
                 WireVector::new(direction).inscribe(out);
                 out.push(power);
                 out.extend_from_slice(&reach_cm.to_le_bytes());
+            }
+            WorldFact::OffWorld { body, ref fact } => {
+                out.push(15);
+                out.extend_from_slice(&body.raw_code().to_le_bytes());
+                FactCodec::new(fact).inscribe(out);
             }
         }
     }
@@ -222,6 +228,14 @@ impl<'a> FactBytes<'a> {
                 let power = bytes[25];
                 let reach_cm = u16::from_le_bytes([bytes[26], bytes[27]]);
                 Some((WorldFact::BoarStruck { eye, direction, power, reach_cm }, 28))
+            }
+            15 if bytes.len() >= 4 => {
+                let body = BodyId::new(u16::from_le_bytes([bytes[1], bytes[2]]));
+                let (inner, used) = FactBytes::new(&bytes[3..]).decode()?;
+                if matches!(inner, WorldFact::OffWorld { .. }) {
+                    return None;
+                }
+                Some((WorldFact::OffWorld { body, fact: Box::new(inner) }, 3 + used))
             }
             _ => None,
         }

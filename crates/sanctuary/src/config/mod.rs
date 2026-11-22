@@ -1,9 +1,12 @@
+mod cosmos;
+
 use std::env;
 use std::fs;
 use std::thread;
 use std::time::{Duration, Instant};
-use world::{CelestialSystem, PlanetaryWorld};
+use world::{CelestialSystem, PlanetaryWorld, SolarProportions};
 use crate::SanctuaryHost;
+use self::cosmos::ServerCosmosScale;
 
 /// Encapsulated `server.toml` text resolving dedicated sanctuary properties without external crates.
 #[derive(Clone, Debug)]
@@ -60,15 +63,23 @@ impl SanctuaryEndpoint {
         self.port
     }
 
-    fn serve(self, blocks_per_edge: u32) -> std::io::Result<()> {
+    fn serve(self, proportions: SolarProportions) -> std::io::Result<()> {
+        let blocks_per_edge = proportions.earth_blocks();
         let bind_addr = format!("0.0.0.0:{}", self.port);
         let bevel = ((blocks_per_edge as f32) * 0.5 * 0.125).clamp(0.5, 1.0);
-        let world: Box<dyn PlanetaryWorld> = CelestialSystem::authoritative(blocks_per_edge, bevel);
-        let mut host = SanctuaryHost::bind(&bind_addr, world, blocks_per_edge)?;
+        let world: Box<dyn PlanetaryWorld> = CelestialSystem::heliosphere(proportions, bevel);
+        let mut host = SanctuaryHost::bind_cosmos(&bind_addr, world, proportions)?;
         let bound = host.local_addr()?;
         let ticket = host.ticket().encode();
         println!("=== LOW-CUBE DEDICATED SERVER ===");
         println!("Listening UDP:  {bound} ({blocks_per_edge} blocks/edge)");
+        println!(
+            "Solar Scale:    dist={:.4} body={:.2} sun={:.2} belt={:.2}",
+            proportions.distance_scale(),
+            proportions.body_scale(),
+            proportions.sun_scale(),
+            proportions.belt_density(),
+        );
         println!("Portal Code:    {}", host.code().encode());
         println!("Direct Address: {}", host.ticket().direct());
         println!("Invite Ticket:  {ticket}");
@@ -85,16 +96,21 @@ impl SanctuaryEndpoint {
 }
 
 /// Assembled dedicated server configuration combining `server.toml`, environment variables, and CLI flags.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SanctuaryPlan {
     endpoint: SanctuaryEndpoint,
-    blocks_per_edge: u32,
+    proportions: SolarProportions,
 }
 
 impl SanctuaryPlan {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_proportions(endpoint: SanctuaryEndpoint, proportions: SolarProportions) -> Self {
+        Self { endpoint, proportions }
+    }
+
+    /// Secondary constructor initializing true-scale solar proportions for `blocks_per_edge`.
     pub const fn new(endpoint: SanctuaryEndpoint, blocks_per_edge: u32) -> Self {
-        Self { endpoint, blocks_per_edge }
+        Self::with_proportions(endpoint, SolarProportions::true_scale(blocks_per_edge))
     }
 
     pub const fn endpoint(&self) -> SanctuaryEndpoint {
@@ -102,7 +118,11 @@ impl SanctuaryPlan {
     }
 
     pub const fn blocks_per_edge(&self) -> u32 {
-        self.blocks_per_edge
+        self.proportions.earth_blocks()
+    }
+
+    pub const fn proportions(&self) -> SolarProportions {
+        self.proportions
     }
 
     /// Secondary constructor assembling configuration in priority order: CLI > Env > `server.toml` > Baseline.
@@ -167,10 +187,11 @@ impl SanctuaryPlan {
             }
         }
 
-        Self::new(SanctuaryEndpoint::new(port), blocks)
+        let proportions = ServerCosmosScale::new(args, toml).resolve(blocks);
+        Self::with_proportions(SanctuaryEndpoint::new(port), proportions)
     }
 
     pub fn execute(self) -> std::io::Result<()> {
-        self.endpoint.serve(self.blocks_per_edge)
+        self.endpoint.serve(self.proportions)
     }
 }

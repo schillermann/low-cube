@@ -40,6 +40,8 @@ pub trait ShaderProgram {
 
 /// Interface for scene rendering.
 pub trait GraphicPipeline {
+    fn sync_ephemeris(&self, _planet_cubes: &[[f32; 4]; 7], _eclipse_occluder: [f32; 4]) {}
+
     fn render(
         &self,
         gl: &glow::Context,

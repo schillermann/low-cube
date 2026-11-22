@@ -111,7 +111,7 @@ impl HeadlessSession {
             } else {
                 self.stage.release_control_key(code);
             }
-        } else if self.stage.dispatch_avatar_or_control(InputTrigger::Key(code), pressed) {
+        } else if self.stage.dispatch_avatar_or_control(InputTrigger::Key(code), pressed, self.display.surface()) {
             self.stage.refresh_surface(&mut self.display);
         }
     }
@@ -145,9 +145,11 @@ impl HeadlessSession {
     }
 
     pub fn closed_modal() -> Box<dyn SessionModal> {
-        Box::new(InspectionModal::new(EscapeMenu::with_clipboard(
-            crate::menu::PortalInvite::empty(),
-            crate::menu::SystemClipboard::new().detached(),
+        Box::new(crate::menu::SolarChartModal::wrapping(InspectionModal::new(
+            EscapeMenu::with_clipboard(
+                crate::menu::PortalInvite::empty(),
+                crate::menu::SystemClipboard::new().detached(),
+            ),
         )))
     }
 }

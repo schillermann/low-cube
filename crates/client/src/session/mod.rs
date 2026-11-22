@@ -45,7 +45,7 @@ impl GameSession {
     }
 
     fn dispatch_gameplay_trigger(&mut self, trigger: InputTrigger, pressed: bool) {
-        if self.stage.dispatch_avatar_or_control(trigger, pressed) {
+        if self.stage.dispatch_avatar_or_control(trigger, pressed, self.display.surface()) {
             self.stage.refresh_surface(&mut self.display);
         }
     }

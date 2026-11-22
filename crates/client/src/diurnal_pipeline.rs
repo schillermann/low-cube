@@ -1,3 +1,4 @@
+use std::sync::Mutex;
 use std::time::Instant;
 use glam::{Mat4, Quat, Vec3};
 use glow::HasContext;
@@ -26,10 +27,20 @@ pub struct DiurnalPipeline {
     celestial_epoch: CelestialEpoch,
     sky: Box<dyn SkyFirmament>,
     sky_mesh: Box<dyn Mesh>,
+    ephemeris_state: Mutex<([[f32; 4]; 7], [f32; 4])>,
 }
 
 impl DiurnalPipeline {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    const fn with_ephemeris(
+        celestial_epoch: CelestialEpoch,
+        sky: Box<dyn SkyFirmament>,
+        sky_mesh: Box<dyn Mesh>,
+        ephemeris_state: Mutex<([[f32; 4]; 7], [f32; 4])>,
+    ) -> Self {
+        Self { celestial_epoch, sky, sky_mesh, ephemeris_state }
+    }
+
     pub fn new(
         cadence: Box<dyn CelestialCadence>,
         aurora: Box<dyn AuroraCadence>,
@@ -38,11 +49,12 @@ impl DiurnalPipeline {
         sky: Box<dyn SkyFirmament>,
         sky_mesh: Box<dyn Mesh>,
     ) -> Self {
-        Self {
-            celestial_epoch: CelestialEpoch { cadence, aurora, clock, epoch },
+        Self::with_ephemeris(
+            CelestialEpoch { cadence, aurora, clock, epoch },
             sky,
             sky_mesh,
-        }
+            Mutex::new(([[0.0; 4]; 7], [0.0; 4])),
+        )
     }
 
     /// Secondary constructor for headless operation and deterministic testing.
@@ -78,6 +90,12 @@ impl DiurnalPipeline {
 }
 
 impl GraphicPipeline for DiurnalPipeline {
+    fn sync_ephemeris(&self, planet_cubes: &[[f32; 4]; 7], eclipse_occluder: [f32; 4]) {
+        if let Ok(mut guard) = self.ephemeris_state.lock() {
+            *guard = (*planet_cubes, eclipse_occluder);
+        }
+    }
+
     fn render(
         &self,
         gl: &glow::Context,
@@ -98,6 +116,11 @@ impl GraphicPipeline for DiurnalPipeline {
 
         let night_factor = (-local_sun.y / 0.15).clamp(0.0, 1.0);
         let aurora_factor = self.celestial_epoch.aurora.activity(progress, elapsed, night_factor);
+        let (planets, occluder) = self
+            .ephemeris_state
+            .lock()
+            .map(|g| *g)
+            .unwrap_or(([[0.0; 4]; 7], [0.0; 4]));
 
         unsafe {
             gl.clear_color(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
@@ -121,6 +144,7 @@ impl GraphicPipeline for DiurnalPipeline {
             night_factor,
             aurora_factor,
             elapsed as f32,
+            (&planets, occluder),
             self.sky_mesh.as_ref(),
         );
 

@@ -31,6 +31,20 @@ impl<M: SessionModal> SessionModal for InspectionModal<M> {
         self.origin.dialing_active()
     }
 
+    fn toggle_gameplay_trigger(
+        &mut self,
+        trigger: InputTrigger,
+        surface: &dyn PlatformSurface,
+        avatar: &mut dyn Avatar,
+        world: &dyn world::PlanetaryWorld,
+    ) -> bool {
+        self.origin.toggle_gameplay_trigger(trigger, surface, avatar, world)
+    }
+
+    fn sync_world_chart(&mut self, avatar: &dyn Avatar, world: &dyn world::PlanetaryWorld) {
+        self.origin.sync_world_chart(avatar, world);
+    }
+
     fn toggle_escape(&mut self, surface: &dyn PlatformSurface) -> ModalDirective {
         self.origin.toggle_escape(surface)
     }

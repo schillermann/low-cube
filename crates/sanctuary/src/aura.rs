@@ -1,26 +1,31 @@
 use std::net::SocketAddr;
 use glam::Vec3;
-use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld};
+use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, SolarProportions};
 use crate::envelope::CrackNotice;
 use crate::fleet_ledger::FleetLedger;
 use crate::host_sounder::HostSounder;
 use crate::seal::HandshakeIdentity;
 
-/// Cryptographic identity, grid resolution, and advertised P2P endpoint of a `SanctuaryHost`.
+/// Cryptographic identity, solar-system proportions, and advertised P2P endpoint of a `SanctuaryHost`.
 pub struct HostIdentity {
     keys: HandshakeIdentity,
-    blocks_per_edge: u32,
+    proportions: SolarProportions,
     endpoint: SocketAddr,
 }
 
 impl HostIdentity {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_proportions(keys: HandshakeIdentity, proportions: SolarProportions, endpoint: SocketAddr) -> Self {
+        Self { keys, proportions, endpoint }
+    }
+
     pub const fn new(keys: HandshakeIdentity, blocks_per_edge: u32, endpoint: SocketAddr) -> Self {
-        Self { keys, blocks_per_edge, endpoint }
+        Self::with_proportions(keys, SolarProportions::true_scale(blocks_per_edge), endpoint)
     }
 
     pub const fn keys(&self) -> &HandshakeIdentity { &self.keys }
-    pub const fn blocks_per_edge(&self) -> u32 { self.blocks_per_edge }
+    pub const fn blocks_per_edge(&self) -> u32 { self.proportions.earth_blocks() }
+    pub const fn proportions(&self) -> SolarProportions { self.proportions }
     pub const fn endpoint(&self) -> SocketAddr { self.endpoint }
 }
 

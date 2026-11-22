@@ -1,6 +1,6 @@
 use glam::{Quat, Vec3};
 use world::{AttitudeGuidance, PilotOrder, VehicleAssembly};
-use acoustics::{AcousticWave, NozzleRoar};
+use acoustics::{AcousticWave, FusionHum, NozzleRoar};
 use crate::controls::LocomotionTarget;
 use crate::menu::GuidanceReadout;
 
@@ -135,33 +135,42 @@ impl HelmTrim {
         }
     }
 
-    pub(super) fn advance_burn(&mut self, order: PilotOrder, flipping: bool, dt: f32) {
+    pub(super) fn advance_burn(&mut self, order: PilotOrder, fusion: bool, flipping: bool, dt: f32) {
         self.pose_motion = order.pose_motion();
         if order.active_burn() || flipping {
             let next_phase = self.roar_phase + dt * 3.4;
             if self.roar_phase.floor() != next_phase.floor() {
-                NozzleRoar::ignition().thump();
+                if fusion {
+                    FusionHum::torch().thump();
+                } else {
+                    NozzleRoar::ignition().thump();
+                }
             }
             self.roar_phase = next_phase;
         }
     }
 }
 
-/// Encapsulated linear and angular 6-DOF spacecraft momentum vectors.
+/// Encapsulated linear/angular 6-DOF spacecraft momentum vectors and proper thrust G-load.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct SpaceKinematics {
     linear: Vec3,
     angular: Vec3,
+    proper_g: f32,
 }
 
 impl SpaceKinematics {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(linear: Vec3, angular: Vec3) -> Self {
-        Self { linear, angular }
+    pub(super) const fn new(linear: Vec3, angular: Vec3, proper_g: f32) -> Self {
+        Self { linear, angular, proper_g }
     }
 
     pub(super) const fn at_rest() -> Self {
-        Self::new(Vec3::ZERO, Vec3::ZERO)
+        Self::new(Vec3::ZERO, Vec3::ZERO, 0.0)
+    }
+
+    pub(super) const fn proper_g(self) -> f32 {
+        self.proper_g
     }
 
     pub(super) fn transfer<R>(self, f: impl FnOnce(Vec3, Vec3) -> R) -> R {

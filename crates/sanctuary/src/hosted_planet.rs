@@ -49,6 +49,7 @@ impl TerrainMesh for HostedPlanet {
         self.host.world().drain_stale_meadow_patch(center, ring, target)
     }
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.host.world().emit_meadow_around(center, view_dir, target); }
+    fn emit_cosmic_field(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.host.world().emit_cosmic_field(cone, target); }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.host.world().visible_slice_mask(position) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.host.world_mut().drain_disclosures(out); }
 }
@@ -146,4 +147,9 @@ impl WorldEarthworks for HostedPlanet {
     }
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool { self.host.with_chronicled(|w| w.park_vehicle(assembly)) }
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.host.world_mut().disclose_stratum(face_index, stratum); }
+    fn offworld_frame(&self, probe: Vec3) -> Option<(world::BodyId, Vec3)> { self.host.world().offworld_frame(probe) }
+    fn body_center(&self, body: world::BodyId) -> Option<Vec3> { self.host.world().body_center(body) }
+    fn enact_offworld(&mut self, body: world::BodyId, fact: &world::WorldFact) -> bool {
+        self.host.with_chronicled(|w| w.enact_offworld(body, fact))
+    }
 }

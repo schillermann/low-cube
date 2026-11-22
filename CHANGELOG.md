@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.101.0] - 2026-11-22
+
+### Added
+- Added scalable 21-body cubic Solar System (`SolarCatalog`, `BodyId`, `SolarEphemeris`, `HeliosphereWorld`, `VicinityCache`, and `AlienWorld` in `crates/world/src/celestial/`, configured via the `CosmosScale` decorator chain in `crates/client/src/cosmos_scale.rs`, `[cosmos]` server configuration in `crates/sanctuary/src/config/`, and `LWEL` multiplayer handshake tails): simulates moving 64-bit `DVec3` Keplerian orbits and long-range `1/r²` multi-body gravity with hyperbolic Jupiter gravity-assist slingshots, rotating nested cloud shells and Saturn's square ring (`GiantCloudShell`), on-demand single-slot off-world `CubePlanet` generation, and body-local `WorldFact::OffWorld` multiplayer chronicle synchronization (`crates/world/src/chronicle/`, `crates/sanctuary/src/tests/offworld_sync.rs`, and `crates/client/src/heliosphere_tests.rs`).
+- Added orbital Earth Rayleigh atmosphere, cubic 3D solar corona, live planet uniform projection, and square solar-eclipse occultation (`CubicRayleighShell`, `CubicSolarBody`, and `FirmamentPlanets` in `crates/client/src/rayleigh_shell.rs`, `GlFirmament` in `crates/client/src/gl_firmament.rs`, `DiurnalPipeline` in `crates/client/src/diurnal_pipeline.rs`, `FIRMAMENT_FRAGMENT_SRC` in `crates/client/src/firmament_glsl.rs`, and `VoxelShaderSource` in `crates/engine/src/shader.rs`).
+- Added interactive 3D holographic Solar System Map (`SolarChartModal`, `ChartViewport`, and `ChartHologram` in `crates/client/src/menu/solar_chart/`, bound to rebindable `ControlAction::SystemMap` / `KeyM` in `crates/client/src/controls/bindings.rs` and `ControlsSlateHud`), coupled with `SymplecticOrbit` (`Velocity-Verlet` curved Keplerian and slingshot arcs with moving-planet arrival lead solving) and `BrachistochroneArc` (`50%` *Flip-and-Burn* continuous-thrust transfers) in `crates/client/src/drive/transfer_arc/` (`crates/client/src/solar_chart_tests.rs`).
+- Added *The Expanse*-style `BlockMedium::FusionTorch` / `HeldRelic::FusionTorch` Epstein magnetic-nozzle propulsion (`FusionTorchMesh` in `crates/world/src/block/space_parts/fusion_torch.rs`, `FusionTorchStage` in `crates/world/src/relief/vehicle_assembly/impulse/stages.rs`, and `MAX_FUSION_SPEED` in `crates/client/src/drive/space_step.rs`), `FlipBurnReadout` (`TIME TO FLIP` / `RETRO FLIP NOW` / `BRAKE BURN`) in `NoseOrreryHud` and `ViewfinderHud`, sustained `> 4 G` `HighGStrain` tunnel vision in `AvatarPosture` (`crates/client/src/posture/high_g.rs`), and synthesized `FusionHum` reactor acoustics (`crates/acoustics/src/fusion_hum.rs`).
+- Added deterministic zero-baseline-memory 3D toroidal `AsteroidBelt` (`2.20 .. 3.20 AU` in `crates/world/src/celestial/belt.rs`) with `O(1)` spatial neighborhood queries, on-demand landable/mineable asteroid `CubePlanet` materialization, and `0`-heap-allocation flythrough streaming verified in `crates/client/src/allocation_audit.rs`.
+
 ## [0.100.0] - 2026-11-21
 
 ### Added

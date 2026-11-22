@@ -2,7 +2,7 @@ use glam::Vec3;
 use winit::event_loop::ActiveEventLoop;
 
 use engine::{CpuMeshBatch, PlanetaryMesh, StarryPipeline, VoxelShaderSource};
-use world::{PlanetaryWorld, StarVault};
+use world::{PlanetaryWorld, SolarProportions, StarVault};
 use crate::attire::{AttireProfile, FileAttire, HeldRelic};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::CalibratedCanopy;
@@ -11,7 +11,7 @@ use crate::black_box::{BlackBoxAvatar, FileBlackBox};
 use crate::celestial::CelestialCadence;
 use crate::controls::{BindingProfile, FileBindings, SprintControls};
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
-use crate::menu::{AutoPunchModal, EscapeMenu, InspectionModal, PortalInvite};
+use crate::menu::{AutoPunchModal, EscapeMenu, InspectionModal, PortalInvite, SolarChartModal};
 use crate::physics::PlanetaryPhysics;
 use crate::portal_config::PortalConfig;
 use crate::server_aurora::ServerAurora;
@@ -28,7 +28,7 @@ pub trait SessionAssembly {
 }
 
 struct LaunchCosmos {
-    world_blocks: u32,
+    proportions: SolarProportions,
     physics: Box<dyn PlanetaryPhysics>,
     celestial: Box<dyn CelestialCadence>,
     aurora: Box<dyn AuroraCadence>,
@@ -44,29 +44,29 @@ impl SessionLaunch {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
         host_env: Box<dyn HostEnvironment>,
-        world_blocks: u32,
+        proportions: SolarProportions,
         physics: Box<dyn PlanetaryPhysics>,
         celestial: Box<dyn CelestialCadence>,
         aurora: Box<dyn AuroraCadence>,
     ) -> Self {
         Self {
             host_env,
-            cosmos: LaunchCosmos { world_blocks, physics, celestial, aurora },
+            cosmos: LaunchCosmos { proportions, physics, celestial, aurora },
         }
     }
 
-    /// Secondary constructor initializing with window dimensions and planetary scale.
-    pub fn windowed(
+    /// Secondary constructor initializing with window dimensions and scalable solar proportions.
+    pub fn windowed_cosmos(
         title: &'static str,
         width: f64,
         height: f64,
-        world_blocks: u32,
+        proportions: SolarProportions,
     ) -> Self {
         let celestial = Box::new(ServerCelestial::assembled());
         let aurora = Box::new(ServerAurora::assembled(celestial.duration_seconds()));
         Self::new(
             Box::new(GlHostEnvironment::new(title, width, height)),
-            world_blocks,
+            proportions,
             Box::new(ServerPhysics::assembled()),
             celestial,
             aurora,
@@ -80,14 +80,15 @@ impl SessionAssembly for SessionLaunch {
         surface.capture_cursor();
         surface.request_redraw();
 
+        let world_blocks = self.cosmos.proportions.earth_blocks();
         let planet: Box<dyn PlanetaryWorld> =
-            PortalConfig::from_process().assemble_planet(self.cosmos.world_blocks);
+            PortalConfig::from_process().assemble_planet(self.cosmos.proportions);
         let initial_invite = PortalInvite::hosted(
             planet.portal_phrase().unwrap_or_default(),
             planet.portal_ticket().unwrap_or_default(),
         );
 
-        let half = (self.cosmos.world_blocks as f32) * 0.5;
+        let half = (world_blocks as f32) * 0.5;
         let spawn_position = planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0);
         let flight = self.cosmos.physics.surface_flight(1.0);
         let attire = FileAttire::profile()
@@ -138,7 +139,7 @@ impl SessionAssembly for SessionLaunch {
         let initial_mask = planet.visible_slice_mask(spawn_position);
         let primary_mesh = PlanetaryMesh::with_mask(primary_faces, initial_mask);
         let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
-        let canopy = Box::new(CalibratedCanopy::planetary(self.cosmos.world_blocks));
+        let canopy = Box::new(CalibratedCanopy::planetary(world_blocks));
         let mut star_cpu = CpuMeshBatch::with_quad_capacity(384);
         StarVault::cosmic().emit(&mut star_cpu);
         let star_mesh = surface.upload_mesh(&star_cpu);
@@ -152,14 +153,17 @@ impl SessionAssembly for SessionLaunch {
         ));
 
         let controls = Box::new(SprintControls::with_bindings(bindings));
-        let modal = Box::new(AutoPunchModal::wrapping(
-            InspectionModal::new(EscapeMenu::with_clipboards(
-                initial_invite.clone(),
+        let modal = Box::new(SolarChartModal::with_bindings(
+            AutoPunchModal::wrapping(
+                InspectionModal::new(EscapeMenu::with_clipboards(
+                    initial_invite.clone(),
+                    surface.attach_clipboard(),
+                    surface.attach_clipboard(),
+                )),
+                initial_invite,
                 surface.attach_clipboard(),
-                surface.attach_clipboard(),
-            )),
-            initial_invite,
-            surface.attach_clipboard(),
+            ),
+            bindings,
         ));
         let shaded_pass = PolaroidScenePass::new(ShadedScenePass::new(
             (primary_pipeline, primary_shader),

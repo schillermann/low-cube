@@ -1,5 +1,6 @@
 mod attitude_nozzle;
 mod console;
+mod fusion_torch;
 mod hollow_bell;
 mod nozzle;
 mod orrery;
@@ -16,6 +17,7 @@ use super::wedge::WedgeHeading;
 
 pub use self::attitude_nozzle::AttitudeNozzleMesh;
 pub use self::console::FlightConsoleMesh;
+pub use self::fusion_torch::FusionTorchMesh;
 pub use self::nozzle::RocketNozzleMesh;
 pub use self::orrery::ConsoleOrrery;
 pub use self::rcs_manifold::RcsManifold;
@@ -98,6 +100,10 @@ impl SpaceBlockMesh {
             BlockMedium::RocketCamera => {
                 RocketCameraMesh::new(SensorPodAxis::from_mold(self.archetype, self.heading))
                     .emit(cell, floor_elev, frame, target);
+            }
+            BlockMedium::FusionTorch => {
+                let glow = if self.motion.0 > 0.04 { self.motion.0.clamp(0.0, 1.2) } else { 0.0 };
+                FusionTorchMesh::new(glow).emit(cell, floor_elev, frame, target);
             }
             _ => match NozzleAxis::from_mold(self.archetype, self.heading) {
                 axis @ NozzleAxis::Downward => {

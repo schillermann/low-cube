@@ -27,6 +27,8 @@ uniform float u_time;
 uniform float u_face_half;
 uniform float u_aurora_radius;
 uniform float u_ceiling_altitude;
+uniform vec4 u_planet_cubes[7];
+uniform vec4 u_eclipse_occluder;
 
 out vec4 frag_color;
 
@@ -48,127 +50,164 @@ float stars(vec3 dir) {
     return 0.0;
 }
 
-float crater_field(vec2 uv, float grid_res, float r_factor, float rim_w, float depth) {
-    vec2 g = uv * grid_res;
-    vec2 id = floor(g);
-    vec2 f = fract(g);
-    float val = 0.0;
-    for (int y = -1; y <= 1; y++) {
-        for (int x = -1; x <= 1; x++) {
-            vec2 neighbor = vec2(float(x), float(y));
-            vec2 cell = id + neighbor;
-            vec2 h = fract(sin(vec2(dot(cell, vec2(127.1, 311.7)), dot(cell, vec2(269.5, 183.3)))) * 43758.5453);
-            vec2 center = neighbor + h;
-            float r = r_factor * (0.32 + 0.48 * fract(h.x * 19.19));
-            float d = length(f - center) / r;
-            if (d < 1.0) {
-                float rim = smoothstep(1.0 - rim_w, 0.90, d) * (1.0 - smoothstep(0.90, 1.0, d));
-                val += rim * (depth * 0.95) - (1.0 - smoothstep(0.0, 0.72, d)) * depth;
-            }
-        }
-    }
-    return val;
+vec2 box_slab(vec3 orig, vec3 dir, float half_ext) {
+    vec3 inv_d = 1.0 / sign(dir + vec3(1e-9)) / max(abs(dir), vec3(1e-6));
+    vec3 t0s = (-vec3(half_ext) - orig) * inv_d;
+    vec3 t1s = (vec3(half_ext) - orig) * inv_d;
+    vec3 tsmaller = min(t0s, t1s);
+    vec3 tbigger = max(t0s, t1s);
+    float t0 = max(max(tsmaller.x, tsmaller.y), tsmaller.z);
+    float t1 = min(min(tbigger.x, tbigger.y), tbigger.z);
+    return vec2(t0, t1);
 }
 
-float lunar_basin(vec2 p, vec2 c, float r) {
-    float d = length(p - c) / r;
-    if (d > 1.0) return 0.0;
-    return -(1.0 - smoothstep(0.15, 0.95, d)) * 0.22;
+vec4 earth_rayleigh_shell(vec3 cam_pos, vec3 dir, vec3 sun_dir, float earth_h) {
+    float thick = max(earth_h * 0.30, 10.0);
+    float outer = earth_h + thick;
+    vec2 span = box_slab(cam_pos, dir, outer);
+    if (span.y <= 0.0 || span.x > span.y) return vec4(0.0);
+    float t_in = max(span.x, 0.0);
+    float t_out = span.y;
+    vec2 inner = box_slab(cam_pos, dir, earth_h);
+    if (inner.x <= inner.y && inner.y > 0.0) {
+        if (inner.x > 0.0) t_out = min(t_out, inner.x);
+        else return vec4(0.0);
+    }
+    float air_len = max(t_out - t_in, 0.0);
+    if (air_len <= 0.001) return vec4(0.0);
+    vec3 mid = cam_pos + dir * (0.5 * (t_in + t_out));
+    vec3 excess = max(abs(mid) - vec3(earth_h), vec3(0.0));
+    float alt = length(excess);
+    if (alt >= thick) return vec4(0.0);
+    float rho = exp(-alt / max(thick * 0.34, 1.0)) * smoothstep(thick, 0.0, alt);
+    float tau = clamp(rho * (air_len / max(thick, 1.0)) * 0.90, 0.0, 1.0);
+    float mu = dot(normalize(mid), sun_dir);
+    float day = smoothstep(-0.12, 0.35, mu);
+    float twilight = exp(-pow((mu - 0.02) / 0.18, 2.0)) * smoothstep(-0.32, -0.02, mu);
+    vec3 col = (vec3(0.18, 0.56, 1.00) * day + vec3(1.00, 0.38, 0.10) * (twilight * 0.88)) * (tau * 1.35);
+    return vec4(col, clamp(tau * (day + twilight * 0.6), 0.0, 1.0));
 }
 
 vec3 polar_aurora(vec3 dir, vec3 cam_pos, vec3 local_up, float aurora_factor, float time) {
     if (aurora_factor <= 0.01 || dir.x >= -0.01) return vec3(0.0);
     float above_horizon = smoothstep(0.0, 0.12, dot(dir, local_up));
     if (above_horizon <= 0.0) return vec3(0.0);
-
     float t = (-(u_face_half + u_ceiling_altitude) - cam_pos.x) / dir.x;
     if (t <= 0.0) return vec3(0.0);
-
     vec3 hit = cam_pos + t * dir;
     float face_dist = max(abs(hit.y), abs(hit.z));
     float face_cutoff = smoothstep(u_face_half, u_face_half * 0.85, face_dist);
     if (face_cutoff <= 0.001) return vec3(0.0);
-
     vec2 p = hit.yz / u_aurora_radius;
     float dist = length(p);
     float ring = smoothstep(0.12, 0.45, dist) * smoothstep(1.35, 0.80, dist);
     if (ring <= 0.005) return vec3(0.0);
-
     float angle = atan(p.y, p.x);
     float drift = time * 0.20;
-    float wave1 = sin(angle * 5.0 + drift) * 0.12 + sin(angle * 11.0 - drift * 1.6) * 0.05;
-    float ribbon1 = abs(dist - 0.90 + wave1);
-    float fold1 = pow(sin(angle * 24.0 + dist * 14.0 + drift * 2.2) * 0.5 + 0.5, 3.0) * 0.8 + 0.2;
-    float curtain1 = exp(-ribbon1 * 8.0) * fold1;
+    float r1 = abs(dist - 0.90 + sin(angle * 5.0 + drift) * 0.12);
+    float c1 = exp(-r1 * 8.0) * (pow(sin(angle * 24.0 + dist * 14.0 + drift * 2.2) * 0.5 + 0.5, 3.0) * 0.8 + 0.2);
+    float r2 = abs(dist - 1.20 + sin(angle * 7.0 - drift * 0.7) * 0.14);
+    float c2 = exp(-r2 * 10.0) * 0.5;
+    vec3 spectral = mix(vec3(0.08, 0.96, 0.46), vec3(0.62, 0.18, 0.92), clamp((dist - 0.75) * 1.5, 0.0, 1.0));
+    return spectral * ((c1 + c2) * ring * face_cutoff) * (aurora_factor * above_horizon * 1.8);
+}
 
-    float wave2 = sin(angle * 7.0 - drift * 0.7) * 0.14;
-    float ribbon2 = abs(dist - 1.20 + wave2);
-    float fold2 = pow(sin(angle * 30.0 - dist * 10.0 + drift * 1.4) * 0.5 + 0.5, 2.5) * 0.7 + 0.3;
-    float curtain2 = exp(-ribbon2 * 10.0) * fold2 * 0.6;
-
-    vec3 green = vec3(0.08, 0.96, 0.46);
-    vec3 violet = vec3(0.62, 0.18, 0.92);
-    vec3 spectral = mix(green, violet, clamp((dist - 0.75) * 1.5, 0.0, 1.0));
-
-    return spectral * ((curtain1 + curtain2) * ring * face_cutoff) * (aurora_factor * above_horizon * 1.8);
+vec4 distant_planet_cube(vec3 dir, vec3 p_dir, vec3 pole, float half_ang, vec3 col, bool ringed) {
+    if (half_ang <= 0.0001 || dot(dir, p_dir) < 0.85) return vec4(0.0);
+    vec3 r_ax = normalize(cross(p_dir, pole));
+    vec3 u_ax = cross(r_ax, p_dir);
+    vec2 uv = vec2(dot(dir - p_dir, r_ax), dot(dir - p_dir, u_ax));
+    float box_d = max(abs(uv.x), abs(uv.y));
+    float point_glow = exp(-length(uv) / max(half_ang * 1.8, 0.0018)) * 0.85;
+    float cube_mask = 1.0 - smoothstep(half_ang * 0.88, half_ang, box_d);
+    float phase = clamp(dot(p_dir, -u_sun_dir) * 0.45 + 0.65, 0.22, 1.0);
+    vec3 body = col * phase;
+    if (ringed) {
+        vec2 r_uv = vec2(uv.x, uv.y * 2.8);
+        float rb = max(abs(r_uv.x), abs(r_uv.y));
+        float ring_m = smoothstep(half_ang * 1.35, half_ang * 1.50, rb) * (1.0 - smoothstep(half_ang * 2.35, half_ang * 2.55, rb));
+        cube_mask = max(cube_mask, ring_m * 0.85);
+        body = mix(body, vec3(0.88, 0.82, 0.65) * phase, ring_m * (1.0 - cube_mask * 0.5));
+    }
+    float vis = max(cube_mask, point_glow);
+    return vec4(body * vis, cube_mask);
 }
 
 void main() {
     vec3 dir = normalize(v_ray_dir);
-
     float cam_cheb = max(max(abs(v_cam_pos.x), abs(v_cam_pos.y)), abs(v_cam_pos.z));
-    float space_factor = smoothstep(24.0, 92.0, cam_cheb - u_face_half);
+    float space_factor = smoothstep(14.0, 68.0, cam_cheb - u_face_half);
 
-    // Fiery golden sun with warm corona and horizon cutoff
-    float sun_dot = dot(dir, u_sun_dir);
-    float sun_disc = smoothstep(0.9980, 0.9992, sun_dot);
-    float sun_inner_glow = pow(max(sun_dot, 0.0), 32.0) * 0.50;
-    float sun_outer_glow = pow(max(sun_dot, 0.0), 8.0) * 0.20;
-    float sun_above = mix(smoothstep(-0.02, 0.05, dot(u_sun_dir, u_local_up)), 1.0, space_factor);
-    vec3 sun_core = vec3(1.0, 0.95, 0.65) * sun_disc * 2.8;
-    vec3 sun_halo = vec3(1.0, 0.60, 0.15) * sun_inner_glow + vec3(0.95, 0.35, 0.08) * sun_outer_glow;
-    vec3 sun_color = (sun_core + sun_halo) * sun_above;
-
-    // Full round lunar sphere with stable orbital celestial orientation
-    vec3 moon_dir = -u_sun_dir;
-    vec3 moon_right = normalize(cross(moon_dir, u_celestial_pole));
-    vec3 moon_up = cross(moon_right, moon_dir);
-    vec2 moon_uv = vec2(dot(dir - moon_dir, moon_right), dot(dir - moon_dir, moon_up)) * 28.0;
-
-    float moon_disc = 1.0 - smoothstep(0.92, 1.0, length(moon_uv));
-    float moon_above = smoothstep(-0.02, 0.05, dot(moon_dir, u_local_up));
-    float moon_visible = moon_disc * moon_above * (1.0 - space_factor);
-
-    vec3 moon_body = vec3(0.0);
-    if (moon_visible > 0.0) {
-        float surface = 0.72;
-        surface += lunar_basin(moon_uv, vec2(-0.30, 0.35), 0.42);
-        surface += lunar_basin(moon_uv, vec2(-0.48, -0.15), 0.45);
-        surface += lunar_basin(moon_uv, vec2(0.24, 0.32), 0.32);
-        surface += lunar_basin(moon_uv, vec2(0.35, 0.05), 0.34);
-        surface += lunar_basin(moon_uv, vec2(0.62, 0.18), 0.22);
-        surface += crater_field(moon_uv, 4.5, 0.55, 0.25, 0.26);
-        surface += crater_field(moon_uv, 9.5, 0.50, 0.20, 0.18);
-        vec2 tycho_pos = vec2(0.12, -0.55);
-        vec2 d_tycho = moon_uv - tycho_pos;
-        float ray_angle = atan(d_tycho.y, d_tycho.x);
-        float rays = pow(max(sin(ray_angle * 12.0), 0.0), 3.0) * exp(-length(d_tycho) * 1.6) * 0.28;
-        surface += rays;
-
-        moon_body = vec3(0.85, 0.88, 0.94) * clamp(surface, 0.32, 0.98);
+    // Square Moon / Planet Solar-Eclipse Shadow occluding the cubic solar disk
+    float eclipse_occ = 0.0;
+    if (u_eclipse_occluder.w > 0.0005 && dot(dir, u_eclipse_occluder.xyz) > 0.92) {
+        vec3 occ_d = normalize(u_eclipse_occluder.xyz);
+        vec3 occ_r = normalize(cross(occ_d, u_celestial_pole));
+        vec3 occ_u = cross(occ_r, occ_d);
+        vec2 occ_uv = vec2(dot(dir - occ_d, occ_r), dot(dir - occ_d, occ_u));
+        eclipse_occ = 1.0 - smoothstep(u_eclipse_occluder.w * 0.92, u_eclipse_occluder.w, max(abs(occ_uv.x), abs(occ_uv.y)));
     }
 
-    // Occlude stars and aurora behind solid celestial bodies (moon and sun)
-    float star_occ = (1.0 - moon_visible) * (1.0 - sun_disc * sun_above);
-    vec3 sky_bg = mix(u_sky_color.rgb, vec3(0.01, 0.015, 0.03), space_factor);
-    float star_visibility = max(u_night_factor, space_factor);
-    vec3 night_sky = sky_bg + vec3(stars(dir) * star_visibility * star_occ * 1.5);
-    vec3 aurora = polar_aurora(dir, v_cam_pos, u_local_up, u_aurora_factor * (1.0 - space_factor), u_time);
-    night_sky += aurora * (1.0 - moon_visible);
+    // Cubic 3D Sun (boxy solar facets + square eclipse umbra + warm outer corona)
+    vec3 sun_r = normalize(cross(u_sun_dir, u_celestial_pole));
+    vec3 sun_u = cross(sun_r, u_sun_dir);
+    float spin = u_time * 0.04;
+    vec2 s_raw = vec2(dot(dir - u_sun_dir, sun_r), dot(dir - u_sun_dir, sun_u));
+    vec2 s_rot = vec2(s_raw.x * cos(spin) - s_raw.y * sin(spin), s_raw.x * sin(spin) + s_raw.y * cos(spin));
+    float sun_cheb = max(abs(s_rot.x), abs(s_rot.y));
+    float sun_cube = (dot(dir, u_sun_dir) > 0.90) ? (1.0 - smoothstep(0.026, 0.029, sun_cheb)) : 0.0;
+    float edge_bevel = smoothstep(0.019, 0.026, sun_cheb) * sun_cube;
+    float sun_dot = max(dot(dir, u_sun_dir), 0.0);
+    float sun_above = mix(smoothstep(-0.02, 0.05, dot(u_sun_dir, u_local_up)), 1.0, space_factor);
+    vec3 sun_core = mix(vec3(1.0, 0.95, 0.62), vec3(1.0, 0.72, 0.25), edge_bevel) * sun_cube * 2.8 * (1.0 - eclipse_occ * 0.985);
+    vec3 sun_halo = vec3(1.0, 0.58, 0.14) * pow(sun_dot, 36.0) * 0.48 + vec3(0.95, 0.34, 0.08) * pow(sun_dot, 9.0) * 0.18;
+    vec3 sun_color = (sun_core + sun_halo) * sun_above;
 
-    // Completely opaque lunar body composited over firmament
-    vec3 sky_with_moon = mix(night_sky, moon_body, moon_visible);
+    // Live SolarEphemeris cubic planets (or procedural fallback), Saturn square ring & Asteroid Belt dust band
+    float belt_plane = abs(dot(dir, u_celestial_pole));
+    vec3 belt_dust = vec3(0.42, 0.39, 0.36) * exp(-belt_plane * 26.0) * (0.04 + 0.03 * star_noise(floor(dir * 60.0))) * max(u_night_factor, space_factor);
+    vec4 planets = vec4(0.0);
+    float p_vis = max(u_night_factor * 0.85, space_factor);
+    if (p_vis > 0.02) {
+        if (u_planet_cubes[0].w > 0.0001) {
+            planets += distant_planet_cube(dir, u_planet_cubes[0].xyz, u_celestial_pole, u_planet_cubes[0].w, vec3(0.68, 0.65, 0.62), false);
+            planets += distant_planet_cube(dir, u_planet_cubes[1].xyz, u_celestial_pole, u_planet_cubes[1].w, vec3(0.92, 0.78, 0.46), false);
+            planets += distant_planet_cube(dir, u_planet_cubes[2].xyz, u_celestial_pole, u_planet_cubes[2].w, vec3(0.85, 0.36, 0.20), false);
+            planets += distant_planet_cube(dir, u_planet_cubes[3].xyz, u_celestial_pole, u_planet_cubes[3].w, vec3(0.88, 0.70, 0.48), false);
+            planets += distant_planet_cube(dir, u_planet_cubes[4].xyz, u_celestial_pole, u_planet_cubes[4].w, vec3(0.90, 0.80, 0.56), true);
+            planets += distant_planet_cube(dir, u_planet_cubes[5].xyz, u_celestial_pole, u_planet_cubes[5].w, vec3(0.56, 0.88, 0.92), false);
+            planets += distant_planet_cube(dir, u_planet_cubes[6].xyz, u_celestial_pole, u_planet_cubes[6].w, vec3(0.24, 0.46, 0.96), false);
+        } else {
+            float t_orb = u_time * 0.008;
+            vec3 e1 = sun_r;
+            vec3 e2 = normalize(cross(u_celestial_pole, e1));
+            planets += distant_planet_cube(dir, normalize(e1 * cos(t_orb * 2.4 + 0.8) + e2 * sin(t_orb * 2.4 + 0.8)), u_celestial_pole, 0.0022, vec3(0.92, 0.78, 0.46), false);
+            planets += distant_planet_cube(dir, normalize(e1 * cos(t_orb * 1.3 + 0.5) + e2 * sin(t_orb * 1.3 + 0.5)), u_celestial_pole, 0.0024, vec3(0.85, 0.36, 0.20), false);
+            planets += distant_planet_cube(dir, normalize(e1 * cos(t_orb * 0.5 + 1.2) + e2 * sin(t_orb * 0.5 + 1.2)), u_celestial_pole, 0.0046, vec3(0.88, 0.70, 0.48), false);
+            planets += distant_planet_cube(dir, normalize(e1 * cos(t_orb * 0.3 + 2.6) + e2 * sin(t_orb * 0.3 + 2.6)), u_celestial_pole, 0.0040, vec3(0.90, 0.80, 0.56), true);
+            planets += distant_planet_cube(dir, normalize(e1 * cos(t_orb * 0.15 + 4.1) + e2 * sin(t_orb * 0.15 + 4.1)), u_celestial_pole, 0.0025, vec3(0.56, 0.88, 0.92), false);
+            planets += distant_planet_cube(dir, normalize(e1 * cos(t_orb * 0.10 + 5.2) + e2 * sin(t_orb * 0.10 + 5.2)), u_celestial_pole, 0.0024, vec3(0.24, 0.46, 0.96), false);
+        }
+        planets *= p_vis;
+    }
 
-    frag_color = vec4(sky_with_moon + sun_color, 1.0);
+    vec3 moon_dir = (u_eclipse_occluder.w > 0.0005) ? normalize(u_eclipse_occluder.xyz) : -u_sun_dir;
+    vec3 m_r = normalize(cross(moon_dir, u_celestial_pole));
+    vec3 m_u = cross(m_r, moon_dir);
+    vec2 m_uv = vec2(dot(dir - moon_dir, m_r), dot(dir - moon_dir, m_u)) * 28.0;
+    float moon_cube = (dot(dir, moon_dir) > 0.85) ? (1.0 - smoothstep(0.88, 0.96, max(abs(m_uv.x), abs(m_uv.y)))) : 0.0;
+    float moon_vis = moon_cube * smoothstep(-0.02, 0.05, dot(moon_dir, u_local_up)) * (1.0 - space_factor) * (1.0 - eclipse_occ);
+    vec3 moon_body = vec3(0.82, 0.85, 0.92) * (0.76 - 0.14 * max(abs(m_uv.x), abs(m_uv.y)));
+
+    vec4 atmo = earth_rayleigh_shell(v_cam_pos, dir, u_sun_dir, u_face_half) * space_factor;
+
+    float star_occ = (1.0 - moon_vis) * (1.0 - eclipse_occ) * (1.0 - sun_cube * sun_above) * (1.0 - clamp(planets.a, 0.0, 1.0)) * (1.0 - atmo.a * 0.85);
+    vec3 sky_bg = mix(u_sky_color.rgb, vec3(0.008, 0.012, 0.025), space_factor);
+    float star_vis = max(u_night_factor, space_factor);
+    vec3 cosmos = sky_bg + (vec3(stars(dir) * star_vis * 1.5) + belt_dust) * star_occ + planets.rgb * (1.0 - sun_cube);
+    cosmos += polar_aurora(dir, v_cam_pos, u_local_up, u_aurora_factor * (1.0 - space_factor), u_time) * (1.0 - moon_vis);
+    vec3 with_moon = mix(cosmos, moon_body, moon_vis);
+
+    frag_color = vec4(with_moon + atmo.rgb + sun_color * (1.0 - atmo.a * 0.25), 1.0);
 }
 "#;

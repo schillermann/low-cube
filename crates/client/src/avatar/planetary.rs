@@ -211,6 +211,12 @@ impl Avatar for PlanetaryAvatar {
     fn blend_subtick(&mut self, alpha: f32) { self.core_mut().blend_subtick(alpha); }
     fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) { self.core_mut().step_fauna(dt, world); }
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.core_mut().land_on_world(world); }
+    fn solar_chart_snapshot(&self, world: &dyn PlanetaryWorld) -> (crate::drive::OrrerySnapshot, f32, bool) {
+        self.core().solar_chart_snapshot(world)
+    }
+    fn install_navigation_course(&mut self, course: crate::drive::NavigationCourse) {
+        self.core_mut().install_navigation_course(course);
+    }
     #[cfg(test)]
     fn install_blueprint_archive(&mut self, archive: Box<dyn crate::blueprint::BlueprintArchive>) {
         self.core_mut().install_blueprint_archive(archive);

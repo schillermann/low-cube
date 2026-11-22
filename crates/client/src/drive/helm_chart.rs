@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{CelestialAtlas, OpticMount, PlanetaryWorld, VehicleAssembly};
 use super::clearance::{HullClearance, PadClearance};
-use super::transfer_arc::NavigationCourse;
+use super::transfer_arc::{FlipBurnReadout, NavigationCourse};
 
 /// Immutable telemetry packet for the Nose-Camera 3D Steuerkonsolen-Orrery and target range scale.
 #[derive(Clone, Copy, Debug)]
@@ -80,6 +80,10 @@ impl HelmChart {
         Self::new(atlas, NavigationCourse::Uncharted, pad)
     }
 
+    pub fn install_course(&mut self, course: NavigationCourse) {
+        self.course = course;
+    }
+
     pub fn sync_flight(
         &mut self,
         assembly: &VehicleAssembly,
@@ -100,6 +104,20 @@ impl HelmChart {
         self.course.mark_along(rays, ship_state, world)
     }
 
+    pub fn cockpit_snapshot(&self, assembly: &VehicleAssembly, velocity: Vec3) -> OrrerySnapshot {
+        let nose = assembly.normal().normalize_or_zero();
+        OrrerySnapshot::new(self.atlas, assembly.origin(), (nose, velocity), self.course)
+    }
+
+    pub fn flip_burn_readout(&self, assembly: &VehicleAssembly, velocity: Vec3) -> FlipBurnReadout {
+        match self.course {
+            NavigationCourse::Uncharted => FlipBurnReadout::Inactive,
+            NavigationCourse::Charted(ref arc) => {
+                arc.sample_flip_burn(assembly.origin(), velocity, assembly.normal())
+            }
+        }
+    }
+
     pub fn optic_telemetry(
         &self,
         mount: OpticMount,
@@ -108,10 +126,7 @@ impl HelmChart {
     ) -> OpticTelemetry {
         let pos = assembly.origin();
         match mount {
-            OpticMount::RocketNose => {
-                let nose = assembly.normal().normalize_or_zero();
-                OpticTelemetry::Nose(OrrerySnapshot::new(self.atlas, pos, (nose, velocity), self.course))
-            }
+            OpticMount::RocketNose => OpticTelemetry::Nose(self.cockpit_snapshot(assembly, velocity)),
             OpticMount::RocketBelly => {
                 OpticTelemetry::Belly(BellySnapshot::new(self.pad, self.course, pos))
             }

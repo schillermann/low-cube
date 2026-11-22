@@ -1,14 +1,15 @@
 mod controls;
 
 use glam::{Quat, Vec3};
-use world::{CockpitAxes, OpticMount, PlanetaryWorld, VehicleAssembly};
+use world::{AttitudeGuidance, CockpitAxes, OpticMount, PilotOrder, PlanetaryWorld, VehicleAssembly};
 use crate::attire::{BodyPose, RocketControls};
 use crate::controls::KeyboardControls;
 use crate::menu::GuidanceReadout;
-use super::helm_chart::{HelmChart, OpticTelemetry};
+use super::helm_chart::{HelmChart, OpticTelemetry, OrrerySnapshot};
 use super::space_step::{
     GravitationStep, GyroStep, InertialDrift, NozzleThrustStep, SpaceStep, TouchdownStep,
 };
+use super::transfer_arc::{FlipBurnReadout, NavigationCourse};
 use super::{CraftDrive, SEAT_EYE_SUPPORT};
 use self::controls::{ConsolePedals, HelmTrim, SpaceKinematics};
 
@@ -39,6 +40,16 @@ impl RocketDrive {
             HelmChart::boarded(assembly, world),
         )
     }
+
+    fn peak_burn_accel(assembly: &VehicleAssembly) -> f32 {
+        let full = PilotOrder::from_channels(Vec3::Y, Vec3::ZERO, Vec3::ZERO, AttitudeGuidance::Engaged);
+        let imp = assembly.sample_impulse(&full);
+        if assembly.fusion_equipped() {
+            imp.fusion_velocity_delta(1.0).length()
+        } else {
+            imp.velocity_delta(1.0).length()
+        }
+    }
 }
 
 impl CraftDrive for RocketDrive {
@@ -52,6 +63,10 @@ impl CraftDrive for RocketDrive {
 
     fn free_look(&self) -> bool {
         true
+    }
+
+    fn proper_g_load(&self) -> f32 {
+        self.kinematics.proper_g()
     }
 
     fn helm_optic_channel(&self, assembly: &VehicleAssembly) -> u8 {
@@ -68,6 +83,20 @@ impl CraftDrive for RocketDrive {
 
     fn guidance_readout(&self) -> GuidanceReadout {
         self.trim.readout()
+    }
+
+    fn flip_burn_readout(&self, assembly: &VehicleAssembly) -> FlipBurnReadout {
+        self.kinematics.transfer(|vel, _| self.chart.flip_burn_readout(assembly, vel))
+    }
+
+    fn solar_chart_snapshot(&self, assembly: &VehicleAssembly) -> Option<(OrrerySnapshot, f32, bool)> {
+        let accel = Self::peak_burn_accel(assembly);
+        let fusion = assembly.fusion_equipped();
+        Some(self.kinematics.transfer(|vel, _| (self.chart.cockpit_snapshot(assembly, vel), accel, fusion)))
+    }
+
+    fn install_course(&mut self, course: NavigationCourse) {
+        self.chart.install_course(course);
     }
 
     fn mark_nose_target(
@@ -105,7 +134,13 @@ impl CraftDrive for RocketDrive {
         let (stick_x, stick_z, vert) = pedals.stick_channels(flipping);
         let target_controls = RocketControls::clamped(stick_x, stick_z, vert);
         self.controls = self.controls.blended(target_controls, 14.0 * dt);
-        self.trim.advance_burn(order, flipping, dt);
+        let fusion = assembly.fusion_equipped();
+        self.trim.advance_burn(order, fusion, flipping, dt);
+
+        let imp = assembly.sample_impulse(&order);
+        let thrust_dv = if fusion { imp.fusion_velocity_delta(dt) } else { imp.velocity_delta(dt) };
+        let proper_g = if dt > 1e-5 { thrust_dv.length() / (dt * 9.81) } else { 0.0 };
+
         let chain = TouchdownStep::new(
             GyroStep::new(
                 NozzleThrustStep::new(
@@ -124,7 +159,7 @@ impl CraftDrive for RocketDrive {
         );
         let stepped = chain.resolve(dt);
         let (next_origin, next_vel, next_omega, step_rot) = stepped.transfer(|o, v, w, r| (o, v, w, r));
-        self.kinematics = SpaceKinematics::new(next_vel, next_omega);
+        self.kinematics = SpaceKinematics::new(next_vel, next_omega, proper_g);
         if step_rot != Quat::IDENTITY {
             assembly.rotate_3d(step_rot);
         }

@@ -29,6 +29,11 @@ pub trait WorldEarthworks {
     }
     fn park_craft_by_id(&mut self, _craft: CraftIdentity, _pose: CraftPose) -> bool { false }
     fn disclose_stratum(&mut self, _face_index: usize, _stratum: ExposedStratum) {}
+    fn offworld_frame(&self, _probe: Vec3) -> Option<(crate::BodyId, Vec3)> { None }
+    fn body_center(&self, _body: crate::BodyId) -> Option<Vec3> { None }
+    fn enact_offworld(&mut self, _body: crate::BodyId, fact: &crate::WorldFact) -> bool {
+        fact.enact_on(self)
+    }
 }
 
 /// Focused planetary terrain, `16×16` sector grid, and toroidal `MeadowRing` mesh-streaming contract.
@@ -47,6 +52,7 @@ pub trait TerrainMesh {
     fn drain_modified_patch(&mut self, _target: &mut dyn MeshTarget) -> Option<(usize, usize)> { None }
     fn drain_stale_meadow_patch(&self, _center: Vec3, _ring: &mut MeadowRing, _target: &mut dyn MeshTarget) -> Option<usize> { None }
     fn emit_meadow_around(&self, _center: Vec3, _view_dir: Vec3, _target: &mut dyn MeshTarget) {}
+    fn emit_cosmic_field(&self, _cone: SightCone, _target: &mut dyn MeshTarget) {}
     fn visible_slice_mask(&self, _position: Vec3) -> u32 { u32::MAX }
     fn drain_disclosures(&mut self, _out: &mut Vec<(u8, ExposedStratum)>) {}
 }

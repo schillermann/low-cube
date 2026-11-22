@@ -81,7 +81,16 @@ impl CockpitBerth {
         }
         let views = self.pilot.collected_views();
         let guidance = self.pilot.guidance_readout();
-        (self.optics.resolve_boresight(&views), self.optics.channel_feed(&views, guidance))
+        let flip_burn = self.pilot.flip_burn_readout();
+        (self.optics.resolve_boresight(&views), self.optics.channel_feed(&views, guidance, flip_burn))
+    }
+
+    pub(super) fn solar_chart_snapshot(&self) -> Option<(crate::drive::OrrerySnapshot, f32, bool)> {
+        self.pilot.solar_chart_snapshot()
+    }
+
+    pub(super) fn install_course(&mut self, course: crate::drive::NavigationCourse) {
+        self.pilot.install_course(course);
     }
 
     pub(super) fn mark_nose_target(&mut self, world: &dyn PlanetaryWorld) -> bool {
@@ -257,7 +266,8 @@ impl CockpitBerth {
                 sight_line.steer_vehicle(steer_px);
             }
             sight_line.reorient_cockpit(seat_up, dt);
-            (posture.crouch_down(dt), false)
+            let g_load = self.pilot.proper_g_load();
+            (posture.crouch_down(dt).sustain_high_g(g_load, dt), false)
         };
         Some((next_span, next_posture, ground_flight))
     }

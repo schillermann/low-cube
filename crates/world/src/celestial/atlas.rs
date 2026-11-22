@@ -1,19 +1,33 @@
-use glam::Vec3;
+use glam::{DVec3, Vec3};
 use crate::PlanetaryWorld;
+use super::catalog::BodyId;
+use super::ephemeris::{BodySnapshot, SolarEphemeris};
 use super::CelestialSystem;
 
-/// Celestial body coordinate layout for cosmic sight-ray locking and holographic orrery projection.
+/// Polymorphic atlas topology avoiding `Option<SolarEphemeris>` fields.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AtlasMode {
+    BinaryPocket,
+    Heliosphere(SolarEphemeris),
+}
+
+/// Celestial body coordinate layout for cosmic sight-ray locking, `M` System Map, and `GlFirmament` raytracing.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CelestialAtlas {
     home_half: f32,
-    moon_center: Vec3,
-    moon_half: f32,
+    moon_spec: (Vec3, f32),
+    mode: AtlasMode,
 }
 
 impl CelestialAtlas {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_mode(home_half: f32, moon_spec: (Vec3, f32), mode: AtlasMode) -> Self {
+        Self { home_half, moon_spec, mode }
+    }
+
+    /// Secondary constructor for two-body Earth-Moon worlds.
     pub const fn new(home_half: f32, moon_center: Vec3, moon_half: f32) -> Self {
-        Self { home_half, moon_center, moon_half }
+        Self::with_mode(home_half, (moon_center, moon_half), AtlasMode::BinaryPocket)
     }
 
     /// Secondary constructor for solitary single-cube worlds without an active lunar companion.
@@ -22,20 +36,57 @@ impl CelestialAtlas {
         Self::new(home_half, CelestialSystem::moon_center(blocks), 0.0)
     }
 
-    /// Transfers `(home_half, moon_center, moon_half)` to a collaborating closure without getters.
-    pub fn transfer<R>(self, f: impl FnOnce(f32, Vec3, f32) -> R) -> R {
-        f(self.home_half, self.moon_center, self.moon_half)
+    /// Secondary constructor wrapping a live moving `SolarEphemeris` across all planets, moons, and Sun.
+    pub fn heliosphere(ephemeris: SolarEphemeris) -> Self {
+        let snaps = ephemeris.snapshot_all(0.0);
+        let luna = snaps[4];
+        Self::with_mode(
+            ephemeris.proportions().earth_half(),
+            (luna.center().as_vec3(), luna.half_size() as f32),
+            AtlasMode::Heliosphere(ephemeris),
+        )
     }
 
-    fn slab_span(eye: Vec3, dir: Vec3, center: Vec3, bound: f32) -> Option<(f32, f32)> {
-        let min_b = center - Vec3::splat(bound);
-        let max_b = center + Vec3::splat(bound);
-        let (mut t0, mut t1) = (0.0_f32, 4_096.0_f32);
+    /// Transfers `(home_half, moon_center, moon_half)` to a collaborating closure without getters.
+    pub fn transfer<R>(self, f: impl FnOnce(f32, Vec3, f32) -> R) -> R {
+        f(self.home_half, self.moon_spec.0, self.moon_spec.1)
+    }
+
+    pub const fn ephemeris(self) -> Option<SolarEphemeris> {
+        match self.mode {
+            AtlasMode::BinaryPocket => None,
+            AtlasMode::Heliosphere(eph) => Some(eph),
+        }
+    }
+
+    /// Resolves `(center, surface_point, surface_normal)` for a named `BodyId` at `delta_t` seconds ahead.
+    pub fn target_on_body(self, id: BodyId, ship_pos: DVec3, delta_t: f64) -> Option<(BodySnapshot, DVec3, Vec3)> {
+        let eph = self.ephemeris()?;
+        let snaps = eph.snapshot_all(delta_t);
+        let snap = snaps.into_iter().find(|s| s.id() == id)?;
+        let approach = ship_pos - snap.center();
+        let out_dir = if approach.length_squared() > 1e-4 {
+            approach.normalize()
+        } else {
+            DVec3::Y
+        };
+        let norm_v3 = crate::ClimateZone::dominant(out_dir.as_vec3()).normal();
+        let stand_dist = if snap.nature().landable_crust() {
+            snap.half_size()
+        } else {
+            snap.half_size() * 1.45
+        };
+        let target_pt = snap.center() + norm_v3.as_dvec3() * stand_dist;
+        Some((snap, target_pt, norm_v3))
+    }
+
+    fn slab_span_dvec(eye: DVec3, dir: DVec3, center: DVec3, bound: f64, max_range: f64) -> Option<(f64, f64)> {
+        let min_b = center - DVec3::splat(bound);
+        let max_b = center + DVec3::splat(bound);
+        let (mut t0, mut t1) = (0.0_f64, max_range);
         for axis in 0..3 {
-            let o = eye[axis];
-            let d = dir[axis];
-            let (lo, hi) = (min_b[axis], max_b[axis]);
-            if d.abs() < 1e-6 {
+            let (o, d, lo, hi) = (eye[axis], dir[axis], min_b[axis], max_b[axis]);
+            if d.abs() < 1e-9 {
                 if o < lo || o > hi {
                     return None;
                 }
@@ -92,7 +143,7 @@ impl CelestialAtlas {
         None
     }
 
-    /// Resolves the nearest Homeworld or Moon terrain point intersected by a cosmic camera sight ray.
+    /// Resolves the nearest planetary, lunar, or solar cube point intersected by a cosmic sight ray.
     pub fn lock_sight_surface(
         self,
         eye: Vec3,
@@ -103,9 +154,49 @@ impl CelestialAtlas {
         if dir.length_squared() <= 0.25 {
             return None;
         }
-        let home_hit = Self::slab_span(eye, dir, Vec3::ZERO, self.home_half + 6.0);
-        let moon_hit = (self.moon_half > 0.0)
-            .then(|| Self::slab_span(eye, dir, self.moon_center, self.moon_half + 4.0))
+        if let AtlasMode::Heliosphere(eph) = self.mode {
+            let (eye_d, dir_d) = (eye.as_dvec3(), dir.as_dvec3());
+            let max_r = eph.proportions().astronomical_unit() * 40.0;
+            let mut nearest: Option<(f64, BodySnapshot, (f64, f64))> = None;
+            for snap in eph.snapshot_all(0.0) {
+                if snap.id() == BodyId::SOL {
+                    continue;
+                }
+                let pad = if snap.nature().landable_crust() { 6.0 } else { 0.0 };
+                if let Some(span) = Self::slab_span_dvec(eye_d, dir_d, snap.center(), snap.half_size() + pad, max_r) {
+                    if nearest.map_or(true, |(best_t, _, _)| span.0 < best_t) {
+                        nearest = Some((span.0, snap, span));
+                    }
+                }
+            }
+            if let Some((t_hit, snap, span)) = nearest {
+                if t_hit <= 4_096.0 && snap.nature().landable_crust() {
+                    if let Some(hit) = Self::march_surface(eye, dir, (span.0 as f32, span.1 as f32), world) {
+                        return Some(hit);
+                    }
+                }
+                let hit_pt = eye_d + dir_d * t_hit;
+                let rel = (hit_pt - snap.center()).as_vec3();
+                let n = crate::ClimateZone::dominant(rel).normal();
+                return Some(((snap.center() + n.as_dvec3() * snap.half_size()).as_vec3(), n));
+            }
+            return None;
+        }
+
+        let (eye_d, dir_d) = (eye.as_dvec3(), dir.as_dvec3());
+        let home_hit = Self::slab_span_dvec(eye_d, dir_d, DVec3::ZERO, f64::from(self.home_half + 6.0), 4_096.0)
+            .map(|(a, b)| (a as f32, b as f32));
+        let moon_hit = (self.moon_spec.1 > 0.0)
+            .then(|| {
+                Self::slab_span_dvec(
+                    eye_d,
+                    dir_d,
+                    self.moon_spec.0.as_dvec3(),
+                    f64::from(self.moon_spec.1 + 4.0),
+                    4_096.0,
+                )
+                .map(|(a, b)| (a as f32, b as f32))
+            })
             .flatten();
         match (home_hit, moon_hit) {
             (Some(h), Some(m)) if m.0 < h.0 => {

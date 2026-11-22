@@ -126,12 +126,16 @@ impl RemoteLink {
     }
 
     pub fn step_handshake(&mut self, dt: f32) -> Option<u32> {
+        self.step_cosmos_handshake(dt).map(world::SolarProportions::earth_blocks)
+    }
+
+    pub fn step_cosmos_handshake(&mut self, dt: f32) -> Option<world::SolarProportions> {
         let mut buf = [0u8; 1500];
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
             if matches!(self.phase, LinkPhase::SeekingWormhole { .. }) {
                 self.try_advance_wormhole(src, &buf[..len]);
-            } else if let Some(blocks) = self.try_accept_welcome(src, &buf[..len]) {
-                return Some(blocks);
+            } else if let Some(prop) = self.try_accept_welcome(src, &buf[..len]) {
+                return Some(prop);
             }
         }
         self.phase.step_retry(dt, self.target, &self.socket);
@@ -139,10 +143,14 @@ impl RemoteLink {
     }
 
     pub fn try_welcome_within(&mut self, timeout: Duration) -> Option<u32> {
+        self.try_welcome_cosmos_within(timeout).map(world::SolarProportions::earth_blocks)
+    }
+
+    pub fn try_welcome_cosmos_within(&mut self, timeout: Duration) -> Option<world::SolarProportions> {
         let deadline = Instant::now() + timeout;
         while Instant::now() < deadline {
-            if let Some(blocks) = self.step_handshake(0.01) {
-                return Some(blocks);
+            if let Some(prop) = self.step_cosmos_handshake(0.01) {
+                return Some(prop);
             }
             std::thread::sleep(Duration::from_millis(8));
         }
@@ -153,7 +161,7 @@ impl RemoteLink {
         self.try_welcome_within(timeout).unwrap_or(fallback_blocks)
     }
 
-    fn try_accept_welcome(&mut self, src: SocketAddr, pkt: &[u8]) -> Option<u32> {
+    fn try_accept_welcome(&mut self, src: SocketAddr, pkt: &[u8]) -> Option<world::SolarProportions> {
         if pkt.len() < 44 || &pkt[0..4] != b"LWEL" {
             return None;
         }
@@ -166,11 +174,12 @@ impl RemoteLink {
         }
         let cid = u32::from_le_bytes(pkt[36..40].try_into().ok()?);
         let blocks = u32::from_le_bytes(pkt[40..44].try_into().ok()?);
+        let proportions = world::SolarProportions::decode_tail(blocks, &pkt[44..]);
         if let LinkPhase::Knocking { ref keys, .. } = self.phase {
             let seal = keys.establish(host_pub, true);
             self.phase = LinkPhase::Sealed { companion_id: cid, seal, peer: src };
             self.sync.assign_slot(cid);
-            return Some(blocks);
+            return Some(proportions);
         }
         None
     }

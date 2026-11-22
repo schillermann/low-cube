@@ -82,7 +82,7 @@ impl<'a> ClusterHelm<'a> {
                     BlockMedium::CarWheel => wheel = true,
                     BlockMedium::SteeringWheel => steering = true,
                     BlockMedium::FlightConsole => console = true,
-                    BlockMedium::RocketNozzle => nozzle = true,
+                    BlockMedium::RocketNozzle | BlockMedium::FusionTorch => nozzle = true,
                     _ => {}
                 }
             }

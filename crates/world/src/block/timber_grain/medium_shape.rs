@@ -110,7 +110,10 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target);
         } else if self.medium == BlockMedium::FieldCamera {
             FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
-        } else if matches!(self.medium, BlockMedium::FlightConsole | BlockMedium::RocketNozzle | BlockMedium::RocketCamera) {
+        } else if matches!(
+            self.medium,
+            BlockMedium::FlightConsole | BlockMedium::RocketNozzle | BlockMedium::RocketCamera | BlockMedium::FusionTorch
+        ) {
             SpaceBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle)).emit(cell, floor_elevation, frame, target);
         } else if matches!(self.medium, BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::CarWheel) {
             VehicleBlockMesh::with_motion(self.medium, self.heading, self.archetype, (spin_angle, steer_angle)).emit(cell, floor_elevation, frame, target);
@@ -133,7 +136,10 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             (BlockMedium::VehicleBlueprint, _) => BlueprintBlockMesh::new(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::PedalCluster, _) => PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
-            (BlockMedium::FlightConsole | BlockMedium::RocketNozzle | BlockMedium::RocketCamera, _) => {
+            (
+                BlockMedium::FlightConsole | BlockMedium::RocketNozzle | BlockMedium::RocketCamera | BlockMedium::FusionTorch,
+                _,
+            ) => {
                 SpaceBlockMesh::parked(self.medium, self.heading, self.archetype).emit(cell, floor_elevation, frame, target);
             }
             (BlockMedium::SteeringWheel | BlockMedium::AircraftEngine | BlockMedium::CarWheel, _) => {

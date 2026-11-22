@@ -6,10 +6,12 @@ use crate::frame::SurfaceFrame;
 use super::super::craft_entity::CraftPose;
 pub use self::order::PilotOrder;
 pub use self::stages::{
-    ConsoleGyroStage, HullBallast, ImpulseStage, MainBellStage, VernierAttitudeStage,
+    ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage, MainBellStage,
+    VernierAttitudeStage,
 };
 
 pub(super) const NOZZLE_THRUST: f32 = 72.0;
+pub(super) const FUSION_TORCH_THRUST: f32 = 360.0;
 pub(super) const RCS_HORN_THRUST: f32 = 30.0;
 pub(super) const BELL_TORQUE_SCALE: f32 = 0.12;
 pub(super) const RCS_TORQUE_SCALE: f32 = 0.95;
@@ -20,6 +22,7 @@ const CONSOLE_STEER_TORQUE: f32 = 4.50;
 const MAX_ENGAGED_RATE: f32 = 1.65;
 const MAX_MANUAL_RATE: f32 = 3.20;
 const MAX_THRUST_ACCEL: f32 = 32.0;
+const MAX_FUSION_ACCEL: f32 = 78.5;
 const MIN_CRAFT_MASS: f32 = 3.0;
 const MIN_AXIS_INERTIA: f32 = 0.70;
 
@@ -154,6 +157,15 @@ impl RigidImpulse {
         Self::new(self.linear_force + force, self.torque + bell_torque, self.tensor, self.gyro_trim)
     }
 
+    pub fn with_fusion_burn(self, lever_arm: Vec3, thrust_dir: Vec3, throttle: f32) -> Self {
+        if throttle <= 0.01 {
+            return self;
+        }
+        let force = thrust_dir * (FUSION_TORCH_THRUST * throttle);
+        let bell_torque = lever_arm.cross(force) * (BELL_TORQUE_SCALE * 0.5);
+        Self::new(self.linear_force + force, self.torque + bell_torque, self.tensor, self.gyro_trim)
+    }
+
     pub fn with_rcs_horn(self, lever_arm: Vec3, thrust_dir: Vec3, throttle: f32) -> Self {
         if throttle <= 0.01 {
             return self;
@@ -169,9 +181,18 @@ impl RigidImpulse {
 
     /// World-space linear acceleration (`F / m`, capped to `MAX_THRUST_ACCEL`) over `dt`.
     pub fn velocity_delta(&self, dt: f32) -> Vec3 {
+        self.capped_velocity_delta(dt, MAX_THRUST_ACCEL)
+    }
+
+    /// Epstein fusion torch linear velocity delta (`F / m`, capped to `MAX_FUSION_ACCEL` ~8G) over `dt`.
+    pub fn fusion_velocity_delta(&self, dt: f32) -> Vec3 {
+        self.capped_velocity_delta(dt, MAX_FUSION_ACCEL)
+    }
+
+    fn capped_velocity_delta(&self, dt: f32, cap: f32) -> Vec3 {
         let raw_accel = self.linear_force / self.tensor.mass.max(MIN_CRAFT_MASS);
-        let accel = if raw_accel.length_squared() > MAX_THRUST_ACCEL * MAX_THRUST_ACCEL {
-            raw_accel.normalize() * MAX_THRUST_ACCEL
+        let accel = if raw_accel.length_squared() > cap * cap {
+            raw_accel.normalize() * cap
         } else {
             raw_accel
         };

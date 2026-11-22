@@ -172,3 +172,50 @@ fn test_hot_simulation_loop_zero_runtime_allocations() {
         "Multiplayer walking alongside active companion vehicles must perform zero heap allocations"
     );
 }
+
+#[test]
+fn test_asteroid_belt_flythrough_zero_heap_allocations() {
+    let prop = world::SolarProportions::true_scale(32).with_belt_density(2.0);
+    let world = world::CelestialSystem::barren_heliosphere(prop, 1.0);
+    let eph = world.celestial_atlas().ephemeris().expect("heliosphere ephemeris");
+    let sun = eph.snapshot_all(0.0)[0];
+    let belt = world::AsteroidBelt::new(prop, 0.0);
+    let r_belt = prop.astronomical_unit() * 2.68;
+    let belt_pos = (sun.center() + glam::DVec3::new(r_belt, 0.0, 0.0)).as_vec3();
+
+    let mut explorer = PlanetaryAvatar::with_flight(
+        belt_pos,
+        Box::new(crate::zero_g_flight::ZeroGFlight::wrapping(
+            crate::flight::SurfaceFlight::calibrated(0.522, 9.81, 1.0),
+        )),
+    );
+    let drift_ctrl = WalkControls;
+    let dt = 1.0 / 60.0;
+
+    struct BeltSink(usize);
+    impl world::MeshTarget for BeltSink {
+        fn push_quad(&mut self, _quad: world::Quad) {
+            self.0 += 1;
+        }
+    }
+    let mut sink = BeltSink(0);
+
+    // Warm up 1 tick outside the allocation counter
+    explorer.step_motion(dt, &drift_ctrl, world.as_ref());
+    let cone0 = world::SightCone::omnidirectional(belt_pos);
+    world.emit_cosmic_field(cone0, &mut sink);
+
+    let belt_allocs = count_allocations(|| {
+        for frame in 0..300 {
+            explorer.step_motion(dt, &drift_ctrl, world.as_ref());
+            let probe = belt_pos + Vec3::new((frame as f32) * 1.5, 0.0, (frame as f32) * 0.8);
+            let _ = belt.nearest_rock(probe.as_dvec3(), sun.center(), sun.gm(), 120.0);
+            world.emit_cosmic_field(world::SightCone::omnidirectional(probe), &mut sink);
+        }
+    });
+    assert_eq!(
+        belt_allocs, 0,
+        "Flying through the procedural Asteroid Belt (physics + nearest_rock + emit_cosmic_field) must perform 0 heap allocations"
+    );
+    assert!(sink.0 > 0, "Asteroid Belt flythrough must stream tumbling asteroid quads");
+}

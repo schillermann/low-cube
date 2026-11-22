@@ -54,6 +54,24 @@ impl StageOverlay {
         self.controls.register_trigger(trigger, pressed);
     }
 
+    pub(super) fn toggle_gameplay_modal(
+        &mut self,
+        trigger: InputTrigger,
+        surface: &dyn PlatformSurface,
+        avatar: &mut dyn Avatar,
+        world: &dyn PlanetaryWorld,
+    ) -> bool {
+        let opened = self.modal.toggle_gameplay_trigger(trigger, surface, avatar, world);
+        if opened && self.modal.open() {
+            self.controls.clear_triggers();
+        }
+        opened
+    }
+
+    pub(super) fn sync_world_chart(&mut self, avatar: &dyn Avatar, world: &dyn PlanetaryWorld) {
+        self.modal.sync_world_chart(avatar, world);
+    }
+
     #[cfg(test)]
     pub(super) fn begin_bound_dial(&mut self, link: sanctuary::RemoteLink) -> String {
         let (dial, reply_code) = PortalDial::from_link(link);

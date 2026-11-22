@@ -3,6 +3,7 @@ use world::{PilotOrder, PlanetaryWorld, VehicleAssembly};
 use super::clearance::HullClearance;
 
 pub(crate) const MAX_COSMIC_SPEED: f32 = 45.0;
+pub(crate) const MAX_FUSION_SPEED: f32 = 48_000.0;
 
 /// Immutable 6-DOF spacecraft state step returned by the `SpaceStep` decorator chain.
 #[derive(Clone, Copy, Debug)]
@@ -24,14 +25,15 @@ impl SpaceState {
         Self { origin, velocity, angular_velocity, rotation }
     }
 
-    pub(super) fn bounded(
+    pub(super) fn bounded_at(
         origin: Vec3,
         raw_velocity: Vec3,
         angular_velocity: Vec3,
         rotation: Quat,
+        speed_cap: f32,
     ) -> Self {
-        let velocity = if raw_velocity.length_squared() > MAX_COSMIC_SPEED * MAX_COSMIC_SPEED {
-            raw_velocity.normalize() * MAX_COSMIC_SPEED
+        let velocity = if raw_velocity.length_squared() > speed_cap * speed_cap {
+            raw_velocity.normalize() * speed_cap
         } else {
             raw_velocity
         };
@@ -90,7 +92,7 @@ impl<S: SpaceStep> SpaceStep for GravitationStep<'_, S> {
     fn resolve(&self, dt: f32) -> SpaceState {
         let s = self.origin.resolve(dt);
         let dv = self.world.apply_pull(s.origin, dt);
-        SpaceState::bounded(s.origin + dv * (0.5 * dt), s.velocity + dv, s.angular_velocity, s.rotation)
+        SpaceState::bounded_at(s.origin + dv * (0.5 * dt), s.velocity + dv, s.angular_velocity, s.rotation, MAX_FUSION_SPEED)
     }
 }
 
@@ -112,13 +114,15 @@ impl<S: SpaceStep> SpaceStep for NozzleThrustStep<'_, S> {
     fn resolve(&self, dt: f32) -> SpaceState {
         let s = self.origin.resolve(dt);
         let impulse = self.assembly.sample_impulse(&self.order);
-        let raw_dv = impulse.velocity_delta(dt);
+        let fusion = self.assembly.fusion_equipped();
+        let cap = if fusion { MAX_FUSION_SPEED } else { MAX_COSMIC_SPEED };
+        let raw_dv = if fusion { impulse.fusion_velocity_delta(dt) } else { impulse.velocity_delta(dt) };
         let speed = s.velocity.length();
         let dv = if speed > 1e-4 {
             let vel_dir = s.velocity / speed;
             let fwd_proj = raw_dv.dot(vel_dir);
             if fwd_proj > 0.0 {
-                let ratio = (speed / MAX_COSMIC_SPEED).clamp(0.0, 1.0);
+                let ratio = (speed / cap).clamp(0.0, 1.0);
                 let r2 = ratio * ratio;
                 let taper = (1.0 - r2 * r2).max(0.0);
                 (raw_dv - vel_dir * fwd_proj) + vel_dir * (fwd_proj * taper)
@@ -128,7 +132,7 @@ impl<S: SpaceStep> SpaceStep for NozzleThrustStep<'_, S> {
         } else {
             raw_dv
         };
-        SpaceState::bounded(s.origin + dv * (0.5 * dt), s.velocity + dv, s.angular_velocity, s.rotation)
+        SpaceState::bounded_at(s.origin + dv * (0.5 * dt), s.velocity + dv, s.angular_velocity, s.rotation, cap)
     }
 }
 

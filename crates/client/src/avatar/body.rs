@@ -56,6 +56,12 @@ impl AvatarBody {
     pub fn optic_telemetry(&self) -> crate::drive::OpticTelemetry {
         self.berth.optic_telemetry()
     }
+    pub fn solar_chart_snapshot(&self) -> Option<(crate::drive::OrrerySnapshot, f32, bool)> {
+        self.berth.solar_chart_snapshot()
+    }
+    pub fn install_course(&mut self, course: crate::drive::NavigationCourse) {
+        self.berth.install_course(course);
+    }
     pub fn emit_controls_slate(&self, bindings: &ActionBindings, aspect: f32, target: &mut dyn MeshTarget) {
         self.berth.emit_controls_slate(bindings, aspect, target);
     }

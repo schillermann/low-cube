@@ -2,6 +2,7 @@ mod codec;
 
 use glam::Vec3;
 use crate::block::BlockMold;
+use crate::celestial::BodyId;
 use crate::relief::{CraftBlueprint, CraftIdentity, CraftPose, ExposedStratum};
 use crate::tree::SurfaceFind;
 use crate::WorldEarthworks;
@@ -24,11 +25,53 @@ pub enum WorldFact {
     HelmReleased { craft: CraftIdentity, pose: CraftPose },
     RigBlueprintBuilt { eye: Vec3, direction: Vec3, blueprint: CraftBlueprint },
     BoarStruck { eye: Vec3, direction: Vec3, power: u8, reach_cm: u16 },
+    OffWorld { body: BodyId, fact: Box<WorldFact> },
 }
 
 impl WorldFact {
+    /// Shifts spatial anchors (`eye`, `avatar_pos`, `pose`) by `shift` for body-local / world-space conversion.
+    pub fn translated_by(&self, shift: Vec3) -> Self {
+        match *self {
+            Self::Loosened { eye, direction, stage } => Self::Loosened { eye: eye + shift, direction, stage },
+            Self::Harvested { eye, direction } => Self::Harvested { eye: eye + shift, direction },
+            Self::StratumDisclosed { face, stratum } => Self::StratumDisclosed { face, stratum },
+            Self::MoldPlaced { eye, direction, avatar_pos, mold } => {
+                Self::MoldPlaced { eye: eye + shift, direction, avatar_pos: avatar_pos + shift, mold }
+            }
+            Self::TimberStruck { eye, direction } => Self::TimberStruck { eye: eye + shift, direction },
+            Self::Foraged { eye, direction } => Self::Foraged { eye: eye + shift, direction },
+            Self::RigAdjusted { eye, direction, delta_steps, rotate_quarter } => {
+                Self::RigAdjusted { eye: eye + shift, direction, delta_steps, rotate_quarter }
+            }
+            Self::RigLowered { eye, direction } => Self::RigLowered { eye: eye + shift, direction },
+            Self::LitterCast { eye, direction, find } => Self::LitterCast { eye: eye + shift, direction, find },
+            Self::CraftCommissioned { ref blueprint } => Self::CraftCommissioned { blueprint: blueprint.clone() },
+            Self::HelmClaimed { craft, pilot_slot, eye, direction } => {
+                Self::HelmClaimed { craft, pilot_slot, eye: eye + shift, direction }
+            }
+            Self::HelmReleased { craft, pose } => {
+                Self::HelmReleased { craft, pose: pose.with_origin(pose.origin() + shift) }
+            }
+            Self::RigBlueprintBuilt { eye, direction, ref blueprint } => {
+                Self::RigBlueprintBuilt { eye: eye + shift, direction, blueprint: blueprint.clone() }
+            }
+            Self::BoarStruck { eye, direction, power, reach_cm } => {
+                Self::BoarStruck { eye: eye + shift, direction, power, reach_cm }
+            }
+            Self::OffWorld { body, ref fact } => Self::OffWorld { body, fact: fact.clone() },
+        }
+    }
+
+    /// Scopes a world-space mutation to a body-local `OffWorld` fact when `frame` identifies an off-world cube.
+    pub fn scoped_to(self, frame: Option<(BodyId, Vec3)>) -> Self {
+        match frame {
+            Some((body, center)) => Self::OffWorld { body, fact: Box::new(self.translated_by(-center)) },
+            None => self,
+        }
+    }
+
     /// Applies this authoritative fact directly to a planetary earthworks target, returning whether geometry changed.
-    pub fn enact_on(&self, world: &mut dyn WorldEarthworks) -> bool {
+    pub fn enact_on<W: WorldEarthworks + ?Sized>(&self, world: &mut W) -> bool {
         match *self {
             Self::Loosened { eye, direction, stage } => world.loosen_surface(eye, direction, stage).is_some(),
             Self::Harvested { eye, direction } => world.harvest_surface(eye, direction).is_some(),
@@ -57,11 +100,16 @@ impl WorldFact {
             Self::BoarStruck { eye, direction, power, reach_cm } => {
                 world.strike_boar(eye, direction, power, f32::from(reach_cm) * 0.01).0
             }
+            Self::OffWorld { body, ref fact } => world.enact_offworld(body, fact),
         }
     }
 
-    pub const fn durable(&self) -> bool {
-        !matches!(self, Self::Loosened { .. } | Self::BoarStruck { .. })
+    pub fn durable(&self) -> bool {
+        match self {
+            Self::OffWorld { fact, .. } => fact.durable(),
+            Self::Loosened { .. } | Self::BoarStruck { .. } => false,
+            _ => true,
+        }
     }
 
     pub fn inscribe(&self, out: &mut Vec<u8>) {

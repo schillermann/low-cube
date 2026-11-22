@@ -68,7 +68,9 @@ impl ShadedScenePass {
             avatar.emit_figure(figures);
             avatar.emit_placement_preview(world, figures);
             CompanionFigure::emit_figures(world, figures);
-            world.emit_wildlife(avatar.sight_cone().scaled(sight_scale), figures);
+            let cone = avatar.sight_cone().scaled(sight_scale);
+            world.emit_wildlife(cone, figures);
+            world.emit_cosmic_field(cone, figures);
         });
     }
 
@@ -88,7 +90,9 @@ impl ShadedScenePass {
         self.actors.emit_actors(|figures| {
             avatar.emit_figure_for_sight(sight, figures);
             CompanionFigure::emit_figures(world, figures);
-            world.emit_wildlife(avatar.sight_cone_for_mode(sight).scaled(sight_scale), figures);
+            let cone = avatar.sight_cone_for_mode(sight).scaled(sight_scale);
+            world.emit_wildlife(cone, figures);
+            world.emit_cosmic_field(cone, figures);
         });
     }
 }
@@ -203,6 +207,9 @@ impl ScenePass for ShadedScenePass {
         sight_scale: f32,
     ) -> Vec<glam::Vec3> {
         self.populate_sight_actors(surface, world, avatar, sight, sight_scale);
+        let viewer = avatar.sight_cone_for_mode(sight).observe_from(|eye| eye);
+        crate::rayleigh_shell::FirmamentPlanets::from_atlas(world.celestial_atlas(), viewer)
+            .sync_pipeline(self.program.0.as_ref());
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
         surface.capture_sight_frame(
             self.program.0.as_ref(),
@@ -222,6 +229,9 @@ impl ScenePass for ShadedScenePass {
         sight_scale: f32,
     ) {
         self.populate_actors(surface, world, avatar, sight_scale);
+        let viewer = avatar.sight_cone().observe_from(|eye| eye);
+        crate::rayleigh_shell::FirmamentPlanets::from_atlas(world.celestial_atlas(), viewer)
+            .sync_pipeline(self.program.0.as_ref());
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
         let coarse_terrain = CoarseMesh::new(&self.mesh, world.face_count() * 2);
         let coarse_composed = CompositeMesh::new(&coarse_terrain, &self.actors);

@@ -31,13 +31,16 @@ mod mesh_target_tests;
 pub use beveled_world::BeveledGravity;
 pub use biome::BiomedCubeWorld;
 pub use celestial::{
-    BinaryGravity, BinaryPlanet, CelestialAtlas, CelestialSystem, LunarCraterRelief, LunarWorld,
-    OrbitalFleetWorld, RadialWell, StarVault, TranslatedWorld,
+    ActiveVicinity, AlienWorld, AsteroidBelt, AtlasMode, AwakenedBody, BeltAndReach, BeltRock,
+    BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique, BodyRatios, BodySnapshot,
+    CelestialAtlas, CelestialSystem, HeliosphereWorld, LunarCraterRelief, LunarWorld, OrbitElements,
+    OrbitalFleetWorld, OrbitalSpec, RadialWell, SolarCatalog, SolarEphemeris, SolarProportions,
+    StarVault, SurfaceNature, TranslatedWorld, VicinityCache, MAJOR_BODY_COUNT,
 };
 pub use block::{
     AttitudeNozzleMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,
     ConsoleOrrery, CornerHeading, CuboidShape, DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh,
-    FootwellPlinth, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape, MineralSeam,
+    FootwellPlinth, FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape, MineralSeam,
     MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner,
     RocketNozzleMesh, StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan,
     WedgeHeading, WheelProfile,

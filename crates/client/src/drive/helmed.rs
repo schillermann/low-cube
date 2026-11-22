@@ -36,12 +36,20 @@ impl HelmedCraft {
         self.drive.shape_pilot_pose(pose.with_surface_rotation(self.body_rotation()))
     }
     pub fn free_look(&self) -> bool { self.drive.free_look() }
+    pub fn proper_g_load(&self) -> f32 { self.drive.proper_g_load() }
     pub fn helm_optic_channel(&self) -> u8 { self.drive.helm_optic_channel(&self.assembly) }
     pub fn chassis_up(&self) -> Vec3 { self.assembly.normal().normalize_or_zero() }
     pub fn blend_subtick(&mut self, alpha: f32) { self.origin_span.1 = alpha.clamp(0.0, 1.0); }
     pub fn toggle_retro_flip(&mut self) -> bool { self.drive.toggle_retro_flip(&self.assembly) }
     pub fn toggle_flight_guidance(&mut self) -> bool { self.drive.toggle_flight_guidance(&self.assembly) }
     pub fn guidance_readout(&self) -> crate::menu::GuidanceReadout { self.drive.guidance_readout() }
+    pub fn flip_burn_readout(&self) -> super::FlipBurnReadout { self.drive.flip_burn_readout(&self.assembly) }
+    pub fn solar_chart_snapshot(&self) -> Option<(super::OrrerySnapshot, f32, bool)> {
+        self.drive.solar_chart_snapshot(&self.assembly)
+    }
+    pub fn install_course(&mut self, course: super::NavigationCourse) {
+        self.drive.install_course(course);
+    }
     pub fn mark_nose_target(&mut self, rays: ((Vec3, Vec3), (Vec3, Vec3)), world: &dyn PlanetaryWorld) -> bool {
         self.drive.mark_nose_target(rays, &self.assembly, world)
     }

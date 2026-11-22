@@ -73,11 +73,12 @@ impl HostWire {
 
     fn answer_knock(&mut self, peer: SocketAddr, guest_pub: [u8; 32]) {
         let cid = self.state.admit_guest(&self.identity, peer, guest_pub);
-        let mut reply = Vec::with_capacity(44);
+        let mut reply = Vec::with_capacity(60);
         reply.extend_from_slice(b"LWEL");
         reply.extend_from_slice(&self.identity.keys().public_bytes());
         reply.extend_from_slice(&cid.to_le_bytes());
         reply.extend_from_slice(&self.identity.blocks_per_edge().to_le_bytes());
+        self.identity.proportions().inscribe_tail(&mut reply);
         let _ = self.socket.send_to(&reply, peer);
     }
 
@@ -129,7 +130,7 @@ impl HostWire {
 
 impl PortalBeat for HostWire {
     fn step_standby(&mut self, dt: f32) -> usize {
-        let max_extent = (self.identity.blocks_per_edge() as f32) * 0.5 + 1_024.0;
+        let max_extent = self.identity.proportions().heliosphere_span();
         let mut buf = [0u8; 1500];
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
             let pkt = &buf[..len];

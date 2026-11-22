@@ -23,6 +23,11 @@ impl ScreenPoint {
         self.x - previous.x
     }
 
+    /// Transfers `(x, y)` to a collaborating closure without getters.
+    pub fn transfer<R>(self, f: impl FnOnce(f32, f32) -> R) -> R {
+        f(self.x, self.y)
+    }
+
     /// Emits a high-contrast centered reticle crosshair with a center dot and four radial ticks.
     pub fn emit_crosshair(self, target: &mut dyn MeshTarget) {
         let (core, rim) = (Vec3::new(0.96, 0.94, 0.84), Vec3::new(0.08, 0.10, 0.14));

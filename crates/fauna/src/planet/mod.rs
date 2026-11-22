@@ -80,6 +80,11 @@ impl<R: FaunaRealm> WorldEarthworks for WoodlandPlanet<R> {
     }
     fn park_craft_by_id(&mut self, craft: CraftIdentity, pose: CraftPose) -> bool { self.origin.park_craft_by_id(craft, pose) }
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.origin.disclose_stratum(face_index, stratum); }
+    fn offworld_frame(&self, probe: Vec3) -> Option<(world::BodyId, Vec3)> { self.origin.offworld_frame(probe) }
+    fn body_center(&self, body: world::BodyId) -> Option<Vec3> { self.origin.body_center(body) }
+    fn enact_offworld(&mut self, body: world::BodyId, fact: &world::WorldFact) -> bool {
+        self.origin.enact_offworld(body, fact)
+    }
 }
 
 impl<R> TerrainMesh for WoodlandPlanet<R> {
@@ -96,6 +101,7 @@ impl<R> TerrainMesh for WoodlandPlanet<R> {
         self.origin.drain_stale_meadow_patch(center, ring, target)
     }
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.origin.emit_meadow_around(center, view_dir, target); }
+    fn emit_cosmic_field(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.origin.emit_cosmic_field(cone, target); }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.origin.visible_slice_mask(position) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.origin.drain_disclosures(out); }
 }

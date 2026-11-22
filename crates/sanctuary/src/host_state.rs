@@ -101,6 +101,15 @@ impl HostState {
                     WorldFact::HelmClaimed { craft, eye, direction, .. } => {
                         WorldFact::HelmClaimed { craft, pilot_slot: cid, eye, direction }
                     }
+                    WorldFact::OffWorld { body, fact } => {
+                        let inner = match *fact {
+                            WorldFact::HelmClaimed { craft, eye, direction, .. } => {
+                                WorldFact::HelmClaimed { craft, pilot_slot: cid, eye, direction }
+                            }
+                            rest => rest,
+                        };
+                        WorldFact::OffWorld { body, fact: Box::new(inner) }
+                    }
                     rest => rest,
                 };
                 let fleet = self.aura.fleet_mut();

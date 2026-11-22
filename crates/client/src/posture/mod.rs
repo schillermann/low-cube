@@ -1,8 +1,10 @@
+mod high_g;
 mod vital;
 
 use glam::{Mat4, Quat, Vec3};
 use crate::attire::{BodyPose, StrideRhythm, YouthPhysique};
 use crate::horizon::ViewFrame;
+pub use self::high_g::HighGStrain;
 pub use self::vital::VitalStrain;
 
 const STANDING_EYE_OFFSET: f32 = 0.80;
@@ -54,22 +56,28 @@ impl LeapSpring {
     }
 }
 
-/// Kinematic posture composing vertical eye elevation, leap spring compression, and vital core-hover state.
+/// Kinematic posture composing vertical eye elevation, leap spring, vital strain, and high-G tunnel vision.
 #[derive(Clone, Copy, Debug)]
 pub struct AvatarPosture {
     elevation: f32,
     leap: LeapSpring,
     vital: VitalStrain,
+    high_g: HighGStrain,
 }
 
 impl AvatarPosture {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn with_components(elevation: f32, leap: LeapSpring, vital: VitalStrain) -> Self {
-        Self { elevation, leap, vital }
+    pub const fn with_components(
+        elevation: f32,
+        leap: LeapSpring,
+        vital: VitalStrain,
+        high_g: HighGStrain,
+    ) -> Self {
+        Self { elevation, leap, vital, high_g }
     }
 
     pub const fn new(elevation: f32) -> Self {
-        Self::with_components(elevation, LeapSpring::grounded(), VitalStrain::calm())
+        Self::with_components(elevation, LeapSpring::grounded(), VitalStrain::calm(), HighGStrain::relaxed())
     }
 
     pub const fn standing() -> Self {
@@ -93,15 +101,19 @@ impl AvatarPosture {
     }
 
     pub fn perish(self) -> Self {
-        Self::with_components(self.elevation, LeapSpring::grounded(), self.vital.perish())
+        Self::with_components(self.elevation, LeapSpring::grounded(), self.vital.perish(), HighGStrain::relaxed())
     }
 
     pub fn gore(self, severity: f32) -> Self {
-        Self::with_components(self.elevation, self.leap, self.vital.gore(severity))
+        Self::with_components(self.elevation, self.leap, self.vital.gore(severity), self.high_g)
     }
 
     pub fn nourish(self) -> Self {
-        Self::with_components(self.elevation, self.leap, self.vital.nourish())
+        Self::with_components(self.elevation, self.leap, self.vital.nourish(), HighGStrain::relaxed())
+    }
+
+    pub fn sustain_high_g(self, proper_g: f32, dt: f32) -> Self {
+        Self::with_components(self.elevation, self.leap, self.vital, self.high_g.sustain(proper_g, dt))
     }
 
     pub fn pace_boost(&self) -> f32 {
@@ -135,11 +147,11 @@ impl AvatarPosture {
     }
 
     pub fn cardiac_constriction(&self) -> f32 {
-        self.vital.cardiac_constriction()
+        self.vital.cardiac_constriction().max(self.high_g.constriction())
     }
 
     pub fn cardiac_fov(&self) -> f32 {
-        self.vital.cardiac_fov()
+        (self.vital.cardiac_fov() - self.high_g.fov_narrowing_rad()).max(22.0_f32.to_radians())
     }
 
     #[cfg(test)]
@@ -149,11 +161,14 @@ impl AvatarPosture {
 
     pub fn emit_reticle_at(&self, crosshair: crate::menu::ScreenPoint, target: &mut dyn world::MeshTarget) {
         self.vital.emit_reticle_at(crosshair, target);
+        if !self.perished() {
+            self.high_g.emit_tunnel_vision(target);
+        }
     }
 
     pub fn advance_perish(self, dt: f32) -> (Self, bool) {
         let (next_vital, beat) = self.vital.advance_perish(dt);
-        (Self::with_components(self.elevation, LeapSpring::grounded(), next_vital), beat)
+        (Self::with_components(self.elevation, LeapSpring::grounded(), next_vital, HighGStrain::relaxed()), beat)
     }
 
     pub fn transition_to(&self, target_elevation: f32, dt: f32) -> Self {
@@ -162,16 +177,17 @@ impl AvatarPosture {
         }
         let factor = (POSTURE_BLEND_RATE * dt).clamp(0.0, 1.0);
         let updated = self.elevation + (target_elevation - self.elevation) * factor;
-        Self::with_components(updated, self.leap, self.vital)
+        Self::with_components(updated, self.leap, self.vital, self.high_g)
     }
 
     pub fn advance_leap(self, previous: Vec3, next: Vec3, terrain_up: Vec3, dt: f32) -> Self {
-        Self::with_components(self.elevation, self.leap.advance(previous, next, terrain_up, dt), self.vital)
+        Self::with_components(self.elevation, self.leap.advance(previous, next, terrain_up, dt), self.vital, self.high_g)
     }
 
     pub fn step_vital_recovery(self, dt: f32) -> (Self, bool) {
         let (next_vital, beat) = self.vital.step_recovery(dt);
-        (Self::with_components(self.elevation, self.leap, next_vital), beat)
+        let next_g = self.high_g.sustain(0.0, dt);
+        (Self::with_components(self.elevation, self.leap, next_vital, next_g), beat)
     }
 
     pub fn view_matrix(&self, frame: &dyn ViewFrame, position: Vec3) -> Mat4 {

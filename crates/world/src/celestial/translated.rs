@@ -43,6 +43,10 @@ impl<W> TranslatedWorld<W> {
         Self { origin, center }
     }
 
+    pub fn inner_mut(&mut self) -> &mut W {
+        &mut self.origin
+    }
+
     pub fn in_vicinity(&self, position: Vec3, cheb_bound: f32) -> bool {
         (position - self.center).abs().max_element() <= cheb_bound
     }

@@ -1,9 +1,9 @@
 use world::PlanetaryWorld;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
+use crate::cosmos_scale::{AssembledCosmos, CosmosScale};
 use crate::menu::{ModalDirective, SessionModal};
 use crate::portal_config::LivePortal;
-use crate::server_scale::{PlanetaryScale, ServerScale};
 use crate::surface::PlatformSurface;
 use super::display::SessionDisplay;
 use super::overlay::{OverlayTransition, StageOverlay};
@@ -81,7 +81,19 @@ impl SessionStage {
 
     pub(super) fn release_hand(&mut self) -> bool { self.avatar.release_hand(self.world.as_mut()) }
 
-    pub(super) fn dispatch_avatar_or_control(&mut self, trigger: InputTrigger, pressed: bool) -> bool {
+    pub(super) fn dispatch_avatar_or_control(
+        &mut self,
+        trigger: InputTrigger,
+        pressed: bool,
+        surface: &dyn PlatformSurface,
+    ) -> bool {
+        if pressed
+            && !self.typing_avatar_text()
+            && self.overlay.toggle_gameplay_modal(trigger, surface, self.avatar.as_mut(), self.world.as_ref())
+        {
+            self.overlay.register_trigger(trigger, false);
+            return false;
+        }
         if pressed
             && (self.avatar.adjust_aimed_rig(trigger, self.world.as_mut())
                 || self.avatar.cast_triggered_relic(trigger, self.world.as_mut()))
@@ -112,8 +124,8 @@ impl SessionStage {
             OverlayTransition::Unchanged => ModalDirective::ContinueSession,
             OverlayTransition::OpenLivePortal => {
                 let current = std::mem::replace(&mut self.world, Box::new(world::BiomedCubeWorld::of_size(4)));
-                let blocks = ServerScale::assembled().blocks();
-                let (hosted, invite) = LivePortal::new(blocks).open(current);
+                let proportions = AssembledCosmos::assembled().proportions();
+                let (hosted, invite) = LivePortal::new(proportions).open(current);
                 self.world = hosted;
                 self.overlay.announce_portal(invite);
                 ModalDirective::ContinueSession
@@ -190,6 +202,7 @@ impl SessionStage {
                 if self.world.pump_portal(dt) {
                     self.refresh_surface(display);
                 }
+                self.overlay.sync_world_chart(self.avatar.as_ref(), self.world.as_ref());
             }
             return;
         }

@@ -33,10 +33,35 @@ impl RemotePlanet {
         Self::new(world, link, VecDeque::new())
     }
 
+    pub fn from_cosmos_link(link: RemoteLink, proportions: world::SolarProportions, bevel_margin: f32) -> Self {
+        let world = CelestialSystem::hollow_heliosphere(proportions, bevel_margin);
+        Self::new(world, link, VecDeque::new())
+    }
+
     /// Spawns the lock-free `SocketLoop` standby heartbeat over `StandbyLink`.
     pub fn spawning(mut self) -> Self {
         self.journal.spawn_standby();
         self
+    }
+
+    pub fn connect_cosmos(
+        target: JoinTarget,
+        fallback: world::SolarProportions,
+        bevel_margin: f32,
+    ) -> std::io::Result<Self> {
+        let mut link = RemoteLink::bind(target)?;
+        let wait = match target {
+            JoinTarget::Wormhole(_) => Duration::from_millis(650),
+            JoinTarget::Ticket(_) | JoinTarget::Direct(_) => Duration::from_millis(450),
+        };
+        let prop = link.try_welcome_cosmos_within(wait).unwrap_or(fallback);
+        if !link.connected() || link.unresolved_wormhole() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "Sanctuary handshake did not complete within welcome window",
+            ));
+        }
+        Ok(Self::from_cosmos_link(link, prop, bevel_margin))
     }
 
     pub fn connect(
@@ -117,6 +142,15 @@ impl WorldEarthworks for RemotePlanet {
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
         self.world.disclose_stratum(face_index, stratum);
     }
+    fn offworld_frame(&self, probe: Vec3) -> Option<(world::BodyId, Vec3)> {
+        self.world.offworld_frame(probe)
+    }
+    fn body_center(&self, body: world::BodyId) -> Option<Vec3> {
+        self.world.body_center(body)
+    }
+    fn enact_offworld(&mut self, body: world::BodyId, fact: &WorldFact) -> bool {
+        self.world.enact_offworld(body, fact)
+    }
 }
 
 impl TerrainMesh for RemotePlanet {
@@ -133,6 +167,7 @@ impl TerrainMesh for RemotePlanet {
         self.world.drain_stale_meadow_patch(center, ring, target)
     }
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.world.emit_meadow_around(center, view_dir, target); }
+    fn emit_cosmic_field(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.world.emit_cosmic_field(cone, target); }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.world.visible_slice_mask(position) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.world.drain_disclosures(out); }
 }

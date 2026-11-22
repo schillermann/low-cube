@@ -104,6 +104,7 @@ impl VehiclePart {
                 | BlockMedium::FieldCamera
                 | BlockMedium::FlightConsole
                 | BlockMedium::RocketNozzle
+                | BlockMedium::FusionTorch
         )
     }
 
@@ -202,56 +203,39 @@ impl VehiclePart {
         frame.point_at(uc, vc, self.floor_offset + lift + 0.25)
     }
 
-    pub(in crate::relief) fn part_mass(&self) -> f32 {
-        PartPropulsion::new(self.shape.as_ref(), GridCell::new(self.offset.0, self.offset.1), self.floor_offset).part_mass()
+    fn prop(&self, lift: f32) -> PartPropulsion<'_> {
+        PartPropulsion::new(self.shape.as_ref(), GridCell::new(self.offset.0, self.offset.1), self.floor_offset + lift)
     }
 
+    pub(in crate::relief) fn part_mass(&self) -> f32 { self.prop(0.0).part_mass() }
+    pub fn fusion_torch(&self) -> bool { self.shape.block_medium() == BlockMedium::FusionTorch }
     pub(in crate::relief) fn main_bell(&self) -> bool {
-        self.shape.block_medium() == BlockMedium::RocketNozzle && !self.attitude_pod()
+        (self.shape.block_medium() == BlockMedium::RocketNozzle && !self.attitude_pod()) || self.fusion_torch()
     }
 
     pub(in crate::relief) fn bell_burn(
-        &self,
-        lift: f32,
-        frame: &SurfaceFrame,
-        center_of_mass: Vec3,
-        order: &PilotOrder,
-        axes: CockpitAxes,
-        impulse: RigidImpulse,
+        &self, lift: f32, frame: &SurfaceFrame, com: Vec3, order: &PilotOrder, axes: CockpitAxes, imp: RigidImpulse,
     ) -> RigidImpulse {
-        let cell = GridCell::new(self.offset.0, self.offset.1);
-        PartPropulsion::new(self.shape.as_ref(), cell, self.floor_offset + lift)
-            .bell_burn(frame, center_of_mass, order, axes, impulse)
+        self.prop(lift).bell_burn(frame, com, order, axes, imp)
+    }
+
+    pub(in crate::relief) fn fusion_burn(
+        &self, lift: f32, frame: &SurfaceFrame, com: Vec3, order: &PilotOrder, axes: CockpitAxes, imp: RigidImpulse,
+    ) -> RigidImpulse {
+        self.prop(lift).fusion_burn(frame, com, order, axes, imp)
     }
 
     pub(in crate::relief) fn attitude_burn(
-        &self,
-        lift: f32,
-        frame: &SurfaceFrame,
-        center_of_mass: Vec3,
-        linear_demand: Vec3,
-        torque_demand: Vec3,
-        impulse: RigidImpulse,
+        &self, lift: f32, frame: &SurfaceFrame, com: Vec3, lin: Vec3, torq: Vec3, imp: RigidImpulse,
     ) -> RigidImpulse {
-        let cell = GridCell::new(self.offset.0, self.offset.1);
-        PartPropulsion::new(self.shape.as_ref(), cell, self.floor_offset + lift)
-            .attitude_burn(frame, center_of_mass, linear_demand, torque_demand, impulse)
+        self.prop(lift).attitude_burn(frame, com, lin, torq, imp)
     }
 
     #[allow(clippy::too_many_arguments)]
     pub(in crate::relief) fn emit_space_kinematic(
-        &self,
-        lift: f32,
-        frame: &SurfaceFrame,
-        center_of_mass: Vec3,
-        order: &PilotOrder,
-        linear_demand: Vec3,
-        torque_demand: Vec3,
-        out: &mut dyn MeshTarget,
+        &self, lift: f32, frame: &SurfaceFrame, com: Vec3, order: &PilotOrder, lin: Vec3, torq: Vec3, out: &mut dyn MeshTarget,
     ) -> bool {
-        let cell = GridCell::new(self.offset.0, self.offset.1);
-        PartPropulsion::new(self.shape.as_ref(), cell, self.floor_offset + lift)
-            .emit_space_part(frame, center_of_mass, order, linear_demand, torque_demand, out)
+        self.prop(lift).emit_space_part(frame, com, order, lin, torq, out)
     }
 
     pub(in crate::relief) fn emit_driven(&self, lift: f32, spin: f32, turn: f32, frame: &SurfaceFrame, top: Vec3, wall: Vec3, out: &mut dyn MeshTarget) {

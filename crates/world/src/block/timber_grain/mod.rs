@@ -30,6 +30,7 @@ pub enum BlockMedium {
     RocketNozzle,
     RocketCamera,
     VehicleBlueprint,
+    FusionTorch,
 }
 
 impl BlockMedium {
@@ -56,6 +57,7 @@ impl BlockMedium {
             Self::RocketNozzle => 17,
             Self::RocketCamera => 18,
             Self::VehicleBlueprint => 19,
+            Self::FusionTorch => 20,
         }
     }
 
@@ -81,6 +83,7 @@ impl BlockMedium {
             17 => Self::RocketNozzle,
             18 => Self::RocketCamera,
             19 => Self::VehicleBlueprint,
+            20 => Self::FusionTorch,
             _ => Self::TurfEarth,
         }
     }
@@ -97,7 +100,10 @@ impl BlockMedium {
 
     /// Indicates whether this block medium is a vehicle engine or steering control.
     pub const fn vehicle_engine(self) -> bool {
-        matches!(self, Self::SteeringWheel | Self::AircraftEngine | Self::FlightConsole | Self::RocketNozzle)
+        matches!(
+            self,
+            Self::SteeringWheel | Self::AircraftEngine | Self::FlightConsole | Self::RocketNozzle | Self::FusionTorch
+        )
     }
 
     /// Indicates whether this block medium is a sculpted mechanical vehicle component.
@@ -147,6 +153,7 @@ impl BlockMedium {
             Self::IronOre => (Vec3::new(0.72, 0.75, 0.80), Vec3::new(0.64, 0.30, 0.20)),
             Self::GoldOre => (Vec3::new(0.98, 0.80, 0.22), Vec3::new(0.25, 0.23, 0.27)),
             Self::VehicleBlueprint => (Vec3::new(0.18, 0.52, 0.92), Vec3::new(0.88, 0.72, 0.26)),
+            Self::FusionTorch => (Vec3::new(0.28, 0.86, 1.00), Vec3::new(0.32, 0.36, 0.44)),
         }
     }
 

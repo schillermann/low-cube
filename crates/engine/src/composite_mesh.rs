@@ -15,6 +15,10 @@ impl StarryPipeline {
 }
 
 impl GraphicPipeline for StarryPipeline {
+    fn sync_ephemeris(&self, planet_cubes: &[[f32; 4]; 7], eclipse_occluder: [f32; 4]) {
+        self.origin.sync_ephemeris(planet_cubes, eclipse_occluder);
+    }
+
     fn render(
         &self,
         gl: &glow::Context,

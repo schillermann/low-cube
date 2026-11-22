@@ -38,10 +38,11 @@ pub enum HeldRelic {
     RocketNozzle,
     RocketCamera,
     VehicleBlueprint,
+    FusionTorch,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 28;
+    pub const COUNT: usize = 29;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -78,7 +79,8 @@ impl HeldRelic {
             24 => Self::BoarMeat,
             25 => Self::RocketNozzle,
             26 => Self::RocketCamera,
-            _ => Self::VehicleBlueprint,
+            27 => Self::VehicleBlueprint,
+            _ => Self::FusionTorch,
         }
     }
 
@@ -112,6 +114,7 @@ impl HeldRelic {
             Self::RocketNozzle => 25,
             Self::RocketCamera => 26,
             Self::VehicleBlueprint => 27,
+            Self::FusionTorch => 28,
         }
     }
 
@@ -212,6 +215,7 @@ impl HeldRelic {
                 | Self::IronOre
                 | Self::GoldOre
                 | Self::VehicleBlueprint
+                | Self::FusionTorch
         )
     }
 
@@ -240,6 +244,7 @@ impl HeldRelic {
             BlockMedium::IronOre => Self::IronOre,
             BlockMedium::GoldOre => Self::GoldOre,
             BlockMedium::VehicleBlueprint => Self::VehicleBlueprint,
+            BlockMedium::FusionTorch => Self::FusionTorch,
         }
     }
 

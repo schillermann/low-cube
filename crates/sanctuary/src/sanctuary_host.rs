@@ -70,11 +70,20 @@ impl SanctuaryHost {
 
     /// Binds a non-blocking UDP socket and discovers the external P2P endpoint via STUN & UPnP/NAT-PMP.
     pub fn bind(bind_addr: &str, world: Box<dyn PlanetaryWorld>, blocks_per_edge: u32) -> std::io::Result<Self> {
+        Self::bind_cosmos(bind_addr, world, world::SolarProportions::true_scale(blocks_per_edge))
+    }
+
+    /// Binds a non-blocking UDP socket advertising full `SolarProportions` during guest handshakes.
+    pub fn bind_cosmos(
+        bind_addr: &str,
+        world: Box<dyn PlanetaryWorld>,
+        proportions: world::SolarProportions,
+    ) -> std::io::Result<Self> {
         let secret = PortalCode::draw_secret();
         let socket = Self::bind_slot_socket(bind_addr, secret)?;
         socket.set_nonblocking(true)?;
         let endpoint = NatAperture::interactive().open_host(&socket);
-        Ok(Self::assemble_bound(socket, endpoint, secret, world, blocks_per_edge))
+        Ok(Self::assemble_bound(socket, endpoint, secret, world, proportions))
     }
 
     /// Binds a UDP socket advertising a known external NAT endpoint.
@@ -87,7 +96,13 @@ impl SanctuaryHost {
         let secret = PortalCode::draw_secret();
         let socket = Self::bind_slot_socket(bind_addr, secret)?;
         socket.set_nonblocking(true)?;
-        Ok(Self::assemble_bound(socket, advertised, secret, world, blocks_per_edge))
+        Ok(Self::assemble_bound(
+            socket,
+            advertised,
+            secret,
+            world,
+            world::SolarProportions::true_scale(blocks_per_edge),
+        ))
     }
 
     fn assemble_bound(
@@ -95,10 +110,10 @@ impl SanctuaryHost {
         endpoint: SocketAddr,
         secret: u8,
         world: Box<dyn PlanetaryWorld>,
-        blocks_per_edge: u32,
+        proportions: world::SolarProportions,
     ) -> Self {
         let code = PortalCode::from_endpoint(endpoint, secret);
-        let identity = HostIdentity::new(HandshakeIdentity::generate(), blocks_per_edge, endpoint);
+        let identity = HostIdentity::with_proportions(HandshakeIdentity::generate(), proportions, endpoint);
         let state = HostState::new(
             ChronicleLog::empty(),
             GuestCohort::empty(),

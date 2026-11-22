@@ -122,6 +122,7 @@ impl RelicFigure {
             | HeldRelic::SteeringWheel
             | HeldRelic::AircraftEngine
             | HeldRelic::FlightConsole
+            | HeldRelic::FusionTorch
             | HeldRelic::RocketNozzle
             | HeldRelic::RocketCamera
             | HeldRelic::CabinSeat
@@ -224,6 +225,7 @@ impl RelicFigure {
             | HeldRelic::SteeringWheel
             | HeldRelic::AircraftEngine
             | HeldRelic::FlightConsole
+            | HeldRelic::FusionTorch
             | HeldRelic::RocketNozzle
             | HeldRelic::RocketCamera
             | HeldRelic::CabinSeat

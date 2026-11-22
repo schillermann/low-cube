@@ -7,8 +7,8 @@ use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::super::craft_cluster::CraftCluster;
 use super::super::vehicle_assembly::{
-    CockpitAxes, ConsoleGyroStage, HullBallast, ImpulseStage, MainBellStage, PilotOrder,
-    RigidImpulse, VehiclePart, VernierAttitudeStage,
+    CockpitAxes, ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage, MainBellStage,
+    PilotOrder, RigidImpulse, VehiclePart, VernierAttitudeStage,
 };
 use super::identity::CraftIdentity;
 use super::pose::CraftPose;
@@ -44,6 +44,7 @@ impl CraftBlueprint {
     pub fn part_count(&self) -> usize { self.parts.len() }
     pub fn drivable(&self) -> bool { !self.parts.is_empty() }
     pub fn spacefaring(&self) -> bool { self.parts.iter().any(VehiclePart::flight_console) }
+    pub fn fusion_equipped(&self) -> bool { self.parts.iter().any(VehiclePart::fusion_torch) }
     pub fn attitude_capable(&self) -> bool { self.parts.iter().any(VehiclePart::attitude_pod) }
 
     pub fn tally_media(&self, mut sink: impl FnMut(BlockMedium)) {
@@ -108,22 +109,14 @@ impl CraftBlueprint {
         let lift = self.wheel_ground_lift();
         let com = self.mass_center(lift, &car_frame);
         let axes = CockpitAxes::from_pose(pose);
-        let chain = VernierAttitudeStage::new(
-            MainBellStage::new(
-                ConsoleGyroStage::new(
-                    HullBallast::new(&self.parts, &car_frame, (lift, com)),
-                    &self.parts,
-                    (*order, axes),
-                ),
-                (&self.parts, &car_frame),
-                (lift, com),
-                (*order, axes),
-            ),
-            (&self.parts, &car_frame),
-            (lift, com),
-            (*order, axes),
-        );
-        chain.resolve()
+        let hull = (&self.parts[..], &car_frame);
+        let trim = (lift, com);
+        let cmd = (*order, axes);
+        let ballast = HullBallast::new(hull.0, hull.1, trim);
+        let gyro = ConsoleGyroStage::new(ballast, hull.0, cmd);
+        let bell = MainBellStage::new(gyro, hull, trim, cmd);
+        let rcs = VernierAttitudeStage::new(bell, hull, trim, cmd);
+        FusionTorchStage::new(rcs, hull, trim, cmd).resolve()
     }
 
     pub fn parts(&self) -> &[VehiclePart] { &self.parts }

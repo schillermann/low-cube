@@ -130,6 +130,19 @@ pub trait Avatar: AvatarMotor + AvatarOptics + AvatarPresence + PhotoPort + Blac
     fn blend_subtick(&mut self, _alpha: f32) {}
     fn step_fauna(&mut self, _dt: f32, _world: &mut dyn PlanetaryWorld) {}
     fn land_on_world(&mut self, _world: &dyn PlanetaryWorld) {}
+    fn solar_chart_snapshot(&self, world: &dyn PlanetaryWorld) -> (crate::drive::OrrerySnapshot, f32, bool) {
+        (
+            crate::drive::OrrerySnapshot::new(
+                world.celestial_atlas(),
+                Vec3::ZERO,
+                (Vec3::Y, Vec3::ZERO),
+                crate::drive::NavigationCourse::Uncharted,
+            ),
+            0.0,
+            false,
+        )
+    }
+    fn install_navigation_course(&mut self, _course: crate::drive::NavigationCourse) {}
     #[cfg(test)]
     fn install_blueprint_archive(&mut self, _archive: Box<dyn crate::blueprint::BlueprintArchive>) {}
     #[cfg(test)]

@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{
-    BlockMedium, BlockMold, CleaveOutcome, CraftBlueprint, CraftIdentity, CraftPose,
+    BlockMedium, BlockMold, BodyId, CleaveOutcome, CraftBlueprint, CraftIdentity, CraftPose,
     ExposedStratum, SurfaceFind, VehicleAssembly, WorldEarthworks, WorldFact,
 };
 
@@ -24,18 +24,23 @@ impl<'a> ChronicledPlanet<'a> {
     pub fn new(origin: &'a mut dyn WorldEarthworks, journal: &'a mut dyn FactJournal) -> Self {
         Self { origin, journal }
     }
+
+    fn record_scoped(&mut self, probe: Vec3, fact: WorldFact) {
+        let scoped = fact.scoped_to(self.origin.offworld_frame(probe));
+        self.journal.inscribe_fact(scoped);
+    }
 }
 
 impl WorldEarthworks for ChronicledPlanet<'_> {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
         let medium = self.origin.harvest_surface(eye, direction)?;
-        self.journal.inscribe_fact(WorldFact::Harvested { eye, direction });
+        self.record_scoped(eye, WorldFact::Harvested { eye, direction });
         Some(medium)
     }
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
         let medium = self.origin.loosen_surface(eye, direction, stage)?;
-        self.journal.inscribe_fact(WorldFact::Loosened { eye, direction, stage });
+        self.record_scoped(eye, WorldFact::Loosened { eye, direction, stage });
         Some(medium)
     }
 
@@ -67,7 +72,7 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
     fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
         let ok = self.origin.cast_surface_find(eye, direction, find);
         if ok {
-            self.journal.inscribe_fact(WorldFact::LitterCast { eye, direction, find });
+            self.record_scoped(eye, WorldFact::LitterCast { eye, direction, find });
         }
         ok
     }
@@ -75,7 +80,7 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let ok = self.origin.place_molded_surface_block(eye, direction, avatar_pos, mold);
         if ok {
-            self.journal.inscribe_fact(WorldFact::MoldPlaced { eye, direction, avatar_pos, mold });
+            self.record_scoped(eye, WorldFact::MoldPlaced { eye, direction, avatar_pos, mold });
         }
         ok
     }
@@ -83,7 +88,7 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         let ok = self.origin.adjust_rig(eye, direction, delta_steps, rotate_quarter);
         if ok {
-            self.journal.inscribe_fact(WorldFact::RigAdjusted { eye, direction, delta_steps, rotate_quarter });
+            self.record_scoped(eye, WorldFact::RigAdjusted { eye, direction, delta_steps, rotate_quarter });
         }
         ok
     }
@@ -91,7 +96,7 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
         let ok = self.origin.lower_rig(eye, direction);
         if ok {
-            self.journal.inscribe_fact(WorldFact::RigLowered { eye, direction });
+            self.record_scoped(eye, WorldFact::RigLowered { eye, direction });
         }
         ok
     }
@@ -99,11 +104,10 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
     fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
         let ok = self.origin.build_rig_blueprint(eye, direction, blueprint);
         if ok {
-            self.journal.inscribe_fact(WorldFact::RigBlueprintBuilt {
+            self.record_scoped(
                 eye,
-                direction,
-                blueprint: blueprint.clone(),
-            });
+                WorldFact::RigBlueprintBuilt { eye, direction, blueprint: blueprint.clone() },
+            );
         }
         ok
     }
@@ -123,12 +127,15 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
                     return None;
                 }
             }
-            self.journal.inscribe_fact(WorldFact::HelmClaimed {
-                craft: assembly.identity(),
-                pilot_slot: slot,
+            self.record_scoped(
                 eye,
-                direction,
-            });
+                WorldFact::HelmClaimed {
+                    craft: assembly.identity(),
+                    pilot_slot: slot,
+                    eye,
+                    direction,
+                },
+            );
         }
         Some(assembly)
     }
@@ -143,7 +150,7 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
                 self.journal.inscribe_fact(WorldFact::CraftCommissioned { blueprint: bp });
             }
             self.journal.release_local_helm(id);
-            self.journal.inscribe_fact(WorldFact::HelmReleased { craft: id, pose });
+            self.record_scoped(pose.origin(), WorldFact::HelmReleased { craft: id, pose });
         }
         ok
     }
@@ -152,7 +159,7 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
         let ok = self.origin.park_craft_by_id(craft, pose);
         if ok {
             self.journal.release_local_helm(craft);
-            self.journal.inscribe_fact(WorldFact::HelmReleased { craft, pose });
+            self.record_scoped(pose.origin(), WorldFact::HelmReleased { craft: id_from(craft), pose });
         }
         ok
     }
@@ -160,4 +167,24 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) {
         self.origin.disclose_stratum(face_index, stratum);
     }
+
+    fn offworld_frame(&self, probe: Vec3) -> Option<(BodyId, Vec3)> {
+        self.origin.offworld_frame(probe)
+    }
+
+    fn body_center(&self, body: BodyId) -> Option<Vec3> {
+        self.origin.body_center(body)
+    }
+
+    fn enact_offworld(&mut self, body: BodyId, fact: &WorldFact) -> bool {
+        let ok = self.origin.enact_offworld(body, fact);
+        if ok {
+            self.journal.inscribe_fact(WorldFact::OffWorld { body, fact: Box::new(fact.clone()) });
+        }
+        ok
+    }
+}
+
+const fn id_from(craft: CraftIdentity) -> CraftIdentity {
+    craft
 }

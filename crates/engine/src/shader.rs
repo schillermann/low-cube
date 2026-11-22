@@ -110,11 +110,20 @@ void main() {
         float riser = (rx || ry) ? 0.88 : 1.0;
         base_col = clamp(v_color * tier_scale(t) * riser, vec3(0.0), vec3(1.0));
     }
-    float diff = max(dot(norm, normalize(u_light_dir)), 0.0);
+    float l_dot = dot(norm, normalize(u_light_dir));
+    float diff = max(l_dot, 0.0);
     vec3 light = vec3(0.35) + vec3(0.65) * diff;
+    vec3 lit = base_col * light;
+    float cam_dist = 1.0 / max(gl_FragCoord.w, 0.0001);
+    float orb = smoothstep(55.0, 220.0, cam_dist) * (1.0 - smoothstep(450.0, 900.0, length(v_world)));
+    if (orb > 0.005 && v_glow < 0.05) {
+        float day_a = smoothstep(-0.08, 0.35, l_dot);
+        float term_a = exp(-pow((l_dot - 0.02) / 0.16, 2.0)) * smoothstep(-0.25, 0.0, l_dot);
+        lit = mix(lit, lit * 0.82 + vec3(0.14, 0.44, 0.92) * day_a * 0.34 + vec3(0.95, 0.36, 0.10) * term_a * 0.30, orb);
+    }
     vec3 radiant = min(base_col * 1.15, vec3(1.0));
     float glow_mix = (v_glow < 0.05) ? 0.0 : clamp(v_glow, 0.0, 1.0);
-    frag_color = vec4(mix(base_col * light, radiant, glow_mix), 1.0);
+    frag_color = vec4(mix(lit, radiant, glow_mix), 1.0);
 }
 "#;
 

@@ -254,4 +254,12 @@ impl Avatar for BlackBoxAvatar {
         self.tape.record_event(FlightEvent::WorldLanded { blocks });
         self.origin.land_on_world(world);
     }
+
+    fn solar_chart_snapshot(&self, world: &dyn PlanetaryWorld) -> (crate::drive::OrrerySnapshot, f32, bool) {
+        self.origin.solar_chart_snapshot(world)
+    }
+
+    fn install_navigation_course(&mut self, course: crate::drive::NavigationCourse) {
+        self.origin.install_navigation_course(course);
+    }
 }

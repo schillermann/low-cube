@@ -2,8 +2,8 @@ mod optics;
 
 use glam::{Mat4, Quat, Vec3};
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, CameraMount, SightMode, StrideRhythm, YouthAttire};
-use crate::controls::{ActionBindings, ControlAction, InputTrigger, KeyboardControls};
+use crate::attire::{BodyPose, SightMode, StrideRhythm, YouthAttire};
+use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
 use crate::flight::GravitationalFlight;
 use crate::lens::PerspectiveLens;
@@ -16,7 +16,7 @@ use super::body::AvatarBody;
 use super::condition::AvatarCondition;
 use super::gear::AvatarGear;
 use super::sight::AvatarSight;
-use super::{Avatar, AvatarMotor};
+use super::AvatarMotor;
 
 /// Core embodied player entity executing unguarded living kinematics, sight, and hand interactions.
 pub(in crate::avatar) struct EmbodiedAvatar {
@@ -235,43 +235,4 @@ impl AvatarMotor for EmbodiedAvatar {
         self.body.emit_controls_slate(self.gear.bindings(), aspect, target);
         self.bearing.emit_polaroid(target);
     }
-}
-
-impl Avatar for EmbodiedAvatar {
-    fn apply_attire(&mut self, attire: YouthAttire) { self.gear.apply_attire(attire); }
-    fn apply_bindings(&mut self, bindings: ActionBindings) { self.gear.apply_bindings(bindings); }
-    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
-        if !self.gear.satchel_open() && !self.body.perished() {
-            if self.body.hull_camera_lens().is_some()
-                && trigger == InputTrigger::WheelClick
-                && self.bearing.press_shutter(CameraMount::Handheld(SightMode::FirstPersonSight))
-            {
-                return true;
-            }
-            if self.body.handle_cockpit_trigger(trigger, self.gear.bindings()) {
-                return true;
-            }
-            if self.body.driving()
-                && (self.gear.bindings().matches(ControlAction::RollLeft, trigger)
-                    || self.gear.bindings().matches(ControlAction::RollRight, trigger))
-            {
-                return false;
-            }
-        }
-        self.gear.dispatch_trigger(trigger, &mut self.bearing, self.body.perished())
-    }
-    fn typing_text(&self) -> bool { self.gear.typing_text() }
-    fn accept_typed_text(&mut self, text: &str) -> bool { self.gear.accept_text(text) }
-    #[cfg(test)]
-    fn install_blueprint_archive(&mut self, archive: Box<dyn crate::blueprint::BlueprintArchive>) {
-        self.gear.install_blueprint_archive(archive);
-    }
-    fn blend_subtick(&mut self, alpha: f32) { self.body.blend_subtick(alpha); }
-    fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) {
-        let crouching = self.body.posture().crouch_drop() > 0.18;
-        if let Some(shove) = world.step_wildlife(dt, self.body.position(), self.sight_line.view_direction(), crouching) {
-            self.body.gore(shove, world);
-        }
-    }
-    fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.reset_to_world(world); }
 }

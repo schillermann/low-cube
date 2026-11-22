@@ -1,6 +1,7 @@
 mod birdsong;
 mod boar_snort;
 mod dig_decorators;
+mod fusion_hum;
 mod hearty_bite;
 mod hoofbeats;
 mod nozzle_roar;
@@ -16,6 +17,7 @@ use std::sync::OnceLock;
 pub use self::birdsong::SparrowChirp;
 pub use self::boar_snort::BoarSnort;
 pub use self::dig_decorators::{CadencedWave, CrumbledWave, DigWaveTrace, InflectedWave};
+pub use self::fusion_hum::FusionHum;
 pub use self::hearty_bite::HeartyBite;
 pub use self::hoofbeats::RoeHoofbeats;
 pub use self::nozzle_roar::NozzleRoar;

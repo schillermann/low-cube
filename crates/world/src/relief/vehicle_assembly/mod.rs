@@ -7,7 +7,8 @@ use crate::MeshTarget;
 use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose, HullOptic, PosedHull};
 pub use self::axes::VehicleAxes;
 pub(in crate::relief) use self::impulse::{
-    ConsoleGyroStage, HullBallast, ImpulseStage, MainBellStage, VernierAttitudeStage,
+    ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage, MainBellStage,
+    VernierAttitudeStage,
 };
 pub use self::impulse::{AttitudeGuidance, CockpitAxes, PilotOrder, RigidImpulse};
 pub use self::part::VehiclePart;
@@ -55,6 +56,7 @@ impl VehicleAssembly {
     pub const fn normal(&self) -> Vec3 { self.pose.normal() }
     pub fn drivable(&self) -> bool { self.blueprint.drivable() }
     pub fn spacefaring(&self) -> bool { self.blueprint.spacefaring() }
+    pub fn fusion_equipped(&self) -> bool { self.blueprint.fusion_equipped() }
     pub fn attitude_capable(&self) -> bool { self.blueprint.attitude_capable() }
     pub fn camera_equipped(&self) -> bool { self.blueprint.camera_equipped() }
     pub fn push_camera_views(&self, out: &mut Vec<HullOptic>) { self.blueprint.push_camera_views(self.pose, out); }

@@ -43,4 +43,9 @@ impl SightCone {
         }
         delta.dot(self.forward) >= self.aperture * dist_sq.sqrt()
     }
+
+    /// Transfers the observer `eye` to a spatial-hash collaborator without exposing internal fields.
+    pub fn observe_from<R>(self, f: impl FnOnce(Vec3) -> R) -> R {
+        f(self.eye)
+    }
 }

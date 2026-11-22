@@ -145,3 +145,34 @@ impl<S: ImpulseStage> ImpulseStage for VernierAttitudeStage<'_, S> {
         })
     }
 }
+
+/// `ImpulseStage` decorator igniting Epstein-class `FusionTorch` magnetic nozzles for sustained high-G spaceflight.
+pub struct FusionTorchStage<'a, S> {
+    origin: S,
+    hull: (&'a [VehiclePart], &'a SurfaceFrame),
+    trim: (f32, Vec3),
+    command: (PilotOrder, CockpitAxes),
+}
+
+impl<'a, S> FusionTorchStage<'a, S> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(
+        origin: S,
+        hull: (&'a [VehiclePart], &'a SurfaceFrame),
+        trim: (f32, Vec3),
+        command: (PilotOrder, CockpitAxes),
+    ) -> Self {
+        Self { origin, hull, trim, command }
+    }
+}
+
+impl<S: ImpulseStage> ImpulseStage for FusionTorchStage<'_, S> {
+    fn resolve(&self) -> RigidImpulse {
+        let (parts, frame) = self.hull;
+        let (lift, com) = self.trim;
+        let (order, axes) = self.command;
+        parts.iter().fold(self.origin.resolve(), |imp, part| {
+            part.fusion_burn(lift, frame, com, &order, axes, imp)
+        })
+    }
+}
