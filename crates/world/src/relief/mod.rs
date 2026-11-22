@@ -43,6 +43,7 @@ pub(crate) use corner::NaturalCrown;
 pub use craft_entity::{
     BlueprintCatalog, CellRole, CraftBlueprint, CraftIdentity, CraftPose, DeckFrame, HelmLocks,
     HullOptic, HullWireframe, JetTone, OpticMount, SeatOccupancy, VesselSink, WorldCraft,
+    MAX_EXHAUST_JETS,
 };
 pub use crust_vault::CrustVault;
 pub use elevation::ReliefElevation;

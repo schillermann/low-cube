@@ -185,36 +185,37 @@ impl<'a> PartPropulsion<'a> {
         let center = frame.point_at(uc, vc, self.floor_elev + 0.25);
         let local_center = axes.to_local(center) - hull_mid;
 
-        let mut push_cell = |role: CellRole| {
+        let mut push_cell = |pos_l: Vec3, half_l: Vec3, role: CellRole| {
             if cells.1 < MAX_WIRE_CELLS {
-                cells.0[cells.1] = WireframeCell::from_local(local_center, inv_span, role);
+                cells.0[cells.1] = WireframeCell::prism(pos_l, half_l, inv_span, role);
                 cells.1 += 1;
             }
         };
-        let mut push_jet = |mouth_w: Vec3, dir_w: Vec3, tone: JetTone, thr: f32| {
+        let mut push_jet = |mouth_l: Vec3, dir_l: Vec3, tone: JetTone, thr: f32| {
             if thr > 0.02 && jets.1 < MAX_EXHAUST_JETS {
-                let lm = axes.to_local(mouth_w) - hull_mid;
-                let ld = axes.to_local(dir_w);
-                jets.0[jets.1] = ExhaustJet::active(lm, inv_span, ld, tone, thr);
+                jets.0[jets.1] = ExhaustJet::active(mouth_l, inv_span, dir_l, tone, thr);
                 jets.1 += 1;
             }
         };
 
         let med = self.shape.block_medium();
         if med == BlockMedium::FusionTorch {
-            push_cell(CellRole::FusionBell);
             let up = frame.normal().normalize_or_zero();
             let thr = order.bell_throttle(up, axes);
-            push_jet(center - up * 0.25, -up, JetTone::FusionBlue, thr);
+            let role = if thr > 0.02 { CellRole::ActiveFusionBell } else { CellRole::FusionBell };
+            push_cell(local_center, Vec3::splat(0.22), role);
+            push_jet(local_center - Vec3::Y * 0.24, Vec3::NEG_Y, JetTone::FusionBlue, thr);
             return;
         }
         if let Some(axis) = self.nozzle_axis() {
             match axis {
                 NozzleAxis::Downward => {
-                    push_cell(CellRole::MainBell);
                     let thrust = axis.thrust_vector(frame).normalize_or_zero();
                     let thr = order.bell_throttle(thrust, axes);
-                    push_jet(center - thrust * 0.25, -thrust, JetTone::BellAmber, thr);
+                    let role = if thr > 0.02 { CellRole::ActiveMainBell } else { CellRole::MainBell };
+                    push_cell(local_center, Vec3::splat(0.22), role);
+                    let ex_l = axes.to_local(-thrust).normalize_or_zero();
+                    push_jet(local_center + ex_l * 0.24, ex_l, JetTone::BellAmber, thr);
                 }
                 NozzleAxis::Attitude(heading) => {
                     let manifold = RcsManifold::new(heading);
@@ -227,10 +228,14 @@ impl<'a> PartPropulsion<'a> {
                         lin_demand,
                         torque_demand,
                     );
+                    let out_l = axes.to_local(horns[0].exhaust_dir()).normalize_or_zero();
+                    let pod_l = local_center + out_l * 0.18;
+                    let pod_half = Vec3::splat(0.16);
                     let any_lit = throttles.iter().any(|&t| t > 0.02);
-                    push_cell(if any_lit { CellRole::ActivePod } else { CellRole::AttitudePod });
+                    push_cell(pod_l, pod_half, if any_lit { CellRole::ActivePod } else { CellRole::AttitudePod });
                     for (horn, &thr) in horns.iter().zip(throttles.iter()) {
-                        push_jet(horn.origin(), horn.exhaust_dir(), JetTone::VernierCyan, thr);
+                        let ex_l = axes.to_local(horn.exhaust_dir()).normalize_or_zero();
+                        push_jet(pod_l + ex_l * 0.18, ex_l, JetTone::VernierCyan, thr);
                     }
                 }
             }
@@ -242,10 +247,8 @@ impl<'a> PartPropulsion<'a> {
                 self.shape.block_heading(),
             );
             if matches!(pod, SensorPodAxis::NoseCone) {
-                push_cell(CellRole::NoseApex);
-                return;
+                push_cell(local_center, Vec3::splat(0.20), CellRole::NoseApex);
             }
         }
-        push_cell(CellRole::HullCube);
     }
 }

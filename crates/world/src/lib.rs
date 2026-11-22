@@ -67,7 +67,8 @@ pub use relief::{
     HullOptic, HullWireframe, JetTone, LivingVeins, MeadowRing, MeadowStamp, MountDomain,
     MountSite, OpticMount, PilotOrder, PlannedMount, ReliefElevation, ReliefFacet, ReliefPalette,
     RigidImpulse, SeatOccupancy, SubterraneanVeins, SurfaceSightRay, TerracedRelief,
-    VehicleAssembly, VehicleAxes, VehiclePart, VesselSink, WorldCraft, MEADOW_RING_SLOTS,
+    VehicleAssembly, VehicleAxes, VehiclePart, VesselSink, WorldCraft, MAX_EXHAUST_JETS,
+    MEADOW_RING_SLOTS,
 };
 pub use topology::{
     BevelTransition, BeveledBoundary, ClimateZone, CoordinateFold, CubicBoundary, FacePerimeter,

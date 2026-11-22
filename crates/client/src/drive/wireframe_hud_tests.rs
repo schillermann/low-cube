@@ -35,6 +35,10 @@ fn quad_rcs_rocket() -> VehicleAssembly {
         VehiclePart::new((1, 0), 0.5, att(WedgeHeading::West)),
         VehiclePart::new((0, -2), 0.5, att(WedgeHeading::North)),
         VehiclePart::new((0, 1), 0.5, att(WedgeHeading::South)),
+        VehiclePart::new((0, 0), 1.0, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).shape_for(Vec3::Z, &frame)),
+        VehiclePart::new((0, -1), 1.0, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).shape_for(Vec3::Z, &frame)),
+        VehiclePart::new((0, 0), 1.5, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).shape_for(Vec3::Z, &frame)),
+        VehiclePart::new((0, -1), 1.5, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).shape_for(Vec3::Z, &frame)),
     ];
     VehicleAssembly::new(
         Vec3::new(0.25, 10.0, 0.25),
@@ -103,14 +107,15 @@ fn test_hull_wireframe_contrasts_exhaust_jets_with_opposing_steer_vector() {
     let craft = quad_rcs_rocket();
 
     let idle = craft.sample_wireframe(&PilotOrder::idle());
-    let mut idle_pods = 0usize;
-    idle.visit_cells(|role, _, _| {
-        if role == CellRole::AttitudePod {
-            idle_pods += 1;
-        }
+    let (mut fuselage_prisms, mut idle_pods) = (0usize, 0usize);
+    idle.visit_cells(|role, _, _| match role {
+        CellRole::Fuselage => fuselage_prisms += 1,
+        CellRole::AttitudePod => idle_pods += 1,
+        _ => {}
     });
     let mut idle_jets = 0usize;
     idle.visit_jets(|_, _, _, _| idle_jets += 1);
+    assert_eq!(fuselage_prisms, 1, "Multi-block hull must collapse into one uncluttered fuselage prism");
     assert_eq!(idle_pods, 4);
     assert_eq!(idle_jets, 0);
     idle.transfer_steer(|_, steer, lit| assert!(!lit && steer == Vec3::ZERO));
@@ -157,13 +162,13 @@ fn test_hull_wireframe_contrasts_exhaust_jets_with_opposing_steer_vector() {
             Vec3::ZERO,
             AttitudeGuidance::Manual,
         ));
-        let mut active_pods = 0usize;
-        spin.visit_cells(|role, _, _| {
-            if role == CellRole::ActivePod {
-                active_pods += 1;
-            }
+        let (mut active_pods, mut active_bells) = (0usize, 0usize);
+        spin.visit_cells(|role, _, _| match role {
+            CellRole::ActivePod => active_pods += 1,
+            CellRole::ActiveMainBell => active_bells += 1,
+            _ => {}
         });
-        assert!(active_pods >= 2);
+        assert!(active_pods >= 2 && active_bells == 0);
         spin.transfer_steer(|_, steer, lit| {
             assert!(lit && steer.x > 0.12, "Clockwise yaw/roll must project rightward STEER cue, got {steer:?}");
         });

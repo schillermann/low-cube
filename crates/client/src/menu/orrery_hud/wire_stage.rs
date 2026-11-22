@@ -1,11 +1,12 @@
 use glam::{Mat4, Vec2, Vec3};
 use world::{CockpitAxes, JetTone, MeshTarget, Quad};
-use crate::menu::glyph::PixelStamp;
 
 pub(super) const CARD_GLASS: Vec3 = Vec3::new(0.014, 0.056, 0.034);
 pub(super) const CARD_RIM: Vec3 = Vec3::new(0.16, 0.84, 0.42);
-pub(super) const CYAN_WIRE: Vec3 = Vec3::new(0.22, 0.92, 1.00);
-pub(super) const AMBER_WIRE: Vec3 = Vec3::new(1.00, 0.68, 0.20);
+pub(super) const GHOST_HULL: Vec3 = Vec3::new(0.14, 0.58, 0.52);
+pub(super) const IDLE_POD: Vec3 = Vec3::new(0.18, 0.74, 0.86);
+pub(super) const CYAN_WIRE: Vec3 = Vec3::new(0.20, 0.94, 1.00);
+pub(super) const AMBER_WIRE: Vec3 = Vec3::new(1.00, 0.64, 0.14);
 pub(super) const STEER_PEAK: Vec3 = Vec3::new(0.44, 1.00, 0.52);
 pub(super) const STEER_HALO: Vec3 = Vec3::new(0.14, 0.88, 0.28);
 
@@ -57,13 +58,17 @@ impl CameraStage {
         let w = self.ship_axes.to_world(ship_local);
         let (r, u, b) = self.cam_basis;
         let cv = Vec3::new(w.dot(r), w.dot(u), w.dot(b));
-        let (sy, cy) = (-0.32_f32).sin_cos();
-        let (sp, cp) = 0.36_f32.sin_cos();
+        let (sy, cy) = (-0.52_f32).sin_cos();
+        let (sp, cp) = 0.48_f32.sin_cos();
         let x1 = cv.x * cy - cv.z * sy;
         let z1 = cv.x * sy + cv.z * cy;
         let y2 = cv.y * cp - z1 * sp;
         let z2 = cv.y * sp + z1 * cp;
         Vec3::new(x1, y2, z2)
+    }
+
+    pub(super) fn cam_depth(self, ship_local: Vec3) -> f32 {
+        self.to_tilted_cam(ship_local).z
     }
 
     pub(super) fn project(self, ship_local: Vec3) -> Vec2 {
@@ -105,7 +110,14 @@ impl CameraStage {
         ));
     }
 
-    pub(super) fn emit_box(self, center: Vec3, half: Vec3, col: Vec3, width: f32, target: &mut dyn MeshTarget) {
+    pub(super) fn emit_box(
+        self,
+        center: Vec3,
+        half: Vec3,
+        (col, glow): (Vec3, f32),
+        width: f32,
+        target: &mut dyn MeshTarget,
+    ) {
         let lo = center - half;
         let hi = center + half;
         let c = [
@@ -124,31 +136,73 @@ impl CameraStage {
             (4, 5), (5, 6), (6, 7), (7, 4),
             (0, 4), (1, 5), (2, 6), (3, 7),
         ] {
-            self.emit_beam(c[i], c[j], width, col, 0.96, target);
+            self.emit_beam(c[i], c[j], width, col, glow, target);
         }
     }
 
-    pub(super) fn emit_nose_pyramid(self, center: Vec3, half: f32, target: &mut dyn MeshTarget) {
-        let base_y = center.y - half;
-        let apex = self.project(Vec3::new(center.x, center.y + half * 1.45, center.z));
-        let b = [
-            Vec3::new(center.x - half, base_y, center.z - half),
-            Vec3::new(center.x + half, base_y, center.z - half),
-            Vec3::new(center.x + half, base_y, center.z + half),
-            Vec3::new(center.x - half, base_y, center.z + half),
+    pub(super) fn emit_pod_rosette(
+        self,
+        center: Vec3,
+        radius: f32,
+        active: bool,
+        target: &mut dyn MeshTarget,
+    ) {
+        let spine_anchor = Vec3::new(0.0, center.y, 0.0);
+        let p_hub = self.project(center);
+        let p_spine = self.project(spine_anchor);
+        let near = self.cam_depth(center) >= 0.0;
+        let (col, glow, w) = if active {
+            (AMBER_WIRE, 0.99, 0.0028)
+        } else if near {
+            (CYAN_WIRE, 0.92, 0.0021)
+        } else {
+            (IDLE_POD, -0.68, 0.0018)
+        };
+        self.emit_beam(p_spine, p_hub, 0.0014, col, -0.42, target);
+        let pts = [
+            Vec3::new(center.x - radius, center.y, center.z),
+            Vec3::new(center.x, center.y, center.z + radius),
+            Vec3::new(center.x + radius, center.y, center.z),
+            Vec3::new(center.x, center.y, center.z - radius),
+            Vec3::new(center.x, center.y + radius, center.z),
+            Vec3::new(center.x, center.y - radius, center.z),
         ]
         .map(|p| self.project(p));
         for i in 0..4 {
-            self.emit_beam(b[i], b[(i + 1) % 4], 0.0020, CYAN_WIRE, 0.96, target);
-            self.emit_beam(b[i], apex, 0.0022, CYAN_WIRE, 0.98, target);
+            self.emit_beam(pts[i], pts[(i + 1) % 4], w, col, glow, target);
+            self.emit_beam(pts[i], pts[4], w * 0.88, col, glow, target);
+            self.emit_beam(pts[i], pts[5], w * 0.88, col, glow, target);
         }
     }
 
-    pub(super) fn emit_bell_skirt(self, center: Vec3, half: f32, col: Vec3, target: &mut dyn MeshTarget) {
-        let t_h = half * 0.48;
-        let l_h = half * 0.88;
-        let top = center.y + half * 0.35;
-        let bot = center.y - half;
+    pub(super) fn emit_nose_pyramid(self, center: Vec3, half: Vec3, target: &mut dyn MeshTarget) {
+        let base_y = center.y - half.y;
+        let apex = self.project(Vec3::new(center.x, center.y + half.y * 1.45, center.z));
+        let b = [
+            Vec3::new(center.x - half.x, base_y, center.z - half.z),
+            Vec3::new(center.x + half.x, base_y, center.z - half.z),
+            Vec3::new(center.x + half.x, base_y, center.z + half.z),
+            Vec3::new(center.x - half.x, base_y, center.z + half.z),
+        ]
+        .map(|p| self.project(p));
+        for i in 0..4 {
+            self.emit_beam(b[i], b[(i + 1) % 4], 0.0015, GHOST_HULL, -0.34, target);
+            self.emit_beam(b[i], apex, 0.0017, GHOST_HULL, -0.44, target);
+        }
+    }
+
+    pub(super) fn emit_bell_skirt(
+        self,
+        center: Vec3,
+        half: Vec3,
+        (col, glow): (Vec3, f32),
+        target: &mut dyn MeshTarget,
+    ) {
+        let t_h = half.x * 0.48;
+        let l_h = half.x * 0.94;
+        let top = center.y + half.y * 0.35;
+        let bot = center.y - half.y;
+        let w = if glow > 0.0 { 0.0026 } else { 0.0017 };
         let t = [
             Vec3::new(center.x - t_h, top, center.z - t_h),
             Vec3::new(center.x + t_h, top, center.z - t_h),
@@ -164,8 +218,8 @@ impl CameraStage {
         ]
         .map(|p| self.project(p));
         for i in 0..4 {
-            self.emit_beam(t[i], b[i], 0.0020, col, 0.96, target);
-            self.emit_beam(b[i], b[(i + 1) % 4], 0.0022, col, 0.96, target);
+            self.emit_beam(t[i], b[i], w, col, glow, target);
+            self.emit_beam(b[i], b[(i + 1) % 4], w, col, glow, target);
         }
     }
 
@@ -184,8 +238,8 @@ impl CameraStage {
         let ux = self.scale_ux.1;
         let t = throttle.clamp(0.0, 1.0);
         let reach = match tone {
-            JetTone::VernierCyan => 0.36 + 0.42 * t,
-            JetTone::BellAmber | JetTone::FusionBlue => 0.44 + 0.52 * t,
+            JetTone::VernierCyan => 0.56 + 0.54 * t,
+            JetTone::BellAmber | JetTone::FusionBlue => 0.64 + 0.62 * t,
         };
         let p0 = self.project(mouth_local);
         let raw_tip = self.project(mouth_local + dir_local * reach);
@@ -200,26 +254,36 @@ impl CameraStage {
         }
         let u = m / len;
         let base_w = match tone {
-            JetTone::VernierCyan => 0.018 + 0.010 * t,
-            JetTone::BellAmber | JetTone::FusionBlue => 0.024 + 0.012 * t,
+            JetTone::VernierCyan => 0.022 + 0.012 * t,
+            JetTone::BellAmber | JetTone::FusionBlue => 0.028 + 0.014 * t,
         };
         let side = Vec2::new(-u.y * ux, u.x);
-        let (sheath, core) = match tone {
-            JetTone::VernierCyan => (CYAN_WIRE, Vec3::new(0.86, 1.00, 1.00)),
-            JetTone::BellAmber => (AMBER_WIRE, Vec3::new(1.00, 0.95, 0.72)),
-            JetTone::FusionBlue => (Vec3::new(0.36, 0.86, 1.00), Vec3::new(0.94, 0.99, 1.00)),
+        let (sheath, core, spark) = match tone {
+            JetTone::VernierCyan => (CYAN_WIRE, Vec3::new(0.92, 1.00, 1.00), Vec3::new(1.00, 0.90, 0.48)),
+            JetTone::BellAmber => (AMBER_WIRE, Vec3::new(1.00, 0.96, 0.76), Vec3::new(1.00, 0.98, 0.86)),
+            JetTone::FusionBlue => (Vec3::new(0.36, 0.86, 1.00), Vec3::new(0.95, 0.99, 1.00), Vec3::ONE),
         };
+        let sp = 0.011 + 0.004 * t;
+        target.push_quad(Quad::glowing(
+            Vec3::new(p0.x, p0.y + sp, 0.0),
+            Vec3::new(p0.x + sp * ux, p0.y, 0.0),
+            Vec3::new(p0.x, p0.y - sp, 0.0),
+            Vec3::new(p0.x - sp * ux, p0.y, 0.0),
+            Vec3::Z,
+            spark,
+            0.99,
+        ));
         target.push_quad(Quad::glowing(
             Vec3::new(p0.x - side.x * base_w, p0.y - side.y * base_w, 0.0),
             Vec3::new(p0.x + side.x * base_w, p0.y + side.y * base_w, 0.0),
-            Vec3::new(tip.x + side.x * base_w * 0.12, tip.y + side.y * base_w * 0.12, 0.0),
-            Vec3::new(tip.x - side.x * base_w * 0.12, tip.y - side.y * base_w * 0.12, 0.0),
+            Vec3::new(tip.x + side.x * base_w * 0.10, tip.y + side.y * base_w * 0.10, 0.0),
+            Vec3::new(tip.x - side.x * base_w * 0.10, tip.y - side.y * base_w * 0.10, 0.0),
             Vec3::new(0.0, 1.0, 1.0),
             sheath,
-            -0.78,
+            -0.88,
         ));
-        let ctip = p0.lerp(tip, 0.64);
-        let cw = base_w * 0.45;
+        let ctip = p0.lerp(tip, 0.70);
+        let cw = base_w * 0.48;
         target.push_quad(Quad::glowing(
             Vec3::new(p0.x - side.x * cw, p0.y - side.y * cw, 0.0),
             Vec3::new(p0.x + side.x * cw, p0.y + side.y * cw, 0.0),
@@ -229,46 +293,5 @@ impl CameraStage {
             core,
             0.99,
         ));
-    }
-
-    pub(super) fn emit_steer_vector(
-        self,
-        anchor_local: Vec3,
-        steer_local: Vec3,
-        bounds: (f32, f32, f32, f32),
-        target: &mut dyn MeshTarget,
-    ) {
-        let mag = steer_local.length();
-        if mag <= 0.03 {
-            return;
-        }
-        let ux = self.scale_ux.1;
-        let unit = steer_local / mag;
-        let reach = 0.62 + 0.68 * mag.clamp(0.0, 1.0);
-        let a = self.project(anchor_local);
-        let raw_b = self.project(anchor_local + unit * reach);
-        let b = Vec2::new(
-            raw_b.x.clamp(bounds.0 + 0.06 * ux, bounds.2 - 0.06 * ux),
-            raw_b.y.clamp(bounds.1 + 0.06, bounds.3 - 0.06),
-        );
-        let m = Vec2::new((b.x - a.x) / ux, b.y - a.y);
-        let len = m.length();
-        if len <= 0.012 {
-            return;
-        }
-        let dir = m / len;
-        let s = Vec2::new(-dir.y * ux, dir.x);
-        let f = Vec2::new(dir.x * ux, dir.y);
-        self.emit_beam(a, b, 0.0082, STEER_HALO, -0.32, target);
-        self.emit_beam(a, b, 0.0034, STEER_PEAK, 0.98, target);
-        let w0 = b - f * 0.026 + s * 0.022;
-        let w1 = b - f * 0.026 - s * 0.022;
-        self.emit_beam(w0, b, 0.0032, STEER_PEAK, 0.98, target);
-        self.emit_beam(w1, b, 0.0032, STEER_PEAK, 0.98, target);
-
-        let caption = if dir.x < -0.25 { "< STEER" } else { "STEER >" };
-        let lx = (b.x + dir.x * 0.04 * ux).clamp(bounds.0 + 0.14 * ux, bounds.2 - 0.14 * ux);
-        let ly = (b.y + 0.045).clamp(bounds.1 + 0.045, bounds.3 - 0.042);
-        PixelStamp::new(0.0048 * ux, 0.0072, STEER_PEAK).emit_centered(caption, lx, ly, target);
     }
 }

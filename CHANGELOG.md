@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.105.0] - 2026-11-22
+
+### Added
+- Added 3D octahedral thruster pod rosettes (`CameraStage::emit_pod_rosette` in `crates/client/src/menu/orrery_hud/wire_stage.rs`), nozzle-mouth ignition sparks, back-to-front jet depth sorting, and a live `RCS:X  BELL:Y` hardware tally header in `WireframeShipCard` (`crates/client/src/menu/orrery_hud/wire_ship.rs`).
+
+### Changed
+- Collapsed multi-block structural spacecraft hulls into a single translucent ghost `CellRole::Fuselage` prism (`HullWireframe` in `crates/world/src/relief/craft_entity/blueprint/wireframe.rs` and `PartPropulsion::collect_wireframe` in `crates/world/src/relief/vehicle_assembly/part/propulsion.rs`), isolated active main-bell highlighting (`ActiveMainBell` / `ActiveFusionBell`) from RCS-only burns, and normalized linear `STEER >` vectors across heavy multi-block hulls (`crates/client/src/drive/wireframe_hud_tests.rs`).
+
 ## [0.104.0] - 2026-11-22
 
 ### Added
