@@ -15,14 +15,15 @@ use self::probe::{CraftFixture, LiftAndRollControls, QuadRcsCraft, WireHudProbe}
 #[test]
 fn test_idle_hull_wireframe_collapses_into_single_unlit_fuselage_prism() {
     let idle = QuadRcsCraft::new().assembly().sample_wireframe(&PilotOrder::idle());
-    let (mut fuselage_prisms, mut idle_pods, mut idle_jets) = (0usize, 0usize, 0usize);
-    idle.visit_cells(|role, _, _| match role {
-        CellRole::Fuselage => fuselage_prisms += 1,
-        CellRole::AttitudePod => idle_pods += 1,
-        _ => {}
+    let (mut outer_edges, mut idle_pods, mut idle_jets) = (0usize, 0usize, 0usize);
+    idle.visit_edges(|_, _| outer_edges += 1);
+    idle.visit_cells(|role, _, _| {
+        if role == CellRole::AttitudePod {
+            idle_pods += 1;
+        }
     });
     idle.visit_jets(|_, _, _, _| idle_jets += 1);
-    assert_eq!((fuselage_prisms, idle_pods, idle_jets), (1, 4, 0));
+    assert_eq!((outer_edges, idle_pods, idle_jets), (12, 4, 0));
     idle.transfer_steer(|_, steer, lit| assert!(!lit && steer == Vec3::ZERO));
 }
 

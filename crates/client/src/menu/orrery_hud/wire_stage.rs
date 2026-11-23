@@ -4,6 +4,7 @@ use world::{CockpitAxes, JetTone, MeshTarget, Quad};
 pub(super) const CARD_GLASS: Vec3 = Vec3::new(0.014, 0.056, 0.034);
 pub(super) const CARD_RIM: Vec3 = Vec3::new(0.16, 0.84, 0.42);
 pub(super) const GHOST_HULL: Vec3 = Vec3::new(0.14, 0.58, 0.52);
+pub(super) const HULL_NEAR: Vec3 = Vec3::new(0.24, 0.88, 0.74);
 pub(super) const IDLE_POD: Vec3 = Vec3::new(0.18, 0.74, 0.86);
 pub(super) const CYAN_WIRE: Vec3 = Vec3::new(0.20, 0.94, 1.00);
 pub(super) const AMBER_WIRE: Vec3 = Vec3::new(1.00, 0.64, 0.14);
@@ -110,34 +111,14 @@ impl CameraStage {
         ));
     }
 
-    pub(super) fn emit_box(
-        self,
-        center: Vec3,
-        half: Vec3,
-        (col, glow): (Vec3, f32),
-        width: f32,
-        target: &mut dyn MeshTarget,
-    ) {
-        let lo = center - half;
-        let hi = center + half;
-        let c = [
-            Vec3::new(lo.x, lo.y, lo.z),
-            Vec3::new(hi.x, lo.y, lo.z),
-            Vec3::new(hi.x, lo.y, hi.z),
-            Vec3::new(lo.x, lo.y, hi.z),
-            Vec3::new(lo.x, hi.y, lo.z),
-            Vec3::new(hi.x, hi.y, lo.z),
-            Vec3::new(hi.x, hi.y, hi.z),
-            Vec3::new(lo.x, hi.y, hi.z),
-        ]
-        .map(|p| self.project(p));
-        for (i, j) in [
-            (0, 1), (1, 2), (2, 3), (3, 0),
-            (4, 5), (5, 6), (6, 7), (7, 4),
-            (0, 4), (1, 5), (2, 6), (3, 7),
-        ] {
-            self.emit_beam(c[i], c[j], width, col, glow, target);
-        }
+    pub(super) fn emit_hull_edge(self, a: Vec3, b: Vec3, target: &mut dyn MeshTarget) {
+        let mid_z = self.cam_depth((a + b) * 0.5);
+        let (col, glow, width) = if mid_z >= 0.0 {
+            (HULL_NEAR, -0.68, 0.0018)
+        } else {
+            (GHOST_HULL, -0.36, 0.0014)
+        };
+        self.emit_beam(self.project(a), self.project(b), width, col, glow, target);
     }
 
     pub(super) fn emit_pod_rosette(
@@ -147,9 +128,6 @@ impl CameraStage {
         active: bool,
         target: &mut dyn MeshTarget,
     ) {
-        let spine_anchor = Vec3::new(0.0, center.y, 0.0);
-        let p_hub = self.project(center);
-        let p_spine = self.project(spine_anchor);
         let near = self.cam_depth(center) >= 0.0;
         let (col, glow, w) = if active {
             (AMBER_WIRE, 0.99, 0.0028)
@@ -158,7 +136,6 @@ impl CameraStage {
         } else {
             (IDLE_POD, -0.68, 0.0018)
         };
-        self.emit_beam(p_spine, p_hub, 0.0014, col, -0.42, target);
         let pts = [
             Vec3::new(center.x - radius, center.y, center.z),
             Vec3::new(center.x, center.y, center.z + radius),
@@ -175,22 +152,6 @@ impl CameraStage {
         }
     }
 
-    pub(super) fn emit_nose_pyramid(self, center: Vec3, half: Vec3, target: &mut dyn MeshTarget) {
-        let base_y = center.y - half.y;
-        let apex = self.project(Vec3::new(center.x, center.y + half.y * 1.45, center.z));
-        let b = [
-            Vec3::new(center.x - half.x, base_y, center.z - half.z),
-            Vec3::new(center.x + half.x, base_y, center.z - half.z),
-            Vec3::new(center.x + half.x, base_y, center.z + half.z),
-            Vec3::new(center.x - half.x, base_y, center.z + half.z),
-        ]
-        .map(|p| self.project(p));
-        for i in 0..4 {
-            self.emit_beam(b[i], b[(i + 1) % 4], 0.0015, GHOST_HULL, -0.34, target);
-            self.emit_beam(b[i], apex, 0.0017, GHOST_HULL, -0.44, target);
-        }
-    }
-
     pub(super) fn emit_bell_skirt(
         self,
         center: Vec3,
@@ -199,8 +160,8 @@ impl CameraStage {
         target: &mut dyn MeshTarget,
     ) {
         let t_h = half.x * 0.48;
-        let l_h = half.x * 0.94;
-        let top = center.y + half.y * 0.35;
+        let l_h = half.x * 0.92;
+        let top = center.y + half.y;
         let bot = center.y - half.y;
         let w = if glow > 0.0 { 0.0026 } else { 0.0017 };
         let t = [
@@ -218,6 +179,7 @@ impl CameraStage {
         ]
         .map(|p| self.project(p));
         for i in 0..4 {
+            self.emit_beam(t[i], t[(i + 1) % 4], w * 0.85, col, glow, target);
             self.emit_beam(t[i], b[i], w, col, glow, target);
             self.emit_beam(b[i], b[(i + 1) % 4], w, col, glow, target);
         }

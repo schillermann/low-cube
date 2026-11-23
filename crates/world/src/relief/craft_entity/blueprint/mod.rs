@@ -1,5 +1,9 @@
+mod contour;
+mod hull_facet;
+mod hull_solid;
 mod mount;
 mod optics;
+mod wire_primitives;
 mod wireframe;
 
 use glam::Vec3;
@@ -13,12 +17,14 @@ use super::super::vehicle_assembly::{
 };
 use super::identity::CraftIdentity;
 use super::pose::CraftPose;
+pub(in crate::relief) use self::hull_solid::HullSolid;
 pub use self::mount::{HullOptic, OpticMount};
 use self::optics::BlueprintOptics;
 pub(in crate::relief::craft_entity) use self::optics::ShiftedMeshTarget;
-pub use self::wireframe::{
-    CellRole, ExhaustJet, HullWireframe, JetTone, WireframeCell, MAX_EXHAUST_JETS, MAX_WIRE_CELLS,
+pub use self::wire_primitives::{
+    CellRole, ExhaustJet, JetTone, WireframeCell, MAX_EXHAUST_JETS, MAX_WIRE_CELLS, MAX_WIRE_EDGES,
 };
+pub use self::wireframe::HullWireframe;
 
 const MAX_BLUEPRINT_PARTS: usize = 512;
 

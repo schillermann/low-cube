@@ -1,12 +1,12 @@
 use glam::Vec3;
 use crate::block::{
     AttitudeNozzleMesh, BlockMedium, FlightConsoleMesh, FusionTorchMesh, GridCell, MoldArchetype,
-    NozzleAxis, RcsManifold, SensorPodAxis, VoxelShape,
+    NozzleAxis, RcsManifold, VoxelShape,
 };
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use crate::relief::craft_entity::{
-    CellRole, ExhaustJet, JetTone, WireframeCell, MAX_EXHAUST_JETS, MAX_WIRE_CELLS,
+    CellRole, ExhaustJet, HullSolid, JetTone, WireframeCell, MAX_EXHAUST_JETS, MAX_WIRE_CELLS,
 };
 use super::super::impulse::{CockpitAxes, PilotOrder, RigidImpulse};
 
@@ -167,6 +167,12 @@ impl<'a> PartPropulsion<'a> {
         false
     }
 
+    pub(in crate::relief) fn push_hull_solid(&self, out: &mut Vec<HullSolid>) {
+        if let Some(solid) = HullSolid::from_stamp(self.cell, self.floor_elev, self.shape.shape_stamp()) {
+            out.push(solid);
+        }
+    }
+
     pub(in crate::relief) fn collect_wireframe(
         &self,
         frame: &SurfaceFrame,
@@ -203,7 +209,7 @@ impl<'a> PartPropulsion<'a> {
             let up = frame.normal().normalize_or_zero();
             let thr = order.bell_throttle(up, axes);
             let role = if thr > 0.02 { CellRole::ActiveFusionBell } else { CellRole::FusionBell };
-            push_cell(local_center, Vec3::splat(0.22), role);
+            push_cell(local_center, Vec3::splat(0.24), role);
             push_jet(local_center - Vec3::Y * 0.24, Vec3::NEG_Y, JetTone::FusionBlue, thr);
             return;
         }
@@ -213,7 +219,7 @@ impl<'a> PartPropulsion<'a> {
                     let thrust = axis.thrust_vector(frame).normalize_or_zero();
                     let thr = order.bell_throttle(thrust, axes);
                     let role = if thr > 0.02 { CellRole::ActiveMainBell } else { CellRole::MainBell };
-                    push_cell(local_center, Vec3::splat(0.22), role);
+                    push_cell(local_center, Vec3::splat(0.24), role);
                     let ex_l = axes.to_local(-thrust).normalize_or_zero();
                     push_jet(local_center + ex_l * 0.24, ex_l, JetTone::BellAmber, thr);
                 }
@@ -229,25 +235,15 @@ impl<'a> PartPropulsion<'a> {
                         torque_demand,
                     );
                     let out_l = axes.to_local(horns[0].exhaust_dir()).normalize_or_zero();
-                    let pod_l = local_center + out_l * 0.18;
-                    let pod_half = Vec3::splat(0.16);
+                    let pod_l = local_center - out_l * 0.09;
+                    let pod_half = Vec3::splat(0.14);
                     let any_lit = throttles.iter().any(|&t| t > 0.02);
                     push_cell(pod_l, pod_half, if any_lit { CellRole::ActivePod } else { CellRole::AttitudePod });
                     for (horn, &thr) in horns.iter().zip(throttles.iter()) {
                         let ex_l = axes.to_local(horn.exhaust_dir()).normalize_or_zero();
-                        push_jet(pod_l + ex_l * 0.18, ex_l, JetTone::VernierCyan, thr);
+                        push_jet(pod_l + ex_l * 0.14, ex_l, JetTone::VernierCyan, thr);
                     }
                 }
-            }
-            return;
-        }
-        if med == BlockMedium::RocketCamera {
-            let pod = SensorPodAxis::from_mold(
-                MoldArchetype::from_code(self.shape.shape_stamp()[0]),
-                self.shape.block_heading(),
-            );
-            if matches!(pod, SensorPodAxis::NoseCone) {
-                push_cell(local_center, Vec3::splat(0.20), CellRole::NoseApex);
             }
         }
     }

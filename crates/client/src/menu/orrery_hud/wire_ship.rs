@@ -1,14 +1,13 @@
 use glam::{Mat4, Vec2, Vec3};
-use world::{CellRole, HullWireframe, JetTone, MeshTarget, Quad, MAX_EXHAUST_JETS};
+use world::{CellRole, HullWireframe, JetTone, MeshTarget, Quad, MAX_EXHAUST_JETS, MAX_WIRE_EDGES};
 use crate::menu::glyph::PixelStamp;
 use crate::menu::widget::ScreenBounds;
 use super::overlays::OpticOverlay;
 use super::wire_stage::{
-    AMBER_WIRE, CARD_GLASS, CARD_RIM, CYAN_WIRE, GHOST_HULL, IDLE_POD, STEER_HALO, STEER_PEAK,
-    CameraStage,
+    AMBER_WIRE, CARD_GLASS, CARD_RIM, CYAN_WIRE, IDLE_POD, STEER_HALO, STEER_PEAK, CameraStage,
 };
 
-/// Bottom-left camera-synchronized 3D ghost-hull & thruster HUD contrasting `EXHAUST` vs `STEER >`.
+/// Bottom-left camera-synchronized 3D outer-hull wireframe & thruster HUD contrasting `EXHAUST` vs `STEER >`.
 #[derive(Clone, Copy, Debug)]
 pub struct WireframeShipCard {
     wireframe: HullWireframe,
@@ -43,20 +42,25 @@ impl WireframeShipCard {
         self.wireframe.transfer_steer(|ship_axes, steer_local, exhaust_lit| {
             let stage = CameraStage::from_view_proj(ship_axes, self.view_proj, center, 0.19, ux);
 
-            let mut dedicated_nose = false;
-            let mut fuselage_crown: Option<(Vec3, Vec3)> = None;
-            let (mut rcs_count, mut bell_count) = (0u8, 0u8);
+            let mut hull_edges = [(0.0_f32, Vec3::ZERO, Vec3::ZERO); MAX_WIRE_EDGES];
+            let mut elen = 0usize;
+            let mut hull_lo = Vec3::splat(f32::INFINITY);
+            let mut hull_hi = Vec3::splat(f32::NEG_INFINITY);
+            self.wireframe.visit_edges(|a, b| {
+                hull_lo = hull_lo.min(a).min(b);
+                hull_hi = hull_hi.max(a).max(b);
+                if elen < MAX_WIRE_EDGES {
+                    hull_edges[elen] = (stage.cam_depth((a + b) * 0.5), a, b);
+                    elen += 1;
+                }
+            });
+            hull_edges[..elen].sort_by(|a, b| a.0.total_cmp(&b.0));
+            for &(_, a, b) in &hull_edges[..elen] {
+                stage.emit_hull_edge(a, b, target);
+            }
 
-            // Pass 1: Faint ghosted outer fuselage envelope + idle thrusters (zero interior block grid)
+            let (mut rcs_count, mut bell_count) = (0u8, 0u8);
             self.wireframe.visit_cells(|role, pos, half| match role {
-                CellRole::Fuselage => {
-                    stage.emit_box(pos, half, (GHOST_HULL, -0.24), 0.0013, target);
-                    fuselage_crown = Some((pos, half));
-                }
-                CellRole::NoseApex => {
-                    dedicated_nose = true;
-                    stage.emit_nose_pyramid(pos, half, target);
-                }
                 CellRole::MainBell => {
                     bell_count = bell_count.saturating_add(1);
                     stage.emit_bell_skirt(pos, half, (IDLE_POD, -0.55), target);
@@ -77,15 +81,6 @@ impl WireframeShipCard {
                 }
             });
 
-            if !dedicated_nose {
-                if let Some((c_pos, c_half)) = fuselage_crown {
-                    let cap_h = Vec3::new(c_half.x * 0.65, c_half.y.min(0.18), c_half.z * 0.65);
-                    let cap_pos = Vec3::new(c_pos.x, c_pos.y + c_half.y + cap_h.y, c_pos.z);
-                    stage.emit_nose_pyramid(cap_pos, cap_h, target);
-                }
-            }
-
-            // Pass 2: Active firing thruster housings in high-contrast glowing amber/sapphire
             self.wireframe.visit_cells(|role, pos, half| match role {
                 CellRole::ActiveMainBell => {
                     stage.emit_bell_skirt(pos, half, (AMBER_WIRE, 0.98), target);
@@ -103,7 +98,6 @@ impl WireframeShipCard {
             PixelStamp::new(0.0040 * ux, 0.0060, IDLE_POD)
                 .emit_centered(&tally, x0 + (x1 - x0) * 0.50, y1 - 0.032, target);
 
-            // Pass 3: Depth-sorted 3D exhaust jets with muzzle ignition sparks
             let mut sorted = [(0.0_f32, JetTone::VernierCyan, Vec3::ZERO, Vec3::NEG_Y, 0.0_f32); MAX_EXHAUST_JETS];
             let mut jlen = 0usize;
             self.wireframe.visit_jets(|tone, mouth, dir, thr| {
@@ -122,7 +116,12 @@ impl WireframeShipCard {
                     .emit_centered("EXHAUST", x0 + 0.16 * ux, y0 + 0.048, target);
             }
 
-            let anchor = fuselage_crown.map_or(Vec3::ZERO, |(p, h)| Vec3::new(p.x, p.y + h.y * 0.55, p.z));
+            let anchor = if hull_lo.x <= hull_hi.x {
+                let mid = (hull_lo + hull_hi) * 0.5;
+                Vec3::new(mid.x, mid.y + (hull_hi.y - hull_lo.y) * 0.28, mid.z)
+            } else {
+                Vec3::ZERO
+            };
             Self::emit_steer_arrow(stage, anchor, steer_local, bounds, ux, target);
         });
     }

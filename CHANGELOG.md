@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.109.0] - 2026-11-23
+
+### Changed
+- Replaced the coarse bounding-box and synthetic nose-pyramid rocket HUD envelope with a unified 3D merged outer-hull crease wireframe (`HullSolid`, `HullFacet`, `FacetSink`, `HullContour`, `CollinearTrack`, and `WireframeEdge` in `crates/world/src/relief/craft_entity/blueprint/hull_solid.rs`, `hull_facet.rs`, `contour.rs`, `wire_primitives.rs`, and `wireframe.rs`, rendered via `CameraStage::emit_hull_edge` and `WireframeShipCard` in `crates/client/src/menu/orrery_hud/wire_stage.rs` and `wire_ship.rs`): fuses all assembled structural, cabin, and `RocketCamera` fairing blocks across all 16 `MoldArchetype`s into one seamless pure outer-edge wireframe matching the rocket's true silhouette without surface fills, interior block seams, or internal RCS crossbar struts (`crates/world/src/relief/craft_entity/blueprint/contour_tests.rs` and `crates/client/src/drive/wireframe_hud_tests/mod.rs`).
+
 ## [0.108.0] - 2026-11-23
 
 ### Added

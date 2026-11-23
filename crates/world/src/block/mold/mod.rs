@@ -140,7 +140,7 @@ impl BlockMold {
         self.archetype.code().wrapping_add(turn_step) % 4
     }
 
-    fn corner_for(wedge: WedgeHeading) -> CornerHeading {
+    pub(crate) const fn corner_for(wedge: WedgeHeading) -> CornerHeading {
         match wedge {
             WedgeHeading::North => CornerHeading::NorthEast,
             WedgeHeading::East => CornerHeading::SouthEast,
