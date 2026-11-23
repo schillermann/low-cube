@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.111.0] - 2026-11-23
+
+### Added
+- Bundled 4 distinct real woodland turf, humus, and hand-scooping earth recordings plus real settling soil-clod crumbles (`palm_dig_0..3.wav` and `soil_crumble.wav` in `crates/acoustics/assets/`, wired into `TapeSample`, `PalmScrape` in `crates/acoustics/src/work_waves.rs`, and `CrumbledWave` / `CadencedWave::palm` in `crates/acoustics/src/dig_decorators.rs`) for warm, varied bare-hand digging acoustics without synthetic hash noise.
+
 ## [0.110.1] - 2026-11-23
 
 ### Fixed

@@ -5,6 +5,13 @@ const BELL_IGNITE_WAV: &[u8] = include_bytes!("../assets/bell_ignite.wav");
 const RCS_LOOP_WAV: &[u8] = include_bytes!("../assets/rcs_loop.wav");
 const RCS_BURST_WAV: &[u8] = include_bytes!("../assets/rcs_burst.wav");
 const RCS_SHUTOFF_WAV: &[u8] = include_bytes!("../assets/rcs_shutoff.wav");
+const PALM_DIG_WAVS: [&[u8]; 4] = [
+    include_bytes!("../assets/palm_dig_0.wav"),
+    include_bytes!("../assets/palm_dig_1.wav"),
+    include_bytes!("../assets/palm_dig_2.wav"),
+    include_bytes!("../assets/palm_dig_3.wav"),
+];
+const SOIL_CRUMBLE_WAV: &[u8] = include_bytes!("../assets/soil_crumble.wav");
 
 /// Zero-allocation embedded 16-bit mono PCM studio recording bundled inside the executable.
 #[derive(Clone, Copy, Debug)]
@@ -46,6 +53,14 @@ impl TapeSample {
 
     pub const fn rcs_shutoff() -> Self {
         Self::new(RCS_SHUTOFF_WAV, 44, 24000)
+    }
+
+    pub const fn palm_dig(variant: usize) -> Self {
+        Self::new(PALM_DIG_WAVS[variant % 4], 44, 24000)
+    }
+
+    pub const fn soil_crumble() -> Self {
+        Self::new(SOIL_CRUMBLE_WAV, 44, 24000)
     }
 
     pub const fn rate(&self) -> u32 {

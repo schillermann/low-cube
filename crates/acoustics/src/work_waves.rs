@@ -1,55 +1,46 @@
 use std::f32::consts::PI;
 use std::sync::OnceLock;
+use super::outbox::SoundOutbox;
+use super::tape::TapeSample;
 use super::{AcousticWave, SoundStage};
 
-/// Earthy low-mid soil scrape and dull palm-thud waveform emitted when digging with bare hands.
+/// Real woodland turf, humus, and hand-scooping earth recording emitted when digging with bare hands.
 #[derive(Clone, Copy, Debug)]
 pub struct PalmScrape {
-    sample_rate: u32,
+    tape: TapeSample,
 }
 
 impl PalmScrape {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(sample_rate: u32) -> Self {
-        Self { sample_rate }
+    pub const fn new(tape: TapeSample) -> Self {
+        Self { tape }
     }
 
-    /// Secondary constructor calibrated at 16000 Hz mono for warm, earthy hand-digging scrapes.
+    /// Secondary constructor selecting the baseline woodland loam hand-digging recording.
     pub const fn earthy() -> Self {
-        Self::new(16000)
+        Self::new(TapeSample::palm_dig(0))
     }
 
-    fn soil_grain(&self, t: f32) -> f32 {
-        let idx = ((t.max(0.0) * (self.sample_rate as f32)) as u32).wrapping_add(17);
-        let h = idx.wrapping_mul(747796405).wrapping_add(2891336453);
-        let w = ((h >> ((h >> 28).wrapping_add(4))) ^ h).wrapping_mul(277803737);
-        (((w ^ (w >> 16)) as i32) as f32) / (i32::MAX as f32)
+    /// Secondary constructor cycling across 4 distinct real bare-hand soil scoop recordings.
+    pub const fn stroke(variant: usize) -> Self {
+        Self::new(TapeSample::palm_dig(variant))
     }
 }
 
 impl AcousticWave for PalmScrape {
     fn sample_rate(&self) -> u32 {
-        self.sample_rate
+        self.tape.rate()
     }
 
     fn amplitude_at(&self, t: f32) -> f32 {
-        if !(0.0..0.16).contains(&t) {
-            return 0.0;
-        }
-        let dt = 1.0 / (self.sample_rate as f32);
-        let muffled_grain = 0.50 * self.soil_grain(t) + 0.35 * self.soil_grain(t - dt) + 0.15 * self.soil_grain(t - 2.0 * dt);
-        let palm_thud = (-28.0 * t).exp() * (2.0 * PI * (92.0 * t - 140.0 * t * t)).sin() * 0.68;
-        let scoop_rub = (t / 0.16 * PI).sin() * (-14.0 * t).exp() * muffled_grain * 0.45;
-        (palm_thud + scoop_rub).clamp(-1.0, 1.0)
+        self.tape.sample_at_sec(t)
     }
 
     fn thump(&self) {
         if SoundStage::active() {
-            static PALM_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
-            let bytes = PALM_CACHE.get_or_init(|| self.riff_wave());
-            self.play_cached_wav(bytes, "low_cube_palm_dig.wav");
+            SoundOutbox::new(true).submit_tape(self.tape, 1.0, (0.68, 0.68));
         } else {
-            let _ = self.amplitude_at(0.02);
+            let _ = self.amplitude_at(0.04);
         }
     }
 }
