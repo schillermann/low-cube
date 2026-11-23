@@ -1,8 +1,8 @@
 use glam::{Quat, Vec3};
 use world::{AttitudeGuidance, PilotOrder, VehicleAssembly};
-use acoustics::{AcousticWave, FusionHum, NozzleRoar};
 use crate::controls::LocomotionTarget;
 use crate::menu::GuidanceReadout;
+use super::acoustics::HullBurnPulse;
 
 /// Cockpit 6-DOF directional thruster burn collector implementing `LocomotionTarget` for `FlightConsole`.
 pub(super) struct ConsolePedals {
@@ -68,12 +68,12 @@ impl LocomotionTarget for ConsolePedals {
     }
 }
 
-/// Encapsulated flight guidance computer toggle, retro-flip state, acoustic phase, and active `PilotOrder`.
+/// Encapsulated flight guidance computer toggle, retro-flip state, `HullBurnPulse`, and active `PilotOrder`.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct HelmTrim {
     guidance: AttitudeGuidance,
     flip_retro: bool,
-    roar_phase: f32,
+    pulse: HullBurnPulse,
     order: PilotOrder,
 }
 
@@ -82,14 +82,14 @@ impl HelmTrim {
     pub(super) const fn new(
         guidance: AttitudeGuidance,
         flip_retro: bool,
-        roar_phase: f32,
+        pulse: HullBurnPulse,
         order: PilotOrder,
     ) -> Self {
-        Self { guidance, flip_retro, roar_phase, order }
+        Self { guidance, flip_retro, pulse, order }
     }
 
     pub(super) const fn pad_engaged() -> Self {
-        Self::new(AttitudeGuidance::Engaged, false, 0.0, PilotOrder::idle())
+        Self::new(AttitudeGuidance::Engaged, false, HullBurnPulse::silent(), PilotOrder::idle())
     }
 
     pub(super) fn pose_channels(self) -> (f32, f32) {
@@ -139,19 +139,17 @@ impl HelmTrim {
         }
     }
 
-    pub(super) fn advance_burn(&mut self, order: PilotOrder, fusion: bool, flipping: bool, dt: f32) {
+    pub(super) fn advance_burn(
+        &mut self,
+        order: PilotOrder,
+        assembly: &VehicleAssembly,
+        flipping: bool,
+        dt: f32,
+    ) {
         self.order = order;
-        if order.active_burn() || flipping {
-            let next_phase = self.roar_phase + dt * 3.4;
-            if self.roar_phase.floor() != next_phase.floor() {
-                if fusion {
-                    FusionHum::torch().thump();
-                } else {
-                    NozzleRoar::ignition().thump();
-                }
-            }
-            self.roar_phase = next_phase;
-        }
+        let wireframe = assembly.sample_wireframe(&order);
+        let flip_capable = assembly.attitude_capable() && self.guidance.engaged();
+        self.pulse.advance(&wireframe, flipping, flip_capable, dt);
     }
 }
 

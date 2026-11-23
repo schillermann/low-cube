@@ -8,6 +8,12 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.110.0] - 2026-11-23
+
+### Added
+- Bundled real Public Domain spacecraft & foley thruster recordings directly inside the executable via `include_bytes!` (`TapeSample` in `crates/acoustics/src/tape.rs` and `crates/acoustics/assets/*.wav` — NASA crew-cabin launch hull resonance, NASA rocket-bell combustion roar, and mechanical solenoid switch + pressurized gas bursts) paired with a zero-dependency 24 kHz 16-bit polyphonic stereo streaming engine (`SoundDeck` and `HullDriveDemand` in `crates/acoustics/src/deck.rs`, `LoopTrack` and `BurstVoice` in `crates/acoustics/src/voice.rs`, and `WaveSink` in `crates/acoustics/src/sink/` using Win32 `waveOutOpen` ring buffers on Windows and persistent `pw-cat`/`pacat`/`aplay` raw PCM streams on Linux).
+- Added *The Expanse*-style hull-conducted thruster acoustics (`AttitudeHiss` in `crates/acoustics/src/attitude_hiss.rs`, `HullChorus`, `HullWaveTrace`, and `PropulsionCue` in `crates/acoustics/src/hull_chorus.rs`, `FusionHum` in `crates/acoustics/src/fusion_hum.rs`, `NozzleRoar` in `crates/acoustics/src/nozzle_roar.rs`, and `HullBurnPulse` in `crates/client/src/drive/rocket/acoustics.rs`): streams continuous seamless-looped Epstein cabin rumble and rocket-bell roar with live throttle modulation and smooth release tails, stereo-pans 5-horn RCS "teakettle" valve + compressed-gas bursts to active `HullWireframe` hull pods, and layers RCS steering bursts polyphonically over sustained main burns (`crates/client/src/drive/expanse_acoustics_tests.rs`).
+
 ## [0.109.0] - 2026-11-23
 
 ### Changed

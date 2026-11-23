@@ -12,6 +12,8 @@ mod wheeled;
 #[cfg(test)]
 mod camera_look_tests;
 #[cfg(test)]
+mod expanse_acoustics_tests;
+#[cfg(test)]
 mod expanse_tests;
 #[cfg(test)]
 mod hollow_nozzle_tests;

@@ -1,3 +1,4 @@
+mod acoustics;
 mod controls;
 
 use glam::{Quat, Vec3};
@@ -136,7 +137,7 @@ impl CraftDrive for RocketDrive {
         let target_controls = RocketControls::clamped(stick_x, stick_z, vert);
         self.controls = self.controls.blended(target_controls, 14.0 * dt);
         let fusion = assembly.fusion_equipped();
-        self.trim.advance_burn(order, fusion, flipping, dt);
+        self.trim.advance_burn(order, assembly, flipping, dt);
 
         let imp = assembly.sample_impulse(&order);
         let thrust_dv = if fusion { imp.fusion_velocity_delta(dt) } else { imp.velocity_delta(dt) };
