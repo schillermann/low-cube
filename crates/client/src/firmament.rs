@@ -11,7 +11,6 @@ pub trait VaultFrame: Copy {
         u_inv_vp: &glow::UniformLocation,
         u_sun: &glow::UniformLocation,
         u_pole: &glow::UniformLocation,
-        u_up: &glow::UniformLocation,
     );
 }
 
@@ -21,18 +20,12 @@ pub struct VaultView {
     inv_view_proj: Mat4,
     sun_dir: Vec3,
     celestial_pole: Vec3,
-    local_up: Vec3,
 }
 
 impl VaultView {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        inv_view_proj: Mat4,
-        sun_dir: Vec3,
-        celestial_pole: Vec3,
-        local_up: Vec3,
-    ) -> Self {
-        Self { inv_view_proj, sun_dir, celestial_pole, local_up }
+    pub const fn new(inv_view_proj: Mat4, sun_dir: Vec3, celestial_pole: Vec3) -> Self {
+        Self { inv_view_proj, sun_dir, celestial_pole }
     }
 }
 
@@ -43,48 +36,38 @@ impl VaultFrame for VaultView {
         u_inv_vp: &glow::UniformLocation,
         u_sun: &glow::UniformLocation,
         u_pole: &glow::UniformLocation,
-        u_up: &glow::UniformLocation,
     ) {
         unsafe {
             gl.uniform_matrix_4_f32_slice(Some(u_inv_vp), false, &self.inv_view_proj.to_cols_array());
             gl.uniform_3_f32(Some(u_sun), self.sun_dir.x, self.sun_dir.y, self.sun_dir.z);
             gl.uniform_3_f32(Some(u_pole), self.celestial_pole.x, self.celestial_pole.y, self.celestial_pole.z);
-            gl.uniform_3_f32(Some(u_up), self.local_up.x, self.local_up.y, self.local_up.z);
         }
     }
 }
 
-/// Focused contract clearing the framebuffer and binding sky luminance, night wash, aurora, and time uniforms.
+/// Focused contract clearing the framebuffer and binding aurora activity and monotonic phase uniforms.
 pub trait VaultLuminance: Copy {
     fn clear_backdrop(&self, gl: &glow::Context);
     fn bind_gl(
         &self,
         gl: &glow::Context,
-        u_sky: &glow::UniformLocation,
-        u_night: &glow::UniformLocation,
         u_aurora: &glow::UniformLocation,
         u_time: &glow::UniformLocation,
     );
 }
 
-/// Radiance, night-wash, aurora activity, and monotonic phase for a celestial vault pass (`<= 4` fields).
+/// Backdrop clear color, aurora activity, and monotonic phase for a celestial vault pass (`<= 4` fields).
 #[derive(Clone, Copy, Debug)]
 pub struct VaultGlow {
     sky_color: Vec4,
-    night_factor: f32,
     aurora_factor: f32,
     elapsed_secs: f32,
 }
 
 impl VaultGlow {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        sky_color: Vec4,
-        night_factor: f32,
-        aurora_factor: f32,
-        elapsed_secs: f32,
-    ) -> Self {
-        Self { sky_color, night_factor, aurora_factor, elapsed_secs }
+    pub const fn new(sky_color: Vec4, aurora_factor: f32, elapsed_secs: f32) -> Self {
+        Self { sky_color, aurora_factor, elapsed_secs }
     }
 }
 
@@ -99,14 +82,10 @@ impl VaultLuminance for VaultGlow {
     fn bind_gl(
         &self,
         gl: &glow::Context,
-        u_sky: &glow::UniformLocation,
-        u_night: &glow::UniformLocation,
         u_aurora: &glow::UniformLocation,
         u_time: &glow::UniformLocation,
     ) {
         unsafe {
-            gl.uniform_4_f32(Some(u_sky), self.sky_color.x, self.sky_color.y, self.sky_color.z, self.sky_color.w);
-            gl.uniform_1_f32(Some(u_night), self.night_factor);
             gl.uniform_1_f32(Some(u_aurora), self.aurora_factor);
             gl.uniform_1_f32(Some(u_time), self.elapsed_secs);
         }

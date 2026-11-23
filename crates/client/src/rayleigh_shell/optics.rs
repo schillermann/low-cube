@@ -2,11 +2,10 @@ use glam::Vec3;
 use super::medium::{
     CubicAirVolume, HorizonHazeMedium, OpticalMedium, SolarFluxMedium, VacuumMedium,
 };
-#[cfg(test)]
-use super::strata::SmoothBand;
-#[cfg(test)]
-use super::strata::BandCurve;
-use super::strata::{BarometricStratum, CrimsonDusk, TropopauseRim};
+use super::strata::{
+    BandCurve, BarometricStratum, CobaltShadowArch, CrimsonDusk, PlateauZenith, SmoothBand,
+    TropopauseRim, ZenithField,
+};
 
 /// Composed 3D cubic Rayleigh atmospheric shell (`[-outer, +outer]^3`, `<= 4` fields) implementing `OpticalMedium`.
 #[derive(Clone, Copy, Debug)]
@@ -29,8 +28,16 @@ impl OpticalMedium for CubicRayleighShell {
         if self.shell_thickness <= 0.01 || self.body_half <= 0.5 {
             return VacuumMedium::new().scatter_along(cam_pos, ray_dir, sun_dir);
         }
-        let stratum = TropopauseRim::cubic_ceiling(CrimsonDusk::terrestrial(
-            BarometricStratum::new(self.day_tint),
+        let sun = sun_dir.normalize_or_zero();
+        let cam_zenith = PlateauZenith::new().zenith_at(cam_pos);
+        let alt_ratio = (cam_pos.abs().max_element() - self.body_half) / self.shell_thickness;
+        let space_blend = SmoothBand::new(0.35, 0.95).sample(alt_ratio);
+        let low_sun = SmoothBand::new(0.42, 0.12).sample(cam_zenith.dot(sun));
+        let low_sun_gate = low_sun + (1.0 - low_sun) * space_blend;
+
+        let stratum = TropopauseRim::cubic_ceiling(CrimsonDusk::directional(
+            CobaltShadowArch::terrestrial(BarometricStratum::new(self.day_tint)),
+            low_sun_gate,
         ));
         let medium = SolarFluxMedium::new(
             HorizonHazeMedium::pale(CubicAirVolume::new(

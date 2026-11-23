@@ -13,8 +13,11 @@ pub use optics::CubicRayleighShell;
 #[cfg(test)]
 pub use optics::{CubicSolarBody, SolarDisc};
 pub use planets::{AtlasSkyProjection, EphemerisSync, SkyProjection};
+pub use strata::{PlateauZenith, ZenithField};
 #[cfg(test)]
-pub use strata::{AirStratum, BarometricStratum, CrimsonDusk, TropopauseRim};
+pub use strata::{
+    AirSample, AirStratum, BarometricStratum, CobaltShadowArch, CrimsonDusk, TropopauseRim,
+};
 
 use glam::{Vec3, Vec4};
 use glow::HasContext;
@@ -132,11 +135,7 @@ impl AtmosphericEnvelope for AtmosphericShell {
                 (Vec3::Y, (space_black + vac_rgb).extend(1.0), 1.0)
             }
             ShellState::CubicBody { rel_cam, body_half, day_tint, thickness } => {
-                let body_up = if rel_cam.length_squared() > 1e-6 {
-                    rel_cam.normalize()
-                } else {
-                    Vec3::Y
-                };
+                let body_up = PlateauZenith::new().zenith_at(rel_cam);
                 if (rel_cam.abs().max_element() - body_half) >= thickness {
                     return (body_up, space_black.extend(1.0), 1.0);
                 }
@@ -147,9 +146,8 @@ impl AtmosphericEnvelope for AtmosphericShell {
                 let zenith_rgb =
                     (space_black * (1.0 - scatter_alpha) + scatter_rgb).clamp(Vec3::ZERO, Vec3::ONE);
                 let sky_lum = scatter_rgb.x.max(scatter_rgb.y).max(scatter_rgb.z);
-                let day_wash = ((sky_lum - 0.03) / 0.19).clamp(0.0, 1.0);
-                let smooth_wash = day_wash * day_wash * (3.0 - 2.0 * day_wash);
-                (body_up, zenith_rgb.extend(1.0), 1.0 - smooth_wash)
+                let day_wash = (sky_lum / 0.36).clamp(0.0, 1.0);
+                (body_up, zenith_rgb.extend(1.0), 1.0 - day_wash)
             }
         }
     }

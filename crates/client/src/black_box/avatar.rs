@@ -123,7 +123,6 @@ impl AvatarOptics for BlackBoxAvatar {
     fn emit_inspection_stage(&self, aspect: f32, target: &mut dyn MeshTarget) -> Option<(Mat4, Vec3)> {
         self.origin.emit_inspection_stage(aspect, target)
     }
-    fn surface_rotation(&self) -> Quat { self.origin.surface_rotation() }
 }
 
 impl AvatarPresence for BlackBoxAvatar {

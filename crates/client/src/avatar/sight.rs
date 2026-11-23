@@ -39,10 +39,6 @@ impl AvatarSight {
         Self { surface_rot, camera_rot, look, lens }
     }
 
-    pub const fn surface_rotation(&self) -> Quat {
-        self.surface_rot
-    }
-
     pub fn surface_up(&self) -> Vec3 {
         self.surface_rot * Vec3::Y
     }

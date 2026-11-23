@@ -37,7 +37,6 @@ impl GraphicPipeline for HeadlessPipeline {
         _shader: &dyn ShaderProgram,
         _mesh: &dyn Mesh,
         _view_proj: &glam::Mat4,
-        _surface_rot: glam::Quat,
     ) {
     }
 }

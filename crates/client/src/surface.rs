@@ -186,9 +186,8 @@ impl PlatformSurface for GlPlatformSurface {
     ) {
         let size = self.window.inner_size();
         let aspect = self.aspect_ratio();
-        let surface_rot = avatar.surface_rotation();
         let view_proj = avatar.view_projection_matrix(aspect);
-        pipeline.render(&self.gl, shader, mesh, &view_proj, surface_rot);
+        pipeline.render(&self.gl, shader, mesh, &view_proj);
         if !modal.open() {
             let mut views = Vec::new();
             let active_slot = avatar.collect_camera_previews(PreviewStripLayout::TILE_ASPECT, &mut views);
@@ -202,7 +201,6 @@ impl PlatformSurface for GlPlatformSurface {
                 coarse_mesh,
                 (&views, active_slot),
                 intercom,
-                surface_rot,
                 (size.width, size.height),
             );
         }
@@ -230,7 +228,7 @@ impl PlatformSurface for GlPlatformSurface {
         let (width, height) = (size.width.max(1), size.height.max(1));
         let aspect = (width as f32) / (height as f32);
         let view_proj = avatar.view_projection_for_sight(aspect, sight);
-        pipeline.render(&self.gl, shader, mesh, &view_proj, avatar.surface_rotation());
+        pipeline.render(&self.gl, shader, mesh, &view_proj);
         let mut raw_rgba = vec![0u8; (width as usize) * (height as usize) * 4];
         unsafe {
             self.gl.read_pixels(

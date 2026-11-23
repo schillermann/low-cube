@@ -47,26 +47,29 @@ impl DiurnalEpoch for MeasuredEpoch {
         let now = self.clock.current_instant();
         let elapsed = now.duration_since(self.start_instant).as_secs_f64();
         let progress = self.cadence.day_progress(elapsed);
+        let spin = ApexSpin::terrestrial();
 
-        let ((sun_dir, pole, local_up), (clear_color, night_factor, local_progress)) = ephemeris
+        let ((sun_dir, pole), (clear_color, night_factor, local_progress)) = ephemeris
             .evaluate_illumination(
                 |helio_sun, sun_ang, shell| {
                     let (body_up, clear, night) =
                         shell.sky_illumination_with_flux(helio_sun, sun_ang);
                     let (axis, hour_prog) =
-                        ApexSpin::terrestrial().diurnal_meridian(helio_sun, body_up, progress);
-                    ((helio_sun, axis, body_up), (clear, night, hour_prog))
+                        spin.diurnal_meridian(helio_sun, body_up, progress);
+                    ((helio_sun, axis), (clear, night, hour_prog))
                 },
                 || {
                     let world_sun = self.cadence.sun_direction(progress);
                     let (earth_up, clear, night) =
                         AtmosphericShell::terrestrial_at(cam_pos).sky_illumination(world_sun);
-                    ((world_sun, Vec3::Z, earth_up), (clear, night, progress))
+                    let (axis, hour_prog) =
+                        spin.diurnal_meridian(world_sun, earth_up, progress);
+                    ((world_sun, axis), (clear, night, hour_prog))
                 },
             );
         let aurora_factor = self.aurora.activity(local_progress, elapsed, night_factor);
-        let view = VaultView::new(inv_view_proj, sun_dir, pole, local_up);
-        let glow = VaultGlow::new(clear_color, night_factor, aurora_factor, elapsed as f32);
+        let view = VaultView::new(inv_view_proj, sun_dir, pole);
+        let glow = VaultGlow::new(clear_color, aurora_factor, elapsed as f32);
         (sun_dir, view, glow)
     }
 }

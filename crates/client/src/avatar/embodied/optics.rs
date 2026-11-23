@@ -1,4 +1,4 @@
-use glam::{Mat4, Quat, Vec3};
+use glam::{Mat4, Vec3};
 use fauna::SightCone;
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{CameraMount, PhotoShutter, SightMode, YouthAttire};
@@ -55,10 +55,6 @@ impl AvatarOptics for EmbodiedAvatar {
         self.gear.emit_inspection(&pose, target);
         let vp = self.project_at_sight(aspect, SightMode::FirstPersonSight, None);
         Some((vp, pose.inspection_light()))
-    }
-
-    fn surface_rotation(&self) -> Quat {
-        self.sight_line.surface_rotation()
     }
 }
 

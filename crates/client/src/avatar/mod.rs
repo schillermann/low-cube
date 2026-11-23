@@ -13,7 +13,7 @@ mod satchel_guard;
 mod sight;
 mod span;
 
-use glam::{Mat4, Quat, Vec3};
+use glam::{Mat4, Vec3};
 #[cfg(test)]
 use winit::keyboard::KeyCode;
 use world::{MeshTarget, PlanetaryWorld};
@@ -42,7 +42,6 @@ pub trait AvatarOptics {
     fn emit_inspection(&self, target: &mut dyn MeshTarget) {
         let _ = self.emit_inspection_stage(16.0 / 9.0, target);
     }
-    fn surface_rotation(&self) -> Quat;
 }
 
 /// Focused 3D appearance, meadow horizon, and presence-reporting contract.

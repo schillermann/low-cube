@@ -5,7 +5,7 @@ pub use epoch::{DiurnalEpoch, MeasuredEpoch};
 pub use quad::{FirmamentQuadSource, QuadUpload};
 
 use std::sync::Mutex;
-use glam::{Mat4, Quat, Vec4};
+use glam::{Mat4, Vec4};
 
 use engine::{GraphicPipeline, Mesh, ShaderProgram};
 use crate::aurora_cadence::AuroraCadence;
@@ -92,7 +92,6 @@ impl GraphicPipeline for DiurnalPipeline {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         view_proj: &Mat4,
-        _surface_rot: Quat,
     ) {
         let inv_view_proj = Mat4::from_cols(
             view_proj.x_axis.with_z(0.0),

@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.108.0] - 2026-11-23
+
+### Added
+- Added superellipse (`L^5`) `PlateauZenith` (`ZenithField`), `AirSample` (`StratumPoint`), `CobaltShadowArch`, and directional low-sun `CrimsonDusk` `AirStratum` decorators (`crates/client/src/rayleigh_shell/strata.rs`, `optics.rs`, and `FIRMAMENT_FRAGMENT_SRC` in `crates/client/src/firmament_glsl.rs`), keeping sunlit cube continents uniformly azure out to the world edge, confining crimson-gold glow to low-sun sunward horizons and orbital limbs, and shading anti-solar shadow boundaries with a cool cobalt-indigo Earth-shadow arch (`crates/client/src/rayleigh_shell/tests.rs`).
+
+### Removed
+- Removed dead legacy rendering remnants: unused `ForwardPipeline` (`crates/engine/src/pipeline.rs`), ignored `surface_rot: Quat` pipeline/preview parameters and the 5-layer `surface_rotation()` pass-through getter chain (`AvatarOptics`, `PlanetaryAvatar`, `BlackBoxAvatar`, `EmbodiedAvatar`, `AvatarSight`, `GlPlatformSurface`, and `PreviewAtlas`), legacy flat-sky uniforms (`u_sky_color`, `u_night_factor`, `u_local_up`) in `GlFirmament` / `VaultView` / `VaultGlow`, and the obsolete non-heliosphere Arctic-only aurora branch in `polar_aurora`.
+
 ## [0.107.0] - 2026-11-23
 
 ### Added

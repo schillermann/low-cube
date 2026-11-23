@@ -173,7 +173,8 @@ fn test_firmament_shader_contains_aurora_and_time() {
     FirmamentGlslPair::embedded().transfer_sources(|_, frag| {
         assert!(frag.contains("u_time"));
         assert!(frag.contains("polar_aurora"));
-        assert!(frag.contains("u_night_factor"));
+        assert!(frag.contains("plateau_normal"));
+        assert!(frag.contains("planetary_rayleigh_shell"));
     });
 }
 

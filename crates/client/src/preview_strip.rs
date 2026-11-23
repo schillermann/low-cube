@@ -1,4 +1,4 @@
-use glam::{Mat4, Quat, Vec3};
+use glam::{Mat4, Vec3};
 use glow::HasContext;
 use engine::{CpuMeshBatch, GraphicPipeline, Mesh, ShaderProgram};
 use crate::menu::PreviewStripLayout;
@@ -167,7 +167,6 @@ impl PreviewAtlas {
         coarse_mesh: &dyn Mesh,
         (cam_views, active_slot): (&[Mat4], u8),
         intercom: Option<(Mat4, &CpuMeshBatch)>,
-        surface_rot: Quat,
         viewport: (u32, u32),
     ) {
         let cam_count = cam_views.len().min(PreviewStripLayout::MAX_CAMERAS as usize) as u8;
@@ -204,7 +203,7 @@ impl PreviewAtlas {
                 let sx = (cam_idx as i32) * TILE_W;
                 gl.viewport(sx, 0, TILE_W, TILE_H);
                 gl.scissor(sx, 0, TILE_W, TILE_H);
-                pipeline.render(gl, shader, coarse_mesh, &cam_views[cam_idx as usize], surface_rot);
+                pipeline.render(gl, shader, coarse_mesh, &cam_views[cam_idx as usize]);
             }
             gl.disable(glow::SCISSOR_TEST);
             gl.bind_framebuffer(glow::FRAMEBUFFER, None);

@@ -18,9 +18,6 @@ in vec3 v_ray_dir;
 in vec3 v_cam_pos;
 
 uniform vec3 u_sun_dir;
-uniform vec3 u_local_up;
-uniform vec4 u_sky_color;
-uniform float u_night_factor;
 uniform float u_aurora_factor;
 uniform vec3 u_celestial_pole;
 uniform float u_time;
@@ -33,6 +30,15 @@ uniform vec4 u_atmo_geom;
 uniform vec4 u_atmo_tint;
 
 out vec4 frag_color;
+
+vec3 plateau_normal(vec3 p) {
+    if (dot(p, p) <= 1e-6) {
+        return vec3(0.0, 1.0, 0.0);
+    }
+    vec3 n = normalize(p);
+    vec3 q2 = n * n;
+    return normalize(n * q2 * q2);
+}
 
 float star_noise(vec3 p) {
     p = fract(p * vec3(443.897, 441.423, 437.195));
@@ -63,23 +69,33 @@ vec2 box_slab(vec3 orig, vec3 dir, float half_ext) {
     return vec2(t0, t1);
 }
 
-vec4 planetary_rayleigh_shell(vec3 rel_cam, vec3 dir, vec3 sun_dir, float body_h, float thick, vec3 day_tint, float flux) {
-    if (thick <= 0.01 || body_h <= 0.5) return vec4(0.0);
+vec4 planetary_rayleigh_shell(vec3 rel_cam, vec3 dir, vec3 sun_dir, float body_h, float thick, vec3 day_tint, float flux, float low_sun_gate) {
+    if (thick <= 0.01 || body_h <= 0.5) {
+        return vec4(0.0);
+    }
     float outer = body_h + thick;
     vec2 span = box_slab(rel_cam, dir, outer);
-    if (span.y <= 0.0 || span.x > span.y) return vec4(0.0);
+    if (span.y <= 0.0 || span.x > span.y) {
+        return vec4(0.0);
+    }
     float t_in = max(span.x, 0.0);
     float t_out = span.y;
     float core_h = max(body_h - 2.0, body_h * 0.85);
     vec2 inner = box_slab(rel_cam, dir, core_h);
     if (inner.x <= inner.y && inner.y > 0.0) {
-        if (inner.x > 0.0) t_out = min(t_out, inner.x);
-        else t_in = max(t_in, inner.y);
+        if (inner.x > 0.0) {
+            t_out = min(t_out, inner.x);
+        } else {
+            t_in = max(t_in, inner.y);
+        }
     }
     float air_len = max(t_out - t_in, 0.0);
-    if (air_len <= 0.001) return vec4(0.0);
+    if (air_len <= 0.001) {
+        return vec4(0.0);
+    }
     float dt = air_len * 0.25;
     float inv_thick = 1.0 / thick;
+    float sunward = smoothstep(-0.42, 0.25, dot(dir, sun_dir));
     float col_opt = 0.0;
     vec3 weighted_tint = vec3(0.0);
     float lit_weight = 0.0;
@@ -90,45 +106,58 @@ vec4 planetary_rayleigh_shell(vec3 rel_cam, vec3 dir, vec3 sun_dir, float body_h
         float rim_sheen = 0.22 * exp(-pow((h - 0.88) / 0.07, 2.0));
         float rho = (exp(-h * 1.35) + rim_sheen) * smoothstep(1.0, 0.92, h);
         float d_opt = rho * (dt * inv_thick);
-        float mu = dot(normalize(p), sun_dir);
-        float day = smoothstep(-0.14, 0.32, mu);
-        float twilight = exp(-pow((mu - 0.02) / 0.18, 2.0)) * smoothstep(-0.34, -0.02, mu);
-        vec3 local_col = day_tint * day + vec3(1.00, 0.38, 0.12) * (twilight * 0.88);
+        float mu = dot(plateau_normal(p), sun_dir);
+        float day = smoothstep(-0.14, 0.30, mu);
+        float arch = exp(-pow((mu + 0.04) / 0.18, 2.0)) * smoothstep(-0.36, -0.02, mu);
+        float twilight = exp(-pow((mu - 0.02) / 0.18, 2.0)) * smoothstep(-0.42, 0.04, mu) * sunward * low_sun_gate;
+        vec3 local_col = day_tint * day + vec3(0.05, 0.16, 0.44) * (arch * 0.52) + vec3(1.00, 0.38, 0.12) * (twilight * 1.05);
         col_opt += d_opt;
         weighted_tint += local_col * d_opt;
-        lit_weight += max(day, twilight * 0.65) * d_opt;
+        lit_weight += max(day, max(arch * 0.35, twilight * 0.70)) * d_opt;
     }
-    if (col_opt <= 0.0001) return vec4(0.0);
+    if (col_opt <= 0.0001) {
+        return vec4(0.0);
+    }
     float tau = 1.0 - exp(-col_opt * 2.5);
     vec3 mean_col = weighted_tint / col_opt;
     float mean_lit = clamp(lit_weight / col_opt, 0.0, 1.0);
-    float horizon_lift = clamp(tau - 0.62, 0.0, 0.38) * 0.45;
-    vec3 col = (mean_col + vec3(0.10, 0.14, 0.18) * (horizon_lift * mean_lit)) * (tau * 1.42 * flux);
-    return vec4(min(col, vec3(1.0)), clamp(tau * mean_lit, 0.0, 1.0));
+    float lit_tau = clamp(tau * mean_lit, 0.0, 1.0);
+    float horizon_lift = clamp(lit_tau - 0.62, 0.0, 0.38) * 0.45;
+    vec3 col = (mean_col * tau + vec3(0.10, 0.14, 0.18) * (horizon_lift * lit_tau)) * (1.42 * flux);
+    return vec4(min(col, vec3(1.0)), lit_tau);
 }
 
-vec3 polar_aurora(vec3 dir, vec3 cam_pos, vec3 local_up, vec3 pole_axis, float aurora_factor, float peri_surge, float time, bool helio_active) {
-    vec3 axis = helio_active ? normalize(pole_axis) : vec3(-1.0, 0.0, 0.0);
-    float north_hemi = helio_active ? smoothstep(-0.10, 0.35, dot(local_up, axis)) : 1.0;
-    if (aurora_factor * north_hemi <= 0.01 || dot(dir, axis) <= 0.01) return vec3(0.0);
-    float above_horizon = smoothstep(0.0, 0.12, dot(dir, local_up));
-    if (above_horizon <= 0.0) return vec3(0.0);
-    float apex_span = helio_active ? (u_face_half * 1.45 + u_ceiling_altitude) : (u_face_half + u_ceiling_altitude);
+vec3 polar_aurora(vec3 dir, vec3 cam_pos, vec3 cam_up, vec3 pole_axis, float aurora_factor, float peri_surge, float time) {
+    vec3 axis = normalize(pole_axis);
+    float north_hemi = smoothstep(-0.10, 0.35, dot(cam_up, axis));
+    if (aurora_factor * north_hemi <= 0.01 || dot(dir, axis) <= 0.01) {
+        return vec3(0.0);
+    }
+    float above_horizon = smoothstep(0.0, 0.12, dot(dir, cam_up));
+    if (above_horizon <= 0.0) {
+        return vec3(0.0);
+    }
+    float apex_span = u_face_half * 1.45 + u_ceiling_altitude;
     float t = (apex_span - dot(cam_pos, axis)) / dot(dir, axis);
-    if (t <= 0.0) return vec3(0.0);
+    if (t <= 0.0) {
+        return vec3(0.0);
+    }
     vec3 hit = cam_pos + t * dir;
     vec3 ref_v = (abs(axis.z) > 0.9) ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
     vec3 tan_u = normalize(cross(axis, ref_v));
     vec3 tan_v = cross(axis, tan_u);
     vec2 apex_xy = vec2(dot(hit, tan_u), dot(hit, tan_v));
-    float bound = helio_active ? (u_face_half * 1.35) : u_face_half;
-    float face_dist = helio_active ? length(apex_xy) : max(abs(hit.y), abs(hit.z));
-    float face_cutoff = smoothstep(bound, bound * 0.82, face_dist);
-    if (face_cutoff <= 0.001) return vec3(0.0);
-    vec2 p = (helio_active ? apex_xy : hit.yz) / (u_aurora_radius * (helio_active ? 1.25 : 1.0));
+    float bound = u_face_half * 1.35;
+    float face_cutoff = smoothstep(bound, bound * 0.82, length(apex_xy));
+    if (face_cutoff <= 0.001) {
+        return vec3(0.0);
+    }
+    vec2 p = apex_xy / (u_aurora_radius * 1.25);
     float dist = length(p);
     float ring = smoothstep(0.12, 0.45, dist) * smoothstep(1.35, 0.80, dist);
-    if (ring <= 0.005) return vec3(0.0);
+    if (ring <= 0.005) {
+        return vec3(0.0);
+    }
     float angle = atan(p.y, p.x);
     float drift = time * 0.20;
     float r1 = abs(dist - 0.90 + sin(angle * 5.0 + drift) * 0.12);
@@ -140,7 +169,9 @@ vec3 polar_aurora(vec3 dir, vec3 cam_pos, vec3 local_up, vec3 pole_axis, float a
 }
 
 vec3 subpixel_planet_beacon(vec3 dir, vec3 p_dir, vec3 pole, float half_ang, vec3 col) {
-    if (half_ang <= 0.00001 || half_ang > 0.0045 || dot(dir, p_dir) < 0.95) return vec3(0.0);
+    if (half_ang <= 0.00001 || half_ang > 0.0045 || dot(dir, p_dir) < 0.95) {
+        return vec3(0.0);
+    }
     vec3 pole_ref = (abs(dot(p_dir, pole)) > 0.96) ? vec3(1.0, 0.0, 0.0) : pole;
     vec3 r_ax = normalize(cross(p_dir, pole_ref));
     vec3 u_ax = cross(r_ax, p_dir);
@@ -162,11 +193,11 @@ void main() {
     float cam_cheb = max(max(abs(rel_atmo.x), abs(rel_atmo.y)), abs(rel_atmo.z));
     vec2 vault_hit = box_slab(rel_atmo, dir, body_h * 0.50);
     if (body_h > 0.5 && cam_cheb < body_h + atmo_thick && vault_hit.x > 0.0 && vault_hit.x <= vault_hit.y) {
-        frag_color = vec4(u_sky_color.rgb, 1.0);
+        frag_color = vec4(0.008, 0.012, 0.025, 1.0);
         return;
     }
     float atmo_fade = (atmo_thick <= 0.01) ? 1.0 : smoothstep(atmo_thick * 0.55, atmo_thick * 1.02, cam_cheb - body_h);
-    vec3 cam_up = (length(rel_atmo) > 0.001) ? normalize(rel_atmo) : normalize(u_local_up);
+    vec3 cam_up = plateau_normal(rel_atmo);
 
     float eclipse_occ = 0.0;
     if (u_eclipse_occluder.w > 0.0005 && dot(dir, u_eclipse_occluder.xyz) > 0.92) {
@@ -181,7 +212,9 @@ void main() {
     vec3 active_sun = helio_active ? normalize(u_planet_cubes[7].xyz) : normalize(u_sun_dir);
     float s_half = helio_active ? u_planet_cubes[7].w : 0.026;
     float flux = helio_active ? clamp(s_half / 0.00465, 0.55, 1.45) : 1.0;
-    vec4 atmo = planetary_rayleigh_shell(rel_atmo, dir, active_sun, body_h, atmo_thick, day_tint, flux);
+    float space_blend = (atmo_thick <= 0.01) ? 1.0 : smoothstep(0.35, 0.95, (cam_cheb - body_h) / atmo_thick);
+    float low_sun_gate = mix(1.0 - smoothstep(0.12, 0.42, dot(cam_up, active_sun)), 1.0, space_blend);
+    vec4 atmo = planetary_rayleigh_shell(rel_atmo, dir, active_sun, body_h, atmo_thick, day_tint, flux, low_sun_gate);
 
     vec3 pole_ref = (abs(dot(active_sun, u_celestial_pole)) > 0.96) ? vec3(1.0, 0.0, 0.0) : u_celestial_pole;
     vec3 sun_r = normalize(cross(active_sun, pole_ref));
@@ -200,10 +233,8 @@ void main() {
     vec3 sun_halo = (vec3(1.0, 0.58, 0.14) * pow(sun_dot, 36.0 / sqrt(corona_scale)) * 0.44 + vec3(0.95, 0.34, 0.08) * pow(sun_dot, 9.0) * 0.16) * sqrt(corona_scale) * (1.0 - eclipse_occ * 0.85);
     vec3 sun_color = sun_core * core_open + sun_halo * (core_open * halo_horizon);
 
-    bool cubic_shell_world = helio_active || body_h > 0.5;
     float sky_lum = max(atmo.r, max(atmo.g, atmo.b));
-    float ray_night = 1.0 - smoothstep(0.03, 0.22, sky_lum);
-    float star_vis = cubic_shell_world ? ray_night : max(u_night_factor, atmo_fade);
+    float star_vis = 1.0 - clamp(sky_lum / 0.36, 0.0, 1.0);
     float belt_plane = helio_active ? abs(dir.y) : abs(dot(dir, u_celestial_pole));
     vec3 belt_dust = vec3(0.42, 0.39, 0.36) * exp(-belt_plane * 26.0) * (0.04 + 0.03 * star_noise(floor(dir * 60.0))) * star_vis;
     vec3 beacons = vec3(0.0);
@@ -219,12 +250,11 @@ void main() {
     }
 
     float star_occ = (1.0 - eclipse_occ) * (1.0 - sun_cube * core_open) * (1.0 - atmo.a * 0.88);
-    vec3 sky_bg = cubic_shell_world ? vec3(0.008, 0.012, 0.025) : mix(u_sky_color.rgb, vec3(0.008, 0.012, 0.025), atmo_fade);
-    vec3 cosmos = sky_bg * (1.0 - atmo.a) + (vec3(stars(dir) * star_vis * 1.5) + belt_dust) * star_occ + beacons;
+    vec3 cosmos = vec3(0.008, 0.012, 0.025) * (1.0 - atmo.a) + (vec3(stars(dir) * star_vis * 1.5) + belt_dust) * star_occ + beacons;
     bool on_earth = length(v_cam_pos) < max(u_face_half, body_h) * 3.0;
     if (on_earth) {
         float peri_surge = helio_active ? clamp(s_half / 0.00465, 0.75, 1.55) : 1.0;
-        cosmos += polar_aurora(dir, rel_atmo, cam_up, u_celestial_pole, u_aurora_factor * (1.0 - atmo_fade), peri_surge, u_time, helio_active);
+        cosmos += polar_aurora(dir, rel_atmo, cam_up, u_celestial_pole, u_aurora_factor * (1.0 - atmo_fade), peri_surge, u_time);
     }
     frag_color = vec4(cosmos + atmo.rgb + sun_color * (1.0 - atmo.a * 0.25), 1.0);
 }

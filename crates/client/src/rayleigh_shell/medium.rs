@@ -1,5 +1,5 @@
 use glam::Vec3;
-use super::strata::AirStratum;
+use super::strata::{AirSample, AirStratum};
 
 /// Focused contract intersecting a 3D ray against an axis-aligned centered cubic volume.
 pub trait RaySlab: Copy {
@@ -115,7 +115,8 @@ impl<S: AirStratum> OpticalMedium for CubicAirVolume<S> {
         for step in 0..4 {
             let p = cam_pos + dir * (t_in + dt * (step as f32 + 0.5));
             let h = ((p.abs().max_element() - self.body_half) / self.shell_thickness).clamp(0.0, 1.0);
-            let (rho, local_col, lit) = self.stratum.sample_point(p, h, sun);
+            let sample = AirSample::new(p, h, dir, sun);
+            let (rho, local_col, lit) = self.stratum.sample_point(&sample);
             let d_opt = rho * (dt * inv_thick);
             col_opt += d_opt;
             weighted_tint += local_col * d_opt;

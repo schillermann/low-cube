@@ -1,4 +1,4 @@
-use glam::{Mat4, Quat, Vec3};
+use glam::{Mat4, Vec3};
 use fauna::SightCone;
 use world::{MeshTarget, PlanetaryWorld};
 use crate::attire::{PhotoShutter, SightMode, YouthAttire};
@@ -159,7 +159,6 @@ impl AvatarOptics for PlanetaryAvatar {
     fn emit_inspection_stage(&self, aspect: f32, target: &mut dyn MeshTarget) -> Option<(Mat4, Vec3)> {
         self.core().emit_inspection_stage(aspect, target)
     }
-    fn surface_rotation(&self) -> Quat { self.core().surface_rotation() }
 }
 
 impl AvatarPresence for PlanetaryAvatar {

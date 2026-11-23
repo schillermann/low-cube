@@ -14,7 +14,6 @@ struct OrientationUniforms {
     u_inv_view_proj: glow::UniformLocation,
     u_sun_dir: glow::UniformLocation,
     u_celestial_pole: glow::UniformLocation,
-    u_local_up: glow::UniformLocation,
 }
 
 impl OrientationUniforms {
@@ -22,21 +21,14 @@ impl OrientationUniforms {
         u_inv_view_proj: glow::UniformLocation,
         u_sun_dir: glow::UniformLocation,
         u_celestial_pole: glow::UniformLocation,
-        u_local_up: glow::UniformLocation,
     ) -> Self {
-        Self { u_inv_view_proj, u_sun_dir, u_celestial_pole, u_local_up }
+        Self { u_inv_view_proj, u_sun_dir, u_celestial_pole }
     }
 }
 
 impl ViewUniformGroup for OrientationUniforms {
     fn bind_view(&self, gl: &glow::Context, view: &VaultView) {
-        view.bind_gl(
-            gl,
-            &self.u_inv_view_proj,
-            &self.u_sun_dir,
-            &self.u_celestial_pole,
-            &self.u_local_up,
-        );
+        view.bind_gl(gl, &self.u_inv_view_proj, &self.u_sun_dir, &self.u_celestial_pole);
     }
 }
 
@@ -45,32 +37,19 @@ trait GlowUniformGroup {
 }
 
 struct AtmosphereUniforms {
-    u_sky_color: glow::UniformLocation,
-    u_night_factor: glow::UniformLocation,
     u_aurora_factor: glow::UniformLocation,
     u_time: glow::UniformLocation,
 }
 
 impl AtmosphereUniforms {
-    const fn new(
-        u_sky_color: glow::UniformLocation,
-        u_night_factor: glow::UniformLocation,
-        u_aurora_factor: glow::UniformLocation,
-        u_time: glow::UniformLocation,
-    ) -> Self {
-        Self { u_sky_color, u_night_factor, u_aurora_factor, u_time }
+    const fn new(u_aurora_factor: glow::UniformLocation, u_time: glow::UniformLocation) -> Self {
+        Self { u_aurora_factor, u_time }
     }
 }
 
 impl GlowUniformGroup for AtmosphereUniforms {
     fn bind_glow(&self, gl: &glow::Context, glow_state: &VaultGlow) {
-        glow_state.bind_gl(
-            gl,
-            &self.u_sky_color,
-            &self.u_night_factor,
-            &self.u_aurora_factor,
-            &self.u_time,
-        );
+        glow_state.bind_gl(gl, &self.u_aurora_factor, &self.u_time);
     }
 }
 
@@ -260,14 +239,8 @@ impl FirmamentProgramSource for FirmamentShaderSource {
                 loc("u_inv_view_proj"),
                 loc("u_sun_dir"),
                 loc("u_celestial_pole"),
-                loc("u_local_up"),
             ),
-            AtmosphereUniforms::new(
-                loc("u_sky_color"),
-                loc("u_night_factor"),
-                loc("u_aurora_factor"),
-                loc("u_time"),
-            ),
+            AtmosphereUniforms::new(loc("u_aurora_factor"), loc("u_time")),
             StageUniforms::new(
                 CanopyUniforms::new(
                     loc("u_face_half"),

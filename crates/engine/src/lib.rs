@@ -1,15 +1,13 @@
-use glam::{Mat4, Quat, Vec3};
+use glam::{Mat4, Vec3};
 
 mod buffer;
 mod composite_mesh;
-mod pipeline;
 mod sector_mesh;
 mod shader;
 mod streaming_mesh;
 
 pub use buffer::{CpuMeshBatch, GlMesh};
 pub use composite_mesh::{CoarseMesh, CompositeMesh, PlanetaryMesh};
-pub use pipeline::ForwardPipeline;
 pub use sector_mesh::SectorGridMesh;
 pub use shader::{VoxelProgram, VoxelShaderSource};
 pub use streaming_mesh::StreamingMesh;
@@ -54,6 +52,5 @@ pub trait GraphicPipeline {
         shader: &dyn ShaderProgram,
         mesh: &dyn Mesh,
         view_proj: &Mat4,
-        surface_rot: Quat,
     );
 }
