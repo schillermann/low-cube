@@ -55,7 +55,7 @@ fn test_solar_system_scale_factor_governs_distances_planets_sun_moons_and_orrery
     use glam::Vec3;
     use world::{BodyId, CelestialAtlas, SolarEphemeris};
     use crate::menu::OrreryFrame;
-    use crate::rayleigh_shell::FirmamentPlanets;
+    use crate::rayleigh_shell::{AtlasSkyProjection, SkyProjection};
 
     let base_doc = TomlDocument::new("[cosmos]\nscale = 0.25\n".to_string());
     let scaled_cosmos = FileCosmos::from_document(
@@ -91,8 +91,8 @@ fn test_solar_system_scale_factor_governs_distances_planets_sun_moons_and_orrery
     let p_big_sun = p_unit.with_sun_scale(2.5).with_body_scale(2.0).with_distance_scale(0.2);
     let atlas_unit = CelestialAtlas::heliosphere(SolarEphemeris::new(p_unit, 0.0));
     let atlas_custom = CelestialAtlas::heliosphere(SolarEphemeris::new(p_big_sun, 0.0));
-    let sun_ang_1 = FirmamentPlanets::from_atlas(atlas_unit, Vec3::ZERO).transfer(|c, _| c[7][3]);
-    let sun_ang_2 = FirmamentPlanets::from_atlas(atlas_custom, Vec3::ZERO).transfer(|c, _| c[7][3]);
+    let sun_ang_1 = AtlasSkyProjection::solar(atlas_unit).project_from(Vec3::ZERO).transfer(|c, _| c[7][3]);
+    let sun_ang_2 = AtlasSkyProjection::solar(atlas_custom).project_from(Vec3::ZERO).transfer(|c, _| c[7][3]);
     assert!(sun_ang_2 > sun_ang_1 * 10.0, "Sky Sun angular size must scale with sun_scale / distance_scale");
 
     let (ve1, vm1) = OrreryFrame::from_atlas(atlas_unit).visual_radii();
@@ -161,7 +161,7 @@ fn test_dual_slot_vicinity_pool_planetary_atmospheres_and_optical_telescope_zoom
     use glam::Vec3;
     use world::{BodyId, CelestialSystem};
     use crate::lens::{PerspectiveLens, ProjectionLens};
-    use crate::rayleigh_shell::FirmamentPlanets;
+    use crate::rayleigh_shell::{AtlasSkyProjection, SkyProjection};
 
     // 1. Mars + Phobos awaken simultaneously into GPU banks `6..11` and `18..23` without evicting each other
     let prop = SolarProportions::compressed(32, 0.02);
@@ -176,12 +176,18 @@ fn test_dual_slot_vicinity_pool_planetary_atmospheres_and_optical_telescope_zoom
 
     // 2. Multi-world AtmosphericShell: Earth & Mars carry distinct atmospheres; Luna is airless vacuum
     let luna = world.body_center(BodyId::LUNA).expect("Luna");
-    let (_, earth_t) = FirmamentPlanets::from_atlas(atlas, Vec3::new(0.0, 20.0, 0.0)).atmosphere_uniforms();
-    let (_, mars_t) = FirmamentPlanets::from_atlas(atlas, mars + Vec3::Y * 14.0).atmosphere_uniforms();
-    let (_, luna_t) = FirmamentPlanets::from_atlas(atlas, luna + Vec3::Y * 10.0).atmosphere_uniforms();
-    assert!(earth_t[3] > 8.0 && earth_t[2] > earth_t[0], "Earth shell must scatter azure blue");
-    assert!(mars_t[3] > 4.0 && mars_t[0] > mars_t[2], "Mars shell must scatter salmon-butterscotch dust");
-    assert_eq!(luna_t[3], 0.0, "Airless Luna must report zero atmospheric thickness (black daytime cosmos)");
+    let (_, earth_sky, earth_night) = AtlasSkyProjection::solar(atlas)
+        .project_from(Vec3::new(0.0, 20.0, 0.0))
+        .sky_illumination(Vec3::Y);
+    let (_, mars_sky, mars_night) = AtlasSkyProjection::solar(atlas)
+        .project_from(mars + Vec3::Y * 9.5)
+        .sky_illumination(Vec3::Y);
+    let (_, _, luna_night) = AtlasSkyProjection::solar(atlas)
+        .project_from(luna + Vec3::Y * 10.0)
+        .sky_illumination(Vec3::Y);
+    assert!(earth_sky.z > earth_sky.x && earth_night == 0.0, "Earth shell must scatter azure blue");
+    assert!(mars_sky.x > mars_sky.z && mars_night == 0.0, "Mars shell must scatter salmon-butterscotch dust");
+    assert!(luna_night > 0.99, "Airless Luna must preserve dark vacuum cosmos in broad daylight");
 
     // 3. Nose-Cam Optical Telescope Zoom (`1× → 6× → 24×`) narrows FOV while preserving 100M-meter cosmic reach
     let wide = PerspectiveLens::human_eye();

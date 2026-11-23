@@ -14,7 +14,7 @@ use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::AuroraCanopy;
 use crate::avatar::Avatar;
 use crate::celestial::CelestialCadence;
-use crate::diurnal_pipeline::DiurnalPipeline;
+use crate::diurnal_pipeline::{DiurnalStageAssembly, GlDiurnalStage};
 use crate::menu::{PreviewStripLayout, ScreenPoint, SessionModal, SystemClipboard, TextClipboard};
 use crate::photo_plate::PhotoPlate;
 use crate::preview_strip::PreviewAtlas;
@@ -173,7 +173,7 @@ impl PlatformSurface for GlPlatformSurface {
         aurora: Box<dyn AuroraCadence>,
         canopy: Box<dyn AuroraCanopy>,
     ) -> Box<dyn GraphicPipeline> {
-        unsafe { Box::new(DiurnalPipeline::gl(cadence, aurora, canopy, &self.gl)) }
+        unsafe { GlDiurnalStage::new(cadence, aurora, canopy).assemble_gl(&self.gl) }
     }
 
     fn render_frame(

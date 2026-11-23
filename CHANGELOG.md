@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.107.0] - 2026-11-23
+
+### Added
+- Added penetrable 3D cubic Rayleigh atmosphere decorator chains (`AirStratum` with `BarometricStratum`, `CrimsonDusk`, `TropopauseRim`, and `SmoothBand` in `crates/client/src/rayleigh_shell/strata.rs`; `OpticalMedium` with `VacuumMedium`, `CubicAirVolume`, `HorizonHazeMedium`, `SolarFluxMedium`, and `CubicSlab` in `medium.rs`; `CubicRayleighShell` in `optics.rs`; `SolarAirCatalog` in `catalog.rs`; and `AtlasSkyProjection` / `FirmamentPlanets` in `planets.rs`), rendering full-altitude `[-outer, +outer]^3` cubic sky scattering with sharp 90° outer corners and a luminous `h ≈ 0.88` stratospheric ceiling from the ground through rocket ascent into space (`crates/client/src/firmament_glsl.rs` and `crates/client/src/rayleigh_shell/tests.rs`).
+- Added encapsulated Tell-Don't-Ask firmament & diurnal stage objects (`VaultView`, `VaultGlow`, and polymorphic `VaultEphemeris` in `crates/client/src/firmament.rs`; `MeasuredEpoch`, `FirmamentQuadSource`, and `GlDiurnalStage` in `crates/client/src/diurnal_pipeline/`; and `FirmamentShaderSource` / `FirmamentGlslPair` in `gl_firmament.rs` and `firmament_glsl.rs`), removing `#[allow(clippy::too_many_arguments)]`, releasing GPU quad buffers cleanly, and early-exiting occluded inner-core ground rays (`body_h * 0.50`) in the fragment shader.
+
+### Fixed
+- Fixed hard 90° day/night sky, starfield, sun-halo, and aurora cuts when walking or driving across `ClimateZone` seams (`AtmosphericShell` in `crates/client/src/rayleigh_shell/mod.rs`, `DiurnalPipeline` in `crates/client/src/diurnal_pipeline/`, and `FIRMAMENT_FRAGMENT_SRC` in `crates/client/src/firmament_glsl.rs`) by replacing discrete `ClimateZone::dominant` zenith snaps and flat ground `u_sky_color` fills with continuous radial zeniths, per-ray 3D cubic Rayleigh integration, and per-pass camera re-centering for placed tripod and hull cameras.
+
 ## [0.106.0] - 2026-11-22
 
 ### Added

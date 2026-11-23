@@ -1,196 +1,192 @@
-#[cfg(test)]
+mod catalog;
+mod medium;
 mod optics;
+mod planets;
+mod strata;
 #[cfg(test)]
-pub use optics::{CubicRayleighShell, CubicSolarBody};
+mod tests;
+
+pub use medium::{OpticalMedium, VacuumMedium};
+#[cfg(test)]
+pub use medium::{CubicAirVolume, HorizonHazeMedium, SolarFluxMedium};
+pub use optics::CubicRayleighShell;
+#[cfg(test)]
+pub use optics::{CubicSolarBody, SolarDisc};
+pub use planets::{AtlasSkyProjection, EphemerisSync, SkyProjection};
+#[cfg(test)]
+pub use strata::{AirStratum, BarometricStratum, CrimsonDusk, TropopauseRim};
 
 use glam::{Vec3, Vec4};
-use engine::GraphicPipeline;
-use world::{ApexSpin, BodyId, BodySnapshot, CelestialAtlas, ClimateZone, PlanetarySpin};
+use glow::HasContext;
 
-/// Camera-relative planetary atmosphere envelope (`Earth`, `Mars`, `Venus`, `Titan`; airless = `0.0`).
+/// Focused contract for a planetary atmosphere envelope ("Interfaces Everywhere" + Tell-Don't-Ask).
+pub trait AtmosphericEnvelope: Copy {
+    fn airless(&self) -> bool;
+    fn within_reach(&self, gap: f64) -> bool;
+    fn sky_illumination(&self, sun_dir: Vec3) -> (Vec3, Vec4, f32);
+    fn sky_illumination_with_flux(&self, sun_dir: Vec3, solar_half_ang: f32) -> (Vec3, Vec4, f32);
+    fn for_pass_camera(&self, cam_pos: Vec3) -> AtmosphericShell;
+    fn bind_gl(&self, gl: &glow::Context, u_geom: &glow::UniformLocation, u_tint: &glow::UniformLocation);
+    fn transfer_uniforms<R>(&self, sink: impl FnOnce([f32; 4], [f32; 4]) -> R) -> R;
+}
+
+#[derive(Clone, Copy, Debug)]
+enum ShellState {
+    Vacuum,
+    CubicBody {
+        rel_cam: Vec3,
+        body_half: f32,
+        day_tint: Vec3,
+        thickness: f32,
+    },
+}
+
+/// Polymorphic planetary atmosphere envelope (`ShellState::Vacuum` vs. penetrable 3D `CubicBody`).
 #[derive(Clone, Copy, Debug)]
 pub struct AtmosphericShell {
-    rel_cam_and_half: [f32; 4],
-    tint_and_thick: [f32; 4],
+    state: ShellState,
 }
 
 impl AtmosphericShell {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(rel_cam_and_half: [f32; 4], tint_and_thick: [f32; 4]) -> Self {
-        Self { rel_cam_and_half, tint_and_thick }
+    const fn from_state(state: ShellState) -> Self {
+        Self { state }
     }
 
     pub const fn vacuum() -> Self {
-        Self::new([0.0; 4], [0.0; 4])
+        Self::from_state(ShellState::Vacuum)
+    }
+
+    pub const fn cubic(rel_cam: Vec3, body_half: f32, day_tint: Vec3, thickness: f32) -> Self {
+        Self::from_state(ShellState::CubicBody { rel_cam, body_half, day_tint, thickness })
     }
 
     pub const fn terrestrial_at(cam_pos: Vec3) -> Self {
-        Self::new([cam_pos.x, cam_pos.y, cam_pos.z, 16.0], [0.21, 0.44, 0.80, 12.0])
+        Self::cubic(cam_pos, 16.0, Vec3::new(0.21, 0.44, 0.80), 12.0)
     }
+}
 
-    fn body_atmosphere(id: BodyId, half: f32) -> Option<([f32; 3], f32)> {
-        if id == BodyId::EARTH {
-            Some(([0.18, 0.56, 1.00], (half * 0.30).max(10.0)))
-        } else if id == BodyId::MARS {
-            Some(([0.86, 0.48, 0.28], (half * 0.22).max(6.0)))
-        } else if id == BodyId::VENUS {
-            Some(([0.95, 0.78, 0.42], (half * 0.38).max(12.0)))
-        } else if id == BodyId::TITAN {
-            Some(([0.90, 0.58, 0.20], (half * 0.36).max(8.0)))
+/// Decodes boundary uniform pairs from `engine::GraphicPipeline::sync_ephemeris` into `AtmosphericShell`.
+pub trait UniformEnvelopeSource {
+    fn decode_shell(&self) -> AtmosphericShell;
+}
+
+/// Immutable uniform pair wrapper decoding `ShellState` outside constructors (`<= 4` fields).
+#[derive(Clone, Copy, Debug)]
+pub struct SyncedShellPair {
+    rel_cam_and_half: [f32; 4],
+    tint_and_thick: [f32; 4],
+}
+
+impl SyncedShellPair {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(rel_cam_and_half: [f32; 4], tint_and_thick: [f32; 4]) -> Self {
+        Self { rel_cam_and_half, tint_and_thick }
+    }
+}
+
+impl UniformEnvelopeSource for SyncedShellPair {
+    fn decode_shell(&self) -> AtmosphericShell {
+        let body_half = self.rel_cam_and_half[3];
+        let thickness = self.tint_and_thick[3];
+        if thickness <= 0.01 || body_half <= 0.5 {
+            AtmosphericShell::vacuum()
         } else {
-            None
+            AtmosphericShell::cubic(
+                Vec3::new(
+                    self.rel_cam_and_half[0],
+                    self.rel_cam_and_half[1],
+                    self.rel_cam_and_half[2],
+                ),
+                body_half,
+                Vec3::new(self.tint_and_thick[0], self.tint_and_thick[1], self.tint_and_thick[2]),
+                thickness,
+            )
+        }
+    }
+}
+
+impl AtmosphericEnvelope for AtmosphericShell {
+    fn airless(&self) -> bool {
+        matches!(self.state, ShellState::Vacuum)
+    }
+
+    fn within_reach(&self, gap: f64) -> bool {
+        match self.state {
+            ShellState::Vacuum => false,
+            ShellState::CubicBody { body_half, thickness, .. } => {
+                gap <= f64::from(body_half * 40.0 + thickness * 8.0)
+            }
         }
     }
 
-    pub fn nearest(snaps: &[BodySnapshot], viewer: glam::DVec3) -> Self {
-        let mut closest_any: Option<(f64, BodyId, f64)> = None;
-        for s in snaps.iter().skip(1) {
-            let gap = (viewer - s.center()).abs().max_element() - s.half_size();
-            if closest_any.map_or(true, |(b, _, _)| gap < b) {
-                closest_any = Some((gap, s.id(), s.half_size()));
-            }
-        }
-        if let Some((gap, id, half)) = closest_any {
-            if Self::body_atmosphere(id, half as f32).is_none() && gap <= half * 4.0 {
-                return Self::vacuum();
-            }
-        }
-        let mut best: Option<(f64, Self)> = None;
-        for s in snaps {
-            let h = s.half_size() as f32;
-            let Some((tint, thick)) = Self::body_atmosphere(s.id(), h) else {
-                continue;
-            };
-            let rel_cam = viewer - s.center();
-            let gap = rel_cam.abs().max_element() - s.half_size();
-            if gap <= f64::from(h * 12.0 + thick * 4.0) && best.map_or(true, |(b, _)| gap < b) {
-                let rc = rel_cam.as_vec3();
-                best = Some((
-                    gap,
-                    Self::new([rc.x, rc.y, rc.z, h], [tint[0], tint[1], tint[2], thick]),
-                ));
-            }
-        }
-        best.map_or_else(Self::vacuum, |(_, shell)| shell)
-    }
-
-    /// Evaluates `(local_up, zenith_clear_color, night_factor)` for `sun_dir` at mean 1 AU solar flux.
-    pub fn sky_illumination(self, sun_dir: Vec3) -> (Vec3, Vec4, f32) {
+    fn sky_illumination(&self, sun_dir: Vec3) -> (Vec3, Vec4, f32) {
         self.sky_illumination_with_flux(sun_dir, 0.00465)
     }
 
-    /// Evaluates `(local_up, zenith_clear_color, night_factor)` scaled by elliptical solar angular half-size.
-    pub fn sky_illumination_with_flux(self, sun_dir: Vec3, solar_half_ang: f32) -> (Vec3, Vec4, f32) {
-        let rel_body = Vec3::new(self.rel_cam_and_half[0], self.rel_cam_and_half[1], self.rel_cam_and_half[2]);
-        let body_up = ClimateZone::dominant(rel_body).normal();
-        let space_black = Vec4::new(0.008, 0.012, 0.025, 1.0);
-        let thick = self.tint_and_thick[3];
-        if thick <= 0.01 || (rel_body.abs().max_element() - self.rel_cam_and_half[3]) > thick * 1.2 {
-            return (body_up, space_black, 1.0);
-        }
-        let flux = (solar_half_ang / 0.00465).clamp(0.80, 1.30);
-        let sun_h = sun_dir.dot(body_up);
-        let tint = Vec3::new(self.tint_and_thick[0], self.tint_and_thick[1], self.tint_and_thick[2]);
-        let day_col = (tint * (1.15 * flux)).clamp(Vec3::ZERO, Vec3::ONE).extend(1.0);
-        let sunset_gold = Vec4::new((0.85 * flux).min(1.0), (0.38 * flux).min(1.0), 0.12, 1.0);
-        let clear = if sun_h > 0.15 {
-            day_col
-        } else if sun_h >= 0.0 {
-            sunset_gold.lerp(day_col, (sun_h / 0.15).clamp(0.0, 1.0))
-        } else if sun_h >= -0.15 {
-            space_black.lerp(sunset_gold, ((sun_h + 0.15) / 0.15).clamp(0.0, 1.0))
-        } else {
-            space_black
-        };
-        (body_up, clear, (-sun_h / 0.15).clamp(0.0, 1.0))
-    }
-
-    pub const fn uniforms(self) -> ([f32; 4], [f32; 4]) {
-        (self.rel_cam_and_half, self.tint_and_thick)
-    }
-}
-
-/// Real-time planet/solar directions `[MERCURY..NEPTUNE, SOL]`, eclipse occluder, and `AtmosphericShell`.
-#[derive(Clone, Copy, Debug)]
-pub struct FirmamentPlanets {
-    planet_cubes: [[f32; 4]; 8],
-    occluder: [f32; 4],
-    atmosphere: AtmosphericShell,
-}
-
-impl FirmamentPlanets {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        planet_cubes: [[f32; 4]; 8],
-        occluder: [f32; 4],
-        atmosphere: AtmosphericShell,
-    ) -> Self {
-        Self { planet_cubes, occluder, atmosphere }
-    }
-
-    pub const fn absent() -> Self {
-        Self::new([[0.0; 4]; 8], [0.0; 4], AtmosphericShell::vacuum())
-    }
-
-    pub fn from_atlas(atlas: CelestialAtlas, viewer: Vec3) -> Self {
-        let Some(eph) = atlas.ephemeris() else {
-            return Self::absent();
-        };
-        let viewer_d = viewer.as_dvec3();
-        let snaps = eph.snapshot_all(0.0);
-        let apparent_sun = ApexSpin::from_ephemeris(eph).apparent_sun_center(snaps[0].center(), viewer_d);
-        let to_sun = apparent_sun - viewer_d;
-        let sun_dist = to_sun.length().max(1.0);
-        let sun_dir = (to_sun / sun_dist).as_vec3();
-        let sun_half_ang = ((snaps[0].half_size() / sun_dist) as f32).clamp(0.0008, 0.55);
-
-        let order = [
-            BodyId::MERCURY,
-            BodyId::VENUS,
-            BodyId::MARS,
-            BodyId::JUPITER,
-            BodyId::SATURN,
-            BodyId::URANUS,
-            BodyId::NEPTUNE,
-        ];
-        let mut cubes = [[0.0_f32; 4]; 8];
-        for (slot, target_id) in order.into_iter().enumerate() {
-            if let Some(s) = snaps.iter().find(|b| b.id() == target_id) {
-                let rel = s.center() - viewer_d;
-                let dist = rel.length().max(1.0);
-                let dir = (rel / dist).as_vec3();
-                cubes[slot] = [dir.x, dir.y, dir.z, ((s.half_size() / dist) as f32).clamp(0.00002, 0.45)];
+    fn sky_illumination_with_flux(&self, sun_dir: Vec3, solar_half_ang: f32) -> (Vec3, Vec4, f32) {
+        let space_black = Vec3::new(0.008, 0.012, 0.025);
+        match self.state {
+            ShellState::Vacuum => {
+                let (vac_rgb, _) = VacuumMedium::new().scatter_along(Vec3::ZERO, Vec3::Y, sun_dir);
+                (Vec3::Y, (space_black + vac_rgb).extend(1.0), 1.0)
+            }
+            ShellState::CubicBody { rel_cam, body_half, day_tint, thickness } => {
+                let body_up = if rel_cam.length_squared() > 1e-6 {
+                    rel_cam.normalize()
+                } else {
+                    Vec3::Y
+                };
+                if (rel_cam.abs().max_element() - body_half) >= thickness {
+                    return (body_up, space_black.extend(1.0), 1.0);
+                }
+                let flux = (solar_half_ang / 0.00465).clamp(0.80, 1.30);
+                let (scatter_rgb, scatter_alpha) =
+                    CubicRayleighShell::new(body_half, thickness, day_tint, flux)
+                        .scatter_along(rel_cam, body_up, sun_dir);
+                let zenith_rgb =
+                    (space_black * (1.0 - scatter_alpha) + scatter_rgb).clamp(Vec3::ZERO, Vec3::ONE);
+                let sky_lum = scatter_rgb.x.max(scatter_rgb.y).max(scatter_rgb.z);
+                let day_wash = ((sky_lum - 0.03) / 0.19).clamp(0.0, 1.0);
+                let smooth_wash = day_wash * day_wash * (3.0 - 2.0 * day_wash);
+                (body_up, zenith_rgb.extend(1.0), 1.0 - smooth_wash)
             }
         }
-        cubes[7] = [sun_dir.x, sun_dir.y, sun_dir.z, sun_half_ang];
+    }
 
-        let mut best_occ = (-2.0_f32, [0.0_f32; 4]);
-        for s in snaps.iter().skip(1) {
-            let rel = s.center() - viewer_d;
-            let dist = rel.length();
-            if dist <= s.half_size() * 1.05 || dist >= sun_dist * 0.98 {
-                continue;
-            }
-            let dir = (rel / dist).as_vec3();
-            let align = dir.dot(sun_dir);
-            if align > best_occ.0 {
-                best_occ = (align, [dir.x, dir.y, dir.z, ((s.half_size() / dist) as f32).clamp(0.0005, 0.55)]);
+    fn for_pass_camera(&self, cam_pos: Vec3) -> AtmosphericShell {
+        match self.state {
+            ShellState::Vacuum => Self::vacuum(),
+            ShellState::CubicBody { rel_cam, body_half, day_tint, thickness } => {
+                let earth_limit = body_half * 42.0;
+                if rel_cam.length() < earth_limit && cam_pos.length() < earth_limit {
+                    Self::cubic(cam_pos, body_half, day_tint, thickness)
+                } else {
+                    *self
+                }
             }
         }
-        Self::new(cubes, best_occ.1, AtmosphericShell::nearest(&snaps, viewer_d))
     }
 
-    pub fn sync_pipeline(&self, pipeline: &dyn GraphicPipeline) {
-        pipeline.sync_ephemeris(&self.planet_cubes, self.occluder, self.atmosphere.uniforms());
+    fn bind_gl(
+        &self,
+        gl: &glow::Context,
+        u_geom: &glow::UniformLocation,
+        u_tint: &glow::UniformLocation,
+    ) {
+        self.transfer_uniforms(|g, t| unsafe {
+            gl.uniform_4_f32(Some(u_geom), g[0], g[1], g[2], g[3]);
+            gl.uniform_4_f32(Some(u_tint), t[0], t[1], t[2], t[3]);
+        });
     }
 
-    #[cfg(test)]
-    pub fn transfer<R>(self, f: impl FnOnce(&[[f32; 4]; 8], [f32; 4]) -> R) -> R {
-        f(&self.planet_cubes, self.occluder)
-    }
-
-    #[cfg(test)]
-    pub const fn atmosphere_uniforms(self) -> ([f32; 4], [f32; 4]) {
-        self.atmosphere.uniforms()
+    fn transfer_uniforms<R>(&self, sink: impl FnOnce([f32; 4], [f32; 4]) -> R) -> R {
+        match self.state {
+            ShellState::Vacuum => sink([0.0; 4], [0.0; 4]),
+            ShellState::CubicBody { rel_cam, body_half, day_tint, thickness } => sink(
+                [rel_cam.x, rel_cam.y, rel_cam.z, body_half],
+                [day_tint.x, day_tint.y, day_tint.z, thickness],
+            ),
+        }
     }
 }

@@ -3,29 +3,32 @@ use world::{
     AsteroidBelt, BlockMedium, BlockMold, BodyId, CelestialSystem, SolarEphemeris, SolarProportions,
     MAJOR_BODY_COUNT,
 };
-use crate::rayleigh_shell::{CubicRayleighShell, CubicSolarBody, FirmamentPlanets};
+use crate::rayleigh_shell::{
+    AtlasSkyProjection, CubicRayleighShell, CubicSolarBody, OpticalMedium, SkyProjection,
+    SolarDisc,
+};
 
 #[test]
 fn test_orbital_earth_rayleigh_shell_shows_azure_day_limb_crimson_terminator_and_cubic_sun() {
-    let shell = CubicRayleighShell::around_earth(64.0);
+    let shell = CubicRayleighShell::new(64.0, 19.2, Vec3::new(0.18, 0.56, 1.00), 1.0);
     let sun_dir = Vec3::X;
 
     let cam_day = Vec3::new(68.0, 260.0, 0.0);
-    let (day_rgb, day_alpha) = shell.sample_scatter(cam_day, Vec3::NEG_Y, sun_dir);
+    let (day_rgb, day_alpha) = shell.scatter_along(cam_day, Vec3::NEG_Y, sun_dir);
     assert!(
         day_rgb.z > day_rgb.x * 2.0 && day_alpha > 0.15,
         "Daylight Earth limb from space must glow azure-blue, got rgb={day_rgb:?}, a={day_alpha}"
     );
 
     let cam_term = Vec3::new(2.0, 260.0, 68.0);
-    let (term_rgb, _) = shell.sample_scatter(cam_term, Vec3::NEG_Y, sun_dir);
+    let (term_rgb, _) = shell.scatter_along(cam_term, Vec3::NEG_Y, sun_dir);
     assert!(
         term_rgb.x > term_rgb.z,
         "Terminator horizon from space must scatter warm orange-red sunset tones, got {term_rgb:?}"
     );
 
     let cam_night = Vec3::new(-68.0, 260.0, 0.0);
-    let (night_rgb, _) = shell.sample_scatter(cam_night, Vec3::NEG_Y, sun_dir);
+    let (night_rgb, _) = shell.scatter_along(cam_night, Vec3::NEG_Y, sun_dir);
     assert!(
         night_rgb.length() < day_rgb.length() * 0.15,
         "Unlit night-side limb must fade into dark space, got {night_rgb:?}"
@@ -61,7 +64,7 @@ fn test_orbital_earth_rayleigh_shell_shows_azure_day_limb_crimson_terminator_and
     let snaps = eph.snapshot_all(0.0);
     let jupiter = snaps.into_iter().find(|s| s.id() == BodyId::JUPITER).expect("Jupiter");
     let expected_jup_dir = jupiter.center().normalize().as_vec3();
-    FirmamentPlanets::from_atlas(atlas, Vec3::ZERO).transfer(|planets, _occ| {
+    AtlasSkyProjection::solar(atlas).project_from(Vec3::ZERO).transfer(|planets, _occ| {
         let gpu_jup_dir = Vec3::new(planets[3][0], planets[3][1], planets[3][2]);
         assert!(
             gpu_jup_dir.dot(expected_jup_dir) > 0.9999 && planets[3][3] > 0.00005 && planets[7][3] > 0.004,

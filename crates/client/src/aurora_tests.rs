@@ -4,7 +4,7 @@ use crate::aurora_cadence::{
 };
 use crate::aurora_canopy::{CalibratedCanopy, VoidCanopy};
 use crate::file_aurora::FileAurora;
-use crate::firmament_glsl::{FIRMAMENT_FRAGMENT_SRC, FIRMAMENT_VERTEX_SRC};
+use crate::firmament_glsl::{FirmamentGlslPair, GlslSourcePair};
 
 #[test]
 fn test_calibrated_canopy_small_world_never_exceeds_arctic_face() {
@@ -58,12 +58,14 @@ fn test_void_canopy_null_object_pattern() {
 
 #[test]
 fn test_firmament_glsl_contains_camera_pos_and_aurora_uniforms() {
-    assert!(FIRMAMENT_VERTEX_SRC.contains("v_cam_pos"));
-    assert!(FIRMAMENT_FRAGMENT_SRC.contains("v_cam_pos"));
-    assert!(FIRMAMENT_FRAGMENT_SRC.contains("u_face_half"));
-    assert!(FIRMAMENT_FRAGMENT_SRC.contains("u_aurora_radius"));
-    assert!(FIRMAMENT_FRAGMENT_SRC.contains("u_ceiling_altitude"));
-    assert!(FIRMAMENT_FRAGMENT_SRC.contains("u_aurora_factor"));
+    FirmamentGlslPair::embedded().transfer_sources(|vert, frag| {
+        assert!(vert.contains("v_cam_pos"));
+        assert!(frag.contains("v_cam_pos"));
+        assert!(frag.contains("u_face_half"));
+        assert!(frag.contains("u_aurora_radius"));
+        assert!(frag.contains("u_ceiling_altitude"));
+        assert!(frag.contains("u_aurora_factor"));
+    });
 }
 
 #[test]
