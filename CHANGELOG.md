@@ -8,6 +8,11 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.110.1] - 2026-11-23
+
+### Fixed
+- Eliminated digital clipping and PipeWire/PulseAudio/ALSA underrun scratching on 5-horn RCS Steuerdüsen (`SoundDeck` in `crates/acoustics/src/deck.rs`, `SoundOutbox` in `crates/acoustics/src/outbox.rs`, `LoopTrack` and `BurstVoice` in `crates/acoustics/src/voice.rs`, `PlatformSink` in `crates/acoustics/src/sink/`, `HullBurnPulse` in `crates/client/src/drive/rocket/acoustics.rs`, and laminar `90–820 Hz` `rcs_*.wav` assets): replaced the hard-clipping `1/(1 + 0.28|x|)` waveshaper (`|x| > 1.38` square-wave overload when `rcs_loop` + `rcs_burst` summed together) with a true `tanh` soft-knee limiter and single-track `LoopTrack` RCS envelope (`8 ms` valve attack, `140 ms` minimum pulse hold, sample-accurate `stereo_pan` glide), removed heap allocations in `BurstVoice::from_tape`, and added a `60 ms` 3-chunk pre-buffer cushion plus `3 s` stream keep-alive to prevent OS scheduler XRUNs.
+
 ## [0.110.0] - 2026-11-23
 
 ### Added

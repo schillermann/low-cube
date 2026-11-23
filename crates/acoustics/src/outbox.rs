@@ -6,6 +6,9 @@ use super::sink::{WaveSink, CHUNK_SAMPLES};
 use super::tape::TapeSample;
 use super::voice::BurstVoice;
 
+const IDLE_KEEPALIVE_CHUNKS: u16 = 150;
+const PREBUFFER_CHUNKS: usize = 3;
+
 /// Non-blocking message delivered from 120 Hz gameplay ticks to the real-time audio stream thread.
 enum AudioOrder {
     Drive(HullDriveDemand),
@@ -46,19 +49,38 @@ impl SoundOutbox {
         let mut chunk = [0i16; CHUNK_SAMPLES];
         let step = Duration::from_millis(20);
         let mut next_deadline = Instant::now();
+        let mut keepalive: u16 = 0;
 
         loop {
-            if !deck.active() {
+            if !deck.active() && keepalive == 0 {
                 let Ok(first) = rx.recv() else { break };
                 self.apply_order(&mut deck, first);
                 while let Ok(more) = rx.try_recv() {
                     self.apply_order(&mut deck, more);
                 }
-                next_deadline = Instant::now() + step;
-            } else {
-                while let Ok(order) = rx.try_recv() {
-                    self.apply_order(&mut deck, order);
+                if !deck.active() {
+                    continue;
                 }
+                keepalive = IDLE_KEEPALIVE_CHUNKS;
+                // Pre-fill 60 ms cushion so OS audio ringbuffer never underruns on scheduler jitter
+                for _ in 0..PREBUFFER_CHUNKS {
+                    while let Ok(more) = rx.try_recv() {
+                        self.apply_order(&mut deck, more);
+                    }
+                    deck.mix_stereo_into(&mut chunk);
+                    let _ = sink.push_chunk(&chunk);
+                }
+                next_deadline = Instant::now() + step;
+                continue;
+            }
+
+            while let Ok(order) = rx.try_recv() {
+                self.apply_order(&mut deck, order);
+            }
+            if deck.active() {
+                keepalive = IDLE_KEEPALIVE_CHUNKS;
+            } else {
+                keepalive = keepalive.saturating_sub(1);
             }
             deck.mix_stereo_into(&mut chunk);
             let hw_paced = sink.push_chunk(&chunk);
@@ -66,7 +88,7 @@ impl SoundOutbox {
                 let now = Instant::now();
                 if next_deadline > now {
                     std::thread::sleep(next_deadline - now);
-                } else if now - next_deadline > Duration::from_millis(80) {
+                } else if now - next_deadline > Duration::from_millis(60) {
                     next_deadline = now;
                 }
                 next_deadline += step;
@@ -77,7 +99,7 @@ impl SoundOutbox {
     fn channel(self) -> &'static SyncSender<AudioOrder> {
         static STREAM_TX: OnceLock<SyncSender<AudioOrder>> = OnceLock::new();
         STREAM_TX.get_or_init(|| {
-            let (tx, rx) = mpsc::sync_channel(32);
+            let (tx, rx) = mpsc::sync_channel(128);
             let _ = std::thread::Builder::new()
                 .name("low-cube-acoustics".to_owned())
                 .spawn(move || self.stream_loop(rx));

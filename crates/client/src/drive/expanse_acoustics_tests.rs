@@ -72,6 +72,23 @@ fn test_expanse_epstein_torch_bell_roar_and_rcs_teakettle_waveforms() {
     assert!(open_energy > 0.12, "Solenoid valve opening must produce crisp mechanical snap");
     assert!(steam_energy > 0.06, "Superheated steam vent must sustain pressurized hiss");
     assert!(shutoff_energy > 0.05, "Valve shutoff must produce audible arrest clack");
+
+    let rate = port_rcs.sample_rate() as f32;
+    let total = (0.24 * rate) as usize;
+    let mut prev = port_rcs.amplitude_at(0.0);
+    let mut zc = 0usize;
+    for i in 1..total {
+        let cur = port_rcs.amplitude_at((i as f32) / rate);
+        if (prev >= 0.0) != (cur >= 0.0) {
+            zc += 1;
+        }
+        prev = cur;
+    }
+    let zc_hz = (zc as f32) / (2.0 * 0.24);
+    assert!(
+        zc_hz < 500.0,
+        "Hull-muffled RCS burst must stay low-mid weighted (<500 Hz zero-crossing), got {zc_hz} Hz"
+    );
     assert_eq!(port_rcs.stereo_riff_wave()[..4], *b"RIFF");
 
     let epstein = FusionHum::torch();

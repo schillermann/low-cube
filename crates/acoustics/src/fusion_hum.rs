@@ -45,7 +45,7 @@ impl AcousticWave for FusionHum {
     fn thump(&self) {
         if self.ignition {
             HullWaveTrace::sink().note(PropulsionCue::FusionIgnition);
-            SoundOutbox::new(SoundStage::active()).submit_tape(self.tape, 1.0, (0.86, 0.86));
+            SoundOutbox::new(SoundStage::active()).submit_tape(self.tape, 1.0, (0.40, 0.40));
         } else {
             HullWaveTrace::sink().note(PropulsionCue::FusionSustained);
             let _ = self.amplitude_at(0.10);

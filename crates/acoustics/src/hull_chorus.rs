@@ -1,7 +1,5 @@
 use std::cell::{Cell, RefCell};
-use super::outbox::SoundOutbox;
-use super::tape::TapeSample;
-use super::{AcousticWave, MonoSource, SoundStage, SpatialStage};
+use super::{AcousticWave, MonoSource, SpatialStage};
 
 thread_local! {
     static HULL_RECORDING: Cell<bool> = const { Cell::new(false) };
@@ -107,7 +105,6 @@ impl<M: MonoSource + Send + Sync, V: MonoSource + Send + Sync> AcousticWave for 
 
     fn thump(&self) {
         HullWaveTrace::sink().note(PropulsionCue::HullCombined);
-        let gains = self.stage.channel_gains();
-        SoundOutbox::new(SoundStage::active()).submit_tape(TapeSample::rcs_burst(), 1.0, gains);
+        let _ = self.amplitude_at(0.04);
     }
 }

@@ -45,7 +45,7 @@ impl AcousticWave for NozzleRoar {
     fn thump(&self) {
         if self.ignition {
             HullWaveTrace::sink().note(PropulsionCue::BellIgnition);
-            SoundOutbox::new(SoundStage::active()).submit_tape(self.tape, 1.0, (0.88, 0.88));
+            SoundOutbox::new(SoundStage::active()).submit_tape(self.tape, 1.0, (0.42, 0.42));
         } else {
             HullWaveTrace::sink().note(PropulsionCue::BellSustained);
             let _ = self.amplitude_at(0.10);

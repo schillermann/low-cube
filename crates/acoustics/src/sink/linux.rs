@@ -30,17 +30,17 @@ impl PlatformSink {
         let mut cmd = match kind {
             0 => {
                 let mut c = Command::new("pw-cat");
-                c.args(["--playback", "--raw", "--format", "s16", "--rate", "24000", "--channels", "2", "--latency", "25ms", "-"]);
+                c.args(["--playback", "--raw", "--format", "s16", "--rate", "24000", "--channels", "2", "--latency", "60ms", "-"]);
                 c
             }
             1 => {
                 let mut c = Command::new("pacat");
-                c.args(["--playback", "--raw", "--format=s16le", "--rate=24000", "--channels=2", "--latency-msec=25"]);
+                c.args(["--playback", "--raw", "--format=s16le", "--rate=24000", "--channels=2", "--latency-msec=60"]);
                 c
             }
             2 => {
                 let mut c = Command::new("aplay");
-                c.args(["-q", "-t", "raw", "-f", "S16_LE", "-r", "24000", "-c", "2", "--buffer-size=1920", "--period-size=480", "-"]);
+                c.args(["-q", "-t", "raw", "-f", "S16_LE", "-r", "24000", "-c", "2", "--buffer-size=4800", "--period-size=960", "-"]);
                 c
             }
             _ => return PipeStream::Disconnected,

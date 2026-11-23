@@ -5,7 +5,7 @@ use super::CHUNK_SAMPLES;
 
 const WAVE_MAPPER: u32 = 0xFFFF_FFFF;
 const WHDR_DONE: u32 = 0x0000_0001;
-const RING_SLOTS: usize = 4;
+const RING_SLOTS: usize = 6;
 
 #[repr(C, packed(2))]
 struct PcmWaveFormat {
@@ -33,6 +33,7 @@ unsafe impl Send for WinWaveHeader {}
 
 #[link(name = "winmm")]
 extern "system" {
+    fn timeBeginPeriod(period_ms: u32) -> u32;
     fn waveOutOpen(
         out_handle: *mut *mut c_void,
         device_id: u32,
@@ -69,6 +70,9 @@ impl PlatformSink {
             rates: [24000, 96000],
             frame_spec: [4, 16, 0],
         };
+        unsafe {
+            let _ = timeBeginPeriod(1);
+        }
         let mut raw_handle: *mut c_void = core::ptr::null_mut();
         let rc = unsafe { waveOutOpen(&mut raw_handle, WAVE_MAPPER, &fmt, 0, 0, 0) };
         let mut buffers = Box::new([[0i16; CHUNK_SAMPLES]; RING_SLOTS]);
@@ -79,7 +83,14 @@ impl PlatformSink {
             control: zero_ctl,
             driver_links: [0, 0],
         };
-        let mut headers = Box::new([blank_hdr(), blank_hdr(), blank_hdr(), blank_hdr()]);
+        let mut headers = Box::new([
+            blank_hdr(),
+            blank_hdr(),
+            blank_hdr(),
+            blank_hdr(),
+            blank_hdr(),
+            blank_hdr(),
+        ]);
         if rc == 0 && !raw_handle.is_null() {
             let hdr_bytes = size_of::<WinWaveHeader>() as u32;
             let pcm_bytes = (CHUNK_SAMPLES * 2) as u32;
