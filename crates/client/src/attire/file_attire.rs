@@ -57,10 +57,18 @@ impl AttireProfile for FileAttire {
 
     /// Persists the player's customized medieval attire to the TOML profile, failing fast on I/O errors.
     fn save(&self, attire: &YouthAttire) {
+        let existing_name = TomlDocument::from_file(&self.path)
+            .and_then(|doc| doc.property("name"))
+            .unwrap_or_default();
+        let name_line = if existing_name.is_empty() {
+            String::new()
+        } else {
+            format!("name = \"{existing_name}\"\n")
+        };
         let bytes = attire.multiplayer_bytes();
         let regions = attire.region_bytes();
         let text = format!(
-            "# Medieval Youth Avatar Profile\n[character]\ntunic = {}\nvambrace = {}\ngirdle = {}\nfootwear = {}\ncrown = {}\nrelic = {}\npigment = {}\ncomplexion = {}\nphysique = {}\ncrown_body = {}\ntorso_body = {}\narm_body = {}\nleg_body = {}\n",
+            "# Medieval Youth Avatar Profile\n[character]\n{name_line}tunic = {}\nvambrace = {}\ngirdle = {}\nfootwear = {}\ncrown = {}\nrelic = {}\npigment = {}\ncomplexion = {}\nphysique = {}\ncrown_body = {}\ntorso_body = {}\narm_body = {}\nleg_body = {}\n",
             bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8],
             regions[0], regions[1], regions[2], regions[3]
         );

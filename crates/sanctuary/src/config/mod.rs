@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use world::{CelestialSystem, PlanetaryWorld, SatchelManifest, SolarProportions};
 use crate::chronicle_decorators::{CompactedChronicle, DiskVaultChronicle};
 use crate::chronicle_log::{ChronicleLog, ChronicleStore};
+use crate::seal::HandshakeIdentity;
 use crate::survivor_ledger::{DiskVaultSurvivors, MemorySurvivors, SurvivorStore};
 use crate::SanctuaryHost;
 use self::cosmos::ServerCosmosScale;
@@ -85,20 +86,31 @@ impl SanctuaryEndpoint {
         let bevel = ((blocks_per_edge as f32) * 0.5 * 0.125).clamp(0.5, 1.0);
         let mut world: Box<dyn PlanetaryWorld> = CelestialSystem::heliosphere(proportions, bevel);
         let mem_survivors = MemorySurvivors::with_starter(starter_kit);
-        let (store, survivors): (Box<dyn ChronicleStore>, Box<dyn SurvivorStore>) = match persistence {
+        let (host_keys, store, survivors): (HandshakeIdentity, Box<dyn ChronicleStore>, Box<dyn SurvivorStore>) = match persistence {
             VaultPersistence::Journaled(path) => {
+                let host_key_path = PathBuf::from(format!("{}.host.key", path.display()));
                 let surv_path = PathBuf::from(format!("{}.survivors", path.display()));
+                let keys = HandshakeIdentity::load_or_create(&host_key_path);
                 let base = CompactedChronicle::wrapping(ChronicleLog::empty());
                 let chronicle = Box::new(DiskVaultChronicle::replay_and_open(path, base, world.as_mut())?);
                 let ledger = Box::new(DiskVaultSurvivors::replay_and_open(surv_path, mem_survivors)?);
-                (chronicle, ledger)
+                (keys, chronicle, ledger)
             }
             VaultPersistence::Ephemeral => (
+                HandshakeIdentity::generate(),
                 Box::new(CompactedChronicle::wrapping(ChronicleLog::empty())),
                 Box::new(mem_survivors),
             ),
         };
-        let mut host = SanctuaryHost::bind_cosmos_with_stores(&bind_addr, world, proportions, store, survivors)?;
+        let mut host = SanctuaryHost::bind_cosmos_with_identity(
+            &bind_addr,
+            host_keys,
+            world::Callsign::host(),
+            world,
+            proportions,
+            store,
+            survivors,
+        )?;
         let bound = host.local_addr()?;
         let ticket = host.ticket().encode();
         println!("=== LOW-CUBE DEDICATED SERVER ===");

@@ -1,19 +1,29 @@
+mod roster;
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use world::{SatchelManifest, SurvivorRecord, SurvivorWelcome};
+use world::{Callsign, SatchelManifest, SurvivorRecord, SurvivorWelcome};
 use crate::chronicle_decorators::VaultStream;
+pub use self::roster::RosterSheet;
 
-/// Authoritative per-X25519-identity survivor inventory and position store.
+/// Authoritative per-identity survivor inventory, position, and disambiguated callsign store.
 pub trait SurvivorStore: Send {
     fn admit_or_restore(&self, pubkey: [u8; 32]) -> SurvivorWelcome;
     fn lookup(&self, pubkey: [u8; 32]) -> Option<SurvivorRecord>;
+    fn resolve_callsign(
+        &self,
+        pubkey: [u8; 32],
+        desired: Callsign,
+        active: &[([u8; 32], Callsign)],
+    ) -> Callsign;
     fn commit(&mut self, pubkey: [u8; 32], record: SurvivorRecord, final_checkpoint: bool);
+    fn export_roster(&self, _out: &mut Vec<([u8; 32], SurvivorRecord)>) {}
     fn flush_tick(&mut self) {}
 }
 
-/// In-memory `SurvivorStore` mapping `[u8; 32]` X25519 public keys to `SurvivorRecord`s (`<= 4` fields).
+/// In-memory `SurvivorStore` mapping `[u8; 32]` public keys to `SurvivorRecord`s (`<= 4` fields).
 pub struct MemorySurvivors {
     records: HashMap<[u8; 32], SurvivorRecord>,
     starter_kit: SatchelManifest,
@@ -32,6 +42,22 @@ impl MemorySurvivors {
     pub fn empty() -> Self {
         Self::with_starter(SatchelManifest::starter_kit())
     }
+
+    fn occupied_by_other(
+        &self,
+        pubkey: [u8; 32],
+        candidate: Callsign,
+        active: &[([u8; 32], Callsign)],
+    ) -> bool {
+        let in_store = self
+            .records
+            .iter()
+            .any(|(&pk, rec)| pk != pubkey && rec.callsign().matches_case_insensitive(candidate));
+        let in_active = active
+            .iter()
+            .any(|&(pk, cs)| pk != pubkey && cs.matches_case_insensitive(candidate));
+        in_store || in_active
+    }
 }
 
 impl SurvivorStore for MemorySurvivors {
@@ -47,14 +73,48 @@ impl SurvivorStore for MemorySurvivors {
         self.records.get(&pubkey).copied()
     }
 
+    fn resolve_callsign(
+        &self,
+        pubkey: [u8; 32],
+        desired: Callsign,
+        active: &[([u8; 32], Callsign)],
+    ) -> Callsign {
+        let existing = self.records.get(&pubkey).map_or(Callsign::unnamed(), SurvivorRecord::callsign);
+        if !desired.present() && existing.present() {
+            return existing;
+        }
+        if !desired.present() {
+            for ordinal in 1..100_000u32 {
+                let candidate = Callsign::numbered_survivor(ordinal);
+                if !self.occupied_by_other(pubkey, candidate, active) {
+                    return candidate;
+                }
+            }
+            return Callsign::numbered_survivor(1);
+        }
+        for ordinal in 1..100_000u32 {
+            let candidate = desired.disambiguated(ordinal);
+            if !self.occupied_by_other(pubkey, candidate, active) {
+                return candidate;
+            }
+        }
+        desired
+    }
+
     fn commit(&mut self, pubkey: [u8; 32], record: SurvivorRecord, _final_checkpoint: bool) {
         if pubkey != [0u8; 32] {
             self.records.insert(pubkey, record);
         }
     }
+
+    fn export_roster(&self, out: &mut Vec<([u8; 32], SurvivorRecord)>) {
+        out.clear();
+        out.extend(self.records.iter().map(|(&k, &v)| (k, v)));
+        out.sort_by(|a, b| a.1.callsign().as_str().cmp(b.1.callsign().as_str()).then_with(|| a.0.cmp(&b.0)));
+    }
 }
 
-/// Buffered SSD write-ahead `SurvivorStore` decorator persisting survivor checkpoints across restarts (`<= 4` fields).
+/// Buffered SSD write-ahead `SurvivorStore` decorator persisting survivor checkpoints and TOML roster (`<= 4` fields).
 pub struct DiskVaultSurvivors<S> {
     origin: S,
     vault_path: PathBuf,
@@ -73,13 +133,13 @@ impl<S> DiskVaultSurvivors<S> {
     }
 }
 
-impl<S> Drop for DiskVaultSurvivors<S> {
-    fn drop(&mut self) {
-        self.stream.flush_pending();
-    }
-}
-
 impl<S: SurvivorStore> DiskVaultSurvivors<S> {
+    fn sync_roster_sheet(&self) {
+        let mut entries = Vec::new();
+        self.origin.export_roster(&mut entries);
+        RosterSheet::for_vault(&self.vault_path).write(&entries);
+    }
+
     /// Replays existing `[len (4B), pubkey (32B), SurvivorRecord]` frames into `origin` and opens `path` for append.
     pub fn replay_and_open(path: impl AsRef<Path>, mut origin: S) -> std::io::Result<Self> {
         let vault_path = path.as_ref().to_path_buf();
@@ -110,7 +170,15 @@ impl<S: SurvivorStore> DiskVaultSurvivors<S> {
             }
         }
         let stream = VaultStream::open_append(&vault_path)?;
-        Ok(Self::with_stream(origin, vault_path, stream, false))
+        let built = Self::with_stream(origin, vault_path, stream, false);
+        built.sync_roster_sheet();
+        Ok(built)
+    }
+}
+
+impl<S> Drop for DiskVaultSurvivors<S> {
+    fn drop(&mut self) {
+        self.stream.flush_pending();
     }
 }
 
@@ -123,6 +191,15 @@ impl<S: SurvivorStore> SurvivorStore for DiskVaultSurvivors<S> {
         self.origin.lookup(pubkey)
     }
 
+    fn resolve_callsign(
+        &self,
+        pubkey: [u8; 32],
+        desired: Callsign,
+        active: &[([u8; 32], Callsign)],
+    ) -> Callsign {
+        self.origin.resolve_callsign(pubkey, desired, active)
+    }
+
     fn commit(&mut self, pubkey: [u8; 32], record: SurvivorRecord, final_checkpoint: bool) {
         if pubkey == [0u8; 32] {
             return;
@@ -133,22 +210,33 @@ impl<S: SurvivorStore> SurvivorStore for DiskVaultSurvivors<S> {
                 final_checkpoint
                     || prev.manifest() != record.manifest()
                     || prev.frame() != record.frame()
+                    || prev.callsign() != record.callsign()
                     || (prev.position() - record.position()).length_squared() >= 64.0
             }
         };
         self.origin.commit(pubkey, record, final_checkpoint);
         if significant {
-            let mut payload = Vec::with_capacity(96);
+            let mut payload = Vec::with_capacity(112);
             payload.extend_from_slice(&pubkey);
             record.inscribe(&mut payload);
             self.stream.write_frame(&self.vault_path, &payload);
             self.dirty = true;
+            if final_checkpoint {
+                self.stream.flush_pending();
+                self.sync_roster_sheet();
+                self.dirty = false;
+            }
         }
+    }
+
+    fn export_roster(&self, out: &mut Vec<([u8; 32], SurvivorRecord)>) {
+        self.origin.export_roster(out);
     }
 
     fn flush_tick(&mut self) {
         if self.dirty {
             self.stream.flush_pending();
+            self.sync_roster_sheet();
             self.dirty = false;
         }
         self.origin.flush_tick();

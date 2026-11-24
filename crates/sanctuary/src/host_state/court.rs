@@ -119,7 +119,8 @@ impl<'a> StandbyCourt<'a> {
             }
             Some(SanctuaryEnvelope::GuestUtterance { text }) => {
                 if let Some((wf, pos)) = self.cohort.ward_world_locus(cid, self.aura) {
-                    if let Some(utterance) = ProximityUtterance::sanitized(cid, pos, &text) {
+                    let speaker_name = self.cohort.ward_callsign(cid);
+                    if let Some(utterance) = ProximityUtterance::named(cid, speaker_name, pos, &text) {
                         self.cohort.relay_utterance(socket, wf, utterance, self.aura);
                     }
                 }

@@ -19,6 +19,41 @@ impl RelicCatalog {
         self.code
     }
 
+    pub const fn slug(self) -> &'static str {
+        match self.code {
+            1 => "quarried_stone",
+            2 => "timber_torch",
+            3 => "wooden_mallet",
+            4 => "woodman_axe",
+            5 => "knightly_sword",
+            6 => "iron_spade",
+            7 => "earth",
+            8 => "deadwood",
+            9 => "flint",
+            10 => "timber",
+            11 => "planks",
+            12 => "crust_rock",
+            13 => "cantilever_crane",
+            14 => "steering_wheel",
+            15 => "aircraft_engine",
+            16 => "flight_console",
+            17 => "cabin_seat",
+            18 => "car_wheel",
+            19 => "field_camera",
+            20 => "pedal_cluster",
+            21 => "copper_ore",
+            22 => "iron_ore",
+            23 => "gold_ore",
+            24 => "boar_meat",
+            25 => "rocket_nozzle",
+            26 => "rocket_camera",
+            27 => "vehicle_blueprint",
+            28 => "fusion_torch",
+            29 => "spawn_stone",
+            _ => "empty",
+        }
+    }
+
     pub const fn from_medium(medium: BlockMedium) -> u8 {
         match medium {
             BlockMedium::TurfEarth | BlockMedium::Sand => 7,

@@ -3,9 +3,12 @@ mod sync;
 mod welcome;
 
 use std::net::{SocketAddr, UdpSocket};
-use crate::seal::{HandshakeIdentity, SessionSeal};
+use world::Callsign;
+use crate::passport::KnockPassport;
+use crate::seal::SessionSeal;
 use crate::ticket::{JoinTarget, PortalTicket};
 use crate::wormhole::{PunchCode, WormholePledge};
+pub use self::arrival::WelcomeSpawn;
 pub use self::sync::LinkSync;
 pub use self::welcome::WelcomeFrame;
 
@@ -13,36 +16,22 @@ pub use self::welcome::WelcomeFrame;
 pub enum LinkPhase {
     SeekingWormhole {
         pledge: WormholePledge,
-        keys: HandshakeIdentity,
+        passport: KnockPassport,
         retry_clock: f32,
     },
     Knocking {
-        keys: HandshakeIdentity,
+        passport: KnockPassport,
         retry_clock: f32,
     },
     Sealed {
         companion_id: u32,
+        callsign: Callsign,
         seal: SessionSeal,
         peer: SocketAddr,
     },
 }
 
 impl LinkPhase {
-    pub fn emit_knock(target: JoinTarget, socket: &UdpSocket, keys: &HandshakeIdentity) {
-        let mut knock = Vec::with_capacity(36);
-        knock.extend_from_slice(b"LKNK");
-        knock.extend_from_slice(&keys.public_bytes());
-        match target {
-            JoinTarget::Direct(addr) => {
-                let _ = socket.send_to(&knock, addr);
-            }
-            JoinTarget::Ticket(ticket) => {
-                let _ = socket.send_to(&knock, ticket.direct());
-            }
-            JoinTarget::Wormhole(_) => {}
-        }
-    }
-
     pub fn try_resolve_wormhole(&self, src: SocketAddr, pkt: &[u8]) -> Option<PortalTicket> {
         if let Self::SeekingWormhole { ref pledge, .. } = *self {
             pledge.unseal_reply(src, pkt)
@@ -59,6 +48,13 @@ impl LinkPhase {
         }
     }
 
+    pub const fn assigned_callsign(&self) -> Callsign {
+        match *self {
+            Self::SeekingWormhole { .. } | Self::Knocking { .. } => Callsign::unnamed(),
+            Self::Sealed { callsign, .. } => callsign,
+        }
+    }
+
     pub fn step_retry(&mut self, dt: f32, target: JoinTarget, socket: &UdpSocket) {
         match *self {
             Self::SeekingWormhole { ref pledge, ref mut retry_clock, .. } => {
@@ -68,11 +64,11 @@ impl LinkPhase {
                     pledge.transmit_hello(socket);
                 }
             }
-            Self::Knocking { ref keys, ref mut retry_clock } => {
+            Self::Knocking { ref passport, ref mut retry_clock } => {
                 *retry_clock += dt;
                 if *retry_clock >= 0.16 {
                     *retry_clock = 0.0;
-                    Self::emit_knock(target, socket, keys);
+                    passport.emit_knock(target, socket);
                 }
             }
             Self::Sealed { .. } => {}

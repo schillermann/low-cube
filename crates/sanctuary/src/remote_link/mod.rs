@@ -1,19 +1,20 @@
+mod bind;
+
 use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::{Duration, Instant};
-use glam::{Quat, Vec3};
+use glam::Vec3;
 use world::{
-    CompanionPresence, CosmicFrame, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceAttire,
-    PresenceKinematics, SurvivorWelcome, WorldFact,
+    Callsign, CompanionPresence, CosmicFrame, DrivenCraft, PilotCraft, PlanetaryWorld,
+    SurvivorWelcome, WorldFact,
 };
 use crate::envelope::{InventoryNotice, SanctuaryEnvelope};
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::SmoothRoster;
 use crate::link_state::{LinkPhase, LinkSync, WelcomeFrame};
-use crate::nat::NatAperture;
-use crate::seal::HandshakeIdentity;
+use crate::passport::{FixedPassport, KnockPassport};
 use crate::ticket::JoinTarget;
-use crate::wormhole::{PunchCode, WormholePledge};
+use crate::wormhole::PunchCode;
 
 /// Encrypted P2P UDP client link managing PAKE wormhole discovery, NAT hole-punching, and chronicle sync.
 pub struct RemoteLink {
@@ -29,50 +30,6 @@ impl RemoteLink {
         Self { socket, target, phase, sync }
     }
 
-    pub fn bind(target: JoinTarget) -> std::io::Result<Self> {
-        Self::bind_with_identity(target, HandshakeIdentity::generate())
-    }
-
-    pub fn bind_with_identity(target: JoinTarget, keys: HandshakeIdentity) -> std::io::Result<Self> {
-        let socket = UdpSocket::bind("0.0.0.0:0")?;
-        socket.set_nonblocking(true)?;
-        let _ = socket.set_broadcast(true);
-        let guest_endpoint = match target {
-            JoinTarget::Wormhole(code) => NatAperture::interactive().probe_guest(&socket, code.endpoint()),
-            JoinTarget::Ticket(_) | JoinTarget::Direct(_) => socket.local_addr()?,
-        };
-        Ok(Self::bind_socket_with_identity(socket, guest_endpoint, target, keys))
-    }
-
-    pub fn bind_on_socket(socket: UdpSocket, guest_endpoint: SocketAddr, target: JoinTarget) -> Self {
-        Self::bind_socket_with_identity(socket, guest_endpoint, target, HandshakeIdentity::generate())
-    }
-
-    pub fn bind_socket_with_identity(
-        socket: UdpSocket,
-        guest_endpoint: SocketAddr,
-        target: JoinTarget,
-        keys: HandshakeIdentity,
-    ) -> Self {
-        let _ = socket.set_nonblocking(true);
-        let _ = socket.set_broadcast(true);
-        let kin = PresenceKinematics::new(Vec3::new(0.0, 32.0, 0.0), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
-        let initial_pres = CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
-        let phase = match target {
-            JoinTarget::Wormhole(code) => {
-                let pledge = WormholePledge::begin(code, guest_endpoint);
-                pledge.transmit_hello(&socket);
-                LinkPhase::SeekingWormhole { pledge, keys, retry_clock: 0.0 }
-            }
-            JoinTarget::Ticket(_) | JoinTarget::Direct(_) => {
-                LinkPhase::emit_knock(target, &socket, &keys);
-                LinkPhase::Knocking { keys, retry_clock: 0.0 }
-            }
-        };
-        let sync = LinkSync::new(0, 1.0, SmoothRoster::empty(), (initial_pres, PilotCraft::Pedestrian));
-        Self::new(socket, target, phase, sync)
-    }
-
     pub fn connected(&self) -> bool { matches!(self.phase, LinkPhase::Sealed { .. }) }
     pub const fn companion_slot(&self) -> u32 {
         match self.phase {
@@ -80,18 +37,15 @@ impl RemoteLink {
             LinkPhase::Sealed { companion_id, .. } => companion_id,
         }
     }
+    pub const fn assigned_callsign(&self) -> Callsign { self.phase.assigned_callsign() }
     pub fn unresolved_wormhole(&self) -> bool { matches!(self.phase, LinkPhase::SeekingWormhole { .. }) }
     pub fn punch_code(&self) -> Option<PunchCode> { self.phase.punch_code() }
     pub(crate) const fn roster(&self) -> &SmoothRoster { self.sync.roster() }
-    pub fn sync_local_presence(&mut self, presence: CompanionPresence) {
-        self.sync.update_presence(presence, self.companion_slot());
-    }
+    pub fn sync_local_presence(&mut self, presence: CompanionPresence) { self.sync.update_presence(presence, self.companion_slot()); }
     pub fn sync_local_berth_presence(&mut self, presence: CompanionPresence, berth: world::VesselBerth) {
         self.sync.update_berth_presence(presence, berth, self.companion_slot());
     }
-    pub fn sync_local_craft(&mut self, craft: PilotCraft) {
-        self.sync.update_craft(craft, self.companion_slot());
-    }
+    pub fn sync_local_craft(&mut self, craft: PilotCraft) { self.sync.update_craft(craft, self.companion_slot()); }
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.sync.copy_companions(out); }
     pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) { self.sync.copy_crafts(out); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.sync.copy_crafts(out); }
@@ -137,13 +91,12 @@ impl RemoteLink {
     fn try_advance_wormhole(&mut self, src: SocketAddr, pkt: &[u8]) {
         if let Some(ticket) = self.phase.try_resolve_wormhole(src, pkt) {
             self.target = JoinTarget::Ticket(ticket);
-            let old = std::mem::replace(
-                &mut self.phase,
-                LinkPhase::Knocking { keys: HandshakeIdentity::generate(), retry_clock: 0.0 },
-            );
-            if let LinkPhase::SeekingWormhole { keys, .. } = old {
-                LinkPhase::emit_knock(self.target, &self.socket, &keys);
-                self.phase = LinkPhase::Knocking { keys, retry_clock: 0.0 };
+            let placeholder = KnockPassport::from_vault(self.target, Box::new(FixedPassport::unassigned()));
+            let old = std::mem::replace(&mut self.phase, LinkPhase::Knocking { passport: placeholder, retry_clock: 0.0 });
+            if let LinkPhase::SeekingWormhole { mut passport, .. } = old {
+                passport.retarget(self.target);
+                passport.emit_knock(self.target, &self.socket);
+                self.phase = LinkPhase::Knocking { passport, retry_clock: 0.0 };
             }
         }
     }
@@ -189,14 +142,9 @@ impl RemoteLink {
     }
 
     pub fn send_petition(&mut self, fact: WorldFact) {
-        if let LinkPhase::Sealed { companion_id, ref mut seal, peer } = self.phase {
+        if let LinkPhase::Sealed { companion_id, ref mut seal, peer, .. } = self.phase {
             if self.sync.urgent_pulse()
-                || matches!(
-                    fact,
-                    WorldFact::CraftCommissioned { .. }
-                        | WorldFact::HelmClaimed { .. }
-                        | WorldFact::HelmReleased { .. }
-                )
+                || matches!(fact, WorldFact::CraftCommissioned { .. } | WorldFact::HelmClaimed { .. } | WorldFact::HelmReleased { .. })
             {
                 self.sync.flush_pulse(companion_id, seal, peer, &self.socket);
             }
@@ -208,7 +156,7 @@ impl RemoteLink {
     }
 
     pub fn send_inventory_notice(&mut self, notice: InventoryNotice) {
-        if let LinkPhase::Sealed { companion_id, ref mut seal, peer } = self.phase {
+        if let LinkPhase::Sealed { companion_id, ref mut seal, peer, .. } = self.phase {
             let (mut payload, mut frame) = (Vec::new(), Vec::new());
             SanctuaryEnvelope::GuestInventory { notice }.inscribe(&mut payload);
             seal.seal(companion_id, &payload, &mut frame);
@@ -221,7 +169,7 @@ impl RemoteLink {
         if trimmed.is_empty() {
             return;
         }
-        if let LinkPhase::Sealed { companion_id, ref mut seal, peer } = self.phase {
+        if let LinkPhase::Sealed { companion_id, ref mut seal, peer, .. } = self.phase {
             let (mut payload, mut frame) = (Vec::new(), Vec::new());
             SanctuaryEnvelope::GuestUtterance { text: trimmed.to_string() }.inscribe(&mut payload);
             seal.seal(companion_id, &payload, &mut frame);
@@ -240,7 +188,7 @@ impl RemoteLink {
                 self.sync.absorb_standby_envelope(env, deferred);
             }
         }
-        if let LinkPhase::Sealed { companion_id, ref mut seal, peer } = self.phase {
+        if let LinkPhase::Sealed { companion_id, ref mut seal, peer, .. } = self.phase {
             self.sync.step_pulse(dt, companion_id, seal, peer, &self.socket);
         }
         self.sync.roster().active_craft_count()
@@ -286,7 +234,7 @@ impl RemoteLink {
                 }
             }
         }
-        if let LinkPhase::Sealed { companion_id, ref mut seal, peer } = self.phase {
+        if let LinkPhase::Sealed { companion_id, ref mut seal, peer, .. } = self.phase {
             self.sync.step_pulse(dt, companion_id, seal, peer, &self.socket);
         }
         (changed, self.sync.roster().active_craft_count())

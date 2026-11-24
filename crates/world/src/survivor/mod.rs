@@ -190,6 +190,21 @@ impl SatchelManifest {
         *self = self.sanitized();
     }
 
+    pub fn inventory_summary(&self) -> String {
+        let mut entries = Vec::new();
+        for code in 1..29u8 {
+            let qty = self.count_of(code);
+            if qty > 0 {
+                entries.push(format!("{}:{qty}", RelicCatalog::new(code).slug()));
+            }
+        }
+        if entries.is_empty() {
+            "empty".to_string()
+        } else {
+            entries.join(", ")
+        }
+    }
+
     pub fn reconcile_from_presence(&mut self, presence: CompanionPresence) {
         let (r, l) = presence.transfer(|_, _, _, attire| {
             attire.transfer(|g, _, _| {

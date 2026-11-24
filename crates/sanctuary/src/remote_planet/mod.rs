@@ -56,9 +56,9 @@ impl RemotePlanet {
         fallback: world::SolarProportions,
         bevel_margin: f32,
     ) -> std::io::Result<Self> {
-        Self::connect_cosmos_with_identity(
+        Self::connect_cosmos_with_vault(
             target,
-            crate::seal::HandshakeIdentity::generate(),
+            Box::new(crate::passport::FixedPassport::unassigned()),
             fallback,
             bevel_margin,
         )
@@ -70,7 +70,21 @@ impl RemotePlanet {
         fallback: world::SolarProportions,
         bevel_margin: f32,
     ) -> std::io::Result<Self> {
-        let mut link = RemoteLink::bind_with_identity(target, keys)?;
+        Self::connect_cosmos_with_vault(
+            target,
+            Box::new(crate::passport::FixedPassport::pinned(&keys)),
+            fallback,
+            bevel_margin,
+        )
+    }
+
+    pub fn connect_cosmos_with_vault(
+        target: JoinTarget,
+        vault: Box<dyn crate::passport::PassportVault>,
+        fallback: world::SolarProportions,
+        bevel_margin: f32,
+    ) -> std::io::Result<Self> {
+        let mut link = RemoteLink::bind_with_vault(target, vault)?;
         let wait = match target {
             JoinTarget::Wormhole(_) => Duration::from_millis(650),
             JoinTarget::Ticket(_) | JoinTarget::Direct(_) => Duration::from_millis(450),

@@ -1,23 +1,30 @@
 use glam::Vec3;
+use super::Callsign;
 
 pub const MAX_UTTERANCE_BYTES: usize = 140;
 
-/// Spatial text utterance spoken at a world coordinate and heard only by nearby companions.
+/// Spatial text utterance spoken at a world coordinate and heard only by nearby companions (`<= 4` fields).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProximityUtterance {
     speaker: u32,
+    callsign: Callsign,
     origin: Vec3,
     text: String,
 }
 
 impl ProximityUtterance {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(speaker: u32, origin: Vec3, text: String) -> Self {
-        Self { speaker, origin, text }
+    pub const fn with_callsign(speaker: u32, callsign: Callsign, origin: Vec3, text: String) -> Self {
+        Self { speaker, callsign, origin, text }
     }
 
-    /// Secondary constructor sanitizing printable text and rejecting blank utterances.
-    pub fn sanitized(speaker: u32, origin: Vec3, raw: &str) -> Option<Self> {
+    /// Secondary constructor initializing an utterance without an explicit callsign.
+    pub const fn new(speaker: u32, origin: Vec3, text: String) -> Self {
+        Self::with_callsign(speaker, Callsign::unnamed(), origin, text)
+    }
+
+    /// Secondary constructor sanitizing printable text and attaching a server-resolved `Callsign`.
+    pub fn named(speaker: u32, callsign: Callsign, origin: Vec3, raw: &str) -> Option<Self> {
         let mut cleaned = String::with_capacity(raw.len().min(MAX_UTTERANCE_BYTES));
         for ch in raw.trim().chars() {
             if ch.is_control() {
@@ -32,13 +39,23 @@ impl ProximityUtterance {
         if trimmed.is_empty() || !origin.is_finite() {
             None
         } else {
-            Some(Self::new(speaker, origin, trimmed.to_string()))
+            Some(Self::with_callsign(speaker, callsign, origin, trimmed.to_string()))
         }
+    }
+
+    /// Secondary constructor sanitizing printable text and rejecting blank utterances.
+    pub fn sanitized(speaker: u32, origin: Vec3, raw: &str) -> Option<Self> {
+        Self::named(speaker, Callsign::unnamed(), origin, raw)
     }
 
     /// Evaluates whether a listener at `listener_pos` stands within `earshot_meters` of the speaker.
     pub fn audible_at(&self, listener_pos: Vec3, earshot_meters: f32) -> bool {
         (listener_pos - self.origin).length_squared() <= earshot_meters * earshot_meters
+    }
+
+    /// Formats the speaker's callsign (or `P<slot>` fallback) and spoken line for HUD chat overlays.
+    pub fn formatted_line(&self) -> String {
+        format!("{}: {}", self.callsign.speaker_label(self.speaker), self.text)
     }
 
     /// Transfers `(speaker_slot, origin, text)` to a collaborator without exposing fields.
@@ -55,6 +72,7 @@ impl ProximityUtterance {
         let len = bytes.len().min(MAX_UTTERANCE_BYTES);
         out.push(len as u8);
         out.extend_from_slice(&bytes[..len]);
+        self.callsign.inscribe(out);
     }
 
     pub fn decode(bytes: &[u8]) -> Option<(Self, usize)> {
@@ -70,7 +88,13 @@ impl ProximityUtterance {
             return None;
         }
         let raw_str = std::str::from_utf8(&bytes[17..17 + text_len]).ok()?;
-        let utterance = Self::sanitized(speaker, Vec3::new(ox, oy, oz), raw_str)?;
-        Some((utterance, 17 + text_len))
+        let head_end = 17 + text_len;
+        let (callsign, extra) = if bytes.len() > head_end {
+            Callsign::decode(&bytes[head_end..])?
+        } else {
+            (Callsign::unnamed(), 0)
+        };
+        let utterance = Self::named(speaker, callsign, Vec3::new(ox, oy, oz), raw_str)?;
+        Some((utterance, head_end + extra))
     }
 }

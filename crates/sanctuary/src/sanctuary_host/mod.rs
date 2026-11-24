@@ -1,3 +1,5 @@
+mod bind;
+
 use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use std::sync::{Arc, Mutex};
@@ -8,19 +10,13 @@ use world::{
     MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SightCone, WorldFact,
 };
 use fauna::BoarSounder;
-use crate::aura::{HostAura, HostIdentity};
-use crate::chronicle_decorators::CompactedChronicle;
-use crate::chronicle_log::{ChronicleLog, ChronicleStore};
+use crate::aura::HostIdentity;
 use crate::chronicled_planet::ChronicledPlanet;
-use crate::cohort::GuestCohort;
 use crate::host_state::HostState;
 use crate::host_wire::HostWire;
 use crate::mailbox::{PortalBeat, PortalMailbox, SocketLoop};
-use crate::nat::NatAperture;
-use crate::seal::HandshakeIdentity;
-use crate::survivor_ledger::{MemorySurvivors, SurvivorStore};
 use crate::ticket::PortalTicket;
-use crate::wormhole::{PortalCode, WormholeGate};
+use crate::wormhole::PortalCode;
 
 /// Authoritative P2P World-Cube sanctuary owning `PlanetaryWorld` lock-free alongside `HostWire`.
 pub struct SanctuaryHost {
@@ -56,90 +52,6 @@ impl SanctuaryHost {
     }
 
     pub fn standby_active(&self) -> bool { self.standby.active() }
-
-    /// Binds a non-blocking UDP socket and discovers the external P2P endpoint via STUN & UPnP/NAT-PMP.
-    pub fn bind(bind_addr: &str, world: Box<dyn PlanetaryWorld>, blocks_per_edge: u32) -> std::io::Result<Self> {
-        Self::bind_cosmos(bind_addr, world, world::SolarProportions::true_scale(blocks_per_edge))
-    }
-
-    /// Binds a non-blocking UDP socket advertising full `SolarProportions` during guest handshakes.
-    pub fn bind_cosmos(
-        bind_addr: &str,
-        world: Box<dyn PlanetaryWorld>,
-        proportions: world::SolarProportions,
-    ) -> std::io::Result<Self> {
-        let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
-        Self::bind_cosmos_with_store(bind_addr, world, proportions, store)
-    }
-
-    /// Binds a non-blocking UDP socket backed by an explicit `ChronicleStore` decorator chain.
-    pub fn bind_cosmos_with_store(
-        bind_addr: &str,
-        world: Box<dyn PlanetaryWorld>,
-        proportions: world::SolarProportions,
-        chronicle: Box<dyn ChronicleStore>,
-    ) -> std::io::Result<Self> {
-        Self::bind_cosmos_with_stores(bind_addr, world, proportions, chronicle, Box::new(MemorySurvivors::empty()))
-    }
-
-    /// Binds a non-blocking UDP socket backed by explicit `ChronicleStore` and `SurvivorStore` decorator chains.
-    pub fn bind_cosmos_with_stores(
-        bind_addr: &str,
-        world: Box<dyn PlanetaryWorld>,
-        proportions: world::SolarProportions,
-        chronicle: Box<dyn ChronicleStore>,
-        survivors: Box<dyn SurvivorStore>,
-    ) -> std::io::Result<Self> {
-        let secret = PortalCode::draw_secret();
-        let socket = HostWire::bind_slot_socket(bind_addr, secret)?;
-        let endpoint = NatAperture::interactive().open_host(&socket);
-        Ok(Self::assemble_with_stores(socket, endpoint, secret, world, proportions, chronicle, survivors))
-    }
-
-    /// Binds a UDP socket advertising a known external NAT endpoint.
-    pub fn bind_with_endpoint(
-        bind_addr: &str,
-        advertised: SocketAddr,
-        world: Box<dyn PlanetaryWorld>,
-        blocks_per_edge: u32,
-    ) -> std::io::Result<Self> {
-        let secret = PortalCode::draw_secret();
-        let socket = HostWire::bind_slot_socket(bind_addr, secret)?;
-        let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
-        Ok(Self::assemble_with_stores(
-            socket,
-            advertised,
-            secret,
-            world,
-            world::SolarProportions::true_scale(blocks_per_edge),
-            store,
-            Box::new(MemorySurvivors::empty()),
-        ))
-    }
-
-    fn assemble_with_stores(
-        socket: UdpSocket,
-        endpoint: SocketAddr,
-        secret: u8,
-        world: Box<dyn PlanetaryWorld>,
-        proportions: world::SolarProportions,
-        chronicle: Box<dyn ChronicleStore>,
-        survivors: Box<dyn SurvivorStore>,
-    ) -> Self {
-        let code = PortalCode::from_endpoint(endpoint, secret);
-        let identity = HostIdentity::with_proportions(HandshakeIdentity::generate(), proportions, endpoint);
-        let mut aura = HostAura::headless();
-        let initial_epoch = world.celestial_atlas().ephemeris().map_or(0.0, |e| e.epoch_secs());
-        aura.sync_epoch(initial_epoch);
-        aura.beacons_mut().refresh_from(world.as_ref());
-        let state = HostState::with_store(
-            chronicle,
-            GuestCohort::with_store(survivors),
-            aura,
-            WormholeGate::with_code(code),
-        );
-        Self::new(socket, world, identity, state)
-    }
 
     fn read_wire<R>(&self, op: impl FnOnce(&HostWire) -> R) -> R {
         let guard = self.wire.lock().expect("HostWire mutex poisoned");

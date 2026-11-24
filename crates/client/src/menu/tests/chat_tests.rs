@@ -2,7 +2,7 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use engine::CpuMeshBatch;
 use world::{
-    BiomedCubeWorld, CompanionPortal, CountedMeshTarget, CubePlanet, PlanetaryWorld,
+    BiomedCubeWorld, Callsign, CompanionPortal, CountedMeshTarget, CubePlanet, PlanetaryWorld,
     ProximityUtterance,
 };
 use crate::avatar::PlanetaryAvatar;
@@ -56,7 +56,9 @@ fn test_proximity_chat_modal_decorator_composes_submits_and_fades_feed() {
     let mut modal = ProximityChatModal::wrapping(base);
     let surface = MockSurface::active();
     let mut avatar = PlanetaryAvatar::at(Vec3::new(0.0, 9.0, 0.0));
-    let incoming = ProximityUtterance::sanitized(4, Vec3::ZERO, "Hi there").expect("utterance");
+    let incoming = ProximityUtterance::named(4, Callsign::sanitized("Tom"), Vec3::ZERO, "Hi there")
+        .expect("utterance");
+    assert_eq!(incoming.formatted_line(), "Tom: Hi there");
     let mut world = LoopbackChatWorld::new(vec![incoming]);
 
     let mut base_batch = CpuMeshBatch::empty();

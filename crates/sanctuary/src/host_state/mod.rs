@@ -5,9 +5,9 @@ use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
-    CompanionPresence, CosmicFrame, DrivenCraft, ExposedStratum, FrameHandoff, GravityBubble,
-    MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions, SurvivorWelcome,
-    WorldFact,
+    Callsign, CompanionPresence, CosmicFrame, DrivenCraft, ExposedStratum, FrameHandoff,
+    GravityBubble, MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions,
+    SurvivorWelcome, WorldFact,
 };
 use fauna::BoarSounder;
 use crate::admin_ward::{AdminBlockWard, GuestFactStamp};
@@ -15,10 +15,11 @@ use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_decorators::CompactedChronicle;
 use crate::chronicle_log::{ChronicleLog, ChronicleStore};
 use crate::chronicled_planet::ChronicledPlanet;
-use crate::cohort::GuestCohort;
+use crate::cohort::{CohortAdmission, GuestCohort};
 use crate::envelope::{CrackNotice, SanctuaryEnvelope};
 use crate::fleet_ledger::FleetLedger;
 use crate::host_sounder::HostSounder;
+use crate::passport::KnockFrame;
 use crate::ticket::PortalTicket;
 use crate::warded_planet::WardedPlanet;
 use crate::wormhole::{PortalCode, WormholeGate};
@@ -91,9 +92,10 @@ impl HostState {
     pub fn refresh_beacons(&mut self, world: &dyn PlanetaryWorld) { self.aura.beacons_mut().refresh_from(world); }
     pub fn drain_host_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { self.aura.drain_utterances(out); }
 
-    pub fn utter_from_host(&mut self, socket: &UdpSocket, text: &str) {
+    pub fn utter_from_host(&mut self, socket: &UdpSocket, host_callsign: Callsign, text: &str) {
         if let Some(pos) = self.aura.occupied_position() {
-            if let Some(utterance) = ProximityUtterance::sanitized(1, pos, text) {
+            let speaker_name = if host_callsign.present() { host_callsign } else { Callsign::host() };
+            if let Some(utterance) = ProximityUtterance::named(1, speaker_name, pos, text) {
                 let hf = self.aura.host_frame();
                 self.cohort.relay_utterance(socket, hf, utterance, &mut self.aura);
             }
@@ -117,6 +119,15 @@ impl HostState {
         guest_pub: [u8; 32],
     ) -> (u32, Option<Vec3>, SurvivorWelcome) {
         self.cohort.admit_guest(identity, &mut self.aura, peer, guest_pub)
+    }
+
+    pub fn admit_knock(
+        &mut self,
+        identity: &HostIdentity,
+        peer: SocketAddr,
+        knock: KnockFrame,
+    ) -> CohortAdmission {
+        self.cohort.admit_knock(identity, &mut self.aura, peer, knock)
     }
 
     pub fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
@@ -207,7 +218,8 @@ impl HostState {
             Some(SanctuaryEnvelope::GuestPetition { fact }) => self.enact_guest_petition(cid, fact, world),
             Some(SanctuaryEnvelope::GuestUtterance { text }) => {
                 if let Some((wf, pos)) = self.cohort.ward_world_locus(cid, &self.aura) {
-                    if let Some(utterance) = ProximityUtterance::sanitized(cid, pos, &text) {
+                    let speaker_name = self.cohort.ward_callsign(cid);
+                    if let Some(utterance) = ProximityUtterance::named(cid, speaker_name, pos, &text) {
                         self.cohort.relay_utterance(socket, wf, utterance, &mut self.aura);
                     }
                 }

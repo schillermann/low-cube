@@ -63,9 +63,9 @@ pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
 pub use planet::{CubePlanet, PatchCoord};
 pub use presence::{
-    BoarPresence, BoarStance, CompanionPresence, DrivenCraft, GoreStamp, PilotCraft,
+    BoarPresence, BoarStance, Callsign, CompanionPresence, DrivenCraft, GoreStamp, PilotCraft,
     PresenceAttire, PresenceKinematics, PresenceRhythm, ProximityUtterance, SounderPresence,
-    VesselBerth, WildlifePulse, MAX_UTTERANCE_BYTES,
+    VesselBerth, WildlifePulse, MAX_CALLSIGN_BYTES, MAX_UTTERANCE_BYTES,
 };
 pub use sight_cone::SightCone;
 pub use surface_contact::SurfaceContact;

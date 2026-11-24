@@ -8,6 +8,22 @@ pub enum WelcomeSpawn {
     Beacon(Vec3),
 }
 
+impl WelcomeSpawn {
+    pub const fn from_optional(point: Option<Vec3>) -> Self {
+        match point {
+            Some(pt) => Self::Beacon(pt),
+            None => Self::Natural,
+        }
+    }
+
+    pub const fn assigned_point(self) -> Option<Vec3> {
+        match self {
+            Self::Natural => None,
+            Self::Beacon(pt) => Some(pt),
+        }
+    }
+}
+
 /// Polymorphic server orbital epoch handoff avoiding nullable `Option<f64>` fields.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum EpochSync {

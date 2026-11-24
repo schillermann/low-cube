@@ -1,6 +1,7 @@
 mod attire;
 mod berth;
 mod boar;
+mod callsign;
 mod craft;
 mod rhythm;
 mod utterance;
@@ -10,6 +11,7 @@ use crate::relief::CraftPose;
 pub use self::attire::PresenceAttire;
 pub use self::berth::VesselBerth;
 pub use self::boar::{BoarPresence, BoarStance, GoreStamp, SounderPresence, WildlifePulse};
+pub use self::callsign::{Callsign, MAX_CALLSIGN_BYTES};
 pub use self::craft::{DrivenCraft, PilotCraft};
 pub use self::rhythm::PresenceRhythm;
 pub use self::utterance::{ProximityUtterance, MAX_UTTERANCE_BYTES};

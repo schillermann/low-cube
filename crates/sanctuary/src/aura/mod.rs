@@ -3,8 +3,8 @@ mod cracks;
 use std::net::SocketAddr;
 use glam::Vec3;
 use world::{
-    CompanionPresence, CosmicFrame, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, FrameHandoff,
-    PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions, VesselBerth,
+    Callsign, CompanionPresence, CosmicFrame, CraftIdentity, CraftPose, DeckFrame, DrivenCraft,
+    FrameHandoff, PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions, VesselBerth,
 };
 use crate::admin_ward::SpawnBeacons;
 use crate::envelope::CrackNotice;
@@ -14,20 +14,30 @@ use crate::seal::HandshakeIdentity;
 use crate::spatial_chronicle::SpatialFactIndex;
 pub use self::cracks::{PeerCrack, SectorCracks};
 
-/// Cryptographic identity, solar-system proportions, and advertised P2P endpoint of a `SanctuaryHost`.
+/// Cryptographic identity, solar-system proportions, endpoint, and host `Callsign` of a `SanctuaryHost` (`<= 4` fields).
 pub struct HostIdentity {
     keys: HandshakeIdentity,
     proportions: SolarProportions,
     endpoint: SocketAddr,
+    callsign: Callsign,
 }
 
 impl HostIdentity {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn with_proportions(keys: HandshakeIdentity, proportions: SolarProportions, endpoint: SocketAddr) -> Self {
-        Self { keys, proportions, endpoint }
+    pub const fn with_callsign(
+        keys: HandshakeIdentity,
+        proportions: SolarProportions,
+        endpoint: SocketAddr,
+        callsign: Callsign,
+    ) -> Self {
+        Self { keys, proportions, endpoint, callsign }
     }
 
-    pub const fn new(keys: HandshakeIdentity, blocks_per_edge: u32, endpoint: SocketAddr) -> Self {
+    pub fn with_proportions(keys: HandshakeIdentity, proportions: SolarProportions, endpoint: SocketAddr) -> Self {
+        Self::with_callsign(keys, proportions, endpoint, Callsign::host())
+    }
+
+    pub fn new(keys: HandshakeIdentity, blocks_per_edge: u32, endpoint: SocketAddr) -> Self {
         Self::with_proportions(keys, SolarProportions::true_scale(blocks_per_edge), endpoint)
     }
 
@@ -35,6 +45,7 @@ impl HostIdentity {
     pub const fn blocks_per_edge(&self) -> u32 { self.proportions.earth_blocks() }
     pub const fn proportions(&self) -> SolarProportions { self.proportions }
     pub const fn endpoint(&self) -> SocketAddr { self.endpoint }
+    pub const fn callsign(&self) -> Callsign { self.callsign }
 }
 
 /// Polymorphic local-host avatar presence (`Headless` for dedicated servers, `Occupied` for `--host`).

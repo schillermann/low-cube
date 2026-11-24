@@ -1,9 +1,11 @@
 use std::net::SocketAddr;
 use glam::Vec3;
-use world::{SolarProportions, SurvivorWelcome};
+use world::{Callsign, SolarProportions, SurvivorWelcome};
 use crate::host_wire::STRUCTURED_WELCOME_TAG;
 use crate::link_state::{LinkPhase, LinkSync};
 use crate::ticket::JoinTarget;
+
+const SEALED_GRANT_SPAN: usize = 62;
 
 /// Verified `LWEL` welcome packet parser establishing `LinkPhase::Sealed`, `WelcomeSpawn`, `EpochSync`, and `SurvivorWelcome`.
 pub struct WelcomeFrame<'a> {
@@ -33,17 +35,11 @@ impl<'a> WelcomeFrame<'a> {
         let cid = u32::from_le_bytes(pkt[36..40].try_into().ok()?);
         let blocks = u32::from_le_bytes(pkt[40..44].try_into().ok()?);
         let proportions = SolarProportions::decode_tail(blocks, &pkt[44..]);
-        let LinkPhase::Knocking { ref keys, .. } = *phase else {
-            return None;
-        };
-        let seal = keys.establish(host_pub, true);
-        *phase = LinkPhase::Sealed { companion_id: cid, seal, peer: self.src };
-        sync.assign_slot(cid);
         if pkt.len() > 80 && pkt[60] == STRUCTURED_WELCOME_TAG {
             let flags = pkt[61];
             let epoch_secs = f64::from_le_bytes(pkt[62..70].try_into().ok()?);
-            sync.assign_welcome_epoch(epoch_secs);
             let mut cursor = 70;
+            let mut parsed_spawn = None;
             if flags & 0x01 != 0 {
                 if pkt.len() < cursor + 12 {
                     return None;
@@ -53,17 +49,52 @@ impl<'a> WelcomeFrame<'a> {
                 let sz = f32::from_le_bytes(pkt[cursor + 8..cursor + 12].try_into().ok()?);
                 let pt = Vec3::new(sx, sy, sz);
                 if pt.is_finite() {
-                    sync.assign_spawn_point(pt, cid);
+                    parsed_spawn = Some(pt);
                 }
                 cursor += 12;
             }
+            let mut parsed_welcome = None;
             if flags & 0x02 != 0 {
-                if let Some((welcome, _)) = SurvivorWelcome::decode(&pkt[cursor..]) {
-                    sync.assign_survivor_welcome(welcome, cid);
+                let (welcome, used) = SurvivorWelcome::decode(&pkt[cursor..])?;
+                parsed_welcome = Some(welcome);
+                cursor += used;
+            }
+            let assigned_callsign = if flags & 0x04 != 0 {
+                let (cs, used) = Callsign::decode(&pkt[cursor..])?;
+                cursor += used;
+                cs
+            } else {
+                Callsign::unnamed()
+            };
+            let sealed_grant = if flags & 0x08 != 0 {
+                if pkt.len() < cursor + SEALED_GRANT_SPAN {
+                    return None;
                 }
+                Some(&pkt[cursor..cursor + SEALED_GRANT_SPAN])
+            } else {
+                None
+            };
+            let LinkPhase::Knocking { ref mut passport, .. } = *phase else {
+                return None;
+            };
+            let (seal, callsign) = passport.accept_welcome(cid, host_pub, self.src, assigned_callsign, sealed_grant)?;
+            *phase = LinkPhase::Sealed { companion_id: cid, callsign, seal, peer: self.src };
+            sync.assign_slot(cid);
+            sync.assign_welcome_epoch(epoch_secs);
+            if let Some(pt) = parsed_spawn {
+                sync.assign_spawn_point(pt, cid);
+            }
+            if let Some(welcome) = parsed_welcome {
+                sync.assign_survivor_welcome(welcome, cid);
             }
             return Some(proportions);
         }
+        let LinkPhase::Knocking { ref mut passport, .. } = *phase else {
+            return None;
+        };
+        let (seal, callsign) = passport.accept_welcome(cid, host_pub, self.src, Callsign::unnamed(), None)?;
+        *phase = LinkPhase::Sealed { companion_id: cid, callsign, seal, peer: self.src };
+        sync.assign_slot(cid);
         if pkt.len() >= 72 {
             let sx = f32::from_le_bytes(pkt[60..64].try_into().ok()?);
             let sy = f32::from_le_bytes(pkt[64..68].try_into().ok()?);

@@ -1,39 +1,87 @@
 use std::time::Duration;
 use fauna::{AmbientWoodland, WoodlandPlanet};
 use sanctuary::{
-    HandshakeIdentity, HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost,
+    DiskPassports, HostedPlanet, JoinTarget, MemoryPassports, PassportVault, RemoteLink,
+    RemotePlanet, SanctuaryHost,
 };
-use world::{CelestialSystem, PlanetaryWorld, SolarProportions};
+use world::{Callsign, CelestialSystem, PlanetaryWorld, SolarProportions};
 use crate::command_flags::CommandFlags;
 use crate::menu::PortalInvite;
+use crate::toml_document::TomlDocument;
 
-/// Persistent client cryptographic identity key profile (`--identity` / `LOW_CUBE_IDENTITY` / `survivor.key`).
-pub struct SurvivorKeyFile {
-    path: String,
+/// Local profile source resolving the player's preferred `Callsign` from `character.toml` or OS login (`<= 4` fields).
+struct LocalCallsignSource {
+    profile_path: &'static str,
 }
 
-impl SurvivorKeyFile {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(path: String) -> Self {
-        Self { path }
+impl LocalCallsignSource {
+    const fn new(profile_path: &'static str) -> Self {
+        Self { profile_path }
     }
 
-    pub fn load_process_identity() -> HandshakeIdentity {
-        let flags = CommandFlags::process();
-        if let Some(explicit) = flags.value_of("--identity").or_else(|| std::env::var("LOW_CUBE_IDENTITY").ok()) {
-            let trimmed = explicit.trim();
-            if !trimmed.is_empty() {
-                return HandshakeIdentity::load_or_create(trimmed);
+    fn resolve(&self) -> Callsign {
+        if cfg!(test) {
+            return Callsign::unnamed();
+        }
+        if let Some(doc) = TomlDocument::from_file(self.profile_path) {
+            if let Some(raw) = doc.property("name") {
+                let cs = Callsign::sanitized(&raw);
+                if cs.present() {
+                    return cs;
+                }
             }
         }
-        Self::new("survivor.key".to_string()).load()
+        std::env::var("USER")
+            .or_else(|_| std::env::var("USERNAME"))
+            .ok()
+            .map(|u| Callsign::sanitized(&u))
+            .filter(Callsign::present)
+            .unwrap_or_else(Callsign::unnamed)
+    }
+}
+
+/// Client passport keyring resolving player `Callsign` and persisting server-issued identities (`<= 4` fields).
+pub struct ClientPassportBook {
+    path: String,
+    callsign: Callsign,
+}
+
+impl ClientPassportBook {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(path: String, callsign: Callsign) -> Self {
+        Self { path, callsign }
     }
 
-    fn load(&self) -> HandshakeIdentity {
+    pub fn from_process() -> Self {
+        let flags = CommandFlags::process();
+        let path = flags
+            .value_of("--passports")
+            .or_else(|| flags.value_of("--identity"))
+            .or_else(|| std::env::var("LOW_CUBE_PASSPORTS").ok())
+            .or_else(|| std::env::var("LOW_CUBE_IDENTITY").ok())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "passports.toml".to_string());
+        let explicit_name = flags
+            .value_of("--name")
+            .or_else(|| std::env::var("LOW_CUBE_NAME").ok())
+            .map(|s| Callsign::sanitized(&s))
+            .filter(Callsign::present);
+        let fallback = explicit_name.unwrap_or_else(|| LocalCallsignSource::new("character.toml").resolve());
+        Self::new(path, fallback)
+    }
+
+    pub fn host_callsign(&self) -> Callsign {
+        let vault = self.open_vault();
+        let preferred = vault.preferred_callsign();
+        if preferred.present() { preferred } else { Callsign::host() }
+    }
+
+    pub fn open_vault(&self) -> Box<dyn PassportVault> {
         if cfg!(test) {
-            HandshakeIdentity::generate()
+            Box::new(MemoryPassports::with_callsign(self.callsign))
         } else {
-            HandshakeIdentity::load_or_create(&self.path)
+            Box::new(DiskPassports::open(&self.path, self.callsign))
         }
     }
 }
@@ -78,8 +126,8 @@ impl PortalDial {
     }
 
     pub fn begin(target: JoinTarget) -> (Self, DialOutcome) {
-        let keys = SurvivorKeyFile::load_process_identity();
-        let Ok(mut link) = RemoteLink::bind_with_identity(target, keys) else {
+        let vault = ClientPassportBook::from_process().open_vault();
+        let Ok(mut link) = RemoteLink::bind_with_vault(target, vault) else {
             return (Self::Idle, DialOutcome::Failed);
         };
         if let Some(prop) = link.try_welcome_cosmos_within(Duration::from_millis(240)) {
@@ -148,7 +196,8 @@ impl LivePortal {
             println!("Invite Ticket:  {existing_ticket}");
             return (world, PortalInvite::hosted(existing_code, existing_ticket));
         }
-        let host = SanctuaryHost::bind_cosmos("0.0.0.0:0", world, self.proportions)
+        let host_name = ClientPassportBook::from_process().host_callsign();
+        let host = SanctuaryHost::bind_named_cosmos("0.0.0.0:0", host_name, world, self.proportions)
             .expect("Failed to bind live co-op portal socket");
         let code = host.code().encode();
         let ticket = host.ticket().encode();
@@ -195,7 +244,8 @@ impl PortalConfig {
             Self::Solitary => Box::new(WoodlandPlanet::wrapping(local_authoritative())),
             Self::HostSanctuary { port } => {
                 let bind_spec = format!("0.0.0.0:{port}");
-                let host = SanctuaryHost::bind_cosmos(&bind_spec, local_authoritative(), proportions)
+                let host_name = ClientPassportBook::from_process().host_callsign();
+                let host = SanctuaryHost::bind_named_cosmos(&bind_spec, host_name, local_authoritative(), proportions)
                     .expect("Failed to bind multiplayer SanctuaryHost UDP socket");
                 let code = host.code().encode();
                 let ticket = host.ticket().encode();
@@ -207,8 +257,8 @@ impl PortalConfig {
                 Box::new(AmbientWoodland::ambient(hosted))
             }
             Self::JoinRemote { target } => {
-                let keys = SurvivorKeyFile::load_process_identity();
-                let remote = RemotePlanet::connect_cosmos_with_identity(target, keys, proportions, 1.0)
+                let vault = ClientPassportBook::from_process().open_vault();
+                let remote = RemotePlanet::connect_cosmos_with_vault(target, vault, proportions, 1.0)
                     .expect("Failed to connect multiplayer RemotePlanet UDP socket")
                     .spawning();
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");

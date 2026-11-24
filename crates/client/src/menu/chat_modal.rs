@@ -136,8 +136,7 @@ impl<M: SessionModal> SessionModal for ProximityChatModal<M> {
         let mut incoming: Vec<ProximityUtterance> = Vec::new();
         world.drain_utterances(&mut incoming);
         for utterance in incoming {
-            let formatted = utterance.transfer(|slot, _, text| format!("P{slot}: {text}"));
-            self.append_feed(formatted);
+            self.append_feed(utterance.formatted_line());
         }
         self.origin.sync_portal_chat(world);
     }

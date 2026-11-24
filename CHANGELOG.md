@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.117.0] - 2026-11-24
+
+### Added
+- Added server-issued `PassportStamp` survivor identities, disambiguated `Callsign`s, human-readable server inventory rosters, and callsign-labeled proximity chat:
+  - `Callsign` (`crates/world/src/presence/callsign.rs`), `ProximityUtterance::named` / `formatted_line` (`crates/world/src/presence/utterance.rs`), `SurvivorRecord::with_callsign` / `inscribe_roster_entry` (`crates/world/src/survivor/record.rs`), and `RelicCatalog::slug` / `SatchelManifest::inventory_summary` (`crates/world/src/survivor/`): models stack-allocated `<= 24 B` UTF-8 player callsigns (`Copy`), strips `#` from client submissions so only the server assigns `#2`/`#3` collision suffixes, and formats proximity chat lines (`Tom: ...`, `Tom#2: ...`, `HOST: ...`) via Tell-Don't-Ask (`crates/client/src/menu/chat_modal.rs`).
+  - `PassportVault`, `DiskPassports(MemoryPassports)`, `FixedPassport`, `PassportStamp`, `PassportDocument`, `HexKey`, and `KnockPassport` (`crates/sanctuary/src/passport/`), wired into `ClientPassportBook` (`crates/client/src/portal_config.rs`, `--passports` / `--name` / `LOW_CUBE_NAME` / `passports.toml` / `character.toml`), `WelcomeFrame` (`crates/sanctuary/src/link_state/welcome.rs`), and `RemoteLink` (`crates/sanctuary/src/remote_link/`):
+    - Requests a fresh identity on first join to any server (`KnockIntent::RequestIdentity`), receives the server-minted `32-byte` secret sealed inside `LWEL` via ChaCha20-Poly1305, persists isolated per-server passports in `passports.toml` (indexed by `host_key` and direct endpoint, including across 12-char `Wormhole` resolution), and proves possession via X25519 Diffie-Hellman on reconnect without transmitting cleartext secrets.
+  - `SlotLedger`, `CohortAdmission`, and `IdentityGrant` (`crates/sanctuary/src/cohort/`), `WardCredential` (`crates/sanctuary/src/ward/`), `RosterSheet` (`crates/sanctuary/src/survivor_ledger/`), and `<journal>.host.key` persistence in `SanctuaryEndpoint::serve` (`crates/sanctuary/src/config/mod.rs`):
+    - Mints idempotent server-issued identities in `GuestCohort::admit_knock`, disambiguates colliding or unnamed callsigns (`Tom` vs. `Tom#2`, `Survivor#1`), logs admissions/restorations on the server console, writes human-readable `<journal>.survivors.toml` inventory ledgers alongside `<journal>.survivors`, and keeps dedicated-server `LC1-...` tickets stable across restarts (`crates/sanctuary/src/tests/passport_identity.rs`).
+
 ## [0.116.0] - 2026-11-24
 
 ### Added

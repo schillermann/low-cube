@@ -5,6 +5,7 @@ use world::{CraftIdentity, CraftPose, PlanetaryWorld, WorldFact};
 use crate::aura::HostIdentity;
 use crate::host_state::HostState;
 use crate::mailbox::PortalBeat;
+use crate::passport::KnockFrame;
 use crate::ticket::PortalTicket;
 use crate::wormhole::PortalCode;
 
@@ -101,27 +102,14 @@ impl HostWire {
     }
 
     pub fn utter_from_host(&mut self, text: &str) {
-        self.state.utter_from_host(&self.socket, text);
+        self.state.utter_from_host(&self.socket, self.identity.callsign(), text);
     }
 
-    fn answer_knock(&mut self, peer: SocketAddr, guest_pub: [u8; 32]) {
-        let (cid, beacon_stand, welcome) = self.state.admit_guest(&self.identity, peer, guest_pub);
-        let mut reply = Vec::with_capacity(160);
-        reply.extend_from_slice(b"LWEL");
-        reply.extend_from_slice(&self.identity.keys().public_bytes());
-        reply.extend_from_slice(&cid.to_le_bytes());
-        reply.extend_from_slice(&self.identity.blocks_per_edge().to_le_bytes());
-        self.identity.proportions().inscribe_tail(&mut reply);
-        let flags = u8::from(beacon_stand.is_some()) | 0x02;
-        reply.push(STRUCTURED_WELCOME_TAG);
-        reply.push(flags);
-        reply.extend_from_slice(&self.state.epoch_secs().to_le_bytes());
-        if let Some(pos) = beacon_stand {
-            for c in [pos.x, pos.y, pos.z] {
-                reply.extend_from_slice(&c.to_le_bytes());
-            }
-        }
-        welcome.inscribe(&mut reply);
+    fn answer_knock(&mut self, peer: SocketAddr, knock: KnockFrame) {
+        let (guest_pub, _) = knock.transfer(|pk, cs| (pk, cs));
+        let admission = self.state.admit_knock(&self.identity, peer, knock);
+        let mut reply = Vec::with_capacity(240);
+        admission.inscribe_welcome(&self.identity, self.state.epoch_secs(), guest_pub, &mut reply);
         let _ = self.socket.send_to(&reply, peer);
     }
 
@@ -131,10 +119,8 @@ impl HostWire {
             self.state.answer_wormhole(&self.socket, src, pkt, ticket);
             return true;
         }
-        if pkt.len() >= 36 && &pkt[0..4] == b"LKNK" {
-            let mut pub_key = [0u8; 32];
-            pub_key.copy_from_slice(&pkt[4..36]);
-            self.answer_knock(src, pub_key);
+        if let Some(knock) = KnockFrame::decode(pkt) {
+            self.answer_knock(src, knock);
             return true;
         }
         false

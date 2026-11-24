@@ -18,6 +18,7 @@ mod hosted_planet;
 mod link_state;
 mod mailbox;
 mod nat;
+mod passport;
 mod remote_link;
 mod remote_planet;
 mod remote_wildlife;
@@ -63,15 +64,19 @@ pub use host_wire::HostWire;
 pub use hosted_planet::HostedPlanet;
 pub use mailbox::{PortalBeat, PortalMailbox, SocketLoop};
 pub use nat::{GatewayLease, NatAperture, StunProbe};
+pub use passport::{
+    DiskPassports, FixedPassport, HexKey, KnockFrame, KnockIntent, KnockPassport, MemoryPassports,
+    PassportClaim, PassportDocument, PassportStamp, PassportVault, KNOCK_PASSPORT_TAG,
+};
 pub use remote_link::RemoteLink;
 pub use remote_planet::RemotePlanet;
 pub use remote_wildlife::RemoteWildlife;
 pub use sanctuary_host::SanctuaryHost;
 pub use seal::{HandshakeIdentity, SessionSeal};
 pub use standby_link::StandbyLink;
-pub use survivor_ledger::{DiskVaultSurvivors, MemorySurvivors, SurvivorStore};
+pub use survivor_ledger::{DiskVaultSurvivors, MemorySurvivors, RosterSheet, SurvivorStore};
 pub use ticket::{JoinPreview, JoinTarget, PortalTicket};
-pub use ward::{GuestWard, WardVitals};
+pub use ward::{GuestWard, WardCredential, WardVitals};
 pub use warded_planet::WardedPlanet;
 pub use wormhole::{
     ChatExcerptCodec, CodeCodec, CrockfordStamp, PortalCode, PunchCode, WormholeGate,

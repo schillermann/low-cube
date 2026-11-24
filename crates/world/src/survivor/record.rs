@@ -1,19 +1,30 @@
 use glam::Vec3;
-use crate::CosmicFrame;
+use crate::{Callsign, CosmicFrame};
 use super::SatchelManifest;
 
-/// Persistent survivor checkpoint uniting Hill-bubble `CosmicFrame`, local `Vec3`, and `SatchelManifest` (`<= 4` fields).
+/// Persistent survivor checkpoint uniting Hill-bubble `CosmicFrame`, local `Vec3`, `SatchelManifest`, and `Callsign` (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SurvivorRecord {
     frame: CosmicFrame,
     position: Vec3,
     manifest: SatchelManifest,
+    callsign: Callsign,
 }
 
 impl SurvivorRecord {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_callsign(
+        frame: CosmicFrame,
+        position: Vec3,
+        manifest: SatchelManifest,
+        callsign: Callsign,
+    ) -> Self {
+        Self { frame, position, manifest, callsign }
+    }
+
+    /// Secondary constructor initializing an unnamed checkpoint.
     pub const fn new(frame: CosmicFrame, position: Vec3, manifest: SatchelManifest) -> Self {
-        Self { frame, position, manifest }
+        Self::with_callsign(frame, position, manifest, Callsign::unnamed())
     }
 
     pub const fn frame(&self) -> CosmicFrame {
@@ -28,12 +39,40 @@ impl SurvivorRecord {
         self.manifest
     }
 
+    pub const fn callsign(&self) -> Callsign {
+        self.callsign
+    }
+
     pub const fn with_locus(self, frame: CosmicFrame, position: Vec3) -> Self {
-        Self::new(frame, position, self.manifest)
+        Self::with_callsign(frame, position, self.manifest, self.callsign)
     }
 
     pub const fn with_manifest(self, manifest: SatchelManifest) -> Self {
-        Self::new(self.frame, self.position, manifest)
+        Self::with_callsign(self.frame, self.position, manifest, self.callsign)
+    }
+
+    pub const fn renamed(self, callsign: Callsign) -> Self {
+        Self::with_callsign(self.frame, self.position, self.manifest, callsign)
+    }
+
+    pub fn inscribe_roster_entry(&self, short_tag: &str, pubkey_hex: &str, out: &mut String) {
+        let name = if self.callsign.present() {
+            self.callsign.as_str()
+        } else {
+            "unnamed"
+        };
+        let locus = match self.frame {
+            CosmicFrame::Body(id) => format!("body_{}", id.raw_code()),
+            CosmicFrame::BeltAsteroid { id, .. } => format!("belt_rock_{}", id.raw_code()),
+            CosmicFrame::DeepSpace(sec) => format!("deep_space_{}_{}_{}", sec[0], sec[1], sec[2]),
+        };
+        out.push_str(&format!(
+            "\n[survivor.{short_tag}]\nname = \"{name}\"\nidentity_pub = \"{pubkey_hex}\"\nframe = \"{locus}\"\nposition = [{:.2}, {:.2}, {:.2}]\nitems = \"{}\"\n",
+            self.position.x,
+            self.position.y,
+            self.position.z,
+            self.manifest.inventory_summary(),
+        ));
     }
 
     pub fn inscribe(&self, out: &mut Vec<u8>) {
@@ -42,6 +81,7 @@ impl SurvivorRecord {
             out.extend_from_slice(&c.to_le_bytes());
         }
         self.manifest.inscribe_sparse(out);
+        self.callsign.inscribe(out);
     }
 
     pub fn decode(bytes: &[u8]) -> Option<(Self, usize)> {
@@ -57,7 +97,12 @@ impl SurvivorRecord {
             return None;
         }
         let (manifest, m_used) = SatchelManifest::decode_sparse(&bytes[f_used + 12..])?;
-        Some((Self::new(frame, position, manifest), f_used + 12 + m_used))
+        let manifest_end = f_used + 12 + m_used;
+        let (callsign, c_used) = Callsign::decode(&bytes[manifest_end..])?;
+        Some((
+            Self::with_callsign(frame, position, manifest, callsign),
+            manifest_end + c_used,
+        ))
     }
 }
 
