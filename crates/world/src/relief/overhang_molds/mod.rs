@@ -1,4 +1,5 @@
 mod blueprints;
+mod snapshot;
 
 use glam::Vec3;
 use crate::MeshTarget;
@@ -15,6 +16,7 @@ use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
 use self::blueprints::{BlueprintCommission, BlueprintSite, VehicleEmbarkation};
+use self::snapshot::{SectorMoldsTarget, SectorMoldsView};
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
@@ -116,26 +118,13 @@ impl OverhangMolds {
         raw_floor: f32,
         medium: BlockMedium,
     ) -> Option<(GridCell, f32, MountDomain)> {
-        if medium == BlockMedium::CantileverRig {
-            return Some((GridCell::new(u, v), ground_top, MountDomain::WorldCube));
-        }
-        if medium == BlockMedium::VehicleBlueprint {
-            return BlueprintSite::new(&self.rigs, &self.fleet)
-                .resolve_planned_site(u, v, ground_top, sub, raw_floor);
-        }
-        match self.rigs.resolve_placement(u, v, ground_top, sub, raw_floor) {
-            RigPlacement::BlockedMast => None,
-            RigPlacement::MountFirst { cell, floor_elev, .. } => {
-                Some((GridCell::new(cell.0, cell.1), floor_elev, MountDomain::CraftRig))
-            }
-            RigPlacement::AttachCraft { cell, floor_elev, .. } => {
-                (floor_elev < MAX_STACK_ELEVATION)
-                    .then_some((GridCell::new(cell.0, cell.1), floor_elev, MountDomain::CraftRig))
-            }
-            RigPlacement::WorldCube => self
-                .resolve_world_floor(u, v, ground_top, sub, raw_floor)
-                .map(|z| (GridCell::new(u, v), z, MountDomain::WorldCube)),
-        }
+        BlueprintSite::new(&self.rigs, &self.fleet).resolve_any_site(
+            &self.world_blocks,
+            (u, v),
+            (ground_top, raw_floor),
+            sub,
+            medium,
+        )
     }
 
     pub fn present_vessels(&self, sink: &mut dyn VesselSink) { self.fleet.present_vessels(sink); }
@@ -282,11 +271,26 @@ impl OverhangMolds {
             .build(strata, shafts, frame, (u, v, ground_top, raw_floor), sub, ray, blueprint)
     }
 
-    pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> Vec<(i32, i32)> {
+    pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> (Vec<(i32, i32)>, bool) {
         let settled_cells = self.world_blocks.settle_gravity(strata, shafts, &mut self.scars);
-        let mut regrown = self.scars.regrow_step(strata, shafts, &self.world_blocks, dt);
-        regrown.extend(self.world_blocks.regrow_sod(strata, shafts, &self.scars, dt));
+        let (mut regrown, scars_active) = self.scars.regrow_step(strata, shafts, &self.world_blocks, dt);
+        let (sod_cells, blocks_active) = self.world_blocks.regrow_sod(strata, shafts, &self.scars, dt);
+        let still_active = !settled_cells.is_empty() || scars_active || blocks_active;
+        regrown.extend(sod_cells);
         regrown.extend(settled_cells);
-        regrown
+        (regrown, still_active)
+    }
+
+    pub fn capture_sector(&self, gsu: i32, gsv: i32) -> (u64, Vec<crate::SnapshotBlock>, Vec<crate::RigSnapshot>) {
+        SectorMoldsView::new(&self.world_blocks, &self.rigs, &self.scars).capture(gsu, gsv)
+    }
+
+    pub fn apply_sector(&mut self, strata: &NaturalStrata, gsu: i32, gsv: i32, bare_mask: u64, cols: &crate::SectorColumnState) {
+        SectorMoldsTarget::new(&mut self.world_blocks, &mut self.rigs, &mut self.scars)
+            .apply(strata, gsu, gsv, bare_mask, cols);
+    }
+
+    pub fn collect_modified_sectors(&self, out: &mut Vec<(i32, i32)>) {
+        SectorMoldsView::new(&self.world_blocks, &self.rigs, &self.scars).collect_modified_sectors(out);
     }
 }

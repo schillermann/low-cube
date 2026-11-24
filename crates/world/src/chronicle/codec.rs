@@ -108,6 +108,10 @@ impl<'a> FactCodec<'a> {
                 out.extend_from_slice(&body.raw_code().to_le_bytes());
                 FactCodec::new(fact).inscribe(out);
             }
+            WorldFact::SectorSnapshot { ref snapshot } => {
+                out.push(16);
+                snapshot.inscribe(out);
+            }
         }
     }
 }
@@ -236,6 +240,10 @@ impl<'a> FactBytes<'a> {
                     return None;
                 }
                 Some((WorldFact::OffWorld { body, fact: Box::new(inner) }, 3 + used))
+            }
+            16 if bytes.len() >= 24 => {
+                let (snapshot, used) = super::SectorSnapshot::decode(&bytes[1..])?;
+                Some((WorldFact::SectorSnapshot { snapshot }, 1 + used))
             }
             _ => None,
         }

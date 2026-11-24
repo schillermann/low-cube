@@ -192,4 +192,19 @@ impl WorldEarthworks for RemotePlanet {
     fn enact_offworld(&mut self, body: world::BodyId, fact: &WorldFact) -> bool {
         self.with_chronicled(|w| w.enact_offworld(body, fact))
     }
+    fn capture_sector_snapshot(&self, face: u8, gsu: i32, gsv: i32) -> world::SectorSnapshot {
+        self.world.capture_sector_snapshot(face, gsu, gsv)
+    }
+    fn apply_sector_snapshot(&mut self, snapshot: &world::SectorSnapshot) -> bool {
+        self.world.apply_sector_snapshot(snapshot)
+    }
+    fn collect_sector_snapshots(&self, out: &mut Vec<world::SectorSnapshot>) {
+        self.world.collect_sector_snapshots(out);
+    }
+    fn capture_offworld_snapshot(&mut self, body: world::BodyId, face: u8, gsu: i32, gsv: i32) -> world::SectorSnapshot {
+        self.world.capture_offworld_snapshot(body, face, gsu, gsv)
+    }
+    fn collect_offworld_snapshots(&mut self, out: &mut Vec<(world::BodyId, world::SectorSnapshot)>) {
+        self.world.collect_offworld_snapshots(out);
+    }
 }

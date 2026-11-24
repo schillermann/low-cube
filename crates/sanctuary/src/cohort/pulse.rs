@@ -135,7 +135,9 @@ impl CohortPulse {
                     }
                 }
             }
-            stream.gather_in_frame(wf, anchor, &other_crafts, fact_index, self.proportions, self.epoch_secs);
+            if ward.live_presence() {
+                stream.gather_in_frame(wf, anchor, &other_crafts, fact_index, self.proportions, self.epoch_secs);
+            }
             let mut payloads = Vec::with_capacity(2);
             if let Some((base_seq, facts)) = stream.batch_from(ward.ack_seq(), chronicle) {
                 let mut out = Vec::new();
@@ -159,5 +161,43 @@ impl CohortPulse {
         }
         let delivery = ParallelSeals::hardware(SequentialDelivery::new());
         delivery.deliver(socket, &mut frames);
+    }
+
+    pub fn relay_utterance(
+        socket: &UdpSocket,
+        wards: &mut HashMap<u32, (GuestWard, HorizonStream)>,
+        speaker_frame: CosmicFrame,
+        utterance: world::ProximityUtterance,
+        aura: &mut HostAura,
+        render_secs: f64,
+    ) {
+        let speaker = utterance.transfer(|slot, _, _| slot);
+        if speaker != 1 {
+            aura.receive_utterance(speaker_frame, utterance.clone(), crate::audience::CHAT_EARSHOT_METERS);
+        }
+        let mut payload = Vec::with_capacity(80);
+        SanctuaryEnvelope::HostUtterance { utterance: utterance.clone() }.inscribe(&mut payload);
+        let mut scratch = Vec::with_capacity(112);
+        let view = super::deck_view::HostDeckView::new(wards, render_secs);
+        let recipient_ids: Vec<u32> = wards
+            .iter()
+            .filter_map(|(&cid, (ward, _))| {
+                if cid == speaker {
+                    return None;
+                }
+                let raw = ward.anchor_position();
+                let (wf, pos) = match ward.berth().craft_id().and_then(|id| view.active_ship(id, aura)) {
+                    Some((sf, pose)) => (sf, pose.world_point_at(raw)),
+                    None => (ward.cosmic_frame(), raw),
+                };
+                (wf == speaker_frame && utterance.audible_at(pos, crate::audience::CHAT_EARSHOT_METERS))
+                    .then_some(cid)
+            })
+            .collect();
+        for cid in recipient_ids {
+            if let Some((ward, _)) = wards.get_mut(&cid) {
+                ward.send_sealed(socket, cid, &payload, &mut scratch);
+            }
+        }
     }
 }

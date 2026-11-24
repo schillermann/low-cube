@@ -1,8 +1,13 @@
+use std::collections::HashMap;
 use crate::frame::SurfaceFrame;
-use super::super::craft_cluster::CraftCluster;
+use super::super::craft_cluster::{CraftCluster, ParkedFleet};
 use super::super::craft_entity::CraftBlueprint;
 use super::super::molded_structure::MoldedStructure;
-use super::{RigArm, BLOCK_STEP};
+use super::super::natural_strata::NaturalStrata;
+use super::super::shaft_excavation::ShaftExcavation;
+use super::super::sight_ray::SurfaceSightRay;
+use super::super::vehicle_assembly::{VehicleAssembly, VehicleAxes};
+use super::{CantileverRig, RigArm, BLOCK_STEP};
 
 /// Collaborator mounting a saved `CraftBlueprint` onto a vacant cantilever crane arm and retracting its mast.
 pub(super) struct BlueprintHoist<'a> {
@@ -55,5 +60,45 @@ impl<'a> BlueprintHoist<'a> {
         };
         *craft = cluster;
         Some(relocated)
+    }
+}
+
+/// Collaborator reconnecting a nearby parked vehicle onto a vacant cantilever crane arm.
+pub(super) struct SeatedCarMount<'a> {
+    rigs: &'a mut HashMap<(i32, i32), CantileverRig>,
+    fleet: &'a mut ParkedFleet,
+}
+
+impl<'a> SeatedCarMount<'a> {
+    pub(super) fn new(rigs: &'a mut HashMap<(i32, i32), CantileverRig>, fleet: &'a mut ParkedFleet) -> Self {
+        Self { rigs, fleet }
+    }
+
+    pub(super) fn reconnect(
+        self,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        mast: (i32, i32),
+        ray: SurfaceSightRay,
+        frame: &SurfaceFrame,
+    ) -> Option<VehicleAssembly> {
+        if !self.rigs.get(&mast).is_some_and(CantileverRig::vacant_craft) {
+            return None;
+        }
+        let eye_world = ray.sample_point(0.0);
+        let (eu, ev) = frame.decompose(eye_world);
+        let parked = self.fleet.take_cluster_near(strata, shafts, eye_world, 5.0)?;
+        let mut rig = self.rigs.remove(&mast)?;
+        match rig.mount_parked(mast.0, mast.1, parked, eu, ev, frame) {
+            Ok((relocated, origin, heading)) => {
+                self.rigs.insert(relocated.unwrap_or(mast), rig);
+                let axes = VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal());
+                Some(VehicleAssembly::new(origin, axes, heading, Vec::new()))
+            }
+            Err(_) => {
+                self.rigs.insert(mast, rig);
+                None
+            }
+        }
     }
 }

@@ -13,7 +13,6 @@ use super::elevation::{ReliefElevation, ZonedRelief};
 use super::mineral_vein::{ExposedStratum, HollowVeins, LivingVeins, SubterraneanVeins};
 use super::palette::ReliefPalette;
 use super::planned_mount::PlannedMount;
-use super::sight_ray::SurfaceSightRay;
 use super::strata::ReliefStrata;
 use super::terraced::TerracedRelief;
 use super::vehicle_assembly::VehicleAssembly;
@@ -151,20 +150,14 @@ impl Face for FacetedReliefFace {
 
     fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
         let half = self.cache.half_blocks();
-        let half_size = self.domain.frame.step_elevation(half);
-        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
-            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)?;
-        let harvested = self.domain.relief.harvest_layer(cu, cv, layer)?;
+        let (cu, cv, harvested) = self.domain.harvest(half, eye, direction)?;
         self.refresh_neighborhood(cu, cv, half, 4);
         Some(harvested)
     }
 
     fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
         let half = self.cache.half_blocks();
-        let half_size = self.domain.frame.step_elevation(half);
-        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
-            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)?;
-        let loosened = self.domain.relief.mark_dig_layer(cu, cv, layer, stage)?;
+        let (cu, cv, loosened) = self.domain.loosen(half, eye, direction, stage)?;
         self.refresh_neighborhood(cu, cv, half, 0);
         Some(loosened)
     }
@@ -188,11 +181,11 @@ impl Face for FacetedReliefFace {
 
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         let half = self.cache.half_blocks();
-        let (changed, (ru, rv)) = self.domain.adjust_rig(half, eye, direction, delta_steps, rotate_quarter);
-        if changed {
-            self.refresh_neighborhood(ru, rv, half, 4);
-        }
-        changed
+        let Some((ru, rv)) = self.domain.adjust_rig(half, eye, direction, delta_steps, rotate_quarter) else {
+            return false;
+        };
+        self.refresh_neighborhood(ru, rv, half, 4);
+        true
     }
 
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
@@ -250,11 +243,15 @@ impl Face for FacetedReliefFace {
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
-        let (half, cells) = (self.cache.half_blocks(), self.domain.relief.step_grass(dt));
+        let (half, cells) = (self.cache.half_blocks(), self.domain.step_grass(dt));
         for &(cu, cv) in &cells {
             self.refresh_neighborhood(cu, cv, half, 0);
         }
         !cells.is_empty()
+    }
+
+    fn active_simulation(&self) -> bool {
+        self.domain.awake
     }
 
     fn lethal_at(&self, point: Vec3) -> bool {
@@ -277,5 +274,23 @@ impl Face for FacetedReliefFace {
 
     fn drain_disclosures(&mut self, out: &mut Vec<ExposedStratum>) {
         self.domain.relief.drain_disclosures(out);
+    }
+
+    fn capture_sector_snapshot(&self, face_idx: u8, gsu: i32, gsv: i32) -> crate::SectorSnapshot {
+        let (bare_mask, cols) = self.domain.relief.capture_sector_state(gsu, gsv);
+        crate::SectorSnapshot::new(face_idx, (gsu, gsv), bare_mask, cols)
+    }
+
+    fn apply_sector_snapshot(&mut self, snapshot: &crate::SectorSnapshot) -> bool {
+        let (gsu, gsv) = snapshot.sector();
+        self.domain.relief.apply_sector_state(gsu, gsv, snapshot.bare_mask(), snapshot.columns());
+        self.domain.wake();
+        let half = self.cache.half_blocks();
+        self.refresh_neighborhood(gsu * 8 + 4, gsv * 8 + 4, half, 7);
+        true
+    }
+
+    fn collect_modified_sectors(&self, out: &mut Vec<(i32, i32)>) {
+        self.domain.relief.collect_modified_sectors(out);
     }
 }

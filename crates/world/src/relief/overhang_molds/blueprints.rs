@@ -24,6 +24,38 @@ impl<'a> BlueprintSite<'a> {
         Self { rigs, fleet }
     }
 
+    pub(super) fn resolve_any_site(
+        &self,
+        world_blocks: &super::super::molded_structure::WorldBlocks,
+        (u, v): (i32, i32),
+        (ground_top, raw_floor): (f32, f32),
+        sub: bool,
+        medium: crate::block::BlockMedium,
+    ) -> Option<(GridCell, f32, MountDomain)> {
+        if medium == crate::block::BlockMedium::CantileverRig {
+            return Some((GridCell::new(u, v), ground_top, MountDomain::WorldCube));
+        }
+        if medium == crate::block::BlockMedium::VehicleBlueprint {
+            return self.resolve_planned_site(u, v, ground_top, sub, raw_floor);
+        }
+        match self.rigs.resolve_placement(u, v, ground_top, sub, raw_floor) {
+            RigPlacement::BlockedMast => None,
+            RigPlacement::MountFirst { cell, floor_elev, .. } => {
+                Some((GridCell::new(cell.0, cell.1), floor_elev, MountDomain::CraftRig))
+            }
+            RigPlacement::AttachCraft { cell, floor_elev, .. } => (floor_elev < MAX_STACK_ELEVATION)
+                .then_some((GridCell::new(cell.0, cell.1), floor_elev, MountDomain::CraftRig)),
+            RigPlacement::WorldCube => {
+                let mut z = if sub { raw_floor } else { raw_floor.max(ground_top) };
+                while world_blocks.layer_occupied_at(u, v, z + 0.25) {
+                    z += if sub { -GridCell::SPAN } else { GridCell::SPAN };
+                }
+                (z < MAX_STACK_ELEVATION && !self.fleet.blocks_placement_at(u, v, z))
+                    .then_some((GridCell::new(u, v), z, MountDomain::WorldCube))
+            }
+        }
+    }
+
     pub(super) fn resolve_planned_site(
         &self,
         u: i32,

@@ -1,6 +1,7 @@
 mod earthworks;
 mod facets;
 mod patches;
+mod shards;
 mod slices;
 
 use glam::Vec3;
@@ -9,6 +10,7 @@ use crate::{
     SurfaceContact,
 };
 pub use self::patches::{MeadowScan, PatchCoord};
+pub use self::shards::ZoneShards;
 pub use self::slices::ModifiedSlices;
 
 /// Cubic planetary world composed of polymorphic `Face` instances, modified-slice tracking, and seam boundary.
@@ -174,19 +176,16 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
-        let len = self.faces.len();
-        let mut regrown = false;
-        for (idx, face) in self.faces.iter_mut().enumerate() {
-            if face.step_surface(dt) {
-                self.slices.record(idx);
-                regrown = true;
-            }
-            if face.step_flora(dt) {
-                self.slices.record(len + idx);
-                regrown = true;
-            }
-        }
-        regrown
+        ZoneShards::new(dt, 0b0011_1111).step_faces(&mut self.faces, &mut self.slices)
+    }
+
+    fn step_active_zones(
+        &mut self,
+        dt: f32,
+        earth_zone_mask: u8,
+        _active_bodies: &[crate::BodyId],
+    ) -> bool {
+        ZoneShards::new(dt, earth_zone_mask).step_faces(&mut self.faces, &mut self.slices)
     }
 
     fn lethal_at(&self, position: Vec3) -> bool {

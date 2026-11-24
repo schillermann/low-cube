@@ -249,4 +249,37 @@ impl WorldEarthworks for HeliosphereWorld {
             .borrow_mut()
             .enact_on_body(body, fact, self.ephemeris.proportions())
     }
+
+    fn capture_sector_snapshot(&self, face: u8, gsu: i32, gsv: i32) -> crate::SectorSnapshot {
+        self.earth.capture_sector_snapshot(face, gsu, gsv)
+    }
+
+    fn apply_sector_snapshot(&mut self, snapshot: &crate::SectorSnapshot) -> bool {
+        self.earth.apply_sector_snapshot(snapshot)
+    }
+
+    fn collect_sector_snapshots(&self, out: &mut Vec<crate::SectorSnapshot>) {
+        self.earth.collect_sector_snapshots(out);
+    }
+
+    fn capture_offworld_snapshot(
+        &mut self,
+        body: crate::BodyId,
+        face: u8,
+        gsu: i32,
+        gsv: i32,
+    ) -> crate::SectorSnapshot {
+        if body == crate::BodyId::EARTH {
+            return self.earth.capture_sector_snapshot(face, gsu, gsv);
+        }
+        self.vicinity
+            .borrow_mut()
+            .capture_body_sector(body, (face, gsu, gsv), self.ephemeris.proportions())
+    }
+
+    fn collect_offworld_snapshots(&mut self, out: &mut Vec<(crate::BodyId, crate::SectorSnapshot)>) {
+        self.vicinity
+            .borrow_mut()
+            .collect_offworld_snapshots(self.ephemeris.proportions(), out);
+    }
 }

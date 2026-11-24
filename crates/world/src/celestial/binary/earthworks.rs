@@ -101,4 +101,16 @@ impl<G: GravityField + Send> WorldEarthworks for BinaryPlanet<G> {
             self.moon.disclose_stratum(face_index - 6, stratum);
         }
     }
+
+    fn capture_sector_snapshot(&self, face: u8, gsu: i32, gsv: i32) -> crate::SectorSnapshot {
+        self.home.capture_sector_snapshot(face, gsu, gsv)
+    }
+
+    fn apply_sector_snapshot(&mut self, snapshot: &crate::SectorSnapshot) -> bool {
+        self.home.apply_sector_snapshot(snapshot)
+    }
+
+    fn collect_sector_snapshots(&self, out: &mut Vec<crate::SectorSnapshot>) {
+        self.home.collect_sector_snapshots(out);
+    }
 }

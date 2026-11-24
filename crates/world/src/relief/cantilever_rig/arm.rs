@@ -25,6 +25,15 @@ impl RigArm {
         Self::new(ground_top, INITIAL_HOIST_STEPS, INITIAL_REACH_STEPS, turn & 3)
     }
 
+    pub fn posture_tuple(self) -> (i16, i8, i8, u8) {
+        let gq = (self.ground_top * 4.0).round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+        (gq, self.hoist_steps.clamp(-16, 64) as i8, self.reach_steps.clamp(-16, 64) as i8, self.turn & 3)
+    }
+
+    pub fn from_posture((gq, hs, rs, turn): (i16, i8, i8, u8)) -> Self {
+        Self::new((gq as f32) * 0.25, i32::from(hs), i32::from(rs), turn & 3)
+    }
+
     pub fn above_base(&self, floor_elev: f32) -> bool {
         floor_elev > self.ground_top + 0.05
     }

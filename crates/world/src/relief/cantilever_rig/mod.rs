@@ -38,6 +38,17 @@ impl CantileverRig {
         Self::new(RigArm::deployed(ground_top, turn), CraftCluster::untouched())
     }
 
+    pub fn snapshot_at(&self, mast_u: i32, mast_v: i32, gsu: i32, gsv: i32) -> crate::RigSnapshot {
+        let uv = crate::SectorSnapshot::pack_uv(mast_u, mast_v, gsu, gsv);
+        crate::RigSnapshot::new(uv, self.arm.posture_tuple(), self.craft.snapshot_relative(mast_u, mast_v))
+    }
+
+    pub fn from_snapshot(gsu: i32, gsv: i32, snap: &crate::RigSnapshot) -> ((i32, i32), Self) {
+        let (mu, mv) = crate::SectorSnapshot::unpack_uv(snap.local_uv(), gsu, gsv);
+        let craft = CraftCluster::from_relative_snapshot(mu, mv, snap.craft_cells());
+        ((mu, mv), Self::new(RigArm::from_posture(snap.arm()), craft))
+    }
+
     pub fn occupies_mast_layer(&self, layer_elev: f32) -> bool { self.arm.occupies_mast_layer(layer_elev) }
     pub fn vacant_craft(&self) -> bool { self.craft.vacant() }
     pub fn craft_present_at(&self, u: i32, v: i32) -> bool { self.craft.present_at(u, v) }

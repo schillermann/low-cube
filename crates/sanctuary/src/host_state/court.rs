@@ -9,6 +9,7 @@ use crate::aura::HostAura;
 use crate::chronicle_log::ChronicleStore;
 use crate::cohort::GuestCohort;
 use crate::envelope::SanctuaryEnvelope;
+use crate::host_state::HostState;
 
 /// Focused custodian docking vehicles abandoned by disconnected companions on Earth or off-world bodies (`<= 4` fields).
 pub(super) struct AbandonedDock<'a> {
@@ -75,6 +76,21 @@ impl<'a> AbandonedDock<'a> {
     pub fn valid_boar_reach(frame: CosmicFrame, eye: Vec3, direction: Vec3, ward: &crate::ward::GuestWard) -> bool {
         frame.earth_centered() && ward.eye_within_reach(eye, direction)
     }
+
+    pub fn occupied_zones_and_bodies(cohort: &GuestCohort, aura: &HostAura) -> (u8, Vec<world::BodyId>) {
+        let mut mask = 0u8;
+        let mut bodies = Vec::new();
+        if let Some(pos) = aura.occupied_position() {
+            let hf = aura.host_frame();
+            if hf.earth_centered() {
+                mask |= 1u8 << (world::ClimateZone::dominant(pos).index() as u8);
+            } else if let Some(b) = hf.anchored_body() {
+                bodies.push(b);
+            }
+        }
+        cohort.collect_active_zones(aura, &mut mask, &mut bodies);
+        (mask, bodies)
+    }
 }
 
 /// Focused standby UDP envelope dispatcher updating cohort pulses, inventory notices, and deferred petitions (`<= 4` fields).
@@ -129,6 +145,46 @@ impl<'a> StandbyCourt<'a> {
                 let _ = self.cohort.apply_inventory_notice(cid, notice, self.aura);
             }
             _ => {}
+        }
+    }
+
+    pub fn apply_authoritative(
+        state: &mut HostState,
+        socket: &UdpSocket,
+        cid: u32,
+        env: SanctuaryEnvelope,
+        proportions: SolarProportions,
+        world: &mut dyn PlanetaryWorld,
+    ) -> bool {
+        let now = state.cohort.tick_secs();
+        let bubble = GravityBubble::new(proportions, state.aura.epoch_secs());
+        match env {
+            SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame, berth } => {
+                let vetted = match craft {
+                    PilotCraft::Driving(dc) if !state.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
+                    other => other,
+                };
+                if let Some(ward) = state.cohort.ward_mut(cid) {
+                    ward.absorb_pulse(cid, ack_seq, now, frame, berth, presence, vetted, bubble, world);
+                }
+                state.cohort.commit_survivor(cid, &state.aura, false);
+                false
+            }
+            SanctuaryEnvelope::GuestPetition { fact } => state.enact_guest_petition(cid, fact, world),
+            SanctuaryEnvelope::GuestUtterance { text } => {
+                if let Some((wf, pos)) = state.cohort.ward_world_locus(cid, &state.aura) {
+                    let speaker_name = state.cohort.ward_callsign(cid);
+                    if let Some(utterance) = ProximityUtterance::named(cid, speaker_name, pos, &text) {
+                        state.cohort.relay_utterance(socket, wf, utterance, &mut state.aura);
+                    }
+                }
+                false
+            }
+            SanctuaryEnvelope::GuestInventory { notice } => {
+                let _ = state.cohort.apply_inventory_notice(cid, notice, &state.aura);
+                false
+            }
+            _ => false,
         }
     }
 }

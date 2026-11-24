@@ -1,5 +1,10 @@
-use world::{CraftBlueprint, CraftIdentity, WorldFact};
-use crate::chronicled_planet::FactJournal;
+use world::{CosmicFrame, CraftBlueprint, CraftIdentity, ExposedStratum, PlanetaryWorld, WorldFact};
+use fauna::BoarSounder;
+use crate::admin_ward::{AdminBlockWard, GuestFactStamp};
+use crate::chronicled_planet::{ChronicledPlanet, FactJournal};
+use crate::envelope::CrackNotice;
+use crate::warded_planet::WardedPlanet;
+use super::court::AbandonedDock;
 use super::HostState;
 
 impl FactJournal for HostState {
@@ -21,5 +26,71 @@ impl FactJournal for HostState {
 
     fn release_local_helm(&mut self, craft: CraftIdentity) {
         let _ = self.fleet_mut().release_helm(craft, 1);
+    }
+}
+
+impl HostState {
+    pub fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
+        match fact {
+            WorldFact::Loosened { eye, direction, stage } => {
+                let frame = if author_slot == 1 {
+                    self.aura.host_frame()
+                } else {
+                    self.cohort.ward_locus(author_slot).map_or(CosmicFrame::earth(), |(f, _)| f)
+                };
+                self.aura.record_crack(author_slot, frame, CrackNotice::new(eye, direction, stage.min(4)));
+            }
+            WorldFact::OffWorld { body, ref fact } => {
+                if let WorldFact::Loosened { eye, direction, stage } = **fact {
+                    self.aura.record_crack(author_slot, CosmicFrame::Body(body), CrackNotice::new(eye, direction, stage.min(4)));
+                }
+            }
+            _ => {}
+        }
+        let before = self.chronicle.total();
+        self.chronicle.record(fact);
+        if self.chronicle.total() > before && author_slot >= 2 {
+            self.cohort.ensure_authored_fact(author_slot, before);
+        }
+    }
+
+    pub fn record_disclosure(&mut self, face: u8, stratum: ExposedStratum) {
+        self.chronicle.record(WorldFact::StratumDisclosed { face, stratum });
+    }
+
+    pub fn enact_guest_petition(&mut self, cid: u32, fact: WorldFact, world: &mut dyn PlanetaryWorld) -> bool {
+        match fact {
+            WorldFact::StratumDisclosed { .. } | WorldFact::SectorSnapshot { .. } => false,
+            WorldFact::OffWorld { ref fact, .. }
+                if matches!(**fact, WorldFact::StratumDisclosed { .. } | WorldFact::SectorSnapshot { .. }) =>
+            {
+                false
+            }
+            WorldFact::BoarStruck { eye, direction, power, reach_cm } => {
+                if !self.cohort.ward_mut(cid).is_some_and(|w| AbandonedDock::valid_boar_reach(w.cosmic_frame(), eye, direction, w)) {
+                    return false;
+                }
+                let (_, drops) = self
+                    .aura
+                    .wildlife_mut()
+                    .evaluate_strike(eye, direction, power.clamp(1, 4), (f32::from(reach_cm) * 0.01).clamp(0.5, 2.75), false, world);
+                let Some(meat_rays) = drops else { return false };
+                let mut decorated = ChronicledPlanet::new(world, self);
+                BoarSounder::cast_meat_drops(meat_rays, &mut decorated)
+            }
+            other => {
+                let stamped = GuestFactStamp::new(cid, other).stamped();
+                let fleet = self.aura.fleet_mut();
+                let enacted = self.cohort.ward_mut(cid).is_some_and(|ward| {
+                    let mut guarded = AdminBlockWard::new(WardedPlanet::new(world, ward, fleet, cid));
+                    stamped.enact_on(&mut guarded)
+                });
+                if enacted {
+                    self.cohort.commit_survivor(cid, &self.aura, true);
+                    self.record_authored_fact(cid, stamped);
+                }
+                enacted
+            }
+        }
     }
 }

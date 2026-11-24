@@ -187,6 +187,30 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
         }
         ok
     }
+
+    fn capture_sector_snapshot(&self, face: u8, gsu: i32, gsv: i32) -> world::SectorSnapshot {
+        self.origin.capture_sector_snapshot(face, gsu, gsv)
+    }
+
+    fn apply_sector_snapshot(&mut self, snapshot: &world::SectorSnapshot) -> bool {
+        let ok = self.origin.apply_sector_snapshot(snapshot);
+        if ok {
+            self.journal.inscribe_fact(WorldFact::SectorSnapshot { snapshot: snapshot.clone() });
+        }
+        ok
+    }
+
+    fn collect_sector_snapshots(&self, out: &mut Vec<world::SectorSnapshot>) {
+        self.origin.collect_sector_snapshots(out);
+    }
+
+    fn capture_offworld_snapshot(&mut self, body: BodyId, face: u8, gsu: i32, gsv: i32) -> world::SectorSnapshot {
+        self.origin.capture_offworld_snapshot(body, face, gsu, gsv)
+    }
+
+    fn collect_offworld_snapshots(&mut self, out: &mut Vec<(BodyId, world::SectorSnapshot)>) {
+        self.origin.collect_offworld_snapshots(out);
+    }
 }
 
 const fn id_from(craft: CraftIdentity) -> CraftIdentity {

@@ -5,31 +5,28 @@ use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
-    Callsign, CompanionPresence, CosmicFrame, DrivenCraft, ExposedStratum, FrameHandoff,
-    GravityBubble, MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions,
-    SurvivorWelcome, WorldFact,
+    Callsign, CompanionPresence, DrivenCraft, FrameHandoff, GravityBubble, MeshTarget, PilotCraft,
+    PlanetaryWorld, ProximityUtterance, SolarProportions, SurvivorWelcome, WorldFact,
 };
-use fauna::BoarSounder;
-use crate::admin_ward::{AdminBlockWard, GuestFactStamp};
 use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_decorators::CompactedChronicle;
 use crate::chronicle_log::{ChronicleLog, ChronicleStore};
-use crate::chronicled_planet::ChronicledPlanet;
 use crate::cohort::{CohortAdmission, GuestCohort};
-use crate::envelope::{CrackNotice, SanctuaryEnvelope};
+use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
 use crate::host_sounder::HostSounder;
+use crate::inbox_batch::{ParallelInbox, SequentialInbox};
 use crate::passport::KnockFrame;
+use crate::snapshot_chronicle::SnapshottedChronicle;
 use crate::ticket::PortalTicket;
-use crate::warded_planet::WardedPlanet;
 use crate::wormhole::{PortalCode, WormholeGate};
 use self::court::{AbandonedDock, StandbyCourt};
 
 /// Strictly encapsulated chronicle store, guest cohort, host aura, and SPAKE2 wormhole gate (`<= 4` fields).
 pub struct HostState {
     chronicle: Box<dyn ChronicleStore>,
-    cohort: GuestCohort,
-    aura: HostAura,
+    pub(super) cohort: GuestCohort,
+    pub(super) aura: HostAura,
     wormhole: WormholeGate,
 }
 
@@ -44,14 +41,24 @@ impl HostState {
         Self { chronicle, cohort, aura, wormhole }
     }
 
-    /// Secondary constructor decorating `chronicle` with `CompactedChronicle`.
+    /// Secondary constructor decorating `chronicle` with `SnapshottedChronicle(CompactedChronicle)`.
     pub fn new(
         chronicle: ChronicleLog,
         cohort: GuestCohort,
         aura: HostAura,
         wormhole: WormholeGate,
     ) -> Self {
-        Self::with_store(Box::new(CompactedChronicle::wrapping(chronicle)), cohort, aura, wormhole)
+        let store = SnapshottedChronicle::wrapping(CompactedChronicle::wrapping(chronicle));
+        Self::with_store(Box::new(store), cohort, aura, wormhole)
+    }
+
+    pub fn occupied_zones_and_bodies(&self) -> (u8, Vec<world::BodyId>) {
+        AbandonedDock::occupied_zones_and_bodies(&self.cohort, &self.aura)
+    }
+
+    pub fn compact_sectors(&mut self, earth_half: f32, world: &mut dyn PlanetaryWorld) {
+        let dead = self.chronicle.compact_sectors(earth_half, world);
+        self.aura.fact_index_mut().prune_superseded(&dead);
     }
 
     pub const fn code(&self) -> PortalCode { self.wormhole.code() }
@@ -130,65 +137,6 @@ impl HostState {
         self.cohort.admit_knock(identity, &mut self.aura, peer, knock)
     }
 
-    pub fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
-        match fact {
-            WorldFact::Loosened { eye, direction, stage } => {
-                let frame = if author_slot == 1 {
-                    self.aura.host_frame()
-                } else {
-                    self.cohort.ward_locus(author_slot).map_or(CosmicFrame::earth(), |(f, _)| f)
-                };
-                self.aura.record_crack(author_slot, frame, CrackNotice::new(eye, direction, stage.min(4)));
-            }
-            WorldFact::OffWorld { body, ref fact } => {
-                if let WorldFact::Loosened { eye, direction, stage } = **fact {
-                    self.aura.record_crack(author_slot, CosmicFrame::Body(body), CrackNotice::new(eye, direction, stage.min(4)));
-                }
-            }
-            _ => {}
-        }
-        let before = self.chronicle.total();
-        self.chronicle.record(fact);
-        if self.chronicle.total() > before && author_slot >= 2 {
-            self.cohort.ensure_authored_fact(author_slot, before);
-        }
-    }
-
-    pub fn record_disclosure(&mut self, face: u8, stratum: ExposedStratum) {
-        self.chronicle.record(WorldFact::StratumDisclosed { face, stratum });
-    }
-
-    pub fn enact_guest_petition(&mut self, cid: u32, fact: WorldFact, world: &mut dyn PlanetaryWorld) -> bool {
-        match fact {
-            WorldFact::StratumDisclosed { .. } => false,
-            WorldFact::BoarStruck { eye, direction, power, reach_cm } => {
-                if !self.cohort.ward_mut(cid).is_some_and(|w| AbandonedDock::valid_boar_reach(w.cosmic_frame(), eye, direction, w)) {
-                    return false;
-                }
-                let (_, drops) = self
-                    .aura
-                    .wildlife_mut()
-                    .evaluate_strike(eye, direction, power.clamp(1, 4), (f32::from(reach_cm) * 0.01).clamp(0.5, 2.75), false, world);
-                let Some(meat_rays) = drops else { return false };
-                let mut decorated = ChronicledPlanet::new(world, self);
-                BoarSounder::cast_meat_drops(meat_rays, &mut decorated)
-            }
-            other => {
-                let stamped = GuestFactStamp::new(cid, other).stamped();
-                let fleet = self.aura.fleet_mut();
-                let enacted = self.cohort.ward_mut(cid).is_some_and(|ward| {
-                    let mut guarded = AdminBlockWard::new(WardedPlanet::new(world, ward, fleet, cid));
-                    stamped.enact_on(&mut guarded)
-                });
-                if enacted {
-                    self.cohort.commit_survivor(cid, &self.aura, true);
-                    self.record_authored_fact(cid, stamped);
-                }
-                enacted
-            }
-        }
-    }
-
     pub fn process_companion_datagram(
         &mut self,
         socket: &UdpSocket,
@@ -198,39 +146,27 @@ impl HostState {
         proportions: SolarProportions,
         world: &mut dyn PlanetaryWorld,
     ) -> bool {
-        let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else {
-            return false;
-        };
-        let now = self.cohort.tick_secs();
-        let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
-        match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame, berth }) => {
-                let vetted = match craft {
-                    PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
-                    other => other,
-                };
-                if let Some(ward) = self.cohort.ward_mut(cid) {
-                    ward.absorb_pulse(cid, ack_seq, now, frame, berth, presence, vetted, bubble, world);
-                }
-                self.cohort.commit_survivor(cid, &self.aura, false);
-                false
+        let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else { return false };
+        let Some(env) = SanctuaryEnvelope::decode(&body) else { return false };
+        StandbyCourt::apply_authoritative(self, socket, cid, env, proportions, world)
+    }
+
+    pub fn process_datagram_batch(
+        &mut self,
+        socket: &UdpSocket,
+        grouped: std::collections::HashMap<u32, Vec<(u64, SocketAddr, Vec<u8>)>>,
+        proportions: SolarProportions,
+        world: &mut dyn PlanetaryWorld,
+    ) -> bool {
+        let inbox = ParallelInbox::hardware(SequentialInbox::new());
+        let envelopes = self.cohort.open_datagram_batches(&inbox, grouped);
+        let mut mutated = false;
+        for (cid, env) in envelopes {
+            if StandbyCourt::apply_authoritative(self, socket, cid, env, proportions, world) {
+                mutated = true;
             }
-            Some(SanctuaryEnvelope::GuestPetition { fact }) => self.enact_guest_petition(cid, fact, world),
-            Some(SanctuaryEnvelope::GuestUtterance { text }) => {
-                if let Some((wf, pos)) = self.cohort.ward_world_locus(cid, &self.aura) {
-                    let speaker_name = self.cohort.ward_callsign(cid);
-                    if let Some(utterance) = ProximityUtterance::named(cid, speaker_name, pos, &text) {
-                        self.cohort.relay_utterance(socket, wf, utterance, &mut self.aura);
-                    }
-                }
-                false
-            }
-            Some(SanctuaryEnvelope::GuestInventory { notice }) => {
-                let _ = self.cohort.apply_inventory_notice(cid, notice, &self.aura);
-                false
-            }
-            _ => false,
         }
+        mutated
     }
 
     pub fn process_standby_datagram(

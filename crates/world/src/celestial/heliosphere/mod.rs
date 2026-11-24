@@ -2,6 +2,7 @@ mod awakened;
 mod cosmic_sky;
 mod earthworks;
 mod facets;
+mod scanner;
 mod vault;
 mod vicinity;
 
@@ -151,22 +152,23 @@ impl PlanetaryWorld for HeliosphereWorld {
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
+        self.step_active_zones(dt, 0b0011_1111, &[])
+    }
+
+    fn step_active_zones(
+        &mut self,
+        dt: f32,
+        earth_zone_mask: u8,
+        active_bodies: &[crate::BodyId],
+    ) -> bool {
         self.ephemeris = self.ephemeris.advanced(f64::from(dt));
         self.vicinity.borrow_mut().recenter_active(self.ephemeris);
-        let a = if self.ephemeris.frame().earth_centered() {
-            self.earth.step_surface(dt)
+        let a = if self.ephemeris.frame().earth_centered() || earth_zone_mask != 0 {
+            self.earth.step_active_zones(dt, earth_zone_mask, active_bodies)
         } else {
             false
         };
-        let mut b = false;
-        {
-            let mut vic = self.vicinity.borrow_mut();
-            for slot in 0..2 {
-                if let Some(body) = vic.slot_body_mut(slot) {
-                    b |= body.planet_mut().step_surface(dt);
-                }
-            }
-        }
+        let b = self.vicinity.borrow_mut().step_active_bodies(dt, active_bodies);
         a || b || self.pending_slices()
     }
 

@@ -70,6 +70,58 @@ impl ShaftExcavation {
         out.append(&mut self.pending_disclosures);
     }
 
+    pub fn capture_sector(&self, gsu: i32, gsv: i32) -> (Vec<(u8, i16)>, Vec<(u8, i16, u8)>) {
+        let (u0, v0) = (gsu * 8, gsv * 8);
+        let (u1, v1) = (u0 + 8, v0 + 8);
+        let mut shafts = Vec::new();
+        for (&(u, v), &delta) in &self.deltas {
+            if delta != 0 && u >= u0 && u < u1 && v >= v0 && v < v1 {
+                let uv = crate::SectorSnapshot::pack_uv(u, v, gsu, gsv);
+                shafts.push((uv, delta.clamp(i16::MIN as i32, i16::MAX as i32) as i16));
+            }
+        }
+        shafts.sort_unstable_by_key(|&(uv, _)| uv);
+        let mut raw_strata = Vec::new();
+        self.veins.collect_disclosed_in((u0, u1), (v0, v1), &mut raw_strata);
+        let strata = raw_strata
+            .into_iter()
+            .map(|(u, v, s, m)| {
+                let uv = crate::SectorSnapshot::pack_uv(u, v, gsu, gsv);
+                (uv, s.clamp(i16::MIN as i32, i16::MAX as i32) as i16, m.code())
+            })
+            .collect();
+        (shafts, strata)
+    }
+
+    pub fn apply_sector(&mut self, gsu: i32, gsv: i32, shafts: &[(u8, i16)], strata: &[(u8, i16, u8)]) {
+        let (u0, v0) = (gsu * 8, gsv * 8);
+        let (u1, v1) = (u0 + 8, v0 + 8);
+        self.deltas.retain(|&(u, v), _| u < u0 || u >= u1 || v < v0 || v >= v1);
+        for &(uv, delta) in shafts {
+            if delta != 0 {
+                let (u, v) = crate::SectorSnapshot::unpack_uv(uv, gsu, gsv);
+                self.deltas.insert((u, v), i32::from(delta));
+            }
+        }
+        let unpacked: Vec<(i32, i32, i32, BlockMedium)> = strata
+            .iter()
+            .map(|&(uv, step, med)| {
+                let (u, v) = crate::SectorSnapshot::unpack_uv(uv, gsu, gsv);
+                (u, v, i32::from(step), BlockMedium::from_code(med))
+            })
+            .collect();
+        self.veins.replace_disclosed_in((u0, u1), (v0, v1), &unpacked);
+    }
+
+    pub fn collect_modified_sectors(&self, out: &mut Vec<(i32, i32)>) {
+        for (&(u, v), &delta) in &self.deltas {
+            if delta != 0 {
+                out.push((u.div_euclid(8), v.div_euclid(8)));
+            }
+        }
+        self.veins.collect_disclosed_sectors(out);
+    }
+
     pub fn deepened_steps(&self, strata: &NaturalStrata, u: i32, v: i32) -> i32 {
         let (elev, floor) = (self.elevation_at(strata, u, v), self.crust_floor_at(strata, u, v));
         if elev > floor { elev - 1 } else { floor }

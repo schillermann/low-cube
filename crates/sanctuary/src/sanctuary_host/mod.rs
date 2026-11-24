@@ -19,6 +19,7 @@ use crate::host_state::HostState;
 use crate::host_wire::HostWire;
 use crate::mailbox::{PortalBeat, PortalMailbox, SocketLoop};
 use crate::seal::HandshakeIdentity;
+use crate::snapshot_chronicle::SnapshottedChronicle;
 use crate::survivor_ledger::{MemorySurvivors, SurvivorStore};
 use crate::ticket::PortalTicket;
 use crate::wormhole::PortalCode;
@@ -56,7 +57,8 @@ impl SanctuaryHost {
     }
 
     pub fn bind_cosmos(bind_addr: &str, world: Box<dyn PlanetaryWorld>, proportions: SolarProportions) -> std::io::Result<Self> {
-        Self::bind_cosmos_with_store(bind_addr, world, proportions, Box::new(CompactedChronicle::wrapping(ChronicleLog::empty())))
+        let store = Box::new(SnapshottedChronicle::wrapping(CompactedChronicle::wrapping(ChronicleLog::empty())));
+        Self::bind_cosmos_with_store(bind_addr, world, proportions, store)
     }
 
     pub fn bind_cosmos_with_store(
@@ -68,7 +70,7 @@ impl SanctuaryHost {
     pub fn bind_named_cosmos(
         bind_addr: &str, callsign: Callsign, world: Box<dyn PlanetaryWorld>, proportions: SolarProportions,
     ) -> std::io::Result<Self> {
-        let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
+        let store = Box::new(SnapshottedChronicle::wrapping(CompactedChronicle::wrapping(ChronicleLog::empty())));
         Self::bind_cosmos_with_identity(bind_addr, HandshakeIdentity::generate(), callsign, world, proportions, store, Box::new(MemorySurvivors::empty()))
     }
 
@@ -98,7 +100,6 @@ impl SanctuaryHost {
     }
 
     pub fn standby_active(&self) -> bool { self.standby.active() }
-
     fn read_wire<R>(&self, op: impl FnOnce(&HostWire) -> R) -> R {
         let guard = self.wire.lock().expect("HostWire mutex poisoned");
         op(&guard)
@@ -209,13 +210,12 @@ impl SanctuaryHost {
     pub fn flush_disclosures(&mut self) {
         let mut revealed: Vec<(u8, ExposedStratum)> = Vec::new();
         self.world.drain_disclosures(&mut revealed);
-        if !revealed.is_empty() {
-            self.write_wire(|w| {
-                for (face, stratum) in revealed {
-                    w.state_mut().record_disclosure(face, stratum);
-                }
-            });
+        let mut guard = self.wire.lock().expect("HostWire mutex poisoned");
+        for (face, stratum) in revealed {
+            guard.state_mut().record_disclosure(face, stratum);
         }
+        let eh = guard.identity().proportions().earth_half();
+        guard.state_mut().compact_sectors(eh, self.world.as_mut());
     }
 
     pub fn with_chronicled<R>(&mut self, op: impl FnOnce(&mut ChronicledPlanet<'_>) -> R) -> R {
@@ -242,14 +242,16 @@ impl SanctuaryHost {
             guard.pump_authoritative(dt, self.world.as_mut())
         };
         self.mailbox.note_active_crafts(crafts);
-        if mutated {
-            self.flush_disclosures();
-        }
         mutated
     }
 
+    pub fn step_active_surface(&mut self, dt: f32) -> bool {
+        let (mask, bodies) = self.read_wire(|w| w.state().occupied_zones_and_bodies());
+        self.world.step_active_zones(dt, mask, &bodies)
+    }
+
     pub fn tick(&mut self, dt: f32) -> bool {
-        let regrown = self.world.step_surface(dt);
+        let regrown = self.step_active_surface(dt);
         let net_changed = self.pump_network(dt);
         regrown || net_changed
     }

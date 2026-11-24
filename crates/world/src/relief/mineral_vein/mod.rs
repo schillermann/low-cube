@@ -39,6 +39,22 @@ pub trait SubterraneanVeins: Send + Sync {
     ) -> (BlockMedium, Vec<ExposedStratum>);
 
     fn accept_disclosure(&mut self, stratum: ExposedStratum);
+
+    fn collect_disclosed_in(
+        &self,
+        u_range: (i32, i32),
+        v_range: (i32, i32),
+        out: &mut Vec<(i32, i32, i32, BlockMedium)>,
+    );
+
+    fn replace_disclosed_in(
+        &mut self,
+        u_range: (i32, i32),
+        v_range: (i32, i32),
+        items: &[(i32, i32, i32, BlockMedium)],
+    );
+
+    fn collect_disclosed_sectors(&self, out: &mut Vec<(i32, i32)>);
 }
 
 /// Zero-knowledge subterranean vein store holding exclusively air-exposed cells disclosed by the sanctuary.
@@ -82,5 +98,41 @@ impl SubterraneanVeins for HollowVeins {
                 self.disclosed.remove(&(u, v, step));
             }
         });
+    }
+
+    fn collect_disclosed_in(
+        &self,
+        (u0, u1): (i32, i32),
+        (v0, v1): (i32, i32),
+        out: &mut Vec<(i32, i32, i32, BlockMedium)>,
+    ) {
+        for (&(u, v, step), &med) in &self.disclosed {
+            if u >= u0 && u < u1 && v >= v0 && v < v1 && med.mineral_ore() {
+                out.push((u, v, step, med));
+            }
+        }
+        out.sort_unstable_by_key(|&(u, v, s, _)| (u, v, s));
+    }
+
+    fn replace_disclosed_in(
+        &mut self,
+        (u0, u1): (i32, i32),
+        (v0, v1): (i32, i32),
+        items: &[(i32, i32, i32, BlockMedium)],
+    ) {
+        self.disclosed.retain(|&(u, v, _), _| u < u0 || u >= u1 || v < v0 || v >= v1);
+        for &(u, v, step, med) in items {
+            if med.mineral_ore() {
+                self.disclosed.insert((u, v, step), med);
+            }
+        }
+    }
+
+    fn collect_disclosed_sectors(&self, out: &mut Vec<(i32, i32)>) {
+        for (&(u, v, _), &med) in &self.disclosed {
+            if med.mineral_ore() {
+                out.push((u.div_euclid(8), v.div_euclid(8)));
+            }
+        }
     }
 }

@@ -44,6 +44,7 @@ impl GuestWard {
 
     pub fn step(&mut self, dt: f32) { self.vitals.advance(dt); }
     pub fn alive(&self) -> bool { self.vitals.alive() }
+    pub const fn live_presence(&self) -> bool { self.glide.live() }
     pub const fn established_traffic(&self) -> bool { self.seal.established_traffic() }
     pub const fn guest_pubkey(&self) -> [u8; 32] { self.vitals.guest_pubkey() }
     pub const fn callsign(&self) -> Callsign { self.vitals.callsign() }

@@ -10,11 +10,56 @@ use super::super::vehicle_assembly::VehicleAssembly;
 pub(super) struct ReliefDomain {
     pub(super) frame: SurfaceFrame,
     pub(super) relief: Box<dyn ReliefElevation>,
+    pub(super) awake: bool,
 }
 
 impl ReliefDomain {
     pub(super) fn new(frame: SurfaceFrame, relief: Box<dyn ReliefElevation>) -> Self {
-        Self { frame, relief }
+        Self { frame, relief, awake: false }
+    }
+
+    pub(super) fn wake(&mut self) {
+        self.awake = true;
+    }
+
+    pub(super) fn step_grass(&mut self, dt: f32) -> Vec<(i32, i32)> {
+        let (cells, active) = self.relief.step_grass_activity(dt);
+        self.awake = active;
+        cells
+    }
+
+    pub(super) fn harvest(&mut self, half: i32, eye: Vec3, direction: Vec3) -> Option<(i32, i32, BlockMedium)> {
+        let half_size = self.frame.step_elevation(half);
+        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)?;
+        let harvested = self.relief.harvest_layer(cu, cv, layer)?;
+        self.awake = true;
+        Some((cu, cv, harvested))
+    }
+
+    pub(super) fn loosen(&mut self, half: i32, eye: Vec3, direction: Vec3, stage: u8) -> Option<(i32, i32, BlockMedium)> {
+        let half_size = self.frame.step_elevation(half);
+        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)?;
+        let loosened = self.relief.mark_dig_layer(cu, cv, layer, stage)?;
+        self.awake = true;
+        Some((cu, cv, loosened))
+    }
+
+    pub(super) fn adjust_rig(&mut self, half: i32, eye: Vec3, direction: Vec3, delta: i32, rot: bool) -> Option<(i32, i32)> {
+        let half_size = self.frame.step_elevation(half);
+        let (cu, cv) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)
+            .map_or((0, 0), |(cu, cv, _)| (cu, cv));
+        let (changed, cell) = self.relief.adjust_rig_at(cu, cv, delta, rot);
+        changed.then_some(cell)
+    }
+
+    pub(super) fn lower_rig(&mut self, half: i32, eye: Vec3, direction: Vec3) -> Option<(i32, i32)> {
+        let half_size = self.frame.step_elevation(half);
+        let (cu, cv, _) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)?;
+        self.relief.lower_rig_at(cu, cv).then_some((cu, cv))
     }
 
     pub(super) fn plan_molded(&self, half: i32, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
@@ -31,7 +76,11 @@ impl ReliefDomain {
             .oriented_placement_for_mold(&self.frame, self.relief.as_ref(), half, half_size, avatar_pos, mold)?;
         self.relief.resolve_planned_site(cu, cv, base, effective.medium())?;
         let shape = effective.shape_for(direction, &self.frame);
-        self.relief.stack_molded_cell(cu, cv, base, shape).then_some((cu, cv))
+        let ok = self.relief.stack_molded_cell(cu, cv, base, shape);
+        if ok {
+            self.awake = true;
+        }
+        ok.then_some((cu, cv))
     }
 
     pub(super) fn capture_blueprint(&self, half: i32, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
@@ -102,20 +151,5 @@ impl ReliefDomain {
         let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
             .target_layer(&self.frame, self.relief.as_ref(), half, half_size)?;
         Some(self.relief.layer_yields_to(cu, cv, layer, edge))
-    }
-
-    pub(super) fn adjust_rig(&mut self, half: i32, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> (bool, (i32, i32)) {
-        let half_size = self.frame.step_elevation(half);
-        let (cu, cv) = SurfaceSightRay::new(eye, direction)
-            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)
-            .map_or((0, 0), |(cu, cv, _)| (cu, cv));
-        self.relief.adjust_rig_at(cu, cv, delta_steps, rotate_quarter)
-    }
-
-    pub(super) fn lower_rig(&mut self, half: i32, eye: Vec3, direction: Vec3) -> Option<(i32, i32)> {
-        let half_size = self.frame.step_elevation(half);
-        let (cu, cv, _) = SurfaceSightRay::new(eye, direction)
-            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)?;
-        self.relief.lower_rig_at(cu, cv).then_some((cu, cv))
     }
 }

@@ -10,7 +10,8 @@ use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
 use super::super::sight_ray::SurfaceSightRay;
 use super::super::turf_scars::TurfScars;
-use super::super::vehicle_assembly::{VehicleAssembly, VehicleAxes};
+use super::super::vehicle_assembly::VehicleAssembly;
+use super::blueprint_mount::SeatedCarMount;
 use super::{CantileverRig, BLOCK_STEP, MAX_HOIST_STEPS};
 
 /// Placement routing decision resolved across active cantilever cranes.
@@ -38,6 +39,33 @@ impl RigRegistry {
 
     pub fn deploy(&mut self, u: i32, v: i32, ground_top: f32) {
         self.rigs.insert((u, v), CantileverRig::deployed(ground_top, 0));
+    }
+
+    pub fn capture_sector(&self, gsu: i32, gsv: i32) -> Vec<crate::RigSnapshot> {
+        let (u0, v0) = (gsu * 8, gsv * 8);
+        let mut out: Vec<_> = self
+            .rigs
+            .iter()
+            .filter(|&(&(u, v), _)| u >= u0 && u < u0 + 8 && v >= v0 && v < v0 + 8)
+            .map(|(&(u, v), r)| r.snapshot_at(u, v, gsu, gsv))
+            .collect();
+        out.sort_unstable_by_key(crate::RigSnapshot::local_uv);
+        out
+    }
+
+    pub fn apply_sector(&mut self, gsu: i32, gsv: i32, rigs: &[crate::RigSnapshot]) {
+        let (u0, v0) = (gsu * 8, gsv * 8);
+        self.rigs.retain(|&(u, v), _| u < u0 || u >= u0 + 8 || v < v0 || v >= v0 + 8);
+        for snap in rigs {
+            let (mast, rig) = CantileverRig::from_snapshot(gsu, gsv, snap);
+            self.rigs.insert(mast, rig);
+        }
+    }
+
+    pub fn collect_modified_sectors(&self, out: &mut Vec<(i32, i32)>) {
+        for &(u, v) in self.rigs.keys() {
+            out.push((u.div_euclid(8), v.div_euclid(8)));
+        }
     }
 
     pub fn boom_slot_at(&self, u: i32, v: i32, layer_elev: f32) -> bool {
@@ -148,24 +176,7 @@ impl RigRegistry {
         frame: &SurfaceFrame,
         fleet: &mut ParkedFleet,
     ) -> Option<VehicleAssembly> {
-        if !self.rigs.get(&mast).is_some_and(CantileverRig::vacant_craft) {
-            return None;
-        }
-        let eye_world = ray.sample_point(0.0);
-        let (eu, ev) = frame.decompose(eye_world);
-        let parked = fleet.take_cluster_near(strata, shafts, eye_world, 5.0)?;
-        let mut rig = self.rigs.remove(&mast)?;
-        match rig.mount_parked(mast.0, mast.1, parked, eu, ev, frame) {
-            Ok((relocated, origin, heading)) => {
-                self.rigs.insert(relocated.unwrap_or(mast), rig);
-                let axes = VehicleAxes::new(frame.tangent(), frame.bitangent(), frame.normal());
-                Some(VehicleAssembly::new(origin, axes, heading, Vec::new()))
-            }
-            Err(_) => {
-                self.rigs.insert(mast, rig);
-                None
-            }
-        }
+        SeatedCarMount::new(&mut self.rigs, fleet).reconnect(strata, shafts, mast, ray, frame)
     }
 
     pub fn board_drivable(

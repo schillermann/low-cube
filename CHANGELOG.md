@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.120.0] - 2026-11-25
+
+### Added
+- Added raycast-free `SectorSnapshot` cell-state WAL compaction and multi-core `ClimateZone` / `PulseInbox` sharding (`Paket 4`):
+  - `SectorSnapshot`, `SectorColumnState`, `SnapshotBlock`, and `RigSnapshot` (`crates/world/src/chronicle/snapshot.rs`, wire tag `16` on `WorldFact::SectorSnapshot`), `NaturalOverhang` (`crates/world/src/relief/molded_structure/overhang.rs`), and `SectorMoldsView` / `SectorMoldsTarget` (`crates/world/src/relief/overhang_molds/snapshot.rs`): captures and applies net `4 m × 4 m` (`8 × 8` `GridCell`) `ShaftExcavation` deltas, `64`-bit `TurfScars` bare-soil masks, air-exposed `SubterraneanVeins` mineral seams (preserving Zero-Knowledge X-Ray anti-cheat), `WorldBlocks` (all sculpted `MoldArchetype`s, 8-way `FieldCamera` tripod angles, living `TurfCoat` sod, and undercut natural slope crowns), and `CantileverRig` cranes with suspended `CraftCluster`s in `O(cells)` with **zero `SurfaceSightRay` raycasts**.
+  - `SnapshottedChronicle<S>` (`crates/sanctuary/src/snapshot_chronicle.rs`), `ChronicleEntry` (`Superseded` vs. `Active` in `crates/sanctuary/src/chronicle_log.rs`), atomic startup WAL compaction in `DiskVaultChronicle::replay_and_open` (`crates/sanctuary/src/chronicle_decorators.rs` and `vault_stream.rs`), and `SpatialFactIndex::prune_superseded` + `HorizonStream` unacked-tail pruning (`crates/sanctuary/src/spatial_chronicle/`): folds hot `3 × 3` sector neighborhoods into compact `SectorSnapshot`s live and rewrites SSD WAL journals atomically on server restart while rejecting untrusted guest `SectorSnapshot` petitions and withholding premature `Temperate` stream gathering before a guest's first live `GuestPulse` (`crates/sanctuary/src/tests/sector_sharding.rs`).
+  - `ZoneShards` (`crates/world/src/planet/shards.rs`, wired into `CubePlanet`, `HeliosphereWorld`, `OffworldVault::step_warm_bodies`, `SanctuaryHost::step_active_surface`, and `HostedPlanet`) plus `PulseInbox` with `ParallelInbox(SequentialInbox)` (`crates/sanctuary/src/inbox_batch.rs`): keeps uninhabited undisturbed `ClimateZone`s at `0 %` CPU (`Dormant`), steps multiple occupied/regrowing `ClimateZone` faces and warm off-world bodies concurrently across CPU cores via `std::thread::scope`, and decrypts inbound ChaCha20-Poly1305 companion packet bursts in parallel across CPU cores in deterministic arrival order.
+
 ## [0.119.0] - 2026-11-24
 
 ### Added

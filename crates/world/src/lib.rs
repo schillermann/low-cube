@@ -51,7 +51,10 @@ pub use block::{
     RampWedge, RidgeCorner, RocketNozzleMesh, SpawnPlinthMesh, StairCorner, StairFlight,
     ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
 };
-pub use chronicle::WorldFact;
+pub use chronicle::{
+    RigSnapshot, SectorColumnState, SectorSnapshot, SnapshotBlock, WorldFact,
+    NATURAL_OVERHANG_STAMP, SNAPSHOT_SECTOR_CELLS,
+};
 pub use contracts::{
     CompanionPortal, PlanetaryWorld, TerrainMesh, VesselDeck, WoodlandLife, WorldEarthworks,
 };
@@ -61,7 +64,7 @@ pub use mesh_target::{
 };
 pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 pub use null_face::NullFace;
-pub use planet::{CubePlanet, PatchCoord};
+pub use planet::{CubePlanet, ModifiedSlices, PatchCoord, ZoneShards};
 pub use presence::{
     BoarPresence, BoarStance, Callsign, CompanionPresence, DrivenCraft, GoreStamp, PilotCraft,
     PresenceAttire, PresenceKinematics, PresenceRhythm, ProximityUtterance, SounderPresence,
@@ -159,8 +162,14 @@ pub trait Face: Send + Sync {
     fn step_surface(&mut self, _dt: f32) -> bool { false }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.step_surface(dt) }
     fn step_flora(&mut self, _dt: f32) -> bool { false }
+    fn active_simulation(&self) -> bool { false }
     fn lethal_at(&self, _point: Vec3) -> bool { false }
     fn confine_beneath_crust(&self, point: Vec3) -> Vec3 { point }
     fn accept_disclosure(&mut self, _stratum: ExposedStratum) {}
     fn drain_disclosures(&mut self, _out: &mut Vec<ExposedStratum>) {}
+    fn capture_sector_snapshot(&self, face_idx: u8, gsu: i32, gsv: i32) -> SectorSnapshot {
+        SectorSnapshot::new(face_idx, (gsu, gsv), 0, SectorColumnState::untouched())
+    }
+    fn apply_sector_snapshot(&mut self, _snapshot: &SectorSnapshot) -> bool { false }
+    fn collect_modified_sectors(&self, _out: &mut Vec<(i32, i32)>) {}
 }

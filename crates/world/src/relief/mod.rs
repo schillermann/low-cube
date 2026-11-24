@@ -21,6 +21,7 @@ mod turf_habitat;
 mod turf_scars;
 mod vehicle_assembly;
 mod wall;
+mod zoned;
 
 #[cfg(test)]
 mod cantilever_rig_tests;

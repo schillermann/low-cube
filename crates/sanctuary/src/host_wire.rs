@@ -141,6 +141,9 @@ impl HostWire {
             mutated = true;
         }
         let mut buf = [0u8; 1500];
+        let mut grouped: std::collections::HashMap<u32, Vec<(u64, SocketAddr, Vec<u8>)>> =
+            std::collections::HashMap::new();
+        let mut seq = 0u64;
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
             let pkt = &buf[..len];
             if self.answer_handshake_frame(src, pkt) || pkt.len() < 30 || &pkt[0..2] != b"LS" {
@@ -148,14 +151,24 @@ impl HostWire {
             }
             if let Ok(cid_bytes) = pkt[2..6].try_into() {
                 let cid = u32::from_le_bytes(cid_bytes);
-                if self.state.process_companion_datagram(&self.socket, cid, src, pkt, proportions, world) {
-                    mutated = true;
-                }
+                grouped.entry(cid).or_default().push((seq, src, pkt.to_vec()));
+                seq += 1;
             }
         }
+        if !grouped.is_empty()
+            && self.state.process_datagram_batch(&self.socket, grouped, proportions, world)
+        {
+            mutated = true;
+        }
         if mutated {
+            let mut revealed = Vec::new();
+            world.drain_disclosures(&mut revealed);
+            for (face, stratum) in revealed {
+                self.state.record_disclosure(face, stratum);
+            }
             self.state.refresh_beacons(world);
         }
+        self.state.compact_sectors(proportions.earth_half(), world);
         if pulse_ready {
             self.state.broadcast(&self.socket, proportions, epoch);
         }

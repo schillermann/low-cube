@@ -116,6 +116,15 @@ impl<W: WorldEarthworks> WorldEarthworks for TranslatedWorld<W> {
         self.origin.park_craft_by_id(craft, pose.with_origin(pose.origin() - self.center))
     }
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.origin.disclose_stratum(face_index, stratum); }
+    fn capture_sector_snapshot(&self, face: u8, gsu: i32, gsv: i32) -> crate::SectorSnapshot {
+        self.origin.capture_sector_snapshot(face, gsu, gsv)
+    }
+    fn apply_sector_snapshot(&mut self, snapshot: &crate::SectorSnapshot) -> bool {
+        self.origin.apply_sector_snapshot(snapshot)
+    }
+    fn collect_sector_snapshots(&self, out: &mut Vec<crate::SectorSnapshot>) {
+        self.origin.collect_sector_snapshots(out);
+    }
 }
 
 impl<W: TerrainMesh> TerrainMesh for TranslatedWorld<W> {
@@ -205,6 +214,9 @@ impl<W: PlanetaryWorld> PlanetaryWorld for TranslatedWorld<W> {
         }
     }
     fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
+    fn step_active_zones(&mut self, dt: f32, earth_zone_mask: u8, active_bodies: &[crate::BodyId]) -> bool {
+        self.origin.step_active_zones(dt, earth_zone_mask, active_bodies)
+    }
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position - self.center) }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 {
         self.origin.confine_beneath_crust(position - self.center) + self.center

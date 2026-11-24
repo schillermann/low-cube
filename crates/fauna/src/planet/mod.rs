@@ -89,6 +89,21 @@ impl<R: FaunaRealm> WorldEarthworks for WoodlandPlanet<R> {
     fn enact_offworld(&mut self, body: world::BodyId, fact: &world::WorldFact) -> bool {
         self.origin.enact_offworld(body, fact)
     }
+    fn capture_sector_snapshot(&self, face: u8, gsu: i32, gsv: i32) -> world::SectorSnapshot {
+        self.origin.capture_sector_snapshot(face, gsu, gsv)
+    }
+    fn apply_sector_snapshot(&mut self, snapshot: &world::SectorSnapshot) -> bool {
+        self.origin.apply_sector_snapshot(snapshot)
+    }
+    fn collect_sector_snapshots(&self, out: &mut Vec<world::SectorSnapshot>) {
+        self.origin.collect_sector_snapshots(out);
+    }
+    fn capture_offworld_snapshot(&mut self, body: world::BodyId, face: u8, gsu: i32, gsv: i32) -> world::SectorSnapshot {
+        self.origin.capture_offworld_snapshot(body, face, gsu, gsv)
+    }
+    fn collect_offworld_snapshots(&mut self, out: &mut Vec<(world::BodyId, world::SectorSnapshot)>) {
+        self.origin.collect_offworld_snapshots(out);
+    }
 }
 
 impl<R> TerrainMesh for WoodlandPlanet<R> {
@@ -177,6 +192,9 @@ impl<R: FaunaRealm> PlanetaryWorld for WoodlandPlanet<R> {
         self.origin.anchor_to_frame(frame, local_pos);
     }
     fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
+    fn step_active_zones(&mut self, dt: f32, earth_zone_mask: u8, active_bodies: &[world::BodyId]) -> bool {
+        self.origin.step_active_zones(dt, earth_zone_mask, active_bodies)
+    }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.origin.step_local_flora(dt) }
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position) }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.origin.confine_beneath_crust(position) }

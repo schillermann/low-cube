@@ -135,9 +135,12 @@ Weil weit entfernte Spieler **null** Bandbreite füreinander erzeugen (`0 Hz`), 
 
 ---
 
-## 5. Umsetzungsstand (`v0.116.0`) & Verbleibende Ausbaustufen
+## 5. Umsetzungsstand (`v0.117.0`) & Verbleibende Ausbaustufen
 
-### 5.1 In `v0.112.0` bis `v0.116.0` produktiv umgesetzt
+### 5.1 In `v0.112.0` bis `v0.117.0` produktiv umgesetzt
+* **Raycast-freie `SectorSnapshot`-WAL-Kompaktierung & Multi-Core-Klimazonen-Sharding (`ZoneShards` & `ParallelInbox` in `v0.117.0`):**
+  * **`SectorSnapshot` (`crates/world/src/chronicle/snapshot.rs`) & `SnapshottedChronicle` (`crates/sanctuary/src/snapshot_chronicle.rs`):** Faltet gealterte `4 m × 4 m`-Sektoren sowohl im laufenden Betrieb (`3 × 3`-Nachbarschafts-Kompaktierung + `ChronicleEntry::Superseded` + `HorizonStream`-Tail-Pruning) als auch atomar beim Server-Neustart (`DiskVaultChronicle::replay_and_open`) auf ihren reinen Netto-Zellzustand zusammen (`0` historische `SurfaceSightRay`-Raycasts beim Betreten alter Städte, bei voller Bewahrung des Zero-Knowledge-X-Ray-Schutzes).
+  * **`ZoneShards` (`crates/world/src/planet/shards.rs`), `OffworldVault::step_warm_bodies` & `ParallelInbox(SequentialInbox)` (`crates/sanctuary/src/inbox_batch.rs`):** Unbewohnte und ausgewachsene `ClimateZone`s schlafen strikt bei `0 %` CPU (`Dormant`), während mehrere bewohnte/aktive Erd-Klimazonen, warme Offworld-Körper und eingehende ChaCha20-Poly1305-Paket-Bursts (`>= 12` Sender) deterministisch über alle CPU-Kerne parallelisiert werden.
 * **Serverseitiger `SurvivorStore` (`DiskVaultSurvivors(MemorySurvivors)` in `v0.116.0`):**
   * **`SatchelManifest`, `SurvivorRecord` & `SurvivorWelcome` (`crates/world/src/survivor/`) + `DiskVaultSurvivors` (`crates/sanctuary/src/survivor_ledger.rs`):** Speichert Inventarbestände (`30` `HeldRelic`-Slots, Handbelegung, `19` `ArtisanTome`-Rezepte) und `(CosmicFrame, Vec3)`-Checkpoints pro X25519-Public-Key (`HandshakeIdentity::load_or_create` in `survivor.key` / `<journal>.survivors`), überschreibt manipulierte Client-`server.toml`-Inventare beim Beitritt und stellt Rückkehrer auch auf bewegten Planeten (`Mars`) und Gürtel-Asteroiden (`BeltRock` bei `2,70 AU`) nach Server-Neustarts exakt wieder her.
 * **Multi-Crew-Relativkoordinaten (`VesselBerth` / `VesselDeckCurve` in `v0.115.0`):**
@@ -154,5 +157,4 @@ Weil weit entfernte Spieler **null** Bandbreite füreinander erzeugen (`0 Hz`), 
 * **Basis-Großserver & Kosmos (`v0.112.0`):** `MtuBudgetAudience` + `SmoothRoster` (`0,85 s` Sight-Lease), `AdminBlockWard` + `SpawnBeacons` (`SpawnStone`), `ParallelSeals`, `EPSTEIN_HOUR_AU_CAP` (`< 1 h` bis `3,20 AU`), `10 Gm` Log-Depth, `SurfaceContact` und `96 m` `ProximityChatModal`.
 
 ### 5.2 Was als Nächstes umgesetzt werden kann (Priorisierte Ausbaustufen)
-1. **Netto-Zellzustands-Snapshots (`SectorSnapshot`) bei Langzeit-WAL-Kompaktierung:** Faltet hundertfach umgebaute Sektoren auf ihren reinen Zell-Endzustand zusammen (null historische Raycasts beim Betreten alter Städte).
-2. **Klimazonen-/Cluster-paralleler Server-Tick & Physikalische Sandbox-Vertiefung (`CargoBallast`-Erzmasse, Vakuum-Kontaktfunk, bergbare `LiveTape`-Blackboxes):** Multi-Core-Simulation der 6 Erd-Klimazonen plus emergentes Hard-Sci-Fi-Gameplay ohne globale Broadcasts.
+1. **Emergente Hard-Sci-Fi-Sandbox (`CargoBallast`-Erzmasse, `MediumChat`-Vakuum-Kontaktfunk & bergbare `LiveTape`-Blackbox-Blöcke):** Macht den Rohstofftransport aus dem Asteroidengürtel physikalisch spürbar (`a = F / m`), gibt Raumspaziergängen echten Helm-an-Helm-/Anzugfunk und verwandelt Absturzstellen durch abspielbare Flugschreiber-Blöcke in echte Weltraum-Archäologie – zu `100 %` lokal ohne globale Broadcasts.

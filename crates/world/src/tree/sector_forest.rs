@@ -64,6 +64,7 @@ impl SectorForest {
 
     pub const fn continental(&self) -> bool { self.seed.continental() }
     pub fn materialized_grove_count(&self) -> usize { self.groves.len() }
+    pub fn active_simulation(&self) -> bool { self.settled || !self.active.is_empty() }
 
     pub fn sector_uv(u: f32, v: f32) -> (i32, i32) {
         let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|gu, gv| (gu, gv));

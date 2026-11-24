@@ -115,4 +115,39 @@ impl WorldEarthworks for CubePlanet {
             self.slices.record(face_index);
         }
     }
+
+    fn capture_sector_snapshot(&self, face: u8, gsu: i32, gsv: i32) -> crate::SectorSnapshot {
+        self.faces.get(face as usize).map_or_else(
+            || crate::SectorSnapshot::new(face, (gsu, gsv), 0, crate::SectorColumnState::untouched()),
+            |f| f.capture_sector_snapshot(face, gsu, gsv),
+        )
+    }
+
+    fn apply_sector_snapshot(&mut self, snapshot: &crate::SectorSnapshot) -> bool {
+        let idx = snapshot.face() as usize;
+        let len = self.faces.len();
+        let Some(face) = self.faces.get_mut(idx) else {
+            return false;
+        };
+        let changed = face.apply_sector_snapshot(snapshot);
+        if changed {
+            self.slices.record(idx);
+            self.slices.record(len + idx);
+        }
+        changed
+    }
+
+    fn collect_sector_snapshots(&self, out: &mut Vec<crate::SectorSnapshot>) {
+        let mut sectors = Vec::new();
+        for (idx, face) in self.faces.iter().enumerate() {
+            sectors.clear();
+            face.collect_modified_sectors(&mut sectors);
+            for &(gsu, gsv) in &sectors {
+                let snap = face.capture_sector_snapshot(idx as u8, gsu, gsv);
+                if !snap.pristine() {
+                    out.push(snap);
+                }
+            }
+        }
+    }
 }

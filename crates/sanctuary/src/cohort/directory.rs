@@ -1,12 +1,22 @@
 use std::collections::HashMap;
-use glam::Vec3;
-use world::{Callsign, SurvivorWelcome};
-use crate::aura::HostIdentity;
+use std::net::SocketAddr;
+use glam::{Quat, Vec3};
+use world::{
+    Callsign, CompanionPresence, CosmicFrame, PresenceAttire, PresenceKinematics, SurvivorRecord,
+    SurvivorWelcome,
+};
+use crate::aura::{HostAura, HostIdentity};
+use crate::glide::CompanionGlide;
 use crate::host_wire::STRUCTURED_WELCOME_TAG;
 use crate::link_state::WelcomeSpawn;
-use crate::passport::KnockFrame;
+#[cfg(not(test))]
+use crate::passport::HexKey;
+use crate::passport::{KnockFrame, KnockIntent};
 use crate::seal::HandshakeIdentity;
+use crate::spatial_chronicle::HorizonStream;
 use crate::survivor_ledger::SurvivorStore;
+use crate::ward::{GuestWard, WardVitals};
+use super::GuestCohort;
 
 /// Polymorphic server identity response either confirming an existing passport or issuing a fresh secret.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -171,5 +181,75 @@ impl SlotLedger {
         self.minted_knocks.push((ephem_pub, secret));
         let slot = self.slot_for(minted_pub);
         (slot, minted_pub, Some(secret), false)
+    }
+}
+
+impl GuestCohort {
+    pub fn admit_guest(
+        &mut self,
+        identity: &HostIdentity,
+        aura: &mut HostAura,
+        peer: SocketAddr,
+        guest_pub: [u8; 32],
+    ) -> (u32, Option<Vec3>, SurvivorWelcome) {
+        let knock = KnockFrame::new(guest_pub, KnockIntent::PinnedKey, Callsign::unnamed());
+        self.admit_knock(identity, aura, peer, knock).into_legacy_tuple()
+    }
+
+    pub fn admit_knock(
+        &mut self,
+        identity: &HostIdentity,
+        aura: &mut HostAura,
+        peer: SocketAddr,
+        knock: KnockFrame,
+    ) -> CohortAdmission {
+        let (_, desired_callsign) = knock.transfer(|pk, cs| (pk, cs));
+        let (cid, survivor_pub, minted_secret, knock_retry) =
+            self.identities.resolve_knock(knock, self.survivors.as_ref());
+        if self.wards.get(&cid).is_some_and(|(w, _)| w.established_traffic()) {
+            self.commit_survivor(cid, aura, true);
+            let _ = self.wards.remove(&cid);
+        }
+        let active: Vec<([u8; 32], Callsign)> = self
+            .wards
+            .values()
+            .map(|(w, _)| (w.guest_pubkey(), w.callsign()))
+            .collect();
+        let welcome = match self.wards.get(&cid) {
+            Some((w, _)) if knock_retry && !w.established_traffic() => SurvivorWelcome::FreshKit(w.manifest()),
+            _ => self.survivors.admit_or_restore(survivor_pub),
+        };
+        let callsign = self.survivors.resolve_callsign(survivor_pub, desired_callsign, &active);
+        let half = (identity.blocks_per_edge() as f32) * 0.5;
+        let (kin, beacon_stand) = match welcome.restored_record() {
+            Some(rec) => (PresenceKinematics::new(rec.position(), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)), None),
+            None => aura.beacons_mut().allocate_kinematics(half),
+        };
+        if minted_secret.is_some() && !knock_retry {
+            let spawn_pos = kin.transfer(|p, _, _, _, _| p);
+            let initial = SurvivorRecord::with_callsign(CosmicFrame::earth(), spawn_pos, welcome.manifest(), callsign);
+            self.survivors.commit(survivor_pub, initial, true);
+            #[cfg(not(test))]
+            println!("[SANCTUARY] Issued identity #{} to '{}' (slot P{cid})", HexKey::new(survivor_pub).short_tag(), callsign.as_str());
+        } else if let Some(prev) = self.survivors.lookup(survivor_pub) {
+            if prev.callsign() != callsign {
+                self.survivors.commit(survivor_pub, prev.renamed(callsign), true);
+            }
+            #[cfg(not(test))]
+            println!("[SANCTUARY] Restored survivor '{}' (#{}, slot P{cid})", callsign.as_str(), HexKey::new(survivor_pub).short_tag());
+        }
+        if !self.wards.contains_key(&cid) {
+            let seal = identity.keys().establish(survivor_pub, false);
+            let pres = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
+            let frame = welcome.restored_record().map_or(CosmicFrame::earth(), |r| r.frame());
+            let vitals = WardVitals::named_survivor(survivor_pub, callsign, welcome.manifest());
+            let ward = GuestWard::with_locus(seal, (peer, frame), CompanionGlide::awaiting_first(pres), vitals);
+            self.wards.insert(cid, (ward, HorizonStream::empty()));
+        }
+        let grant = match minted_secret {
+            Some(secret) => IdentityGrant::Issued { secret, callsign },
+            None => IdentityGrant::Confirmed(callsign),
+        };
+        CohortAdmission::new(cid, WelcomeSpawn::from_optional(beacon_stand), welcome, grant)
     }
 }

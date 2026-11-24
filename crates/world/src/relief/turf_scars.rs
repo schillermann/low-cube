@@ -61,6 +61,14 @@ impl ExcavationCracks {
         Self::new(HashMap::new())
     }
 
+    pub fn dormant(&self) -> bool {
+        self.cells.is_empty()
+    }
+
+    pub fn clear_in(&mut self, (u0, u1): (i32, i32), (v0, v1): (i32, i32)) {
+        self.cells.retain(|&(u, v), _| u < u0 || u >= u1 || v < v0 || v >= v1);
+    }
+
     pub fn layer_stage(&self, u: i32, v: i32, layer_elev: f32, occupied_at: impl FnOnce(f32) -> bool) -> u8 {
         let Some(&crack) = self.cells.get(&(u, v)) else { return 0 };
         if crack.matches_step(layer_elev) && !occupied_at(crack.elevation()) {
@@ -153,10 +161,10 @@ impl TurfScars {
         shafts: &ShaftExcavation,
         blocks: &WorldBlocks,
         dt: f32,
-    ) -> Vec<(i32, i32)> {
+    ) -> (Vec<(i32, i32)>, bool) {
         let mut refreshed = self.cracks.expire_step(dt);
         if self.bare_dirt.is_empty() {
-            return refreshed;
+            return (refreshed, !self.cracks.dormant());
         }
         let active: Vec<((i32, i32), u32)> = {
             let natural = NaturalHabitat::new(strata, shafts, self);
@@ -175,6 +183,7 @@ impl TurfScars {
                 })
                 .collect()
         };
+        let mut still_colonizing = !self.cracks.dormant();
         for ((u, v), neighbors) in active {
             if let Some(sod) = self.bare_dirt.get_mut(&(u, v)) {
                 let (next_sod, grown) = sod.colonized(GridCell::new(u, v), dt, neighbors);
@@ -183,9 +192,42 @@ impl TurfScars {
                     refreshed.push((u, v));
                 } else {
                     *sod = next_sod;
+                    still_colonizing = true;
                 }
             }
         }
-        refreshed
+        (refreshed, still_colonizing)
+    }
+
+    pub fn capture_bare_mask(&self, gsu: i32, gsv: i32) -> u64 {
+        let (u0, v0) = (gsu * 8, gsv * 8);
+        let mut mask = 0u64;
+        for dv in 0..8 {
+            for du in 0..8 {
+                if self.bare_dirt.contains_key(&(u0 + du, v0 + dv)) {
+                    let bit = (du as u32) | ((dv as u32) << 3);
+                    mask |= 1u64 << bit;
+                }
+            }
+        }
+        mask
+    }
+
+    pub fn apply_bare_mask(&mut self, gsu: i32, gsv: i32, bare_mask: u64) {
+        let (u0, v0) = (gsu * 8, gsv * 8);
+        self.bare_dirt.retain(|&(u, v), _| u < u0 || u >= u0 + 8 || v < v0 || v >= v0 + 8);
+        self.cracks.clear_in((u0, u0 + 8), (v0, v0 + 8));
+        for bit in 0..64u32 {
+            if (bare_mask >> bit) & 1 != 0 {
+                let (u, v) = crate::SectorSnapshot::unpack_uv(bit as u8, gsu, gsv);
+                self.bare_dirt.insert((u, v), TurfSod::bare());
+            }
+        }
+    }
+
+    pub fn collect_modified_sectors(&self, out: &mut Vec<(i32, i32)>) {
+        for &(u, v) in self.bare_dirt.keys() {
+            out.push((u.div_euclid(8), v.div_euclid(8)));
+        }
     }
 }

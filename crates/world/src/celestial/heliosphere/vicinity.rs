@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use glam::Vec3;
 use crate::{TranslatedWorld, WorldFact};
-use super::super::belt::AsteroidBelt;
 use super::super::catalog::BodyId;
 use super::super::ephemeris::SolarEphemeris;
 use super::super::proportions::SolarProportions;
 use super::awakened::{ActiveVicinity, AwakenedBody};
+use super::scanner::BodyProximity;
 use super::vault::OffworldVault;
 
 /// Dual-slot client GPU window (`slices 6..11` & `18..23`) backed by warm authoritative `OffworldVault` (`<= 4` fields).
@@ -139,36 +139,8 @@ impl VicinityCache {
             return;
         }
         self.prune_distant(probe);
-        let probe_d = probe.as_dvec3();
-        let snaps = ephemeris.snapshot_all(0.0);
-        let mut first: Option<(f64, BodyId, Vec3)> = None;
-        let mut second: Option<(f64, BodyId, Vec3)> = None;
-        for snap in snaps {
-            if snap.id() == BodyId::EARTH || !snap.nature().landable_crust() {
-                continue;
-            }
-            let awaken_d = (snap.half_size() * 22.0).clamp(96.0, 900.0);
-            let surf_d = (probe_d - snap.center()).abs().max_element() - snap.half_size();
-            if surf_d <= awaken_d {
-                let entry = (surf_d, snap.id(), snap.center().as_vec3());
-                if first.map_or(true, |f| surf_d < f.0) {
-                    second = first;
-                    first = Some(entry);
-                } else if second.map_or(true, |s| surf_d < s.0) {
-                    second = Some(entry);
-                }
-            }
-        }
-        if first.is_none() {
-            let sun = snaps[0];
-            let belt = AsteroidBelt::new(ephemeris.proportions(), ephemeris.epoch_secs());
-            if let Some(rock) = belt.nearest_rock(probe_d, sun.center(), sun.gm(), 64.0) {
-                let _ = self.mount_in_slot(rock.id(), rock.center().as_vec3(), ephemeris.proportions());
-            }
-            return;
-        }
-        for hit in [first, second].into_iter().flatten() {
-            let _ = self.mount_in_slot(hit.1, hit.2, ephemeris.proportions());
+        for hit in BodyProximity::new(probe, ephemeris).top_two().into_iter().flatten() {
+            let _ = self.mount_in_slot(hit.0, hit.1, ephemeris.proportions());
         }
     }
 
@@ -199,28 +171,7 @@ impl VicinityCache {
             self.stamps.0[idx] = self.stamps.1;
             return self.slots[idx].body();
         }
-        let probe_d = probe.as_dvec3();
-        let snaps = ephemeris.snapshot_all(0.0);
-        let mut best: Option<(f64, BodyId, Vec3)> = None;
-        for snap in snaps {
-            if snap.id() == BodyId::EARTH || !snap.nature().landable_crust() {
-                continue;
-            }
-            let awaken_d = (snap.half_size() * 22.0).clamp(96.0, 900.0);
-            let surf_d = (probe_d - snap.center()).abs().max_element() - snap.half_size();
-            if surf_d <= awaken_d && best.map_or(true, |(b, _, _)| surf_d < b) {
-                best = Some((surf_d, snap.id(), snap.center().as_vec3()));
-            }
-        }
-        let mut candidate = best.map(|(_, id, c)| (id, c));
-        if candidate.is_none() {
-            let sun = snaps[0];
-            let belt = AsteroidBelt::new(ephemeris.proportions(), ephemeris.epoch_secs());
-            if let Some(rock) = belt.nearest_rock(probe_d, sun.center(), sun.gm(), 64.0) {
-                candidate = Some((rock.id(), rock.center().as_vec3()));
-            }
-        }
-        let (id, center) = candidate?;
+        let (id, center) = BodyProximity::new(probe, ephemeris).top_two()[0]?;
         let slot_idx = self.mount_in_slot(id, center, ephemeris.proportions());
         self.slots[slot_idx].body()
     }
@@ -288,5 +239,50 @@ impl VicinityCache {
                 b.relocate(snap.center().as_vec3());
             }
         }
+    }
+
+    pub fn capture_body_sector(
+        &mut self,
+        id: BodyId,
+        (face, gsu, gsv): (u8, i32, i32),
+        proportions: SolarProportions,
+    ) -> crate::SectorSnapshot {
+        use crate::WorldEarthworks as _;
+        for slot in &self.slots {
+            if let Some(b) = slot.body().filter(|b| b.body_id() == id) {
+                return b.planet().capture_sector_snapshot(face, gsu, gsv);
+            }
+        }
+        self.vault.capture_inactive_sector(id, face, gsu, gsv, proportions)
+    }
+
+    pub fn collect_offworld_snapshots(
+        &mut self,
+        proportions: SolarProportions,
+        out: &mut Vec<(BodyId, crate::SectorSnapshot)>,
+    ) {
+        use crate::WorldEarthworks as _;
+        let mut local = Vec::new();
+        for slot in &self.slots {
+            if let Some(b) = slot.body() {
+                local.clear();
+                b.planet().collect_sector_snapshots(&mut local);
+                for snap in local.drain(..) {
+                    out.push((b.body_id(), snap));
+                }
+            }
+        }
+        self.vault.collect_all_snapshots(proportions, self.active_ids(), out);
+    }
+
+    pub fn step_active_bodies(&mut self, dt: f32, active: &[BodyId]) -> bool {
+        let mut changed = false;
+        for slot in &mut self.slots {
+            if let Some(b) = slot.body_mut() {
+                let mask = if active.contains(&b.body_id()) { 0b0011_1111 } else { 0 };
+                changed |= crate::PlanetaryWorld::step_active_zones(b.planet_mut(), dt, mask, active);
+            }
+        }
+        changed | self.vault.step_warm_bodies(dt, active)
     }
 }

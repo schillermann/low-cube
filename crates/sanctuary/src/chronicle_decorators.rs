@@ -1,10 +1,8 @@
 use std::collections::{HashMap, HashSet};
-use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use world::{CraftIdentity, PlanetaryWorld, WorldFact};
 use crate::chronicle_log::ChronicleStore;
+pub use crate::vault_stream::VaultStream;
 
 /// `ChronicleStore` decorator deduplicating idempotent stratum disclosures and vehicle blueprint commissions.
 pub struct CompactedChronicle<S> {
@@ -62,44 +60,16 @@ impl<S: ChronicleStore> ChronicleStore for CompactedChronicle<S> {
         self.origin.fact_at(index)
     }
 
+    fn supersede(&mut self, index: u32) {
+        self.origin.supersede(index);
+    }
+
+    fn compact_sectors(&mut self, earth_half: f32, world: &mut dyn PlanetaryWorld) -> Vec<u32> {
+        self.origin.compact_sectors(earth_half, world)
+    }
+
     fn flush_tick(&mut self) {
         self.origin.flush_tick();
-    }
-}
-
-/// Polymorphic buffered WAL handle avoiding nullable `Option<BufWriter<File>>` state and per-fact `open()` syscalls.
-pub enum VaultStream {
-    Dormant,
-    Open(Mutex<BufWriter<File>>),
-}
-
-impl VaultStream {
-    pub(crate) fn open_append(path: &Path) -> std::io::Result<Self> {
-        let file = OpenOptions::new().create(true).append(true).open(path)?;
-        Ok(Self::Open(Mutex::new(BufWriter::with_capacity(16_384, file))))
-    }
-
-    pub(crate) fn write_frame(&mut self, path: &Path, payload: &[u8]) {
-        if matches!(self, Self::Dormant) {
-            if let Ok(opened) = Self::open_append(path) {
-                *self = opened;
-            }
-        }
-        if let Self::Open(lock) = self {
-            if let Ok(mut out) = lock.lock() {
-                let len_bytes = (payload.len() as u32).to_le_bytes();
-                let _ = out.write_all(&len_bytes);
-                let _ = out.write_all(payload);
-            }
-        }
-    }
-
-    pub(crate) fn flush_pending(&mut self) {
-        if let Self::Open(lock) = self {
-            if let Ok(mut out) = lock.lock() {
-                let _ = out.flush();
-            }
-        }
     }
 }
 
@@ -129,45 +99,64 @@ impl<S> Drop for DiskVaultChronicle<S> {
 }
 
 impl<S: ChronicleStore> DiskVaultChronicle<S> {
-    /// Replays existing WAL entries onto `world` + `origin` (folding superseded vehicle claims/parks) and opens `path`.
+    /// Replays existing WAL entries onto `world` + `origin`, compacting historical raycast logs into `SectorSnapshot`s.
     pub fn replay_and_open(
         path: impl AsRef<Path>,
         mut origin: S,
         world: &mut dyn PlanetaryWorld,
     ) -> std::io::Result<Self> {
         let journal_path = path.as_ref().to_path_buf();
-        if let Ok(mut file) = File::open(&journal_path) {
-            let mut buf = Vec::new();
-            file.read_to_end(&mut buf)?;
-            let decoded = Self::decode_frames(&buf);
+        if let Some(decoded) = VaultStream::read_decoded_frames(&journal_path)? {
             let folded = Self::fold_fleet_history(decoded);
-            for fact in folded {
+            let foldable_count = folded.iter().filter(|f| f.snapshot_foldable()).count();
+            for fact in &folded {
                 let _ = fact.enact_on(world);
-                origin.record(fact);
+            }
+            let mut stale_disc = Vec::new();
+            world.drain_disclosures(&mut stale_disc);
+            if foldable_count >= 8 {
+                let compacted = Self::build_snapshot_log(folded, world);
+                VaultStream::rewrite_atomic(&journal_path, &compacted)?;
+                for fact in compacted {
+                    origin.record(fact);
+                }
+            } else {
+                for fact in folded {
+                    origin.record(fact);
+                }
             }
         }
         let stream = VaultStream::open_append(&journal_path)?;
         Ok(Self::with_stream(origin, journal_path, stream, false))
     }
 
-    fn decode_frames(buf: &[u8]) -> Vec<WorldFact> {
-        let mut cursor = 0usize;
+    fn build_snapshot_log(folded: Vec<WorldFact>, world: &mut dyn PlanetaryWorld) -> Vec<WorldFact> {
         let mut out = Vec::new();
-        while cursor + 4 <= buf.len() {
-            let frame_len = u32::from_le_bytes([
-                buf[cursor],
-                buf[cursor + 1],
-                buf[cursor + 2],
-                buf[cursor + 3],
-            ]) as usize;
-            cursor += 4;
-            if cursor + frame_len > buf.len() {
-                break;
+        for fact in folded {
+            if let WorldFact::RigBlueprintBuilt { ref blueprint, .. } = fact {
+                if blueprint.identity().assigned() {
+                    out.push(WorldFact::CraftCommissioned { blueprint: blueprint.clone() });
+                }
+            } else if let WorldFact::OffWorld { ref fact, .. } = fact {
+                if let WorldFact::RigBlueprintBuilt { ref blueprint, .. } = **fact {
+                    if blueprint.identity().assigned() {
+                        out.push(WorldFact::CraftCommissioned { blueprint: blueprint.clone() });
+                    }
+                }
             }
-            if let Some((fact, _)) = WorldFact::decode(&buf[cursor..cursor + frame_len]) {
+            if !fact.snapshot_foldable() {
                 out.push(fact);
             }
-            cursor += frame_len;
+        }
+        let mut earth_snaps = Vec::new();
+        world.collect_sector_snapshots(&mut earth_snaps);
+        for snapshot in earth_snaps {
+            out.push(WorldFact::SectorSnapshot { snapshot });
+        }
+        let mut off_snaps = Vec::new();
+        world.collect_offworld_snapshots(&mut off_snaps);
+        for (body, snapshot) in off_snaps {
+            out.push(WorldFact::OffWorld { body, fact: Box::new(WorldFact::SectorSnapshot { snapshot }) });
         }
         out
     }
@@ -229,6 +218,14 @@ impl<S: ChronicleStore> ChronicleStore for DiskVaultChronicle<S> {
 
     fn fact_at(&self, index: usize) -> Option<&WorldFact> {
         self.origin.fact_at(index)
+    }
+
+    fn supersede(&mut self, index: u32) {
+        self.origin.supersede(index);
+    }
+
+    fn compact_sectors(&mut self, earth_half: f32, world: &mut dyn PlanetaryWorld) -> Vec<u32> {
+        self.origin.compact_sectors(earth_half, world)
     }
 
     fn flush_tick(&mut self) {

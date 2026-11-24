@@ -8,6 +8,7 @@ use crate::host_state::HostState;
 use crate::host_wire::HostWire;
 use crate::nat::NatAperture;
 use crate::seal::HandshakeIdentity;
+use crate::snapshot_chronicle::SnapshottedChronicle;
 use crate::survivor_ledger::{MemorySurvivors, SurvivorStore};
 use crate::wormhole::{PortalCode, WormholeGate};
 use super::SanctuaryHost;
@@ -47,7 +48,7 @@ impl<'a> HostSocket<'a> {
     ) -> std::io::Result<SanctuaryHost> {
         let secret = PortalCode::draw_secret();
         let socket = HostWire::bind_slot_socket(self.bind_addr, secret)?;
-        let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
+        let store = Box::new(SnapshottedChronicle::wrapping(CompactedChronicle::wrapping(ChronicleLog::empty())));
         let identity = HostIdentity::with_callsign(
             HandshakeIdentity::generate(),
             SolarProportions::true_scale(blocks_per_edge),

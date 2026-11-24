@@ -119,11 +119,14 @@ impl PlanetaryWorld for HostedPlanet {
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.host.world().placed_camera_tripod() }
     fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.host.world().collect_spawn_points(out); }
     fn step_surface(&mut self, dt: f32) -> bool {
-        let regrown = self.host.world_mut().step_surface(dt);
+        let regrown = self.host.step_active_surface(dt);
         let net_changed = self.host.pump_network(dt);
         regrown || net_changed || self.host.world().pending_slices()
     }
-    fn step_local_flora(&mut self, dt: f32) -> bool { self.host.world_mut().step_surface(dt) }
+    fn step_active_zones(&mut self, dt: f32, _earth_zone_mask: u8, _active_bodies: &[world::BodyId]) -> bool {
+        self.step_surface(dt)
+    }
+    fn step_local_flora(&mut self, dt: f32) -> bool { self.host.step_active_surface(dt) }
     fn lethal_at(&self, position: Vec3) -> bool { self.host.world().lethal_at(position) }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.host.world().confine_beneath_crust(position) }
     fn local_body_point(&self, position: Vec3) -> Vec3 { self.host.world().local_body_point(position) }
@@ -174,5 +177,20 @@ impl WorldEarthworks for HostedPlanet {
     }
     fn enact_offworld(&mut self, body: world::BodyId, fact: &world::WorldFact) -> bool {
         self.host.with_chronicled(|w| w.enact_offworld(body, fact))
+    }
+    fn capture_sector_snapshot(&self, face: u8, gsu: i32, gsv: i32) -> world::SectorSnapshot {
+        self.host.world().capture_sector_snapshot(face, gsu, gsv)
+    }
+    fn apply_sector_snapshot(&mut self, snapshot: &world::SectorSnapshot) -> bool {
+        self.host.world_mut().apply_sector_snapshot(snapshot)
+    }
+    fn collect_sector_snapshots(&self, out: &mut Vec<world::SectorSnapshot>) {
+        self.host.world().collect_sector_snapshots(out);
+    }
+    fn capture_offworld_snapshot(&mut self, body: world::BodyId, face: u8, gsu: i32, gsv: i32) -> world::SectorSnapshot {
+        self.host.world_mut().capture_offworld_snapshot(body, face, gsu, gsv)
+    }
+    fn collect_offworld_snapshots(&mut self, out: &mut Vec<(world::BodyId, world::SectorSnapshot)>) {
+        self.host.world_mut().collect_offworld_snapshots(out);
     }
 }

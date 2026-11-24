@@ -38,6 +38,34 @@ impl CraftCluster {
         self.grid.insert(u, v, floor_elev, shape);
     }
 
+    pub fn snapshot_relative(&self, mast_u: i32, mast_v: i32) -> Vec<(i16, i16, i16, [u8; 3])> {
+        use crate::VoxelShape as _;
+        let mut cells = Vec::new();
+        self.grid.visit_cells(|(cu, cv), list| {
+            let du = (cu - mast_u).clamp(i16::MIN as i32, i16::MAX as i32) as i16;
+            let dv = (cv - mast_v).clamp(i16::MIN as i32, i16::MAX as i32) as i16;
+            for b in list {
+                let fq = (b.floor() * 4.0).round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+                cells.push((du, dv, fq, b.shape_stamp()));
+            }
+        });
+        cells.sort_unstable();
+        cells
+    }
+
+    pub fn from_relative_snapshot(mast_u: i32, mast_v: i32, cells: &[(i16, i16, i16, [u8; 3])]) -> Self {
+        let mut out = Self::untouched();
+        for &(du, dv, fq, stamp) in cells {
+            out.insert(
+                mast_u + i32::from(du),
+                mast_v + i32::from(dv),
+                (fq as f32) * 0.25,
+                crate::BlockMold::shape_from_stamp(stamp),
+            );
+        }
+        out
+    }
+
     pub fn step_camera_turn(&mut self, u: i32, v: i32, delta_steps: i32) -> Option<(i32, i32)> {
         self.grid.step_camera_turn(u, v, delta_steps)
     }

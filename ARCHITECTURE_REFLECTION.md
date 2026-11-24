@@ -97,9 +97,9 @@ Auch kreative Ideen müssen sich dem Gesetz beugen: **Keine globalen Server-Broa
 
 ---
 
-## 5. Umsetzungsstand & Was als Nächstes umgesetzt werden kann (Priorisierte Roadmap ab `v0.116.0`)
+## 5. Umsetzungsstand & Was als Nächstes umgesetzt werden kann (Priorisierte Roadmap ab `v0.117.0`)
 
-Nachdem die strikte Horizont-/Klimazonen-Isolation (`v0.113.0`), **Paket 1 — Mitbewegte lokale Hill-Sphären (`v0.114.0`)**, **Paket 2 — Multi-Crew-Relativkoordinaten (`v0.115.0`)** und **Paket 3 — Serverseitiger `SurvivorStore` (`v0.116.0`)** vollständig umgesetzt und getestet sind, verbleiben zwei klar abgegrenzte nächste Umsetzungspakete:
+Nachdem die strikte Horizont-/Klimazonen-Isolation (`v0.113.0`), **Paket 1 — Mitbewegte lokale Hill-Sphären (`v0.114.0`)**, **Paket 2 — Multi-Crew-Relativkoordinaten (`v0.115.0`)**, **Paket 3 — Serverseitiger `SurvivorStore` (`v0.116.0`)** und **Paket 4 — Raycast-freie `SectorSnapshot`-WAL-Kompaktierung & Multi-Core-`ZoneShards` (`v0.117.0`)** vollständig umgesetzt und getestet sind, sind alle strukturellen Multiplayer- & Skalierungsfundamente produktiv abgeschlossen; als nächstes kreatives Ausbaupaket steht Paket 5 bereit:
 
 1. ✅ **Erledigt in `v0.114.0` — Lokale Hill-Sphären (`CosmicFrame::Body`, `BeltAsteroid`, `4,096 m` `DeepSpace`) + `LWEL` `epoch_secs`-Sync:**
    * Sub-Millimeter-`f32`-Präzision (`< 0,13 mm` ULP) bis `30,07 AU` (`Triton`), kontinuierlich weiterlaufende Planetenbahnen ohne `if !locked`-Sperre sowie `MtuBudgetAudience(CosmicCraftSight(CosmicBubbleAudience))`-Isolation im Multiplayer.
@@ -107,7 +107,7 @@ Nachdem die strikte Horizont-/Klimazonen-Isolation (`v0.113.0`), **Paket 1 — M
    * Hält Piloten, sitzende Beifahrer (`PassengerBerth`) und frei über das Deck laufende Crew-Mitglieder (`DeckFooting::Aboard` inkl. Startrampe-zu-Orbit-Äquivalenzprinzip & Kabinen-Proximity-Chat) selbst bei `240.000 m/s` und `180°` Flip-&-Burn mit `0,000 m` Schlupf exakt im Schiffsrumpf (`0` Extra-Bytes für Bodenspieler).
 3. ✅ **Erledigt in `v0.116.0` — Serverseitiger `SurvivorStore` (`DiskVaultSurvivors(MemorySurvivors)`) pro X25519-Key:**
    * Bindet `SatchelManifest` (alle `30` `HeldRelic`-Bestände + `19` `ArtisanTome`-Rezepte) und den letzten `(CosmicFrame, Vec3)`-Aufenthaltsort (`Earth`, `Mars`, `BeltAsteroid`) an persistente X25519-Spielerschlüssel (`survivor.key` / `<journal>.survivors`), verhindert lokale `server.toml`-Starterkit-Cheats und stellt Bergleute selbst nach stundenlanger Orbital-Drift und Server-WAL-Neustarts millimetergenau auf ihrem Asteroiden wieder her.
-4. **Nächstes Paket (Paket 4) — Netto-Zellzustands-Snapshots (`SectorSnapshot`) für gealterte Sektoren + Multi-Core-Klimazonen-Sharding:**
-   * **Gewinn:** Komprimiert Sektoren, in denen über Monate Tausende Male gegraben und umgebaut wurde, auf ihren reinen Zell-Endzustand (null Raycast-Replay beim Betreten alter Städte) und verteilt die Simulation der 6 Erd-Klimazonen parallel auf getrennte Server-Threads.
-5. **Paket 5 — Emergente Hard-Sci-Fi-Sandbox (`CargoBallast`-Erzmasse, `MediumChat`-Vakuumfunk & bergbare `LiveTape`-Blackbox-Blöcke):**
+4. ✅ **Erledigt in `v0.117.0` — Netto-Zellzustands-Snapshots (`SectorSnapshot` / `SnapshottedChronicle`) + Multi-Core-Klimazonen-Sharding (`ZoneShards` & `ParallelInbox`):**
+   * Faltet gealterte `4 m × 4 m`-Sektoren sowohl live (`3 × 3`-Nachbarschafts-Snapshot + `ChronicleEntry::Superseded`) als auch atomar beim WAL-Serverneustart (`DiskVaultChronicle::replay_and_open`) auf ihren raycast-freien Netto-Zellzustand (`ShaftExcavation`, `64`-Bit-`bare_mask`, offengelegte Erzadern, `WorldBlocks` inkl. `NaturalOverhang` & `8`-Wege-`FieldCamera` sowie `CantileverRig`-Kräne), hält unbewohnte `ClimateZone`s strikt auf `0 %` CPU (`Dormant`) und skaliert aktive Klimazonen, warme `OffworldVault`-Himmelskörper und eingehende ChaCha20-Poly1305-Pakete (`ParallelInbox`) über alle CPU-Kerne.
+5. **Nächstes Paket (Paket 5) — Emergente Hard-Sci-Fi-Sandbox (`CargoBallast`-Erzmasse, `MediumChat`-Vakuumfunk & bergbare `LiveTape`-Blackbox-Blöcke):**
    * **Gewinn:** Macht den Rohstofftransport aus dem Asteroidengürtel physikalisch spürbar (`a = F / m`), gibt Raumspaziergängen echten Helm-an-Helm-/Anzugfunk und verwandelt Absturzstellen durch abspielbare Flugschreiber-Blöcke in echte Weltraum-Archäologie.

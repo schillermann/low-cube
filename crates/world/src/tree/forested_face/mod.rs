@@ -224,8 +224,34 @@ impl Face for ForestedFace {
         self.forest.get_mut().expect("SectorForest lock poisoned").step_active(dt)
     }
 
+    fn active_simulation(&self) -> bool {
+        self.origin.active_simulation()
+            || self.forest.read().expect("SectorForest lock poisoned").active_simulation()
+    }
+
     fn lethal_at(&self, point: Vec3) -> bool { self.origin.lethal_at(point) }
     fn confine_beneath_crust(&self, point: Vec3) -> Vec3 { self.origin.confine_beneath_crust(point) }
     fn accept_disclosure(&mut self, stratum: crate::ExposedStratum) { self.origin.accept_disclosure(stratum); }
     fn drain_disclosures(&mut self, out: &mut Vec<crate::ExposedStratum>) { self.origin.drain_disclosures(out); }
+
+    fn capture_sector_snapshot(&self, face_idx: u8, gsu: i32, gsv: i32) -> crate::SectorSnapshot {
+        self.origin.capture_sector_snapshot(face_idx, gsu, gsv)
+    }
+
+    fn apply_sector_snapshot(&mut self, snapshot: &crate::SectorSnapshot) -> bool {
+        let changed = self.origin.apply_sector_snapshot(snapshot);
+        if changed {
+            let (gsu, gsv) = snapshot.sector();
+            let center = self.frame.point_at((gsu as f32) * 4.0 + 2.0, (gsv as f32) * 4.0 + 2.0, 0.0);
+            self.forest
+                .get_mut()
+                .expect("SectorForest lock poisoned")
+                .settle_near(center, self.origin.as_ref(), &self.frame);
+        }
+        changed
+    }
+
+    fn collect_modified_sectors(&self, out: &mut Vec<(i32, i32)>) {
+        self.origin.collect_modified_sectors(out);
+    }
 }

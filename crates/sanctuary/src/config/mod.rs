@@ -9,6 +9,7 @@ use world::{CelestialSystem, PlanetaryWorld, SatchelManifest, SolarProportions};
 use crate::chronicle_decorators::{CompactedChronicle, DiskVaultChronicle};
 use crate::chronicle_log::{ChronicleLog, ChronicleStore};
 use crate::seal::HandshakeIdentity;
+use crate::snapshot_chronicle::SnapshottedChronicle;
 use crate::survivor_ledger::{DiskVaultSurvivors, MemorySurvivors, SurvivorStore};
 use crate::SanctuaryHost;
 use self::cosmos::ServerCosmosScale;
@@ -92,13 +93,14 @@ impl SanctuaryEndpoint {
                 let surv_path = PathBuf::from(format!("{}.survivors", path.display()));
                 let keys = HandshakeIdentity::load_or_create(&host_key_path);
                 let base = CompactedChronicle::wrapping(ChronicleLog::empty());
-                let chronicle = Box::new(DiskVaultChronicle::replay_and_open(path, base, world.as_mut())?);
+                let disk = DiskVaultChronicle::replay_and_open(path, base, world.as_mut())?;
+                let chronicle = Box::new(SnapshottedChronicle::wrapping(disk));
                 let ledger = Box::new(DiskVaultSurvivors::replay_and_open(surv_path, mem_survivors)?);
                 (keys, chronicle, ledger)
             }
             VaultPersistence::Ephemeral => (
                 HandshakeIdentity::generate(),
-                Box::new(CompactedChronicle::wrapping(ChronicleLog::empty())),
+                Box::new(SnapshottedChronicle::wrapping(CompactedChronicle::wrapping(ChronicleLog::empty()))),
                 Box::new(mem_survivors),
             ),
         };

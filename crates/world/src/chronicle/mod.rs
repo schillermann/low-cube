@@ -1,4 +1,5 @@
 mod codec;
+mod snapshot;
 
 use glam::Vec3;
 use crate::block::BlockMold;
@@ -7,6 +8,10 @@ use crate::relief::{CraftBlueprint, CraftIdentity, CraftPose, ExposedStratum};
 use crate::tree::SurfaceFind;
 use crate::WorldEarthworks;
 use self::codec::{FactBytes, FactCodec};
+pub use self::snapshot::{
+    RigSnapshot, SectorColumnState, SectorSnapshot, SnapshotBlock, NATURAL_OVERHANG_STAMP,
+    SNAPSHOT_SECTOR_CELLS,
+};
 
 /// Authoritative planetary mutation, vehicle ownership event, or newly air-exposed subterranean stratum fact.
 #[derive(Clone, Debug, PartialEq)]
@@ -26,6 +31,7 @@ pub enum WorldFact {
     RigBlueprintBuilt { eye: Vec3, direction: Vec3, blueprint: CraftBlueprint },
     BoarStruck { eye: Vec3, direction: Vec3, power: u8, reach_cm: u16 },
     OffWorld { body: BodyId, fact: Box<WorldFact> },
+    SectorSnapshot { snapshot: SectorSnapshot },
 }
 
 impl WorldFact {
@@ -59,6 +65,7 @@ impl WorldFact {
                 Self::BoarStruck { eye: eye + shift, direction, power, reach_cm }
             }
             Self::OffWorld { body, ref fact } => Self::OffWorld { body, fact: fact.clone() },
+            Self::SectorSnapshot { ref snapshot } => Self::SectorSnapshot { snapshot: snapshot.clone() },
         }
     }
 
@@ -101,6 +108,22 @@ impl WorldFact {
                 world.strike_boar(eye, direction, power, f32::from(reach_cm) * 0.01).0
             }
             Self::OffWorld { body, ref fact } => world.enact_offworld(body, fact),
+            Self::SectorSnapshot { ref snapshot } => world.apply_sector_snapshot(snapshot),
+        }
+    }
+
+    /// True when this fact mutates `TerracedRelief` cells/rigs/strata and folds into a `SectorSnapshot`.
+    pub fn snapshot_foldable(&self) -> bool {
+        match self {
+            Self::Harvested { .. }
+            | Self::StratumDisclosed { .. }
+            | Self::MoldPlaced { .. }
+            | Self::RigAdjusted { .. }
+            | Self::RigLowered { .. }
+            | Self::RigBlueprintBuilt { .. }
+            | Self::SectorSnapshot { .. } => true,
+            Self::OffWorld { fact, .. } => fact.snapshot_foldable(),
+            _ => false,
         }
     }
 

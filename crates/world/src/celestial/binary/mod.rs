@@ -228,6 +228,13 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
         a || b
     }
 
+    fn step_active_zones(&mut self, dt: f32, earth_zone_mask: u8, active_bodies: &[crate::BodyId]) -> bool {
+        let a = self.home.step_active_zones(dt, earth_zone_mask, active_bodies);
+        let moon_mask = if active_bodies.contains(&crate::BodyId::LUNA) { 0b0011_1111 } else { 0 };
+        let b = self.moon.step_active_zones(dt, moon_mask, active_bodies);
+        a || b
+    }
+
     fn lethal_at(&self, position: Vec3) -> bool {
         if self.near_moon(position) { self.moon.lethal_at(position) } else { self.home.lethal_at(position) }
     }

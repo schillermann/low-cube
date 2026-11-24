@@ -40,6 +40,23 @@ pub trait WorldEarthworks {
     fn enact_offworld(&mut self, _body: crate::BodyId, fact: &crate::WorldFact) -> bool {
         fact.enact_on(self)
     }
+    fn capture_sector_snapshot(&self, face: u8, gsu: i32, gsv: i32) -> crate::SectorSnapshot {
+        crate::SectorSnapshot::new(face, (gsu, gsv), 0, crate::SectorColumnState::untouched())
+    }
+    fn apply_sector_snapshot(&mut self, _snapshot: &crate::SectorSnapshot) -> bool {
+        false
+    }
+    fn collect_sector_snapshots(&self, _out: &mut Vec<crate::SectorSnapshot>) {}
+    fn capture_offworld_snapshot(
+        &mut self,
+        _body: crate::BodyId,
+        face: u8,
+        gsu: i32,
+        gsv: i32,
+    ) -> crate::SectorSnapshot {
+        crate::SectorSnapshot::new(face, (gsu, gsv), 0, crate::SectorColumnState::untouched())
+    }
+    fn collect_offworld_snapshots(&mut self, _out: &mut Vec<(crate::BodyId, crate::SectorSnapshot)>) {}
 }
 
 /// Focused planetary terrain, `16×16` sector grid, and toroidal `MeadowRing` mesh-streaming contract.
@@ -131,6 +148,14 @@ pub trait PlanetaryWorld:
     fn assigned_survivor(&self) -> Option<crate::SurvivorWelcome> { None }
     fn anchor_to_frame(&mut self, _frame: crate::CosmicFrame, _local_pos: Vec3) {}
     fn step_surface(&mut self, _dt: f32) -> bool { false }
+    fn step_active_zones(
+        &mut self,
+        dt: f32,
+        _earth_zone_mask: u8,
+        _active_bodies: &[crate::BodyId],
+    ) -> bool {
+        self.step_surface(dt)
+    }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.step_surface(dt) }
     fn lethal_at(&self, _position: Vec3) -> bool { false }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { position }

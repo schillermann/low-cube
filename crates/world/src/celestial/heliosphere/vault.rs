@@ -99,4 +99,65 @@ impl OffworldVault {
         self.shelve(id, cube, half);
         ok
     }
+
+    pub fn capture_inactive_sector(
+        &mut self,
+        id: BodyId,
+        face: u8,
+        gsu: i32,
+        gsv: i32,
+        proportions: SolarProportions,
+    ) -> crate::SectorSnapshot {
+        use crate::WorldEarthworks as _;
+        let (cube, half) = self.checkout(id, proportions);
+        let snap = cube.capture_sector_snapshot(face, gsu, gsv);
+        self.shelve(id, cube, half);
+        snap
+    }
+
+    pub fn collect_all_snapshots(
+        &mut self,
+        proportions: SolarProportions,
+        skip: [Option<BodyId>; 2],
+        out: &mut Vec<(BodyId, crate::SectorSnapshot)>,
+    ) {
+        use crate::WorldEarthworks as _;
+        let mut ids: Vec<BodyId> = self.chronicles.keys().copied().chain(self.warm.keys().copied()).collect();
+        ids.sort_unstable_by_key(|b| b.raw_code());
+        ids.dedup();
+        let mut local = Vec::new();
+        for id in ids {
+            if skip.contains(&Some(id)) {
+                continue;
+            }
+            let (cube, half) = self.checkout(id, proportions);
+            local.clear();
+            cube.collect_sector_snapshots(&mut local);
+            for snap in local.drain(..) {
+                out.push((id, snap));
+            }
+            self.shelve(id, cube, half);
+        }
+    }
+
+    pub fn step_warm_bodies(&mut self, dt: f32, active_bodies: &[BodyId]) -> bool {
+        let mut targets: Vec<&mut CubePlanet> = self
+            .warm
+            .iter_mut()
+            .filter_map(|(&id, (cube, _))| active_bodies.contains(&id).then_some(cube))
+            .collect();
+        if targets.is_empty() {
+            return false;
+        }
+        if targets.len() == 1 {
+            return crate::PlanetaryWorld::step_surface(targets[0], dt);
+        }
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = targets
+                .into_iter()
+                .map(|cube| scope.spawn(move || crate::PlanetaryWorld::step_surface(cube, dt)))
+                .collect();
+            handles.into_iter().fold(false, |acc, h| acc | h.join().expect("OffworldVault shard panicked"))
+        })
+    }
 }

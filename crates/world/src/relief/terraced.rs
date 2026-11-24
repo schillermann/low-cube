@@ -128,6 +128,10 @@ impl ReliefElevation for TerracedRelief {
     }
 
     fn step_grass(&mut self, dt: f32) -> Vec<(i32, i32)> {
+        self.molds.step_grass(&self.strata, &self.shafts, dt).0
+    }
+
+    fn step_grass_activity(&mut self, dt: f32) -> (Vec<(i32, i32)>, bool) {
         self.molds.step_grass(&self.strata, &self.shafts, dt)
     }
 
@@ -249,5 +253,23 @@ impl ReliefElevation for TerracedRelief {
 
     fn drain_disclosures(&mut self, out: &mut Vec<ExposedStratum>) {
         self.shafts.drain_disclosures(out);
+    }
+
+    fn capture_sector_state(&self, gsu: i32, gsv: i32) -> (u64, crate::SectorColumnState) {
+        let (shafts, strata) = self.shafts.capture_sector(gsu, gsv);
+        let (bare_mask, blocks, rigs) = self.molds.capture_sector(gsu, gsv);
+        (bare_mask, crate::SectorColumnState::new(shafts, strata, blocks, rigs))
+    }
+
+    fn apply_sector_state(&mut self, gsu: i32, gsv: i32, bare_mask: u64, cols: &crate::SectorColumnState) {
+        self.shafts.apply_sector(gsu, gsv, cols.shafts(), cols.strata());
+        self.molds.apply_sector(&self.strata, gsu, gsv, bare_mask, cols);
+    }
+
+    fn collect_modified_sectors(&self, out: &mut Vec<(i32, i32)>) {
+        self.shafts.collect_modified_sectors(out);
+        self.molds.collect_modified_sectors(out);
+        out.sort_unstable();
+        out.dedup();
     }
 }
