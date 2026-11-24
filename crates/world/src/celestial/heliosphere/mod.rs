@@ -219,6 +219,14 @@ impl PlanetaryWorld for HeliosphereWorld {
         self.vicinity.borrow_mut().recenter_active(self.ephemeris);
     }
 
+    fn anchor_to_frame(&mut self, frame: crate::CosmicFrame, local_pos: Vec3) {
+        self.ephemeris = self.ephemeris.reanchored(frame);
+        let mut vic = self.vicinity.borrow_mut();
+        vic.recenter_active(self.ephemeris);
+        let _ = vic.ensure_near(local_pos, self.ephemeris);
+        vic.recenter_active(self.ephemeris);
+    }
+
     fn reconcile_cosmic_frame(&mut self, local_pos: Vec3, local_vel: Vec3) -> Option<crate::FrameHandoff> {
         let handoff = super::bubble::GravityBubble::from_ephemeris(self.ephemeris)
             .evaluate_handoff(self.ephemeris, local_pos, local_vel)?;

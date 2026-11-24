@@ -1,10 +1,11 @@
 use std::net::SocketAddr;
 use glam::Vec3;
-use world::SolarProportions;
+use world::{SolarProportions, SurvivorWelcome};
+use crate::host_wire::STRUCTURED_WELCOME_TAG;
 use crate::link_state::{LinkPhase, LinkSync};
 use crate::ticket::JoinTarget;
 
-/// Verified `LWEL` welcome packet parser establishing `LinkPhase::Sealed`, `WelcomeSpawn`, and `EpochSync`.
+/// Verified `LWEL` welcome packet parser establishing `LinkPhase::Sealed`, `WelcomeSpawn`, `EpochSync`, and `SurvivorWelcome`.
 pub struct WelcomeFrame<'a> {
     src: SocketAddr,
     target: JoinTarget,
@@ -38,6 +39,31 @@ impl<'a> WelcomeFrame<'a> {
         let seal = keys.establish(host_pub, true);
         *phase = LinkPhase::Sealed { companion_id: cid, seal, peer: self.src };
         sync.assign_slot(cid);
+        if pkt.len() > 80 && pkt[60] == STRUCTURED_WELCOME_TAG {
+            let flags = pkt[61];
+            let epoch_secs = f64::from_le_bytes(pkt[62..70].try_into().ok()?);
+            sync.assign_welcome_epoch(epoch_secs);
+            let mut cursor = 70;
+            if flags & 0x01 != 0 {
+                if pkt.len() < cursor + 12 {
+                    return None;
+                }
+                let sx = f32::from_le_bytes(pkt[cursor..cursor + 4].try_into().ok()?);
+                let sy = f32::from_le_bytes(pkt[cursor + 4..cursor + 8].try_into().ok()?);
+                let sz = f32::from_le_bytes(pkt[cursor + 8..cursor + 12].try_into().ok()?);
+                let pt = Vec3::new(sx, sy, sz);
+                if pt.is_finite() {
+                    sync.assign_spawn_point(pt, cid);
+                }
+                cursor += 12;
+            }
+            if flags & 0x02 != 0 {
+                if let Some((welcome, _)) = SurvivorWelcome::decode(&pkt[cursor..]) {
+                    sync.assign_survivor_welcome(welcome, cid);
+                }
+            }
+            return Some(proportions);
+        }
         if pkt.len() >= 72 {
             let sx = f32::from_le_bytes(pkt[60..64].try_into().ok()?);
             let sy = f32::from_le_bytes(pkt[64..68].try_into().ok()?);

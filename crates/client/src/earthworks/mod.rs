@@ -65,6 +65,20 @@ impl PalmEarthworks {
         self.with_satchel(provider.provision(self.satchel))
     }
 
+    pub fn apply_survivor_manifest(
+        self,
+        manifest: world::SatchelManifest,
+        attire: YouthAttire,
+    ) -> (Self, YouthAttire) {
+        let (next_satchel, next_attire) = BeltSatchel::from_survivor_manifest(manifest, attire);
+        (Self::with_dig(next_satchel, ArtisanTome::closed(), DigOperation::idle()), next_attire)
+    }
+
+    pub fn drain_crafted_notes(mut self, world: &mut dyn PlanetaryWorld) -> Self {
+        self.tome = self.tome.drain_crafted_notes(world);
+        self
+    }
+
     pub fn handle_trigger(
         self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire,
     ) -> (Self, YouthAttire, bool) {
@@ -129,26 +143,9 @@ impl PalmEarthworks {
         if self.satchel.open() || self.tome.open() {
             return (self, rhythm, false);
         }
-        let side = if bindings.matches(ControlAction::SatchelRight, trigger) {
-            1.0
-        } else if bindings.matches(ControlAction::SatchelLeft, trigger) {
-            -1.0
-        } else {
-            return (self, rhythm, false);
-        };
-        let Some(relic) = self.toss.ready_on(side) else {
-            return (self, rhythm, false);
-        };
-        let (next_satchel, taken) = self.satchel.take_cast_relic(relic);
-        if !taken || !world.cast_surface_find(eye, view_dir, relic.surface_find()) {
-            return (Self { toss: TossCadence::Quiet, ..self }, rhythm, false);
-        }
-        let next_rhythm = SurfaceReach::swing_rhythm(attire, rhythm, side);
-        (
-            Self::with_state(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle()), TossCadence::Quiet),
-            next_rhythm,
-            true,
-        )
+        let (ns, nt, nr, ok) = self.toss.try_cast(self.satchel, trigger, bindings, attire, rhythm, eye, view_dir, world);
+        let next_dig = if ok { self.dig.with_grip(DigGrip::idle()) } else { self.dig };
+        (Self::with_state(ns, self.tome, next_dig, nt), nr, ok)
     }
 
     pub fn try_adjust_rig(
@@ -257,8 +254,9 @@ impl PalmEarthworks {
     }
 
     pub fn continue_digging(
-        self, reach: SurfaceReach, attire: YouthAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
+        mut self, reach: SurfaceReach, attire: YouthAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
     ) -> (Self, YouthAttire, StrideRhythm, bool) {
+        self.tome = self.tome.drain_crafted_notes(world);
         let (ns, na, nd, nr, changed) = reach.sustain(self.satchel, attire, rhythm, self.dig, world);
         (Self::with_state(ns, self.tome, nd, self.toss), na, nr, changed)
     }
@@ -272,6 +270,7 @@ impl PalmEarthworks {
         }
         if self.tome.open() {
             let (next_tome, next_satchel, next_attire, ok) = self.tome.craft_selected(side, self.satchel, attire);
+            let next_tome = next_tome.drain_crafted_notes(world);
             let next_rhythm = if ok { SurfaceReach::swing_rhythm(next_attire, rhythm, side) } else { rhythm };
             return (Self::with_dig(next_satchel, next_tome, self.dig.with_grip(DigGrip::idle())), next_attire, next_rhythm, false, false);
         }
@@ -281,8 +280,10 @@ impl PalmEarthworks {
                 let (ns, na) = self.satchel.reconcile_attire(attire).collect_foraged(side, HeldRelic::from_surface_find(find), attire);
                 return (Self::with_dig(ns, self.tome, self.dig.with_grip(DigGrip::idle())), na, rhythm, true, false);
             }
+            let eaten_code = attire.hand_pair(side).0.code();
             let (ns, na, ate) = self.satchel.reconcile_attire(attire).consume_provision(side, attire);
             if ate {
+                world.note_consumed_provision(eaten_code);
                 let nr = SurfaceReach::swing_rhythm(attire, rhythm, side);
                 return (Self::with_dig(ns, self.tome, self.dig.with_grip(DigGrip::idle())), na, nr, false, true);
             }

@@ -6,7 +6,8 @@ use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
     CompanionPresence, CosmicFrame, DrivenCraft, ExposedStratum, FrameHandoff, GravityBubble,
-    MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions, WorldFact,
+    MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions, SurvivorWelcome,
+    WorldFact,
 };
 use fauna::BoarSounder;
 use crate::admin_ward::{AdminBlockWard, GuestFactStamp};
@@ -21,7 +22,7 @@ use crate::host_sounder::HostSounder;
 use crate::ticket::PortalTicket;
 use crate::warded_planet::WardedPlanet;
 use crate::wormhole::{PortalCode, WormholeGate};
-use self::court::AbandonedDock;
+use self::court::{AbandonedDock, StandbyCourt};
 
 /// Strictly encapsulated chronicle store, guest cohort, host aura, and SPAKE2 wormhole gate (`<= 4` fields).
 pub struct HostState {
@@ -109,8 +110,13 @@ impl HostState {
         self.aura.fleet().emit_crafts(&crafts, target);
     }
 
-    pub fn admit_guest(&mut self, identity: &HostIdentity, peer: SocketAddr, guest_pub: [u8; 32]) -> (u32, Option<Vec3>) {
-        self.cohort.admit_guest(identity, self.aura.beacons_mut(), peer, guest_pub)
+    pub fn admit_guest(
+        &mut self,
+        identity: &HostIdentity,
+        peer: SocketAddr,
+        guest_pub: [u8; 32],
+    ) -> (u32, Option<Vec3>, SurvivorWelcome) {
+        self.cohort.admit_guest(identity, &mut self.aura, peer, guest_pub)
     }
 
     pub fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
@@ -164,6 +170,7 @@ impl HostState {
                     stamped.enact_on(&mut guarded)
                 });
                 if enacted {
+                    self.cohort.commit_survivor(cid, &self.aura, true);
                     self.record_authored_fact(cid, stamped);
                 }
                 enacted
@@ -194,6 +201,7 @@ impl HostState {
                 if let Some(ward) = self.cohort.ward_mut(cid) {
                     ward.absorb_pulse(cid, ack_seq, now, frame, berth, presence, vetted, bubble, world);
                 }
+                self.cohort.commit_survivor(cid, &self.aura, false);
                 false
             }
             Some(SanctuaryEnvelope::GuestPetition { fact }) => self.enact_guest_petition(cid, fact, world),
@@ -203,6 +211,10 @@ impl HostState {
                         self.cohort.relay_utterance(socket, wf, utterance, &mut self.aura);
                     }
                 }
+                false
+            }
+            Some(SanctuaryEnvelope::GuestInventory { notice }) => {
+                let _ = self.cohort.apply_inventory_notice(cid, notice, &self.aura);
                 false
             }
             _ => false,
@@ -218,33 +230,7 @@ impl HostState {
         proportions: SolarProportions,
         deferred: &mut VecDeque<(u32, WorldFact)>,
     ) {
-        let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else { return };
-        let now = self.cohort.tick_secs();
-        let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
-        match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame, berth }) => {
-                let vetted = match craft {
-                    PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
-                    other => other,
-                };
-                if let Some(ward) = self.cohort.ward_mut(cid) {
-                    ward.absorb_standby_pulse(cid, ack_seq, now, frame, berth, presence, vetted, bubble);
-                }
-            }
-            Some(SanctuaryEnvelope::GuestPetition { fact }) => {
-                if deferred.len() < 64 {
-                    deferred.push_back((cid, fact));
-                }
-            }
-            Some(SanctuaryEnvelope::GuestUtterance { text }) => {
-                if let Some((wf, pos)) = self.cohort.ward_world_locus(cid, &self.aura) {
-                    if let Some(utterance) = ProximityUtterance::sanitized(cid, pos, &text) {
-                        self.cohort.relay_utterance(socket, wf, utterance, &mut self.aura);
-                    }
-                }
-            }
-            _ => {}
-        }
+        StandbyCourt::new(&mut self.cohort, &mut self.aura).absorb(socket, cid, src, pkt, proportions, deferred);
     }
 
     pub fn step_standby_clocks(
@@ -257,7 +243,7 @@ impl HostState {
         self.aura.advance_epoch(dt);
         self.wormhole.step(socket, dt);
         let mut abandoned = Vec::new();
-        let pulse_ready = self.cohort.advance_wards(dt, &mut abandoned);
+        let pulse_ready = self.cohort.advance_wards(dt, &self.aura, &mut abandoned);
         for (cid, frame, pilot_craft) in abandoned {
             if let PilotCraft::Driving(dc) = pilot_craft {
                 if deferred.len() < 64 {
@@ -285,7 +271,7 @@ impl HostState {
             }
         }
         let mut abandoned = Vec::new();
-        let pulse_ready = self.cohort.advance_wards(dt, &mut abandoned);
+        let pulse_ready = self.cohort.advance_wards(dt, &self.aura, &mut abandoned);
         let parked_any = AbandonedDock::new(self.chronicle.as_mut(), &mut self.aura).dock_expired(abandoned, world);
         (pulse_ready, parked_any)
     }

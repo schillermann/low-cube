@@ -72,8 +72,24 @@ impl EmbodiedAvatar {
     fn reset_to_world(&mut self, world: &dyn PlanetaryWorld) {
         self.body.respawn(world);
         self.sight_line.reset_horizon();
+        self.sight_line.reorient_surface(world.surface_up_at(self.body.position()), 32.0);
         self.bearing.reset();
         self.gear.calm_hands();
+    }
+
+    pub(super) fn land_from_world(&mut self, world: &dyn PlanetaryWorld) {
+        if let Some(welcome) = world.assigned_survivor() {
+            self.gear.apply_survivor_manifest(welcome.manifest());
+        }
+        self.body.land(world);
+        self.sight_line.reset_horizon();
+        self.sight_line.reorient_surface(world.surface_up_at(self.body.position()), 32.0);
+        self.bearing.reset();
+        self.gear.calm_hands();
+    }
+
+    pub(super) fn flush_world_notes(&mut self, world: &mut dyn PlanetaryWorld) {
+        self.gear.drain_crafted_notes(world);
     }
 
     fn tick_ambient(&mut self, dt: f32) {

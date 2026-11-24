@@ -27,6 +27,7 @@ mod seal_batch;
 mod sector_audience;
 mod spatial_chronicle;
 mod standby_link;
+mod survivor_ledger;
 mod ticket;
 mod ward;
 mod warded_planet;
@@ -48,8 +49,8 @@ pub use sector_audience::{SectorGridAudience, VelocityScaledSight};
 pub use spatial_chronicle::{HorizonStream, SpatialFactIndex};
 pub use chronicled_planet::{ChronicledPlanet, FactJournal};
 pub use cohort::GuestCohort;
-pub use config::{SanctuaryEndpoint, SanctuaryPlan, SanctuaryToml};
-pub use envelope::{CrackNotice, SanctuaryEnvelope};
+pub use config::{SanctuaryEndpoint, SanctuaryPlan, SanctuaryToml, VaultPersistence};
+pub use envelope::{CrackNotice, InventoryNotice, SanctuaryEnvelope};
 pub use fleet_ledger::FleetLedger;
 pub use glide::{
     CircularStrideCurve, CompanionGlide, GlideClock, PresenceCurve, SightRole, SmoothRoster,
@@ -68,6 +69,7 @@ pub use remote_wildlife::RemoteWildlife;
 pub use sanctuary_host::SanctuaryHost;
 pub use seal::{HandshakeIdentity, SessionSeal};
 pub use standby_link::StandbyLink;
+pub use survivor_ledger::{DiskVaultSurvivors, MemorySurvivors, SurvivorStore};
 pub use ticket::{JoinPreview, JoinTarget, PortalTicket};
 pub use ward::{GuestWard, WardVitals};
 pub use warded_planet::WardedPlanet;

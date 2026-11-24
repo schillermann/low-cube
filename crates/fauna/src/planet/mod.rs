@@ -82,6 +82,9 @@ impl<R: FaunaRealm> WorldEarthworks for WoodlandPlanet<R> {
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.origin.disclose_stratum(face_index, stratum); }
     fn offworld_frame(&self, probe: Vec3) -> Option<(world::BodyId, Vec3)> { self.origin.offworld_frame(probe) }
     fn body_center(&self, body: world::BodyId) -> Option<Vec3> { self.origin.body_center(body) }
+    fn harvest_offworld(&mut self, body: world::BodyId, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.origin.harvest_offworld(body, eye, direction)
+    }
     fn enact_offworld(&mut self, body: world::BodyId, fact: &world::WorldFact) -> bool {
         self.origin.enact_offworld(body, fact)
     }
@@ -157,6 +160,8 @@ impl<R> CompanionPortal for WoodlandPlanet<R> {
     fn pump_portal(&mut self, dt: f32) -> bool { self.origin.pump_portal(dt) }
     fn utter_nearby(&mut self, text: &str) { self.origin.utter_nearby(text); }
     fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.origin.drain_utterances(out); }
+    fn note_crafted_recipe(&mut self, recipe_index: u8) { self.origin.note_crafted_recipe(recipe_index); }
+    fn note_consumed_provision(&mut self, relic_code: u8) { self.origin.note_consumed_provision(relic_code); }
 }
 
 impl<R: FaunaRealm> PlanetaryWorld for WoodlandPlanet<R> {
@@ -165,6 +170,11 @@ impl<R: FaunaRealm> PlanetaryWorld for WoodlandPlanet<R> {
     fn canopy_drag(&self, position: Vec3) -> f32 { self.origin.canopy_drag(position) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.origin.placed_camera_tripod() }
     fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.origin.collect_spawn_points(out); }
+    fn assigned_spawn_point(&self) -> Option<Vec3> { self.origin.assigned_spawn_point() }
+    fn assigned_survivor(&self) -> Option<world::SurvivorWelcome> { self.origin.assigned_survivor() }
+    fn anchor_to_frame(&mut self, frame: world::CosmicFrame, local_pos: Vec3) {
+        self.origin.anchor_to_frame(frame, local_pos);
+    }
     fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.origin.step_local_flora(dt) }
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position) }

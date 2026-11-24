@@ -3,35 +3,22 @@ use std::net::{SocketAddr, UdpSocket};
 use glam::{Quat, Vec3};
 use world::{
     CompanionPresence, CosmicFrame, DrivenCraft, FrameHandoff, PilotCraft, PlanetaryWorld,
-    PresenceKinematics, ProximityUtterance, VesselBerth, WorldFact,
+    PresenceKinematics, ProximityUtterance, SurvivorWelcome, VesselBerth, WorldFact,
 };
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::SmoothRoster;
 use crate::seal::SessionSeal;
+use super::arrival::{WelcomeArrival, WelcomeSpawn};
 
 const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
-
-/// Polymorphic server-assigned arrival stance avoiding nullable `Option<Vec3>` fields.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum WelcomeSpawn {
-    Natural,
-    Beacon(Vec3),
-}
-
-/// Polymorphic server orbital epoch handoff avoiding nullable `Option<f64>` fields.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum EpochSync {
-    Aligned,
-    Pending(f64),
-}
 
 /// Synchronized chronicle cursor, smoothly interpolated companion roster, avatar + berth + frame, and arrival (`<= 4` fields).
 pub struct LinkSync {
     cursors: (u32, f32),
     roster: SmoothRoster,
     local_avatar: (CompanionPresence, PilotCraft, CosmicFrame, VesselBerth),
-    arrival: (WelcomeSpawn, EpochSync),
+    arrival: WelcomeArrival,
 }
 
 impl LinkSync {
@@ -40,7 +27,7 @@ impl LinkSync {
         cursors: (u32, f32),
         roster: SmoothRoster,
         local_avatar: (CompanionPresence, PilotCraft, CosmicFrame, VesselBerth),
-        arrival: (WelcomeSpawn, EpochSync),
+        arrival: WelcomeArrival,
     ) -> Self {
         Self { cursors, roster, local_avatar, arrival }
     }
@@ -55,7 +42,7 @@ impl LinkSync {
             cursors,
             roster,
             (local_avatar.0, local_avatar.1, CosmicFrame::earth(), VesselBerth::planetary()),
-            (welcome_spawn, EpochSync::Aligned),
+            WelcomeArrival::with_spawn(welcome_spawn),
         )
     }
 
@@ -65,29 +52,31 @@ impl LinkSync {
         roster: SmoothRoster,
         local_avatar: (CompanionPresence, PilotCraft),
     ) -> Self {
-        Self::with_spawn((ack_seq, pulse_clock), roster, local_avatar, WelcomeSpawn::Natural)
+        Self::with_arrival(
+            (ack_seq, pulse_clock),
+            roster,
+            (local_avatar.0, local_avatar.1, CosmicFrame::earth(), VesselBerth::planetary()),
+            WelcomeArrival::natural(),
+        )
     }
 
     pub const fn local_slot(&self) -> u32 { self.local_avatar.0.slot() }
     pub const fn urgent_pulse(&self) -> bool { self.cursors.1 >= PULSE_INTERVAL_SECS }
+    pub const fn assigned_spawn(&self) -> Option<Vec3> { self.arrival.assigned_spawn() }
+    pub const fn assigned_survivor(&self) -> Option<SurvivorWelcome> { self.arrival.assigned_survivor() }
+    pub fn assign_welcome_epoch(&mut self, epoch_secs: f64) { self.arrival.assign_epoch(epoch_secs); }
+    pub fn take_pending_epoch(&mut self) -> Option<f64> { self.arrival.take_pending_epoch() }
+    pub fn take_pending_anchor(&mut self) -> Option<(CosmicFrame, Vec3)> { self.arrival.take_pending_anchor() }
 
-    pub const fn assigned_spawn(&self) -> Option<Vec3> {
-        match self.arrival.0 {
-            WelcomeSpawn::Natural => None,
-            WelcomeSpawn::Beacon(pt) => Some(pt),
-        }
-    }
-
-    pub fn assign_welcome_epoch(&mut self, epoch_secs: f64) {
-        if epoch_secs.is_finite() {
-            self.arrival.1 = EpochSync::Pending(epoch_secs);
-        }
-    }
-
-    pub fn take_pending_epoch(&mut self) -> Option<f64> {
-        match std::mem::replace(&mut self.arrival.1, EpochSync::Aligned) {
-            EpochSync::Aligned => None,
-            EpochSync::Pending(ep) => Some(ep),
+    pub fn assign_survivor_welcome(&mut self, welcome: SurvivorWelcome, cid: u32) {
+        self.arrival.assign_survivor(welcome);
+        if let Some(rec) = welcome.restored_record() {
+            let attire = self.local_avatar.0.transfer(|_, _, _, a| a);
+            let kin = PresenceKinematics::new(rec.position(), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
+            self.local_avatar.0 = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), attire);
+            self.local_avatar.2 = rec.frame();
+            self.local_avatar.3 = VesselBerth::planetary();
+            self.cursors.1 = 1.0;
         }
     }
 
@@ -98,6 +87,11 @@ impl LinkSync {
         self.local_avatar.1 = self.local_avatar.1.shifted(handoff.pos_shift());
         self.local_avatar.2 = handoff.next_frame();
         self.roster.shift_frame(handoff.pos_shift());
+        self.cursors.1 = 1.0;
+    }
+
+    pub fn anchor_local_frame(&mut self, frame: CosmicFrame) {
+        self.local_avatar.2 = frame;
         self.cursors.1 = 1.0;
     }
 
@@ -124,7 +118,7 @@ impl LinkSync {
     }
 
     pub fn assign_spawn_point(&mut self, spawn: Vec3, cid: u32) {
-        self.arrival.0 = WelcomeSpawn::Beacon(spawn);
+        self.arrival.assign_spawn(spawn);
         let attire = self.local_avatar.0.transfer(|_, _, _, a| a);
         let kin = PresenceKinematics::new(spawn, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
         self.local_avatar.0 = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), attire);

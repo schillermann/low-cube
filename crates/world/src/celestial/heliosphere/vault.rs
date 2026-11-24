@@ -73,6 +73,23 @@ impl OffworldVault {
         (cube, half)
     }
 
+    pub fn harvest_inactive(
+        &mut self,
+        id: BodyId,
+        eye: glam::Vec3,
+        direction: glam::Vec3,
+        proportions: SolarProportions,
+    ) -> Option<crate::BlockMedium> {
+        use crate::WorldEarthworks as _;
+        let (mut cube, half) = self.checkout(id, proportions);
+        let medium = cube.harvest_surface(eye, direction);
+        if medium.is_some() {
+            self.record_fact(id, WorldFact::Harvested { eye, direction });
+        }
+        self.shelve(id, cube, half);
+        medium
+    }
+
     pub fn enact_inactive(&mut self, id: BodyId, local_fact: &WorldFact, proportions: SolarProportions) -> bool {
         let (mut cube, half) = self.checkout(id, proportions);
         let ok = local_fact.enact_on(&mut cube);

@@ -9,6 +9,9 @@ low-cube-windows.exe
 character.toml
 controls.toml
 blackbox.toml
+survivor.key
+*.wal
+*.survivors
 screenshots/
 reports/
 blueprints/

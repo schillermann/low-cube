@@ -130,6 +130,7 @@ pub trait Avatar: AvatarMotor + AvatarOptics + AvatarPresence + PhotoPort + Blac
     fn step_fauna(&mut self, _dt: f32, _world: &mut dyn PlanetaryWorld) {}
     fn reconcile_cosmic_frame(&mut self, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn land_on_world(&mut self, _world: &dyn PlanetaryWorld) {}
+    fn flush_world_notes(&mut self, _world: &mut dyn PlanetaryWorld) {}
     fn solar_chart_snapshot(&self, world: &dyn PlanetaryWorld) -> (crate::drive::OrrerySnapshot, f32, bool) {
         (
             crate::drive::OrrerySnapshot::new(
@@ -152,9 +153,11 @@ pub trait Avatar: AvatarMotor + AvatarOptics + AvatarPresence + PhotoPort + Blac
     #[cfg(test)]
     fn press_world_key(&mut self, code: KeyCode, world: &mut dyn PlanetaryWorld) -> bool {
         let trigger = InputTrigger::Key(code);
-        self.adjust_aimed_rig(trigger, world)
+        let acted = self.adjust_aimed_rig(trigger, world)
             || self.cast_triggered_relic(trigger, world)
-            || self.dispatch_trigger(trigger)
+            || self.dispatch_trigger(trigger);
+        self.flush_world_notes(world);
+        acted
     }
     #[cfg(test)]
     fn rotate_degrees(&mut self, yaw_deg: f32, pitch_deg: f32) {

@@ -5,6 +5,7 @@ mod massive;
 mod multi_crew;
 mod offworld_sync;
 mod simultaneous;
+mod survivor_persistence;
 mod wildlife;
 mod wormhole;
 

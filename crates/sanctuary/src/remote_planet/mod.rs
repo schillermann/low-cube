@@ -29,6 +29,9 @@ impl RemotePlanet {
         if let Some(ep) = link.take_pending_epoch() {
             world.align_epoch(ep);
         }
+        if let Some((frame, pos)) = link.take_pending_anchor() {
+            world.anchor_to_frame(frame, pos);
+        }
         Self::with_journal(world, GuestJournal::new(link, predicted))
     }
 
@@ -53,7 +56,21 @@ impl RemotePlanet {
         fallback: world::SolarProportions,
         bevel_margin: f32,
     ) -> std::io::Result<Self> {
-        let mut link = RemoteLink::bind(target)?;
+        Self::connect_cosmos_with_identity(
+            target,
+            crate::seal::HandshakeIdentity::generate(),
+            fallback,
+            bevel_margin,
+        )
+    }
+
+    pub fn connect_cosmos_with_identity(
+        target: JoinTarget,
+        keys: crate::seal::HandshakeIdentity,
+        fallback: world::SolarProportions,
+        bevel_margin: f32,
+    ) -> std::io::Result<Self> {
+        let mut link = RemoteLink::bind_with_identity(target, keys)?;
         let wait = match target {
             JoinTarget::Wormhole(_) => Duration::from_millis(650),
             JoinTarget::Ticket(_) | JoinTarget::Direct(_) => Duration::from_millis(450),

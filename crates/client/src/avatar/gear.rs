@@ -93,17 +93,18 @@ impl AvatarGear {
         (self.attire, self.earthworks) = (merged, self.earthworks.transition_attire(self.attire, merged));
     }
 
-    pub fn apply_bindings(&mut self, bindings: ActionBindings) {
-        self.bindings = bindings;
-    }
-
+    pub fn apply_bindings(&mut self, bindings: ActionBindings) { self.bindings = bindings; }
     pub fn provision_satchel(&mut self, provider: &dyn StartingSatchel) {
         self.earthworks = self.earthworks.with_provisioned_satchel(provider);
     }
-
-    pub fn step_timers(&mut self, dt: f32) {
-        self.earthworks = self.earthworks.step_toss(dt);
+    pub fn apply_survivor_manifest(&mut self, manifest: world::SatchelManifest) {
+        (self.earthworks, self.attire) = self.earthworks.apply_survivor_manifest(manifest, self.attire);
+        self.folio.close();
     }
+    pub fn drain_crafted_notes(&mut self, world: &mut dyn PlanetaryWorld) {
+        self.earthworks = self.earthworks.drain_crafted_notes(world);
+    }
+    pub fn step_timers(&mut self, dt: f32) { self.earthworks = self.earthworks.step_toss(dt); }
 
     pub fn calm_hands(&mut self) {
         self.earthworks = self.earthworks.halt_dig();

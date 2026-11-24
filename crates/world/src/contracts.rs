@@ -32,6 +32,10 @@ pub trait WorldEarthworks {
     fn disclose_stratum(&mut self, _face_index: usize, _stratum: ExposedStratum) {}
     fn offworld_frame(&self, _probe: Vec3) -> Option<(crate::BodyId, Vec3)> { None }
     fn body_center(&self, _body: crate::BodyId) -> Option<Vec3> { None }
+    fn harvest_offworld(&mut self, body: crate::BodyId, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.enact_offworld(body, &crate::WorldFact::Harvested { eye, direction })
+            .then_some(BlockMedium::TurfEarth)
+    }
     fn enact_offworld(&mut self, _body: crate::BodyId, fact: &crate::WorldFact) -> bool {
         fact.enact_on(self)
     }
@@ -100,6 +104,8 @@ pub trait CompanionPortal {
     fn pump_portal(&mut self, _dt: f32) -> bool { false }
     fn utter_nearby(&mut self, _text: &str) {}
     fn drain_utterances(&mut self, _out: &mut Vec<ProximityUtterance>) {}
+    fn note_crafted_recipe(&mut self, _recipe_index: u8) {}
+    fn note_consumed_provision(&mut self, _relic_code: u8) {}
 }
 
 /// Composite planetary body interface uniting physical relief with segregated mesh, fauna, vessel, and portal contracts.
@@ -121,6 +127,8 @@ pub trait PlanetaryWorld:
         self.collect_spawn_points(&mut pts);
         pts.into_iter().next().map(|p| p + self.surface_up_at(p))
     }
+    fn assigned_survivor(&self) -> Option<crate::SurvivorWelcome> { None }
+    fn anchor_to_frame(&mut self, _frame: crate::CosmicFrame, _local_pos: Vec3) {}
     fn step_surface(&mut self, _dt: f32) -> bool { false }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.step_surface(dt) }
     fn lethal_at(&self, _position: Vec3) -> bool { false }

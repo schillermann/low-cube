@@ -3,10 +3,10 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::{Duration, Instant};
 use glam::{Quat, Vec3};
 use world::{
-    CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceAttire, PresenceKinematics,
-    WorldFact,
+    CompanionPresence, CosmicFrame, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceAttire,
+    PresenceKinematics, SurvivorWelcome, WorldFact,
 };
-use crate::envelope::SanctuaryEnvelope;
+use crate::envelope::{InventoryNotice, SanctuaryEnvelope};
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::SmoothRoster;
 use crate::link_state::{LinkPhase, LinkSync, WelcomeFrame};
@@ -30,6 +30,10 @@ impl RemoteLink {
     }
 
     pub fn bind(target: JoinTarget) -> std::io::Result<Self> {
+        Self::bind_with_identity(target, HandshakeIdentity::generate())
+    }
+
+    pub fn bind_with_identity(target: JoinTarget, keys: HandshakeIdentity) -> std::io::Result<Self> {
         let socket = UdpSocket::bind("0.0.0.0:0")?;
         socket.set_nonblocking(true)?;
         let _ = socket.set_broadcast(true);
@@ -37,15 +41,23 @@ impl RemoteLink {
             JoinTarget::Wormhole(code) => NatAperture::interactive().probe_guest(&socket, code.endpoint()),
             JoinTarget::Ticket(_) | JoinTarget::Direct(_) => socket.local_addr()?,
         };
-        Ok(Self::bind_on_socket(socket, guest_endpoint, target))
+        Ok(Self::bind_socket_with_identity(socket, guest_endpoint, target, keys))
     }
 
     pub fn bind_on_socket(socket: UdpSocket, guest_endpoint: SocketAddr, target: JoinTarget) -> Self {
+        Self::bind_socket_with_identity(socket, guest_endpoint, target, HandshakeIdentity::generate())
+    }
+
+    pub fn bind_socket_with_identity(
+        socket: UdpSocket,
+        guest_endpoint: SocketAddr,
+        target: JoinTarget,
+        keys: HandshakeIdentity,
+    ) -> Self {
         let _ = socket.set_nonblocking(true);
         let _ = socket.set_broadcast(true);
         let kin = PresenceKinematics::new(Vec3::new(0.0, 32.0, 0.0), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
         let initial_pres = CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
-        let keys = HandshakeIdentity::generate();
         let phase = match target {
             JoinTarget::Wormhole(code) => {
                 let pledge = WormholePledge::begin(code, guest_endpoint);
@@ -84,7 +96,10 @@ impl RemoteLink {
     pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) { self.sync.copy_crafts(out); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.sync.copy_crafts(out); }
     pub const fn assigned_spawn(&self) -> Option<Vec3> { self.sync.assigned_spawn() }
+    pub const fn assigned_survivor(&self) -> Option<SurvivorWelcome> { self.sync.assigned_survivor() }
     pub fn take_pending_epoch(&mut self) -> Option<f64> { self.sync.take_pending_epoch() }
+    pub fn take_pending_anchor(&mut self) -> Option<(CosmicFrame, Vec3)> { self.sync.take_pending_anchor() }
+    pub fn anchor_local_frame(&mut self, frame: CosmicFrame) { self.sync.anchor_local_frame(frame); }
     pub fn apply_frame_handoff(&mut self, handoff: world::FrameHandoff) { self.sync.apply_frame_handoff(handoff); }
     pub fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.sync.drain_utterances(out); }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.sync.blend_subtick(subtick_secs); }
@@ -192,6 +207,15 @@ impl RemoteLink {
         }
     }
 
+    pub fn send_inventory_notice(&mut self, notice: InventoryNotice) {
+        if let LinkPhase::Sealed { companion_id, ref mut seal, peer } = self.phase {
+            let (mut payload, mut frame) = (Vec::new(), Vec::new());
+            SanctuaryEnvelope::GuestInventory { notice }.inscribe(&mut payload);
+            seal.seal(companion_id, &payload, &mut frame);
+            let _ = self.socket.send_to(&frame, peer);
+        }
+    }
+
     pub fn send_utterance(&mut self, raw_text: &str) {
         let trimmed = raw_text.trim();
         if trimmed.is_empty() {
@@ -222,6 +246,19 @@ impl RemoteLink {
         self.sync.roster().active_craft_count()
     }
 
+    fn sync_welcome_world(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let mut changed = false;
+        if let Some(ep) = self.sync.take_pending_epoch() {
+            world.align_epoch(ep);
+            changed = true;
+        }
+        if let Some((frame, pos)) = self.sync.take_pending_anchor() {
+            world.anchor_to_frame(frame, pos);
+            changed = true;
+        }
+        changed
+    }
+
     pub fn pump(
         &mut self,
         dt: f32,
@@ -232,16 +269,10 @@ impl RemoteLink {
     ) -> (bool, usize) {
         if !self.connected() {
             let _ = self.step_handshake(dt);
-            if let Some(ep) = self.sync.take_pending_epoch() {
-                world.align_epoch(ep);
-            }
+            let _ = self.sync_welcome_world(world);
             return (false, 0);
         }
-        let mut changed = false;
-        if let Some(ep) = self.sync.take_pending_epoch() {
-            world.align_epoch(ep);
-            changed = true;
-        }
+        let mut changed = self.sync_welcome_world(world);
         while let Some(env) = deferred.pop_front() {
             if self.sync.absorb_envelope(env, world, fleet, predicted) {
                 changed = true;

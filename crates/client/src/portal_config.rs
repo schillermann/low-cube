@@ -1,9 +1,42 @@
 use std::time::Duration;
 use fauna::{AmbientWoodland, WoodlandPlanet};
-use sanctuary::{HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
+use sanctuary::{
+    HandshakeIdentity, HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost,
+};
 use world::{CelestialSystem, PlanetaryWorld, SolarProportions};
 use crate::command_flags::CommandFlags;
 use crate::menu::PortalInvite;
+
+/// Persistent client cryptographic identity key profile (`--identity` / `LOW_CUBE_IDENTITY` / `survivor.key`).
+pub struct SurvivorKeyFile {
+    path: String,
+}
+
+impl SurvivorKeyFile {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(path: String) -> Self {
+        Self { path }
+    }
+
+    pub fn load_process_identity() -> HandshakeIdentity {
+        let flags = CommandFlags::process();
+        if let Some(explicit) = flags.value_of("--identity").or_else(|| std::env::var("LOW_CUBE_IDENTITY").ok()) {
+            let trimmed = explicit.trim();
+            if !trimmed.is_empty() {
+                return HandshakeIdentity::load_or_create(trimmed);
+            }
+        }
+        Self::new("survivor.key".to_string()).load()
+    }
+
+    fn load(&self) -> HandshakeIdentity {
+        if cfg!(test) {
+            HandshakeIdentity::generate()
+        } else {
+            HandshakeIdentity::load_or_create(&self.path)
+        }
+    }
+}
 
 /// Outcome of initiating an in-game P2P portal join.
 pub enum DialOutcome {
@@ -45,7 +78,8 @@ impl PortalDial {
     }
 
     pub fn begin(target: JoinTarget) -> (Self, DialOutcome) {
-        let Ok(mut link) = RemoteLink::bind(target) else {
+        let keys = SurvivorKeyFile::load_process_identity();
+        let Ok(mut link) = RemoteLink::bind_with_identity(target, keys) else {
             return (Self::Idle, DialOutcome::Failed);
         };
         if let Some(prop) = link.try_welcome_cosmos_within(Duration::from_millis(240)) {
@@ -173,7 +207,8 @@ impl PortalConfig {
                 Box::new(AmbientWoodland::ambient(hosted))
             }
             Self::JoinRemote { target } => {
-                let remote = RemotePlanet::connect_cosmos(target, proportions, 1.0)
+                let keys = SurvivorKeyFile::load_process_identity();
+                let remote = RemotePlanet::connect_cosmos_with_identity(target, keys, proportions, 1.0)
                     .expect("Failed to connect multiplayer RemotePlanet UDP socket")
                     .spawning();
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");

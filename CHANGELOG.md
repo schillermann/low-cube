@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.116.0] - 2026-11-24
+
+### Added
+- Added server-authoritative `SurvivorStore` inventory & Hill-bubble position persistence bound to persistent X25519 player keys:
+  - `SatchelManifest`, `SurvivorRecord`, `SurvivorWelcome`, and `RelicCatalog` (`crates/world/src/survivor/`), plus `WorldEarthworks::harvest_offworld`, `CompanionPortal::note_crafted_recipe` / `note_consumed_provision`, and `PlanetaryWorld::assigned_survivor` / `anchor_to_frame`: models all `30` `HeldRelic` item counts, equipped `(right, left)` palms, and `19` `ArtisanTome` crafting recipes as an authoritative domain value object (`crates/client/src/attire/tests/camera.rs`).
+  - `SurvivorStore` with `DiskVaultSurvivors(MemorySurvivors)` (`crates/sanctuary/src/survivor_ledger.rs`), `HandshakeIdentity::load_or_create` (`crates/sanctuary/src/seal.rs`), `SurvivorKeyFile` (`crates/client/src/portal_config.rs`, `--identity` / `LOW_CUBE_IDENTITY` / `survivor.key`), `InventoryNotice` (`crates/sanctuary/src/envelope.rs`), `WelcomeArrival` (`crates/sanctuary/src/link_state/arrival.rs`), and `<journal>.survivors` WAL replay in `SanctuaryPlan` (`crates/sanctuary/src/config/mod.rs`):
+    - Overwrites client-local `server.toml` `[inventory]` kits upon joining (`EmbodiedAvatar::land_from_world`, `BeltSatchel::from_survivor_manifest`) with the server's `[inventory] items` starter kit (stripping admin `SpawnStone`s) or the returning survivor's saved checkpoint, while rejecting forged recipe crafts when ingredients are missing.
+    - Tracks Earth and off-world (`Mars`, `Europa`, `BeltRock`) mining yields, timber felling, foraging, block placement, blueprint construction, `BoarMeat` consumption, and `ArtisanTome` crafting in `GuestWard`, renews `SessionSeal` cleanly on rapid `< 12 s` reconnects, and restores returning miners directly onto moving planetary or `2.70 AU` `BeltAsteroid` voxel crusts even after hours of orbital drift and full server WAL restarts (`crates/sanctuary/src/tests/survivor_persistence.rs`).
+
 ## [0.115.0] - 2026-11-24
 
 ### Added

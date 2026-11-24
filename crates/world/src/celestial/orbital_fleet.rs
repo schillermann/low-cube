@@ -127,6 +127,9 @@ impl<W: PlanetaryWorld> WorldEarthworks for OrbitalFleetWorld<W> {
     fn body_center(&self, body: crate::BodyId) -> Option<Vec3> {
         self.origin.body_center(body)
     }
+    fn harvest_offworld(&mut self, body: crate::BodyId, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.origin.harvest_offworld(body, eye, direction)
+    }
     fn enact_offworld(&mut self, body: crate::BodyId, fact: &crate::WorldFact) -> bool {
         self.origin.enact_offworld(body, fact)
     }
@@ -238,6 +241,8 @@ impl<W: CompanionPortal> CompanionPortal for OrbitalFleetWorld<W> {
     fn pump_portal(&mut self, dt: f32) -> bool { self.origin.pump_portal(dt) }
     fn utter_nearby(&mut self, text: &str) { self.origin.utter_nearby(text); }
     fn drain_utterances(&mut self, out: &mut Vec<crate::ProximityUtterance>) { self.origin.drain_utterances(out); }
+    fn note_crafted_recipe(&mut self, recipe_index: u8) { self.origin.note_crafted_recipe(recipe_index); }
+    fn note_consumed_provision(&mut self, relic_code: u8) { self.origin.note_consumed_provision(relic_code); }
 }
 
 impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
@@ -262,6 +267,11 @@ impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
     fn canopy_drag(&self, position: Vec3) -> f32 { self.origin.canopy_drag(position) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.origin.placed_camera_tripod() }
     fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.origin.collect_spawn_points(out); }
+    fn assigned_spawn_point(&self) -> Option<Vec3> { self.origin.assigned_spawn_point() }
+    fn assigned_survivor(&self) -> Option<crate::SurvivorWelcome> { self.origin.assigned_survivor() }
+    fn anchor_to_frame(&mut self, frame: crate::CosmicFrame, local_pos: Vec3) {
+        self.origin.anchor_to_frame(frame, local_pos);
+    }
     fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.origin.step_local_flora(dt) }
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position) }

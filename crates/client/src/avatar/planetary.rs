@@ -213,6 +213,7 @@ impl Avatar for PlanetaryAvatar {
         self.core_mut().reconcile_cosmic_frame(world)
     }
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.core_mut().land_on_world(world); }
+    fn flush_world_notes(&mut self, world: &mut dyn PlanetaryWorld) { self.core_mut().flush_world_notes(world); }
     fn solar_chart_snapshot(&self, world: &dyn PlanetaryWorld) -> (crate::drive::OrrerySnapshot, f32, bool) {
         self.core().solar_chart_snapshot(world)
     }

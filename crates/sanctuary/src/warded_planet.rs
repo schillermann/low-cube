@@ -40,6 +40,7 @@ impl WorldEarthworks for WardedPlanet<'_> {
         }
         let medium = self.origin.harvest_surface(eye, direction)?;
         self.ward.credit_blocks(1);
+        self.ward.manifest_mut().credit_medium(medium);
         Some(medium)
     }
 
@@ -50,6 +51,7 @@ impl WorldEarthworks for WardedPlanet<'_> {
         let outcome = self.origin.strike_timber(eye, direction);
         if outcome.felled() {
             self.ward.credit_blocks(8);
+            self.ward.manifest_mut().credit_timber_felled();
         }
         outcome
     }
@@ -68,6 +70,7 @@ impl WorldEarthworks for WardedPlanet<'_> {
         let find = self.origin.forage_surface(eye, direction);
         if find.gathered() {
             self.ward.credit_blocks(4);
+            self.ward.manifest_mut().credit_find(find);
         }
         find
     }
@@ -77,6 +80,7 @@ impl WorldEarthworks for WardedPlanet<'_> {
             return false;
         }
         if self.origin.cast_surface_find(eye, direction, find) {
+            self.ward.manifest_mut().deduct_find_if_present(find);
             return true;
         }
         self.ward.credit_blocks(1);
@@ -88,6 +92,7 @@ impl WorldEarthworks for WardedPlanet<'_> {
             return false;
         }
         if self.origin.place_molded_surface_block(eye, direction, avatar_pos, mold) {
+            self.ward.manifest_mut().deduct_medium_if_present(mold.medium());
             return true;
         }
         self.ward.credit_blocks(1);
@@ -109,6 +114,7 @@ impl WorldEarthworks for WardedPlanet<'_> {
             return false;
         }
         if self.origin.build_rig_blueprint(eye, direction, blueprint) {
+            self.ward.manifest_mut().deduct_blueprint_if_present(blueprint);
             return true;
         }
         self.ward.credit_blocks(needed);
@@ -172,17 +178,19 @@ impl WorldEarthworks for WardedPlanet<'_> {
                 if !self.ward.eye_within_reach(eye + c, direction) || !self.ward.consume_harvest_token() {
                     return false;
                 }
-                let ok = self.origin.enact_offworld(body, fact);
-                if ok {
-                    self.ward.credit_blocks(1);
-                }
-                ok
+                let Some(medium) = self.origin.harvest_offworld(body, eye, direction) else {
+                    return false;
+                };
+                self.ward.credit_blocks(1);
+                self.ward.manifest_mut().credit_medium(medium);
+                true
             }
-            WorldFact::MoldPlaced { eye, direction, .. } => {
+            WorldFact::MoldPlaced { eye, direction, mold, .. } => {
                 if !self.ward.eye_within_reach(eye + c, direction) || !self.ward.spend_block() {
                     return false;
                 }
                 if self.origin.enact_offworld(body, fact) {
+                    self.ward.manifest_mut().deduct_medium_if_present(mold.medium());
                     true
                 } else {
                     self.ward.credit_blocks(1);
@@ -194,6 +202,7 @@ impl WorldEarthworks for WardedPlanet<'_> {
                     return false;
                 }
                 if self.origin.enact_offworld(body, fact) {
+                    self.ward.manifest_mut().deduct_find_if_present(find);
                     true
                 } else {
                     self.ward.credit_blocks(1);
@@ -216,6 +225,7 @@ impl WorldEarthworks for WardedPlanet<'_> {
                     return false;
                 }
                 if self.origin.enact_offworld(body, fact) {
+                    self.ward.manifest_mut().deduct_blueprint_if_present(blueprint);
                     true
                 } else {
                     self.ward.credit_blocks(needed);

@@ -74,12 +74,12 @@ pub enum VaultStream {
 }
 
 impl VaultStream {
-    fn open_append(path: &Path) -> std::io::Result<Self> {
+    pub(crate) fn open_append(path: &Path) -> std::io::Result<Self> {
         let file = OpenOptions::new().create(true).append(true).open(path)?;
         Ok(Self::Open(Mutex::new(BufWriter::with_capacity(16_384, file))))
     }
 
-    fn write_frame(&mut self, path: &Path, payload: &[u8]) {
+    pub(crate) fn write_frame(&mut self, path: &Path, payload: &[u8]) {
         if matches!(self, Self::Dormant) {
             if let Ok(opened) = Self::open_append(path) {
                 *self = opened;
@@ -94,7 +94,7 @@ impl VaultStream {
         }
     }
 
-    fn flush_pending(&mut self) {
+    pub(crate) fn flush_pending(&mut self) {
         if let Self::Open(lock) = self {
             if let Ok(mut out) = lock.lock() {
                 let _ = out.flush();

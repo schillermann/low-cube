@@ -236,6 +236,27 @@ impl VicinityCache {
         self.slots[idx].body_mut()
     }
 
+    pub fn harvest_on_body(
+        &mut self,
+        id: BodyId,
+        eye: Vec3,
+        direction: Vec3,
+        proportions: SolarProportions,
+    ) -> Option<crate::BlockMedium> {
+        use crate::WorldEarthworks as _;
+        for slot in &mut self.slots {
+            if let Some(b) = slot.body_mut().filter(|b| b.body_id() == id) {
+                let medium = b.planet_mut().inner_mut().harvest_surface(eye, direction);
+                if medium.is_some() {
+                    b.mark_all_dirty();
+                    self.vault.record_fact(id, WorldFact::Harvested { eye, direction });
+                }
+                return medium;
+            }
+        }
+        self.vault.harvest_inactive(id, eye, direction, proportions)
+    }
+
     pub fn enact_on_body(&mut self, id: BodyId, local_fact: &WorldFact, proportions: SolarProportions) -> bool {
         for slot in &mut self.slots {
             if let Some(b) = slot.body_mut().filter(|b| b.body_id() == id) {

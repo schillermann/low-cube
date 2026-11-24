@@ -200,6 +200,10 @@ impl<W: WorldEarthworks> WorldEarthworks for AdminBlockWard<W> {
         self.origin.body_center(body)
     }
 
+    fn harvest_offworld(&mut self, body: BodyId, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.origin.harvest_offworld(body, eye, direction)
+    }
+
     fn enact_offworld(&mut self, body: BodyId, fact: &WorldFact) -> bool {
         match *fact {
             WorldFact::MoldPlaced { mold, .. } if mold.medium().admin_restricted() => false,

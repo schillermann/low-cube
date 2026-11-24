@@ -91,19 +91,29 @@ impl SessionAssembly for SessionLaunch {
         );
 
         let half = (world_blocks as f32) * 0.5;
-        let spawn_position = planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0);
+        let spawn_position = planet
+            .assigned_survivor()
+            .and_then(|w| w.restored_record())
+            .map_or_else(
+                || planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0),
+                |rec| planet.constrain_to_surface(rec.position(), 1.0),
+            );
         let flight = self.cosmos.physics.surface_flight(1.0);
         let attire = FileAttire::profile()
             .load_or_squire()
             .with_hand_relic(1.0, HeldRelic::CantileverCrane);
         let bindings = FileBindings::profile().load_or_seeded();
-        let embodied = PlanetaryAvatar::with_attire_and_bindings(
+        let mut embodied = PlanetaryAvatar::with_attire_and_bindings(
             spawn_position,
             flight,
             attire,
             bindings,
         )
         .with_starting_satchel(&ServerSatchel::assembled());
+        if planet.assigned_survivor().is_some() {
+            use crate::avatar::Avatar as _;
+            embodied.land_on_world(planet.as_ref());
+        }
         let avatar = Box::new(BlackBoxAvatar::wrapping(
             Box::new(embodied),
             FileBlackBox::profile().load_tape(),

@@ -3,42 +3,52 @@ mod pulse;
 
 use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
-use glam::Vec3;
+use glam::{Quat, Vec3};
 use world::{
     CompanionPresence, CosmicFrame, DeckFrame, DrivenCraft, GravityBubble, PilotCraft,
-    PlanetaryWorld, PresenceAttire, ProximityUtterance, SolarProportions,
+    PlanetaryWorld, PresenceAttire, PresenceKinematics, ProximityUtterance, SolarProportions,
+    SurvivorRecord, SurvivorWelcome,
 };
-use crate::admin_ward::SpawnBeacons;
 use crate::audience::CHAT_EARSHOT_METERS;
 use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_log::ChronicleStore;
-use crate::envelope::SanctuaryEnvelope;
+use crate::envelope::{InventoryNotice, SanctuaryEnvelope};
 use crate::fleet_ledger::FleetLedger;
-use crate::glide::TimelineClock;
+use crate::glide::{CompanionGlide, TimelineClock};
 use crate::spatial_chronicle::HorizonStream;
+use crate::survivor_ledger::{MemorySurvivors, SurvivorStore};
 use crate::ward::{GuestWard, WardVitals};
 use self::deck_view::HostDeckView;
 use self::pulse::CohortPulse;
 
 const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
 
-/// Connected companion wards and horizon chronicle streams indexed by `companion_id` and X25519 key (`<= 4` fields).
+/// Connected companion wards, X25519 identity map, and persistent `SurvivorStore` (`<= 4` fields).
 pub struct GuestCohort {
     wards: HashMap<u32, (GuestWard, HorizonStream)>,
-    key_index: HashMap<[u8; 32], u32>,
-    next_id: u32,
+    identities: (HashMap<[u8; 32], u32>, u32),
+    survivors: Box<dyn SurvivorStore>,
     timeline: (TimelineClock, f32),
 }
 
 impl GuestCohort {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_survivors(
+        wards: HashMap<u32, (GuestWard, HorizonStream)>,
+        identities: (HashMap<[u8; 32], u32>, u32),
+        survivors: Box<dyn SurvivorStore>,
+        timeline: (TimelineClock, f32),
+    ) -> Self {
+        Self { wards, identities, survivors, timeline }
+    }
+
     pub fn with_streams(
         wards: HashMap<u32, (GuestWard, HorizonStream)>,
         key_index: HashMap<[u8; 32], u32>,
         next_id: u32,
         timeline: (TimelineClock, f32),
     ) -> Self {
-        Self { wards, key_index, next_id, timeline }
+        Self::with_survivors(wards, (key_index, next_id), Box::new(MemorySurvivors::empty()), timeline)
     }
 
     pub fn new(
@@ -51,8 +61,12 @@ impl GuestCohort {
         Self::with_streams(paired, key_index, next_id, timeline)
     }
 
+    pub fn with_store(survivors: Box<dyn SurvivorStore>) -> Self {
+        Self::with_survivors(HashMap::new(), (HashMap::new(), 2), survivors, (TimelineClock::origin(), 0.0))
+    }
+
     pub fn empty() -> Self {
-        Self::with_streams(HashMap::new(), HashMap::new(), 2, (TimelineClock::origin(), 0.0))
+        Self::with_store(Box::new(MemorySurvivors::empty()))
     }
 
     pub const fn tick_secs(&self) -> f64 { self.timeline.0.tick_secs() }
@@ -83,6 +97,26 @@ impl GuestCohort {
             }
         }
         Some((ward.cosmic_frame(), raw))
+    }
+
+    pub fn commit_survivor(&mut self, cid: u32, aura: &HostAura, final_checkpoint: bool) {
+        let Some((wf, wpos)) = self.ward_world_locus(cid, aura) else { return };
+        let Some((ward, _)) = self.wards.get(&cid) else { return };
+        if ward.established_traffic() && ward.guest_pubkey() != [0u8; 32] {
+            let record = SurvivorRecord::new(wf, wpos, ward.manifest());
+            self.survivors.commit(ward.guest_pubkey(), record, final_checkpoint);
+        }
+    }
+
+    pub fn apply_inventory_notice(&mut self, cid: u32, notice: InventoryNotice, aura: &HostAura) -> bool {
+        let applied = self.wards.get_mut(&cid).is_some_and(|(ward, _)| match notice {
+            InventoryNotice::Crafted { recipe } => ward.manifest_mut().apply_recipe(recipe),
+            InventoryNotice::Consumed { relic_code } => ward.manifest_mut().consume_edible(relic_code),
+        });
+        if applied {
+            self.commit_survivor(cid, aura, true);
+        }
+        applied
     }
 
     pub fn ensure_authored_fact(&mut self, cid: u32, fact_id: u32) {
@@ -145,35 +179,55 @@ impl GuestCohort {
     pub fn admit_guest(
         &mut self,
         identity: &HostIdentity,
-        beacons: &mut SpawnBeacons,
+        aura: &mut HostAura,
         peer: SocketAddr,
         guest_pub: [u8; 32],
-    ) -> (u32, Option<Vec3>) {
-        let cid = if let Some(&existing) = self.key_index.get(&guest_pub) {
+    ) -> (u32, Option<Vec3>, SurvivorWelcome) {
+        let cid = if let Some(&existing) = self.identities.0.get(&guest_pub) {
             existing
         } else {
-            let id = self.next_id;
-            self.next_id = self.next_id.wrapping_add(1).max(2);
-            self.key_index.insert(guest_pub, id);
+            let id = self.identities.1;
+            self.identities.1 = self.identities.1.wrapping_add(1).max(2);
+            self.identities.0.insert(guest_pub, id);
             id
         };
+        if self.wards.get(&cid).is_some_and(|(w, _)| w.established_traffic()) {
+            self.commit_survivor(cid, aura, true);
+            let _ = self.wards.remove(&cid);
+        }
+        let welcome = self.survivors.admit_or_restore(guest_pub);
         let seal = identity.keys().establish(guest_pub, false);
         let half = (identity.blocks_per_edge() as f32) * 0.5;
-        let (kin, beacon_stand) = beacons.allocate_kinematics(half);
-        let pres = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
-        self.wards
-            .entry(cid)
-            .or_insert_with(|| (GuestWard::new(seal, peer, pres, WardVitals::fresh()), HorizonStream::empty()));
-        (cid, beacon_stand)
+        let (kin, beacon_stand) = match welcome.restored_record() {
+            Some(rec) => {
+                let k = PresenceKinematics::new(rec.position(), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
+                (k, None)
+            }
+            None => aura.beacons_mut().allocate_kinematics(half),
+        };
+        if !self.wards.contains_key(&cid) {
+            let pres = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
+            let frame = welcome.restored_record().map_or(CosmicFrame::earth(), |r| r.frame());
+            let vitals = WardVitals::for_survivor(guest_pub, welcome.manifest());
+            let ward = GuestWard::with_locus(seal, (peer, frame), CompanionGlide::awaiting_first(pres), vitals);
+            self.wards.insert(cid, (ward, HorizonStream::empty()));
+        }
+        (cid, beacon_stand, welcome)
     }
 
-    pub fn advance_wards(&mut self, dt: f32, abandoned_out: &mut Vec<(u32, CosmicFrame, PilotCraft)>) -> bool {
+    pub fn advance_wards(
+        &mut self,
+        dt: f32,
+        aura: &HostAura,
+        abandoned_out: &mut Vec<(u32, CosmicFrame, PilotCraft)>,
+    ) -> bool {
         self.timeline.0 = self.timeline.0.advanced(dt);
         for (ward, _) in self.wards.values_mut() {
             ward.step(dt);
         }
         let expired: Vec<u32> = self.wards.iter().filter_map(|(&cid, (w, _))| (!w.alive()).then_some(cid)).collect();
         for cid in expired {
+            self.commit_survivor(cid, aura, true);
             if let Some((dead, _)) = self.wards.remove(&cid) {
                 let frame = dead.cosmic_frame();
                 abandoned_out.push((cid, frame, dead.into_pilot_craft()));
@@ -228,6 +282,7 @@ impl GuestCohort {
         proportions: SolarProportions,
         epoch_secs: f64,
     ) {
+        self.survivors.flush_tick();
         CohortPulse::new(proportions, epoch_secs).deliver(socket, &mut self.wards, chronicle, aura);
     }
 }

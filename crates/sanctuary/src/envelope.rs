@@ -50,6 +50,13 @@ impl CrackNotice {
     }
 }
 
+/// Authoritative client-reported crafting or provision consumption notice verified against `SatchelManifest`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum InventoryNotice {
+    Crafted { recipe: u8 },
+    Consumed { relic_code: u8 },
+}
+
 /// Encrypted domain message exchanged inside `SessionSeal` between `RemotePlanet` and `SanctuaryHost`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum SanctuaryEnvelope {
@@ -80,6 +87,9 @@ pub enum SanctuaryEnvelope {
     },
     HostUtterance {
         utterance: ProximityUtterance,
+    },
+    GuestInventory {
+        notice: InventoryNotice,
     },
 }
 
@@ -159,6 +169,13 @@ impl SanctuaryEnvelope {
             Self::HostUtterance { utterance } => {
                 out.push(6);
                 utterance.inscribe(out);
+            }
+            Self::GuestInventory { notice } => {
+                out.push(7);
+                match *notice {
+                    InventoryNotice::Crafted { recipe } => out.extend_from_slice(&[1, recipe]),
+                    InventoryNotice::Consumed { relic_code } => out.extend_from_slice(&[2, relic_code]),
+                }
             }
         }
     }
@@ -269,6 +286,11 @@ impl SanctuaryEnvelope {
                 let (utterance, _) = ProximityUtterance::decode(&bytes[1..])?;
                 Some(Self::HostUtterance { utterance })
             }
+            7 if bytes.len() >= 3 => match bytes[1] {
+                1 => Some(Self::GuestInventory { notice: InventoryNotice::Crafted { recipe: bytes[2] } }),
+                2 => Some(Self::GuestInventory { notice: InventoryNotice::Consumed { relic_code: bytes[2] } }),
+                _ => None,
+            },
             _ => None,
         }
     }

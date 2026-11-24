@@ -144,6 +144,13 @@ impl AvatarBody {
         }
     }
 
+    pub fn land(&mut self, world: &dyn PlanetaryWorld) {
+        self.span = BodySpan::landed_on(world);
+        self.posture = AvatarPosture::standing();
+        self.berth = CockpitBerth::pedestrian();
+        self.flight.ground();
+    }
+
     pub fn respawn(&mut self, world: &dyn PlanetaryWorld) {
         self.span = BodySpan::spawned_on(world);
         self.posture = AvatarPosture::standing();

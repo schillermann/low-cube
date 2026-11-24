@@ -5,9 +5,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
-use world::{CelestialSystem, PlanetaryWorld, SolarProportions};
+use world::{CelestialSystem, PlanetaryWorld, SatchelManifest, SolarProportions};
 use crate::chronicle_decorators::{CompactedChronicle, DiskVaultChronicle};
 use crate::chronicle_log::{ChronicleLog, ChronicleStore};
+use crate::survivor_ledger::{DiskVaultSurvivors, MemorySurvivors, SurvivorStore};
 use crate::SanctuaryHost;
 use self::cosmos::ServerCosmosScale;
 
@@ -73,19 +74,31 @@ impl SanctuaryEndpoint {
         self.port
     }
 
-    fn serve(self, proportions: SolarProportions, persistence: VaultPersistence) -> std::io::Result<()> {
+    fn serve(
+        self,
+        proportions: SolarProportions,
+        persistence: VaultPersistence,
+        starter_kit: SatchelManifest,
+    ) -> std::io::Result<()> {
         let blocks_per_edge = proportions.earth_blocks();
         let bind_addr = format!("0.0.0.0:{}", self.port);
         let bevel = ((blocks_per_edge as f32) * 0.5 * 0.125).clamp(0.5, 1.0);
         let mut world: Box<dyn PlanetaryWorld> = CelestialSystem::heliosphere(proportions, bevel);
-        let store: Box<dyn ChronicleStore> = match persistence {
+        let mem_survivors = MemorySurvivors::with_starter(starter_kit);
+        let (store, survivors): (Box<dyn ChronicleStore>, Box<dyn SurvivorStore>) = match persistence {
             VaultPersistence::Journaled(path) => {
+                let surv_path = PathBuf::from(format!("{}.survivors", path.display()));
                 let base = CompactedChronicle::wrapping(ChronicleLog::empty());
-                Box::new(DiskVaultChronicle::replay_and_open(path, base, world.as_mut())?)
+                let chronicle = Box::new(DiskVaultChronicle::replay_and_open(path, base, world.as_mut())?);
+                let ledger = Box::new(DiskVaultSurvivors::replay_and_open(surv_path, mem_survivors)?);
+                (chronicle, ledger)
             }
-            VaultPersistence::Ephemeral => Box::new(CompactedChronicle::wrapping(ChronicleLog::empty())),
+            VaultPersistence::Ephemeral => (
+                Box::new(CompactedChronicle::wrapping(ChronicleLog::empty())),
+                Box::new(mem_survivors),
+            ),
         };
-        let mut host = SanctuaryHost::bind_cosmos_with_store(&bind_addr, world, proportions, store)?;
+        let mut host = SanctuaryHost::bind_cosmos_with_stores(&bind_addr, world, proportions, store, survivors)?;
         let bound = host.local_addr()?;
         let ticket = host.ticket().encode();
         println!("=== LOW-CUBE DEDICATED SERVER ===");
@@ -118,38 +131,41 @@ pub struct SanctuaryPlan {
     endpoint: SanctuaryEndpoint,
     proportions: SolarProportions,
     persistence: VaultPersistence,
+    starter_kit: SatchelManifest,
 }
 
 impl SanctuaryPlan {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn with_persistence(
+    pub const fn with_starter(
+        endpoint: SanctuaryEndpoint,
+        proportions: SolarProportions,
+        persistence: VaultPersistence,
+        starter_kit: SatchelManifest,
+    ) -> Self {
+        Self { endpoint, proportions, persistence, starter_kit }
+    }
+
+    pub fn with_persistence(
         endpoint: SanctuaryEndpoint,
         proportions: SolarProportions,
         persistence: VaultPersistence,
     ) -> Self {
-        Self { endpoint, proportions, persistence }
+        Self::with_starter(endpoint, proportions, persistence, SatchelManifest::starter_kit())
     }
 
-    pub const fn with_proportions(endpoint: SanctuaryEndpoint, proportions: SolarProportions) -> Self {
+    pub fn with_proportions(endpoint: SanctuaryEndpoint, proportions: SolarProportions) -> Self {
         Self::with_persistence(endpoint, proportions, VaultPersistence::Ephemeral)
     }
 
     /// Secondary constructor initializing true-scale solar proportions for `blocks_per_edge`.
-    pub const fn new(endpoint: SanctuaryEndpoint, blocks_per_edge: u32) -> Self {
+    pub fn new(endpoint: SanctuaryEndpoint, blocks_per_edge: u32) -> Self {
         Self::with_proportions(endpoint, SolarProportions::true_scale(blocks_per_edge))
     }
 
-    pub const fn endpoint(&self) -> SanctuaryEndpoint {
-        self.endpoint
-    }
-
-    pub const fn blocks_per_edge(&self) -> u32 {
-        self.proportions.earth_blocks()
-    }
-
-    pub const fn proportions(&self) -> SolarProportions {
-        self.proportions
-    }
+    pub const fn endpoint(&self) -> SanctuaryEndpoint { self.endpoint }
+    pub const fn blocks_per_edge(&self) -> u32 { self.proportions.earth_blocks() }
+    pub const fn proportions(&self) -> SolarProportions { self.proportions }
+    pub const fn starter_kit(&self) -> SatchelManifest { self.starter_kit }
 
     fn parse_scale_factor(raw: &str, source: &str) -> u32 {
         let factor = raw.trim().parse::<i64>().unwrap_or_else(|_| {
@@ -171,6 +187,12 @@ impl SanctuaryPlan {
             .section_property("storage", "journal", false)
             .filter(|s| !s.is_empty())
             .map_or(VaultPersistence::Ephemeral, |s| VaultPersistence::Journaled(PathBuf::from(s)));
+        let mut starter_kit = toml
+            .section_property("inventory", "items", false)
+            .or_else(|| toml.section_property("inventory", "satchel", false))
+            .map_or_else(SatchelManifest::starter_kit, |raw| {
+                SatchelManifest::parse_server_kit(&raw, "server.toml")
+            });
 
         if let Some(raw_size) = toml
             .section_property("world", "size", true)
@@ -191,6 +213,9 @@ impl SanctuaryPlan {
             if !env_journal.trim().is_empty() {
                 persistence = VaultPersistence::Journaled(PathBuf::from(env_journal.trim()));
             }
+        }
+        if let Ok(env_inv) = env::var("LOW_CUBE_INVENTORY").or_else(|_| env::var("LOW_CUBE_ITEMS")) {
+            starter_kit = SatchelManifest::parse_server_kit(&env_inv, "LOW_CUBE_INVENTORY");
         }
         if let Ok(env_port) = env::var("LOW_CUBE_PORT") {
             if let Ok(parsed) = env_port.trim().parse::<u16>() {
@@ -215,6 +240,12 @@ impl SanctuaryPlan {
             } else if arg == "--journal" && idx + 1 < args.len() {
                 persistence = VaultPersistence::Journaled(PathBuf::from(args[idx + 1].trim()));
                 idx += 2;
+            } else if let Some(val) = arg.strip_prefix("--inventory=").or_else(|| arg.strip_prefix("--items=")) {
+                starter_kit = SatchelManifest::parse_server_kit(val, "--inventory");
+                idx += 1;
+            } else if matches!(arg, "--inventory" | "--items") && idx + 1 < args.len() {
+                starter_kit = SatchelManifest::parse_server_kit(&args[idx + 1], "--inventory");
+                idx += 2;
             } else if arg == "--blocks" && idx + 1 < args.len() {
                 if let Ok(b) = args[idx + 1].parse::<u32>() {
                     blocks = b.clamp(16, 4_096);
@@ -231,10 +262,10 @@ impl SanctuaryPlan {
         }
 
         let proportions = ServerCosmosScale::new(args, toml).resolve(blocks);
-        Self::with_persistence(SanctuaryEndpoint::new(port), proportions, persistence)
+        Self::with_starter(SanctuaryEndpoint::new(port), proportions, persistence, starter_kit)
     }
 
     pub fn execute(self) -> std::io::Result<()> {
-        self.endpoint.serve(self.proportions, self.persistence)
+        self.endpoint.serve(self.proportions, self.persistence, self.starter_kit)
     }
 }

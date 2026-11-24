@@ -2,7 +2,7 @@ use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
     CompanionPresence, CosmicFrame, CraftPose, DrivenCraft, GoreStamp, GravityBubble, PilotCraft,
-    PlanetaryWorld, VesselBerth,
+    PlanetaryWorld, SatchelManifest, VesselBerth,
 };
 use crate::glide::CompanionGlide;
 use crate::seal::SessionSeal;
@@ -13,22 +13,40 @@ const MAX_DIG_BURST_TOKENS: f32 = 2.0;
 const DIG_REFILL_PER_SEC: f32 = 5.0;
 const INITIAL_STARTER_BLOCKS: u32 = 64;
 
-/// Authoritative per-guest anti-cheat vitals: chronicle ack, block tally, dig cadence, gore stamp, and AoI cursor.
+/// Authoritative per-guest anti-cheat vitals and persistent survivor satchel (`<= 4` fields).
 pub struct WardVitals {
     ledger: (u32, u32),
     cadence: (f32, f32),
-    gore: GoreStamp,
-    sight_cursor: usize,
+    cursors: (GoreStamp, usize),
+    survivor: ([u8; 32], SatchelManifest),
 }
 
 impl WardVitals {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(ledger: (u32, u32), cadence: (f32, f32), gore: GoreStamp, sight_cursor: usize) -> Self {
-        Self { ledger, cadence, gore, sight_cursor }
+    pub const fn with_survivor(
+        ledger: (u32, u32),
+        cadence: (f32, f32),
+        cursors: (GoreStamp, usize),
+        survivor: ([u8; 32], SatchelManifest),
+    ) -> Self {
+        Self { ledger, cadence, cursors, survivor }
     }
 
-    pub const fn fresh() -> Self {
-        Self::new((0, INITIAL_STARTER_BLOCKS), (MAX_DIG_BURST_TOKENS, 0.0), GoreStamp::calm(), 0)
+    pub fn new(ledger: (u32, u32), cadence: (f32, f32), gore: GoreStamp, sight_cursor: usize) -> Self {
+        Self::with_survivor(ledger, cadence, (gore, sight_cursor), ([0u8; 32], SatchelManifest::starter_kit()))
+    }
+
+    pub fn fresh() -> Self {
+        Self::for_survivor([0u8; 32], SatchelManifest::starter_kit())
+    }
+
+    pub const fn for_survivor(pubkey: [u8; 32], manifest: SatchelManifest) -> Self {
+        Self::with_survivor(
+            (0, INITIAL_STARTER_BLOCKS),
+            (MAX_DIG_BURST_TOKENS, 0.0),
+            (GoreStamp::calm(), 0),
+            (pubkey, manifest),
+        )
     }
 
     pub fn advance(&mut self, dt: f32) {
@@ -69,14 +87,18 @@ impl GuestWard {
 
     pub fn step(&mut self, dt: f32) { self.vitals.advance(dt); }
     pub fn alive(&self) -> bool { self.vitals.alive() }
+    pub const fn established_traffic(&self) -> bool { self.seal.established_traffic() }
+    pub const fn guest_pubkey(&self) -> [u8; 32] { self.vitals.survivor.0 }
+    pub const fn manifest(&self) -> SatchelManifest { self.vitals.survivor.1 }
+    pub fn manifest_mut(&mut self) -> &mut SatchelManifest { &mut self.vitals.survivor.1 }
     pub const fn cosmic_frame(&self) -> CosmicFrame { self.locus.1 }
     pub const fn berth(&self) -> VesselBerth { self.glide.berth() }
     pub const fn ack_seq(&self) -> u32 { self.vitals.ledger.0 }
-    pub const fn gore_stamp(&self) -> GoreStamp { self.vitals.gore }
-    pub fn record_gore(&mut self, impulse: Vec3) { self.vitals.gore = self.vitals.gore.advanced(impulse); }
+    pub const fn gore_stamp(&self) -> GoreStamp { self.vitals.cursors.0 }
+    pub fn record_gore(&mut self, impulse: Vec3) { self.vitals.cursors.0 = self.vitals.cursors.0.advanced(impulse); }
     pub fn presence(&self) -> CompanionPresence { self.glide.authoritative_presence() }
     pub fn anchor_position(&self) -> Vec3 { self.presence().transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos)) }
-    pub fn sight_cursor_mut(&mut self) -> &mut usize { &mut self.vitals.sight_cursor }
+    pub fn sight_cursor_mut(&mut self) -> &mut usize { &mut self.vitals.cursors.1 }
     pub fn presence_at(&self, render_secs: f64) -> CompanionPresence { self.glide.presence_at(render_secs) }
     pub fn presence_at_with_hull(&self, render_secs: f64, hull: Option<CraftPose>) -> CompanionPresence {
         self.glide.presence_at_with_hull(render_secs, hull)
@@ -145,6 +167,7 @@ impl GuestWard {
             }
             let rec_pres = presence.with_slot(companion_id);
             let rec_craft = self.glide.authoritative_craft().reconciled(companion_id, craft, world);
+            self.vitals.survivor.1.reconcile_from_presence(rec_pres);
             self.locus.1 = frame;
             self.glide = if frame_changed {
                 CompanionGlide::anchored_with_berth(now, rec_pres, rec_craft, berth)
@@ -181,6 +204,7 @@ impl GuestWard {
             return;
         }
         let rec_pres = presence.with_slot(companion_id);
+        self.vitals.survivor.1.reconcile_from_presence(rec_pres);
         let rec_craft = match craft {
             PilotCraft::Pedestrian => PilotCraft::Pedestrian,
             PilotCraft::Driving(dc) if dc.identity().assigned() && bubble.valid_local_point(frame, dc.pose().origin()) => {

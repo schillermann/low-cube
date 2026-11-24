@@ -18,6 +18,7 @@ use crate::host_wire::HostWire;
 use crate::mailbox::{PortalBeat, PortalMailbox, SocketLoop};
 use crate::nat::NatAperture;
 use crate::seal::HandshakeIdentity;
+use crate::survivor_ledger::{MemorySurvivors, SurvivorStore};
 use crate::ticket::PortalTicket;
 use crate::wormhole::{PortalCode, WormholeGate};
 
@@ -54,20 +55,7 @@ impl SanctuaryHost {
         self
     }
 
-    pub fn standby_active(&self) -> bool {
-        self.standby.active()
-    }
-
-    fn bind_slot_socket(bind_addr: &str, secret: u8) -> std::io::Result<UdpSocket> {
-        if let Some(host_part) = bind_addr.strip_suffix(":0") {
-            let preferred = PortalCode::slot_port_for_secret(secret);
-            let candidate = format!("{host_part}:{preferred}");
-            if let Ok(sock) = UdpSocket::bind(&candidate) {
-                return Ok(sock);
-            }
-        }
-        UdpSocket::bind(bind_addr)
-    }
+    pub fn standby_active(&self) -> bool { self.standby.active() }
 
     /// Binds a non-blocking UDP socket and discovers the external P2P endpoint via STUN & UPnP/NAT-PMP.
     pub fn bind(bind_addr: &str, world: Box<dyn PlanetaryWorld>, blocks_per_edge: u32) -> std::io::Result<Self> {
@@ -91,11 +79,21 @@ impl SanctuaryHost {
         proportions: world::SolarProportions,
         chronicle: Box<dyn ChronicleStore>,
     ) -> std::io::Result<Self> {
+        Self::bind_cosmos_with_stores(bind_addr, world, proportions, chronicle, Box::new(MemorySurvivors::empty()))
+    }
+
+    /// Binds a non-blocking UDP socket backed by explicit `ChronicleStore` and `SurvivorStore` decorator chains.
+    pub fn bind_cosmos_with_stores(
+        bind_addr: &str,
+        world: Box<dyn PlanetaryWorld>,
+        proportions: world::SolarProportions,
+        chronicle: Box<dyn ChronicleStore>,
+        survivors: Box<dyn SurvivorStore>,
+    ) -> std::io::Result<Self> {
         let secret = PortalCode::draw_secret();
-        let socket = Self::bind_slot_socket(bind_addr, secret)?;
-        socket.set_nonblocking(true)?;
+        let socket = HostWire::bind_slot_socket(bind_addr, secret)?;
         let endpoint = NatAperture::interactive().open_host(&socket);
-        Ok(Self::assemble_with_store(socket, endpoint, secret, world, proportions, chronicle))
+        Ok(Self::assemble_with_stores(socket, endpoint, secret, world, proportions, chronicle, survivors))
     }
 
     /// Binds a UDP socket advertising a known external NAT endpoint.
@@ -106,26 +104,27 @@ impl SanctuaryHost {
         blocks_per_edge: u32,
     ) -> std::io::Result<Self> {
         let secret = PortalCode::draw_secret();
-        let socket = Self::bind_slot_socket(bind_addr, secret)?;
-        socket.set_nonblocking(true)?;
+        let socket = HostWire::bind_slot_socket(bind_addr, secret)?;
         let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
-        Ok(Self::assemble_with_store(
+        Ok(Self::assemble_with_stores(
             socket,
             advertised,
             secret,
             world,
             world::SolarProportions::true_scale(blocks_per_edge),
             store,
+            Box::new(MemorySurvivors::empty()),
         ))
     }
 
-    fn assemble_with_store(
+    fn assemble_with_stores(
         socket: UdpSocket,
         endpoint: SocketAddr,
         secret: u8,
         world: Box<dyn PlanetaryWorld>,
         proportions: world::SolarProportions,
         chronicle: Box<dyn ChronicleStore>,
+        survivors: Box<dyn SurvivorStore>,
     ) -> Self {
         let code = PortalCode::from_endpoint(endpoint, secret);
         let identity = HostIdentity::with_proportions(HandshakeIdentity::generate(), proportions, endpoint);
@@ -135,7 +134,7 @@ impl SanctuaryHost {
         aura.beacons_mut().refresh_from(world.as_ref());
         let state = HostState::with_store(
             chronicle,
-            GuestCohort::empty(),
+            GuestCohort::with_store(survivors),
             aura,
             WormholeGate::with_code(code),
         );
@@ -171,6 +170,11 @@ impl SanctuaryHost {
     pub fn align_epoch(&mut self, epoch_secs: f64) {
         self.world.align_epoch(epoch_secs);
         self.write_wire(|w| w.state_mut().sync_epoch(epoch_secs));
+    }
+    pub fn anchor_to_frame(&mut self, frame: world::CosmicFrame, local_pos: Vec3) {
+        self.world.anchor_to_frame(frame, local_pos);
+        let handoff = world::FrameHandoff::new(frame, local_pos, Vec3::ZERO, Vec3::ZERO);
+        self.write_wire(|w| w.state_mut().reanchor_host(handoff));
     }
     pub fn reconcile_cosmic_frame(&mut self, local_pos: Vec3, local_vel: Vec3) -> Option<world::FrameHandoff> {
         let handoff = self.world.reconcile_cosmic_frame(local_pos, local_vel)?;

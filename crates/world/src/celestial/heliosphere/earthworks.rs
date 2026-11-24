@@ -222,6 +222,15 @@ impl WorldEarthworks for HeliosphereWorld {
             .map(|s| s.center().as_vec3())
     }
 
+    fn harvest_offworld(&mut self, body: crate::BodyId, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        if body == crate::BodyId::EARTH {
+            return self.earth.harvest_surface(eye, direction);
+        }
+        self.vicinity
+            .borrow_mut()
+            .harvest_on_body(body, eye, direction, self.ephemeris.proportions())
+    }
+
     fn enact_offworld(&mut self, body: crate::BodyId, fact: &WorldFact) -> bool {
         if body == crate::BodyId::EARTH {
             return fact.enact_on(&mut self.earth);

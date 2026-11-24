@@ -41,6 +41,22 @@ impl BeltSatchel {
         Self::new(self.palms, self.tray.stowed_with(relic, count), self.tripod)
     }
 
+    pub fn from_survivor_manifest(manifest: world::SatchelManifest, attire: YouthAttire) -> (Self, YouthAttire) {
+        let clean = manifest.sanitized();
+        let (rc, lc) = clean.held_codes();
+        let (right, left) = (HeldRelic::from_code(rc), HeldRelic::from_code(lc));
+        let next_attire = attire.with_relics(right, left);
+        let mut satchel = Self::empty();
+        for code in 1..(HeldRelic::COUNT as u8) {
+            let held = u32::from(right.code() == code) + u32::from(left.code() == code);
+            let stowed = clean.count_of(code).saturating_sub(held);
+            if stowed > 0 {
+                satchel = satchel.with_stowed_relic(HeldRelic::from_code(code), stowed);
+            }
+        }
+        (satchel.reconcile_attire(next_attire), next_attire)
+    }
+
     pub const fn open(&self) -> bool { self.tray.open() }
     pub const fn with_open(self, open: bool) -> Self { Self::new(self.palms, self.tray.with_open(open), self.tripod) }
     pub const fn palm_molds(&self) -> PalmMolds { self.palms.palm_molds() }

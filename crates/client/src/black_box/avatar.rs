@@ -257,6 +257,10 @@ impl Avatar for BlackBoxAvatar {
         self.origin.land_on_world(world);
     }
 
+    fn flush_world_notes(&mut self, world: &mut dyn PlanetaryWorld) {
+        self.origin.flush_world_notes(world);
+    }
+
     fn solar_chart_snapshot(&self, world: &dyn PlanetaryWorld) -> (crate::drive::OrrerySnapshot, f32, bool) {
         self.origin.solar_chart_snapshot(world)
     }

@@ -1,4 +1,8 @@
-use crate::attire::HeldRelic;
+use glam::Vec3;
+use world::PlanetaryWorld;
+use crate::attire::{BeltSatchel, HeldRelic, StrideRhythm, YouthAttire};
+use crate::controls::{ActionBindings, ControlAction, InputTrigger};
+use super::SurfaceReach;
 
 const DOUBLE_TAP_WINDOW_SECS: f32 = 0.38;
 
@@ -49,5 +53,33 @@ impl TossCadence {
             }
             _ => None,
         }
+    }
+
+    pub fn try_cast(
+        self,
+        satchel: BeltSatchel,
+        trigger: InputTrigger,
+        bindings: &ActionBindings,
+        attire: YouthAttire,
+        rhythm: StrideRhythm,
+        eye: Vec3,
+        view_dir: Vec3,
+        world: &mut dyn PlanetaryWorld,
+    ) -> (BeltSatchel, Self, StrideRhythm, bool) {
+        let side = if bindings.matches(ControlAction::SatchelRight, trigger) {
+            1.0
+        } else if bindings.matches(ControlAction::SatchelLeft, trigger) {
+            -1.0
+        } else {
+            return (satchel, self, rhythm, false);
+        };
+        let Some(relic) = self.ready_on(side) else {
+            return (satchel, self, rhythm, false);
+        };
+        let (next_satchel, taken) = satchel.take_cast_relic(relic);
+        if !taken || !world.cast_surface_find(eye, view_dir, relic.surface_find()) {
+            return (satchel, Self::Quiet, rhythm, false);
+        }
+        (next_satchel, Self::Quiet, SurfaceReach::swing_rhythm(attire, rhythm, side), true)
     }
 }

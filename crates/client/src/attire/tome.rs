@@ -1,6 +1,6 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use world::{BlockMold, MeshTarget};
+use world::{BlockMold, MeshTarget, PlanetaryWorld};
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 use crate::menu::PixelStamp;
 use super::pose::BodyPose;
@@ -38,14 +38,21 @@ impl CraftingEntry {
     }
 }
 
-/// Interactive medieval Crafting Book listing craftable tools, weapons, and items with live resource counts.
+/// Interactive medieval Crafting Book listing craftable tools, weapons, and items with live resource counts (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ArtisanTome {
-    cursor: usize, open: bool,
+    cursor: usize,
+    open: bool,
+    notes: [u8; 8],
+    note_len: u8,
 }
 
 impl ArtisanTome {
-    pub const fn new(cursor: usize, open: bool) -> Self { Self { cursor, open } }
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_notes(cursor: usize, open: bool, notes: [u8; 8], note_len: u8) -> Self {
+        Self { cursor, open, notes, note_len }
+    }
+    pub const fn new(cursor: usize, open: bool) -> Self { Self::with_notes(cursor, open, [0; 8], 0) }
     pub const fn closed() -> Self { Self::new(0, false) }
     pub const fn open(&self) -> bool { self.open }
 
@@ -78,19 +85,39 @@ impl ArtisanTome {
         list[self.cursor % list.len()]
     }
 
-    pub const fn with_open(self, open: bool) -> Self { Self::new(self.cursor, open) }
-    pub const fn toggle(self) -> Self { Self::new(self.cursor, !self.open) }
+    pub const fn with_open(self, open: bool) -> Self {
+        Self::with_notes(self.cursor, open, self.notes, self.note_len)
+    }
+    pub const fn toggle(self) -> Self { self.with_open(!self.open) }
 
     pub const fn navigate(self, delta: isize) -> Self {
         let len = Self::entries().len() as isize;
-        Self::new((self.cursor as isize + delta).rem_euclid(len) as usize, self.open)
+        let next_cur = (self.cursor as isize + delta).rem_euclid(len) as usize;
+        Self::with_notes(next_cur, self.open, self.notes, self.note_len)
+    }
+
+    const fn noted_recipe(mut self, recipe: u8) -> Self {
+        if (self.note_len as usize) < self.notes.len() {
+            self.notes[self.note_len as usize] = recipe;
+            self.note_len += 1;
+        }
+        self
+    }
+
+    pub fn drain_crafted_notes(mut self, world: &mut dyn PlanetaryWorld) -> Self {
+        for idx in 0..(self.note_len as usize) {
+            world.note_crafted_recipe(self.notes[idx]);
+        }
+        self.note_len = 0;
+        self
     }
 
     pub fn craft_selected(self, side: f32, satchel: BeltSatchel, attire: YouthAttire) -> (Self, BeltSatchel, YouthAttire, bool) {
+        let recipe_idx = (self.cursor % Self::entries().len()) as u8;
         let (state, entry) = (satchel.reconcile_attire(attire), self.selected_entry());
         if !entry.craftable(&state, attire) { return (self, state, attire, false); }
         let (next_satchel, next_attire) = state.consume_and_equip(entry.ingredients(), entry.product(), entry.batch_yield(), side, attire);
-        (self.with_open(false), next_satchel, next_attire, true)
+        (self.with_open(false).noted_recipe(recipe_idx), next_satchel, next_attire, true)
     }
 
     pub fn dispatch_trigger(self, trigger: InputTrigger, bindings: &ActionBindings, satchel: BeltSatchel, attire: YouthAttire) -> (Self, BeltSatchel, YouthAttire, bool) {

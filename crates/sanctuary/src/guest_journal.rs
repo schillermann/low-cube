@@ -68,6 +68,11 @@ impl GuestJournal {
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.read_link(|l| l.companions(out)); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.read_link(|l| l.crafts(out)); }
     pub fn assigned_spawn(&self) -> Option<glam::Vec3> { self.read_link(RemoteLink::assigned_spawn) }
+    pub fn assigned_survivor(&self) -> Option<world::SurvivorWelcome> { self.read_link(RemoteLink::assigned_survivor) }
+    pub fn anchor_local_frame(&mut self, frame: world::CosmicFrame) { self.write_link(|l| l.anchor_local_frame(frame)); }
+    pub fn send_inventory_notice(&mut self, notice: crate::envelope::InventoryNotice) {
+        self.write_link(|l| l.send_inventory_notice(notice));
+    }
     pub fn utter_nearby(&mut self, text: &str) { self.write_link(|l| l.send_utterance(text)); }
     pub fn drain_utterances(&self, out: &mut Vec<world::ProximityUtterance>) { self.write_link(|l| l.drain_utterances(out)); }
     pub fn active_craft_count(&self) -> usize { self.mailbox.active_crafts() }

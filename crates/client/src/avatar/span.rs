@@ -39,6 +39,14 @@ impl BodySpan {
         self.prior.lerp(self.current, self.blend)
     }
 
+    pub fn landed_on(world: &dyn world::PlanetaryWorld) -> Self {
+        if let Some(rec) = world.assigned_survivor().and_then(|w| w.restored_record()) {
+            Self::anchored(world.constrain_to_surface(rec.position(), 1.0))
+        } else {
+            Self::spawned_on(world)
+        }
+    }
+
     pub fn spawned_on(world: &dyn world::PlanetaryWorld) -> Self {
         let spawn = if let Some(beacon) = world.assigned_spawn_point() {
             world.constrain_to_surface(beacon, 1.0)

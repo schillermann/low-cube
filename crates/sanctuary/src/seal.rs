@@ -18,9 +18,50 @@ impl HandshakeIdentity {
     pub fn generate() -> Self {
         let mut raw = [0u8; 32];
         getrandom::fill(&mut raw).expect("OS CSPRNG entropy unavailable");
+        Self::from_secret_bytes(raw)
+    }
+
+    /// Secondary constructor reconstructing a deterministic X25519 keypair from 32 secret bytes.
+    pub fn from_secret_bytes(raw: [u8; 32]) -> Self {
         let secret = StaticSecret::from(raw);
         let public = PublicKey::from(&secret);
         Self::new(secret, public)
+    }
+
+    /// Loads a persistent 64-hex-character X25519 keypair from `path`, or creates and saves one if absent.
+    pub fn load_or_create(path: impl AsRef<std::path::Path>) -> Self {
+        let key_path = path.as_ref();
+        if let Ok(existing) = std::fs::read_to_string(key_path) {
+            let trimmed = existing.trim();
+            assert!(
+                trimmed.len() == 64,
+                "Corrupt survivor identity key in {}: expected 64 hex characters",
+                key_path.display()
+            );
+            let mut raw = [0u8; 32];
+            for (idx, slot) in raw.iter_mut().enumerate() {
+                *slot = u8::from_str_radix(&trimmed[idx * 2..idx * 2 + 2], 16).unwrap_or_else(|_| {
+                    panic!("Invalid hex byte in survivor identity key {}", key_path.display())
+                });
+            }
+            return Self::from_secret_bytes(raw);
+        }
+        let fresh = Self::generate();
+        if let Some(parent) = key_path.parent().filter(|p| !p.as_os_str().is_empty()) {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let mut hex_out = String::with_capacity(65);
+        for byte in fresh.secret_bytes() {
+            use std::fmt::Write as _;
+            let _ = write!(&mut hex_out, "{byte:02x}");
+        }
+        hex_out.push('\n');
+        let _ = std::fs::write(key_path, hex_out);
+        fresh
+    }
+
+    pub fn secret_bytes(&self) -> [u8; 32] {
+        self.secret.to_bytes()
     }
 
     pub fn public_bytes(&self) -> [u8; 32] {
@@ -62,6 +103,10 @@ impl SessionSeal {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(aead: ChaCha20Poly1305, tx_seq: u64, rx_high: u64, rx_window: u64) -> Self {
         Self { aead, tx_seq, rx_high, rx_window }
+    }
+
+    pub const fn established_traffic(&self) -> bool {
+        self.rx_high > 0
     }
 
     fn build_nonce(companion_id: u32, seq: u64) -> [u8; 12] {

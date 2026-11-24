@@ -16,6 +16,7 @@ mod quad;
 mod relief;
 mod sight_cone;
 mod surface_contact;
+mod survivor;
 mod topology;
 mod tree;
 mod wire_vector;
@@ -68,6 +69,9 @@ pub use presence::{
 };
 pub use sight_cone::SightCone;
 pub use surface_contact::SurfaceContact;
+pub use survivor::{
+    RelicCatalog, SatchelManifest, SurvivorRecord, SurvivorWelcome, RELIC_SLOT_COUNT,
+};
 pub use relief::{
     AttitudeGuidance, BlueprintCatalog, CellRole, CockpitAxes, CraftBlueprint, CraftIdentity,
     CraftPose, CrustVault, DeckFrame, ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins,

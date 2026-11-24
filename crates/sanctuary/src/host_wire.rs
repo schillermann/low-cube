@@ -6,6 +6,9 @@ use crate::aura::HostIdentity;
 use crate::host_state::HostState;
 use crate::mailbox::PortalBeat;
 use crate::ticket::PortalTicket;
+use crate::wormhole::PortalCode;
+
+pub(crate) const STRUCTURED_WELCOME_TAG: u8 = 0x57;
 
 /// Encapsulated P2P UDP host wire and session state implementing `PortalBeat` without `PlanetaryWorld` locks.
 pub struct HostWire {
@@ -24,6 +27,20 @@ impl HostWire {
         deferred: VecDeque<(u32, WorldFact)>,
     ) -> Self {
         Self { socket, identity, state, deferred }
+    }
+
+    pub(crate) fn bind_slot_socket(bind_addr: &str, secret: u8) -> std::io::Result<UdpSocket> {
+        if let Some(host_part) = bind_addr.strip_suffix(":0") {
+            let preferred = PortalCode::slot_port_for_secret(secret);
+            let candidate = format!("{host_part}:{preferred}");
+            if let Ok(sock) = UdpSocket::bind(&candidate) {
+                sock.set_nonblocking(true)?;
+                return Ok(sock);
+            }
+        }
+        let sock = UdpSocket::bind(bind_addr)?;
+        sock.set_nonblocking(true)?;
+        Ok(sock)
     }
 
     pub const fn socket(&self) -> &UdpSocket { &self.socket }
@@ -88,19 +105,23 @@ impl HostWire {
     }
 
     fn answer_knock(&mut self, peer: SocketAddr, guest_pub: [u8; 32]) {
-        let (cid, beacon_stand) = self.state.admit_guest(&self.identity, peer, guest_pub);
-        let mut reply = Vec::with_capacity(80);
+        let (cid, beacon_stand, welcome) = self.state.admit_guest(&self.identity, peer, guest_pub);
+        let mut reply = Vec::with_capacity(160);
         reply.extend_from_slice(b"LWEL");
         reply.extend_from_slice(&self.identity.keys().public_bytes());
         reply.extend_from_slice(&cid.to_le_bytes());
         reply.extend_from_slice(&self.identity.blocks_per_edge().to_le_bytes());
         self.identity.proportions().inscribe_tail(&mut reply);
+        let flags = u8::from(beacon_stand.is_some()) | 0x02;
+        reply.push(STRUCTURED_WELCOME_TAG);
+        reply.push(flags);
+        reply.extend_from_slice(&self.state.epoch_secs().to_le_bytes());
         if let Some(pos) = beacon_stand {
             for c in [pos.x, pos.y, pos.z] {
                 reply.extend_from_slice(&c.to_le_bytes());
             }
         }
-        reply.extend_from_slice(&self.state.epoch_secs().to_le_bytes());
+        welcome.inscribe(&mut reply);
         let _ = self.socket.send_to(&reply, peer);
     }
 

@@ -97,17 +97,17 @@ Auch kreative Ideen müssen sich dem Gesetz beugen: **Keine globalen Server-Broa
 
 ---
 
-## 5. Umsetzungsstand & Was als Nächstes umgesetzt werden kann (Priorisierte Roadmap ab `v0.115.0`)
+## 5. Umsetzungsstand & Was als Nächstes umgesetzt werden kann (Priorisierte Roadmap ab `v0.116.0`)
 
-Nachdem die strikte Horizont-/Klimazonen-Isolation (`v0.113.0`), **Paket 1 — Mitbewegte lokale Hill-Sphären (`v0.114.0`)** und **Paket 2 — Multi-Crew-Relativkoordinaten (`VesselBerth` / `VesselDeckCurve` in `v0.115.0`)** vollständig umgesetzt und getestet sind, verbleiben drei klar abgegrenzte nächste Umsetzungspakete:
+Nachdem die strikte Horizont-/Klimazonen-Isolation (`v0.113.0`), **Paket 1 — Mitbewegte lokale Hill-Sphären (`v0.114.0`)**, **Paket 2 — Multi-Crew-Relativkoordinaten (`v0.115.0`)** und **Paket 3 — Serverseitiger `SurvivorStore` (`v0.116.0`)** vollständig umgesetzt und getestet sind, verbleiben zwei klar abgegrenzte nächste Umsetzungspakete:
 
 1. ✅ **Erledigt in `v0.114.0` — Lokale Hill-Sphären (`CosmicFrame::Body`, `BeltAsteroid`, `4,096 m` `DeepSpace`) + `LWEL` `epoch_secs`-Sync:**
    * Sub-Millimeter-`f32`-Präzision (`< 0,13 mm` ULP) bis `30,07 AU` (`Triton`), kontinuierlich weiterlaufende Planetenbahnen ohne `if !locked`-Sperre sowie `MtuBudgetAudience(CosmicCraftSight(CosmicBubbleAudience))`-Isolation im Multiplayer.
 2. ✅ **Erledigt in `v0.115.0` — `VesselBerth`-Relativkoordinaten & `VesselDeckCurve` für Multi-Crew-Raumschiffe:**
    * Hält Piloten, sitzende Beifahrer (`PassengerBerth`) und frei über das Deck laufende Crew-Mitglieder (`DeckFooting::Aboard` inkl. Startrampe-zu-Orbit-Äquivalenzprinzip & Kabinen-Proximity-Chat) selbst bei `240.000 m/s` und `180°` Flip-&-Burn mit `0,000 m` Schlupf exakt im Schiffsrumpf (`0` Extra-Bytes für Bodenspieler).
-3. **Nächstes Paket (Paket 3) — Serverseitiger `SurvivorLedger` (Inventar- & Positions-Persistenz pro X25519-Key):**
-   * **Warum als Nächstes:** Bindet gesammeltes Erz, Werkzeuge (`FusionTorch`) und den letzten Aufenthaltsort serverseitig an den kryptographischen Spieler-Schlüssel im WAL – verhindert Client-`server.toml`-Cheats und schützt 45-Minuten-Bergbau-Expeditionen bei kurzen Verbindungsabbrüchen.
-4. **Paket 4 — Netto-Zellzustands-Snapshots (`SectorSnapshot`) für gealterte Sektoren + Multi-Core-Klimazonen-Sharding:**
+3. ✅ **Erledigt in `v0.116.0` — Serverseitiger `SurvivorStore` (`DiskVaultSurvivors(MemorySurvivors)`) pro X25519-Key:**
+   * Bindet `SatchelManifest` (alle `30` `HeldRelic`-Bestände + `19` `ArtisanTome`-Rezepte) und den letzten `(CosmicFrame, Vec3)`-Aufenthaltsort (`Earth`, `Mars`, `BeltAsteroid`) an persistente X25519-Spielerschlüssel (`survivor.key` / `<journal>.survivors`), verhindert lokale `server.toml`-Starterkit-Cheats und stellt Bergleute selbst nach stundenlanger Orbital-Drift und Server-WAL-Neustarts millimetergenau auf ihrem Asteroiden wieder her.
+4. **Nächstes Paket (Paket 4) — Netto-Zellzustands-Snapshots (`SectorSnapshot`) für gealterte Sektoren + Multi-Core-Klimazonen-Sharding:**
    * **Gewinn:** Komprimiert Sektoren, in denen über Monate Tausende Male gegraben und umgebaut wurde, auf ihren reinen Zell-Endzustand (null Raycast-Replay beim Betreten alter Städte) und verteilt die Simulation der 6 Erd-Klimazonen parallel auf getrennte Server-Threads.
 5. **Paket 5 — Emergente Hard-Sci-Fi-Sandbox (`CargoBallast`-Erzmasse, `MediumChat`-Vakuumfunk & bergbare `LiveTape`-Blackbox-Blöcke):**
    * **Gewinn:** Macht den Rohstofftransport aus dem Asteroidengürtel physikalisch spürbar (`a = F / m`), gibt Raumspaziergängen echten Helm-an-Helm-/Anzugfunk und verwandelt Absturzstellen durch abspielbare Flugschreiber-Blöcke in echte Weltraum-Archäologie.

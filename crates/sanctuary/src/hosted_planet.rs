@@ -130,6 +130,9 @@ impl PlanetaryWorld for HostedPlanet {
     fn celestial_atlas(&self) -> world::CelestialAtlas { self.host.world().celestial_atlas() }
     fn cosmic_frame(&self) -> world::CosmicFrame { self.host.world().cosmic_frame() }
     fn align_epoch(&mut self, epoch_secs: f64) { self.host.align_epoch(epoch_secs); }
+    fn anchor_to_frame(&mut self, frame: world::CosmicFrame, local_pos: Vec3) {
+        self.host.anchor_to_frame(frame, local_pos);
+    }
     fn reconcile_cosmic_frame(&mut self, local_pos: Vec3, local_vel: Vec3) -> Option<world::FrameHandoff> {
         self.host.reconcile_cosmic_frame(local_pos, local_vel)
     }
@@ -165,6 +168,9 @@ impl WorldEarthworks for HostedPlanet {
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.host.world_mut().disclose_stratum(face_index, stratum); }
     fn offworld_frame(&self, probe: Vec3) -> Option<(world::BodyId, Vec3)> { self.host.world().offworld_frame(probe) }
     fn body_center(&self, body: world::BodyId) -> Option<Vec3> { self.host.world().body_center(body) }
+    fn harvest_offworld(&mut self, body: world::BodyId, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.host.with_chronicled(|w| w.harvest_offworld(body, eye, direction))
+    }
     fn enact_offworld(&mut self, body: world::BodyId, fact: &world::WorldFact) -> bool {
         self.host.with_chronicled(|w| w.enact_offworld(body, fact))
     }

@@ -104,6 +104,7 @@ impl SessionStage {
         if !pressed || !self.avatar.dispatch_trigger(trigger) {
             self.overlay.register_trigger(trigger, pressed);
         } else {
+            self.avatar.flush_world_notes(self.world.as_mut());
             self.overlay.register_trigger(trigger, false);
         }
         false

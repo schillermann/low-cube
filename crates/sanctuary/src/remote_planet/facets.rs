@@ -119,6 +119,12 @@ impl CompanionPortal for RemotePlanet {
     fn pump_portal(&mut self, dt: f32) -> bool { self.journal.pump(dt, self.world.as_mut()) || self.world.pending_slices() }
     fn utter_nearby(&mut self, text: &str) { self.journal.utter_nearby(text); }
     fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.journal.drain_utterances(out); }
+    fn note_crafted_recipe(&mut self, recipe_index: u8) {
+        self.journal.send_inventory_notice(crate::envelope::InventoryNotice::Crafted { recipe: recipe_index });
+    }
+    fn note_consumed_provision(&mut self, relic_code: u8) {
+        self.journal.send_inventory_notice(crate::envelope::InventoryNotice::Consumed { relic_code });
+    }
 }
 
 impl PlanetaryWorld for RemotePlanet {
@@ -141,6 +147,13 @@ impl PlanetaryWorld for RemotePlanet {
     fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.world.collect_spawn_points(out); }
     fn assigned_spawn_point(&self) -> Option<Vec3> {
         self.journal.assigned_spawn().or_else(|| self.world.assigned_spawn_point())
+    }
+    fn assigned_survivor(&self) -> Option<world::SurvivorWelcome> {
+        self.journal.assigned_survivor()
+    }
+    fn anchor_to_frame(&mut self, frame: world::CosmicFrame, local_pos: Vec3) {
+        self.world.anchor_to_frame(frame, local_pos);
+        self.journal.anchor_local_frame(frame);
     }
     fn step_surface(&mut self, dt: f32) -> bool {
         let regrown = self.world.step_surface(dt);

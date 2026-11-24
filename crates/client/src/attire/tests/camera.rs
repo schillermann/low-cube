@@ -40,6 +40,34 @@ fn test_server_satchel_parses_cli_and_custom_inventory_specs() {
     assert_eq!(root_satchel.resource_tally(HeldRelic::RocketCamera, squire), 4);
     assert_eq!(root_satchel.resource_tally(HeldRelic::FlightConsole, squire), 1);
     assert_eq!(root_satchel.resource_tally(HeldRelic::RocketNozzle, squire), 6);
+
+    for code in 1..(HeldRelic::COUNT as u8) {
+        let relic = HeldRelic::from_code(code);
+        if relic.placeable_block() {
+            assert_eq!(world::RelicCatalog::from_medium(relic.block_medium()), code);
+        } else {
+            assert_eq!(world::RelicCatalog::from_find(relic.surface_find()), code);
+        }
+    }
+    for (idx, entry) in crate::attire::ArtisanTome::entries().into_iter().enumerate() {
+        let (prod, batch, ings) = world::RelicCatalog::recipe_spec(idx as u8).expect("recipe spec");
+        assert_eq!(prod, entry.product().code());
+        assert_eq!(batch, entry.batch_yield());
+        assert_eq!(ings[0], (entry.ingredients()[0].0.code(), entry.ingredients()[0].1));
+        assert_eq!(ings[1], (entry.ingredients()[1].0.code(), entry.ingredients()[1].1));
+    }
+
+    let cheated = ParsedSatchel::parse("fusion_torch:99, gold_ore:99", "cheat");
+    let server_kit = world::SatchelManifest::parse_server_kit("woodman_axe:1", "server");
+    let (synced_satchel, synced_attire) = BeltSatchel::from_survivor_manifest(
+        server_kit,
+        squire.with_next_tunic().with_relics(HeldRelic::FusionTorch, HeldRelic::GoldOre),
+    );
+    let _ = cheated;
+    assert_eq!(synced_satchel.resource_tally(HeldRelic::FusionTorch, synced_attire), 0);
+    assert_eq!(synced_satchel.resource_tally(HeldRelic::GoldOre, synced_attire), 0);
+    assert_eq!(synced_satchel.resource_tally(HeldRelic::WoodmanAxe, synced_attire), 1);
+    assert_eq!(synced_satchel.resource_tally(HeldRelic::CantileverCrane, synced_attire), 1);
 }
 
 #[test]
