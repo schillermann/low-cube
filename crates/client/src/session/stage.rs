@@ -224,7 +224,8 @@ impl SessionStage {
                 self.avatar.step_fauna(step, self.world.as_mut());
                 let dug = self.avatar.step_digging(self.world.as_mut());
                 let stepped = self.world.step_surface(step);
-                if dug || stepped {
+                let handed_off = self.avatar.reconcile_cosmic_frame(self.world.as_mut());
+                if dug || stepped || handed_off {
                     changed = true;
                 }
             }

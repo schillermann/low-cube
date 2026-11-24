@@ -160,3 +160,89 @@ fn test_horizon_chronicle_isolates_climate_zones_and_streams_on_arrival() {
     stream.gather_horizon(Vec3::new(0.0, -half, 0.0), &[], &idx, prop, 0.0);
     assert_eq!(stream.total(), 0);
 }
+
+#[test]
+fn test_multiplayer_welcome_epoch_sync_and_triton_gravity_bubble_coop() {
+    use world::{BodyId, CelestialSystem, CosmicFrame, SolarEphemeris};
+
+    let prop = SolarProportions::true_scale(128);
+    let earth_half = prop.earth_half();
+    let mut host_world = CelestialSystem::barren_heliosphere(prop, 1.0);
+    for _ in 0..42 {
+        let _ = host_world.step_surface(10.0);
+    }
+    let raw_host = SanctuaryHost::bind_cosmos("127.0.0.1:0", host_world, prop).expect("bind cosmos host");
+    let addr = raw_host.local_addr().expect("addr");
+    let mut host = HostedPlanet::spawning(raw_host);
+
+    let mut alice = RemotePlanet::connect_cosmos(JoinTarget::Direct(addr), prop, 1.0).expect("alice");
+    let mut bob = RemotePlanet::connect_cosmos(JoinTarget::Direct(addr), prop, 1.0).expect("bob");
+    let mut earth_peer = RemotePlanet::connect_cosmos(JoinTarget::Direct(addr), prop, 1.0).expect("earth_peer");
+
+    let alice_epoch = alice.celestial_atlas().ephemeris().expect("alice eph").epoch_secs();
+    assert!(
+        (alice_epoch - 420.0).abs() < 2.0,
+        "Joining guest must inherit host live epoch_secs over LWEL handshake, got {alice_epoch}"
+    );
+
+    // Move Alice & Bob into Triton's Gravity Bubble at 30.07 AU while earth_peer remains on Earth!
+    let eph_a = SolarEphemeris::new(prop, alice_epoch);
+    let triton_snap = eph_a.snapshot_all(0.0).into_iter().find(|s| s.id() == BodyId::TRITON).expect("Triton");
+    let triton_half = triton_snap.half_size() as f32;
+    for guest in [&mut alice, &mut bob] {
+        let cur_eph = guest.celestial_atlas().ephemeris().expect("eph");
+        let snap = cur_eph.snapshot_all(0.0).into_iter().find(|s| s.id() == BodyId::TRITON).expect("Triton");
+        let _ = guest.reconcile_cosmic_frame(snap.center().as_vec3(), Vec3::ZERO);
+        let near_eph = guest.celestial_atlas().ephemeris().expect("eph in deep space");
+        let near_triton = near_eph.snapshot_all(0.0).into_iter().find(|s| s.id() == BodyId::TRITON).expect("Triton");
+        let _ = guest.reconcile_cosmic_frame(
+            near_triton.center().as_vec3() + Vec3::new(0.25, triton_half + 2.0, 0.25),
+            Vec3::ZERO,
+        );
+        assert_eq!(guest.cosmic_frame(), CosmicFrame::Body(BodyId::TRITON));
+    }
+
+    let alice_triton = alice.constrain_to_surface(Vec3::new(0.25, triton_half + 3.0, 0.25), 0.0);
+    let bob_triton = bob.constrain_to_surface(Vec3::new(4.25, triton_half + 3.0, 0.25), 0.0);
+    let earth_stand = earth_peer.constrain_to_surface(Vec3::new(0.25, earth_half + 3.0, 0.25), 0.0);
+    alice.sync_presence(peer_at(0, alice_triton));
+    bob.sync_presence(peer_at(0, bob_triton));
+    earth_peer.sync_presence(peer_at(0, earth_stand));
+
+    for _ in 0..8 {
+        let _ = alice.step_surface(0.04);
+        let _ = bob.step_surface(0.04);
+        let _ = earth_peer.step_surface(0.04);
+        let _ = host.step_surface(0.04);
+    }
+
+    let mut alice_seen = Vec::new();
+    alice.active_companions(&mut alice_seen);
+    assert_eq!(alice_seen.len(), 1, "Alice on Triton must see Bob (4m away) and NOT earth_peer");
+    let seen_bob_pos = alice_seen[0].transfer(|_, kin, _, _| kin.transfer(|p, _, _, _, _| p));
+    assert!(
+        (seen_bob_pos - bob_triton).length() < 0.01,
+        "Bob on Triton at 30.07 AU must replicate to Alice with < 1cm local precision, got {seen_bob_pos:?} vs {bob_triton:?}"
+    );
+
+    let mut earth_seen = Vec::new();
+    earth_peer.active_companions(&mut earth_seen);
+    assert!(
+        earth_seen.is_empty(),
+        "Earth player must receive 0 companions from Triton even when local Vec3 coordinates overlap"
+    );
+
+    // Alice harvests a block on Triton -> streams to Bob on Triton, 0 facts to earth_peer
+    assert!(alice.harvest_surface(alice_triton + Vec3::Y * 1.4, Vec3::NEG_Y).is_some());
+    for _ in 0..10 {
+        let _ = alice.step_surface(0.04);
+        let _ = bob.step_surface(0.04);
+        let _ = earth_peer.step_surface(0.04);
+        let _ = host.step_surface(0.04);
+    }
+    let bob_after = bob.constrain_to_surface(Vec3::new(0.25, triton_half + 3.0, 0.25), 0.0);
+    assert!(
+        bob_after.y < alice_triton.y - 0.3,
+        "Triton surface excavation must replicate accurately between co-op peers inside Triton's bubble"
+    );
+}

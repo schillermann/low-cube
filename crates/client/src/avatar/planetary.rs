@@ -209,6 +209,9 @@ impl Avatar for PlanetaryAvatar {
     fn accept_typed_text(&mut self, text: &str) -> bool { self.core_mut().accept_typed_text(text) }
     fn blend_subtick(&mut self, alpha: f32) { self.core_mut().blend_subtick(alpha); }
     fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) { self.core_mut().step_fauna(dt, world); }
+    fn reconcile_cosmic_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        self.core_mut().reconcile_cosmic_frame(world)
+    }
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.core_mut().land_on_world(world); }
     fn solar_chart_snapshot(&self, world: &dyn PlanetaryWorld) -> (crate::drive::OrrerySnapshot, f32, bool) {
         self.core().solar_chart_snapshot(world)

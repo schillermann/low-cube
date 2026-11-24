@@ -45,6 +45,14 @@ impl AwakenedBody {
         (self.id_and_half.0, self.id_and_half.1, self.planet.into_inner())
     }
 
+    pub fn relocate(&mut self, next_center: Vec3) {
+        if (self.center - next_center).length_squared() > 1e-6 {
+            self.center = next_center;
+            self.planet.relocate_center(next_center);
+            self.mark_all_dirty();
+        }
+    }
+
     pub fn near(&self, pos: Vec3, pad: f32) -> bool {
         (pos - self.center).abs().max_element() <= self.id_and_half.1 + pad
     }

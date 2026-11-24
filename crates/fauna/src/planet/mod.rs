@@ -168,4 +168,9 @@ impl<R: FaunaRealm> PlanetaryWorld for WoodlandPlanet<R> {
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.origin.confine_beneath_crust(position) }
     fn local_body_point(&self, position: Vec3) -> Vec3 { self.origin.local_body_point(position) }
     fn celestial_atlas(&self) -> world::CelestialAtlas { self.origin.celestial_atlas() }
+    fn cosmic_frame(&self) -> world::CosmicFrame { self.origin.cosmic_frame() }
+    fn align_epoch(&mut self, epoch_secs: f64) { self.origin.align_epoch(epoch_secs); }
+    fn reconcile_cosmic_frame(&mut self, local_pos: Vec3, local_vel: Vec3) -> Option<world::FrameHandoff> {
+        self.origin.reconcile_cosmic_frame(local_pos, local_vel)
+    }
 }

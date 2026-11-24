@@ -111,10 +111,16 @@ impl CosmicBodyCube {
         target.push_quad(Quad::glowing(p1 - du1 - dv1, p1 + du1 - dv1, p1 + du1 + dv1, p1 - du1 + dv1, n, mare_col * 0.90, 0.20));
     }
 
-    pub(super) fn emit_for_viewer(self, viewer: Vec3, uploaded_ids: [Option<BodyId>; 2], target: &mut dyn MeshTarget) {
+    pub(super) fn emit_for_viewer(
+        self,
+        viewer: Vec3,
+        uploaded_ids: [Option<BodyId>; 2],
+        earth_voxel_active: bool,
+        target: &mut dyn MeshTarget,
+    ) {
         match self.snap.nature() {
             SurfaceNature::SolarStar => self.emit_solar_star(viewer, target),
-            SurfaceNature::Homeworld => self.emit_distant_earth(viewer, target),
+            SurfaceNature::Homeworld => self.emit_distant_earth(viewer, earth_voxel_active, target),
             SurfaceNature::RockyWorld if !uploaded_ids.contains(&Some(self.snap.id())) => {
                 self.emit_rocky_cube(viewer, target);
             }
@@ -148,10 +154,15 @@ impl CosmicBodyCube {
         }
     }
 
-    fn emit_distant_earth(self, viewer: Vec3, target: &mut dyn MeshTarget) {
+    fn emit_distant_earth(self, viewer: Vec3, earth_voxel_active: bool, target: &mut dyn MeshTarget) {
         let rel_d = self.snap.center() - viewer.as_dvec3();
         let dist = rel_d.length();
-        if dist <= f64::from(EARTH_VOXEL_HANDOFF - 50.0) {
+        let min_dist = if earth_voxel_active {
+            f64::from(EARTH_VOXEL_HANDOFF - 50.0)
+        } else {
+            self.snap.half_size() * 1.02
+        };
+        if dist <= min_dist {
             return;
         }
         let k = (COSMIC_HORIZON / dist).min(1.0);

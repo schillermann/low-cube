@@ -1,16 +1,19 @@
+mod court;
+mod journal;
+
 use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
-    CompanionPresence, CraftBlueprint, CraftIdentity, DrivenCraft, ExposedStratum, MeshTarget,
-    PilotCraft, PlanetaryWorld, ProximityUtterance, WorldFact,
+    CompanionPresence, CosmicFrame, DrivenCraft, ExposedStratum, FrameHandoff, GravityBubble,
+    MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions, WorldFact,
 };
 use fauna::BoarSounder;
 use crate::admin_ward::{AdminBlockWard, GuestFactStamp};
 use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_decorators::CompactedChronicle;
 use crate::chronicle_log::{ChronicleLog, ChronicleStore};
-use crate::chronicled_planet::{ChronicledPlanet, FactJournal};
+use crate::chronicled_planet::ChronicledPlanet;
 use crate::cohort::GuestCohort;
 use crate::envelope::{CrackNotice, SanctuaryEnvelope};
 use crate::fleet_ledger::FleetLedger;
@@ -18,6 +21,7 @@ use crate::host_sounder::HostSounder;
 use crate::ticket::PortalTicket;
 use crate::warded_planet::WardedPlanet;
 use crate::wormhole::{PortalCode, WormholeGate};
+use self::court::AbandonedDock;
 
 /// Strictly encapsulated chronicle store, guest cohort, host aura, and SPAKE2 wormhole gate (`<= 4` fields).
 pub struct HostState {
@@ -49,23 +53,34 @@ impl HostState {
     }
 
     pub const fn code(&self) -> PortalCode { self.wormhole.code() }
+    pub const fn epoch_secs(&self) -> f64 { self.aura.epoch_secs() }
+    pub fn sync_epoch(&mut self, epoch_secs: f64) { self.aura.sync_epoch(epoch_secs); }
+    pub fn reanchor_host(&mut self, handoff: FrameHandoff) { self.aura.reanchor_host(handoff); }
     pub fn punch_peer(&mut self, socket: &UdpSocket, peer: SocketAddr) { self.wormhole.punch_peer(socket, peer); }
     pub fn occupy_host(&mut self, presence: CompanionPresence) { self.aura.occupy(presence); }
     pub fn pilot_host(&mut self, craft: PilotCraft) { self.aura.pilot(craft); }
     pub fn active_craft_count(&self) -> usize { self.cohort.active_craft_count() }
-    pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) {
-        self.cohort.guest_companions(self.aura.occupied_position(), out);
+
+    pub fn guest_companions(&self, proportions: SolarProportions, out: &mut Vec<CompanionPresence>) {
+        let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
+        self.cohort.guest_companions(self.aura.host_frame(), self.aura.occupied_position(), bubble, out);
     }
-    pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) {
-        self.cohort.guest_crafts(self.aura.occupied_position(), out);
+
+    pub fn guest_crafts(&self, proportions: SolarProportions, out: &mut Vec<DrivenCraft>) {
+        let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
+        self.cohort.guest_crafts(self.aura.host_frame(), self.aura.occupied_position(), bubble, out);
     }
+
     pub fn constrain_guest_crafts(&self, position: Vec3, player_height: f32, up: Vec3) -> Option<Vec3> {
-        self.cohort.constrain_crafts(self.aura.fleet(), position, player_height, up)
+        self.cohort.constrain_crafts(self.aura.fleet(), self.aura.host_frame(), position, player_height, up)
     }
+
     pub fn sample_guest_deck(&self, position: Vec3, player_height: f32) -> Option<world::DeckFrame> {
-        self.cohort.sample_deck_at(self.aura.fleet(), position, player_height)
+        self.cohort.sample_deck_at(self.aura.fleet(), self.aura.host_frame(), position, player_height)
     }
+
     pub const fn fleet(&self) -> &FleetLedger { self.aura.fleet() }
+    pub(crate) fn fleet_mut(&mut self) -> &mut FleetLedger { self.aura.fleet_mut() }
     pub const fn wildlife(&self) -> &HostSounder { self.aura.wildlife() }
     pub fn wildlife_mut(&mut self) -> &mut HostSounder { self.aura.wildlife_mut() }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.cohort.blend_subtick(subtick_secs); }
@@ -75,7 +90,8 @@ impl HostState {
     pub fn utter_from_host(&mut self, socket: &UdpSocket, text: &str) {
         if let Some(pos) = self.aura.occupied_position() {
             if let Some(utterance) = ProximityUtterance::sanitized(1, pos, text) {
-                self.cohort.relay_utterance(socket, utterance, &mut self.aura);
+                let hf = self.aura.host_frame();
+                self.cohort.relay_utterance(socket, hf, utterance, &mut self.aura);
             }
         }
     }
@@ -84,9 +100,9 @@ impl HostState {
         self.wormhole.answer_hello(socket, src, pkt, ticket);
     }
 
-    pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) {
+    pub fn emit_guest_crafts(&self, proportions: SolarProportions, target: &mut dyn MeshTarget) {
         let mut crafts = Vec::new();
-        self.guest_crafts(&mut crafts);
+        self.guest_crafts(proportions, &mut crafts);
         self.aura.fleet().emit_crafts(&crafts, target);
     }
 
@@ -95,8 +111,21 @@ impl HostState {
     }
 
     pub fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
-        if let WorldFact::Loosened { eye, direction, stage } = fact {
-            self.aura.record_crack(author_slot, CrackNotice::new(eye, direction, stage.min(4)));
+        match fact {
+            WorldFact::Loosened { eye, direction, stage } => {
+                let frame = if author_slot == 1 {
+                    self.aura.host_frame()
+                } else {
+                    self.cohort.ward_locus(author_slot).map_or(CosmicFrame::earth(), |(f, _)| f)
+                };
+                self.aura.record_crack(author_slot, frame, CrackNotice::new(eye, direction, stage.min(4)));
+            }
+            WorldFact::OffWorld { body, ref fact } => {
+                if let WorldFact::Loosened { eye, direction, stage } = **fact {
+                    self.aura.record_crack(author_slot, CosmicFrame::Body(body), CrackNotice::new(eye, direction, stage.min(4)));
+                }
+            }
+            _ => {}
         }
         let before = self.chronicle.total();
         self.chronicle.record(fact);
@@ -113,18 +142,14 @@ impl HostState {
         match fact {
             WorldFact::StratumDisclosed { .. } => false,
             WorldFact::BoarStruck { eye, direction, power, reach_cm } => {
-                if !self.cohort.ward_mut(cid).is_some_and(|w| w.eye_within_reach(eye, direction)) {
+                if !self.cohort.ward_mut(cid).is_some_and(|w| AbandonedDock::valid_boar_reach(w.cosmic_frame(), eye, direction, w)) {
                     return false;
                 }
-                let clamped_power = power.clamp(1, 4);
-                let max_reach = (f32::from(reach_cm) * 0.01).clamp(0.5, 2.75);
                 let (_, drops) = self
                     .aura
                     .wildlife_mut()
-                    .evaluate_strike(eye, direction, clamped_power, max_reach, false, world);
-                let Some(meat_rays) = drops else {
-                    return false;
-                };
+                    .evaluate_strike(eye, direction, power.clamp(1, 4), (f32::from(reach_cm) * 0.01).clamp(0.5, 2.75), false, world);
+                let Some(meat_rays) = drops else { return false };
                 let mut decorated = ChronicledPlanet::new(world, self);
                 BoarSounder::cast_meat_drops(meat_rays, &mut decorated)
             }
@@ -149,28 +174,30 @@ impl HostState {
         cid: u32,
         src: SocketAddr,
         pkt: &[u8],
+        proportions: SolarProportions,
         world: &mut dyn PlanetaryWorld,
     ) -> bool {
         let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else {
             return false;
         };
         let now = self.cohort.tick_secs();
+        let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
         match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft }) => {
-                let vetted_craft = match craft {
+            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame }) => {
+                let vetted = match craft {
                     PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
                     other => other,
                 };
                 if let Some(ward) = self.cohort.ward_mut(cid) {
-                    ward.absorb_pulse(cid, ack_seq, now, presence, vetted_craft, world);
+                    ward.absorb_pulse(cid, ack_seq, now, frame, presence, vetted, bubble, world);
                 }
                 false
             }
             Some(SanctuaryEnvelope::GuestPetition { fact }) => self.enact_guest_petition(cid, fact, world),
             Some(SanctuaryEnvelope::GuestUtterance { text }) => {
-                if let Some(pos) = self.cohort.ward_anchor(cid) {
+                if let Some((wf, pos)) = self.cohort.ward_locus(cid) {
                     if let Some(utterance) = ProximityUtterance::sanitized(cid, pos, &text) {
-                        self.cohort.relay_utterance(socket, utterance, &mut self.aura);
+                        self.cohort.relay_utterance(socket, wf, utterance, &mut self.aura);
                     }
                 }
                 false
@@ -185,21 +212,20 @@ impl HostState {
         cid: u32,
         src: SocketAddr,
         pkt: &[u8],
-        max_extent: f32,
+        proportions: SolarProportions,
         deferred: &mut VecDeque<(u32, WorldFact)>,
     ) {
-        let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else {
-            return;
-        };
+        let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else { return };
         let now = self.cohort.tick_secs();
+        let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
         match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft }) => {
-                let vetted_craft = match craft {
+            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame }) => {
+                let vetted = match craft {
                     PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
                     other => other,
                 };
                 if let Some(ward) = self.cohort.ward_mut(cid) {
-                    ward.absorb_standby_pulse(cid, ack_seq, now, presence, vetted_craft, max_extent);
+                    ward.absorb_standby_pulse(cid, ack_seq, now, frame, presence, vetted, bubble);
                 }
             }
             Some(SanctuaryEnvelope::GuestPetition { fact }) => {
@@ -208,9 +234,9 @@ impl HostState {
                 }
             }
             Some(SanctuaryEnvelope::GuestUtterance { text }) => {
-                if let Some(pos) = self.cohort.ward_anchor(cid) {
+                if let Some((wf, pos)) = self.cohort.ward_locus(cid) {
                     if let Some(utterance) = ProximityUtterance::sanitized(cid, pos, &text) {
-                        self.cohort.relay_utterance(socket, utterance, &mut self.aura);
+                        self.cohort.relay_utterance(socket, wf, utterance, &mut self.aura);
                     }
                 }
             }
@@ -222,27 +248,29 @@ impl HostState {
         &mut self,
         socket: &UdpSocket,
         dt: f32,
-        proportions: world::SolarProportions,
+        proportions: SolarProportions,
         deferred: &mut VecDeque<(u32, WorldFact)>,
     ) {
+        self.aura.advance_epoch(dt);
         self.wormhole.step(socket, dt);
         let mut abandoned = Vec::new();
         let pulse_ready = self.cohort.advance_wards(dt, &mut abandoned);
-        for (cid, pilot_craft) in abandoned {
+        for (cid, frame, pilot_craft) in abandoned {
             if let PilotCraft::Driving(dc) = pilot_craft {
                 if deferred.len() < 64 {
-                    deferred.push_back((cid, WorldFact::HelmReleased { craft: dc.identity(), pose: dc.pose() }));
+                    deferred.push_back((cid, AbandonedDock::scope_standby_release(frame, dc)));
                 }
             }
             self.aura.fleet_mut().release_slot(cid);
         }
         if pulse_ready {
-            self.broadcast(socket, proportions, 0.0);
+            let epoch = self.aura.epoch_secs();
+            self.broadcast(socket, proportions, epoch);
         }
     }
 
-    pub fn step_clocks(&mut self, _socket: &UdpSocket, dt: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        self.wormhole.step(_socket, dt);
+    pub fn step_clocks(&mut self, socket: &UdpSocket, dt: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+        self.wormhole.step(socket, dt);
         let mut observers = Vec::with_capacity(8);
         if let Some((pos, crouching)) = self.aura.pedestrian_observer(world) {
             observers.push((1, pos, crouching));
@@ -255,45 +283,11 @@ impl HostState {
         }
         let mut abandoned = Vec::new();
         let pulse_ready = self.cohort.advance_wards(dt, &mut abandoned);
-        let mut parked_any = false;
-        for (cid, pilot_craft) in abandoned {
-            if let PilotCraft::Driving(dc) = pilot_craft {
-                if self.aura.fleet_mut().park_by_id(dc.identity(), dc.pose(), world) {
-                    self.chronicle.record(WorldFact::HelmReleased {
-                        craft: dc.identity(),
-                        pose: dc.pose(),
-                    });
-                    parked_any = true;
-                }
-            }
-            self.aura.fleet_mut().release_slot(cid);
-        }
+        let parked_any = AbandonedDock::new(self.chronicle.as_mut(), &mut self.aura).dock_expired(abandoned, world);
         (pulse_ready, parked_any)
     }
 
-    pub fn broadcast(&mut self, socket: &UdpSocket, proportions: world::SolarProportions, epoch_secs: f64) {
+    pub fn broadcast(&mut self, socket: &UdpSocket, proportions: SolarProportions, epoch_secs: f64) {
         self.cohort.broadcast(socket, self.chronicle.as_mut(), &mut self.aura, proportions, epoch_secs);
-    }
-}
-
-impl FactJournal for HostState {
-    fn inscribe_fact(&mut self, fact: WorldFact) {
-        self.record_authored_fact(1, fact);
-    }
-
-    fn local_slot(&self) -> u32 {
-        1
-    }
-
-    fn register_local_blueprint(&mut self, blueprint: CraftBlueprint) -> bool {
-        self.aura.fleet_mut().register_blueprint(blueprint)
-    }
-
-    fn claim_local_helm(&mut self, craft: CraftIdentity, pilot_slot: u32) -> bool {
-        self.aura.fleet_mut().claim_helm(craft, pilot_slot)
-    }
-
-    fn release_local_helm(&mut self, craft: CraftIdentity) {
-        let _ = self.aura.fleet_mut().release_helm(craft, 1);
     }
 }

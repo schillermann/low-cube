@@ -78,8 +78,11 @@ impl RemoteLink {
         self.sync.update_craft(craft, self.companion_slot());
     }
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.sync.copy_companions(out); }
+    pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) { self.sync.copy_crafts(out); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.sync.copy_crafts(out); }
     pub const fn assigned_spawn(&self) -> Option<Vec3> { self.sync.assigned_spawn() }
+    pub fn take_pending_epoch(&mut self) -> Option<f64> { self.sync.take_pending_epoch() }
+    pub fn apply_frame_handoff(&mut self, handoff: world::FrameHandoff) { self.sync.apply_frame_handoff(handoff); }
     pub fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.sync.drain_utterances(out); }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.sync.blend_subtick(subtick_secs); }
 
@@ -190,6 +193,17 @@ impl RemoteLink {
                     self.sync.assign_spawn_point(pt, cid);
                 }
             }
+            let epoch_slice = if pkt.len() == 68 {
+                Some(&pkt[60..68])
+            } else if pkt.len() >= 80 {
+                Some(&pkt[72..80])
+            } else {
+                None
+            };
+            if let Some(ep_bytes) = epoch_slice {
+                let epoch_secs = f64::from_le_bytes(ep_bytes.try_into().ok()?);
+                self.sync.assign_welcome_epoch(epoch_secs);
+            }
             return Some(proportions);
         }
         None
@@ -254,9 +268,16 @@ impl RemoteLink {
     ) -> (bool, usize) {
         if !self.connected() {
             let _ = self.step_handshake(dt);
+            if let Some(ep) = self.sync.take_pending_epoch() {
+                world.align_epoch(ep);
+            }
             return (false, 0);
         }
         let mut changed = false;
+        if let Some(ep) = self.sync.take_pending_epoch() {
+            world.align_epoch(ep);
+            changed = true;
+        }
         while let Some(env) = deferred.pop_front() {
             if self.sync.absorb_envelope(env, world, fleet, predicted) {
                 changed = true;

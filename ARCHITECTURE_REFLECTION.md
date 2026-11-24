@@ -97,14 +97,14 @@ Auch kreative Ideen müssen sich dem Gesetz beugen: **Keine globalen Server-Broa
 
 ---
 
-## 5. Was als Nächstes umgesetzt werden kann (Priorisierte Roadmap ab `v0.113.0`)
+## 5. Umsetzungsstand & Was als Nächstes umgesetzt werden kann (Priorisierte Roadmap ab `v0.114.0`)
 
-Nachdem die strikte Horizont- und Klimazonen-Isolation (`0 Bytes / 0 Objekte / 0 GPU-Slices` für andere Klimazonen und ferne Gebiete) in `v0.113.0` steht, ergeben sich fünf klar abgegrenzte nächste Umsetzungspakete:
+Nachdem sowohl die strikte Horizont-/Klimazonen-Isolation (`v0.113.0`) als auch **Paket 1 — Mitbewegte lokale Hill-Sphären („Gravity Bubbles“ `CosmicFrame` / `GravityBubble` / `FrameHandoff`) + `LWEL` `epoch_secs`-Sync (`v0.114.0`)** vollständig umgesetzt und getestet sind, verbleiben vier klar abgegrenzte nächste Umsetzungspakete:
 
-1. **Paket 1 — Lokale Hill-Sphären („Gravity Bubbles“ `(BodyId, LocalOffset: Vec3)`) + `epoch_secs`-Sync (`COSMOS_PLAN.md` Phase 4):**
-   * **Warum zuerst:** Löst die verbleibende IEEE-754 `f32`-Präzisionsgrenze (`1 ULP = 16,0 m` bei `3,20 AU = 153,88 Mio. m`), damit Landungen und `0,5 m`-Schritte auf äußeren `BeltRock`-Asteroiden und Jupitermonden mit derselben Sub-Millimeter-Präzision laufen wie auf der Erde – während alle Planetenbahnen ohne `if !locked`-Sperre in Echtzeit weiterlaufen.
-2. **Paket 2 — `AboardVessel`-Relativkoordinaten (`PresenceFrame`) für Multi-Crew-Raumschiffe:**
-   * **Warum als Zweites:** Sobald zwei oder mehr Spieler gemeinsam im selben Epstein-Schiff mit `50–240 km/s` zum Gürtel fliegen, hält die Übertragung von `(CraftIdentity, DeckOffset: Vec3)` Mitfahrer bei jedem Manöver exakt im Innenraum des Schiffs.
+1. ✅ **Erledigt in `v0.114.0` — Lokale Hill-Sphären (`CosmicFrame::Body`, `BeltAsteroid`, `4,096 m` `DeepSpace`) + `LWEL` `epoch_secs`-Sync:**
+   * Sub-Millimeter-`f32`-Präzision (`< 0,13 mm` ULP) bis `30,07 AU` (`Triton`), kontinuierlich weiterlaufende Planetenbahnen ohne `if !locked`-Sperre sowie `MtuBudgetAudience(CosmicCraftSight(CosmicBubbleAudience))`-Isolation im Multiplayer.
+2. **Nächstes Paket (Paket 2) — `AboardVessel`-Relativkoordinaten (`PresenceFrame`) für Multi-Crew-Raumschiffe:**
+   * **Warum als Nächstes:** Sobald zwei oder mehr Spieler gemeinsam im selben Epstein-Schiff mit `50–240 km/s` zum Gürtel fliegen, hält die Übertragung von `(CraftIdentity, DeckOffset: Vec3)` Mitfahrer bei jedem Manöver exakt im Innenraum des Schiffs.
 3. **Paket 3 — Serverseitiger `SurvivorLedger` (Inventar- & Positions-Persistenz pro X25519-Key):**
    * **Warum wichtig für Großserver:** Bindet gesammeltes Erz, Werkzeuge (`FusionTorch`) und den letzten Aufenthaltsort serverseitig an den kryptographischen Spieler-Schlüssel im WAL – verhindert Client-`server.toml`-Cheats und schützt 45-Minuten-Bergbau-Expeditionen bei kurzen Verbindungsabbrüchen.
 4. **Paket 4 — Netto-Zellzustands-Snapshots (`SectorSnapshot`) für gealterte Sektoren + Multi-Core-Klimazonen-Sharding:**

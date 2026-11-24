@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use glam::Vec3;
-use world::{ClimateZone, CompanionPresence, DrivenCraft};
+use world::{ClimateZone, CompanionPresence, CosmicFrame, DrivenCraft};
 use crate::audience::{PulseAudience, NEARBY_SIGHT_METERS};
 
 const CELL_SPAN: f32 = NEARBY_SIGHT_METERS;
 const MAX_VELOCITY_SIGHT: f32 = 2_400.0;
 
-fn grid_cell(pos: Vec3) -> (i32, i32, i32) {
+pub(crate) fn grid_cell(pos: Vec3) -> (i32, i32, i32) {
     (
         (pos.x / CELL_SPAN).floor() as i32,
         (pos.y / CELL_SPAN).floor() as i32,
@@ -14,8 +14,11 @@ fn grid_cell(pos: Vec3) -> (i32, i32, i32) {
     )
 }
 
-fn same_horizon_hemisphere(anchor: Vec3, peer: Vec3, earth_half: f32) -> bool {
-    let crust_bound = earth_half + 48.0;
+pub(crate) fn same_horizon_hemisphere(anchor: Vec3, peer: Vec3, body_half: f32) -> bool {
+    if body_half <= 0.0 {
+        return true;
+    }
+    let crust_bound = body_half + 48.0;
     if anchor.abs().max_element() > crust_bound || peer.abs().max_element() > crust_bound {
         return true;
     }
@@ -24,8 +27,8 @@ fn same_horizon_hemisphere(anchor: Vec3, peer: Vec3, earth_half: f32) -> bool {
     if anchor_n.dot(peer_n) < -0.15 {
         return false;
     }
-    if earth_half > 128.0 && anchor_n.dot(peer_n) < 0.5 {
-        return anchor.dot(peer_n) >= earth_half - 180.0;
+    if body_half > 128.0 && anchor_n.dot(peer_n) < 0.5 {
+        return anchor.dot(peer_n) >= body_half - 180.0;
     }
     true
 }
@@ -63,9 +66,10 @@ impl<'a> SectorGridAudience<'a> {
 }
 
 impl PulseAudience for SectorGridAudience<'_> {
-    fn select_for(
+    fn select_in_frame(
         &self,
         recipient_slot: u32,
+        _recipient_frame: CosmicFrame,
         anchor_pos: Vec3,
         _cursor: &mut usize,
         out_companions: &mut Vec<CompanionPresence>,
@@ -114,15 +118,16 @@ impl<'a, A> VelocityScaledSight<'a, A> {
 }
 
 impl<A: PulseAudience> PulseAudience for VelocityScaledSight<'_, A> {
-    fn select_for(
+    fn select_in_frame(
         &self,
         recipient_slot: u32,
+        recipient_frame: CosmicFrame,
         anchor_pos: Vec3,
         cursor: &mut usize,
         out_companions: &mut Vec<CompanionPresence>,
         out_crafts: &mut Vec<DrivenCraft>,
     ) {
-        self.origin.select_for(recipient_slot, anchor_pos, cursor, out_companions, out_crafts);
+        self.origin.select_in_frame(recipient_slot, recipient_frame, anchor_pos, cursor, out_companions, out_crafts);
         let on_crust = anchor_pos.abs().max_element() <= self.earth_half + 48.0;
         let local_up = if on_crust {
             ClimateZone::dominant(anchor_pos).normal()

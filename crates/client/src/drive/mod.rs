@@ -74,6 +74,8 @@ pub trait CraftDrive: Send + Sync {
     fn flip_burn_readout(&self, _assembly: &VehicleAssembly) -> FlipBurnReadout { FlipBurnReadout::Inactive }
     fn solar_chart_snapshot(&self, _assembly: &VehicleAssembly) -> Option<(OrrerySnapshot, f32, bool)> { None }
     fn install_course(&mut self, _course: NavigationCourse) {}
+    fn space_velocity(&self) -> Vec3 { Vec3::ZERO }
+    fn apply_handoff(&mut self, _next_vel: Vec3, _pos_shift: Vec3, _world: &dyn PlanetaryWorld) {}
     fn mark_nose_target(
         &mut self,
         _rays: ((Vec3, Vec3), (Vec3, Vec3)),

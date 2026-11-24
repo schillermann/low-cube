@@ -84,6 +84,14 @@ impl CompanionGlide {
         self.from.1.interpolated(self.to.1, self.clock.alpha_at(render_secs))
     }
 
+    pub fn shifted(self, delta: Vec3) -> Self {
+        Self::new(
+            (self.from.0.shifted(delta), self.from.1.shifted(delta)),
+            (self.to.0.shifted(delta), self.to.1.shifted(delta)),
+            self.clock,
+        )
+    }
+
     pub fn absorbed(self, now: f64, next_presence: CompanionPresence, next_craft: PilotCraft) -> Self {
         if self.clock.live() && self.to.0 == next_presence && self.to.1 == next_craft {
             return self;
@@ -187,6 +195,12 @@ impl SmoothRoster {
 
     pub fn blend_subtick(&mut self, subtick_secs: f32) {
         self.timeline = self.timeline.blended(subtick_secs);
+    }
+
+    pub fn shift_frame(&mut self, delta: Vec3) {
+        for (_, glide) in &mut self.entries {
+            *glide = glide.shifted(delta);
+        }
     }
 
     pub fn copy_companions(&self, out: &mut Vec<CompanionPresence>) {

@@ -106,8 +106,28 @@ impl AsteroidBelt {
         Some(BeltRock::new(rock_id, center, half, h))
     }
 
-    /// `O(1)` lookup returning the nearest belt asteroid within `margin` of `pos` (zero heap allocations).
-    pub fn nearest_rock(self, pos: DVec3, sun_center: DVec3, sun_gm: f64, margin: f64) -> Option<BeltRock> {
+    /// Resolves `(BeltRock, orbital_velocity)` in heliocentric space (`SOL = 0`) for an explicit belt cell.
+    pub fn rock_kinematics_in_cell(
+        self,
+        cell: (i32, i32, i32),
+        sun_gm: f64,
+    ) -> Option<(BeltRock, DVec3)> {
+        let rock = self.rock_in_cell(cell, DVec3::ZERO, sun_gm)?;
+        let c = rock.center();
+        let r = c.x.hypot(c.z).max(1.0);
+        let v_orb = if sun_gm > 1.0 { (sun_gm / r).sqrt() } else { 0.0 };
+        let vel = DVec3::new(-v_orb * (c.z / r), 0.0, v_orb * (c.x / r));
+        Some((rock, vel))
+    }
+
+    /// `O(1)` lookup returning `(nearest_rock, ring_cell)` within `margin` of `pos` (`0` allocations).
+    pub fn nearest_rock_with_cell(
+        self,
+        pos: DVec3,
+        sun_center: DVec3,
+        sun_gm: f64,
+        margin: f64,
+    ) -> Option<(BeltRock, (i32, i32, i32))> {
         let rel = pos - sun_center;
         let r = rel.x.hypot(rel.z);
         let au = self.proportions.astronomical_unit();
@@ -122,7 +142,7 @@ impl AsteroidBelt {
         }
         let drift = self.angular_drift(r, sun_gm);
         let base_theta = (rel.z.atan2(rel.x) - drift).rem_euclid(std::f64::consts::TAU);
-        let mut closest: Option<(f64, BeltRock)> = None;
+        let mut closest: Option<(f64, BeltRock, (i32, i32, i32))> = None;
         for dr in -1..=1 {
             let rc = r_slot + dr;
             let r_base = (f64::from(rc) + 0.5) * spacing;
@@ -130,16 +150,22 @@ impl AsteroidBelt {
             let ac = ((base_theta / std::f64::consts::TAU) * f64::from(ring_slots)).floor() as i32;
             for da in -1..=1 {
                 for dy in -1..=1 {
-                    if let Some(rock) = self.rock_in_cell((rc, ac + da, y_slot + dy), sun_center, sun_gm) {
+                    let cell = (rc, ac + da, y_slot + dy);
+                    if let Some(rock) = self.rock_in_cell(cell, sun_center, sun_gm) {
                         let d = (pos - rock.center()).abs().max_element() - f64::from(rock.half_size());
-                        if d <= margin && closest.map_or(true, |(best, _)| d < best) {
-                            closest = Some((d, rock));
+                        if d <= margin && closest.map_or(true, |(best, _, _)| d < best) {
+                            closest = Some((d, rock, cell));
                         }
                     }
                 }
             }
         }
-        closest.map(|(_, r)| r)
+        closest.map(|(_, r, c)| (r, c))
+    }
+
+    /// `O(1)` lookup returning the nearest belt asteroid within `margin` of `pos` (zero heap allocations).
+    pub fn nearest_rock(self, pos: DVec3, sun_center: DVec3, sun_gm: f64, margin: f64) -> Option<BeltRock> {
+        self.nearest_rock_with_cell(pos, sun_center, sun_gm, margin).map(|(r, _)| r)
     }
 
     /// Emits tumbling cubic belt asteroids within `cone` in a single dynamic batch (`0` allocations).

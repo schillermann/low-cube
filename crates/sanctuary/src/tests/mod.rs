@@ -185,6 +185,7 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
             PresenceAttire::squire(),
         ),
         craft: world::PilotCraft::Pedestrian,
+        frame: world::CosmicFrame::earth(),
     };
     pulse.inscribe(&mut payload);
     seal.seal(cid, &payload, &mut frame);

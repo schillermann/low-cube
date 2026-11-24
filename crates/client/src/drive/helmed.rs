@@ -50,6 +50,17 @@ impl HelmedCraft {
     pub fn install_course(&mut self, course: super::NavigationCourse) {
         self.drive.install_course(course);
     }
+    pub fn flight_state(&self) -> (Vec3, Vec3) {
+        (self.assembly.origin(), self.drive.space_velocity())
+    }
+    pub fn apply_frame_handoff(&mut self, handoff: world::FrameHandoff, world: &dyn PlanetaryWorld) -> Vec3 {
+        let next_origin = handoff.next_pos();
+        self.assembly.translate_to(next_origin);
+        self.origin_span = (next_origin, 1.0);
+        self.drive.apply_handoff(handoff.next_vel(), handoff.pos_shift(), world);
+        let up = self.assembly.normal().normalize_or_zero();
+        next_origin + up * (SEAT_EYE_SUPPORT + 0.12 + self.assembly.seat_floor_offset())
+    }
     pub fn mark_nose_target(&mut self, rays: ((Vec3, Vec3), (Vec3, Vec3)), world: &dyn PlanetaryWorld) -> bool {
         self.drive.mark_nose_target(rays, &self.assembly, world)
     }

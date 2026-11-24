@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{CompanionPresence, DrivenCraft};
+use world::{CompanionPresence, CosmicFrame, DrivenCraft};
 
 pub const NEARBY_SIGHT_METERS: f32 = 160.0;
 pub const CHAT_EARSHOT_METERS: f32 = 96.0;
@@ -11,6 +11,25 @@ pub trait PulseAudience {
     fn select_for(
         &self,
         recipient_slot: u32,
+        anchor_pos: Vec3,
+        cursor: &mut usize,
+        out_companions: &mut Vec<CompanionPresence>,
+        out_crafts: &mut Vec<DrivenCraft>,
+    ) {
+        self.select_in_frame(
+            recipient_slot,
+            CosmicFrame::earth(),
+            anchor_pos,
+            cursor,
+            out_companions,
+            out_crafts,
+        );
+    }
+
+    fn select_in_frame(
+        &self,
+        recipient_slot: u32,
+        recipient_frame: CosmicFrame,
         anchor_pos: Vec3,
         cursor: &mut usize,
         out_companions: &mut Vec<CompanionPresence>,
@@ -32,9 +51,10 @@ impl<'a> WorldAudience<'a> {
 }
 
 impl PulseAudience for WorldAudience<'_> {
-    fn select_for(
+    fn select_in_frame(
         &self,
         recipient_slot: u32,
+        _recipient_frame: CosmicFrame,
         _anchor_pos: Vec3,
         _cursor: &mut usize,
         out_companions: &mut Vec<CompanionPresence>,
@@ -69,15 +89,16 @@ impl<A> ProximityAudience<A> {
 }
 
 impl<A: PulseAudience> PulseAudience for ProximityAudience<A> {
-    fn select_for(
+    fn select_in_frame(
         &self,
         recipient_slot: u32,
+        recipient_frame: CosmicFrame,
         anchor_pos: Vec3,
         cursor: &mut usize,
         out_companions: &mut Vec<CompanionPresence>,
         out_crafts: &mut Vec<DrivenCraft>,
     ) {
-        self.origin.select_for(recipient_slot, anchor_pos, cursor, out_companions, out_crafts);
+        self.origin.select_in_frame(recipient_slot, recipient_frame, anchor_pos, cursor, out_companions, out_crafts);
         out_companions.retain(|c| c.within_reach(anchor_pos, self.radius_meters));
         out_crafts.retain(|dc| dc.within_reach(anchor_pos, self.radius_meters));
     }
@@ -98,15 +119,16 @@ impl<A> MtuBudgetAudience<A> {
 }
 
 impl<A: PulseAudience> PulseAudience for MtuBudgetAudience<A> {
-    fn select_for(
+    fn select_in_frame(
         &self,
         recipient_slot: u32,
+        recipient_frame: CosmicFrame,
         anchor_pos: Vec3,
         cursor: &mut usize,
         out_companions: &mut Vec<CompanionPresence>,
         out_crafts: &mut Vec<DrivenCraft>,
     ) {
-        self.origin.select_for(recipient_slot, anchor_pos, cursor, out_companions, out_crafts);
+        self.origin.select_in_frame(recipient_slot, recipient_frame, anchor_pos, cursor, out_companions, out_crafts);
         out_companions.sort_by(|a, b| a.distance_sq_to(anchor_pos).total_cmp(&b.distance_sq_to(anchor_pos)));
         if out_companions.len() > self.packet_cap {
             let fixed = self.intimate_cap.min(self.packet_cap).min(out_companions.len());

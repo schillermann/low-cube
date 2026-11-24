@@ -193,6 +193,9 @@ impl Avatar for EmbodiedAvatar {
         }
     }
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.reset_to_world(world); }
+    fn reconcile_cosmic_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        self.body.reconcile_cosmic_frame(world)
+    }
     fn solar_chart_snapshot(&self, world: &dyn PlanetaryWorld) -> (crate::drive::OrrerySnapshot, f32, bool) {
         if let Some((snap, accel, fusion)) = self.body.solar_chart_snapshot() {
             let synced = snap.transfer(|_, pos, motion, course| {

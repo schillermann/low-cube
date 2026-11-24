@@ -1,37 +1,24 @@
+mod pulse;
+
 use std::collections::HashMap;
 use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
-    CompanionPresence, DeckFrame, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceAttire,
-    ProximityUtterance, SolarProportions, SounderPresence, WildlifePulse,
+    CompanionPresence, CosmicFrame, DeckFrame, DrivenCraft, GravityBubble, PilotCraft,
+    PlanetaryWorld, PresenceAttire, ProximityUtterance, SolarProportions,
 };
 use crate::admin_ward::SpawnBeacons;
-use crate::audience::{
-    MtuBudgetAudience, PulseAudience, CHAT_EARSHOT_METERS, INTIMATE_NEIGHBOR_CAP,
-    NEARBY_SIGHT_METERS, PACKET_COMPANION_CAP,
-};
-use crate::aura::{HostAura, HostIdentity, HostPresence};
+use crate::audience::{CHAT_EARSHOT_METERS, NEARBY_SIGHT_METERS};
+use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_log::ChronicleStore;
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::TimelineClock;
-use crate::seal_batch::{OutboundFrame, ParallelSeals, PulseDelivery, SequentialDelivery};
-use crate::sector_audience::{SectorGridAudience, VelocityScaledSight};
 use crate::spatial_chronicle::HorizonStream;
 use crate::ward::{GuestWard, WardVitals};
+use self::pulse::CohortPulse;
 
 const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
-
-fn sounder_near_anchor(sounder: SounderPresence, anchor: Vec3) -> SounderPresence {
-    match sounder {
-        SounderPresence::Sighted(boars)
-            if boars.iter().any(|b| (b.position() - anchor).length_squared() <= NEARBY_SIGHT_METERS * NEARBY_SIGHT_METERS) =>
-        {
-            SounderPresence::Sighted(boars)
-        }
-        _ => SounderPresence::Unseen,
-    }
-}
 
 /// Connected companion wards and horizon chronicle streams indexed by `companion_id` and X25519 key (`<= 4` fields).
 pub struct GuestCohort {
@@ -66,24 +53,19 @@ impl GuestCohort {
         Self::with_streams(HashMap::new(), HashMap::new(), 2, (TimelineClock::origin(), 0.0))
     }
 
-    pub const fn tick_secs(&self) -> f64 {
-        self.timeline.0.tick_secs()
-    }
+    pub const fn tick_secs(&self) -> f64 { self.timeline.0.tick_secs() }
 
     pub fn active_craft_count(&self) -> usize {
         let at = self.timeline.0.render_secs();
-        self.wards
-            .values()
-            .filter(|(w, _)| matches!(w.craft_at(at), PilotCraft::Driving(_)))
-            .count()
+        self.wards.values().filter(|(w, _)| matches!(w.craft_at(at), PilotCraft::Driving(_))).count()
     }
 
     pub fn ward_mut(&mut self, cid: u32) -> Option<&mut GuestWard> {
         self.wards.get_mut(&cid).map(|(w, _)| w)
     }
 
-    pub fn ward_anchor(&self, cid: u32) -> Option<Vec3> {
-        self.wards.get(&cid).map(|(w, _)| w.anchor_position())
+    pub fn ward_locus(&self, cid: u32) -> Option<(CosmicFrame, Vec3)> {
+        self.wards.get(&cid).map(|(w, _)| (w.cosmic_frame(), w.anchor_position()))
     }
 
     pub fn ensure_authored_fact(&mut self, cid: u32, fact_id: u32) {
@@ -106,33 +88,70 @@ impl GuestCohort {
         }
     }
 
-    pub fn guest_companions(&self, host_anchor: Option<Vec3>, out: &mut Vec<CompanionPresence>) {
+    pub fn guest_companions(
+        &self,
+        host_frame: CosmicFrame,
+        host_anchor: Option<Vec3>,
+        bubble: GravityBubble,
+        out: &mut Vec<CompanionPresence>,
+    ) {
         let at = self.timeline.0.render_secs();
+        let reach_sq = f64::from(NEARBY_SIGHT_METERS * NEARBY_SIGHT_METERS);
         out.clear();
         for (ward, _) in self.wards.values() {
+            let wf = ward.cosmic_frame();
             let p = ward.presence_at(at);
-            if host_anchor.is_none_or(|anchor| p.within_reach(anchor, NEARBY_SIGHT_METERS)) {
-                out.push(p);
-            }
-        }
-    }
-
-    pub fn guest_crafts(&self, host_anchor: Option<Vec3>, out: &mut Vec<DrivenCraft>) {
-        let at = self.timeline.0.render_secs();
-        out.clear();
-        for (ward, _) in self.wards.values() {
-            if let PilotCraft::Driving(dc) = ward.craft_at(at) {
-                if host_anchor.is_none_or(|anchor| dc.within_reach(anchor, 2_400.0)) {
-                    out.push(dc);
+            let pos = p.transfer(|_, kin, _, _| kin.transfer(|pt, _, _, _, _| pt));
+            if wf == host_frame {
+                if host_anchor.is_none_or(|anchor| p.within_reach(anchor, NEARBY_SIGHT_METERS)) {
+                    out.push(p);
+                }
+            } else if let Some(anchor) = host_anchor {
+                let mapped = bubble.map_position(wf, pos, host_frame);
+                if (mapped - anchor.as_dvec3()).length_squared() <= reach_sq {
+                    out.push(p.with_position(mapped.as_vec3()));
                 }
             }
         }
     }
 
-    pub fn constrain_crafts(&self, fleet: &FleetLedger, position: Vec3, player_height: f32, up: Vec3) -> Option<Vec3> {
+    pub fn guest_crafts(
+        &self,
+        host_frame: CosmicFrame,
+        host_anchor: Option<Vec3>,
+        bubble: GravityBubble,
+        out: &mut Vec<DrivenCraft>,
+    ) {
+        let at = self.timeline.0.render_secs();
+        let reach_sq = 2_400.0_f64 * 2_400.0_f64;
+        out.clear();
+        for (ward, _) in self.wards.values() {
+            let wf = ward.cosmic_frame();
+            let PilotCraft::Driving(dc) = ward.craft_at(at) else { continue };
+            if wf == host_frame {
+                if host_anchor.is_none_or(|anchor| dc.within_reach(anchor, 2_400.0)) {
+                    out.push(dc);
+                }
+            } else if let Some(anchor) = host_anchor {
+                let mapped = bubble.map_position(wf, dc.pose().origin(), host_frame);
+                if (mapped - anchor.as_dvec3()).length_squared() <= reach_sq {
+                    out.push(dc.with_origin(mapped.as_vec3()));
+                }
+            }
+        }
+    }
+
+    pub fn constrain_crafts(
+        &self,
+        fleet: &FleetLedger,
+        host_frame: CosmicFrame,
+        position: Vec3,
+        player_height: f32,
+        up: Vec3,
+    ) -> Option<Vec3> {
         let at = self.timeline.0.render_secs();
         let mut best: Option<Vec3> = None;
-        for (ward, _) in self.wards.values() {
+        for (ward, _) in self.wards.values().filter(|(w, _)| w.cosmic_frame() == host_frame) {
             if let PilotCraft::Driving(craft) = ward.craft_at(at) {
                 if craft.within_reach(position, 32.0) {
                     if let Some(top) = fleet.constrain_crafts(std::slice::from_ref(&craft), position, player_height) {
@@ -146,9 +165,15 @@ impl GuestCohort {
         best
     }
 
-    pub fn sample_deck_at(&self, fleet: &FleetLedger, position: Vec3, player_height: f32) -> Option<DeckFrame> {
+    pub fn sample_deck_at(
+        &self,
+        fleet: &FleetLedger,
+        host_frame: CosmicFrame,
+        position: Vec3,
+        player_height: f32,
+    ) -> Option<DeckFrame> {
         let at = self.timeline.0.render_secs();
-        for (ward, _) in self.wards.values() {
+        for (ward, _) in self.wards.values().filter(|(w, _)| w.cosmic_frame() == host_frame) {
             if let PilotCraft::Driving(craft) = ward.craft_at(at) {
                 if craft.within_reach(position, 32.0) {
                     if let Some(deck) = fleet.sample_deck_at(std::slice::from_ref(&craft), position, player_height) {
@@ -189,19 +214,16 @@ impl GuestCohort {
         (cid, beacon_stand)
     }
 
-    pub fn advance_wards(&mut self, dt: f32, abandoned_out: &mut Vec<(u32, PilotCraft)>) -> bool {
+    pub fn advance_wards(&mut self, dt: f32, abandoned_out: &mut Vec<(u32, CosmicFrame, PilotCraft)>) -> bool {
         self.timeline.0 = self.timeline.0.advanced(dt);
         for (ward, _) in self.wards.values_mut() {
             ward.step(dt);
         }
-        let expired: Vec<u32> = self
-            .wards
-            .iter()
-            .filter_map(|(&cid, (w, _))| (!w.alive()).then_some(cid))
-            .collect();
+        let expired: Vec<u32> = self.wards.iter().filter_map(|(&cid, (w, _))| (!w.alive()).then_some(cid)).collect();
         for cid in expired {
             if let Some((dead, _)) = self.wards.remove(&cid) {
-                abandoned_out.push((cid, dead.into_pilot_craft()));
+                let frame = dead.cosmic_frame();
+                abandoned_out.push((cid, frame, dead.into_pilot_craft()));
             }
         }
         self.timeline.1 += dt;
@@ -213,16 +235,25 @@ impl GuestCohort {
         }
     }
 
-    pub fn relay_utterance(&mut self, socket: &UdpSocket, utterance: ProximityUtterance, aura: &mut HostAura) {
+    pub fn relay_utterance(
+        &mut self,
+        socket: &UdpSocket,
+        speaker_frame: CosmicFrame,
+        utterance: ProximityUtterance,
+        aura: &mut HostAura,
+    ) {
         let speaker = utterance.transfer(|slot, _, _| slot);
         if speaker != 1 {
-            aura.receive_utterance(utterance.clone(), CHAT_EARSHOT_METERS);
+            aura.receive_utterance(speaker_frame, utterance.clone(), CHAT_EARSHOT_METERS);
         }
         let mut payload = Vec::with_capacity(64);
         SanctuaryEnvelope::HostUtterance { utterance: utterance.clone() }.inscribe(&mut payload);
         let mut scratch = Vec::with_capacity(96);
         for (&cid, (ward, _)) in &mut self.wards {
-            if cid != speaker && utterance.audible_at(ward.anchor_position(), CHAT_EARSHOT_METERS) {
+            if cid != speaker
+                && ward.cosmic_frame() == speaker_frame
+                && utterance.audible_at(ward.anchor_position(), CHAT_EARSHOT_METERS)
+            {
                 ward.send_sealed(socket, cid, &payload, &mut scratch);
             }
         }
@@ -236,58 +267,6 @@ impl GuestCohort {
         proportions: SolarProportions,
         epoch_secs: f64,
     ) {
-        chronicle.flush_tick();
-        let earth_half = proportions.earth_half();
-        aura.fact_index_mut().sync_with(chronicle, earth_half);
-        let mut roster = Vec::with_capacity(self.wards.len() + 1);
-        let mut crafts = Vec::new();
-        if let HostPresence::Occupied(p) = aura.presence() {
-            roster.push(p);
-            aura.push_host_craft_with_speed(&mut crafts);
-        }
-        for (ward, _) in self.wards.values() {
-            roster.push(ward.presence());
-            ward.push_authoritative_craft_with_speed(&mut crafts);
-        }
-        let audience = MtuBudgetAudience::new(
-            VelocityScaledSight::new(
-                SectorGridAudience::indexed(&roster, NEARBY_SIGHT_METERS, earth_half),
-                &crafts,
-                earth_half,
-            ),
-            INTIMATE_NEIGHBOR_CAP,
-            PACKET_COMPANION_CAP,
-        );
-        let sounder = aura.wildlife().presence();
-        let sector_cracks = aura.drain_cracks();
-        let mut frames = Vec::with_capacity(self.wards.len());
-        let fact_index = aura.fact_index_mut() as &_;
-        for (&cid, (ward, stream)) in &mut self.wards {
-            let anchor = ward.anchor_position();
-            let (mut others, mut other_crafts) = (Vec::new(), Vec::new());
-            audience.select_for(cid, anchor, ward.sight_cursor_mut(), &mut others, &mut other_crafts);
-            stream.gather_horizon(anchor, &other_crafts, fact_index, proportions, epoch_secs);
-            let mut payloads = Vec::with_capacity(2);
-            if let Some((base_seq, facts)) = stream.batch_from(ward.ack_seq(), chronicle) {
-                let mut out = Vec::new();
-                SanctuaryEnvelope::HostChronicle { base_seq, facts }.inscribe(&mut out);
-                payloads.push(out);
-            }
-            let cracks = sector_cracks.collect_near(anchor, cid, NEARBY_SIGHT_METERS);
-            let wildlife = WildlifePulse::new(sounder_near_anchor(sounder, anchor), ward.gore_stamp());
-            let mut pulse_bytes = Vec::new();
-            SanctuaryEnvelope::HostPulse {
-                total_facts: stream.total(),
-                cracks,
-                companions: others,
-                crafts: other_crafts,
-                wildlife,
-            }
-            .inscribe(&mut pulse_bytes);
-            payloads.push(pulse_bytes);
-            frames.push(OutboundFrame::prepare(cid, ward, payloads));
-        }
-        let delivery = ParallelSeals::hardware(SequentialDelivery::new());
-        delivery.deliver(socket, &mut frames);
+        CohortPulse::new(proportions, epoch_secs).deliver(socket, &mut self.wards, chronicle, aura);
     }
 }

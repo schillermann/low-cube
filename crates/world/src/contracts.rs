@@ -124,4 +124,9 @@ pub trait PlanetaryWorld:
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { position }
     fn local_body_point(&self, position: Vec3) -> Vec3 { position }
     fn celestial_atlas(&self) -> CelestialAtlas { CelestialAtlas::solitary(16.0) }
+    fn cosmic_frame(&self) -> crate::CosmicFrame { crate::CosmicFrame::earth() }
+    fn align_epoch(&mut self, _epoch_secs: f64) {}
+    fn reconcile_cosmic_frame(&mut self, _local_pos: Vec3, _local_vel: Vec3) -> Option<crate::FrameHandoff> {
+        None
+    }
 }

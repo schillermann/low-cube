@@ -43,6 +43,14 @@ impl BodyId {
         self.code
     }
 
+    pub const fn from_raw(code: u16) -> Option<Self> {
+        if (code & 0x8000) != 0 || (code as usize) < MAJOR_BODY_COUNT {
+            Some(Self::new(code))
+        } else {
+            None
+        }
+    }
+
     pub const fn belt_slot(self) -> Option<u16> {
         if (self.code & 0x8000) != 0 {
             Some(self.code & 0x7FFF)

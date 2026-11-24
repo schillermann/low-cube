@@ -1,6 +1,7 @@
 mod admin_ward;
 mod audience;
 mod aura;
+mod bubble_audience;
 mod chronicle_decorators;
 mod chronicle_log;
 mod chronicled_planet;
@@ -40,6 +41,7 @@ pub use audience::{
     INTIMATE_NEIGHBOR_CAP, NEARBY_SIGHT_METERS, PACKET_COMPANION_CAP,
 };
 pub use aura::{AuraEvents, HostAura, HostIdentity, HostPresence, PeerCrack, SectorCracks};
+pub use bubble_audience::{CosmicBubbleAudience, CosmicCraftSight};
 pub use chronicle_decorators::{CompactedChronicle, DiskVaultChronicle, VaultStream};
 pub use chronicle_log::{ChronicleLog, ChronicleStore};
 pub use sector_audience::{SectorGridAudience, VelocityScaledSight};

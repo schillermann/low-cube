@@ -135,7 +135,7 @@ impl VicinityCache {
     /// Zero-allocation stack scan awakening up to 2 simultaneously nearby bodies (e.g. Mars + Phobos).
     pub fn awaken_visible(&mut self, probe: Vec3, ephemeris: SolarEphemeris) {
         let earth_h = ephemeris.proportions().earth_half();
-        if probe.abs().max_element() <= earth_h + 64.0 {
+        if ephemeris.frame().earth_centered() && probe.abs().max_element() <= earth_h + 64.0 {
             return;
         }
         self.prune_distant(probe);
@@ -175,7 +175,7 @@ impl VicinityCache {
     /// Ensures the landable off-world body or belt asteroid nearest `probe` is awakened in an LRU slot.
     pub fn ensure_near(&mut self, probe: Vec3, ephemeris: SolarEphemeris) -> Option<&AwakenedBody> {
         let earth_h = ephemeris.proportions().earth_half();
-        if probe.abs().max_element() <= earth_h + 64.0 {
+        if ephemeris.frame().earth_centered() && probe.abs().max_element() <= earth_h + 64.0 {
             return None;
         }
         let mut best_slot: Option<(usize, f32)> = None;
@@ -250,5 +250,22 @@ impl VicinityCache {
             }
         }
         self.vault.enact_inactive(id, local_fact, proportions)
+    }
+
+    pub fn recenter_active(&mut self, ephemeris: SolarEphemeris) {
+        if !self.any_active() {
+            return;
+        }
+        let snaps = ephemeris.snapshot_all(0.0);
+        let frame = ephemeris.frame();
+        for slot in &mut self.slots {
+            let Some(b) = slot.body_mut() else { continue };
+            let id = b.body_id();
+            if frame.anchored_body() == Some(id) {
+                b.relocate(Vec3::ZERO);
+            } else if let Some(snap) = snaps.iter().find(|s| s.id() == id) {
+                b.relocate(snap.center().as_vec3());
+            }
+        }
     }
 }

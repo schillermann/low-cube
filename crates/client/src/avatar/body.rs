@@ -56,6 +56,19 @@ impl AvatarBody {
     pub fn install_course(&mut self, course: crate::drive::NavigationCourse) {
         self.berth.install_course(course);
     }
+
+    pub fn reconcile_cosmic_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let (probe_pos, probe_vel) = self.berth.driving_state().unwrap_or((self.span.current(), Vec3::ZERO));
+        let Some(handoff) = world.reconcile_cosmic_frame(probe_pos, probe_vel) else {
+            return false;
+        };
+        let next_body = self
+            .berth
+            .apply_frame_handoff(handoff, world)
+            .unwrap_or_else(|| handoff.next_pos());
+        self.span = BodySpan::anchored(next_body);
+        true
+    }
     pub fn emit_hud(
         &self,
         sight: &AvatarSight,

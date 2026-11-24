@@ -81,6 +81,20 @@ impl VehiclePilot {
         }
     }
 
+    pub fn driving_state(&self) -> Option<(Vec3, Vec3)> {
+        match self {
+            Self::Driving(craft) | Self::Perch(craft) => Some(craft.flight_state()),
+            _ => None,
+        }
+    }
+
+    pub fn apply_frame_handoff(&mut self, handoff: world::FrameHandoff, world: &dyn PlanetaryWorld) -> Option<Vec3> {
+        match self {
+            Self::Driving(craft) | Self::Perch(craft) => Some(craft.apply_frame_handoff(handoff, world)),
+            _ => None,
+        }
+    }
+
     pub fn mark_nose_target(&mut self, rays: ((Vec3, Vec3), (Vec3, Vec3)), world: &dyn PlanetaryWorld) -> bool {
         match self {
             Self::Driving(craft) => craft.mark_nose_target(rays, world),

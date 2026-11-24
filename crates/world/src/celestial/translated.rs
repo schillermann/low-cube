@@ -51,6 +51,10 @@ impl<W> TranslatedWorld<W> {
         self.origin
     }
 
+    pub fn relocate_center(&mut self, next_center: Vec3) {
+        self.center = next_center;
+    }
+
     pub fn in_vicinity(&self, position: Vec3, cheb_bound: f32) -> bool {
         (position - self.center).abs().max_element() <= cheb_bound
     }

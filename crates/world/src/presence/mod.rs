@@ -26,6 +26,14 @@ impl PresenceKinematics {
         Self { position, surface_rot, view_rot, eye_and_leap }
     }
 
+    pub const fn with_position(self, position: Vec3) -> Self {
+        Self::new(position, self.surface_rot, self.view_rot, self.eye_and_leap)
+    }
+
+    pub fn shifted(self, delta: Vec3) -> Self {
+        Self::new(self.position + delta, self.surface_rot, self.view_rot, self.eye_and_leap)
+    }
+
     pub fn interpolated(self, target: Self, alpha: f32) -> Self {
         let t = alpha.clamp(0.0, 1.0);
         let pos = if (target.position - self.position).length_squared() > 64.0 {
@@ -75,6 +83,14 @@ impl CompanionPresence {
 
     pub const fn with_slot(self, slot: u32) -> Self {
         Self::new(slot, self.kinematics, self.rhythm, self.attire)
+    }
+
+    pub const fn with_position(self, position: Vec3) -> Self {
+        Self::new(self.slot, self.kinematics.with_position(position), self.rhythm, self.attire)
+    }
+
+    pub fn shifted(self, delta: Vec3) -> Self {
+        Self::new(self.slot, self.kinematics.shifted(delta), self.rhythm, self.attire)
     }
 
     pub fn within_reach(&self, eye: Vec3, max_dist: f32) -> bool {

@@ -1,12 +1,13 @@
 use glam::{DVec3, Vec3};
 use crate::{BeveledGravity, GravityField};
+use super::bubble::{CosmicFrame, GravityBubble};
 use super::catalog::{BodyId, OrbitalSpec, SolarCatalog, SurfaceNature, MAJOR_BODY_COUNT};
 use super::kepler::OrbitalLocus;
 use super::proportions::SolarProportions;
 use super::spin::{ApexSpin, PlanetarySpin};
 use super::ZoneGravity;
 
-/// Instantaneous position, velocity, and gravitational parameter of an orbiting body relative to Earth `(0, 0, 0)`.
+/// Instantaneous position, velocity, and gravitational parameter of an orbiting body in the active `CosmicFrame`.
 #[derive(Clone, Copy, Debug)]
 pub struct BodyKinematics {
     center: DVec3,
@@ -54,24 +55,39 @@ impl BodySnapshot {
     pub const fn gm(self) -> f64 { self.kinematics.gm() }
 }
 
-/// Moving Keplerian elliptical ephemeris and exact `1/r²` N-body gravitational field in Earth-centered inertial coordinates.
+/// Moving Keplerian elliptical ephemeris and `1/r²` N-body field in any `CosmicFrame` (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SolarEphemeris {
     proportions: SolarProportions,
     epoch_secs: f64,
+    frame: CosmicFrame,
 }
 
 impl SolarEphemeris {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_frame(proportions: SolarProportions, epoch_secs: f64, frame: CosmicFrame) -> Self {
+        Self { proportions, epoch_secs, frame }
+    }
+
+    /// Secondary constructor anchored to `CosmicFrame::earth()`.
     pub const fn new(proportions: SolarProportions, epoch_secs: f64) -> Self {
-        Self { proportions, epoch_secs }
+        Self::with_frame(proportions, epoch_secs, CosmicFrame::earth())
     }
 
     pub const fn proportions(self) -> SolarProportions { self.proportions }
     pub const fn epoch_secs(self) -> f64 { self.epoch_secs }
+    pub const fn frame(self) -> CosmicFrame { self.frame }
 
     pub const fn advanced(self, dt: f64) -> Self {
-        Self::new(self.proportions, self.epoch_secs + dt)
+        Self::with_frame(self.proportions, self.epoch_secs + dt, self.frame)
+    }
+
+    pub const fn at_epoch(self, epoch_secs: f64) -> Self {
+        Self::with_frame(self.proportions, epoch_secs, self.frame)
+    }
+
+    pub const fn reanchored(self, frame: CosmicFrame) -> Self {
+        Self::with_frame(self.proportions, self.epoch_secs, frame)
     }
 
     fn body_half_and_gm(self, spec: OrbitalSpec) -> (f64, f64) {
@@ -88,10 +104,16 @@ impl SolarEphemeris {
         (half, g * half * half)
     }
 
-    /// Resolves all 21 major bodies at `self.epoch_secs + delta_t` in Earth-centered inertial `DVec3` coordinates.
-    pub fn snapshot_all(self, delta_t: f64) -> [BodySnapshot; MAJOR_BODY_COUNT] {
-        let catalog = SolarCatalog::new();
-        let entries = catalog.entries();
+    pub(super) fn solar_gm(self) -> f64 {
+        let entries = SolarCatalog::new().entries();
+        self.body_half_and_gm(entries[0]).1
+    }
+
+    fn heliocentric_tables(
+        self,
+        delta_t: f64,
+    ) -> ([OrbitalSpec; MAJOR_BODY_COUNT], [DVec3; MAJOR_BODY_COUNT], [DVec3; MAJOR_BODY_COUNT], [f64; MAJOR_BODY_COUNT], [f64; MAJOR_BODY_COUNT], [f64; MAJOR_BODY_COUNT]) {
+        let entries = *SolarCatalog::new().entries();
         let t = self.epoch_secs + delta_t;
         let au = self.proportions.astronomical_unit();
         let (_, sun_gm) = self.body_half_and_gm(entries[0]);
@@ -106,14 +128,10 @@ impl SolarEphemeris {
             let (half, gm) = self.body_half_and_gm(spec);
             halves[i] = half;
             gms[i] = gm;
-            if spec.id() == BodyId::SOL {
-                continue;
-            }
-            let orbit = spec.orbit();
-            if orbit.heliocentric() {
-                let a = orbit.semi_major_meters(au);
+            if spec.id() != BodyId::SOL && spec.orbit().heliocentric() {
+                let a = spec.orbit().semi_major_meters(au);
                 semi_majors[i] = a;
-                let (p, v) = orbit.sample_state(a, sun_gm, t);
+                let (p, v) = spec.orbit().sample_state(a, sun_gm, t);
                 helio_pos[i] = p;
                 helio_vel[i] = v;
             }
@@ -123,8 +141,7 @@ impl SolarEphemeris {
         for (i, &spec) in entries.iter().enumerate() {
             let orbit = spec.orbit();
             if !orbit.heliocentric() {
-                let parent = orbit.parent();
-                if let Some(p_idx) = entries.iter().position(|s| s.id() == parent) {
+                if let Some(p_idx) = entries.iter().position(|s| s.id() == orbit.parent()) {
                     let min_clear = halves[p_idx] * 1.6 + halves[i] * 1.6 + 8.0;
                     let a = orbit.semi_major_meters(halves[p_idx] * 2.0 * d_scale).max(min_clear);
                     semi_majors[i] = a;
@@ -134,14 +151,41 @@ impl SolarEphemeris {
                 }
             }
         }
+        (entries, helio_pos, helio_vel, semi_majors, halves, gms)
+    }
 
-        let earth_p = helio_pos[3];
-        let earth_v = helio_vel[3];
+    pub(super) fn body_heliocentric_state(self, id: BodyId) -> (DVec3, DVec3, DVec3) {
+        if id == BodyId::SOL {
+            return (DVec3::ZERO, DVec3::ZERO, DVec3::ZERO);
+        }
+        let (entries, helio_pos, helio_vel, _, _, gms) = self.heliocentric_tables(0.0);
+        let Some(idx) = entries.iter().position(|s| s.id() == id) else {
+            return (DVec3::ZERO, DVec3::ZERO, DVec3::ZERO);
+        };
+        let p = helio_pos[idx];
+        let r_sq = p.length_squared().max(1.0);
+        let mut accel = -p * (gms[0] / (r_sq * r_sq.sqrt()));
+        let parent = entries[idx].orbit().parent();
+        if parent != BodyId::SOL {
+            if let Some(p_idx) = entries.iter().position(|s| s.id() == parent) {
+                let rel = p - helio_pos[p_idx];
+                let rp_sq = rel.length_squared().max(1.0);
+                accel -= rel * (gms[p_idx] / (rp_sq * rp_sq.sqrt()));
+            }
+        }
+        (p, helio_vel[idx], accel)
+    }
+
+    /// Resolves all 21 major bodies at `self.epoch_secs + delta_t` in `self.frame` `DVec3` coordinates.
+    pub fn snapshot_all(self, delta_t: f64) -> [BodySnapshot; MAJOR_BODY_COUNT] {
+        let (entries, helio_pos, helio_vel, semi_majors, halves, gms) = self.heliocentric_tables(delta_t);
+        let (frame_p, frame_v, _) = GravityBubble::new(self.proportions, self.epoch_secs + delta_t)
+            .heliocentric_state(self.frame);
         std::array::from_fn(|i| {
             BodySnapshot::new(
                 entries[i],
                 halves[i],
-                BodyKinematics::new(helio_pos[i] - earth_p, helio_vel[i] - earth_v, semi_majors[i], gms[i]),
+                BodyKinematics::new(helio_pos[i] - frame_p, helio_vel[i] - frame_v, semi_majors[i], gms[i]),
             )
         })
     }
@@ -158,14 +202,13 @@ impl SolarEphemeris {
         }
     }
 
-    /// Exact N-body gravitational acceleration (`m/s²`) at `pos` (`epoch + delta_t`) with tidal Earth-frame compensation.
+    /// Exact N-body gravitational acceleration (`m/s²`) at `pos` (`epoch + delta_t`) in `self.frame`.
     pub fn gravity_accel_at(self, pos: DVec3, delta_t: f64) -> DVec3 {
         let bodies = self.snapshot_all(delta_t);
-        let sun_from_earth = bodies[0].center();
-        let r_se_sq = sun_from_earth.length_squared().max(1.0);
-        let earth_solar_accel = sun_from_earth * (bodies[0].gm() / (r_se_sq * r_se_sq.sqrt()));
+        let (_, _, frame_accel) = GravityBubble::new(self.proportions, self.epoch_secs + delta_t)
+            .heliocentric_state(self.frame);
 
-        let mut total = -earth_solar_accel;
+        let mut total = -frame_accel;
         for b in &bodies {
             let rel = pos - b.center();
             let cheb = rel.abs().max_element();

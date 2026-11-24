@@ -206,7 +206,10 @@ impl WorldEarthworks for HeliosphereWorld {
     }
 
     fn body_center(&self, body: crate::BodyId) -> Option<Vec3> {
-        if body == crate::BodyId::EARTH {
+        if body == crate::BodyId::EARTH && self.ephemeris.frame().earth_centered() {
+            return Some(Vec3::ZERO);
+        }
+        if self.ephemeris.frame().anchored_body() == Some(body) {
             return Some(Vec3::ZERO);
         }
         if let Some(active) = self.vicinity.borrow().find_body(body) {

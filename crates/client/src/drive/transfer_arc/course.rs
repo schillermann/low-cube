@@ -16,6 +16,12 @@ impl NavigationCourse {
         }
     }
 
+    pub fn shift_frame(&mut self, delta: Vec3) {
+        if let Self::Charted(ref mut arc) = self {
+            *arc = arc.shifted_by(delta);
+        }
+    }
+
     pub fn mark_along(
         &mut self,
         (boresight, gimbal): ((Vec3, Vec3), (Vec3, Vec3)),

@@ -128,6 +128,7 @@ pub trait Avatar: AvatarMotor + AvatarOptics + AvatarPresence + PhotoPort + Blac
     fn accept_typed_text(&mut self, _text: &str) -> bool { false }
     fn blend_subtick(&mut self, _alpha: f32) {}
     fn step_fauna(&mut self, _dt: f32, _world: &mut dyn PlanetaryWorld) {}
+    fn reconcile_cosmic_frame(&mut self, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn land_on_world(&mut self, _world: &dyn PlanetaryWorld) {}
     fn solar_chart_snapshot(&self, world: &dyn PlanetaryWorld) -> (crate::drive::OrrerySnapshot, f32, bool) {
         (

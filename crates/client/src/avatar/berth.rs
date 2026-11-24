@@ -83,6 +83,14 @@ impl CockpitBerth {
         self.pilot.install_course(course);
     }
 
+    pub(super) fn driving_state(&self) -> Option<(Vec3, Vec3)> {
+        self.pilot.driving_state()
+    }
+
+    pub(super) fn apply_frame_handoff(&mut self, handoff: world::FrameHandoff, world: &dyn PlanetaryWorld) -> Option<Vec3> {
+        self.pilot.apply_frame_handoff(handoff, world)
+    }
+
     pub(super) fn mark_nose_target(&mut self, world: &dyn PlanetaryWorld) -> bool {
         let views = self.pilot.collected_views();
         let Some(rays) = self.optics.nose_sight_rays(&views) else {

@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use glam::Vec3;
 use world::{
-    BodyId, ClimateZone, CraftIdentity, DrivenCraft, SolarEphemeris, SolarProportions, WorldFact,
+    BodyId, ClimateZone, CosmicFrame, CraftIdentity, DrivenCraft, SolarEphemeris, SolarProportions,
+    WorldFact,
 };
 use crate::chronicle_log::ChronicleStore;
 
@@ -165,6 +166,18 @@ impl HorizonStream {
         proportions: SolarProportions,
         epoch_secs: f64,
     ) {
+        self.gather_in_frame(CosmicFrame::earth(), anchor, visible_crafts, index, proportions, epoch_secs);
+    }
+
+    pub fn gather_in_frame(
+        &mut self,
+        recipient_frame: CosmicFrame,
+        anchor: Vec3,
+        visible_crafts: &[DrivenCraft],
+        index: &SpatialFactIndex,
+        proportions: SolarProportions,
+        epoch_secs: f64,
+    ) {
         if !anchor.is_finite() {
             return;
         }
@@ -178,20 +191,22 @@ impl HorizonStream {
                 }
             }
         }
-        for (&craft_id, &(pose_idx, pos)) in &index.fleet.1 {
-            if (anchor - pos).length_squared() <= HORIZON_FACT_METERS * HORIZON_FACT_METERS {
-                if let Some(&bp_id) = index.fleet.0.get(&craft_id) {
-                    if !self.delivered(bp_id) {
-                        discovered.push(bp_id);
+        if recipient_frame.earth_centered() {
+            for (&craft_id, &(pose_idx, pos)) in &index.fleet.1 {
+                if (anchor - pos).length_squared() <= HORIZON_FACT_METERS * HORIZON_FACT_METERS {
+                    if let Some(&bp_id) = index.fleet.0.get(&craft_id) {
+                        if !self.delivered(bp_id) {
+                            discovered.push(bp_id);
+                        }
                     }
-                }
-                if !self.delivered(pose_idx) {
-                    discovered.push(pose_idx);
+                    if !self.delivered(pose_idx) {
+                        discovered.push(pose_idx);
+                    }
                 }
             }
         }
 
-        if anchor.abs().max_element() <= earth_half + HORIZON_FACT_METERS {
+        if recipient_frame.earth_centered() && anchor.abs().max_element() <= earth_half + HORIZON_FACT_METERS {
             let dom_n = ClimateZone::dominant(anchor).normal();
             for (face_idx, zone) in ClimateZone::all().into_iter().enumerate() {
                 let n = zone.normal();
@@ -217,16 +232,20 @@ impl HorizonStream {
         }
 
         if !index.offworld.is_empty() {
-            let eph = SolarEphemeris::new(proportions, epoch_secs);
+            let eph = SolarEphemeris::with_frame(proportions, epoch_secs, recipient_frame);
             let snaps = eph.snapshot_all(0.0);
             let probe_d = anchor.as_dvec3();
             for (&body_id, ids) in &index.offworld {
-                let near = if let Some(snap) = snaps.iter().find(|s| s.id() == body_id) {
+                let near = if recipient_frame.anchored_body() == Some(body_id) {
+                    true
+                } else if let Some(snap) = snaps.iter().find(|s| s.id() == body_id) {
                     let pad = (snap.half_size() * 26.0).max(640.0);
                     (probe_d - snap.center()).abs().max_element() <= snap.half_size() + pad
                 } else {
                     let belt = world::AsteroidBelt::new(proportions, epoch_secs);
-                    belt.nearest_rock(probe_d, snaps[0].center(), snaps[0].gm(), 640.0)
+                    let helio_probe = world::GravityBubble::new(proportions, epoch_secs)
+                        .map_position(recipient_frame, anchor, CosmicFrame::Body(BodyId::SOL));
+                    belt.nearest_rock(helio_probe, glam::DVec3::ZERO, snaps[0].gm(), 640.0)
                         .is_some_and(|r| r.id() == body_id)
                 };
                 if near {

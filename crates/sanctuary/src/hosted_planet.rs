@@ -125,6 +125,11 @@ impl PlanetaryWorld for HostedPlanet {
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.host.world().confine_beneath_crust(position) }
     fn local_body_point(&self, position: Vec3) -> Vec3 { self.host.world().local_body_point(position) }
     fn celestial_atlas(&self) -> world::CelestialAtlas { self.host.world().celestial_atlas() }
+    fn cosmic_frame(&self) -> world::CosmicFrame { self.host.world().cosmic_frame() }
+    fn align_epoch(&mut self, epoch_secs: f64) { self.host.align_epoch(epoch_secs); }
+    fn reconcile_cosmic_frame(&mut self, local_pos: Vec3, local_vel: Vec3) -> Option<world::FrameHandoff> {
+        self.host.reconcile_cosmic_frame(local_pos, local_vel)
+    }
 }
 
 impl WorldEarthworks for HostedPlanet {

@@ -41,33 +41,45 @@ impl HostWire {
         }
     }
 
+    pub fn guest_companions(&self, out: &mut Vec<world::CompanionPresence>) {
+        self.state.guest_companions(self.identity.proportions(), out);
+    }
+
+    pub fn guest_crafts(&self, out: &mut Vec<world::DrivenCraft>) {
+        self.state.guest_crafts(self.identity.proportions(), out);
+    }
+
+    pub fn emit_guest_crafts(&self, target: &mut dyn world::MeshTarget) {
+        self.state.emit_guest_crafts(self.identity.proportions(), target);
+    }
+
     pub fn present_vessels(&self, sink: &mut dyn world::VesselSink) {
         let mut crafts = Vec::new();
-        self.state.guest_crafts(&mut crafts);
+        self.guest_crafts(&mut crafts);
         self.state.fleet().present_vessels(&crafts, sink);
     }
 
     pub fn board_passenger_seat(&self, eye: Vec3, direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> {
         let mut crafts = Vec::new();
-        self.state.guest_crafts(&mut crafts);
+        self.guest_crafts(&mut crafts);
         self.state.fleet().find_passenger_seat(&crafts, eye, direction)
     }
 
     pub fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> {
         let mut crafts = Vec::new();
-        self.state.guest_crafts(&mut crafts);
+        self.guest_crafts(&mut crafts);
         crafts.into_iter().find(|c| c.identity() == craft).map(|c| c.pose().world_seat_at(local_seat))
     }
 
     pub fn resolve_deck_pose(&self, craft: CraftIdentity) -> Option<(CraftPose, f32)> {
         let mut crafts = Vec::new();
-        self.state.guest_crafts(&mut crafts);
+        self.guest_crafts(&mut crafts);
         self.state.fleet().resolve_deck_pose(&crafts, craft)
     }
 
     pub fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> {
         let mut crafts = Vec::new();
-        self.state.guest_crafts(&mut crafts);
+        self.guest_crafts(&mut crafts);
         self.state.fleet().constrain_craft_by_id(&crafts, craft, position, player_height)
     }
 
@@ -77,7 +89,7 @@ impl HostWire {
 
     fn answer_knock(&mut self, peer: SocketAddr, guest_pub: [u8; 32]) {
         let (cid, beacon_stand) = self.state.admit_guest(&self.identity, peer, guest_pub);
-        let mut reply = Vec::with_capacity(72);
+        let mut reply = Vec::with_capacity(80);
         reply.extend_from_slice(b"LWEL");
         reply.extend_from_slice(&self.identity.keys().public_bytes());
         reply.extend_from_slice(&cid.to_le_bytes());
@@ -88,6 +100,7 @@ impl HostWire {
                 reply.extend_from_slice(&c.to_le_bytes());
             }
         }
+        reply.extend_from_slice(&self.state.epoch_secs().to_le_bytes());
         let _ = self.socket.send_to(&reply, peer);
     }
 
@@ -107,6 +120,9 @@ impl HostWire {
     }
 
     pub fn pump_authoritative(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) -> (bool, usize) {
+        let epoch = world.celestial_atlas().ephemeris().map_or(0.0, |e| e.epoch_secs());
+        self.state.sync_epoch(epoch);
+        let proportions = self.identity.proportions();
         let mut mutated = false;
         while let Some((cid, fact)) = self.deferred.pop_front() {
             if self.state.enact_guest_petition(cid, fact, world) {
@@ -125,7 +141,7 @@ impl HostWire {
             }
             if let Ok(cid_bytes) = pkt[2..6].try_into() {
                 let cid = u32::from_le_bytes(cid_bytes);
-                if self.state.process_companion_datagram(&self.socket, cid, src, pkt, world) {
+                if self.state.process_companion_datagram(&self.socket, cid, src, pkt, proportions, world) {
                     mutated = true;
                 }
             }
@@ -134,8 +150,7 @@ impl HostWire {
             self.state.refresh_beacons(world);
         }
         if pulse_ready {
-            let epoch = world.celestial_atlas().ephemeris().map_or(0.0, |e| e.epoch_secs());
-            self.state.broadcast(&self.socket, self.identity.proportions(), epoch);
+            self.state.broadcast(&self.socket, proportions, epoch);
         }
         (mutated, self.state.active_craft_count())
     }
@@ -144,7 +159,6 @@ impl HostWire {
 impl PortalBeat for HostWire {
     fn step_standby(&mut self, dt: f32) -> usize {
         let proportions = self.identity.proportions();
-        let max_extent = proportions.heliosphere_span();
         let mut buf = [0u8; 1500];
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
             let pkt = &buf[..len];
@@ -153,7 +167,7 @@ impl PortalBeat for HostWire {
             }
             if let Ok(cid_bytes) = pkt[2..6].try_into() {
                 let cid = u32::from_le_bytes(cid_bytes);
-                self.state.process_standby_datagram(&self.socket, cid, src, pkt, max_extent, &mut self.deferred);
+                self.state.process_standby_datagram(&self.socket, cid, src, pkt, proportions, &mut self.deferred);
             }
         }
         self.state.step_standby_clocks(&self.socket, dt, proportions, &mut self.deferred);

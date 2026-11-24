@@ -139,6 +139,8 @@ impl SanctuaryHost {
         let code = PortalCode::from_endpoint(endpoint, secret);
         let identity = HostIdentity::with_proportions(HandshakeIdentity::generate(), proportions, endpoint);
         let mut aura = HostAura::headless();
+        let initial_epoch = world.celestial_atlas().ephemeris().map_or(0.0, |e| e.epoch_secs());
+        aura.sync_epoch(initial_epoch);
         aura.beacons_mut().refresh_from(world.as_ref());
         let state = HostState::with_store(
             chronicle,
@@ -167,11 +169,20 @@ impl SanctuaryHost {
     pub fn punch_nat_peer(&mut self, peer: SocketAddr) { self.write_wire(|w| w.punch_peer(peer)); }
     pub fn sync_host_presence(&mut self, presence: CompanionPresence) { self.write_wire(|w| w.state_mut().occupy_host(presence)); }
     pub fn sync_host_craft(&mut self, craft: PilotCraft) { self.write_wire(|w| w.state_mut().pilot_host(craft)); }
-    pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) { self.read_wire(|w| w.state().guest_companions(out)); }
-    pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) { self.read_wire(|w| w.state().guest_crafts(out)); }
+    pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) { self.read_wire(|w| w.guest_companions(out)); }
+    pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) { self.read_wire(|w| w.guest_crafts(out)); }
     pub fn utter_host_nearby(&mut self, text: &str) { self.write_wire(|w| w.utter_from_host(text)); }
     pub fn drain_host_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { self.write_wire(|w| w.state_mut().drain_host_utterances(out)); }
-    pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) { self.read_wire(|w| w.state().emit_guest_crafts(target)); }
+    pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) { self.read_wire(|w| w.emit_guest_crafts(target)); }
+    pub fn align_epoch(&mut self, epoch_secs: f64) {
+        self.world.align_epoch(epoch_secs);
+        self.write_wire(|w| w.state_mut().sync_epoch(epoch_secs));
+    }
+    pub fn reconcile_cosmic_frame(&mut self, local_pos: Vec3, local_vel: Vec3) -> Option<world::FrameHandoff> {
+        let handoff = self.world.reconcile_cosmic_frame(local_pos, local_vel)?;
+        self.write_wire(|w| w.state_mut().reanchor_host(handoff));
+        Some(handoff)
+    }
     pub fn blend_companions(&mut self, subtick_secs: f32) {
         let blend = if self.mailbox.standby_needed(Instant::now()) { 0.0 } else { subtick_secs };
         self.write_wire(|w| w.state_mut().blend_subtick(blend));

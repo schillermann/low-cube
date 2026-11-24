@@ -242,6 +242,9 @@ impl Avatar for BlackBoxAvatar {
     fn accept_typed_text(&mut self, text: &str) -> bool { self.origin.accept_typed_text(text) }
     fn blend_subtick(&mut self, alpha: f32) { self.origin.blend_subtick(alpha); }
     fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) { self.origin.step_fauna(dt, world); }
+    fn reconcile_cosmic_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        self.origin.reconcile_cosmic_frame(world)
+    }
     #[cfg(test)]
     fn install_blueprint_archive(&mut self, archive: Box<dyn crate::blueprint::BlueprintArchive>) {
         self.origin.install_blueprint_archive(archive);

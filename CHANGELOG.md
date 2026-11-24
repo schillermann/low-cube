@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.114.0] - 2026-11-24
+
+### Added
+- Added moving Hill-sphere Gravity Bubbles (`CosmicFrame`, `FrameHandoff`, and `GravityBubble` in `crates/world/src/celestial/bubble.rs`, wired into `SolarEphemeris`, `HeliosphereWorld`, `VicinityCache::recenter_active`, `OrbitalFleetWorld`, `PlanetaryWorld`, `SessionStage::step_frame`, `AvatarBody::reconcile_cosmic_frame`, `RocketDrive`, and `HelmChart`):
+  - Anchors local `f32` (`Vec3`) physics dynamically to `CosmicFrame::Body(BodyId)`, `CosmicFrame::BeltAsteroid { id, cell }`, or hysteresis-guarded `4,096 m` `CosmicFrame::DeepSpace([i64; 3])` sectors (`|local_pos| <= 2,560 m`, `< 0.13 mm` ULP), preserving sub-millimeter `0.5 m` `GridCell` walking, Flip-&-Burn `0 m/s` turnarounds, and rocket touchdowns from Earth out to `3.20 AU` belt rocks and `30.07 AU` Triton (`crates/world/src/continental_cosmos_tests.rs`).
+  - Removed the `if !locked` orbital freeze in `HeliosphereWorld::step_surface` (`crates/world/src/celestial/heliosphere/mod.rs`), added free-fall tidal gravity compensation (`-frame_accel`) in `SolarEphemeris::gravity_accel_at`, and enabled 3D `CosmicBodyCube::emit_distant_earth` whenever `!earth_centered()` so Earth, planets, and the Sun orbit continuously across alien skies while parked crafts remain stationary at `0.000 m` local drift.
+- Added multiplayer `LWEL` `epoch_secs` synchronization and `CosmicFrame`-aware Sanctuary audience decorators (`CosmicBubbleAudience` and `CosmicCraftSight` in `crates/sanctuary/src/bubble_audience.rs`, `EpochSync` in `crates/sanctuary/src/link_state/sync.rs`, `CohortPulse` in `crates/sanctuary/src/cohort/`, `AbandonedDock` in `crates/sanctuary/src/host_state/`, `GuestWard::cosmic_frame` in `crates/sanctuary/src/ward.rs`, `WardedPlanet::enact_offworld`, `HorizonStream::gather_in_frame`, and `SectorCracks` per-frame buckets):
+  - Synchronizes the server's live `SolarEphemeris` orbital clock during `LWEL` welcome handshakes (`HostWire::answer_knock` and `RemoteLink::try_accept_welcome`), replicates off-world `CosmicFrame` tags with `0` extra wire bytes on Earth, validates off-world reach and crust clearance locally in each body's Hill bubble, projects `<= 2,400 m` cross-seam crafts in `f64` via `4,096 m` heliocentric macro-cells, and keeps distant planets at `0 Hz` (`crates/sanctuary/src/tests/horizon_isolation.rs`).
+
 ## [0.113.0] - 2026-11-24
 
 ### Added

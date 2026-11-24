@@ -31,6 +31,14 @@ impl DrivenCraft {
         Self::new(slot, self.identity, self.pose)
     }
 
+    pub const fn with_origin(self, origin: glam::Vec3) -> Self {
+        Self::new(self.slot, self.identity, self.pose.with_origin(origin))
+    }
+
+    pub fn shifted(self, delta: glam::Vec3) -> Self {
+        Self::new(self.slot, self.identity, self.pose.with_origin(self.pose.origin() + delta))
+    }
+
     pub fn within_reach(self, anchor: glam::Vec3, max_dist: f32) -> bool {
         (anchor - self.pose.origin()).length_squared() <= max_dist * max_dist
     }
@@ -81,6 +89,13 @@ impl PilotCraft {
         match self {
             Self::Pedestrian => Self::Pedestrian,
             Self::Driving(craft) => Self::Driving(craft.with_slot(slot)),
+        }
+    }
+
+    pub fn shifted(self, delta: glam::Vec3) -> Self {
+        match self {
+            Self::Pedestrian => Self::Pedestrian,
+            Self::Driving(craft) => Self::Driving(craft.shifted(delta)),
         }
     }
 

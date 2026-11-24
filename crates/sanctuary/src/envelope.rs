@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{
-    CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, ProximityUtterance, WildlifePulse,
-    WorldFact, MAX_UTTERANCE_BYTES,
+    CompanionPresence, CosmicFrame, DrivenCraft, PilotCraft, PlanetaryWorld, ProximityUtterance,
+    WildlifePulse, WorldFact, MAX_UTTERANCE_BYTES,
 };
 
 /// Transient block-loosening crack stage broadcast across P2P companions.
@@ -55,6 +55,7 @@ pub enum SanctuaryEnvelope {
         ack_seq: u32,
         presence: CompanionPresence,
         craft: PilotCraft,
+        frame: CosmicFrame,
     },
     GuestPetition {
         fact: WorldFact,
@@ -82,11 +83,14 @@ impl SanctuaryEnvelope {
     pub fn inscribe(&self, out: &mut Vec<u8>) {
         out.clear();
         match self {
-            Self::GuestPulse { ack_seq, presence, craft } => {
+            Self::GuestPulse { ack_seq, presence, craft, frame } => {
                 out.push(1);
                 out.extend_from_slice(&ack_seq.to_le_bytes());
                 presence.inscribe(out);
                 craft.inscribe(out);
+                if !frame.earth_centered() {
+                    frame.inscribe(out);
+                }
             }
             Self::GuestPetition { fact } => {
                 out.push(2);
@@ -150,12 +154,18 @@ impl SanctuaryEnvelope {
                 let ack_seq = u32::from_le_bytes(bytes[1..5].try_into().ok()?);
                 let (presence, used) = CompanionPresence::decode(&bytes[5..])?;
                 let tail = &bytes[5 + used..];
-                let craft = if tail.is_empty() {
-                    PilotCraft::Pedestrian
+                let (craft, craft_used) = if tail.is_empty() {
+                    (PilotCraft::Pedestrian, 0)
                 } else {
-                    PilotCraft::decode(tail)?.0
+                    PilotCraft::decode(tail)?
                 };
-                Some(Self::GuestPulse { ack_seq, presence, craft })
+                let frame_tail = &tail[craft_used..];
+                let frame = if frame_tail.is_empty() {
+                    CosmicFrame::earth()
+                } else {
+                    CosmicFrame::decode(frame_tail)?.0
+                };
+                Some(Self::GuestPulse { ack_seq, presence, craft, frame })
             }
             2 if bytes.len() >= 2 => {
                 let (fact, _) = WorldFact::decode(&bytes[1..])?;

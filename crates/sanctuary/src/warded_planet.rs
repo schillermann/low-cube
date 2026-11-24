@@ -156,7 +156,11 @@ impl WorldEarthworks for WardedPlanet<'_> {
     }
 
     fn enact_offworld(&mut self, body: BodyId, fact: &WorldFact) -> bool {
-        let Some(c) = self.origin.body_center(body) else {
+        let c = if self.ward.cosmic_frame().anchored_body() == Some(body) {
+            Vec3::ZERO
+        } else if let Some(center) = self.origin.body_center(body) {
+            center
+        } else {
             return false;
         };
         match *fact {
@@ -219,10 +223,38 @@ impl WorldEarthworks for WardedPlanet<'_> {
                 }
             }
             WorldFact::HelmClaimed { craft, pilot_slot, eye, direction } => {
-                self.claim_vehicle_helm(craft, pilot_slot, eye + c, direction)
+                if self.ward.cosmic_frame().anchored_body() == Some(body) {
+                    if !self.ward.eye_within_reach(eye, direction) {
+                        return false;
+                    }
+                    if craft.assigned() && !self.fleet.claim_helm(craft, self.slot) {
+                        return false;
+                    }
+                    let ok = self.origin.enact_offworld(body, fact);
+                    if !ok && craft.assigned() {
+                        let _ = self.fleet.release_helm(craft, self.slot);
+                    }
+                    ok
+                } else {
+                    self.claim_vehicle_helm(craft, pilot_slot, eye + c, direction)
+                }
             }
             WorldFact::HelmReleased { craft, pose } => {
-                self.park_craft_by_id(craft, pose.with_origin(pose.origin() + c))
+                if self.ward.cosmic_frame().anchored_body() == Some(body) {
+                    if !self.ward.pose_within_reach(pose) || !self.fleet.helmed_by(craft, self.slot) {
+                        return false;
+                    }
+                    if let Some(assembly) = self.fleet.reconstruct_assembly(craft, pose) {
+                        let _ = self.origin.enact_offworld(
+                            body,
+                            &WorldFact::CraftCommissioned { blueprint: assembly.blueprint().clone() },
+                        );
+                    }
+                    self.fleet.force_release(craft);
+                    self.origin.enact_offworld(body, fact)
+                } else {
+                    self.park_craft_by_id(craft, pose.with_origin(pose.origin() + c))
+                }
             }
             _ => false,
         }

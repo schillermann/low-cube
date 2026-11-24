@@ -36,10 +36,11 @@ pub use biome::BiomedCubeWorld;
 pub use celestial::{
     ActiveVicinity, AlienWorld, ApexSpin, AsteroidBelt, AtlasMode, AwakenedBody, BeltAndReach,
     BeltRock, BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique, BodyRatios,
-    BodySnapshot, CelestialAtlas, CelestialSystem, EllipticShape, HeliosphereWorld, KeplerAnomaly,
-    LunarCraterRelief, LunarWorld, OrbitElements, OrbitalFleetWorld, OrbitalLocus, OrbitalPlane,
-    OrbitalSpec, PlanetarySpin, RadialWell, SolarCatalog, SolarEphemeris, SolarProportions,
-    SurfaceNature, TranslatedWorld, VicinityCache, MAJOR_BODY_COUNT,
+    BodySnapshot, CelestialAtlas, CelestialSystem, CosmicFrame, EllipticShape, FrameHandoff,
+    GravityBubble, HeliosphereWorld, KeplerAnomaly, LunarCraterRelief, LunarWorld, OrbitElements,
+    OrbitalFleetWorld, OrbitalLocus, OrbitalPlane, OrbitalSpec, PlanetarySpin, RadialWell,
+    SolarCatalog, SolarEphemeris, SolarProportions, SurfaceNature, TranslatedWorld, VicinityCache,
+    DEEP_SPACE_SECTOR_SPAN, MAJOR_BODY_COUNT,
 };
 pub use block::{
     AttitudeNozzleMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,

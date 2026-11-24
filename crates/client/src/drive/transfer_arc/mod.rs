@@ -83,6 +83,20 @@ impl TransferArc {
         Self::with_profile(updated, self.target_normal, self.corridor_radius, self.profile)
     }
 
+    pub fn shifted_by(self, delta: Vec3) -> Self {
+        let mut updated = self.nodes;
+        for slot in &mut updated {
+            *slot += delta;
+        }
+        let profile = match self.profile {
+            CourseProfile::Brachistochrone { flip_point, total_secs, burn_accel } => {
+                CourseProfile::Brachistochrone { flip_point: flip_point + delta, total_secs, burn_accel }
+            }
+            other => other,
+        };
+        Self::with_profile(updated, self.target_normal, self.corridor_radius, profile)
+    }
+
     /// Integrates `PlanetaryWorld` gravity via symplectic Velocity-Verlet shooting to connect `origin` to `target`.
     pub fn charted(
         origin: Vec3,

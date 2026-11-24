@@ -35,6 +35,9 @@ impl HeliosphereWorld {
     }
 
     pub(super) fn near_earth(&self, pos: Vec3) -> bool {
+        if !self.ephemeris.frame().earth_centered() {
+            return false;
+        }
         let half = self.ephemeris.proportions().earth_half();
         let band = (half * 0.45).clamp(64.0, 160.0);
         pos.abs().max_element() <= half + band
@@ -148,11 +151,13 @@ impl PlanetaryWorld for HeliosphereWorld {
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {
-        let locked = self.vicinity.borrow().any_active();
-        if !locked {
-            self.ephemeris = self.ephemeris.advanced(f64::from(dt));
-        }
-        let a = self.earth.step_surface(dt);
+        self.ephemeris = self.ephemeris.advanced(f64::from(dt));
+        self.vicinity.borrow_mut().recenter_active(self.ephemeris);
+        let a = if self.ephemeris.frame().earth_centered() {
+            self.earth.step_surface(dt)
+        } else {
+            false
+        };
         let mut b = false;
         {
             let mut vic = self.vicinity.borrow_mut();
@@ -203,5 +208,27 @@ impl PlanetaryWorld for HeliosphereWorld {
 
     fn celestial_atlas(&self) -> crate::CelestialAtlas {
         crate::CelestialAtlas::heliosphere(self.ephemeris)
+    }
+
+    fn cosmic_frame(&self) -> crate::CosmicFrame {
+        self.ephemeris.frame()
+    }
+
+    fn align_epoch(&mut self, epoch_secs: f64) {
+        self.ephemeris = self.ephemeris.at_epoch(epoch_secs);
+        self.vicinity.borrow_mut().recenter_active(self.ephemeris);
+    }
+
+    fn reconcile_cosmic_frame(&mut self, local_pos: Vec3, local_vel: Vec3) -> Option<crate::FrameHandoff> {
+        let handoff = super::bubble::GravityBubble::from_ephemeris(self.ephemeris)
+            .evaluate_handoff(self.ephemeris, local_pos, local_vel)?;
+        self.ephemeris = self.ephemeris.reanchored(handoff.next_frame());
+        {
+            let mut vic = self.vicinity.borrow_mut();
+            vic.recenter_active(self.ephemeris);
+            let _ = vic.ensure_near(handoff.next_pos(), self.ephemeris);
+            vic.recenter_active(self.ephemeris);
+        }
+        Some(handoff)
     }
 }

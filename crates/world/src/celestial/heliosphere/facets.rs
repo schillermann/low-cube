@@ -121,11 +121,12 @@ impl TerrainMesh for HeliosphereWorld {
             let vic = self.vicinity.borrow();
             (vic.active_ids(), vic.uploaded_ids())
         };
+        let earth_voxel_active = self.ephemeris.frame().earth_centered();
         for snap in snaps {
             if matches!(snap.nature(), SurfaceNature::GasGiant { .. }) {
                 GiantCloudShell::new(snap, epoch).emit_near(viewer, target);
             } else {
-                CosmicBodyCube::new(snap, spin).emit_for_viewer(viewer, uploaded_ids, target);
+                CosmicBodyCube::new(snap, spin).emit_for_viewer(viewer, uploaded_ids, earth_voxel_active, target);
             }
         }
         let sun = snaps[0];
@@ -147,7 +148,7 @@ impl TerrainMesh for HeliosphereWorld {
         }
         let home_half = self.ephemeris.proportions().earth_half();
         let earth_dist = position.length();
-        if earth_dist <= EARTH_VOXEL_HANDOFF {
+        if self.ephemeris.frame().earth_centered() && earth_dist <= EARTH_VOXEL_HANDOFF {
             let continental = home_half > 128.0;
             let orbital = position.abs().max_element() > home_half + 96.0;
             let show_flora = !continental && earth_dist <= home_half + 420.0;
@@ -212,7 +213,9 @@ impl VesselDeck for HeliosphereWorld {
     }
 
     fn present_vessels_near(&self, center: Vec3, radius: f32, sink: &mut dyn VesselSink) {
-        if self.near_earth(center) || center.abs().max_element() <= self.ephemeris.proportions().earth_half() + radius {
+        if self.ephemeris.frame().earth_centered()
+            && (self.near_earth(center) || center.abs().max_element() <= self.ephemeris.proportions().earth_half() + radius)
+        {
             self.earth.present_vessels_near(center, radius, sink);
         }
         let vic = self.vicinity.borrow();

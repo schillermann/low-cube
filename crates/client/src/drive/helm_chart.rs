@@ -85,6 +85,12 @@ impl HelmChart {
         self.course = course;
     }
 
+    pub fn shift_frame(&mut self, delta: Vec3, world: &dyn PlanetaryWorld) {
+        self.course.shift_frame(delta);
+        self.atlas = world.celestial_atlas();
+        self.course.sync_ephemeris(self.atlas);
+    }
+
     pub fn sync_flight(
         &mut self,
         assembly: &VehicleAssembly,

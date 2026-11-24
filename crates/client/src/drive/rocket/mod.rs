@@ -100,6 +100,17 @@ impl CraftDrive for RocketDrive {
         self.chart.install_course(course);
     }
 
+    fn space_velocity(&self) -> Vec3 {
+        self.kinematics.transfer(|vel, _| vel)
+    }
+
+    fn apply_handoff(&mut self, next_vel: Vec3, pos_shift: Vec3, world: &dyn PlanetaryWorld) {
+        let (_, omega) = self.kinematics.transfer(|l, a| (l, a));
+        let g = self.kinematics.proper_g();
+        self.kinematics = SpaceKinematics::new(next_vel, omega, g);
+        self.chart.shift_frame(pos_shift, world);
+    }
+
     fn mark_nose_target(
         &mut self,
         rays: ((Vec3, Vec3), (Vec3, Vec3)),

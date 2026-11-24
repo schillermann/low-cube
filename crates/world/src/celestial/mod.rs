@@ -2,6 +2,7 @@ mod alien_worlds;
 mod atlas;
 mod belt;
 mod binary;
+mod bubble;
 mod catalog;
 mod ephemeris;
 mod gravity;
@@ -20,6 +21,7 @@ pub use self::alien_worlds::AlienWorld;
 pub use self::atlas::{AtlasMode, CelestialAtlas};
 pub use self::belt::{AsteroidBelt, BeltRock};
 pub use self::binary::BinaryPlanet;
+pub use self::bubble::{CosmicFrame, FrameHandoff, GravityBubble, DEEP_SPACE_SECTOR_SPAN};
 pub use self::catalog::{
     BodyId, BodyPhysique, OrbitalSpec, SolarCatalog, SurfaceNature, MAJOR_BODY_COUNT,
 };

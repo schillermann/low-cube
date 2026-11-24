@@ -158,7 +158,7 @@ Die separaten Verzerrungsfaktoren (`body_scale`, `sun_scale`, `distance_scale`) 
 
 ---
 
-### Phase 4: Mitbewegte „Gravity Bubbles“ (`BodyFrame`) gegen `f32`-Jitter & Orbit-Freeze
+### Phase 4: Mitbewegte „Gravity Bubbles“ (`CosmicFrame`) gegen `f32`-Jitter & Orbit-Freeze *(Umgesetzt in `v0.114.0`)*
 
 **Ziel:** Sub-Millimeter-`f32`-Präzision auf jedem Himmelskörper bis Neptun (`361 Mio. m`) und kontinuierlich weiterlaufende Umlaufbahnen/Eigenrotationen, auch wenn Spieler auf fremden Monden gelandet sind.
 
@@ -179,7 +179,7 @@ Die separaten Verzerrungsfaktoren (`body_scale`, `sun_scale`, `distance_scale`) 
 
 ---
 
-### Phase 5: Multiplayer-Protokoll, Navigations-HUD & Endabnahme
+### Phase 5: Multiplayer-Protokoll, Navigations-HUD & Endabnahme *(Umgesetzt in `v0.114.0`)*
 
 **Ziel:** Vollständige Integration in das P2P-/Dedicated-Server-Protokoll (`crates/sanctuary`), das Raumschiff-HUD und alle Qualitäts-Gates.
 

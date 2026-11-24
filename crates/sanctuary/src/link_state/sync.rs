@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
 use glam::{Quat, Vec3};
 use world::{
-    CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceKinematics,
-    ProximityUtterance, WorldFact,
+    CompanionPresence, CosmicFrame, DrivenCraft, FrameHandoff, PilotCraft, PlanetaryWorld,
+    PresenceKinematics, ProximityUtterance, WorldFact,
 };
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
@@ -19,23 +19,44 @@ pub enum WelcomeSpawn {
     Beacon(Vec3),
 }
 
-/// Synchronized chronicle cursor, smoothly interpolated companion roster, avatar state, and server spawn (`<= 4` fields).
+/// Polymorphic server orbital epoch handoff avoiding nullable `Option<f64>` fields.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum EpochSync {
+    Aligned,
+    Pending(f64),
+}
+
+/// Synchronized chronicle cursor, smoothly interpolated companion roster, avatar + bubble frame, and arrival state (`<= 4` fields).
 pub struct LinkSync {
     cursors: (u32, f32),
     roster: SmoothRoster,
-    local_avatar: (CompanionPresence, PilotCraft),
-    welcome_spawn: WelcomeSpawn,
+    local_avatar: (CompanionPresence, PilotCraft, CosmicFrame),
+    arrival: (WelcomeSpawn, EpochSync),
 }
 
 impl LinkSync {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_arrival(
+        cursors: (u32, f32),
+        roster: SmoothRoster,
+        local_avatar: (CompanionPresence, PilotCraft, CosmicFrame),
+        arrival: (WelcomeSpawn, EpochSync),
+    ) -> Self {
+        Self { cursors, roster, local_avatar, arrival }
+    }
+
     pub const fn with_spawn(
         cursors: (u32, f32),
         roster: SmoothRoster,
         local_avatar: (CompanionPresence, PilotCraft),
         welcome_spawn: WelcomeSpawn,
     ) -> Self {
-        Self { cursors, roster, local_avatar, welcome_spawn }
+        Self::with_arrival(
+            cursors,
+            roster,
+            (local_avatar.0, local_avatar.1, CosmicFrame::earth()),
+            (welcome_spawn, EpochSync::Aligned),
+        )
     }
 
     pub const fn new(
@@ -47,19 +68,35 @@ impl LinkSync {
         Self::with_spawn((ack_seq, pulse_clock), roster, local_avatar, WelcomeSpawn::Natural)
     }
 
-    pub const fn local_slot(&self) -> u32 {
-        self.local_avatar.0.slot()
-    }
-
-    pub const fn urgent_pulse(&self) -> bool {
-        self.cursors.1 >= PULSE_INTERVAL_SECS
-    }
+    pub const fn local_slot(&self) -> u32 { self.local_avatar.0.slot() }
+    pub const fn urgent_pulse(&self) -> bool { self.cursors.1 >= PULSE_INTERVAL_SECS }
 
     pub const fn assigned_spawn(&self) -> Option<Vec3> {
-        match self.welcome_spawn {
+        match self.arrival.0 {
             WelcomeSpawn::Natural => None,
             WelcomeSpawn::Beacon(pt) => Some(pt),
         }
+    }
+
+    pub fn assign_welcome_epoch(&mut self, epoch_secs: f64) {
+        if epoch_secs.is_finite() {
+            self.arrival.1 = EpochSync::Pending(epoch_secs);
+        }
+    }
+
+    pub fn take_pending_epoch(&mut self) -> Option<f64> {
+        match std::mem::replace(&mut self.arrival.1, EpochSync::Aligned) {
+            EpochSync::Aligned => None,
+            EpochSync::Pending(ep) => Some(ep),
+        }
+    }
+
+    pub fn apply_frame_handoff(&mut self, handoff: FrameHandoff) {
+        self.local_avatar.0 = self.local_avatar.0.shifted(handoff.pos_shift());
+        self.local_avatar.1 = self.local_avatar.1.shifted(handoff.pos_shift());
+        self.local_avatar.2 = handoff.next_frame();
+        self.roster.shift_frame(handoff.pos_shift());
+        self.cursors.1 = 1.0;
     }
 
     pub fn update_presence(&mut self, presence: CompanionPresence, cid: u32) {
@@ -80,39 +117,19 @@ impl LinkSync {
     }
 
     pub fn assign_spawn_point(&mut self, spawn: Vec3, cid: u32) {
-        self.welcome_spawn = WelcomeSpawn::Beacon(spawn);
+        self.arrival.0 = WelcomeSpawn::Beacon(spawn);
         let attire = self.local_avatar.0.transfer(|_, _, _, a| a);
         let kin = PresenceKinematics::new(spawn, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
         self.local_avatar.0 = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), attire);
     }
 
-    pub const fn roster(&self) -> &SmoothRoster {
-        &self.roster
-    }
-
-    pub fn copy_companions(&self, out: &mut Vec<CompanionPresence>) {
-        self.roster.copy_companions(out);
-    }
-
-    pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) {
-        self.roster.copy_crafts(out);
-    }
-
-    pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) {
-        self.roster.drain_utterances(out);
-    }
-
-    pub fn blend_subtick(&mut self, subtick_secs: f32) {
-        self.roster.blend_subtick(subtick_secs);
-    }
-
-    pub const fn wildlife(&self) -> &crate::remote_wildlife::RemoteWildlife {
-        self.roster.wildlife()
-    }
-
-    pub fn wildlife_mut(&mut self) -> &mut crate::remote_wildlife::RemoteWildlife {
-        self.roster.wildlife_mut()
-    }
+    pub const fn roster(&self) -> &SmoothRoster { &self.roster }
+    pub fn copy_companions(&self, out: &mut Vec<CompanionPresence>) { self.roster.copy_companions(out); }
+    pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) { self.roster.copy_crafts(out); }
+    pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { self.roster.drain_utterances(out); }
+    pub fn blend_subtick(&mut self, subtick_secs: f32) { self.roster.blend_subtick(subtick_secs); }
+    pub const fn wildlife(&self) -> &crate::remote_wildlife::RemoteWildlife { self.roster.wildlife() }
+    pub fn wildlife_mut(&mut self) -> &mut crate::remote_wildlife::RemoteWildlife { self.roster.wildlife_mut() }
 
     pub fn flush_pulse(&mut self, cid: u32, seal: &mut SessionSeal, peer: SocketAddr, socket: &UdpSocket) {
         self.cursors.1 = 0.0;
@@ -121,6 +138,7 @@ impl LinkSync {
             ack_seq: self.cursors.0,
             presence: self.local_avatar.0,
             craft: self.local_avatar.1,
+            frame: self.local_avatar.2,
         };
         pulse.inscribe(&mut payload);
         seal.seal(cid, &payload, &mut frame);

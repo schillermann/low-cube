@@ -1,7 +1,8 @@
 use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
-    CompanionPresence, CraftPose, DrivenCraft, GoreStamp, PilotCraft, PlanetaryWorld,
+    CompanionPresence, CosmicFrame, CraftPose, DrivenCraft, GoreStamp, GravityBubble, PilotCraft,
+    PlanetaryWorld,
 };
 use crate::glide::CompanionGlide;
 use crate::seal::SessionSeal;
@@ -40,23 +41,32 @@ impl WardVitals {
     }
 }
 
-/// Authoritative P2P companion session sealing UDP frames and vetting reach, dig cadence, and block credits.
+/// Authoritative P2P companion session sealing UDP frames and vetting reach, Hill-bubble frame, cadence, and credits.
 pub struct GuestWard {
     seal: SessionSeal,
-    peer: SocketAddr,
+    locus: (SocketAddr, CosmicFrame),
     glide: CompanionGlide,
     vitals: WardVitals,
 }
 
 impl GuestWard {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_locus(
+        seal: SessionSeal,
+        locus: (SocketAddr, CosmicFrame),
+        glide: CompanionGlide,
+        vitals: WardVitals,
+    ) -> Self {
+        Self { seal, locus, glide, vitals }
+    }
+
     pub fn with_glide(
         seal: SessionSeal,
         peer: SocketAddr,
         glide: CompanionGlide,
         vitals: WardVitals,
     ) -> Self {
-        Self { seal, peer, glide, vitals }
+        Self::with_locus(seal, (peer, CosmicFrame::earth()), glide, vitals)
     }
 
     /// Secondary constructor anchoring an admitted companion awaiting its first live pulse.
@@ -75,6 +85,10 @@ impl GuestWard {
 
     pub fn alive(&self) -> bool {
         self.vitals.alive()
+    }
+
+    pub const fn cosmic_frame(&self) -> CosmicFrame {
+        self.locus.1
     }
 
     pub const fn ack_seq(&self) -> u32 {
@@ -110,7 +124,10 @@ impl GuestWard {
     }
 
     pub fn pedestrian_observer(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, bool)> {
-        if !self.glide.live() || matches!(self.glide.authoritative_craft(), PilotCraft::Driving(_)) {
+        if !self.locus.1.earth_centered()
+            || !self.glide.live()
+            || matches!(self.glide.authoritative_craft(), PilotCraft::Driving(_))
+        {
             return None;
         }
         self.presence().transfer(|_, kin, _, _| {
@@ -120,16 +137,12 @@ impl GuestWard {
         })
     }
 
-    pub fn push_authoritative_craft(&self, out: &mut Vec<DrivenCraft>) {
-        self.glide.authoritative_craft().push_active(out);
-    }
-
-    pub fn push_authoritative_craft_with_speed(&self, out: &mut Vec<(DrivenCraft, f32)>) {
-        self.glide.push_craft_with_speed(out);
-    }
-
-    pub fn push_craft_at(&self, render_secs: f64, out: &mut Vec<DrivenCraft>) {
-        self.glide.craft_at(render_secs).push_active(out);
+    pub fn push_authoritative_craft_with_speed(&self, out: &mut Vec<(CosmicFrame, DrivenCraft, f32)>) {
+        let mut raw = Vec::with_capacity(1);
+        self.glide.push_craft_with_speed(&mut raw);
+        for (dc, speed) in raw {
+            out.push((self.locus.1, dc, speed));
+        }
     }
 
     pub fn into_pilot_craft(self) -> PilotCraft {
@@ -138,7 +151,7 @@ impl GuestWard {
 
     pub fn open_datagram(&mut self, src: SocketAddr, frame: &[u8]) -> Option<Vec<u8>> {
         let (_, body) = self.seal.open_frame(frame)?;
-        self.peer = src;
+        self.locus.0 = src;
         self.vitals.cadence.1 = 0.0;
         Some(body)
     }
@@ -148,14 +161,35 @@ impl GuestWard {
         companion_id: u32,
         ack_seq: u32,
         now: f64,
+        frame: CosmicFrame,
         presence: CompanionPresence,
         craft: PilotCraft,
+        bubble: GravityBubble,
         world: &dyn PlanetaryWorld,
     ) {
         self.vitals.ledger.0 = self.vitals.ledger.0.max(ack_seq);
-        let rec_pres = self.glide.authoritative_presence().reconciled(companion_id, presence, world);
-        let rec_craft = self.glide.authoritative_craft().reconciled(companion_id, craft, world);
-        self.glide = self.glide.absorbed(now, rec_pres, rec_craft);
+        let frame_changed = self.locus.1 != frame;
+        if frame == world.cosmic_frame() {
+            let valid_in_world = presence.transfer(|_, kin, _, _| {
+                kin.transfer(|pos, _, _, _, _| {
+                    let clamped = world.confine_beneath_crust(pos);
+                    clamped.is_finite() && (clamped - pos).length_squared() <= 36.0
+                })
+            });
+            if !valid_in_world {
+                return;
+            }
+            let rec_pres = presence.with_slot(companion_id);
+            let rec_craft = self.glide.authoritative_craft().reconciled(companion_id, craft, world);
+            self.locus.1 = frame;
+            self.glide = if frame_changed {
+                CompanionGlide::anchored(now, rec_pres, rec_craft)
+            } else {
+                self.glide.absorbed(now, rec_pres, rec_craft)
+            };
+        } else {
+            self.absorb_standby_pulse(companion_id, ack_seq, now, frame, presence, craft, bubble);
+        }
     }
 
     pub fn absorb_standby_pulse(
@@ -163,27 +197,33 @@ impl GuestWard {
         companion_id: u32,
         ack_seq: u32,
         now: f64,
+        frame: CosmicFrame,
         presence: CompanionPresence,
         craft: PilotCraft,
-        max_extent: f32,
+        bubble: GravityBubble,
     ) {
         self.vitals.ledger.0 = self.vitals.ledger.0.max(ack_seq);
         let valid_pos = presence.transfer(|_, kin, _, _| {
-            kin.transfer(|p, _, _, _, _| p.is_finite() && p.abs().max_element() <= max_extent)
+            kin.transfer(|p, _, _, _, _| bubble.valid_local_point(frame, p))
         });
-        let rec_pres = if valid_pos {
-            presence.with_slot(companion_id)
-        } else {
-            self.glide.authoritative_presence().with_slot(companion_id)
-        };
+        if !valid_pos {
+            return;
+        }
+        let rec_pres = presence.with_slot(companion_id);
         let rec_craft = match craft {
             PilotCraft::Pedestrian => PilotCraft::Pedestrian,
-            PilotCraft::Driving(dc) if dc.pose().origin().is_finite() && dc.identity().assigned() => {
+            PilotCraft::Driving(dc) if dc.identity().assigned() && bubble.valid_local_point(frame, dc.pose().origin()) => {
                 PilotCraft::Driving(dc.with_slot(companion_id))
             }
             PilotCraft::Driving(_) => self.glide.authoritative_craft().with_slot(companion_id),
         };
-        self.glide = self.glide.absorbed(now, rec_pres, rec_craft);
+        let frame_changed = self.locus.1 != frame;
+        self.locus.1 = frame;
+        self.glide = if frame_changed {
+            CompanionGlide::anchored(now, rec_pres, rec_craft)
+        } else {
+            self.glide.absorbed(now, rec_pres, rec_craft)
+        };
     }
 
     pub fn eye_within_reach(&self, eye: Vec3, direction: Vec3) -> bool {
@@ -225,11 +265,11 @@ impl GuestWard {
 
     pub fn send_sealed(&mut self, socket: &UdpSocket, companion_id: u32, payload: &[u8], scratch: &mut Vec<u8>) {
         self.seal.seal(companion_id, payload, scratch);
-        let _ = socket.send_to(scratch, self.peer);
+        let _ = socket.send_to(scratch, self.locus.0);
     }
 
     pub fn seal_outbound(&mut self, companion_id: u32, payload: &[u8], out: &mut Vec<u8>) -> SocketAddr {
         self.seal.seal(companion_id, payload, out);
-        self.peer
+        self.locus.0
     }
 }

@@ -265,4 +265,14 @@ impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { self.origin.confine_beneath_crust(position) }
     fn local_body_point(&self, position: Vec3) -> Vec3 { self.origin.local_body_point(position) }
     fn celestial_atlas(&self) -> crate::CelestialAtlas { self.origin.celestial_atlas() }
+    fn cosmic_frame(&self) -> crate::CosmicFrame { self.origin.cosmic_frame() }
+    fn align_epoch(&mut self, epoch_secs: f64) { self.origin.align_epoch(epoch_secs); }
+    fn reconcile_cosmic_frame(&mut self, local_pos: Vec3, local_vel: Vec3) -> Option<crate::FrameHandoff> {
+        let handoff = self.origin.reconcile_cosmic_frame(local_pos, local_vel)?;
+        let shift = handoff.pos_shift();
+        for craft in &mut self.drifting {
+            craft.translate_to(craft.origin() + shift);
+        }
+        Some(handoff)
+    }
 }
