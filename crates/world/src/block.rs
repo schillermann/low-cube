@@ -17,6 +17,7 @@ mod pyramid;
 mod ridge;
 mod shape;
 mod space_parts;
+mod spawn_plinth;
 mod stair;
 mod stair_corner;
 mod timber_grain;
@@ -50,6 +51,7 @@ pub use space_parts::{
     AttitudeNozzleMesh, ConsoleOrrery, FlightConsoleMesh, FusionTorchMesh, NozzleAxis, RcsManifold,
     RocketNozzleMesh, SensorPodAxis,
 };
+pub use spawn_plinth::SpawnPlinthMesh;
 pub use stair::StairFlight;
 pub use stair_corner::StairCorner;
 pub use timber_grain::{BlockMedium, MediumShape};

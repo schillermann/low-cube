@@ -2,9 +2,12 @@ mod cosmos;
 
 use std::env;
 use std::fs;
+use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 use world::{CelestialSystem, PlanetaryWorld, SolarProportions};
+use crate::chronicle_decorators::{CompactedChronicle, DiskVaultChronicle};
+use crate::chronicle_log::{ChronicleLog, ChronicleStore};
 use crate::SanctuaryHost;
 use self::cosmos::ServerCosmosScale;
 
@@ -53,6 +56,13 @@ pub struct SanctuaryEndpoint {
     port: u16,
 }
 
+/// Polymorphic dedicated-server persistence mode avoiding nullable `Option<PathBuf>` fields.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum VaultPersistence {
+    Ephemeral,
+    Journaled(PathBuf),
+}
+
 impl SanctuaryEndpoint {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(port: u16) -> Self {
@@ -63,12 +73,19 @@ impl SanctuaryEndpoint {
         self.port
     }
 
-    fn serve(self, proportions: SolarProportions) -> std::io::Result<()> {
+    fn serve(self, proportions: SolarProportions, persistence: VaultPersistence) -> std::io::Result<()> {
         let blocks_per_edge = proportions.earth_blocks();
         let bind_addr = format!("0.0.0.0:{}", self.port);
         let bevel = ((blocks_per_edge as f32) * 0.5 * 0.125).clamp(0.5, 1.0);
-        let world: Box<dyn PlanetaryWorld> = CelestialSystem::heliosphere(proportions, bevel);
-        let mut host = SanctuaryHost::bind_cosmos(&bind_addr, world, proportions)?;
+        let mut world: Box<dyn PlanetaryWorld> = CelestialSystem::heliosphere(proportions, bevel);
+        let store: Box<dyn ChronicleStore> = match persistence {
+            VaultPersistence::Journaled(path) => {
+                let base = CompactedChronicle::wrapping(ChronicleLog::empty());
+                Box::new(DiskVaultChronicle::replay_and_open(path, base, world.as_mut())?)
+            }
+            VaultPersistence::Ephemeral => Box::new(CompactedChronicle::wrapping(ChronicleLog::empty())),
+        };
+        let mut host = SanctuaryHost::bind_cosmos_with_store(&bind_addr, world, proportions, store)?;
         let bound = host.local_addr()?;
         let ticket = host.ticket().encode();
         println!("=== LOW-CUBE DEDICATED SERVER ===");
@@ -95,17 +112,26 @@ impl SanctuaryEndpoint {
     }
 }
 
-/// Assembled dedicated server configuration combining `server.toml`, environment variables, and CLI flags.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// Assembled dedicated server configuration combining `server.toml`, environment variables, and CLI flags (`<= 4` fields).
+#[derive(Clone, Debug, PartialEq)]
 pub struct SanctuaryPlan {
     endpoint: SanctuaryEndpoint,
     proportions: SolarProportions,
+    persistence: VaultPersistence,
 }
 
 impl SanctuaryPlan {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_persistence(
+        endpoint: SanctuaryEndpoint,
+        proportions: SolarProportions,
+        persistence: VaultPersistence,
+    ) -> Self {
+        Self { endpoint, proportions, persistence }
+    }
+
     pub const fn with_proportions(endpoint: SanctuaryEndpoint, proportions: SolarProportions) -> Self {
-        Self { endpoint, proportions }
+        Self::with_persistence(endpoint, proportions, VaultPersistence::Ephemeral)
     }
 
     /// Secondary constructor initializing true-scale solar proportions for `blocks_per_edge`.
@@ -125,20 +151,32 @@ impl SanctuaryPlan {
         self.proportions
     }
 
+    fn parse_scale_factor(raw: &str, source: &str) -> u32 {
+        let factor = raw.trim().parse::<i64>().unwrap_or_else(|_| {
+            panic!("Invalid world-cube size '{raw}' in {source}: expected integer 1..=32")
+        });
+        let max_f = i64::from(SolarProportions::MAX_WORLD_SCALE_FACTOR);
+        assert!(
+            (1..=max_f).contains(&factor),
+            "Invalid world-cube size '{raw}' in {source}: allowed range is 1..={max_f}"
+        );
+        factor as u32
+    }
+
     /// Secondary constructor assembling configuration in priority order: CLI > Env > `server.toml` > Baseline.
     pub fn assembled(args: &[String], toml: &SanctuaryToml) -> Self {
         let mut port = 27777u16;
         let mut blocks = 128u32;
+        let mut persistence = toml
+            .section_property("storage", "journal", false)
+            .filter(|s| !s.is_empty())
+            .map_or(VaultPersistence::Ephemeral, |s| VaultPersistence::Journaled(PathBuf::from(s)));
 
         if let Some(raw_size) = toml
             .section_property("world", "size", true)
             .or_else(|| toml.section_property("world", "scale", true))
         {
-            let factor = raw_size.parse::<i64>().unwrap_or_else(|_| {
-                panic!("Invalid world-cube size '{raw_size}' in server.toml: expected integer >= 1")
-            });
-            assert!(factor >= 1, "Invalid world-cube size '{raw_size}' in server.toml: minimum is 1");
-            blocks = 128 * (factor as u32);
+            blocks = 128 * Self::parse_scale_factor(&raw_size, "server.toml");
         }
         if let Some(raw_port) = toml.section_property("server", "port", true) {
             port = raw_port.parse::<u16>().unwrap_or_else(|_| {
@@ -147,11 +185,12 @@ impl SanctuaryPlan {
         }
 
         if let Ok(env_size) = env::var("LOW_CUBE_SIZE").or_else(|_| env::var("LOW_CUBE_SCALE")) {
-            let factor = env_size.trim().parse::<i64>().unwrap_or_else(|_| {
-                panic!("Invalid LOW_CUBE_SIZE '{env_size}': expected integer >= 1")
-            });
-            assert!(factor >= 1, "Invalid LOW_CUBE_SIZE '{env_size}': minimum is 1");
-            blocks = 128 * (factor as u32);
+            blocks = 128 * Self::parse_scale_factor(&env_size, "LOW_CUBE_SIZE");
+        }
+        if let Ok(env_journal) = env::var("LOW_CUBE_JOURNAL") {
+            if !env_journal.trim().is_empty() {
+                persistence = VaultPersistence::Journaled(PathBuf::from(env_journal.trim()));
+            }
         }
         if let Ok(env_port) = env::var("LOW_CUBE_PORT") {
             if let Ok(parsed) = env_port.trim().parse::<u16>() {
@@ -163,18 +202,22 @@ impl SanctuaryPlan {
         while idx < args.len() {
             let arg = args[idx].as_str();
             if let Some(val) = arg.strip_prefix("--size=").or_else(|| arg.strip_prefix("--scale=")) {
-                let factor = val.parse::<i64>().expect("Invalid --size integer");
-                assert!(factor >= 1, "--size must be >= 1");
-                blocks = 128 * (factor as u32);
+                blocks = 128 * Self::parse_scale_factor(val, "--size");
                 idx += 1;
             } else if matches!(arg, "--size" | "--scale") && idx + 1 < args.len() {
-                let factor = args[idx + 1].parse::<i64>().expect("Invalid --size integer");
-                assert!(factor >= 1, "--size must be >= 1");
-                blocks = 128 * (factor as u32);
+                blocks = 128 * Self::parse_scale_factor(&args[idx + 1], "--size");
+                idx += 2;
+            } else if let Some(val) = arg.strip_prefix("--journal=") {
+                if !val.trim().is_empty() {
+                    persistence = VaultPersistence::Journaled(PathBuf::from(val.trim()));
+                }
+                idx += 1;
+            } else if arg == "--journal" && idx + 1 < args.len() {
+                persistence = VaultPersistence::Journaled(PathBuf::from(args[idx + 1].trim()));
                 idx += 2;
             } else if arg == "--blocks" && idx + 1 < args.len() {
                 if let Ok(b) = args[idx + 1].parse::<u32>() {
-                    blocks = b.clamp(16, 1024);
+                    blocks = b.clamp(16, 4_096);
                 }
                 idx += 2;
             } else if arg == "--port" && idx + 1 < args.len() {
@@ -188,10 +231,10 @@ impl SanctuaryPlan {
         }
 
         let proportions = ServerCosmosScale::new(args, toml).resolve(blocks);
-        Self::with_proportions(SanctuaryEndpoint::new(port), proportions)
+        Self::with_persistence(SanctuaryEndpoint::new(port), proportions, persistence)
     }
 
     pub fn execute(self) -> std::io::Result<()> {
-        self.endpoint.serve(self.proportions)
+        self.endpoint.serve(self.proportions, self.persistence)
     }
 }

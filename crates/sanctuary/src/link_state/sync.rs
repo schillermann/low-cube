@@ -1,6 +1,10 @@
 use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
-use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, WorldFact};
+use glam::{Quat, Vec3};
+use world::{
+    CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, PresenceKinematics,
+    ProximityUtterance, WorldFact,
+};
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::SmoothRoster;
@@ -8,23 +12,39 @@ use crate::seal::SessionSeal;
 
 const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
 
-/// Synchronized chronicle cursor, smoothly interpolated companion roster, and outbound avatar/craft state.
+/// Polymorphic server-assigned arrival stance avoiding nullable `Option<Vec3>` fields.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum WelcomeSpawn {
+    Natural,
+    Beacon(Vec3),
+}
+
+/// Synchronized chronicle cursor, smoothly interpolated companion roster, avatar state, and server spawn (`<= 4` fields).
 pub struct LinkSync {
-    ack_seq: u32,
-    pulse_clock: f32,
+    cursors: (u32, f32),
     roster: SmoothRoster,
     local_avatar: (CompanionPresence, PilotCraft),
+    welcome_spawn: WelcomeSpawn,
 }
 
 impl LinkSync {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_spawn(
+        cursors: (u32, f32),
+        roster: SmoothRoster,
+        local_avatar: (CompanionPresence, PilotCraft),
+        welcome_spawn: WelcomeSpawn,
+    ) -> Self {
+        Self { cursors, roster, local_avatar, welcome_spawn }
+    }
+
     pub const fn new(
         ack_seq: u32,
         pulse_clock: f32,
         roster: SmoothRoster,
         local_avatar: (CompanionPresence, PilotCraft),
     ) -> Self {
-        Self { ack_seq, pulse_clock, roster, local_avatar }
+        Self::with_spawn((ack_seq, pulse_clock), roster, local_avatar, WelcomeSpawn::Natural)
     }
 
     pub const fn local_slot(&self) -> u32 {
@@ -32,13 +52,20 @@ impl LinkSync {
     }
 
     pub const fn urgent_pulse(&self) -> bool {
-        self.pulse_clock >= PULSE_INTERVAL_SECS
+        self.cursors.1 >= PULSE_INTERVAL_SECS
+    }
+
+    pub const fn assigned_spawn(&self) -> Option<Vec3> {
+        match self.welcome_spawn {
+            WelcomeSpawn::Natural => None,
+            WelcomeSpawn::Beacon(pt) => Some(pt),
+        }
     }
 
     pub fn update_presence(&mut self, presence: CompanionPresence, cid: u32) {
         let prev_pos = self.local_avatar.0.transfer(|_, kin, _, _| kin.transfer(|p, _, _, _, _| p));
         if !presence.within_reach(prev_pos, 4.0) {
-            self.pulse_clock = 1.0;
+            self.cursors.1 = 1.0;
         }
         self.local_avatar.0 = presence.with_slot(cid);
     }
@@ -52,6 +79,13 @@ impl LinkSync {
         self.local_avatar.1 = self.local_avatar.1.with_slot(cid);
     }
 
+    pub fn assign_spawn_point(&mut self, spawn: Vec3, cid: u32) {
+        self.welcome_spawn = WelcomeSpawn::Beacon(spawn);
+        let attire = self.local_avatar.0.transfer(|_, _, _, a| a);
+        let kin = PresenceKinematics::new(spawn, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
+        self.local_avatar.0 = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), attire);
+    }
+
     pub const fn roster(&self) -> &SmoothRoster {
         &self.roster
     }
@@ -62,6 +96,10 @@ impl LinkSync {
 
     pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) {
         self.roster.copy_crafts(out);
+    }
+
+    pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) {
+        self.roster.drain_utterances(out);
     }
 
     pub fn blend_subtick(&mut self, subtick_secs: f32) {
@@ -77,10 +115,10 @@ impl LinkSync {
     }
 
     pub fn flush_pulse(&mut self, cid: u32, seal: &mut SessionSeal, peer: SocketAddr, socket: &UdpSocket) {
-        self.pulse_clock = 0.0;
+        self.cursors.1 = 0.0;
         let (mut payload, mut frame) = (Vec::new(), Vec::new());
         let pulse = SanctuaryEnvelope::GuestPulse {
-            ack_seq: self.ack_seq,
+            ack_seq: self.cursors.0,
             presence: self.local_avatar.0,
             craft: self.local_avatar.1,
         };
@@ -91,11 +129,11 @@ impl LinkSync {
 
     pub fn step_pulse(&mut self, dt: f32, cid: u32, seal: &mut SessionSeal, peer: SocketAddr, socket: &UdpSocket) {
         self.roster.advance_tick(dt);
-        self.pulse_clock += dt;
-        if self.pulse_clock >= PULSE_INTERVAL_SECS {
-            let remainder = (self.pulse_clock - PULSE_INTERVAL_SECS).min(PULSE_INTERVAL_SECS);
+        self.cursors.1 += dt;
+        if self.cursors.1 >= PULSE_INTERVAL_SECS {
+            let remainder = (self.cursors.1 - PULSE_INTERVAL_SECS).min(PULSE_INTERVAL_SECS);
             self.flush_pulse(cid, seal, peer, socket);
-            self.pulse_clock = remainder;
+            self.cursors.1 = remainder;
         }
     }
 
@@ -179,6 +217,9 @@ impl LinkSync {
                     deferred.push_back(env);
                 }
             }
+            SanctuaryEnvelope::HostUtterance { utterance } => {
+                self.roster.record_utterance(utterance);
+            }
             _ => {}
         }
     }
@@ -192,13 +233,13 @@ impl LinkSync {
     ) -> bool {
         match env {
             SanctuaryEnvelope::HostChronicle { base_seq, facts } => {
-                if base_seq > self.ack_seq {
+                if base_seq > self.cursors.0 {
                     return false;
                 }
-                let skip = (self.ack_seq - base_seq) as usize;
+                let skip = (self.cursors.0 - base_seq) as usize;
                 let mut changed = false;
                 for fact in facts.into_iter().skip(skip) {
-                    self.ack_seq += 1;
+                    self.cursors.0 += 1;
                     if self.apply_chronicle_fact(fact, world, fleet, predicted) {
                         changed = true;
                     }
@@ -206,10 +247,8 @@ impl LinkSync {
                 changed
             }
             SanctuaryEnvelope::HostPulse { cracks, companions, crafts, wildlife, .. } => {
-                if !companions.is_empty() || !crafts.is_empty() || !matches!(wildlife.sounder(), world::SounderPresence::Unseen) || wildlife.gore() != world::GoreStamp::calm() {
-                    self.roster.reconcile_snapshot(&companions, &crafts);
-                    self.roster.reconcile_wildlife(wildlife);
-                }
+                self.roster.reconcile_snapshot(&companions, &crafts);
+                self.roster.reconcile_wildlife(wildlife);
                 let mut changed = false;
                 for crack in cracks {
                     if crack.enact_on(world) {
@@ -217,6 +256,10 @@ impl LinkSync {
                     }
                 }
                 changed
+            }
+            SanctuaryEnvelope::HostUtterance { utterance } => {
+                self.roster.record_utterance(utterance);
+                false
             }
             _ => false,
         }

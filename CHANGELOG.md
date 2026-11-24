@@ -8,6 +8,22 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.112.0] - 2026-11-24
+
+### Added
+- Added Pure-OOP massive multiplayer & continental solar-system decorator chains scaling dedicated P2P/UDP servers to `500–2,500` concurrent players and `4096³` (`100.7 km²`) World-Cubes:
+  - `PulseAudience` with `MtuBudgetAudience(ProximityAudience(WorldAudience))` (`crates/sanctuary/src/audience.rs`) plus `SmoothRoster` `0.85 s` Sight-Lease (`crates/sanctuary/src/glide/`): reduces far-field and off-planet companions (`> 160 m`) to `0 Hz / 0 Bytes`, guarantees immediate closest neighbors every pulse, and rotates `80–120+` crowded hotspot peers smoothly within a `16`-companion (`<= 1,240 B`) MTU-safe UDP frame without flicker (`crates/sanctuary/src/tests/massive.rs`).
+  - `ChronicleStore` with `DiskVaultChronicle(CompactedChronicle(ChronicleLog))` (`crates/sanctuary/src/chronicle_log.rs` and `chronicle_decorators.rs`, configured via `[storage] journal`, `LOW_CUBE_JOURNAL`, or `--journal`): deduplicates idempotent `StratumDisclosed` / `CraftCommissioned` facts and persists/replays world history from an append-only binary SSD WAL, folding historical `HelmClaimed` + `HelmReleased` pairs to each vehicle's final parked pose on server restart.
+  - `AdminBlockWard<W>` and `SpawnBeacons` (`crates/sanctuary/src/admin_ward.rs`), `BlockMedium::SpawnStone` / `SpawnPlinthMesh` (`crates/world/src/block/spawn_plinth.rs`), and `HeldRelic::SpawnStone` (`crates/client/src/attire/relic/`): restricts `SpawnStone` placement, cracking, and harvesting to the server host while distributing joining guests round-robin across placed `SpawnStone` plinths via `WelcomeSpawn::Beacon` in `LWEL`.
+  - `PulseDelivery` with `ParallelSeals(SequentialDelivery)` (`crates/sanctuary/src/seal_batch.rs`): parallelizes ChaCha20-Poly1305 AEAD outbound packet sealing across CPU cores via `std::thread::scope` once `>= 12` peers are active.
+  - `ProximityUtterance` (`crates/world/src/presence/utterance.rs`) and `ProximityChatModal<M>` (`crates/client/src/menu/chat_modal.rs`): adds `<= 96 m` earshot-isolated local text chat (`Enter` / `T` with fading 6-line HUD feed and zero global spam, verified in `crates/client/src/menu/tests/chat_tests.rs`).
+  - Landable procedural `BeltRock` voxel asteroids (`2.20..3.20 AU` in `AsteroidBelt::nearest_rock` and `ActiveVicinity` in `crates/world/src/celestial/heliosphere/`) with minable `LivingVeins` mineral strata (`crates/world/src/continental_cosmos_tests.rs`).
+  - Polymorphic `SurfaceContact` (`Vacuum`, `GasEnvelope`, `SolidCrust` with Tell-Don't-Ask `resolve_crust` in `crates/world/src/surface_contact.rs`, wired into `PlanetaryWorld`, `PerimeterFold`, `SeamBoundary`, `HullClearance`, and `TouchdownStep`), eliminating phantom ground bounces in interplanetary vacuum and gas giants.
+
+### Changed
+- Converted `ReliefCellCache` (`crates/world/src/relief/face/cache.rs`, `patch_grid.rs`, `orbital_shell.rs`, and `face/mod.rs`) from eager full-face `Vec<CachedCell>` allocation to a lazy on-demand `HashMap` (`<= 65,536` cached cells per face) paired with `16×16` continental `OrbitalShell` macro-patches and local `MeadowRing` `0.5 m` surface cells, enabling instant `size = 1..=32` (`128³..4096³` blocks) world startup without multi-gigabyte RAM spikes.
+- Capped astronomical `1 AU` scaling via `SolarProportions::EPSTEIN_HOUR_AU_CAP` (`48,087,040 m` in `crates/world/src/celestial/proportions.rs` and `EpsteinReachCosmos<C>` in `crates/client/src/cosmos_scale.rs`), raised `MAX_FUSION_SPEED` to `240,000 m/s` (`crates/client/src/drive/rocket/mod.rs`), scaled chemical rocket ceilings with `sqrt(earth_blocks / 128)`, and extended Outerra GPU shader log-depth to `10,000,000,000 m` (`10 Gm` in `crates/engine/src/shader.rs` while keeping `PerspectiveLens` invertible in `f32`), guaranteeing Epstein-Drive (`FusionTorch`) Flip-&-Burn transits to the outer Mars–Jupiter Asteroid Belt (`3.20 AU`, including worst-case `4.40 AU` solar conjunction) complete in under 1 hour (`~41–55 min`) even at maximum `size = 32`.
+
 ## [0.111.0] - 2026-11-23
 
 ### Added

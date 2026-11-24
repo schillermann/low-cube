@@ -11,6 +11,7 @@ use super::super::mold::MoldArchetype;
 use super::super::pedal_cluster::{FootwellPlinth, PedalClusterMesh};
 use super::super::shape::VoxelShape;
 use super::super::space_parts::SpaceBlockMesh;
+use super::super::spawn_plinth::SpawnPlinthMesh;
 use super::super::vehicle_parts::{VehicleBlockMesh, WheelProfile};
 use super::super::wedge::WedgeHeading;
 use super::BlockMedium;
@@ -59,7 +60,10 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
         if self.medium.mechanical_part()
             || matches!(
                 self.medium,
-                BlockMedium::CantileverRig | BlockMedium::FieldCamera | BlockMedium::VehicleBlueprint
+                BlockMedium::CantileverRig
+                    | BlockMedium::FieldCamera
+                    | BlockMedium::VehicleBlueprint
+                    | BlockMedium::SpawnStone
             )
         {
             GridCell::SPAN
@@ -136,6 +140,7 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             (BlockMedium::VehicleBlueprint, _) => BlueprintBlockMesh::new(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::PedalCluster, _) => PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
+            (BlockMedium::SpawnStone, _) => SpawnPlinthMesh::new(cell, floor_elevation).emit(frame, target),
             (
                 BlockMedium::FlightConsole | BlockMedium::RocketNozzle | BlockMedium::RocketCamera | BlockMedium::FusionTorch,
                 _,

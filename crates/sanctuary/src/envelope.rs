@@ -1,5 +1,8 @@
 use glam::Vec3;
-use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, WildlifePulse, WorldFact};
+use world::{
+    CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, ProximityUtterance, WildlifePulse,
+    WorldFact, MAX_UTTERANCE_BYTES,
+};
 
 /// Transient block-loosening crack stage broadcast across P2P companions.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -17,6 +20,10 @@ impl CrackNotice {
 
     pub fn enact_on(self, world: &mut dyn PlanetaryWorld) -> bool {
         world.loosen_surface(self.eye, self.direction, self.stage).is_some()
+    }
+
+    pub fn near(self, anchor: Vec3, radius: f32) -> bool {
+        (anchor - self.eye).length_squared() <= radius * radius
     }
 
     fn inscribe(&self, out: &mut Vec<u8>) {
@@ -58,6 +65,12 @@ pub enum SanctuaryEnvelope {
         companions: Vec<CompanionPresence>,
         crafts: Vec<DrivenCraft>,
         wildlife: WildlifePulse,
+    },
+    GuestUtterance {
+        text: String,
+    },
+    HostUtterance {
+        utterance: ProximityUtterance,
     },
 }
 
@@ -109,6 +122,17 @@ impl SanctuaryEnvelope {
                 }
                 out[count_idx] = written;
                 wildlife.inscribe(out);
+            }
+            Self::GuestUtterance { text } => {
+                out.push(5);
+                let bytes = text.as_bytes();
+                let len = bytes.len().min(MAX_UTTERANCE_BYTES);
+                out.push(len as u8);
+                out.extend_from_slice(&bytes[..len]);
+            }
+            Self::HostUtterance { utterance } => {
+                out.push(6);
+                utterance.inscribe(out);
             }
         }
     }
@@ -178,6 +202,18 @@ impl SanctuaryEnvelope {
                     WildlifePulse::calm()
                 };
                 Some(Self::HostPulse { total_facts, cracks, companions, crafts, wildlife })
+            }
+            5 if bytes.len() >= 2 => {
+                let len = usize::from(bytes[1]);
+                if len == 0 || len > MAX_UTTERANCE_BYTES || bytes.len() < 2 + len {
+                    return None;
+                }
+                let raw = std::str::from_utf8(&bytes[2..2 + len]).ok()?;
+                Some(Self::GuestUtterance { text: raw.to_string() })
+            }
+            6 if bytes.len() >= 18 => {
+                let (utterance, _) = ProximityUtterance::decode(&bytes[1..])?;
+                Some(Self::HostUtterance { utterance })
             }
             _ => None,
         }

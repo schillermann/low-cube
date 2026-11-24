@@ -32,7 +32,7 @@ void main() {
     if (v_persp > 0.5) {
         if (clip_pos.w >= 0.03) {
             v_logz = 1.0 + (clip_pos.w - 0.03);
-            clip_pos.z = (log2(v_logz) * 0.0752575 - 1.0) * clip_pos.w;
+            clip_pos.z = (log2(v_logz) * 0.060206 - 1.0) * clip_pos.w;
         } else {
             v_logz = 1.0;
             clip_pos.z = -2.0 * abs(clip_pos.w) - 1.0;
@@ -74,7 +74,7 @@ vec3 tier_scale(int t) {
 
 void main() {
     gl_FragDepth = (v_persp > 0.5)
-        ? clamp(log2(max(v_logz, 1.0)) * 0.03762875, 0.0, 0.999999)
+        ? clamp(log2(max(v_logz, 1.0)) * 0.030103, 0.0, 0.999999)
         : gl_FragCoord.z;
     if (v_glow < -1.5) {
         float base_alpha = clamp(-v_glow - 2.0, 0.0, 1.0);

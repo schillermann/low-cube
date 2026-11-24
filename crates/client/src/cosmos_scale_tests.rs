@@ -129,7 +129,7 @@ fn test_sun_remains_fixed_at_solar_system_center_when_rocket_steers() {
                 let clip = self.vp * c.extend(1.0);
                 if clip.w > 0.03 {
                     let ndc_xy = clip.truncate() / clip.w;
-                    let log_ndc_z = (1.0 + (clip.w - 0.03)).log2() * 0.0752575 - 1.0;
+                    let log_ndc_z = (1.0 + (clip.w - 0.03)).log2() * 0.060206 - 1.0;
                     if ndc_xy.x.abs() < 0.25 && ndc_xy.y.abs() < 0.25 && (-1.0..1.0).contains(&log_ndc_z) {
                         self.solar_quads_in_view += 1;
                     }

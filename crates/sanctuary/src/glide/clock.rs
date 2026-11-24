@@ -63,6 +63,10 @@ impl GlideClock {
         !self.live() || (now - self.last_arrival) >= 0.50
     }
 
+    pub fn lease_expired_at(self, now: f64) -> bool {
+        !self.live() || (now - self.last_arrival) >= 0.85
+    }
+
     pub fn absorbed(self, now: f64) -> Self {
         let sample = ((now - self.last_arrival) as f32).clamp(0.010, 0.160);
         let next_cadence = if sample > self.cadence_secs {

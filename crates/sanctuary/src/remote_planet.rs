@@ -252,6 +252,8 @@ impl CompanionPortal for RemotePlanet {
     fn portal_ticket(&self) -> Option<String> { self.journal.ticket_string() }
     fn portal_phrase(&self) -> Option<String> { self.journal.phrase_string() }
     fn pump_portal(&mut self, dt: f32) -> bool { self.journal.pump(dt, self.world.as_mut()) || self.world.pending_slices() }
+    fn utter_nearby(&mut self, text: &str) { self.journal.utter_nearby(text); }
+    fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.journal.drain_utterances(out); }
 }
 
 impl PlanetaryWorld for RemotePlanet {
@@ -266,8 +268,15 @@ impl PlanetaryWorld for RemotePlanet {
         };
         if craft_top.dot(up) > ground.dot(up) { craft_top } else { ground }
     }
+    fn surface_contact(&self, probe: Vec3, clearance: f32) -> world::SurfaceContact {
+        self.world.surface_contact(probe, clearance)
+    }
     fn canopy_drag(&self, position: Vec3) -> f32 { self.world.canopy_drag(position) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.world.placed_camera_tripod() }
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.world.collect_spawn_points(out); }
+    fn assigned_spawn_point(&self) -> Option<Vec3> {
+        self.journal.assigned_spawn().or_else(|| self.world.assigned_spawn_point())
+    }
     fn step_surface(&mut self, dt: f32) -> bool {
         let regrown = self.world.step_surface(dt);
         let net_changed = self.journal.pump(dt, self.world.as_mut());

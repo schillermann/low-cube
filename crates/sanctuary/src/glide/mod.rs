@@ -2,7 +2,8 @@ mod clock;
 mod curve;
 
 use glam::Vec3;
-use world::{CompanionPresence, DeckFrame, DrivenCraft, PilotCraft, WildlifePulse};
+use world::{CompanionPresence, DeckFrame, DrivenCraft, PilotCraft, ProximityUtterance, WildlifePulse};
+use crate::audience::PACKET_COMPANION_CAP;
 use crate::fleet_ledger::FleetLedger;
 use crate::remote_wildlife::RemoteWildlife;
 pub use self::clock::{GlideClock, TimelineClock};
@@ -40,6 +41,10 @@ impl CompanionGlide {
 
     pub const fn live(self) -> bool {
         self.clock.live()
+    }
+
+    pub fn lease_expired_at(self, now: f64) -> bool {
+        self.clock.lease_expired_at(now)
     }
 
     pub const fn authoritative_presence(self) -> CompanionPresence {
@@ -84,11 +89,12 @@ impl CompanionGlide {
     }
 }
 
-/// Smoothly interpolated remote companion, vehicle, and wild-boar roster evaluated over `TimelineClock`.
+/// Smoothly interpolated remote companion, vehicle, wild-boar, and proximity utterance roster (`<= 4` fields).
 pub struct SmoothRoster {
     timeline: TimelineClock,
     entries: Vec<(u32, CompanionGlide)>,
     wildlife: RemoteWildlife,
+    utterances: Vec<ProximityUtterance>,
 }
 
 impl SmoothRoster {
@@ -97,12 +103,24 @@ impl SmoothRoster {
         timeline: TimelineClock,
         entries: Vec<(u32, CompanionGlide)>,
         wildlife: RemoteWildlife,
+        utterances: Vec<ProximityUtterance>,
     ) -> Self {
-        Self { timeline, entries, wildlife }
+        Self { timeline, entries, wildlife, utterances }
     }
 
     pub const fn empty() -> Self {
-        Self::new(TimelineClock::origin(), Vec::new(), RemoteWildlife::calm())
+        Self::new(TimelineClock::origin(), Vec::new(), RemoteWildlife::calm(), Vec::new())
+    }
+
+    pub fn record_utterance(&mut self, utterance: ProximityUtterance) {
+        if self.utterances.len() >= 32 {
+            self.utterances.remove(0);
+        }
+        self.utterances.push(utterance);
+    }
+
+    pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) {
+        out.append(&mut self.utterances);
     }
 
     pub const fn render_secs(&self) -> f64 {
@@ -131,7 +149,11 @@ impl SmoothRoster {
 
     pub fn reconcile_snapshot(&mut self, companions: &[CompanionPresence], crafts: &[DrivenCraft]) {
         let now = self.timeline.tick_secs();
-        self.entries.retain(|(slot, _)| companions.iter().any(|c| c.same_slot(*slot)));
+        let saturated = companions.len() >= PACKET_COMPANION_CAP;
+        self.entries.retain(|(slot, glide)| {
+            companions.iter().any(|c| c.same_slot(*slot))
+                || (saturated && !glide.lease_expired_at(now))
+        });
         for &comp in companions {
             let slot = comp.slot();
             let pilot_craft = crafts

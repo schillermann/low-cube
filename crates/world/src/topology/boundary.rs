@@ -1,10 +1,13 @@
 use glam::Vec3;
 use super::{ClimateZone, PerimeterEdge, PerimeterFold, PlanetaryTopology};
 
-/// Narrow 2-method boundary interface governing perimeter coordinate folding and seam normal beveling.
+/// Narrow boundary interface governing perimeter coordinate folding, seam normal beveling, and crust approach envelope.
 pub trait SeamBoundary: Send + Sync {
     fn blend_normal(&self, position: Vec3, face_up: Vec3) -> Vec3;
     fn fold_constrained(&self, face_index: usize, raw_point: Vec3, constrained: Vec3) -> Vec3;
+    fn within_approach(&self, _position: Vec3) -> bool {
+        true
+    }
 }
 
 /// Null-Object `SeamBoundary` leaving planar single-face coordinates and normals untouched.
@@ -30,18 +33,19 @@ impl SeamBoundary for OpenBoundary {
 /// Sharp 6-face cubic boundary folding perimeter crossings across all climate zones.
 pub struct CubicBoundary {
     folds: [PerimeterFold; 6],
+    half_size: f32,
 }
 
 impl CubicBoundary {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(folds: [PerimeterFold; 6]) -> Self {
-        Self { folds }
+    pub const fn new(folds: [PerimeterFold; 6], half_size: f32) -> Self {
+        Self { folds, half_size }
     }
 
     /// Secondary constructor assembling perimeter folds for all six canonical climate zones.
     pub fn sharp(half_size: f32) -> Self {
         let zones = ClimateZone::all();
-        Self::new(std::array::from_fn(|idx| PerimeterFold::in_zone(zones[idx], half_size)))
+        Self::new(std::array::from_fn(|idx| PerimeterFold::in_zone(zones[idx], half_size)), half_size)
     }
 }
 
@@ -54,6 +58,11 @@ impl SeamBoundary for CubicBoundary {
         self.folds
             .get(face_index)
             .map_or(constrained, |f| f.fold(raw_point, constrained))
+    }
+
+    fn within_approach(&self, position: Vec3) -> bool {
+        let band = (self.half_size * 0.45).clamp(36.0, 160.0);
+        position.abs().max_element() <= self.half_size + band
     }
 }
 
@@ -91,5 +100,9 @@ impl<B: SeamBoundary> SeamBoundary for BeveledBoundary<B> {
 
     fn fold_constrained(&self, face_index: usize, raw_point: Vec3, constrained: Vec3) -> Vec3 {
         self.origin.fold_constrained(face_index, raw_point, constrained)
+    }
+
+    fn within_approach(&self, position: Vec3) -> bool {
+        self.origin.within_approach(position)
     }
 }

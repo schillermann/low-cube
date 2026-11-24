@@ -11,7 +11,9 @@ use crate::black_box::{BlackBoxAvatar, FileBlackBox};
 use crate::celestial::CelestialCadence;
 use crate::controls::{BindingProfile, FileBindings, SprintControls};
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
-use crate::menu::{AutoPunchModal, EscapeMenu, InspectionModal, PortalInvite, SolarChartModal};
+use crate::menu::{
+    AutoPunchModal, EscapeMenu, InspectionModal, PortalInvite, ProximityChatModal, SolarChartModal,
+};
 use crate::physics::PlanetaryPhysics;
 use crate::portal_config::PortalConfig;
 use crate::server_aurora::ServerAurora;
@@ -147,7 +149,7 @@ impl SessionAssembly for SessionLaunch {
         );
 
         let controls = Box::new(SprintControls::with_bindings(bindings));
-        let modal = Box::new(SolarChartModal::with_bindings(
+        let modal = Box::new(ProximityChatModal::wrapping(SolarChartModal::with_bindings(
             AutoPunchModal::wrapping(
                 InspectionModal::new(EscapeMenu::with_clipboards(
                     initial_invite.clone(),
@@ -158,7 +160,7 @@ impl SessionAssembly for SessionLaunch {
                 surface.attach_clipboard(),
             ),
             bindings,
-        ));
+        )));
         let shaded_pass = PolaroidScenePass::new(ShadedScenePass::new(
             (primary_pipeline, primary_shader),
             primary_mesh,

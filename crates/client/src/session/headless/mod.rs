@@ -145,11 +145,13 @@ impl HeadlessSession {
     }
 
     pub fn closed_modal() -> Box<dyn SessionModal> {
-        Box::new(crate::menu::SolarChartModal::wrapping(InspectionModal::new(
-            EscapeMenu::with_clipboard(
-                crate::menu::PortalInvite::empty(),
-                crate::menu::SystemClipboard::new().detached(),
-            ),
-        )))
+        Box::new(crate::menu::ProximityChatModal::wrapping(
+            crate::menu::SolarChartModal::wrapping(InspectionModal::new(
+                EscapeMenu::with_clipboard(
+                    crate::menu::PortalInvite::empty(),
+                    crate::menu::SystemClipboard::new().detached(),
+                ),
+            )),
+        ))
     }
 }

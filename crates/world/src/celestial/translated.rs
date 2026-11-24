@@ -176,10 +176,20 @@ impl<W: PlanetaryWorld> PlanetaryWorld for TranslatedWorld<W> {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
         self.origin.constrain_to_surface(position - self.center, player_height) + self.center
     }
+    fn surface_contact(&self, probe: Vec3, clearance: f32) -> crate::SurfaceContact {
+        self.origin.surface_contact(probe - self.center, clearance).translated(self.center)
+    }
     fn canopy_drag(&self, position: Vec3) -> f32 { self.origin.canopy_drag(position - self.center) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
         let (hub, fwd, up) = self.origin.placed_camera_tripod()?;
         Some((hub + self.center, fwd, up))
+    }
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
+        let start = out.len();
+        self.origin.collect_spawn_points(out);
+        for p in &mut out[start..] {
+            *p += self.center;
+        }
     }
     fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position - self.center) }

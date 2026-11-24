@@ -59,6 +59,9 @@ pub struct SolarProportions {
 }
 
 impl SolarProportions {
+    pub const MAX_WORLD_SCALE_FACTOR: u32 = 32;
+    pub const EPSTEIN_HOUR_AU_CAP: f64 = 48_087_040.0;
+
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(earth_blocks: u32, ratios: BodyRatios, reach: BeltAndReach) -> Self {
         Self { earth_blocks, ratios, reach }
@@ -123,11 +126,13 @@ impl SolarProportions {
         (self.earth_blocks as f32) * 0.5
     }
 
-    /// Astronomical Unit (`1 AU`) in world meters (`11,740 × Earth_Diameter × distance_scale`).
+    /// Astronomical Unit (`1 AU`) in world meters (`11,740 × Earth_Diameter × distance_scale`, capped to `< 1h` Epstein outer-belt reach).
     pub fn astronomical_unit(self) -> f64 {
         let edge = (self.earth_blocks.max(8) as f64) * 11_740.0;
         let d_factor = f64::from(self.reach.distance_factor().max(0.0005));
-        (edge * d_factor).max(f64::from(self.earth_blocks) * 6.0)
+        (edge * d_factor)
+            .min(Self::EPSTEIN_HOUR_AU_CAP)
+            .max(f64::from(self.earth_blocks) * 6.0)
     }
 
     /// Half-size of the cubic Sun (`54.6 × Earth_Diameter × sun_scale`, bounded inside Mercury's inner orbit).
@@ -146,11 +151,21 @@ impl SolarProportions {
         scaled.max(2.0)
     }
 
-    /// Even voxel block count (`4..=512`) for on-demand rocky planets and moons scaled to `earth_blocks` and `body_scale`.
+    /// Even voxel block count (`4..=4096`) for on-demand rocky planets and moons scaled to `earth_blocks` and `body_scale`.
     pub fn voxel_blocks(self, earth_ratio: f32) -> u32 {
         let raw = (self.earth_blocks as f32) * earth_ratio * self.ratios.body_factor().max(0.02);
-        let clamped = (raw.round() as u32).clamp(4, 512);
+        let clamped = (raw.round() as u32).clamp(4, 4_096);
         clamped.div_ceil(2) * 2
+    }
+
+    /// Chemical rocket speed ceiling (`m/s`) scaled by `sqrt(earth_blocks / 128)` so blueprints reach orbit on any cube size.
+    pub fn chemical_speed_cap(self) -> f32 {
+        45.0 * ((self.earth_blocks.max(128) as f32) / 128.0).sqrt()
+    }
+
+    /// Epstein fusion torch speed ceiling (`m/s`) keeping `3.20 AU` outer-belt Flip-&-Burn transits under 1 hour.
+    pub const fn fusion_speed_cap(self) -> f32 {
+        240_000.0
     }
 
     /// Even voxel block count (`4..=128`) for procedural belt asteroids scaled to `earth_blocks` and `body_scale`.

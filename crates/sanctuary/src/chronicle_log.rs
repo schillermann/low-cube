@@ -1,6 +1,13 @@
 use world::WorldFact;
 
-/// Ordered log of durable `WorldFact`s enabling loss-tolerant UDP streaming and late-joiner sync.
+/// Segregated contract for authoritative durable `WorldFact` storage and MTU-bounded sync batches.
+pub trait ChronicleStore: Send {
+    fn total(&self) -> u32;
+    fn record(&mut self, fact: WorldFact);
+    fn batch_from(&self, ack_seq: u32) -> Option<(u32, Vec<WorldFact>)>;
+}
+
+/// Ordered in-memory log of durable `WorldFact`s enabling loss-tolerant UDP streaming and late-joiner sync.
 pub struct ChronicleLog {
     facts: Vec<WorldFact>,
 }
@@ -15,19 +22,20 @@ impl ChronicleLog {
     pub const fn empty() -> Self {
         Self::new(Vec::new())
     }
+}
 
-    pub fn total(&self) -> u32 {
+impl ChronicleStore for ChronicleLog {
+    fn total(&self) -> u32 {
         self.facts.len() as u32
     }
 
-    pub fn record(&mut self, fact: WorldFact) {
+    fn record(&mut self, fact: WorldFact) {
         if fact.durable() {
             self.facts.push(fact);
         }
     }
 
-    /// Collects an MTU-safe batch of durable facts starting at `ack_seq` (`<= 24` facts, `<= 1_100` bytes).
-    pub fn batch_from(&self, ack_seq: u32) -> Option<(u32, Vec<WorldFact>)> {
+    fn batch_from(&self, ack_seq: u32) -> Option<(u32, Vec<WorldFact>)> {
         let start = ack_seq as usize;
         if start >= self.facts.len() {
             return None;

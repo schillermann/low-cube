@@ -101,12 +101,16 @@ impl CompanionPortal for HostedPlanet {
     fn pump_portal(&mut self, dt: f32) -> bool {
         self.host.pump_network(dt) || self.host.world().pending_slices()
     }
+    fn utter_nearby(&mut self, text: &str) { self.host.utter_host_nearby(text); }
+    fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.host.drain_host_utterances(out); }
 }
 
 impl PlanetaryWorld for HostedPlanet {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 { self.host.constrain_with_crafts(position, player_height) }
+    fn surface_contact(&self, probe: Vec3, clearance: f32) -> world::SurfaceContact { self.host.world().surface_contact(probe, clearance) }
     fn canopy_drag(&self, position: Vec3) -> f32 { self.host.world().canopy_drag(position) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.host.world().placed_camera_tripod() }
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.host.world().collect_spawn_points(out); }
     fn step_surface(&mut self, dt: f32) -> bool {
         let regrown = self.host.world_mut().step_surface(dt);
         let net_changed = self.host.pump_network(dt);

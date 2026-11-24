@@ -224,6 +224,8 @@ impl<W: CompanionPortal> CompanionPortal for OrbitalFleetWorld<W> {
     fn portal_phrase(&self) -> Option<String> { self.origin.portal_phrase() }
     fn punch_nat_peer(&mut self, peer: std::net::SocketAddr) -> bool { self.origin.punch_nat_peer(peer) }
     fn pump_portal(&mut self, dt: f32) -> bool { self.origin.pump_portal(dt) }
+    fn utter_nearby(&mut self, text: &str) { self.origin.utter_nearby(text); }
+    fn drain_utterances(&mut self, out: &mut Vec<crate::ProximityUtterance>) { self.origin.drain_utterances(out); }
 }
 
 impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
@@ -241,8 +243,13 @@ impl<W: PlanetaryWorld> PlanetaryWorld for OrbitalFleetWorld<W> {
         best
     }
 
+    fn surface_contact(&self, probe: Vec3, clearance: f32) -> crate::SurfaceContact {
+        self.origin.surface_contact(probe, clearance)
+    }
+
     fn canopy_drag(&self, position: Vec3) -> f32 { self.origin.canopy_drag(position) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.origin.placed_camera_tripod() }
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.origin.collect_spawn_points(out); }
     fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.origin.step_local_flora(dt) }
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position) }

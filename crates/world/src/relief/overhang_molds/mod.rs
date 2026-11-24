@@ -14,7 +14,7 @@ use super::shaft_excavation::ShaftExcavation;
 use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
-use self::blueprints::{BlueprintCommission, BlueprintSite};
+use self::blueprints::{BlueprintCommission, BlueprintSite, VehicleEmbarkation};
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 const HALF_BLOCK_STEP: f32 = 0.25;
@@ -162,6 +162,10 @@ impl OverhangMolds {
         self.decorated().tripod_hub(frame)
     }
 
+    pub fn collect_spawn_points(&self, frame: &SurfaceFrame, out: &mut Vec<Vec3>) {
+        self.world_blocks.collect_spawn_points(frame, out);
+    }
+
     pub fn remove_layer(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
         if self.car_locked_at(u, v, layer_elev) {
             return None;
@@ -252,18 +256,8 @@ impl OverhangMolds {
         if !engage_engine {
             return (self.decorated().perch_at(u, v, layer_elev, eu, ev, frame), false);
         }
-        if let Some(assembly) = self.rigs.board_drivable(strata, shafts, u, v, layer_elev, ray, frame) {
-            return (Some(assembly), true);
-        }
-        if let Some(assembly) = self.fleet.board_drivable(u, v, layer_elev, ray) {
-            return (Some(assembly), false);
-        }
-        let Some(mast) = self.rigs.find_aimed_rig(u, v, ray, frame) else {
-            return (None, false);
-        };
-        let mounted = self.rigs.reconnect_seated_car(strata, shafts, mast, ray, frame, &mut self.fleet);
-        let changed = mounted.is_some();
-        (mounted, changed)
+        VehicleEmbarkation::new(&mut self.rigs, &mut self.fleet)
+            .embark(strata, shafts, frame, (u, v, layer_elev), ray)
     }
 
     pub fn park_vehicle(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, frame: &SurfaceFrame, assembly: VehicleAssembly) -> (i32, i32) {

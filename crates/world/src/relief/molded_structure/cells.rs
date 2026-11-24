@@ -185,6 +185,17 @@ impl VoxelCells {
     pub fn into_entries(self) -> impl Iterator<Item = ((i32, i32), ElevatedShape)> {
         self.cells.into_iter().flat_map(|(cell, list)| list.into_iter().map(move |shape| (cell, shape)))
     }
+
+    pub fn collect_spawn_points(&self, frame: &SurfaceFrame, out: &mut Vec<Vec3>) {
+        for (&(u, v), list) in &self.cells {
+            let (cx, cy) = GridCell::new(u, v).center();
+            for block in list {
+                if block.block_medium() == BlockMedium::SpawnStone {
+                    out.push(frame.point_at(cx, cy, block.ceiling()));
+                }
+            }
+        }
+    }
 }
 
 impl MoldedStructure for VoxelCells {

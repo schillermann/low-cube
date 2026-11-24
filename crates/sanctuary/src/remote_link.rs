@@ -79,6 +79,8 @@ impl RemoteLink {
     }
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.sync.copy_companions(out); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.sync.copy_crafts(out); }
+    pub const fn assigned_spawn(&self) -> Option<Vec3> { self.sync.assigned_spawn() }
+    pub fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.sync.drain_utterances(out); }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.sync.blend_subtick(subtick_secs); }
 
     pub fn step_wildlife(&mut self, dt: f32, listener: Vec3, view_dir: Vec3, world: &dyn PlanetaryWorld) -> Option<Vec3> {
@@ -179,6 +181,15 @@ impl RemoteLink {
             let seal = keys.establish(host_pub, true);
             self.phase = LinkPhase::Sealed { companion_id: cid, seal, peer: src };
             self.sync.assign_slot(cid);
+            if pkt.len() >= 72 {
+                let sx = f32::from_le_bytes(pkt[60..64].try_into().ok()?);
+                let sy = f32::from_le_bytes(pkt[64..68].try_into().ok()?);
+                let sz = f32::from_le_bytes(pkt[68..72].try_into().ok()?);
+                let pt = Vec3::new(sx, sy, sz);
+                if pt.is_finite() {
+                    self.sync.assign_spawn_point(pt, cid);
+                }
+            }
             return Some(proportions);
         }
         None
@@ -198,6 +209,19 @@ impl RemoteLink {
             }
             let (mut payload, mut frame) = (Vec::new(), Vec::new());
             SanctuaryEnvelope::GuestPetition { fact }.inscribe(&mut payload);
+            seal.seal(companion_id, &payload, &mut frame);
+            let _ = self.socket.send_to(&frame, peer);
+        }
+    }
+
+    pub fn send_utterance(&mut self, raw_text: &str) {
+        let trimmed = raw_text.trim();
+        if trimmed.is_empty() {
+            return;
+        }
+        if let LinkPhase::Sealed { companion_id, ref mut seal, peer } = self.phase {
+            let (mut payload, mut frame) = (Vec::new(), Vec::new());
+            SanctuaryEnvelope::GuestUtterance { text: trimmed.to_string() }.inscribe(&mut payload);
             seal.seal(companion_id, &payload, &mut frame);
             let _ = self.socket.send_to(&frame, peer);
         }

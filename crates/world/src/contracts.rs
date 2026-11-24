@@ -3,7 +3,8 @@ use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CelestialAtlas, CleaveOutcome, CompanionPresence, CraftBlueprint,
     CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing,
-    MeshTarget, PilotCraft, PlannedMount, SightCone, SurfaceFind, VehicleAssembly, VesselSink,
+    MeshTarget, PilotCraft, PlannedMount, ProximityUtterance, SightCone, SurfaceContact,
+    SurfaceFind, VehicleAssembly, VesselSink,
 };
 
 /// Focused surface earthworks, harvesting, building, and vehicle docking contract.
@@ -91,6 +92,8 @@ pub trait CompanionPortal {
     fn portal_phrase(&self) -> Option<String> { None }
     fn punch_nat_peer(&mut self, _peer: SocketAddr) -> bool { false }
     fn pump_portal(&mut self, _dt: f32) -> bool { false }
+    fn utter_nearby(&mut self, _text: &str) {}
+    fn drain_utterances(&mut self, _out: &mut Vec<ProximityUtterance>) {}
 }
 
 /// Composite planetary body interface uniting physical relief with segregated mesh, fauna, vessel, and portal contracts.
@@ -98,8 +101,20 @@ pub trait PlanetaryWorld:
     GravityField + WorldEarthworks + TerrainMesh + WoodlandLife + VesselDeck + CompanionPortal + Send
 {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3;
+    fn surface_contact(&self, probe: Vec3, clearance: f32) -> SurfaceContact {
+        SurfaceContact::SolidCrust {
+            ground: self.constrain_to_surface(probe, clearance),
+            normal: self.surface_up_at(probe),
+        }
+    }
     fn canopy_drag(&self, _position: Vec3) -> f32 { 0.0 }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { None }
+    fn collect_spawn_points(&self, _out: &mut Vec<Vec3>) {}
+    fn assigned_spawn_point(&self) -> Option<Vec3> {
+        let mut pts = Vec::new();
+        self.collect_spawn_points(&mut pts);
+        pts.into_iter().next().map(|p| p + self.surface_up_at(p))
+    }
     fn step_surface(&mut self, _dt: f32) -> bool { false }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.step_surface(dt) }
     fn lethal_at(&self, _position: Vec3) -> bool { false }

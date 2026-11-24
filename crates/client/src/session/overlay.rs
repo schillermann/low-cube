@@ -72,6 +72,10 @@ impl StageOverlay {
         self.modal.sync_world_chart(avatar, world);
     }
 
+    pub(super) fn sync_portal_chat(&mut self, world: &mut dyn PlanetaryWorld) {
+        self.modal.sync_portal_chat(world);
+    }
+
     #[cfg(test)]
     pub(super) fn begin_bound_dial(&mut self, link: sanctuary::RemoteLink) -> String {
         let (dial, reply_code) = PortalDial::from_link(link);

@@ -1,10 +1,11 @@
 mod blueprints;
 mod cache;
 mod meadow_ring;
+mod orbital_shell;
 mod patch_grid;
 
 use glam::Vec3;
-use crate::block::{BlockMedium, BlockMold, GridCell, VoxelShape};
+use crate::block::{BlockMedium, BlockMold, VoxelShape};
 use crate::topology::ClimateZone;
 use crate::{Face, MeshTarget};
 use super::craft_entity::CraftBlueprint;
@@ -87,6 +88,7 @@ impl FacetedReliefFace {
     /// Returns this relief face with an additional molded voxel shape stacked at `(u, v, base)`.
     pub fn with_molded_block(mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>) -> Self {
         self.domain.relief.stack_molded_cell(u, v, base, shape);
+        self.cache.record_molded(u, v);
         self
     }
 
@@ -140,11 +142,11 @@ impl Face for FacetedReliefFace {
     }
 
     fn emit_meadow_sector(&self, gsu: i32, gsv: i32, lod: u8, target: &mut dyn MeshTarget) {
-        self.cache.emit_meadow_sector(gsu, gsv, lod, &self.domain.frame, target);
+        self.cache.emit_meadow_sector(gsu, gsv, lod, &self.domain.frame, self.domain.relief.as_ref(), &self.palette, target);
     }
 
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
-        self.cache.emit_meadow_around(center, view_dir, &self.domain.frame, target);
+        self.cache.emit_meadow_around(center, view_dir, &self.domain.frame, self.domain.relief.as_ref(), &self.palette, target);
     }
 
     fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
@@ -197,6 +199,10 @@ impl Face for FacetedReliefFace {
         self.domain.relief.placed_camera_tripod(&self.domain.frame)
     }
 
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
+        self.domain.relief.collect_spawn_points(&self.domain.frame, out);
+    }
+
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
         let half = self.cache.half_blocks();
         let half_size = self.domain.frame.step_elevation(half);
@@ -213,26 +219,11 @@ impl Face for FacetedReliefFace {
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, engage_engine: bool) -> Option<VehicleAssembly> {
         let half = self.cache.half_blocks();
-        let half_size = self.domain.frame.step_elevation(half);
-        let ray = SurfaceSightRay::new(eye, direction);
-        let ray_hit = ray.target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size);
-        let (cu, cv, layer) = if engage_engine {
-            ray_hit.unwrap_or_else(|| {
-                let (eu, ev) = self.domain.frame.decompose(eye);
-                GridCell::at_planar(eu, ev).feed_coordinates(|gu, gv| (gu, gv, -1000.0))
-            })
-        } else {
-            ray_hit?
-        };
-        let (assembly, terrain_changed) =
-            self.domain.relief.board_vehicle_on_face(&self.domain.frame, cu, cv, layer, ray, engage_engine);
-        let assembly = assembly?;
+        let (assembly, cells, terrain_changed) = self.domain.board_vehicle(half, eye, direction, engage_engine)?;
         if terrain_changed {
-            let (eu, ev) = self.domain.frame.cell_at(eye).feed_coordinates(|gu, gv| (gu, gv));
-            let (su, sv) = self.domain.frame.cell_at(assembly.origin()).feed_coordinates(|gu, gv| (gu, gv));
-            self.refresh_neighborhood(eu, ev, half, 4);
-            self.refresh_neighborhood(cu, cv, half, 4);
-            self.refresh_neighborhood(su, sv, half, 4);
+            for (cu, cv) in cells {
+                self.refresh_neighborhood(cu, cv, half, 4);
+            }
         }
         Some(assembly)
     }

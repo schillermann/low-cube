@@ -4,6 +4,11 @@
 # UDP port for the dedicated server (`low-cube-server`, default: 27777).
 port = 27777
 
+[storage]
+# Optional binary write-ahead chronicle file for persistent dedicated servers (e.g. "sanctuary.wal").
+# Leave empty ("") for in-memory ephemeral sessions; override via LOW_CUBE_JOURNAL or --journal.
+journal = ""
+
 [physics]
 # Planetary gravity (default: 10 for Earth gravity).
 # Jump height derives automatically from gravity:
@@ -14,8 +19,8 @@ port = 27777
 gravity = 10
 
 [world]
-# World-Cube edge multiple (integer >= 1; 1 = 128 blocks, 2 = 256 blocks, ...).
-# Scales Earth as well as baseline planet, moon, Sun, and orbital dimensions.
+# World-Cube edge multiple (integer 1..=32; 1 = 128 blocks, 32 = 4096 blocks = 100.7 km² Earth).
+# Scales Earth as well as baseline planet, moon, Sun, and landable belt-asteroid dimensions.
 size = 1
 
 # Day/night cycle rotation in minutes (default: 20 min).
@@ -23,7 +28,8 @@ size = 1
 cycle = 20
 
 [cosmos]
-# Unified Solar-System scale factor (1.0 = true 1:1 astronomical proportions relative to Earth).
+# Unified Solar-System scale factor (1.0 = astronomical proportions capped at <= 48.09M m/AU so
+# an Epstein-Drive ship reaches the outer Mars-Jupiter Asteroid Belt at 3.20 AU in under 1 hour).
 # Scales orbital distances, planet sizes, Sun size, and moon sizes together unless overridden below:
 #   distance_scale   = 1.0   # Orbital radii of planets and moons
 #   body_scale       = 1.0   # Sizes of planets, moons, and belt asteroids
@@ -45,8 +51,8 @@ mode = "nightly"
 # Starting items stowed in the player's satchel upon entering the world.
 # Format: comma-separated item names with optional ":count" (or "none" for an empty satchel).
 # Supported items:
-#   field_camera, vehicle_blueprint, rocket_camera, flight_console, rocket_nozzle, aircraft_engine, steering_wheel, car_wheel, cabin_seat, pedal_cluster,
-#   cantilever_crane, iron_spade, woodman_axe, knightly_sword, wooden_mallet, timber_torch,
+#   field_camera, vehicle_blueprint, rocket_camera, flight_console, rocket_nozzle, fusion_torch, aircraft_engine, steering_wheel, car_wheel, cabin_seat, pedal_cluster,
+#   cantilever_crane, spawn_stone, iron_spade, woodman_axe, knightly_sword, wooden_mallet, timber_torch,
 #   quarried_stone, excavated_earth, timber_block, plank_block, crust_block, deadwood_bough, flint_stone
 items = "field_camera, vehicle_blueprint, rocket_camera:4, flight_console, rocket_nozzle:6, aircraft_engine, steering_wheel, car_wheel:8, cabin_seat:2, pedal_cluster:2"
 

@@ -3,7 +3,7 @@ use world::{PilotOrder, PlanetaryWorld, VehicleAssembly};
 use super::clearance::HullClearance;
 
 pub(crate) const MAX_COSMIC_SPEED: f32 = 45.0;
-pub(crate) const MAX_FUSION_SPEED: f32 = 48_000.0;
+pub(crate) const MAX_FUSION_SPEED: f32 = 240_000.0;
 
 /// Immutable 6-DOF spacecraft state step returned by the `SpaceStep` decorator chain.
 #[derive(Clone, Copy, Debug)]
@@ -96,17 +96,23 @@ impl<S: SpaceStep> SpaceStep for GravitationStep<'_, S> {
     }
 }
 
-/// `SpaceStep` decorator firing directional `RocketNozzle` and `RcsManifold` reaction thrust.
+/// `SpaceStep` decorator firing directional `RocketNozzle` and `RcsManifold` reaction thrust (`<= 4` fields).
 pub(super) struct NozzleThrustStep<'a, S> {
     origin: S,
     assembly: &'a VehicleAssembly,
     order: PilotOrder,
+    world: &'a dyn PlanetaryWorld,
 }
 
 impl<'a, S> NozzleThrustStep<'a, S> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(origin: S, assembly: &'a VehicleAssembly, order: PilotOrder) -> Self {
-        Self { origin, assembly, order }
+    pub(super) const fn new(
+        origin: S,
+        assembly: &'a VehicleAssembly,
+        order: PilotOrder,
+        world: &'a dyn PlanetaryWorld,
+    ) -> Self {
+        Self { origin, assembly, order, world }
     }
 }
 
@@ -115,7 +121,12 @@ impl<S: SpaceStep> SpaceStep for NozzleThrustStep<'_, S> {
         let s = self.origin.resolve(dt);
         let impulse = self.assembly.sample_impulse(&self.order);
         let fusion = self.assembly.fusion_equipped();
-        let cap = if fusion { MAX_FUSION_SPEED } else { MAX_COSMIC_SPEED };
+        let chem_cap = self
+            .world
+            .celestial_atlas()
+            .ephemeris()
+            .map_or(MAX_COSMIC_SPEED, |e| e.proportions().chemical_speed_cap());
+        let cap = if fusion { MAX_FUSION_SPEED } else { chem_cap };
         let raw_dv = if fusion { impulse.fusion_velocity_delta(dt) } else { impulse.velocity_delta(dt) };
         let speed = s.velocity.length();
         let dv = if speed > 1e-4 {
@@ -184,7 +195,9 @@ impl<S: SpaceStep> SpaceStep for TouchdownStep<'_, S> {
             return s;
         }
         let probe = HullClearance::new(self.assembly, s.origin, s.velocity, s.rotation);
-        let (ground, surf_up, alt, v_norm) = probe.local_contact(self.world);
+        let Some((ground, surf_up, alt, v_norm)) = probe.crust_contact(self.world) else {
+            return s;
+        };
         let rotated_up = (s.rotation * self.assembly.normal()).normalize_or_zero();
         let clearance = probe.span_projection(surf_up, rotated_up);
         if alt > 0.005 || (alt >= 0.0 && v_norm > 0.0) {

@@ -122,6 +122,10 @@ impl WorldBlocks {
     pub fn settle_gravity(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, scars: &mut TurfScars) -> Vec<(i32, i32)> {
         self.grid.settle_gravity(|u, v| (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP, scars)
     }
+
+    pub fn collect_spawn_points(&self, frame: &SurfaceFrame, out: &mut Vec<Vec3>) {
+        self.grid.collect_spawn_points(frame, out);
+    }
 }
 
 impl MoldedStructure for WorldBlocks {

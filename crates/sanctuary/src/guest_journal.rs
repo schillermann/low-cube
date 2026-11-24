@@ -63,6 +63,9 @@ impl GuestJournal {
     pub fn sync_local_craft(&mut self, craft: PilotCraft) { self.write_link(|l| l.sync_local_craft(craft)); }
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.read_link(|l| l.companions(out)); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.read_link(|l| l.crafts(out)); }
+    pub fn assigned_spawn(&self) -> Option<glam::Vec3> { self.read_link(RemoteLink::assigned_spawn) }
+    pub fn utter_nearby(&mut self, text: &str) { self.write_link(|l| l.send_utterance(text)); }
+    pub fn drain_utterances(&self, out: &mut Vec<world::ProximityUtterance>) { self.write_link(|l| l.drain_utterances(out)); }
     pub fn active_craft_count(&self) -> usize { self.mailbox.active_crafts() }
 
     pub fn constrain_crafts(&self, position: glam::Vec3, player_height: f32, up: glam::Vec3) -> Option<glam::Vec3> {

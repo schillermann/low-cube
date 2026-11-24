@@ -23,9 +23,9 @@ impl PerspectiveLens {
         }
     }
 
-    /// Secondary constructor with first-person field of view and cosmic logarithmic-depth reach (`100,000,000 m`).
+    /// Secondary constructor with first-person field of view and invertible `f32` clip matrix (paired with `10 Gm` shader log-depth).
     pub fn human_eye() -> Self {
-        Self::new(65.0f32.to_radians(), 0.03, 1.0e8)
+        Self::new(65.0f32.to_radians(), 0.03, 65_536.0)
     }
 
     /// Returns a zoomed copy with `fov_radians / factor` while preserving near/far clipping bounds.

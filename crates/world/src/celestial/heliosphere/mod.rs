@@ -34,7 +34,9 @@ impl HeliosphereWorld {
     }
 
     pub(super) fn near_earth(&self, pos: Vec3) -> bool {
-        pos.abs().max_element() <= self.ephemeris.proportions().earth_half() + 64.0
+        let half = self.ephemeris.proportions().earth_half();
+        let band = (half * 0.45).clamp(64.0, 160.0);
+        pos.abs().max_element() <= half + band
     }
 
     pub(super) const fn map_earth_slice(idx: usize) -> usize {
@@ -94,6 +96,24 @@ impl PlanetaryWorld for HeliosphereWorld {
         position
     }
 
+    fn surface_contact(&self, probe: Vec3, clearance: f32) -> crate::SurfaceContact {
+        if self.near_earth(probe) {
+            return self.earth.surface_contact(probe, clearance);
+        }
+        if let Some(body) = self.vicinity.borrow_mut().ensure_near(probe, self.ephemeris) {
+            let contact = body.planet().surface_contact(probe, clearance);
+            if contact.landable() {
+                return contact;
+            }
+        }
+        let drag = self.canopy_drag(probe);
+        if drag > 0.0 {
+            crate::SurfaceContact::GasEnvelope { drag }
+        } else {
+            crate::SurfaceContact::Vacuum
+        }
+    }
+
     fn canopy_drag(&self, position: Vec3) -> f32 {
         if self.near_earth(position) {
             return self.earth.canopy_drag(position);
@@ -120,6 +140,10 @@ impl PlanetaryWorld for HeliosphereWorld {
                 .filter_map(|i| vic.slot_body(i))
                 .find_map(|b| b.planet().placed_camera_tripod())
         })
+    }
+
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
+        self.earth.collect_spawn_points(out);
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {

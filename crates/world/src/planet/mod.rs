@@ -6,6 +6,7 @@ mod slices;
 use glam::Vec3;
 use crate::{
     BeveledBoundary, CubicBoundary, Face, GravityField, OpenBoundary, PlanetaryWorld, SeamBoundary,
+    SurfaceContact,
 };
 pub use self::patches::{MeadowScan, PatchCoord};
 pub use self::slices::ModifiedSlices;
@@ -128,12 +129,28 @@ impl PlanetaryWorld for CubePlanet {
         self.fallback.constrain(position, player_height)
     }
 
+    fn surface_contact(&self, probe: Vec3, clearance: f32) -> SurfaceContact {
+        if !self.boundary.within_approach(probe) {
+            return SurfaceContact::Vacuum;
+        }
+        SurfaceContact::SolidCrust {
+            ground: self.constrain_to_surface(probe, clearance),
+            normal: self.surface_up_at(probe),
+        }
+    }
+
     fn canopy_drag(&self, position: Vec3) -> f32 {
         self.active_face(position).canopy_drag(position)
     }
 
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
         self.faces.iter().find_map(|f| f.placed_camera_tripod())
+    }
+
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
+        for face in &self.faces {
+            face.collect_spawn_points(out);
+        }
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {

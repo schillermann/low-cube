@@ -31,6 +31,10 @@ impl DrivenCraft {
         Self::new(slot, self.identity, self.pose)
     }
 
+    pub fn within_reach(self, anchor: glam::Vec3, max_dist: f32) -> bool {
+        (anchor - self.pose.origin()).length_squared() <= max_dist * max_dist
+    }
+
     pub fn valid_on(self, world: &dyn PlanetaryWorld) -> bool {
         let pos = self.pose.origin();
         let clamped = world.confine_beneath_crust(pos);

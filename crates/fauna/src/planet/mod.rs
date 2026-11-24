@@ -149,12 +149,16 @@ impl<R> CompanionPortal for WoodlandPlanet<R> {
     fn portal_phrase(&self) -> Option<String> { self.origin.portal_phrase() }
     fn punch_nat_peer(&mut self, peer: SocketAddr) -> bool { self.origin.punch_nat_peer(peer) }
     fn pump_portal(&mut self, dt: f32) -> bool { self.origin.pump_portal(dt) }
+    fn utter_nearby(&mut self, text: &str) { self.origin.utter_nearby(text); }
+    fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.origin.drain_utterances(out); }
 }
 
 impl<R: FaunaRealm> PlanetaryWorld for WoodlandPlanet<R> {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 { self.origin.constrain_to_surface(position, player_height) }
+    fn surface_contact(&self, probe: Vec3, clearance: f32) -> world::SurfaceContact { self.origin.surface_contact(probe, clearance) }
     fn canopy_drag(&self, position: Vec3) -> f32 { self.origin.canopy_drag(position) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.origin.placed_camera_tripod() }
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.origin.collect_spawn_points(out); }
     fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.origin.step_local_flora(dt) }
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position) }

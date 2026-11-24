@@ -71,14 +71,23 @@ impl HostWire {
         self.state.fleet().constrain_craft_by_id(&crafts, craft, position, player_height)
     }
 
+    pub fn utter_from_host(&mut self, text: &str) {
+        self.state.utter_from_host(&self.socket, text);
+    }
+
     fn answer_knock(&mut self, peer: SocketAddr, guest_pub: [u8; 32]) {
-        let cid = self.state.admit_guest(&self.identity, peer, guest_pub);
-        let mut reply = Vec::with_capacity(60);
+        let (cid, beacon_stand) = self.state.admit_guest(&self.identity, peer, guest_pub);
+        let mut reply = Vec::with_capacity(72);
         reply.extend_from_slice(b"LWEL");
         reply.extend_from_slice(&self.identity.keys().public_bytes());
         reply.extend_from_slice(&cid.to_le_bytes());
         reply.extend_from_slice(&self.identity.blocks_per_edge().to_le_bytes());
         self.identity.proportions().inscribe_tail(&mut reply);
+        if let Some(pos) = beacon_stand {
+            for c in [pos.x, pos.y, pos.z] {
+                reply.extend_from_slice(&c.to_le_bytes());
+            }
+        }
         let _ = self.socket.send_to(&reply, peer);
     }
 
@@ -108,6 +117,7 @@ impl HostWire {
         if parked {
             mutated = true;
         }
+        self.state.refresh_beacons(world);
         let mut buf = [0u8; 1500];
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
             let pkt = &buf[..len];
@@ -116,10 +126,13 @@ impl HostWire {
             }
             if let Ok(cid_bytes) = pkt[2..6].try_into() {
                 let cid = u32::from_le_bytes(cid_bytes);
-                if self.state.process_companion_datagram(cid, src, pkt, world) {
+                if self.state.process_companion_datagram(&self.socket, cid, src, pkt, world) {
                     mutated = true;
                 }
             }
+        }
+        if mutated {
+            self.state.refresh_beacons(world);
         }
         if pulse_ready {
             self.state.broadcast(&self.socket);
@@ -139,7 +152,7 @@ impl PortalBeat for HostWire {
             }
             if let Ok(cid_bytes) = pkt[2..6].try_into() {
                 let cid = u32::from_le_bytes(cid_bytes);
-                self.state.process_standby_datagram(cid, src, pkt, max_extent, &mut self.deferred);
+                self.state.process_standby_datagram(&self.socket, cid, src, pkt, max_extent, &mut self.deferred);
             }
         }
         self.state.step_standby_clocks(&self.socket, dt, &mut self.deferred);

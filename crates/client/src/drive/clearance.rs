@@ -84,6 +84,12 @@ impl<'a> HullClearance<'a> {
         (ground, surf_up, alt, v_norm)
     }
 
+    pub(super) fn crust_contact(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, Vec3, f32, f32)> {
+        world
+            .surface_contact(self.origin, 0.0)
+            .resolve_crust(None, |_, _| Some(self.local_contact(world)))
+    }
+
     fn sample_body(
         &self,
         body_center: Vec3,

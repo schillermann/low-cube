@@ -102,6 +102,9 @@ pub trait ReliefElevation: Send + Sync {
     /// Tripod hub position, base forward axis, and up axis of a placed field camera, if present.
     fn placed_camera_tripod(&self, _frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> { None }
 
+    /// Collects world-space surface stand-points atop placed admin `SpawnStone` blocks.
+    fn collect_spawn_points(&self, _frame: &SurfaceFrame, _out: &mut Vec<Vec3>) {}
+
     /// Lowers a polyhedral cantilever rig assembly onto the ground when its mast at (u, v) is clicked.
     fn lower_rig_at(&mut self, _u: i32, _v: i32) -> bool { false }
 

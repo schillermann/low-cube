@@ -25,8 +25,11 @@ impl PerimeterFold {
         Self::new(frame, perimeter, seams)
     }
 
-    /// Folds `constrained` across the crossed edge whenever `raw_point` lies beyond the face perimeter.
+    /// Folds `constrained` across the crossed edge whenever a near-crust `raw_point` crosses the face perimeter.
     pub fn fold(&self, raw_point: Vec3, constrained: Vec3) -> Vec3 {
+        if self.frame.elevation_of(raw_point).abs() > 14.0 {
+            return constrained;
+        }
         match self.perimeter.crossing_point(&self.frame, raw_point) {
             PerimeterCrossing::Interior => constrained,
             PerimeterCrossing::Crossing { edge, .. } => self.seams[edge.index()].fold_point(constrained),

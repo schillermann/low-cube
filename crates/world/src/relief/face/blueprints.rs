@@ -1,10 +1,11 @@
 use glam::Vec3;
-use crate::block::{BlockMedium, BlockMold};
+use crate::block::{BlockMedium, BlockMold, GridCell};
 use crate::frame::SurfaceFrame;
 use super::super::craft_entity::CraftBlueprint;
 use super::super::elevation::ReliefElevation;
 use super::super::planned_mount::{MountSite, PlannedMount};
 use super::super::sight_ray::SurfaceSightRay;
+use super::super::vehicle_assembly::VehicleAssembly;
 
 pub(super) struct ReliefDomain {
     pub(super) frame: SurfaceFrame,
@@ -68,5 +69,31 @@ impl ReliefDomain {
             .target_layer(&self.frame, self.relief.as_ref(), half, half_size)
             .unwrap_or((-4096, -4096, 0.0));
         self.relief.build_rig_blueprint_at(&self.frame, cu, cv, base, ray, blueprint)
+    }
+
+    pub(super) fn board_vehicle(
+        &mut self,
+        half: i32,
+        eye: Vec3,
+        direction: Vec3,
+        engage_engine: bool,
+    ) -> Option<(VehicleAssembly, [(i32, i32); 3], bool)> {
+        let half_size = self.frame.step_elevation(half);
+        let ray = SurfaceSightRay::new(eye, direction);
+        let ray_hit = ray.target_layer(&self.frame, self.relief.as_ref(), half, half_size);
+        let (cu, cv, layer) = if engage_engine {
+            ray_hit.unwrap_or_else(|| {
+                let (eu, ev) = self.frame.decompose(eye);
+                GridCell::at_planar(eu, ev).feed_coordinates(|gu, gv| (gu, gv, -1000.0))
+            })
+        } else {
+            ray_hit?
+        };
+        let (assembly, terrain_changed) =
+            self.relief.board_vehicle_on_face(&self.frame, cu, cv, layer, ray, engage_engine);
+        let assembly = assembly?;
+        let (eu, ev) = self.frame.cell_at(eye).feed_coordinates(|gu, gv| (gu, gv));
+        let (su, sv) = self.frame.cell_at(assembly.origin()).feed_coordinates(|gu, gv| (gu, gv));
+        Some((assembly, [(eu, ev), (cu, cv), (su, sv)], terrain_changed))
     }
 }

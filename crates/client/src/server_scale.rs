@@ -28,7 +28,7 @@ impl ScaledCube {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(multiple: u32) -> Self { Self { multiple } }
 
-    /// Secondary constructor parsing and fail-fast validating an integer scale factor >= 1.
+    /// Secondary constructor parsing and fail-fast validating an integer scale factor `1..=32`.
     pub fn parse(raw: &str, source: &str) -> Self {
         let unquoted = raw.trim().trim_matches('"').trim_matches('\'').trim();
         let parsed = unquoted.parse::<i64>().unwrap_or_else(|_| {
@@ -36,6 +36,10 @@ impl ScaledCube {
         });
         if parsed < 1 {
             panic!("Invalid world-cube size '{raw}' in {source}: minimum allowed setting is 1 (128 blocks).");
+        }
+        let max_factor = i64::from(world::SolarProportions::MAX_WORLD_SCALE_FACTOR);
+        if parsed > max_factor {
+            panic!("Invalid world-cube size '{raw}' in {source}: maximum allowed setting is {max_factor} (4096 blocks).");
         }
         Self::new(parsed as u32)
     }

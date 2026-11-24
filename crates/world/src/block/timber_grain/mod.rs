@@ -31,6 +31,7 @@ pub enum BlockMedium {
     RocketCamera,
     VehicleBlueprint,
     FusionTorch,
+    SpawnStone,
 }
 
 impl BlockMedium {
@@ -58,6 +59,7 @@ impl BlockMedium {
             Self::RocketCamera => 18,
             Self::VehicleBlueprint => 19,
             Self::FusionTorch => 20,
+            Self::SpawnStone => 21,
         }
     }
 
@@ -84,8 +86,14 @@ impl BlockMedium {
             18 => Self::RocketCamera,
             19 => Self::VehicleBlueprint,
             20 => Self::FusionTorch,
+            21 => Self::SpawnStone,
             _ => Self::TurfEarth,
         }
+    }
+
+    /// Indicates whether placement and removal of this block medium are restricted to the server admin.
+    pub const fn admin_restricted(self) -> bool {
+        matches!(self, Self::SpawnStone)
     }
 
     /// Indicates whether this medium is a stratified subterranean mineral ore deposit.
@@ -154,6 +162,7 @@ impl BlockMedium {
             Self::GoldOre => (Vec3::new(0.98, 0.80, 0.22), Vec3::new(0.25, 0.23, 0.27)),
             Self::VehicleBlueprint => (Vec3::new(0.18, 0.52, 0.92), Vec3::new(0.88, 0.72, 0.26)),
             Self::FusionTorch => (Vec3::new(0.28, 0.86, 1.00), Vec3::new(0.32, 0.36, 0.44)),
+            Self::SpawnStone => (Vec3::new(0.22, 0.94, 0.98), Vec3::new(0.92, 0.76, 0.28)),
         }
     }
 

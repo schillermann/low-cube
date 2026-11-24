@@ -2,12 +2,14 @@ mod attire;
 mod boar;
 mod craft;
 mod rhythm;
+mod utterance;
 
 use glam::{Quat, Vec3};
 pub use self::attire::PresenceAttire;
 pub use self::boar::{BoarPresence, BoarStance, GoreStamp, SounderPresence, WildlifePulse};
 pub use self::craft::{DrivenCraft, PilotCraft};
 pub use self::rhythm::PresenceRhythm;
+pub use self::utterance::{ProximityUtterance, MAX_UTTERANCE_BYTES};
 
 /// Encapsulated 3D stance and orientation of a companion avatar on the World-Cube.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -76,7 +78,11 @@ impl CompanionPresence {
     }
 
     pub fn within_reach(&self, eye: Vec3, max_dist: f32) -> bool {
-        self.kinematics.transfer(|pos, _, _, _, _| (eye - pos).length() <= max_dist)
+        self.distance_sq_to(eye) <= max_dist * max_dist
+    }
+
+    pub fn distance_sq_to(&self, anchor: Vec3) -> f32 {
+        self.kinematics.transfer(|pos, _, _, _, _| (anchor - pos).length_squared())
     }
 
     pub fn reconciled(self, slot: u32, incoming: Self, world: &dyn crate::PlanetaryWorld) -> Self {

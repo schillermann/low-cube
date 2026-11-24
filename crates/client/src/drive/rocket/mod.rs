@@ -152,6 +152,7 @@ impl CraftDrive for RocketDrive {
                     ),
                     assembly,
                     order,
+                    world,
                 ),
                 assembly,
                 order,

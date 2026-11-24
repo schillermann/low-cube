@@ -1,4 +1,7 @@
+mod admin_ward;
+mod audience;
 mod aura;
+mod chronicle_decorators;
 mod chronicle_log;
 mod chronicled_planet;
 mod cohort;
@@ -19,6 +22,7 @@ mod remote_planet;
 mod remote_wildlife;
 mod sanctuary_host;
 mod seal;
+mod seal_batch;
 mod standby_link;
 mod ticket;
 mod ward;
@@ -28,8 +32,14 @@ mod wormhole;
 #[cfg(test)]
 mod tests;
 
-pub use aura::{HostAura, HostIdentity, HostPresence, PeerCrack};
-pub use chronicle_log::ChronicleLog;
+pub use admin_ward::{AdminBlockWard, SpawnBeacons};
+pub use audience::{
+    MtuBudgetAudience, ProximityAudience, PulseAudience, WorldAudience, CHAT_EARSHOT_METERS,
+    INTIMATE_NEIGHBOR_CAP, NEARBY_SIGHT_METERS, PACKET_COMPANION_CAP,
+};
+pub use aura::{AuraEvents, HostAura, HostIdentity, HostPresence, PeerCrack};
+pub use chronicle_decorators::{CompactedChronicle, DiskVaultChronicle};
+pub use chronicle_log::{ChronicleLog, ChronicleStore};
 pub use chronicled_planet::{ChronicledPlanet, FactJournal};
 pub use cohort::GuestCohort;
 pub use config::{SanctuaryEndpoint, SanctuaryPlan, SanctuaryToml};

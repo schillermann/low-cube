@@ -234,6 +234,10 @@ impl Face for ForestedFace {
         self.origin.placed_camera_tripod()
     }
 
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
+        self.origin.collect_spawn_points(out);
+    }
+
     fn step_surface(&mut self, dt: f32) -> bool {
         self.origin.step_surface(dt)
     }

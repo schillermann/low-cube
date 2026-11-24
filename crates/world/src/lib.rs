@@ -15,6 +15,7 @@ mod presence;
 mod quad;
 mod relief;
 mod sight_cone;
+mod surface_contact;
 mod topology;
 mod tree;
 mod wire_vector;
@@ -23,6 +24,8 @@ mod wire_vector;
 mod beveled_world_tests;
 #[cfg(test)]
 mod celestial_tests;
+#[cfg(test)]
+mod continental_cosmos_tests;
 #[cfg(test)]
 mod gravity_tests;
 #[cfg(test)]
@@ -43,7 +46,7 @@ pub use block::{
     ConsoleOrrery, CornerHeading, CuboidShape, DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh,
     FootwellPlinth, FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape, MineralSeam,
     MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner,
-    RocketNozzleMesh, StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan,
+    RocketNozzleMesh, SpawnPlinthMesh, StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan,
     WedgeHeading, WheelProfile,
 };
 pub use chronicle::WorldFact;
@@ -59,9 +62,11 @@ pub use null_face::NullFace;
 pub use planet::{CubePlanet, PatchCoord};
 pub use presence::{
     BoarPresence, BoarStance, CompanionPresence, DrivenCraft, GoreStamp, PilotCraft,
-    PresenceAttire, PresenceKinematics, PresenceRhythm, SounderPresence, WildlifePulse,
+    PresenceAttire, PresenceKinematics, PresenceRhythm, ProximityUtterance, SounderPresence,
+    WildlifePulse, MAX_UTTERANCE_BYTES,
 };
 pub use sight_cone::SightCone;
+pub use surface_contact::SurfaceContact;
 pub use relief::{
     AttitudeGuidance, BlueprintCatalog, CellRole, CockpitAxes, CraftBlueprint, CraftIdentity,
     CraftPose, CrustVault, DeckFrame, ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins,
@@ -144,6 +149,7 @@ pub trait Face: Send + Sync {
     fn build_rig_blueprint(&mut self, _eye: Vec3, _direction: Vec3, _blueprint: &CraftBlueprint) -> bool { false }
     fn present_vessels(&self, _sink: &mut dyn VesselSink) {}
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { None }
+    fn collect_spawn_points(&self, _out: &mut Vec<Vec3>) {}
     fn step_surface(&mut self, _dt: f32) -> bool { false }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.step_surface(dt) }
     fn step_flora(&mut self, _dt: f32) -> bool { false }

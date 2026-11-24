@@ -1,6 +1,10 @@
 use std::net::SocketAddr;
 use glam::Vec3;
-use world::{CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, SolarProportions};
+use world::{
+    CompanionPresence, DrivenCraft, PilotCraft, PlanetaryWorld, ProximityUtterance,
+    SolarProportions,
+};
+use crate::admin_ward::SpawnBeacons;
 use crate::envelope::CrackNotice;
 use crate::fleet_ledger::FleetLedger;
 use crate::host_sounder::HostSounder;
@@ -58,29 +62,60 @@ impl PeerCrack {
     }
 }
 
-/// Strictly encapsulated local host seat, crack queue, `FleetLedger`, and authoritative `HostSounder`.
+/// Transient crack queue, host chat inbox, and admin `SpawnBeacons` registry (`<= 4` fields).
+pub struct AuraEvents {
+    cracks: Vec<PeerCrack>,
+    utterances: Vec<ProximityUtterance>,
+    beacons: SpawnBeacons,
+}
+
+impl AuraEvents {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(
+        cracks: Vec<PeerCrack>,
+        utterances: Vec<ProximityUtterance>,
+        beacons: SpawnBeacons,
+    ) -> Self {
+        Self { cracks, utterances, beacons }
+    }
+
+    pub const fn empty() -> Self {
+        Self::new(Vec::new(), Vec::new(), SpawnBeacons::empty())
+    }
+}
+
+/// Strictly encapsulated local host seat, transient `AuraEvents`, `FleetLedger`, and authoritative `HostSounder`.
 pub struct HostAura {
     seat: (HostPresence, PilotCraft),
-    cracks: Vec<PeerCrack>,
+    events: AuraEvents,
     fleet: FleetLedger,
     wildlife: HostSounder,
 }
 
 impl HostAura {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_events(
+        seat: (HostPresence, PilotCraft),
+        events: AuraEvents,
+        fleet: FleetLedger,
+        wildlife: HostSounder,
+    ) -> Self {
+        Self { seat, events, fleet, wildlife }
+    }
+
     pub const fn new(
         seat: (HostPresence, PilotCraft),
         cracks: Vec<PeerCrack>,
         fleet: FleetLedger,
         wildlife: HostSounder,
     ) -> Self {
-        Self { seat, cracks, fleet, wildlife }
+        Self::with_events(seat, AuraEvents::new(cracks, Vec::new(), SpawnBeacons::empty()), fleet, wildlife)
     }
 
     pub const fn headless() -> Self {
-        Self::new(
+        Self::with_events(
             (HostPresence::Headless, PilotCraft::Pedestrian),
-            Vec::new(),
+            AuraEvents::empty(),
             FleetLedger::empty(),
             HostSounder::seeded(),
         )
@@ -96,6 +131,13 @@ impl HostAura {
 
     pub const fn presence(&self) -> HostPresence {
         self.seat.0
+    }
+
+    pub fn occupied_position(&self) -> Option<Vec3> {
+        let HostPresence::Occupied(p) = self.seat.0 else {
+            return None;
+        };
+        Some(p.transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos)))
     }
 
     pub fn pedestrian_observer(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, bool)> {
@@ -116,19 +158,35 @@ impl HostAura {
     pub fn fleet_mut(&mut self) -> &mut FleetLedger { &mut self.fleet }
     pub const fn wildlife(&self) -> &HostSounder { &self.wildlife }
     pub fn wildlife_mut(&mut self) -> &mut HostSounder { &mut self.wildlife }
+    pub fn beacons_mut(&mut self) -> &mut SpawnBeacons { &mut self.events.beacons }
 
     pub fn push_host_craft(&self, out: &mut Vec<DrivenCraft>) {
         self.seat.1.push_active(out);
     }
 
     pub fn record_crack(&mut self, author_slot: u32, notice: CrackNotice) {
-        if self.cracks.len() >= 16 {
-            self.cracks.remove(0);
+        if self.events.cracks.len() >= 16 {
+            self.events.cracks.remove(0);
         }
-        self.cracks.push(PeerCrack::new(author_slot, notice));
+        self.events.cracks.push(PeerCrack::new(author_slot, notice));
     }
 
     pub fn drain_cracks(&mut self) -> Vec<PeerCrack> {
-        std::mem::take(&mut self.cracks)
+        std::mem::take(&mut self.events.cracks)
+    }
+
+    pub fn receive_utterance(&mut self, utterance: ProximityUtterance, earshot_meters: f32) {
+        if let Some(pos) = self.occupied_position() {
+            if utterance.audible_at(pos, earshot_meters) {
+                if self.events.utterances.len() >= 32 {
+                    self.events.utterances.remove(0);
+                }
+                self.events.utterances.push(utterance);
+            }
+        }
+    }
+
+    pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) {
+        out.append(&mut self.events.utterances);
     }
 }

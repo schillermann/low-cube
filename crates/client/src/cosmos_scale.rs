@@ -240,7 +240,32 @@ impl CosmosScale for ArgumentCosmos {
     }
 }
 
-/// Full decorator chain (`CLI > Env > client.toml > server.toml > MeasuredCosmos`) resolving `SolarProportions`.
+/// `CosmosScale` decorator clamping `distance_scale` so the `3.20 AU` outer Asteroid Belt stays `< 1h` by Epstein-Drive.
+pub struct EpsteinReachCosmos<C> {
+    origin: C,
+}
+
+impl<C> EpsteinReachCosmos<C> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(origin: C) -> Self {
+        Self { origin }
+    }
+}
+
+impl<C: CosmosScale> CosmosScale for EpsteinReachCosmos<C> {
+    fn proportions(&self) -> SolarProportions {
+        let raw = self.origin.proportions();
+        let natural_au = (raw.earth_blocks().max(8) as f64) * 11_740.0;
+        let max_dist_factor = (SolarProportions::EPSTEIN_HOUR_AU_CAP / natural_au) as f32;
+        if raw.distance_scale() > max_dist_factor {
+            raw.with_distance_scale(max_dist_factor)
+        } else {
+            raw
+        }
+    }
+}
+
+/// Full decorator chain (`EpsteinReach > CLI > Env > client.toml > server.toml > MeasuredCosmos`) resolving `SolarProportions`.
 pub struct AssembledCosmos {
     origin: Box<dyn CosmosScale>,
 }
@@ -256,7 +281,8 @@ impl AssembledCosmos {
         let server_toml = Box::new(FileCosmos::from_path("server.toml", measured));
         let client_toml = Box::new(FileCosmos::from_path("client.toml", server_toml));
         let env_layer = Box::new(EnvironmentCosmos::process(client_toml));
-        Self::new(Box::new(ArgumentCosmos::process(env_layer)))
+        let cli_layer = ArgumentCosmos::process(env_layer);
+        Self::new(Box::new(EpsteinReachCosmos::new(cli_layer)))
     }
 }
 

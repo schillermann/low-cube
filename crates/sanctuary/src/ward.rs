@@ -12,21 +12,22 @@ const MAX_DIG_BURST_TOKENS: f32 = 2.0;
 const DIG_REFILL_PER_SEC: f32 = 5.0;
 const INITIAL_STARTER_BLOCKS: u32 = 64;
 
-/// Authoritative per-guest anti-cheat vitals: chronicle ack, block tally, dig cadence, and tusk impact stamp.
+/// Authoritative per-guest anti-cheat vitals: chronicle ack, block tally, dig cadence, gore stamp, and AoI cursor.
 pub struct WardVitals {
     ledger: (u32, u32),
     cadence: (f32, f32),
     gore: GoreStamp,
+    sight_cursor: usize,
 }
 
 impl WardVitals {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(ledger: (u32, u32), cadence: (f32, f32), gore: GoreStamp) -> Self {
-        Self { ledger, cadence, gore }
+    pub const fn new(ledger: (u32, u32), cadence: (f32, f32), gore: GoreStamp, sight_cursor: usize) -> Self {
+        Self { ledger, cadence, gore, sight_cursor }
     }
 
     pub const fn fresh() -> Self {
-        Self::new((0, INITIAL_STARTER_BLOCKS), (MAX_DIG_BURST_TOKENS, 0.0), GoreStamp::calm())
+        Self::new((0, INITIAL_STARTER_BLOCKS), (MAX_DIG_BURST_TOKENS, 0.0), GoreStamp::calm(), 0)
     }
 
     pub fn advance(&mut self, dt: f32) {
@@ -88,8 +89,16 @@ impl GuestWard {
         self.vitals.gore = self.vitals.gore.advanced(impulse);
     }
 
-    pub const fn presence(&self) -> CompanionPresence {
+    pub fn presence(&self) -> CompanionPresence {
         self.glide.authoritative_presence()
+    }
+
+    pub fn anchor_position(&self) -> Vec3 {
+        self.presence().transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos))
+    }
+
+    pub fn sight_cursor_mut(&mut self) -> &mut usize {
+        &mut self.vitals.sight_cursor
     }
 
     pub fn presence_at(&self, render_secs: f64) -> CompanionPresence {
@@ -213,5 +222,10 @@ impl GuestWard {
     pub fn send_sealed(&mut self, socket: &UdpSocket, companion_id: u32, payload: &[u8], scratch: &mut Vec<u8>) {
         self.seal.seal(companion_id, payload, scratch);
         let _ = socket.send_to(scratch, self.peer);
+    }
+
+    pub fn seal_outbound(&mut self, companion_id: u32, payload: &[u8], out: &mut Vec<u8>) -> SocketAddr {
+        self.seal.seal(companion_id, payload, out);
+        self.peer
     }
 }

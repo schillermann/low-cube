@@ -5,11 +5,12 @@ use std::time::Instant;
 use glam::Vec3;
 use world::{
     CompanionPresence, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum,
-    MeshTarget, PilotCraft, PlanetaryWorld, SightCone, WorldFact,
+    MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SightCone, WorldFact,
 };
 use fauna::BoarSounder;
 use crate::aura::{HostAura, HostIdentity};
-use crate::chronicle_log::ChronicleLog;
+use crate::chronicle_decorators::CompactedChronicle;
+use crate::chronicle_log::{ChronicleLog, ChronicleStore};
 use crate::chronicled_planet::ChronicledPlanet;
 use crate::cohort::GuestCohort;
 use crate::host_state::HostState;
@@ -79,11 +80,22 @@ impl SanctuaryHost {
         world: Box<dyn PlanetaryWorld>,
         proportions: world::SolarProportions,
     ) -> std::io::Result<Self> {
+        let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
+        Self::bind_cosmos_with_store(bind_addr, world, proportions, store)
+    }
+
+    /// Binds a non-blocking UDP socket backed by an explicit `ChronicleStore` decorator chain.
+    pub fn bind_cosmos_with_store(
+        bind_addr: &str,
+        world: Box<dyn PlanetaryWorld>,
+        proportions: world::SolarProportions,
+        chronicle: Box<dyn ChronicleStore>,
+    ) -> std::io::Result<Self> {
         let secret = PortalCode::draw_secret();
         let socket = Self::bind_slot_socket(bind_addr, secret)?;
         socket.set_nonblocking(true)?;
         let endpoint = NatAperture::interactive().open_host(&socket);
-        Ok(Self::assemble_bound(socket, endpoint, secret, world, proportions))
+        Ok(Self::assemble_with_store(socket, endpoint, secret, world, proportions, chronicle))
     }
 
     /// Binds a UDP socket advertising a known external NAT endpoint.
@@ -112,12 +124,26 @@ impl SanctuaryHost {
         world: Box<dyn PlanetaryWorld>,
         proportions: world::SolarProportions,
     ) -> Self {
+        let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
+        Self::assemble_with_store(socket, endpoint, secret, world, proportions, store)
+    }
+
+    fn assemble_with_store(
+        socket: UdpSocket,
+        endpoint: SocketAddr,
+        secret: u8,
+        world: Box<dyn PlanetaryWorld>,
+        proportions: world::SolarProportions,
+        chronicle: Box<dyn ChronicleStore>,
+    ) -> Self {
         let code = PortalCode::from_endpoint(endpoint, secret);
         let identity = HostIdentity::with_proportions(HandshakeIdentity::generate(), proportions, endpoint);
-        let state = HostState::new(
-            ChronicleLog::empty(),
+        let mut aura = HostAura::headless();
+        aura.beacons_mut().refresh_from(world.as_ref());
+        let state = HostState::with_store(
+            chronicle,
             GuestCohort::empty(),
-            HostAura::headless(),
+            aura,
             WormholeGate::with_code(code),
         );
         Self::new(socket, world, identity, state)
@@ -143,6 +169,8 @@ impl SanctuaryHost {
     pub fn sync_host_craft(&mut self, craft: PilotCraft) { self.write_wire(|w| w.state_mut().pilot_host(craft)); }
     pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) { self.read_wire(|w| w.state().guest_companions(out)); }
     pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) { self.read_wire(|w| w.state().guest_crafts(out)); }
+    pub fn utter_host_nearby(&mut self, text: &str) { self.write_wire(|w| w.utter_from_host(text)); }
+    pub fn drain_host_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { self.write_wire(|w| w.state_mut().drain_host_utterances(out)); }
     pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) { self.read_wire(|w| w.state().emit_guest_crafts(target)); }
     pub fn blend_companions(&mut self, subtick_secs: f32) {
         let blend = if self.mailbox.standby_needed(Instant::now()) { 0.0 } else { subtick_secs };
@@ -227,7 +255,9 @@ impl SanctuaryHost {
         let out = {
             let mut guard = self.wire.lock().expect("HostWire mutex poisoned");
             let mut decorated = ChronicledPlanet::new(self.world.as_mut(), guard.state_mut());
-            op(&mut decorated)
+            let r = op(&mut decorated);
+            guard.state_mut().refresh_beacons(self.world.as_ref());
+            r
         };
         self.flush_disclosures();
         out

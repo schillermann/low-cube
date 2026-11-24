@@ -9,6 +9,7 @@ use crate::surface::PlatformSurface;
 
 mod archetype;
 mod black_box_panel;
+mod chat_modal;
 mod clipboard;
 mod controls_slate;
 mod escape_menu;
@@ -33,6 +34,7 @@ mod widget;
 pub use archetype::AvatarArchetype;
 #[cfg(test)]
 pub use black_box_panel::{BlackBoxLayout, BlackBoxPanel};
+pub use chat_modal::ProximityChatModal;
 #[cfg(test)]
 pub use clipboard::{MemoryClipboard, ScratchClipboard};
 pub use clipboard::{SystemClipboard, TextClipboard};
@@ -98,6 +100,7 @@ pub trait SessionModal {
         false
     }
     fn sync_world_chart(&mut self, _avatar: &dyn Avatar, _world: &dyn world::PlanetaryWorld) {}
+    fn sync_portal_chat(&mut self, _world: &mut dyn world::PlanetaryWorld) {}
     fn toggle_escape(&mut self, surface: &dyn PlatformSurface) -> ModalDirective;
     fn focus_regained(&mut self) -> ModalDirective { ModalDirective::ContinueSession }
     fn move_cursor(&mut self, point: ScreenPoint);

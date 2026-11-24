@@ -9,6 +9,7 @@ use super::super::planned_mount::MountDomain;
 use super::super::shaft_excavation::ShaftExcavation;
 use super::super::sight_ray::SurfaceSightRay;
 use super::super::turf_scars::TurfScars;
+use super::super::vehicle_assembly::VehicleAssembly;
 use super::MAX_STACK_ELEVATION;
 
 /// Read-only collaborator resolving blueprint hologram previews, vehicle capture, and empty-rig queries.
@@ -105,5 +106,41 @@ impl<'a> BlueprintCommission<'a> {
         let final_mast = self.rigs.build_blueprint(mast, blueprint, strata, shafts, frame)?;
         self.scars.clear_stage(final_mast.0, final_mast.1);
         Some(final_mast)
+    }
+}
+
+/// Collaborator resolving crane/fleet vehicle boarding and seated crane re-docking (`<= 4` fields).
+pub(super) struct VehicleEmbarkation<'a> {
+    rigs: &'a mut RigRegistry,
+    fleet: &'a mut ParkedFleet,
+}
+
+impl<'a> VehicleEmbarkation<'a> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub(super) fn new(rigs: &'a mut RigRegistry, fleet: &'a mut ParkedFleet) -> Self {
+        Self { rigs, fleet }
+    }
+
+    pub(super) fn embark(
+        self,
+        strata: &NaturalStrata,
+        shafts: &ShaftExcavation,
+        frame: &SurfaceFrame,
+        target_cell: (i32, i32, f32),
+        ray: SurfaceSightRay,
+    ) -> (Option<VehicleAssembly>, bool) {
+        let (u, v, layer_elev) = target_cell;
+        if let Some(assembly) = self.rigs.board_drivable(strata, shafts, u, v, layer_elev, ray, frame) {
+            return (Some(assembly), true);
+        }
+        if let Some(assembly) = self.fleet.board_drivable(u, v, layer_elev, ray) {
+            return (Some(assembly), false);
+        }
+        let Some(mast) = self.rigs.find_aimed_rig(u, v, ray, frame) else {
+            return (None, false);
+        };
+        let mounted = self.rigs.reconnect_seated_car(strata, shafts, mast, ray, frame, self.fleet);
+        let changed = mounted.is_some();
+        (mounted, changed)
     }
 }

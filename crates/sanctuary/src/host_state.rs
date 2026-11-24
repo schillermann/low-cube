@@ -1,12 +1,15 @@
 use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
+use glam::Vec3;
 use world::{
     CompanionPresence, CraftBlueprint, CraftIdentity, DrivenCraft, ExposedStratum, MeshTarget,
-    PilotCraft, PlanetaryWorld, WorldFact,
+    PilotCraft, PlanetaryWorld, ProximityUtterance, WorldFact,
 };
 use fauna::BoarSounder;
+use crate::admin_ward::{AdminBlockWard, GuestFactStamp};
 use crate::aura::{HostAura, HostIdentity};
-use crate::chronicle_log::ChronicleLog;
+use crate::chronicle_decorators::CompactedChronicle;
+use crate::chronicle_log::{ChronicleLog, ChronicleStore};
 use crate::chronicled_planet::{ChronicledPlanet, FactJournal};
 use crate::cohort::GuestCohort;
 use crate::envelope::{CrackNotice, SanctuaryEnvelope};
@@ -16,9 +19,9 @@ use crate::ticket::PortalTicket;
 use crate::warded_planet::WardedPlanet;
 use crate::wormhole::{PortalCode, WormholeGate};
 
-/// Strictly encapsulated chronicle, guest cohort, host aura, and SPAKE2 wormhole gate of `SanctuaryHost`.
+/// Strictly encapsulated chronicle store, guest cohort, host aura, and SPAKE2 wormhole gate (`<= 4` fields).
 pub struct HostState {
-    chronicle: ChronicleLog,
+    chronicle: Box<dyn ChronicleStore>,
     cohort: GuestCohort,
     aura: HostAura,
     wormhole: WormholeGate,
@@ -26,8 +29,8 @@ pub struct HostState {
 
 impl HostState {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        chronicle: ChronicleLog,
+    pub fn with_store(
+        chronicle: Box<dyn ChronicleStore>,
         cohort: GuestCohort,
         aura: HostAura,
         wormhole: WormholeGate,
@@ -35,35 +38,60 @@ impl HostState {
         Self { chronicle, cohort, aura, wormhole }
     }
 
+    /// Secondary constructor decorating `chronicle` with `CompactedChronicle`.
+    pub fn new(
+        chronicle: ChronicleLog,
+        cohort: GuestCohort,
+        aura: HostAura,
+        wormhole: WormholeGate,
+    ) -> Self {
+        Self::with_store(Box::new(CompactedChronicle::wrapping(chronicle)), cohort, aura, wormhole)
+    }
+
     pub const fn code(&self) -> PortalCode { self.wormhole.code() }
     pub fn punch_peer(&mut self, socket: &UdpSocket, peer: SocketAddr) { self.wormhole.punch_peer(socket, peer); }
     pub fn occupy_host(&mut self, presence: CompanionPresence) { self.aura.occupy(presence); }
     pub fn pilot_host(&mut self, craft: PilotCraft) { self.aura.pilot(craft); }
     pub fn active_craft_count(&self) -> usize { self.cohort.active_craft_count() }
-    pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) { self.cohort.guest_companions(out); }
-    pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) { self.cohort.guest_crafts(out); }
-    pub fn constrain_guest_crafts(&self, position: glam::Vec3, player_height: f32, up: glam::Vec3) -> Option<glam::Vec3> {
+    pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) {
+        self.cohort.guest_companions(self.aura.occupied_position(), out);
+    }
+    pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) {
+        self.cohort.guest_crafts(self.aura.occupied_position(), out);
+    }
+    pub fn constrain_guest_crafts(&self, position: Vec3, player_height: f32, up: Vec3) -> Option<Vec3> {
         self.cohort.constrain_crafts(self.aura.fleet(), position, player_height, up)
     }
-    pub fn sample_guest_deck(&self, position: glam::Vec3, player_height: f32) -> Option<world::DeckFrame> {
+    pub fn sample_guest_deck(&self, position: Vec3, player_height: f32) -> Option<world::DeckFrame> {
         self.cohort.sample_deck_at(self.aura.fleet(), position, player_height)
     }
     pub const fn fleet(&self) -> &FleetLedger { self.aura.fleet() }
     pub const fn wildlife(&self) -> &HostSounder { self.aura.wildlife() }
     pub fn wildlife_mut(&mut self) -> &mut HostSounder { self.aura.wildlife_mut() }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.cohort.blend_subtick(subtick_secs); }
+    pub fn refresh_beacons(&mut self, world: &dyn PlanetaryWorld) { self.aura.beacons_mut().refresh_from(world); }
+    pub fn drain_host_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { self.aura.drain_utterances(out); }
+
+    pub fn utter_from_host(&mut self, socket: &UdpSocket, text: &str) {
+        if let Some(pos) = self.aura.occupied_position() {
+            if let Some(utterance) = ProximityUtterance::sanitized(1, pos, text) {
+                self.cohort.relay_utterance(socket, utterance, &mut self.aura);
+            }
+        }
+    }
+
     pub fn answer_wormhole(&mut self, socket: &UdpSocket, src: SocketAddr, pkt: &[u8], ticket: PortalTicket) {
         self.wormhole.answer_hello(socket, src, pkt, ticket);
     }
 
     pub fn emit_guest_crafts(&self, target: &mut dyn MeshTarget) {
         let mut crafts = Vec::new();
-        self.cohort.guest_crafts(&mut crafts);
+        self.guest_crafts(&mut crafts);
         self.aura.fleet().emit_crafts(&crafts, target);
     }
 
-    pub fn admit_guest(&mut self, identity: &HostIdentity, peer: SocketAddr, guest_pub: [u8; 32]) -> u32 {
-        self.cohort.admit_guest(identity, peer, guest_pub)
+    pub fn admit_guest(&mut self, identity: &HostIdentity, peer: SocketAddr, guest_pub: [u8; 32]) -> (u32, Option<Vec3>) {
+        self.cohort.admit_guest(identity, self.aura.beacons_mut(), peer, guest_pub)
     }
 
     pub fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
@@ -97,26 +125,12 @@ impl HostState {
                 BoarSounder::cast_meat_drops(meat_rays, &mut decorated)
             }
             other => {
-                let stamped = match other {
-                    WorldFact::HelmClaimed { craft, eye, direction, .. } => {
-                        WorldFact::HelmClaimed { craft, pilot_slot: cid, eye, direction }
-                    }
-                    WorldFact::OffWorld { body, fact } => {
-                        let inner = match *fact {
-                            WorldFact::HelmClaimed { craft, eye, direction, .. } => {
-                                WorldFact::HelmClaimed { craft, pilot_slot: cid, eye, direction }
-                            }
-                            rest => rest,
-                        };
-                        WorldFact::OffWorld { body, fact: Box::new(inner) }
-                    }
-                    rest => rest,
-                };
+                let stamped = GuestFactStamp::new(cid, other).stamped();
                 let fleet = self.aura.fleet_mut();
-                let enacted = self
-                    .cohort
-                    .ward_mut(cid)
-                    .is_some_and(|ward| stamped.enact_on(&mut WardedPlanet::new(world, ward, fleet, cid)));
+                let enacted = self.cohort.ward_mut(cid).is_some_and(|ward| {
+                    let mut guarded = AdminBlockWard::new(WardedPlanet::new(world, ward, fleet, cid));
+                    stamped.enact_on(&mut guarded)
+                });
                 if enacted {
                     self.record_authored_fact(cid, stamped);
                 }
@@ -125,7 +139,14 @@ impl HostState {
         }
     }
 
-    pub fn process_companion_datagram(&mut self, cid: u32, src: SocketAddr, pkt: &[u8], world: &mut dyn PlanetaryWorld) -> bool {
+    pub fn process_companion_datagram(
+        &mut self,
+        socket: &UdpSocket,
+        cid: u32,
+        src: SocketAddr,
+        pkt: &[u8],
+        world: &mut dyn PlanetaryWorld,
+    ) -> bool {
         let Some(body) = self.cohort.ward_mut(cid).and_then(|w| w.open_datagram(src, pkt)) else {
             return false;
         };
@@ -142,12 +163,21 @@ impl HostState {
                 false
             }
             Some(SanctuaryEnvelope::GuestPetition { fact }) => self.enact_guest_petition(cid, fact, world),
+            Some(SanctuaryEnvelope::GuestUtterance { text }) => {
+                if let Some(pos) = self.cohort.ward_anchor(cid) {
+                    if let Some(utterance) = ProximityUtterance::sanitized(cid, pos, &text) {
+                        self.cohort.relay_utterance(socket, utterance, &mut self.aura);
+                    }
+                }
+                false
+            }
             _ => false,
         }
     }
 
     pub fn process_standby_datagram(
         &mut self,
+        socket: &UdpSocket,
         cid: u32,
         src: SocketAddr,
         pkt: &[u8],
@@ -171,6 +201,13 @@ impl HostState {
             Some(SanctuaryEnvelope::GuestPetition { fact }) => {
                 if deferred.len() < 64 {
                     deferred.push_back((cid, fact));
+                }
+            }
+            Some(SanctuaryEnvelope::GuestUtterance { text }) => {
+                if let Some(pos) = self.cohort.ward_anchor(cid) {
+                    if let Some(utterance) = ProximityUtterance::sanitized(cid, pos, &text) {
+                        self.cohort.relay_utterance(socket, utterance, &mut self.aura);
+                    }
                 }
             }
             _ => {}
@@ -223,7 +260,7 @@ impl HostState {
     }
 
     pub fn broadcast(&mut self, socket: &UdpSocket) {
-        self.cohort.broadcast(socket, &self.chronicle, &mut self.aura);
+        self.cohort.broadcast(socket, self.chronicle.as_ref(), &mut self.aura);
     }
 }
 

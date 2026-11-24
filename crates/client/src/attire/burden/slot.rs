@@ -87,6 +87,7 @@ impl SlotBurden {
             | HeldRelic::AircraftEngine
             | HeldRelic::FlightConsole
             | HeldRelic::FusionTorch
+            | HeldRelic::SpawnStone
             | HeldRelic::RocketNozzle => WeightGrade::Heavy,
         }
     }

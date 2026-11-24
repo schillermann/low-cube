@@ -202,6 +202,7 @@ impl SessionStage {
                 if self.world.pump_portal(dt) {
                     self.refresh_surface(display);
                 }
+                self.overlay.sync_portal_chat(self.world.as_mut());
                 self.overlay.sync_world_chart(self.avatar.as_ref(), self.world.as_ref());
             }
             return;
@@ -236,6 +237,7 @@ impl SessionStage {
         }
         self.avatar.blend_subtick(beat.subtick_blend());
         self.avatar.sync_world_presence(self.world.as_mut());
+        self.overlay.sync_portal_chat(self.world.as_mut());
         display.stream_meadow_slice(self.world.as_ref(), self.avatar.as_ref(), reopen_meadow);
         self.world.blend_companions(beat.subtick_blend() * beat.tick_seconds());
     }
