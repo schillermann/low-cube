@@ -127,7 +127,11 @@ impl<S: SpaceStep> SpaceStep for NozzleThrustStep<'_, S> {
             .ephemeris()
             .map_or(MAX_COSMIC_SPEED, |e| e.proportions().chemical_speed_cap());
         let cap = if fusion { MAX_FUSION_SPEED } else { chem_cap };
-        let raw_dv = if fusion { impulse.fusion_velocity_delta(dt) } else { impulse.velocity_delta(dt) };
+        let raw_dv = if fusion {
+            impulse.keel_fusion_velocity_delta(self.assembly.aerospace_framed(), dt)
+        } else {
+            impulse.velocity_delta(dt)
+        };
         let speed = s.velocity.length();
         let dv = if speed > 1e-4 {
             let vel_dir = s.velocity / speed;

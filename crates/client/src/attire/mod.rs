@@ -155,8 +155,8 @@ impl YouthAttire {
                 YouthPhysique::from_code(bytes[8]),
             ),
             HeldHands::new(
-                HeldRelic::from_code((bytes[5] & 0x0F) | (((bytes[4] >> 4) & 1) << 4)),
-                HeldRelic::from_code((bytes[5] >> 4) | (((bytes[4] >> 5) & 1) << 4)),
+                HeldRelic::from_code((bytes[5] & 0x0F) | (((bytes[4] >> 4) & 1) << 4) | (((bytes[4] >> 6) & 1) << 5)),
+                HeldRelic::from_code((bytes[5] >> 4) | (((bytes[4] >> 5) & 1) << 4) | (((bytes[4] >> 7) & 1) << 5)),
             ),
         )
     }
@@ -233,7 +233,9 @@ impl YouthAttire {
             self.garments.footwear.code(),
             (self.identity.crown.code() & 0x0F)
                 | (((r_code >> 4) & 1) << 4)
-                | (((l_code >> 4) & 1) << 5),
+                | (((l_code >> 4) & 1) << 5)
+                | (((r_code >> 5) & 1) << 6)
+                | (((l_code >> 5) & 1) << 7),
             (r_code & 0x0F) | ((l_code & 0x0F) << 4),
             self.identity.pigment.code(),
             self.identity.complexion.code(),

@@ -19,6 +19,8 @@ impl RelicLexicon {
         HeldRelic::FusionTorch,
         HeldRelic::RocketNozzle,
         HeldRelic::RocketCamera,
+        HeldRelic::TitaniumHull,
+        HeldRelic::CarbonSilicate,
         HeldRelic::AircraftEngine,
         HeldRelic::ExcavatedEarth,
         HeldRelic::CrustBlock,
@@ -97,6 +99,8 @@ impl RelicLexicon {
             HeldRelic::BoarMeat => "BOAR MEAT",
             HeldRelic::VehicleBlueprint => "BLUEPRINT BLOCK",
             HeldRelic::SpawnStone => "SPAWN STONE",
+            HeldRelic::TitaniumHull => "TITANIUM HULL",
+            HeldRelic::CarbonSilicate => "CARBON LACE",
         }
     }
 
@@ -141,6 +145,8 @@ impl RelicLexicon {
             "boarmeat" | "meat" | "venison" | "fleisch" | "wildschwein" => Some(HeldRelic::BoarMeat),
             "blueprint" | "blueprintblock" | "vehicleblueprint" | "bauplan" => Some(HeldRelic::VehicleBlueprint),
             "spawnstone" | "spawnblock" | "spawnpoint" | "arrivalstone" => Some(HeldRelic::SpawnStone),
+            "titaniumhull" | "titanium" | "titaniumalloy" | "titan" | "titanhuelle" => Some(HeldRelic::TitaniumHull),
+            "carbonsilicate" | "carbonlace" | "silicatelace" | "cermet" | "keramik" => Some(HeldRelic::CarbonSilicate),
             _ => None,
         }
     }
@@ -167,7 +173,37 @@ impl RelicLexicon {
             HeldRelic::GoldOre => BlockMedium::GoldOre,
             HeldRelic::VehicleBlueprint => BlockMedium::VehicleBlueprint,
             HeldRelic::SpawnStone => BlockMedium::SpawnStone,
+            HeldRelic::TitaniumHull => BlockMedium::TitaniumHull,
+            HeldRelic::CarbonSilicate => BlockMedium::CarbonSilicate,
             _ => BlockMedium::TurfEarth,
+        }
+    }
+
+    pub const fn from_medium(medium: BlockMedium) -> HeldRelic {
+        match medium {
+            BlockMedium::TurfEarth | BlockMedium::Sand => HeldRelic::ExcavatedEarth,
+            BlockMedium::CrustRock => HeldRelic::CrustBlock,
+            BlockMedium::QuarriedStone => HeldRelic::QuarriedStone,
+            BlockMedium::RawTimber => HeldRelic::TimberBlock,
+            BlockMedium::PlanedPlanks => HeldRelic::PlankBlock,
+            BlockMedium::CantileverRig => HeldRelic::CantileverCrane,
+            BlockMedium::SteeringWheel => HeldRelic::SteeringWheel,
+            BlockMedium::AircraftEngine => HeldRelic::AircraftEngine,
+            BlockMedium::FlightConsole => HeldRelic::FlightConsole,
+            BlockMedium::RocketNozzle => HeldRelic::RocketNozzle,
+            BlockMedium::RocketCamera => HeldRelic::RocketCamera,
+            BlockMedium::CabinSeat => HeldRelic::CabinSeat,
+            BlockMedium::CarWheel => HeldRelic::CarWheel,
+            BlockMedium::FieldCamera => HeldRelic::FieldCamera,
+            BlockMedium::PedalCluster => HeldRelic::PedalCluster,
+            BlockMedium::CopperOre => HeldRelic::CopperOre,
+            BlockMedium::IronOre => HeldRelic::IronOre,
+            BlockMedium::GoldOre => HeldRelic::GoldOre,
+            BlockMedium::VehicleBlueprint => HeldRelic::VehicleBlueprint,
+            BlockMedium::FusionTorch => HeldRelic::FusionTorch,
+            BlockMedium::SpawnStone => HeldRelic::SpawnStone,
+            BlockMedium::TitaniumHull => HeldRelic::TitaniumHull,
+            BlockMedium::CarbonSilicate => HeldRelic::CarbonSilicate,
         }
     }
 
@@ -198,32 +234,6 @@ impl RelicLexicon {
             HeldRelic::IronPickaxe => SurfaceFind::IronPickaxe,
             HeldRelic::BoarMeat => SurfaceFind::BoarMeat,
             _ => SurfaceFind::LooseBlock(self.block_medium()),
-        }
-    }
-
-    pub const fn from_medium(medium: BlockMedium) -> HeldRelic {
-        match medium {
-            BlockMedium::TurfEarth | BlockMedium::Sand => HeldRelic::ExcavatedEarth,
-            BlockMedium::CrustRock => HeldRelic::CrustBlock,
-            BlockMedium::QuarriedStone => HeldRelic::QuarriedStone,
-            BlockMedium::RawTimber => HeldRelic::TimberBlock,
-            BlockMedium::PlanedPlanks => HeldRelic::PlankBlock,
-            BlockMedium::CantileverRig => HeldRelic::CantileverCrane,
-            BlockMedium::SteeringWheel => HeldRelic::SteeringWheel,
-            BlockMedium::AircraftEngine => HeldRelic::AircraftEngine,
-            BlockMedium::FlightConsole => HeldRelic::FlightConsole,
-            BlockMedium::RocketNozzle => HeldRelic::RocketNozzle,
-            BlockMedium::RocketCamera => HeldRelic::RocketCamera,
-            BlockMedium::CabinSeat => HeldRelic::CabinSeat,
-            BlockMedium::CarWheel => HeldRelic::CarWheel,
-            BlockMedium::FieldCamera => HeldRelic::FieldCamera,
-            BlockMedium::PedalCluster => HeldRelic::PedalCluster,
-            BlockMedium::CopperOre => HeldRelic::CopperOre,
-            BlockMedium::IronOre => HeldRelic::IronOre,
-            BlockMedium::GoldOre => HeldRelic::GoldOre,
-            BlockMedium::VehicleBlueprint => HeldRelic::VehicleBlueprint,
-            BlockMedium::FusionTorch => HeldRelic::FusionTorch,
-            BlockMedium::SpawnStone => HeldRelic::SpawnStone,
         }
     }
 

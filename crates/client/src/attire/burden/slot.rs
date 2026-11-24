@@ -66,7 +66,9 @@ impl SlotBurden {
             | HeldRelic::SteeringWheel
             | HeldRelic::PedalCluster
             | HeldRelic::FieldCamera
-            | HeldRelic::VehicleBlueprint => WeightGrade::Light,
+            | HeldRelic::VehicleBlueprint
+            | HeldRelic::TitaniumHull
+            | HeldRelic::CarbonSilicate => WeightGrade::Light,
             HeldRelic::FlintStone
             | HeldRelic::FlintPickaxe
             | HeldRelic::ExcavatedEarth

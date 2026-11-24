@@ -8,6 +8,13 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.119.0] - 2026-11-24
+
+### Added
+- Added Expanse-inspired `TitaniumHull` and `CarbonSilicate` spacecraft hull materials, ultralight keel mass scaling, high-G Epstein burn authority, and ceramic atmospheric entry aerobraking:
+  - `BlockMedium::TitaniumHull` & `BlockMedium::CarbonSilicate` (`crates/world/src/block/timber_grain/`), `AerospacePlating` (`crates/world/src/block/aerospace_hull.rs`), `HeldRelic::TitaniumHull` & `HeldRelic::CarbonSilicate` (`crates/client/src/attire/relic/`), `ArtisanTome` (`2× IronOre + 1× CrustBlock -> 4× TitaniumHull`, `1× GoldOre + 2× FlintStone -> 4× CarbonSilicate`), `RelicCatalog` (`RELIC_SLOT_COUNT = 34`), and 6-bit dual-palm wire packing in `YouthAttire::multiplayer_bytes` & `SatchelManifest::reconcile_from_presence`: sculpts riveted matte titanium keel plates and staggered stealth ceramic tiles over glowing cyan-blue carbon-silicate lace across all 16 `MoldArchetype` forms with zero extra network wire bytes.
+  - `PartPropulsion::part_mass` (`crates/world/src/relief/vehicle_assembly/part/propulsion.rs`), `CraftBlueprint::aerospace_framed` / `thermal_shielded`, `RigidImpulse::keel_fusion_velocity_delta` (`crates/world/src/relief/vehicle_assembly/impulse/mod.rs`), `SurfaceContact::resolve_gas` (`crates/world/src/surface_contact.rs`), and `AtmosphericEntryStep` (`crates/client/src/drive/reentry_step.rs`, wired into `RocketDrive`): reduces aerospace hull dry mass (`0.12` titanium, `0.08` carbon-silicate vs. `0.35` timber/earth), unlocks ~11G (`108 m/s²`) sustained Epstein burns and faster `HelmChart` Brachistochrone transfers on aerospace-framed hulls, and aerobrakes smoothly without rotational buffeting during steep planetary reentry and gas-envelope flight (`crates/client/src/drive/expanse_hull_tests.rs`).
+
 ## [0.118.0] - 2026-11-24
 
 ### Added

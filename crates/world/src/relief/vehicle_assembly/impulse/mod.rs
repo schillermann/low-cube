@@ -23,6 +23,7 @@ const MAX_ENGAGED_RATE: f32 = 1.65;
 const MAX_MANUAL_RATE: f32 = 3.20;
 const MAX_THRUST_ACCEL: f32 = 32.0;
 const MAX_FUSION_ACCEL: f32 = 78.5;
+const MAX_KEEL_FUSION_ACCEL: f32 = 108.0;
 const MIN_CRAFT_MASS: f32 = 3.0;
 const MIN_AXIS_INERTIA: f32 = 0.70;
 
@@ -187,6 +188,12 @@ impl RigidImpulse {
     /// Epstein fusion torch linear velocity delta (`F / m`, capped to `MAX_FUSION_ACCEL` ~8G) over `dt`.
     pub fn fusion_velocity_delta(&self, dt: f32) -> Vec3 {
         self.capped_velocity_delta(dt, MAX_FUSION_ACCEL)
+    }
+
+    /// Keel-rated Epstein fusion velocity delta unlocking ~11G combat burns on aerospace-framed hulls.
+    pub fn keel_fusion_velocity_delta(&self, aerospace_keel: bool, dt: f32) -> Vec3 {
+        let cap = if aerospace_keel { MAX_KEEL_FUSION_ACCEL } else { MAX_FUSION_ACCEL };
+        self.capped_velocity_delta(dt, cap)
     }
 
     fn capped_velocity_delta(&self, dt: f32, cap: f32) -> Vec3 {

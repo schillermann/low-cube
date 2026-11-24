@@ -38,4 +38,12 @@ impl SurfaceContact {
             Self::SolidCrust { ground, normal } => on_crust(ground, normal),
         }
     }
+
+    /// Dispatches gas-giant atmospheric `drag` to `on_gas` or returns `fallback` in vacuum and solid crusts.
+    pub fn resolve_gas<R>(self, fallback: R, on_gas: impl FnOnce(f32) -> R) -> R {
+        match self {
+            Self::GasEnvelope { drag } => on_gas(drag),
+            Self::Vacuum | Self::SolidCrust { .. } => fallback,
+        }
+    }
 }

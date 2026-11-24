@@ -13,7 +13,10 @@ use super::super::impulse::{CockpitAxes, PilotOrder, RigidImpulse};
 const CORE_MODULE_MASS: f32 = 1.00;
 const OUTBOARD_POD_MASS: f32 = 0.75;
 const DENSE_HULL_MASS: f32 = 0.45;
-const LIGHT_FRAME_MASS: f32 = 0.20;
+const TIMBER_EARTH_MASS: f32 = 0.35;
+const LIGHT_FRAME_MASS: f32 = 0.22;
+const TITANIUM_KEEL_MASS: f32 = 0.12;
+const CARBON_LACE_MASS: f32 = 0.08;
 
 /// Spacecraft mass and nozzle reaction contributor for a single `VehiclePart`.
 pub(super) struct PartPropulsion<'a> {
@@ -50,6 +53,9 @@ impl<'a> PartPropulsion<'a> {
             | BlockMedium::CopperOre
             | BlockMedium::IronOre
             | BlockMedium::GoldOre => DENSE_HULL_MASS,
+            BlockMedium::TurfEarth | BlockMedium::Sand | BlockMedium::RawTimber => TIMBER_EARTH_MASS,
+            BlockMedium::TitaniumHull => TITANIUM_KEEL_MASS,
+            BlockMedium::CarbonSilicate => CARBON_LACE_MASS,
             _ => LIGHT_FRAME_MASS,
         }
     }

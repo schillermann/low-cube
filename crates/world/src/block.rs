@@ -1,3 +1,4 @@
+mod aerospace_hull;
 mod blueprint_block;
 mod cabin_seat;
 mod cell;
@@ -28,6 +29,7 @@ mod wedge;
 #[cfg(test)]
 mod tests;
 
+pub use aerospace_hull::AerospacePlating;
 pub use blueprint_block::BlueprintBlockMesh;
 pub use cabin_seat::CabinSeatMesh;
 pub use cell::GridCell;

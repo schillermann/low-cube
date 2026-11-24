@@ -7,6 +7,7 @@ use crate::attire::{BodyPose, RocketControls};
 use crate::controls::KeyboardControls;
 use crate::menu::GuidanceReadout;
 use super::helm_chart::{HelmChart, OpticTelemetry, OrrerySnapshot};
+use super::reentry_step::AtmosphericEntryStep;
 use super::space_step::{
     GravitationStep, GyroStep, InertialDrift, NozzleThrustStep, SpaceStep, TouchdownStep,
 };
@@ -46,7 +47,7 @@ impl RocketDrive {
         let full = PilotOrder::from_channels(Vec3::Y, Vec3::ZERO, Vec3::ZERO, AttitudeGuidance::Engaged);
         let imp = assembly.sample_impulse(&full);
         if assembly.fusion_equipped() {
-            imp.fusion_velocity_delta(1.0).length()
+            imp.keel_fusion_velocity_delta(assembly.aerospace_framed(), 1.0).length()
         } else {
             imp.velocity_delta(1.0).length()
         }
@@ -151,22 +152,30 @@ impl CraftDrive for RocketDrive {
         self.trim.advance_burn(order, assembly, flipping, dt);
 
         let imp = assembly.sample_impulse(&order);
-        let thrust_dv = if fusion { imp.fusion_velocity_delta(dt) } else { imp.velocity_delta(dt) };
+        let thrust_dv = if fusion {
+            imp.keel_fusion_velocity_delta(assembly.aerospace_framed(), dt)
+        } else {
+            imp.velocity_delta(dt)
+        };
         let proper_g = if dt > 1e-5 { thrust_dv.length() / (dt * 9.81) } else { 0.0 };
 
         let chain = TouchdownStep::new(
-            GyroStep::new(
-                NozzleThrustStep::new(
-                    GravitationStep::new(
-                        InertialDrift::new(assembly.origin(), lin_vel, ang_vel),
+            AtmosphericEntryStep::new(
+                GyroStep::new(
+                    NozzleThrustStep::new(
+                        GravitationStep::new(
+                            InertialDrift::new(assembly.origin(), lin_vel, ang_vel),
+                            world,
+                        ),
+                        assembly,
+                        order,
                         world,
                     ),
                     assembly,
                     order,
-                    world,
                 ),
                 assembly,
-                order,
+                world,
             ),
             assembly,
             world,

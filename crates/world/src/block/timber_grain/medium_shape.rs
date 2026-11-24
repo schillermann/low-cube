@@ -1,6 +1,7 @@
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, TurfMeshTarget};
+use super::super::aerospace_hull::AerospacePlating;
 use super::super::blueprint_block::BlueprintBlockMesh;
 use super::super::cabin_seat::CabinSeatMesh;
 use super::super::cell::GridCell;
@@ -135,6 +136,12 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
             (BlockMedium::PlanedPlanks, true) | (BlockMedium::CantileverRig, _) => {
                 BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target);
+            }
+            (med, true) if med.aerospace_hull() => {
+                AerospacePlating::new(med, self.cross_grain()).emit_cube(cell, floor_elevation, frame, target);
+            }
+            (med, false) if med.aerospace_hull() => {
+                AerospacePlating::new(med, self.cross_grain()).emit_shaped(&self.inner, cell, floor_elevation, frame, target);
             }
             (BlockMedium::CabinSeat, _) => CabinSeatMesh::new(self.heading).emit(&self.inner, cell, floor_elevation, frame, target),
             (BlockMedium::VehicleBlueprint, _) => BlueprintBlockMesh::new(self.heading).emit(cell, floor_elevation, frame, target),

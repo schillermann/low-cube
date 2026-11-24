@@ -3,6 +3,7 @@ mod helm_chart;
 mod helmed;
 mod passenger;
 mod pilot;
+mod reentry_step;
 mod road;
 mod rocket;
 mod space_step;
@@ -13,6 +14,8 @@ mod wheeled;
 mod camera_look_tests;
 #[cfg(test)]
 mod expanse_acoustics_tests;
+#[cfg(test)]
+mod expanse_hull_tests;
 #[cfg(test)]
 mod expanse_tests;
 #[cfg(test)]

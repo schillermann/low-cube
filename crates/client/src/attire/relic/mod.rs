@@ -43,10 +43,12 @@ pub enum HeldRelic {
     SpawnStone,
     FlintPickaxe,
     IronPickaxe,
+    TitaniumHull,
+    CarbonSilicate,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 32;
+    pub const COUNT: usize = 34;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -87,7 +89,9 @@ impl HeldRelic {
             28 => Self::FusionTorch,
             29 => Self::SpawnStone,
             30 => Self::FlintPickaxe,
-            _ => Self::IronPickaxe,
+            31 => Self::IronPickaxe,
+            32 => Self::TitaniumHull,
+            _ => Self::CarbonSilicate,
         }
     }
 
@@ -125,6 +129,8 @@ impl HeldRelic {
             Self::SpawnStone => 29,
             Self::FlintPickaxe => 30,
             Self::IronPickaxe => 31,
+            Self::TitaniumHull => 32,
+            Self::CarbonSilicate => 33,
         }
     }
 
@@ -247,6 +253,8 @@ impl HeldRelic {
                 | Self::VehicleBlueprint
                 | Self::FusionTorch
                 | Self::SpawnStone
+                | Self::TitaniumHull
+                | Self::CarbonSilicate
         )
     }
 

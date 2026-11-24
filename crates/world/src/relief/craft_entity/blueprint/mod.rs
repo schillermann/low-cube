@@ -7,7 +7,7 @@ mod wire_primitives;
 mod wireframe;
 
 use glam::Vec3;
-use crate::block::{BlockMedium, ConsoleOrrery, GridCell};
+use crate::block::{BlockMedium, ConsoleOrrery};
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::super::craft_cluster::CraftCluster;
@@ -56,6 +56,12 @@ impl CraftBlueprint {
     pub fn spacefaring(&self) -> bool { self.parts.iter().any(VehiclePart::flight_console) }
     pub fn fusion_equipped(&self) -> bool { self.parts.iter().any(VehiclePart::fusion_torch) }
     pub fn attitude_capable(&self) -> bool { self.parts.iter().any(VehiclePart::attitude_pod) }
+    pub fn aerospace_framed(&self) -> bool {
+        self.parts.iter().any(|p| p.block_medium().aerospace_hull())
+    }
+    pub fn thermal_shielded(&self) -> bool {
+        self.parts.iter().any(|p| p.block_medium().thermal_shielded())
+    }
 
     pub fn tally_media(&self, mut sink: impl FnMut(BlockMedium)) {
         for part in &self.parts {
@@ -167,51 +173,11 @@ impl CraftBlueprint {
     }
 
     pub fn passenger_seat_along_ray(&self, pose: CraftPose, eye: Vec3, direction: Vec3) -> Option<Vec3> {
-        let dir = direction.normalize_or_zero();
-        if dir.length_squared() < 1e-4 {
-            return None;
-        }
-        let lift = self.wheel_ground_lift();
-        let mut best: Option<(Vec3, f32)> = None;
-        for part in &self.parts {
-            let Some((ox, oy, floor_off)) = part.passenger_seat_slot() else { continue };
-            let local = Vec3::new((ox as f32) * 0.5, floor_off + lift, (oy as f32) * 0.5);
-            let (world_seat, _, up) = pose.world_seat_at(local);
-            let target_pt = world_seat + up * 0.25;
-            let to_seat = target_pt - eye;
-            let along = to_seat.dot(dir);
-            if !(0.15..=4.2).contains(&along) {
-                continue;
-            }
-            let radial_sq = (to_seat - dir * along).length_squared();
-            if radial_sq <= 0.45 && best.is_none_or(|(_, d)| along < d) {
-                best = Some((local, along));
-            }
-        }
-        best.map(|(local, _)| local)
+        super::spatial::PosedHull::new(self, pose).passenger_seat_along_ray(eye, direction)
     }
 
     pub fn constrain_at(&self, pose: CraftPose, position: Vec3, player_height: f32) -> Option<Vec3> {
-        if self.parts.is_empty() {
-            return None;
-        }
-        let car_frame = pose.surface_frame();
-        let shift = pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
-        let rel = position - shift;
-        let (u, v) = car_frame.decompose(rel);
-        let elev = car_frame.elevation_of(rel);
-        let (cu, cv) = GridCell::at_planar(u, v).feed_coordinates(|gu, gv| (gu, gv));
-        let lift = self.wheel_ground_lift();
-        let foot_elev = elev - player_height;
-        let mut top_support: Option<f32> = None;
-        for part in &self.parts {
-            let Some((floor_h, ceil_h)) = part.cell_top_at(cu, cv, lift) else { continue };
-            let passes_under = player_height > 1e-4 && foot_elev + 0.08 <= floor_h && floor_h >= 1.77;
-            if !passes_under {
-                top_support = Some(top_support.map_or(ceil_h, |cur| cur.max(ceil_h)));
-            }
-        }
-        top_support.map(|h| shift + car_frame.point_at(u, v, h + player_height))
+        super::spatial::PosedHull::new(self, pose).constrain_at(position, player_height)
     }
 
     pub(in crate::relief) fn clamped_seat(

@@ -5,7 +5,7 @@ use crate::{BlockMedium, CompanionPresence, CraftBlueprint, SurfaceFind};
 pub use self::catalog::{RelicCatalog, RELIC_SLOT_COUNT};
 pub use self::record::{SurvivorRecord, SurvivorWelcome};
 
-/// Authoritative per-survivor inventory totals (`0..=29`) and equipped `(right, left)` palm codes (`<= 4` fields).
+/// Authoritative per-survivor inventory totals (`0..=33`) and equipped `(right, left)` palm codes (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SatchelManifest {
     totals: [u32; RELIC_SLOT_COUNT],
@@ -69,7 +69,7 @@ impl SatchelManifest {
                 }
                 None => 1,
             };
-            if code > 0 && (code as usize) < RELIC_SLOT_COUNT && code != 29 {
+            if RelicCatalog::new(code).guest_permitted() {
                 totals[code as usize] = totals[code as usize].saturating_add(count);
             }
         }
@@ -87,17 +87,13 @@ impl SatchelManifest {
     pub fn sanitized(mut self) -> Self {
         self.totals[0] = 0;
         self.totals[29] = 0;
-        let r = if (self.hands.0 as usize) < RELIC_SLOT_COUNT && self.hands.0 != 29 && self.totals[self.hands.0 as usize] >= 1 {
+        let r = if RelicCatalog::new(self.hands.0).guest_permitted() && self.totals[self.hands.0 as usize] >= 1 {
             self.hands.0
         } else {
             0
         };
         let needed_l = 1 + u32::from(r != 0 && r == self.hands.1);
-        let l = if (self.hands.1 as usize) < RELIC_SLOT_COUNT
-            && self.hands.1 != 29
-            && self.hands.1 != 0
-            && self.totals[self.hands.1 as usize] >= needed_l
-        {
+        let l = if RelicCatalog::new(self.hands.1).guest_permitted() && self.totals[self.hands.1 as usize] >= needed_l {
             self.hands.1
         } else {
             0
@@ -107,7 +103,7 @@ impl SatchelManifest {
     }
 
     pub fn credit_code(&mut self, code: u8, qty: u32) {
-        if code > 0 && (code as usize) < RELIC_SLOT_COUNT && code != 29 && qty > 0 {
+        if RelicCatalog::new(code).guest_permitted() && qty > 0 {
             self.totals[code as usize] = self.totals[code as usize].saturating_add(qty);
         }
     }
@@ -201,7 +197,7 @@ impl SatchelManifest {
     pub fn inventory_summary(&self) -> String {
         let mut entries = Vec::new();
         for code in 1..(RELIC_SLOT_COUNT as u8) {
-            if code == 29 {
+            if !RelicCatalog::new(code).guest_permitted() {
                 continue;
             }
             let qty = self.count_of(code);
@@ -219,8 +215,8 @@ impl SatchelManifest {
     pub fn reconcile_from_presence(&mut self, presence: CompanionPresence) {
         let (r, l) = presence.transfer(|_, _, _, attire| {
             attire.transfer(|g, _, _| {
-                let rc = (g[5] & 0x0F) | (((g[4] >> 4) & 1) << 4);
-                let lc = (g[5] >> 4) | (((g[4] >> 5) & 1) << 4);
+                let rc = (g[5] & 0x0F) | (((g[4] >> 4) & 1) << 4) | (((g[4] >> 6) & 1) << 5);
+                let lc = (g[5] >> 4) | (((g[4] >> 5) & 1) << 4) | (((g[4] >> 7) & 1) << 5);
                 (rc, lc)
             })
         });
@@ -230,10 +226,12 @@ impl SatchelManifest {
     pub fn inscribe_sparse(&self, out: &mut Vec<u8>) {
         out.push(self.hands.0);
         out.push(self.hands.1);
-        let non_zero = (1..RELIC_SLOT_COUNT).filter(|&i| i != 29 && self.totals[i] > 0).count() as u8;
+        let non_zero = (1..RELIC_SLOT_COUNT)
+            .filter(|&i| RelicCatalog::new(i as u8).guest_permitted() && self.totals[i] > 0)
+            .count() as u8;
         out.push(non_zero);
         for code in 1..RELIC_SLOT_COUNT {
-            if code == 29 {
+            if !RelicCatalog::new(code as u8).guest_permitted() {
                 continue;
             }
             let qty = self.totals[code];
@@ -255,10 +253,10 @@ impl SatchelManifest {
         let mut totals = [0u32; RELIC_SLOT_COUNT];
         let mut cursor = 3;
         for _ in 0..count {
-            let code = bytes[cursor] as usize;
+            let code = bytes[cursor];
             let qty = u32::from_le_bytes(bytes[cursor + 1..cursor + 5].try_into().ok()?);
-            if code > 0 && code < RELIC_SLOT_COUNT && code != 29 {
-                totals[code] = totals[code].saturating_add(qty);
+            if RelicCatalog::new(code).guest_permitted() {
+                totals[code as usize] = totals[code as usize].saturating_add(qty);
             }
             cursor += 5;
         }

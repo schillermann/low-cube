@@ -34,6 +34,8 @@ pub enum BlockMedium {
     VehicleBlueprint,
     FusionTorch,
     SpawnStone,
+    TitaniumHull,
+    CarbonSilicate,
 }
 
 impl BlockMedium {
@@ -62,6 +64,8 @@ impl BlockMedium {
             Self::VehicleBlueprint => 19,
             Self::FusionTorch => 20,
             Self::SpawnStone => 21,
+            Self::TitaniumHull => 22,
+            Self::CarbonSilicate => 23,
         }
     }
 
@@ -89,6 +93,8 @@ impl BlockMedium {
             19 => Self::VehicleBlueprint,
             20 => Self::FusionTorch,
             21 => Self::SpawnStone,
+            22 => Self::TitaniumHull,
+            23 => Self::CarbonSilicate,
             _ => Self::TurfEarth,
         }
     }
@@ -96,6 +102,16 @@ impl BlockMedium {
     /// Indicates whether placement and removal of this block medium are restricted to the server admin.
     pub const fn admin_restricted(self) -> bool {
         matches!(self, Self::SpawnStone)
+    }
+
+    /// Indicates whether this medium is an Expanse-grade aerospace hull alloy or composite armor plate.
+    pub const fn aerospace_hull(self) -> bool {
+        matches!(self, Self::TitaniumHull | Self::CarbonSilicate)
+    }
+
+    /// Indicates whether this medium provides ceramic carbon-silicate thermal entry and impact shielding.
+    pub const fn thermal_shielded(self) -> bool {
+        matches!(self, Self::CarbonSilicate)
     }
 
     /// Indicates whether this medium is a stratified subterranean mineral ore deposit.
@@ -148,6 +164,7 @@ impl BlockMedium {
             Self::IronOre => (Vec3::new(0.72, 0.75, 0.80), Vec3::new(0.30, 0.30, 0.33)),
             Self::GoldOre => (Vec3::new(0.98, 0.80, 0.22), Vec3::new(0.25, 0.23, 0.27)),
             Self::Sand => (Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.78, 0.68, 0.44)),
+            Self::TitaniumHull | Self::CarbonSilicate => super::AerospacePlating::sculpted_tones(self),
             _ => (Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.31, 0.27, 0.25)),
         }
     }
@@ -174,6 +191,8 @@ impl BlockMedium {
             Self::VehicleBlueprint => (Vec3::new(0.18, 0.52, 0.92), Vec3::new(0.88, 0.72, 0.26)),
             Self::FusionTorch => (Vec3::new(0.28, 0.86, 1.00), Vec3::new(0.32, 0.36, 0.44)),
             Self::SpawnStone => (Vec3::new(0.22, 0.94, 0.98), Vec3::new(0.92, 0.76, 0.28)),
+            Self::TitaniumHull => (Vec3::new(0.64, 0.70, 0.78), Vec3::new(0.34, 0.38, 0.45)),
+            Self::CarbonSilicate => (Vec3::new(0.24, 0.80, 0.98), Vec3::new(0.14, 0.18, 0.26)),
         }
     }
 
