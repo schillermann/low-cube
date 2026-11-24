@@ -84,6 +84,26 @@ impl CubePlanet {
         self.fallback.as_ref()
     }
 
+    pub(super) fn inspect_aimed_faces<T>(
+        &self,
+        eye: Vec3,
+        direction: Vec3,
+        op: impl Fn(&dyn Face) -> Option<T>,
+    ) -> Option<T> {
+        let (primary, secondary) = self.aimed_indices(eye, direction);
+        for idx in [primary, secondary] {
+            if let Some(face) = self.faces.get(idx) {
+                if let Some(out) = op(face.as_ref()) {
+                    return Some(out);
+                }
+            }
+            if secondary == primary {
+                break;
+            }
+        }
+        None
+    }
+
     pub(super) fn try_aimed_faces<T>(
         &mut self,
         eye: Vec3,

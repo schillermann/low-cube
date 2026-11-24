@@ -3,6 +3,7 @@ use world::{BlockMold, MeshTarget, Quad};
 use super::super::compartment::{CompartmentBackplate, ShowcasedCompartment, SlotPlaque};
 use super::super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
 use super::plinth::{BoarHaunch, SlopedBeam, SquarePlinth};
+use super::tools::ToolSculpture;
 use super::HeldRelic;
 
 struct LitSlotTarget<'a> {
@@ -146,61 +147,13 @@ impl RelicFigure {
             HeldRelic::DeadwoodBough => Self::emit_deadwood(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
             HeldRelic::FlintStone => Self::emit_flint(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
             HeldRelic::BoarMeat => BoarHaunch.emit(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.002, 0.048)), true, target),
-            HeldRelic::TimberTorch => {
-                TaperedPrism::hexagonal(Vec3::new(gx, -0.10, gz), Vec3::new(gx, 0.18, gz + 0.01), 0.013, 0.017, Vec3::new(0.45, 0.28, 0.14)).emit(frame, false, target);
-                TaperedPrism::hexagonal(Vec3::new(gx, 0.18, gz + 0.01), Vec3::new(gx, 0.25, gz + 0.015), 0.022, 0.008, Vec3::new(0.96, 0.52, 0.12)).emit(frame, true, target);
-            }
-            HeldRelic::WoodenMallet => {
-                TaperedPrism::hexagonal(Vec3::new(gx, -0.10, gz), Vec3::new(gx, 0.18, gz), 0.013, 0.014, Vec3::new(0.48, 0.31, 0.16)).emit(frame, true, target);
-                TaperedPrism::new(6, Vec3::new(gx, 0.14, gz - 0.04), Vec3::new(gx, 0.20, gz + 0.05), 0.032, 0.052, 0.032, 0.052, Vec3::new(0.36, 0.24, 0.13)).emit(frame, true, target);
-            }
-            HeldRelic::WoodmanAxe => {
-                let (ash_wood, worn_ash, forged_iron, blade_steel, bright_edge) = (
-                    Vec3::new(0.64, 0.45, 0.25),
-                    Vec3::new(0.52, 0.35, 0.19),
-                    Vec3::new(0.42, 0.46, 0.52),
-                    Vec3::new(0.68, 0.73, 0.79),
-                    Vec3::new(0.92, 0.95, 0.99),
-                );
-                TaperedPrism::hexagonal(Vec3::new(gx, -0.155, gz - 0.008), Vec3::new(gx, -0.115, gz), 0.016, 0.012, worn_ash).emit(frame, true, target);
-                TaperedPrism::hexagonal(Vec3::new(gx, -0.115, gz), Vec3::new(gx, 0.045, gz), 0.012, 0.013, worn_ash).emit(frame, false, target);
-                TaperedPrism::hexagonal(Vec3::new(gx, 0.045, gz), Vec3::new(gx, 0.252, gz + 0.004), 0.013, 0.015, ash_wood).emit(frame, true, target);
-                TaperedPrism::new(6, Vec3::new(gx, 0.184, gz - 0.004), Vec3::new(gx, 0.244, gz - 0.002), 0.017, 0.025, 0.018, 0.026, forged_iron).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.194, gz + 0.032), Vec3::new(gx, 0.242, gz + 0.034), 0.013, 0.024, 0.014, 0.026, forged_iron).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.128, gz + 0.064), Vec3::new(gx, 0.194, gz + 0.062), 0.008, 0.020, 0.011, 0.026, blade_steel).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.194, gz + 0.062), Vec3::new(gx, 0.254, gz + 0.064), 0.011, 0.026, 0.010, 0.024, blade_steel).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.124, gz + 0.084), Vec3::new(gx, 0.172, gz + 0.094), 0.003, 0.010, 0.004, 0.014, bright_edge).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.172, gz + 0.094), Vec3::new(gx, 0.218, gz + 0.096), 0.004, 0.014, 0.004, 0.014, bright_edge).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.218, gz + 0.096), Vec3::new(gx, 0.258, gz + 0.086), 0.004, 0.014, 0.003, 0.010, bright_edge).emit(frame, true, target);
-            }
-            HeldRelic::KnightlySword => {
-                let (grip_leather, guard_iron, fuller_steel, honed_edge) = (
-                    Vec3::new(0.26, 0.15, 0.09),
-                    Vec3::new(0.32, 0.35, 0.40),
-                    Vec3::new(0.56, 0.60, 0.66),
-                    Vec3::new(0.84, 0.88, 0.94),
-                );
-                TaperedPrism::new(8, Vec3::new(gx, -0.106, gz), Vec3::new(gx, -0.068, gz), 0.015, 0.024, 0.015, 0.024, guard_iron).emit(frame, true, target);
-                TaperedPrism::new(6, Vec3::new(gx, -0.068, gz), Vec3::new(gx, 0.048, gz), 0.011, 0.015, 0.012, 0.016, grip_leather).emit(frame, false, target);
-                TaperedPrism::new(6, Vec3::new(gx, 0.046, gz), Vec3::new(gx, 0.066, gz), 0.013, 0.082, 0.012, 0.076, guard_iron).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.066, gz), Vec3::new(gx, 0.420, gz), 0.005, 0.025, 0.004, 0.020, honed_edge).emit(frame, false, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.068, gz), Vec3::new(gx, 0.390, gz), 0.006, 0.011, 0.005, 0.008, fuller_steel).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.420, gz), Vec3::new(gx, 0.680, gz), 0.004, 0.020, 0.001, 0.002, honed_edge).emit(frame, true, target);
-            }
-            HeldRelic::IronSpade => {
-                let (ash_wood, worn_ash, socket_iron, spade_steel, honed_edge) = (
-                    Vec3::new(0.54, 0.37, 0.20),
-                    Vec3::new(0.42, 0.28, 0.15),
-                    Vec3::new(0.30, 0.33, 0.38),
-                    Vec3::new(0.54, 0.58, 0.64),
-                    Vec3::new(0.84, 0.88, 0.93),
-                );
-                TaperedPrism::new(6, Vec3::new(gx, -0.164, gz), Vec3::new(gx, -0.144, gz), 0.012, 0.034, 0.012, 0.034, worn_ash).emit(frame, true, target);
-                TaperedPrism::hexagonal(Vec3::new(gx, -0.150, gz), Vec3::new(gx, 0.190, gz), 0.012, 0.014, ash_wood).emit(frame, false, target);
-                TaperedPrism::hexagonal(Vec3::new(gx, 0.185, gz), Vec3::new(gx, 0.235, gz + 0.004), 0.016, 0.020, socket_iron).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.230, gz + 0.008), Vec3::new(gx, 0.345, gz + 0.016), 0.007, 0.052, 0.006, 0.046, spade_steel).emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(gx, 0.345, gz + 0.016), Vec3::new(gx, 0.395, gz + 0.022), 0.006, 0.046, 0.002, 0.018, honed_edge).emit(frame, true, target);
-            }
+            HeldRelic::TimberTorch
+            | HeldRelic::WoodenMallet
+            | HeldRelic::WoodmanAxe
+            | HeldRelic::KnightlySword
+            | HeldRelic::IronSpade
+            | HeldRelic::FlintPickaxe
+            | HeldRelic::IronPickaxe => ToolSculpture::new(self.relic).emit_in_palm(gx, gz, frame, target),
             HeldRelic::CantileverCrane => Self::emit_cantilever(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), target),
             HeldRelic::FieldCamera => {
                 let cradle = frame
@@ -249,6 +202,7 @@ impl RelicFigure {
                     HeldRelic::KnightlySword => (0.090, 0.45, 0.285, 0.054),
                     HeldRelic::IronSpade => (0.125, 0.45, 0.115, 0.062),
                     HeldRelic::WoodmanAxe => (0.165, 1.32, 0.052, 0.092),
+                    HeldRelic::FlintPickaxe | HeldRelic::IronPickaxe => (0.148, 1.32, 0.060, 0.056),
                     HeldRelic::TimberTorch => (0.185, 0.45, 0.075, 0.058),
                     _ => (0.205, 0.85, 0.050, 0.054),
                 };

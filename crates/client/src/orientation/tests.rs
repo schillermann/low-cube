@@ -117,7 +117,7 @@ fn test_avatar_in_two_by_two_shaft_cannot_turn_fully_until_widened() {
     }
     let deep_pos = world.constrain_to_surface(Vec3::new(0.45, 20.0, 0.25), 1.0);
     let mut deep_miner = PlanetaryAvatar::at(deep_pos);
-    deep_miner.apply_attire(crate::attire::YouthAttire::squire().with_relics(crate::attire::HeldRelic::IronSpade, crate::attire::HeldRelic::EmptyPalm));
+    deep_miner.apply_attire(crate::attire::YouthAttire::squire().with_relics(crate::attire::HeldRelic::IronPickaxe, crate::attire::HeldRelic::EmptyPalm));
     deep_miner.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
     deep_miner.rotate_degrees(90.0, 20.6);
     assert!(forward_of(&deep_miner).x > 0.85, "Deep 2x2 shaft with 2-block internal step must not wedge shoulders");

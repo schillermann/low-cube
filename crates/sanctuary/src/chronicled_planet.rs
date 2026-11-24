@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, BodyId, CleaveOutcome, CraftBlueprint, CraftIdentity, CraftPose,
-    ExposedStratum, SurfaceFind, VehicleAssembly, WorldEarthworks, WorldFact,
+    ExposedStratum, MiningEdge, SurfaceFind, VehicleAssembly, WorldEarthworks, WorldFact,
 };
 
 /// Focused contract absorbing locally enacted world mutations and fleet ownership into a chronicle or petition stream.
@@ -42,6 +42,10 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
         let medium = self.origin.loosen_surface(eye, direction, stage)?;
         self.record_scoped(eye, WorldFact::Loosened { eye, direction, stage });
         Some(medium)
+    }
+
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool {
+        self.origin.surface_yields_to(eye, direction, edge)
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {

@@ -5,7 +5,7 @@ mod orbital_shell;
 mod patch_grid;
 
 use glam::Vec3;
-use crate::block::{BlockMedium, BlockMold, VoxelShape};
+use crate::block::{BlockMedium, BlockMold, MiningEdge, VoxelShape};
 use crate::topology::ClimateZone;
 use crate::{Face, MeshTarget};
 use super::craft_entity::CraftBlueprint;
@@ -169,6 +169,10 @@ impl Face for FacetedReliefFace {
         Some(loosened)
     }
 
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> Option<bool> {
+        self.domain.surface_yields_to(self.cache.half_blocks(), eye, direction, edge)
+    }
+
     fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
         self.domain.plan_molded(self.cache.half_blocks(), eye, direction, avatar_pos, mold)
     }
@@ -184,11 +188,7 @@ impl Face for FacetedReliefFace {
 
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         let half = self.cache.half_blocks();
-        let half_size = self.domain.frame.step_elevation(half);
-        let (cu, cv) = SurfaceSightRay::new(eye, direction)
-            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)
-            .map_or((0, 0), |(cu, cv, _)| (cu, cv));
-        let (changed, (ru, rv)) = self.domain.relief.adjust_rig_at(cu, cv, delta_steps, rotate_quarter);
+        let (changed, (ru, rv)) = self.domain.adjust_rig(half, eye, direction, delta_steps, rotate_quarter);
         if changed {
             self.refresh_neighborhood(ru, rv, half, 4);
         }
@@ -205,16 +205,11 @@ impl Face for FacetedReliefFace {
 
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
         let half = self.cache.half_blocks();
-        let half_size = self.domain.frame.step_elevation(half);
-        if let Some((cu, cv, _)) = SurfaceSightRay::new(eye, direction)
-            .target_layer(&self.domain.frame, self.domain.relief.as_ref(), half, half_size)
-        {
-            if self.domain.relief.lower_rig_at(cu, cv) {
-                self.refresh_neighborhood(cu, cv, half, 4);
-                return true;
-            }
-        }
-        false
+        let Some((cu, cv)) = self.domain.lower_rig(half, eye, direction) else {
+            return false;
+        };
+        self.refresh_neighborhood(cu, cv, half, 4);
+        true
     }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, engage_engine: bool) -> Option<VehicleAssembly> {

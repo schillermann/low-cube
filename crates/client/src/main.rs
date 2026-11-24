@@ -97,6 +97,8 @@ mod mortality_tests;
 #[cfg(test)]
 mod physics_tests;
 #[cfg(test)]
+mod pickaxe_tests;
+#[cfg(test)]
 mod posture_tests;
 #[cfg(test)]
 mod seam_clearance_tests;

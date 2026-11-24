@@ -68,6 +68,7 @@ impl SlotBurden {
             | HeldRelic::FieldCamera
             | HeldRelic::VehicleBlueprint => WeightGrade::Light,
             HeldRelic::FlintStone
+            | HeldRelic::FlintPickaxe
             | HeldRelic::ExcavatedEarth
             | HeldRelic::TimberBlock
             | HeldRelic::WoodenMallet
@@ -75,6 +76,7 @@ impl SlotBurden {
             | HeldRelic::RocketCamera
             | HeldRelic::BoarMeat => WeightGrade::Moderate,
             HeldRelic::QuarriedStone
+            | HeldRelic::IronPickaxe
             | HeldRelic::IronSpade
             | HeldRelic::WoodmanAxe
             | HeldRelic::KnightlySword

@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, GridCell, VoxelShape};
+use crate::block::{BlockMedium, GridCell, MiningEdge, VoxelShape};
 use crate::frame::SurfaceFrame;
 use super::column_clearance::ColumnClearance;
 use super::craft_entity::{CraftBlueprint, VesselSink};
@@ -147,6 +147,17 @@ impl ReliefElevation for TerracedRelief {
             return (stage > 0).then_some(medium);
         }
         self.molds.record_stage(u, v, layer_elev, stage).then_some(medium)
+    }
+
+    fn layer_yields_to(&self, u: i32, v: i32, layer_elev: f32, edge: MiningEdge) -> bool {
+        if (!self.shafts.diggable_at(&self.strata, u, v, layer_elev) && !self.molds.present_at(u, v))
+            || self.molds.car_locked_at(u, v, layer_elev)
+        {
+            return false;
+        }
+        self.molds
+            .layer_medium_at(&self.strata, &self.shafts, u, v, layer_elev)
+            .yields_to(edge)
     }
 
     fn harvest_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {

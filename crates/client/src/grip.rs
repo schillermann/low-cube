@@ -139,10 +139,10 @@ impl DigStroke {
         Self { effort, grip, recipient_side, rhythm }
     }
 
-    pub fn spade(side: f32, other_receives: bool, rhythm: StrideRhythm) -> Self {
+    pub fn blade(effort: u32, side: f32, other_receives: bool, rhythm: StrideRhythm) -> Self {
         let recipient = if other_receives { -side } else { side };
         let next_rhythm = if side > 0.0 { rhythm.trigger_right_strike() } else { rhythm.trigger_left_strike() };
-        Self::new(4, DigGrip::with_dig_on(side, false), recipient, next_rhythm)
+        Self::new(effort, DigGrip::with_dig_on(side, false), recipient, next_rhythm)
     }
 
     pub fn dual_palm(

@@ -29,6 +29,8 @@ pub enum SurfaceFind {
     KnightlySword,
     IronSpade,
     BoarMeat,
+    FlintPickaxe,
+    IronPickaxe,
     LooseBlock(BlockMedium),
 }
 
@@ -50,6 +52,8 @@ impl SurfaceFind {
             Self::KnightlySword => 6,
             Self::IronSpade => 7,
             Self::BoarMeat => 8,
+            Self::FlintPickaxe => 9,
+            Self::IronPickaxe => 10,
             Self::LooseBlock(medium) => 16 + medium.code(),
         }
     }
@@ -65,7 +69,9 @@ impl SurfaceFind {
             6 => Self::KnightlySword,
             7 => Self::IronSpade,
             8 => Self::BoarMeat,
-            16..=35 => Self::LooseBlock(BlockMedium::from_code(code - 16)),
+            9 => Self::FlintPickaxe,
+            10 => Self::IronPickaxe,
+            16..=37 => Self::LooseBlock(BlockMedium::from_code(code - 16)),
             _ => Self::EmptyHanded,
         }
     }

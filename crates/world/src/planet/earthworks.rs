@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{
-    BlockMedium, BlockMold, CleaveOutcome, CraftBlueprint, ExposedStratum, SurfaceFind,
+    BlockMedium, BlockMold, CleaveOutcome, CraftBlueprint, ExposedStratum, MiningEdge, SurfaceFind,
     VehicleAssembly, WorldEarthworks,
 };
 use super::CubePlanet;
@@ -12,6 +12,11 @@ impl WorldEarthworks for CubePlanet {
 
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
         self.try_aimed_faces(eye, direction, false, |f| f.loosen(eye, direction, stage))
+    }
+
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool {
+        self.inspect_aimed_faces(eye, direction, |f| f.surface_yields_to(eye, direction, edge))
+            .unwrap_or(false)
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {

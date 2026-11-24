@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CleaveOutcome, CraftBlueprint, CraftIdentity, CraftPose,
-    ExposedStratum, SurfaceFind, VehicleAssembly, WorldEarthworks, WorldFact,
+    ExposedStratum, MiningEdge, SurfaceFind, VehicleAssembly, WorldEarthworks, WorldFact,
 };
 use super::HeliosphereWorld;
 
@@ -34,6 +34,16 @@ impl WorldEarthworks for HeliosphereWorld {
         }
         drop(vic);
         self.earth.loosen_surface(eye, direction, stage)
+    }
+
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool {
+        let eph = self.ephemeris;
+        let mut vic = self.vicinity.borrow_mut();
+        if let Some(body) = vic.ensure_near_mut(eye, eph) {
+            return body.planet_mut().surface_yields_to(eye, direction, edge);
+        }
+        drop(vic);
+        self.earth.surface_yields_to(eye, direction, edge)
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {

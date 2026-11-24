@@ -56,7 +56,7 @@ impl ArtisanTome {
     pub const fn closed() -> Self { Self::new(0, false) }
     pub const fn open(&self) -> bool { self.open }
 
-    pub const fn entries() -> [CraftingEntry; 19] {
+    pub const fn entries() -> [CraftingEntry; 21] {
         [
             CraftingEntry::new(HeldRelic::WoodmanAxe, 1, "TOOL", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
             CraftingEntry::new(HeldRelic::PlankBlock, 4, "BLOCK", [(HeldRelic::TimberBlock, 1), (HeldRelic::EmptyPalm, 0)]),
@@ -77,6 +77,8 @@ impl ArtisanTome {
             CraftingEntry::new(HeldRelic::RocketNozzle, 2, "SPACE", [(HeldRelic::IronOre, 3), (HeldRelic::GoldOre, 1)]),
             CraftingEntry::new(HeldRelic::FusionTorch, 1, "SPACE", [(HeldRelic::GoldOre, 2), (HeldRelic::IronOre, 3)]),
             CraftingEntry::new(HeldRelic::RocketCamera, 2, "SPACE", [(HeldRelic::CopperOre, 2), (HeldRelic::GoldOre, 1)]),
+            CraftingEntry::new(HeldRelic::FlintPickaxe, 1, "TOOL", [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 3)]),
+            CraftingEntry::new(HeldRelic::IronPickaxe, 1, "TOOL", [(HeldRelic::PlankBlock, 1), (HeldRelic::IronOre, 2)]),
         ]
     }
 

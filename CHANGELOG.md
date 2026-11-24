@@ -8,6 +8,13 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.118.0] - 2026-11-24
+
+### Added
+- Added two-tier `FlintPickaxe` & `IronPickaxe` mining progression and solid rock/ore hardness guards:
+  - `MiningEdge` (`BarePalm`, `FlintPick`, `IronPick` in `crates/world/src/block/timber_grain/mining_edge.rs`), `BlockMedium::yields_to`, `ReliefElevation::layer_yields_to`, `Face::surface_yields_to`, and `WorldEarthworks::surface_yields_to` across planetary, celestial, woodland, and Sanctuary world decorators: prevents bare hands and `IronSpade` from cracking or harvesting solid rock and ores (`QuarriedStone`, `CrustRock`, `CopperOre`, `IronOre`, `GoldOre`) while keeping `TurfEarth`, `Sand`, and placed timber/craft blocks diggable without a pickaxe.
+  - `HeldRelic::FlintPickaxe` (`1× DeadwoodBough + 3× FlintStone` in `ArtisanTome` and `RelicCatalog`, cleaving `QuarriedStone`, `CopperOre`, and `IronOre` in 3 strikes) and `HeldRelic::IronPickaxe` (`1× PlankBlock + 2× IronOre`, cleaving deep `CrustRock` and `GoldOre` in 2 strikes), complete with 3D `ToolSculpture` palm/showcase meshes (`crates/client/src/attire/relic/tools.rs`), `GroundToolFigure` floor litter (`SurfaceFind::FlintPickaxe` & `SurfaceFind::IronPickaxe`), 5-bit multiplayer attire sync, and `SatchelManifest` survivor persistence (`crates/client/src/pickaxe_tests.rs`).
+
 ## [0.117.0] - 2026-11-24
 
 ### Added

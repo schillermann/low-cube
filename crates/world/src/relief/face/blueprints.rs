@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::block::{BlockMedium, BlockMold, GridCell};
+use crate::block::{BlockMedium, BlockMold, GridCell, MiningEdge};
 use crate::frame::SurfaceFrame;
 use super::super::craft_entity::CraftBlueprint;
 use super::super::elevation::ReliefElevation;
@@ -95,5 +95,27 @@ impl ReliefDomain {
         let (eu, ev) = self.frame.cell_at(eye).feed_coordinates(|gu, gv| (gu, gv));
         let (su, sv) = self.frame.cell_at(assembly.origin()).feed_coordinates(|gu, gv| (gu, gv));
         Some((assembly, [(eu, ev), (cu, cv), (su, sv)], terrain_changed))
+    }
+
+    pub(super) fn surface_yields_to(&self, half: i32, eye: Vec3, direction: Vec3, edge: MiningEdge) -> Option<bool> {
+        let half_size = self.frame.step_elevation(half);
+        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)?;
+        Some(self.relief.layer_yields_to(cu, cv, layer, edge))
+    }
+
+    pub(super) fn adjust_rig(&mut self, half: i32, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> (bool, (i32, i32)) {
+        let half_size = self.frame.step_elevation(half);
+        let (cu, cv) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)
+            .map_or((0, 0), |(cu, cv, _)| (cu, cv));
+        self.relief.adjust_rig_at(cu, cv, delta_steps, rotate_quarter)
+    }
+
+    pub(super) fn lower_rig(&mut self, half: i32, eye: Vec3, direction: Vec3) -> Option<(i32, i32)> {
+        let half_size = self.frame.step_elevation(half);
+        let (cu, cv, _) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)?;
+        self.relief.lower_rig_at(cu, cv).then_some((cu, cv))
     }
 }

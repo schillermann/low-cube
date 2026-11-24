@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CleaveOutcome, CraftBlueprint, ExposedStratum, GravityField,
-    SurfaceFind, VehicleAssembly, WorldEarthworks,
+    MiningEdge, SurfaceFind, VehicleAssembly, WorldEarthworks,
 };
 use super::BinaryPlanet;
 
@@ -19,6 +19,14 @@ impl<G: GravityField + Send> WorldEarthworks for BinaryPlanet<G> {
             self.moon.loosen_surface(eye, direction, stage).or_else(|| self.home.loosen_surface(eye, direction, stage))
         } else {
             self.home.loosen_surface(eye, direction, stage).or_else(|| self.moon.loosen_surface(eye, direction, stage))
+        }
+    }
+
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool {
+        if self.near_moon(eye) {
+            self.moon.surface_yields_to(eye, direction, edge)
+        } else {
+            self.home.surface_yields_to(eye, direction, edge)
         }
     }
 

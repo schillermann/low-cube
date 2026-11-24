@@ -231,7 +231,9 @@ impl YouthAttire {
             self.garments.vambrace.code(),
             self.garments.girdle.code(),
             self.garments.footwear.code(),
-            (self.identity.crown.code() & 0x0F) | ((r_code >> 4) << 4) | ((l_code >> 4) << 5),
+            (self.identity.crown.code() & 0x0F)
+                | (((r_code >> 4) & 1) << 4)
+                | (((l_code >> 4) & 1) << 5),
             (r_code & 0x0F) | ((l_code & 0x0F) << 4),
             self.identity.pigment.code(),
             self.identity.complexion.code(),

@@ -266,8 +266,8 @@ fn test_sustained_digging_varies_palm_and_spade_sound_via_decorators() {
         }
     }
 
-    let mut world = BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
+    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(0.0, 18.0, 0.0), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn);
     avatar.rotate_degrees(0.0, 70.5);
     avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
@@ -282,6 +282,7 @@ fn test_sustained_digging_varies_palm_and_spade_sound_via_decorators() {
     });
     assert!(spade_trace.windows(2).all(|w| w[0] != w[1]));
 
+    world = BiomedCubeWorld::beveled(32, 1.0);
     let palm_trace = DigWaveTrace::new(8).record_variants(|| {
         let _ = avatar.use_left_hand(&mut world);
         for _ in 0..270 {

@@ -32,6 +32,8 @@ impl RelicLexicon {
         HeldRelic::VehicleBlueprint,
         HeldRelic::SpawnStone,
         HeldRelic::CantileverCrane,
+        HeldRelic::IronPickaxe,
+        HeldRelic::FlintPickaxe,
         HeldRelic::IronSpade,
         HeldRelic::WoodmanAxe,
         HeldRelic::KnightlySword,
@@ -51,6 +53,8 @@ impl RelicLexicon {
                 | HeldRelic::FieldCamera
                 | HeldRelic::VehicleBlueprint
                 | HeldRelic::CantileverCrane
+                | HeldRelic::FlintPickaxe
+                | HeldRelic::IronPickaxe
                 | HeldRelic::IronSpade
                 | HeldRelic::WoodmanAxe
                 | HeldRelic::KnightlySword
@@ -68,6 +72,8 @@ impl RelicLexicon {
             HeldRelic::WoodmanAxe => "WOODMAN AXE",
             HeldRelic::KnightlySword => "KNIGHT SWORD",
             HeldRelic::IronSpade => "IRON SPADE",
+            HeldRelic::FlintPickaxe => "FLINT PICKAXE",
+            HeldRelic::IronPickaxe => "IRON PICKAXE",
             HeldRelic::ExcavatedEarth => "EARTH BLOCK",
             HeldRelic::DeadwoodBough => "DEADWOOD",
             HeldRelic::FlintStone => "FLINT STONE",
@@ -109,6 +115,10 @@ impl RelicLexicon {
             "woodmanaxe" | "axe" => Some(HeldRelic::WoodmanAxe),
             "knightlysword" | "knightsword" | "sword" => Some(HeldRelic::KnightlySword),
             "ironspade" | "spade" => Some(HeldRelic::IronSpade),
+            "flintpickaxe" | "flintpick" | "stonepickaxe" | "pickaxe" | "hacke" | "spitzhacke" | "feuersteinhacke" => {
+                Some(HeldRelic::FlintPickaxe)
+            }
+            "ironpickaxe" | "ironpick" | "eisenhacke" => Some(HeldRelic::IronPickaxe),
             "earthblock" | "excavatedearth" | "earth" | "dirt" => Some(HeldRelic::ExcavatedEarth),
             "deadwood" | "deadwoodbough" => Some(HeldRelic::DeadwoodBough),
             "flintstone" | "flint" => Some(HeldRelic::FlintStone),
@@ -165,7 +175,10 @@ impl RelicLexicon {
         match self.relic {
             HeldRelic::EmptyPalm => MartialStyle::Unarmed,
             HeldRelic::IronSpade => MartialStyle::SpadeDig,
-            HeldRelic::WoodenMallet | HeldRelic::WoodmanAxe => MartialStyle::LumberjackCleave,
+            HeldRelic::WoodenMallet
+            | HeldRelic::WoodmanAxe
+            | HeldRelic::FlintPickaxe
+            | HeldRelic::IronPickaxe => MartialStyle::LumberjackCleave,
             HeldRelic::TimberTorch | HeldRelic::KnightlySword => MartialStyle::SwordplaySlash,
             _ => MartialStyle::PalmCradle,
         }
@@ -181,8 +194,53 @@ impl RelicLexicon {
             HeldRelic::WoodmanAxe => SurfaceFind::WoodmanAxe,
             HeldRelic::KnightlySword => SurfaceFind::KnightlySword,
             HeldRelic::IronSpade => SurfaceFind::IronSpade,
+            HeldRelic::FlintPickaxe => SurfaceFind::FlintPickaxe,
+            HeldRelic::IronPickaxe => SurfaceFind::IronPickaxe,
             HeldRelic::BoarMeat => SurfaceFind::BoarMeat,
             _ => SurfaceFind::LooseBlock(self.block_medium()),
+        }
+    }
+
+    pub const fn from_medium(medium: BlockMedium) -> HeldRelic {
+        match medium {
+            BlockMedium::TurfEarth | BlockMedium::Sand => HeldRelic::ExcavatedEarth,
+            BlockMedium::CrustRock => HeldRelic::CrustBlock,
+            BlockMedium::QuarriedStone => HeldRelic::QuarriedStone,
+            BlockMedium::RawTimber => HeldRelic::TimberBlock,
+            BlockMedium::PlanedPlanks => HeldRelic::PlankBlock,
+            BlockMedium::CantileverRig => HeldRelic::CantileverCrane,
+            BlockMedium::SteeringWheel => HeldRelic::SteeringWheel,
+            BlockMedium::AircraftEngine => HeldRelic::AircraftEngine,
+            BlockMedium::FlightConsole => HeldRelic::FlightConsole,
+            BlockMedium::RocketNozzle => HeldRelic::RocketNozzle,
+            BlockMedium::RocketCamera => HeldRelic::RocketCamera,
+            BlockMedium::CabinSeat => HeldRelic::CabinSeat,
+            BlockMedium::CarWheel => HeldRelic::CarWheel,
+            BlockMedium::FieldCamera => HeldRelic::FieldCamera,
+            BlockMedium::PedalCluster => HeldRelic::PedalCluster,
+            BlockMedium::CopperOre => HeldRelic::CopperOre,
+            BlockMedium::IronOre => HeldRelic::IronOre,
+            BlockMedium::GoldOre => HeldRelic::GoldOre,
+            BlockMedium::VehicleBlueprint => HeldRelic::VehicleBlueprint,
+            BlockMedium::FusionTorch => HeldRelic::FusionTorch,
+            BlockMedium::SpawnStone => HeldRelic::SpawnStone,
+        }
+    }
+
+    pub const fn from_surface_find(find: SurfaceFind) -> HeldRelic {
+        match find {
+            SurfaceFind::EmptyHanded => HeldRelic::EmptyPalm,
+            SurfaceFind::DeadwoodBough => HeldRelic::DeadwoodBough,
+            SurfaceFind::FlintStone => HeldRelic::FlintStone,
+            SurfaceFind::TimberTorch => HeldRelic::TimberTorch,
+            SurfaceFind::WoodenMallet => HeldRelic::WoodenMallet,
+            SurfaceFind::WoodmanAxe => HeldRelic::WoodmanAxe,
+            SurfaceFind::KnightlySword => HeldRelic::KnightlySword,
+            SurfaceFind::IronSpade => HeldRelic::IronSpade,
+            SurfaceFind::FlintPickaxe => HeldRelic::FlintPickaxe,
+            SurfaceFind::IronPickaxe => HeldRelic::IronPickaxe,
+            SurfaceFind::BoarMeat => HeldRelic::BoarMeat,
+            SurfaceFind::LooseBlock(medium) => Self::from_medium(medium),
         }
     }
 }

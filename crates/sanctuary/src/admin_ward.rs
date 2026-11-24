@@ -1,7 +1,7 @@
 use glam::{Quat, Vec3};
 use world::{
     BlockMedium, BlockMold, BodyId, CleaveOutcome, CraftBlueprint, CraftIdentity, CraftPose,
-    ExposedStratum, PlanetaryWorld, PresenceKinematics, SurfaceFind, VehicleAssembly,
+    ExposedStratum, MiningEdge, PlanetaryWorld, PresenceKinematics, SurfaceFind, VehicleAssembly,
     WorldEarthworks, WorldFact,
 };
 
@@ -131,6 +131,10 @@ impl<W: WorldEarthworks> WorldEarthworks for AdminBlockWard<W> {
             return None;
         }
         self.origin.harvest_surface(eye, direction)
+    }
+
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool {
+        self.origin.surface_yields_to(eye, direction, edge)
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {

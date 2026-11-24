@@ -1,8 +1,9 @@
 mod lexicon;
 mod mesh;
 mod plinth;
+mod tools;
 
-use world::{BlockMedium, BlockMold, SurfaceFind};
+use world::{BlockMedium, BlockMold, MiningEdge, SurfaceFind};
 pub use super::rhythm::MartialStyle;
 pub use mesh::RelicFigure;
 use lexicon::RelicLexicon;
@@ -40,10 +41,12 @@ pub enum HeldRelic {
     VehicleBlueprint,
     FusionTorch,
     SpawnStone,
+    FlintPickaxe,
+    IronPickaxe,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 30;
+    pub const COUNT: usize = 32;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -82,7 +85,9 @@ impl HeldRelic {
             26 => Self::RocketCamera,
             27 => Self::VehicleBlueprint,
             28 => Self::FusionTorch,
-            _ => Self::SpawnStone,
+            29 => Self::SpawnStone,
+            30 => Self::FlintPickaxe,
+            _ => Self::IronPickaxe,
         }
     }
 
@@ -118,6 +123,8 @@ impl HeldRelic {
             Self::VehicleBlueprint => 27,
             Self::FusionTorch => 28,
             Self::SpawnStone => 29,
+            Self::FlintPickaxe => 30,
+            Self::IronPickaxe => 31,
         }
     }
 
@@ -152,8 +159,8 @@ impl HeldRelic {
     pub const fn hunting_power(self) -> u8 {
         match self {
             Self::KnightlySword => 4,
-            Self::WoodmanAxe => 3,
-            Self::IronSpade | Self::WoodenMallet => 2,
+            Self::WoodmanAxe | Self::IronPickaxe => 3,
+            Self::IronSpade | Self::WoodenMallet | Self::FlintPickaxe => 2,
             _ => 1,
         }
     }
@@ -161,7 +168,7 @@ impl HeldRelic {
     pub const fn hunting_reach(self) -> f32 {
         match self {
             Self::KnightlySword => 2.55,
-            Self::WoodmanAxe | Self::IronSpade | Self::WoodenMallet => 2.25,
+            Self::WoodmanAxe | Self::IronSpade | Self::WoodenMallet | Self::FlintPickaxe | Self::IronPickaxe => 2.25,
             Self::TimberTorch | Self::DeadwoodBough => 2.00,
             _ => 1.75,
         }
@@ -190,6 +197,26 @@ impl HeldRelic {
 
     pub const fn spade_blade(self) -> bool {
         matches!(self, Self::IronSpade)
+    }
+
+    pub const fn pickaxe_head(self) -> bool {
+        matches!(self, Self::FlintPickaxe | Self::IronPickaxe)
+    }
+
+    pub const fn mining_edge(self) -> MiningEdge {
+        match self {
+            Self::IronPickaxe => MiningEdge::IronPick,
+            Self::FlintPickaxe => MiningEdge::FlintPick,
+            _ => MiningEdge::BarePalm,
+        }
+    }
+
+    pub const fn excavation_effort(self) -> u32 {
+        match self {
+            Self::IronSpade | Self::IronPickaxe => 4,
+            Self::FlintPickaxe => 3,
+            _ => 1,
+        }
     }
 
     pub const fn axe_blade(self) -> bool {
@@ -228,29 +255,7 @@ impl HeldRelic {
     }
 
     pub const fn from_medium(medium: BlockMedium) -> Self {
-        match medium {
-            BlockMedium::TurfEarth | BlockMedium::Sand => Self::ExcavatedEarth,
-            BlockMedium::CrustRock => Self::CrustBlock,
-            BlockMedium::QuarriedStone => Self::QuarriedStone,
-            BlockMedium::RawTimber => Self::TimberBlock,
-            BlockMedium::PlanedPlanks => Self::PlankBlock,
-            BlockMedium::CantileverRig => Self::CantileverCrane,
-            BlockMedium::SteeringWheel => Self::SteeringWheel,
-            BlockMedium::AircraftEngine => Self::AircraftEngine,
-            BlockMedium::FlightConsole => Self::FlightConsole,
-            BlockMedium::RocketNozzle => Self::RocketNozzle,
-            BlockMedium::RocketCamera => Self::RocketCamera,
-            BlockMedium::CabinSeat => Self::CabinSeat,
-            BlockMedium::CarWheel => Self::CarWheel,
-            BlockMedium::FieldCamera => Self::FieldCamera,
-            BlockMedium::PedalCluster => Self::PedalCluster,
-            BlockMedium::CopperOre => Self::CopperOre,
-            BlockMedium::IronOre => Self::IronOre,
-            BlockMedium::GoldOre => Self::GoldOre,
-            BlockMedium::VehicleBlueprint => Self::VehicleBlueprint,
-            BlockMedium::FusionTorch => Self::FusionTorch,
-            BlockMedium::SpawnStone => Self::SpawnStone,
-        }
+        RelicLexicon::from_medium(medium)
     }
 
     pub const fn martial_style(self) -> MartialStyle {
@@ -266,17 +271,6 @@ impl HeldRelic {
     }
 
     pub const fn from_surface_find(find: SurfaceFind) -> Self {
-        match find {
-            SurfaceFind::EmptyHanded => Self::EmptyPalm,
-            SurfaceFind::DeadwoodBough => Self::DeadwoodBough,
-            SurfaceFind::FlintStone => Self::FlintStone,
-            SurfaceFind::TimberTorch => Self::TimberTorch,
-            SurfaceFind::WoodenMallet => Self::WoodenMallet,
-            SurfaceFind::WoodmanAxe => Self::WoodmanAxe,
-            SurfaceFind::KnightlySword => Self::KnightlySword,
-            SurfaceFind::IronSpade => Self::IronSpade,
-            SurfaceFind::BoarMeat => Self::BoarMeat,
-            SurfaceFind::LooseBlock(medium) => Self::from_medium(medium),
-        }
+        RelicLexicon::from_surface_find(find)
     }
 }

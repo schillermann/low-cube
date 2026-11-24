@@ -1,4 +1,5 @@
 mod medium_shape;
+mod mining_edge;
 
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
@@ -6,6 +7,7 @@ use crate::{MeshTarget, Quad};
 use super::cell::GridCell;
 
 pub use self::medium_shape::MediumShape;
+pub use self::mining_edge::MiningEdge;
 
 /// Material medium governing the sculpted 3D surface of a molded block in hand and world.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -126,6 +128,15 @@ impl BlockMedium {
     /// Indicates whether this medium is a portable item picked up in a single click without excavation stages.
     pub const fn instant_pickup(self) -> bool {
         matches!(self, Self::FieldCamera)
+    }
+
+    /// Indicates whether this medium yields to the given `MiningEdge` during excavation.
+    pub const fn yields_to(self, edge: MiningEdge) -> bool {
+        match self {
+            Self::QuarriedStone | Self::CopperOre | Self::IronOre => edge.pierces_stone(),
+            Self::CrustRock | Self::GoldOre => edge.pierces_crust(),
+            _ => true,
+        }
     }
 
     pub(super) const fn sculpted_tones(self) -> (Vec3, Vec3) {

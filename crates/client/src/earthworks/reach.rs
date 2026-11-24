@@ -71,10 +71,12 @@ impl SurfaceReach {
             let reconciled = satchel.reconcile_attire(attire);
             if rhythm.cleave_surge(side) > 0.0 {
                 let active = attire.hand_pair(side).0;
-                let step: u32 = if active.spade_blade() { 4 } else { 1 };
-                if let Some(med) = world.loosen_surface(self.eye, self.view_dir, step.div_ceil(2).clamp(1, 3) as u8) {
-                    let site = dig.resolve_site(self.eye, self.view_dir, world);
-                    return (reconciled, attire, dig.advanced_stroke(step, next_grip, site, med, &active), rhythm, true);
+                let step = active.excavation_effort();
+                if world.surface_yields_to(self.eye, self.view_dir, active.mining_edge()) {
+                    if let Some(med) = world.loosen_surface(self.eye, self.view_dir, step.div_ceil(2).clamp(1, 3) as u8) {
+                        let site = dig.resolve_site(self.eye, self.view_dir, world);
+                        return (reconciled, attire, dig.advanced_stroke(step, next_grip, site, med, &active), rhythm, true);
+                    }
                 }
                 return (reconciled, attire, dig.with_grip(next_grip), rhythm, false);
             }
@@ -140,8 +142,8 @@ impl SurfaceReach {
         let deferred = u32::from(dig.grip().pending_click_on(side));
         let w_place = weightless && active.placeable_block() && !dig.grip().held_on(side) && dig.untouched();
         let both_dig = (right.free_palm() || right.placeable_block()) && (left.free_palm() || left.placeable_block());
-        let stroke = if active.spade_blade() {
-            DigStroke::spade(side, other.free_palm() || other.placeable_block(), rhythm)
+        let stroke = if active.spade_blade() || active.pickaxe_head() {
+            DigStroke::blade(active.excavation_effort(), side, other.free_palm() || other.placeable_block(), rhythm)
         } else if both_dig && dig.grip().combined_both_held(side) {
             DigStroke::dual_palm(side, dig.grip(), active.free_palm() || !other.free_palm(), weightless, w_place, rhythm)
         } else if active.free_palm() || active.placeable_block() {
@@ -160,7 +162,13 @@ impl SurfaceReach {
             }
             DigStroke::single_palm(side, deferred, weightless, w_place, rhythm)
         };
-        let (site, progress, next_grip, next_rhythm) = (dig.resolve_site(self.eye, self.view_dir, world), dig.step_progress(stroke), stroke.next_grip(), stroke.next_rhythm());
+        let (next_grip, next_rhythm) = (stroke.next_grip(), stroke.next_rhythm());
+        let fallback = if w_place { DigGrip::with_pending_place(side) } else { next_grip.without_pending_place() };
+        if !world.surface_yields_to(self.eye, self.view_dir, active.mining_edge()) {
+            let _ = dig.clear_cracks(self.eye, self.view_dir, world);
+            return (reconciled, attire, dig.with_grip(fallback), next_rhythm, false);
+        }
+        let (site, progress) = (dig.resolve_site(self.eye, self.view_dir, world), dig.step_progress(stroke));
         if progress >= EXCAVATION_THRESHOLD {
             if let Some(med) = world.harvest_surface(self.eye, self.view_dir) {
                 let (ns, na) = reconciled.collect_excavated_block(stroke.recipient_side(), HeldRelic::from_medium(med), attire);
@@ -172,7 +180,6 @@ impl SurfaceReach {
         if let Some(med) = world.loosen_surface(self.eye, self.view_dir, progress.div_ceil(2).clamp(1, 3) as u8) {
             return (reconciled, attire, dig.loosen_stroke(progress, next_grip, site, med, &active), next_rhythm, false);
         }
-        let fallback = if w_place { DigGrip::with_pending_place(side) } else { next_grip.without_pending_place() };
         (reconciled, attire, dig.with_grip(fallback), next_rhythm, false)
     }
 }

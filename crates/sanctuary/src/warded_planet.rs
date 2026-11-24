@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, BodyId, CleaveOutcome, CraftBlueprint, CraftIdentity, CraftPose,
-    ExposedStratum, SurfaceFind, WorldEarthworks, WorldFact,
+    ExposedStratum, MiningEdge, SurfaceFind, WorldEarthworks, WorldFact,
 };
 use crate::fleet_ledger::FleetLedger;
 use crate::ward::GuestWard;
@@ -32,6 +32,10 @@ impl WorldEarthworks for WardedPlanet<'_> {
             return None;
         }
         self.origin.loosen_surface(eye, direction, stage.min(4))
+    }
+
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool {
+        self.origin.surface_yields_to(eye, direction, edge)
     }
 
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {

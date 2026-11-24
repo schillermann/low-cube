@@ -5,8 +5,8 @@ use std::time::Duration;
 use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, CelestialSystem, CleaveOutcome, CraftBlueprint, CraftIdentity,
-    CraftPose, ExposedStratum, GravityField, PlanetaryWorld, SurfaceFind, VehicleAssembly,
-    WorldEarthworks, WorldFact,
+    CraftPose, ExposedStratum, GravityField, MiningEdge, PlanetaryWorld, SurfaceFind,
+    VehicleAssembly, WorldEarthworks, WorldFact,
 };
 use crate::chronicled_planet::{ChronicledPlanet, FactJournal as _};
 use crate::guest_journal::GuestJournal;
@@ -147,6 +147,7 @@ impl GravityField for RemotePlanet {
 impl WorldEarthworks for RemotePlanet {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.with_chronicled(|w| w.harvest_surface(eye, direction)) }
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.with_chronicled(|w| w.loosen_surface(eye, direction, stage)) }
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool { self.world.surface_yields_to(eye, direction, edge) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.with_chronicled(|w| w.strike_timber(eye, direction)) }
     fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
         if !self.journal.intercept_boar_strike(eye, direction, max_reach, self.world.as_ref()) {

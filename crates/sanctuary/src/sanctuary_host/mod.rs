@@ -6,17 +6,23 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use glam::Vec3;
 use world::{
-    CompanionPresence, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum,
-    MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SightCone, WorldFact,
+    Callsign, CompanionPresence, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum,
+    MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SightCone, SolarProportions,
+    WorldFact,
 };
 use fauna::BoarSounder;
 use crate::aura::HostIdentity;
+use crate::chronicle_decorators::CompactedChronicle;
+use crate::chronicle_log::{ChronicleLog, ChronicleStore};
 use crate::chronicled_planet::ChronicledPlanet;
 use crate::host_state::HostState;
 use crate::host_wire::HostWire;
 use crate::mailbox::{PortalBeat, PortalMailbox, SocketLoop};
+use crate::seal::HandshakeIdentity;
+use crate::survivor_ledger::{MemorySurvivors, SurvivorStore};
 use crate::ticket::PortalTicket;
 use crate::wormhole::PortalCode;
+use self::bind::HostSocket;
 
 /// Authoritative P2P World-Cube sanctuary owning `PlanetaryWorld` lock-free alongside `HostWire`.
 pub struct SanctuaryHost {
@@ -43,6 +49,46 @@ impl SanctuaryHost {
         let mailbox = Arc::new(PortalMailbox::active());
         let standby = SocketLoop::detached(Arc::clone(&mailbox));
         Self::with_wire(world, wire, mailbox, standby)
+    }
+
+    pub fn bind(bind_addr: &str, world: Box<dyn PlanetaryWorld>, blocks_per_edge: u32) -> std::io::Result<Self> {
+        Self::bind_cosmos(bind_addr, world, SolarProportions::true_scale(blocks_per_edge))
+    }
+
+    pub fn bind_cosmos(bind_addr: &str, world: Box<dyn PlanetaryWorld>, proportions: SolarProportions) -> std::io::Result<Self> {
+        Self::bind_cosmos_with_store(bind_addr, world, proportions, Box::new(CompactedChronicle::wrapping(ChronicleLog::empty())))
+    }
+
+    pub fn bind_cosmos_with_store(
+        bind_addr: &str, world: Box<dyn PlanetaryWorld>, proportions: SolarProportions, chronicle: Box<dyn ChronicleStore>,
+    ) -> std::io::Result<Self> {
+        Self::bind_cosmos_with_stores(bind_addr, world, proportions, chronicle, Box::new(MemorySurvivors::empty()))
+    }
+
+    pub fn bind_named_cosmos(
+        bind_addr: &str, callsign: Callsign, world: Box<dyn PlanetaryWorld>, proportions: SolarProportions,
+    ) -> std::io::Result<Self> {
+        let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
+        Self::bind_cosmos_with_identity(bind_addr, HandshakeIdentity::generate(), callsign, world, proportions, store, Box::new(MemorySurvivors::empty()))
+    }
+
+    pub fn bind_cosmos_with_stores(
+        bind_addr: &str, world: Box<dyn PlanetaryWorld>, proportions: SolarProportions, chronicle: Box<dyn ChronicleStore>, survivors: Box<dyn SurvivorStore>,
+    ) -> std::io::Result<Self> {
+        Self::bind_cosmos_with_identity(bind_addr, HandshakeIdentity::generate(), Callsign::host(), world, proportions, chronicle, survivors)
+    }
+
+    pub fn bind_cosmos_with_identity(
+        bind_addr: &str, host_keys: HandshakeIdentity, callsign: Callsign, world: Box<dyn PlanetaryWorld>,
+        proportions: SolarProportions, chronicle: Box<dyn ChronicleStore>, survivors: Box<dyn SurvivorStore>,
+    ) -> std::io::Result<Self> {
+        HostSocket::new(bind_addr).bind_cosmos_with_identity(host_keys, callsign, world, proportions, chronicle, survivors)
+    }
+
+    pub fn bind_with_endpoint(
+        bind_addr: &str, advertised: SocketAddr, world: Box<dyn PlanetaryWorld>, blocks_per_edge: u32,
+    ) -> std::io::Result<Self> {
+        HostSocket::new(bind_addr).bind_with_endpoint(advertised, world, blocks_per_edge)
     }
 
     pub fn spawn_standby(mut self) -> Self {

@@ -3,7 +3,7 @@ use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CelestialAtlas, CleaveOutcome, CompanionPresence, CraftBlueprint,
     CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing,
-    MeshTarget, PilotCraft, PlannedMount, ProximityUtterance, SightCone, SurfaceContact,
+    MeshTarget, MiningEdge, PilotCraft, PlannedMount, ProximityUtterance, SightCone, SurfaceContact,
     SurfaceFind, VehicleAssembly, VesselSink,
 };
 
@@ -14,6 +14,7 @@ pub trait WorldEarthworks {
     }
     fn harvest_surface(&mut self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> { None }
     fn loosen_surface(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> Option<BlockMedium> { None }
+    fn surface_yields_to(&self, _eye: Vec3, _direction: Vec3, _edge: MiningEdge) -> bool { true }
     fn strike_timber(&mut self, _eye: Vec3, _direction: Vec3) -> CleaveOutcome { CleaveOutcome::Missed }
     fn strike_boar(&mut self, _eye: Vec3, _direction: Vec3, _power: u8, _max_reach: f32) -> (bool, bool) { (false, false) }
     fn forage_surface(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind { SurfaceFind::EmptyHanded }

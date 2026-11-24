@@ -54,7 +54,7 @@ pub use space_parts::{
 pub use spawn_plinth::SpawnPlinthMesh;
 pub use stair::StairFlight;
 pub use stair_corner::StairCorner;
-pub use timber_grain::{BlockMedium, MediumShape};
+pub use timber_grain::{BlockMedium, MediumShape, MiningEdge};
 pub use valley::ValleyCorner;
 pub use vehicle_parts::WheelProfile;
 pub use wedge::{RampWedge, WedgeHeading};

@@ -46,10 +46,10 @@ pub use celestial::{
 pub use block::{
     AttitudeNozzleMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,
     ConsoleOrrery, CornerHeading, CuboidShape, DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh,
-    FootwellPlinth, FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape, MineralSeam,
-    MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner,
-    RocketNozzleMesh, SpawnPlinthMesh, StairCorner, StairFlight, ValleyCorner, VoxelShape, WalnutFloorPan,
-    WedgeHeading, WheelProfile,
+    FootwellPlinth, FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape,
+    MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak,
+    RampWedge, RidgeCorner, RocketNozzleMesh, SpawnPlinthMesh, StairCorner, StairFlight,
+    ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
 };
 pub use chronicle::WorldFact;
 pub use contracts::{
@@ -140,6 +140,7 @@ pub trait Face: Send + Sync {
     fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool { self.harvest(eye, direction).is_some() }
     fn harvest(&mut self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> { None }
     fn loosen(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> Option<BlockMedium> { None }
+    fn surface_yields_to(&self, _eye: Vec3, _direction: Vec3, _edge: MiningEdge) -> Option<bool> { None }
     fn strike_timber(&mut self, _eye: Vec3, _direction: Vec3) -> CleaveOutcome { CleaveOutcome::Missed }
     fn forage_timber(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind { SurfaceFind::EmptyHanded }
     fn cast_litter(&mut self, _eye: Vec3, _direction: Vec3, _find: SurfaceFind) -> bool { false }

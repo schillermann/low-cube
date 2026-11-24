@@ -12,9 +12,11 @@ use crate::envelope::{InventoryNotice, SanctuaryEnvelope};
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::SmoothRoster;
 use crate::link_state::{LinkPhase, LinkSync, WelcomeFrame};
-use crate::passport::{FixedPassport, KnockPassport};
+use crate::passport::{FixedPassport, KnockPassport, PassportVault};
+use crate::seal::HandshakeIdentity;
 use crate::ticket::JoinTarget;
 use crate::wormhole::PunchCode;
+use self::bind::LinkSocket;
 
 /// Encrypted P2P UDP client link managing PAKE wormhole discovery, NAT hole-punching, and chronicle sync.
 pub struct RemoteLink {
@@ -28,6 +30,34 @@ impl RemoteLink {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(socket: UdpSocket, target: JoinTarget, phase: LinkPhase, sync: LinkSync) -> Self {
         Self { socket, target, phase, sync }
+    }
+
+    pub fn bind(target: JoinTarget) -> std::io::Result<Self> {
+        Self::bind_with_vault(target, Box::new(FixedPassport::unassigned()))
+    }
+
+    pub fn bind_with_identity(target: JoinTarget, keys: HandshakeIdentity) -> std::io::Result<Self> {
+        Self::bind_with_vault(target, Box::new(FixedPassport::pinned(&keys)))
+    }
+
+    pub fn bind_with_vault(target: JoinTarget, vault: Box<dyn PassportVault>) -> std::io::Result<Self> {
+        LinkSocket::new(target).open_with_vault(vault)
+    }
+
+    pub fn bind_on_socket(socket: UdpSocket, guest_endpoint: SocketAddr, target: JoinTarget) -> Self {
+        Self::bind_socket_with_vault(socket, guest_endpoint, target, Box::new(FixedPassport::unassigned()))
+    }
+
+    pub fn bind_socket_with_identity(
+        socket: UdpSocket, guest_endpoint: SocketAddr, target: JoinTarget, keys: HandshakeIdentity,
+    ) -> Self {
+        Self::bind_socket_with_vault(socket, guest_endpoint, target, Box::new(FixedPassport::pinned(&keys)))
+    }
+
+    pub fn bind_socket_with_vault(
+        socket: UdpSocket, guest_endpoint: SocketAddr, target: JoinTarget, vault: Box<dyn PassportVault>,
+    ) -> Self {
+        LinkSocket::new(target).assemble(socket, guest_endpoint, vault)
     }
 
     pub fn connected(&self) -> bool { matches!(self.phase, LinkPhase::Sealed { .. }) }

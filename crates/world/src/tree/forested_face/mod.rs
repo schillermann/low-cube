@@ -5,8 +5,8 @@ use glam::Vec3;
 use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
 use crate::{
-    BlockMedium, BlockMold, CraftBlueprint, Face, MeshTarget, PlannedMount, Quad, VehicleAssembly,
-    VesselSink,
+    BlockMedium, BlockMold, CraftBlueprint, Face, MeshTarget, MiningEdge, PlannedMount, Quad,
+    VehicleAssembly, VesselSink,
 };
 use super::arboreal::Arboreal;
 use super::sector_forest::SectorForest;
@@ -136,6 +136,10 @@ impl Face for ForestedFace {
 
     fn loosen(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> {
         self.origin.loosen(eye, direction, stage)
+    }
+
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> Option<bool> {
+        self.origin.surface_yields_to(eye, direction, edge)
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {

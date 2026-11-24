@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, GridCell, VoxelShape};
+use crate::block::{BlockMedium, GridCell, MiningEdge, VoxelShape};
 use crate::frame::SurfaceFrame;
 use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
 use crate::topology::ClimateZone;
@@ -82,6 +82,9 @@ pub trait ReliefElevation: Send + Sync {
 
     /// Marks or clears partial digging progress (0..=3) at a specific vertical layer within (u, v).
     fn mark_dig_layer(&mut self, _u: i32, _v: i32, _layer_elev: f32, _stage: u8) -> Option<BlockMedium> { None }
+
+    /// Indicates whether the targeted block layer at (u, v) yields to `edge`.
+    fn layer_yields_to(&self, _u: i32, _v: i32, _layer_elev: f32, _edge: MiningEdge) -> bool { true }
 
     /// Excavates a specific vertical block layer within (u, v).
     fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> bool {

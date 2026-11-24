@@ -2,8 +2,8 @@ use glam::Vec3;
 use crate::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPortal, CompanionPresence, CraftBlueprint,
     CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing,
-    MeshTarget, PilotCraft, PlanetaryWorld, PlannedMount, SightCone, SurfaceFind, TerrainMesh,
-    VehicleAssembly, VesselDeck, VesselSink, WoodlandLife, WorldEarthworks,
+    MeshTarget, MiningEdge, PilotCraft, PlanetaryWorld, PlannedMount, SightCone, SurfaceFind,
+    TerrainMesh, VehicleAssembly, VesselDeck, VesselSink, WoodlandLife, WorldEarthworks,
 };
 
 const SURFACE_PARK_CLEARANCE: f32 = 4.5;
@@ -67,6 +67,7 @@ impl<W: GravityField> GravityField for OrbitalFleetWorld<W> {
 impl<W: PlanetaryWorld> WorldEarthworks for OrbitalFleetWorld<W> {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.origin.harvest_surface(eye, direction) }
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.origin.loosen_surface(eye, direction, stage) }
+    fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool { self.origin.surface_yields_to(eye, direction, edge) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.origin.strike_timber(eye, direction) }
     fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
         self.origin.strike_boar(eye, direction, power, max_reach)
