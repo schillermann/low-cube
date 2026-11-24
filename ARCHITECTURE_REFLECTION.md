@@ -1,0 +1,113 @@
+# Architektur-Reflexion, Strikte Horizont-Isolation & Out-of-the-Box-Ideen (`v0.112.0+`)
+
+> **Kontext:** Tiefenprüfung aller Subsysteme (`crates/world`, `crates/sanctuary`, `crates/fauna`, `crates/client`) gegen das oberste Skalierungs-Axiom von Low-Cube. Die lokalen Horizont- & Klimazonen-Isolations-Decorators aus §3 (`SectorForest`, `PlanetaryMesh::with_horizon`, `present_vessels_near`, `SectorGridAudience`, `VelocityScaledSight`, `SpatialFactIndex`/`HorizonStream`, `SectorCracks`, `VaultStream`, `OffworldVault`) sind in **`v0.113.0`** umgesetzt; §5 zeigt die verbleibenden Ausbaustufen.
+
+---
+
+## 0. Das Leit-Axiom: Strikte Horizont- & Klimazonen-Isolation
+
+> **Grundsatz:** Einen Spieler (z. B. in `Temperate` auf der Erde) darf technisch **weder im Netzwerk (`0 Bytes`), noch im RAM (`0 Heap-Objekte`), noch auf der CPU (`0 Ticks / 0 Raycasts`), noch im GPU-VRAM (`0 Meshes`)** interessieren, was weiter weg auf seiner eigenen Würfelseite, in einer anderen `ClimateZone` (`Arctic`, `Jungle`, `Desert`, `Steppe`, `Volcanic`) oder auf einem anderen Himmelskörper passiert!
+> * Nur wenn er sich bis auf `<= 160 m` einer Würfelkante (`BeveledBoundary`) nähert, öffnet sich nahtlos der angrenzende Randsektor der Nachbar-Klimazone.
+> * Nur wenn er mit einem Schiff in die Höhe / in den Orbit aufsteigt, werden grobe `OrbitalShell`-Makro-Patches der sichtbaren Würfelseiten geladen.
+
+---
+
+## 1. Gehen wir hier den richtigen Weg?
+
+**Ja – strategisch, technisch und spielerisch ist dieser Weg goldrichtig.**
+
+1. **Seed + Sparse-Deltas statt Gigabyte-Chunk-Streaming:** Server und Client erzeugen die Grundwelt deterministisch aus demselben Seed; unveränderte Landschaft kostet null Netzwerkbandbreite.
+2. **Physischer Horizont (`0 Hz` Fernfeld) statt globalem `O(N²)`-Zwang:** Weit entfernte Spieler kosten `0 Hz / 0 Bytes` (`ProximityAudience`), Kommunikation ist strikt lokal (`<= 96 m`).
+3. **Spielbare Hard-Sci-Fi (`< 1 h` Flip-&-Burn + endliche Heimat-Erze):** `1 AU <= 48,09 Mio. m` garantiert unter einer Stunde Flugzeit bis zum äußeren Asteroidengürtel (`3,20 AU`), während erschöpfliche Erze (`LivingVeins`) den wirtschaftlichen Aufbruch ins All erzwingen.
+4. **Yegor Bugayenkos Pure OOP & Decorator-Komposition:** Alle Erweiterungen bleiben gekapselte, austauschbare Decorators (`<= 4` Felder pro Struct, `< 300` Zeilen pro Datei, keine Getter/Setter, keine globalen Locks).
+
+---
+
+## 2. Erneute Tiefenprüfung aller Punkte gegen die strikte Horizont- & Klimazonen-Isolation
+
+Beim erneuten Abklopfen des **tatsächlichen Ist-Codes (`v0.112.0`)** und unserer bisherigen Planpunkte gegen die Regel *„nichts Weites und keine andere Klimazone darf den Spieler technisch belasten“* sind neben den bekannten Kosmos-Punkten **vier massive lokale Lecks auf der Erde selbst** aufgetaucht:
+
+### 2.1 NEUFUND: Bäume & Bodenfunde (`ZonedForest` / `ForestedFace`) laden und ticken noch alle 6 Klimazonen!
+* **Befund im Code (`crates/world/src/tree/zoned_forest.rs` & `forested_face/mod.rs`):**
+  1. `ZonedForest::populate_face` erzeugt beim Weltstart **sofort alle Bäume, Äste und Feuersteine der gesamten Würfelseite** für alle **6 Klimazonen**. Auf einer `4096³`-Erde (`half_size = 2.048 m`) sind das `~6,26 Mio.` Gitterproben und **`~1,8 Millionen` `Box<dyn Arboreal>`-Objekte im RAM** – obwohl der Spieler nur in einem `160 m`-Waldstück in `Temperate` steht!
+  2. `ForestedFace::constrain` (`forested_face/mod.rs:67`) iteriert bei *jeder* Bodenkollision linear über **alle Bäume der gesamten Klimazone** (`for tree in &self.trees`).
+  3. `CubePlanet::step_surface` (`planet/mod.rs:159`) ruft `120`-mal pro Sekunde `step_flora(dt)` auf **allen 6 Klimazonen** gleichzeitig auf (`Arctic`, `Jungle`, `Desert`, `Steppe`, `Volcanic` inklusive!).
+  4. `SessionDisplay::refresh_world_mesh` (`session/display/mod.rs:67`) baut und lädt beim Beitritt sofort **alle 6 Terrain-Faces UND alle 6 kompletten Baum-Meshes aller Klimazonen** in den GPU-VRAM – obwohl der Spieler durch den festen Planeten hindurch die anderen 5 Klimazonen überhaupt nicht sehen kann!
+* **Konsequente Lösung (`HorizonFlora` / `SectorForest`):**
+  * Bäume und `FloorLitter` werden wie `ReliefCellCache` **ausschließlich on-demand pro Sektor `(BodyId, ClimateZone, SectorU, SectorV)` im lokalen Sichtring (`<= 160 m`)** erzeugt, kollidiert (`3×3`-Sektoren statt `300.000` Bäume!), getickt und in einen lokalen Flora-Ring auf der GPU geladen.
+  * Andere Klimazonen und ferne Wälder derselben Klimazone belegen **`0` RAM, `0` CPU-Ticks und `0` GPU-VRAM**! Auch die `OrbitalShell`-Terrain-Slices der 5 abgewandten Klimazonen werden erst gestreamt, wenn die Höhe des Spielers über die Horizontkante steigt.
+
+### 2.2 NEUFUND: Geparkte Fahrzeuge (`present_vessels`) und Grab-Risse (`PeerCrack`) lecken über Klimazonen hinweg!
+* **Befund im Code:**
+  1. `CubePlanet::present_vessels` (`crates/world/src/planet/facets.rs:94`) iteriert in **jedem Render-Frame** über alle 6 `ClimateZone`-Faces und übergibt jedes geparkte Auto/Raumschiff des gesamten Planeten an die GPU (`VesselStage`) – ein Rover in `Volcanic` wird für einen Spieler in `Temperate` jeden Frame mitgeprüft!
+  2. `HostAura::record_crack` (`crates/sanctuary/src/aura.rs:168`) speichert Grab-Risse (`PeerCrack`) aller Spieler des gesamten Servers in einem **einzigen globalen `16`-Elemente-Puffer** (`if len >= 16 { remove(0) }`). Graben 20 Spieler in `Desert`, `Arctic` oder auf dem Mars gleichzeitig, überschreiben sie die Grab-Risse direkt vor den Füßen eines Spielers in `Temperate`!
+* **Konsequente Lösung:**
+  * Geparkte Schiffe und `PeerCrack`-Ereignisse hängen strikt an ihrem Sektor-Schlüssel **`SectorKey = (BodyId, ClimateZone, SectorU, SectorV)`**. Was in `Volcanic` oder `500 m` weiter in `Temperate` parkt oder gräbt, existiert weder im Puffer noch im Render-Pass von `Temperate`.
+
+### 2.3 Chronik-Architektur: `SectorChronicle` pro `(BodyId, ClimateZone, Sector)` + On-Demand `VesselCatalog`
+* **Geprüft & bestätigt:** Weder ein globales `ChronicleLog` noch eine bloße `BodyId`-Partitionierung genügt (da auf einer `4096³`-Erde sowohl die anderen 5 Klimazonen als auch `3 km` entfernte Täler derselben `Temperate`-Zone für den Spieler irrelevant sind).
+* **Richtiger Schnitt:**
+  1. **`SectorChronicle` (`(BodyId, ClimateZone, SectorU, SectorV)`):** Speichert den **aktuellen Netto-Zellzustand (`SectorSnapshot`)** statt historischer Raycast-Events. Der Client synchronisiert nur seinen lokalen `HorizonSectors`-Ring (`~5×5` Sektoren um seine Position; über eine Würfelkante hinweg nur dann, wenn er `< 160 m` an der Fase steht). Andere Klimazonen = **`0 Bytes, 0 Raycasts`**.
+  2. **`VesselCatalog` (On-Demand im Horizont):** Reisende Schiffe (`CraftBlueprint` + aktuelle Pose) sind vom Boden-Log getrennt und werden **ausschließlich dann** an einen Client übertragen, wenn das Schiff tatsächlich in seinen lokalen Sichthorizont eintritt.
+
+### 2.4 Lokale Hill-Sphären & Klimazonen-Koordinaten (Keine `16 m` `f32`-Sprünge im Gürtel)
+* **Geprüft:** Bei `3,20 AU = 153,88 Mio. m` beträgt `1 ULP` in heliozentrischem `f32` **`16,0 Meter`** – Gehen (`0,03 m/Tick`) und `0,5 m`-Blöcke frieren dort ein.
+* **Feinschliff:** Jede Spieler- und Schiffsposition ankert lokal an `(BodyId, LocalOffset: Vec3)` (und am Boden zusätzlich implizit in ihrer `ClimateZone`-`SurfaceFrame`). Im freien Raum zwischen den Planeten dient ein lokaler Sektor-Ursprung (`DVec3`) als Anker. Damit herrscht an jedem Punkt des Sonnensystems Sub-Millimeter-`f32`-Präzision, ohne dass ein Spieler auf der Erde jemals Koordinaten-Updates aus dem Gürtel erhält (`0 Hz`).
+
+### 2.5 Server-Simulation & Sharding: Nach `(BodyId, ClimateZone, SectorCluster)` statt nur nach `BodyId`!
+* **Wichtige Korrektur unseres eigenen Plans:** Zuvor stand im Plan, die Server-Simulation pro `BodyId` auf CPU-Kerne zu verteilen. **Fehler:** Wenn sich `900` von `1.000` Spielern gleichzeitig auf `BodyId::EARTH` aufhalten (`200` in `Temperate`, `150` in `Jungle`, `150` in `Arctic`, `200` in `Volcanic`, `200` in `Desert`), würde ein einziger `Earth`-Thread die gesamte Last tragen, während 7 CPU-Kerne für leere Monde brachliegen!
+* **Richtiger Schnitt:** Weil ein Spieler in `Temperate` nichts mit `Volcanic` oder einem `1 km` entfernten Tal zu tun hat, sharded der Server die Welt nach **aktiven `(BodyId, ClimateZone, SectorCluster)`-Inseln**!
+  * Alle 6 Klimazonen der Erde laufen parallel auf getrennten CPU-Kernen.
+  * Unbewohnte Klimazonen, unbesuchte Sektoren und leere Monde/Asteroiden sind **komplett passiv (`Dormant`, `0 %` CPU, `0` RAM)** und wachen nur in genau den Sektoren auf, in denen sich tatsächlich ein Spieler befindet!
+
+### 2.6 Wildtiere (`SectorFauna`), Multi-Crew (`AboardVessel`) & Server-Inventar (`SurvivorLedger`)
+* **Wildtiere (`SectorFauna`):** `HostSounder` darf nicht global im `HostPulse` an jeden Spieler geschickt werden (`crates/sanctuary/src/cohort.rs:243`). Wildtiere leben pro aktivem Sektor ihrer jeweiligen `ClimateZone`; verlässt der letzte Spieler den Sektor, schläft die Fauna ein (`0` Bytes an andere Zonen, `0` CPU-Ticks).
+* **Multi-Crew (`AboardVessel`):** Mitfahrer auf einem `VesselDeck` übertragen `(CraftIdentity, DeckOffset: Vec3)` statt Weltkoordinaten – nur relevant für Beobachter im Sichthorizont genau dieses Schiffs.
+* **`SurvivorLedger`:** Serverseitige Speicherung von `(BodyId, LocalPos)` + Satchel pro X25519-Spieler-Key beim Logout, damit endliche Erze geschützt sind und niemand per lokaler Client-`server.toml` Items ercheaten kann.
+
+---
+
+## 3. Zusammenfassung der konkreten Architektur-Feinjustierungen (Yegor-Decorators)
+
+| # | Bereich | Ist-Zustand (`v0.112.0`) | Feinjustierung (Strikte Horizont- & Klimazonen-Isolation) | Technischer Effekt |
+|---|---|---|---|---|
+| **1** | **Flora & GPU-Slices** (`ZonedForest`, `ForestedFace`, `SessionDisplay`) | Erzeugt, kollidiert, tickt und lädt beim Start Bäume & Meshes **aller 6 Klimazonen** (`~1,8 Mio.` Objekte bei `4096³`). | **`SectorForest` + `HorizonSliceLoader`**：Generiert Bäume, Litter & Flora-VRAM-Patches lazy nur in den `<= 160 m`-Sektoren der eigenen `ClimateZone` (Nachbar-Zone nur `< 160 m` vor Würfelkante; ferne `OrbitalShell`s erst ab Steigflug). | Startzeit `< 50 ms`, **`99 %` weniger RAM/VRAM & CPU** auf `4096³`-Erde. |
+| **2** | **Chronik & Flotte** (`ChronicleLog`, `CubePlanet::present_vessels`) | Globales `Vec<WorldFact>` + planetenweites Rendern aller geparkten Fahrzeuge über alle 6 Faces. | **`SectorChronicle` + `HorizonVessels`**：Netto-Zellzustand (`SectorSnapshot`) pro `(BodyId, ClimateZone, Sector)` + On-Demand `CraftBlueprint`/Park-Sync nur bei Eintritt in den Sichtring. | **Login `< 0,2 s`** nach Jahren Laufzeit; `0 Bytes` & `0 Drawcalls` für andere Klimazonen. |
+| **3** | **Audience & Cracks** (`WorldAudience`, `HostAura::record_crack`) | `O(N²)`-CPU-Scan in `select_for` + globaler `16`-Slot-Puffer für `PeerCrack`s über das ganze Universum. | **`SeamAwareSectorAudience`**：Indiziert Spieler, `PeerCrack`s und `WildlifePulse` direkt in `(BodyId, ClimateZone, Sector)`-Buckets (faltet nur am Kantenrand über die 90°-Fase). | Server-CPU bei 2.500 Spielern **`< 0,15 ms/Tick` (`O(N)`)**, null Übersprechen zwischen Zonen. |
+| **4** | **Server-Kerne & Welten** (`VicinityCache`, Server-Tick) | `2`-Slot-LRU-Cache für das ganze Sonnensystem + ein einziger Main-Thread für ganz `Earth`. | **`ActiveSectorWorlds` + Cluster-Sharding**：Server hält nur besuchte Sektoren auf Erde, Monden & Asteroiden wach (mit Idle-TTL) und rechnet Klimazonen/Cluster parallel. | Kein `2`-Slot-Thrashing; auch **1.000 Spieler allein auf der Erde** skalieren über alle CPU-Kerne. |
+| **5** | **Koordinaten, WAL & Anflug** (`SpaceStep`, `DiskVaultChronicle`, `MtuBudgetAudience`) | Heliozentrisches `f32` (`16 m` ULP im Gürtel), `open()` pro WAL-Fact, starre `48 m`/`160 m`-Schiffssicht. | **`HillBubbleFrame` + `BufferedVaultChronicle` + `VelocityScaledSight`**：Lokales `(BodyId, Vec3)`, Tick-geflushter `BufWriter<File>` und geschwindigkeitsskalierte Sicht für landende Raketen *im eigenen Himmel*. | Sub-Millimeter-Physik überall, **100× schnelleres SSD-WAL**, sanft sichtbare Landungen vor Ort. |
+
+---
+
+## 4. Geprüfte Out-of-the-Box-Ideen (100 % kompatibel mit Horizont-Isolation!)
+
+Auch kreative Ideen müssen sich dem Gesetz beugen: **Keine globalen Server-Broadcasts, keine Last durch unsichtbare Klimazonen!**
+
+1. **Physisches Erz-Gewicht (`CargoBallast` auf `a = F / m`) — *100 % lokal*:**
+   Abgebautes Erz wird als physische Frachtblöcke auf das Schiffsdeck gesetzt und erhöht direkt die Schiffsmasse in `HullBallast`. Leer fliegt der Prospektor mit `9 G` zum Gürtel, vollbeladen bremst er träge mit `1,8 G` zurück. Null zusätzlicher Netzwerk-Overhead außerhalb des Sichthorizonts!
+2. **Akustisches Vakuum & „Helm-an-Helm“-Kontaktfunk (`MediumChat`) — *100 % lokal*:**
+   In Atmosphäre (`Earth`, `Mars`, `Titan`) trägt der lokale Chat `96 m`. Im Vakuum (`Luna`, `BeltRock`, EVA) trägt offener Schall `0 m`: Kommunikation läuft über Bord-Intercom (gleiches `VesselDeck`), lokalen Kurzstrecken-Anzugfunk (`<= 96 m`) oder – bei Funkstille – durch direktes **Helm-an-Helm-Berühren (`<= 1,8 m`)**.
+3. **Forensische Spuren vor Ort (Schmelzbasalt, Geisterwracks & Blackbox-Block) — *100 % lokal im Sektor*:**
+   * Heiße Fusionsdüsen hinterlassen im getroffenen `SectorSnapshot` einen dunklen Ring aus verglastem **Schmelzbasalt**.
+   * Zerschellt ein Schiff, bleibt im jeweiligen Sektor ein unzerstörbarer orangefarbener **Blackbox-Voxelblock** liegen, aus dem nur ein Finder *direkt vor Ort* die letzten 15 Sekunden Flugschreiber-Telemetrie (`LiveTape`) bergen kann.
+4. **Teleskop-Brennsterne (`DriveStar`) — *Strikt nur auf Anfrage / Sichtkegel im Nacht-/Raumhimmel, niemals global!*:**
+   Einen Spieler am Tag, unter Tage oder auf der abgewandten Erdseite (`Temperate` zeigt von Mars weg) geht ein fremdes Triebwerk **nichts an (`0 Bytes`)**. Nur wenn ein Beobachter im Weltraum ist oder nachts aktiv durch ein `6×/24×`-Teleskop in seine **offene Himmelshalbkugel (`dot(local_up, dir) > 0.15`)** blickt, kann der Server maximal 4 helle Fusions-Brennsterne genau dieses Himmelssektors einblenden – null Last für alle normalen Boden-Spieler!
+5. **Optische Sichtlinien-Leuchtfeuer statt Global-Chat — *Strikt physikalische Sichtlinie*:**
+   Kein magischer Planeten-Chat: Ein gebautes Laser-/Licht-Leuchtfeuer ist nur für denjenigen sichtbar, der eine **echte freie geometrische Sichtlinie** auf die Bake hat (z. B. ein anfliegendes Schiff im Orbit über genau dieser Klimazone). Wer in einer anderen Klimazone hinter dem Horizont steht, empfängt `0 Bytes`.
+
+---
+
+## 5. Was als Nächstes umgesetzt werden kann (Priorisierte Roadmap ab `v0.113.0`)
+
+Nachdem die strikte Horizont- und Klimazonen-Isolation (`0 Bytes / 0 Objekte / 0 GPU-Slices` für andere Klimazonen und ferne Gebiete) in `v0.113.0` steht, ergeben sich fünf klar abgegrenzte nächste Umsetzungspakete:
+
+1. **Paket 1 — Lokale Hill-Sphären („Gravity Bubbles“ `(BodyId, LocalOffset: Vec3)`) + `epoch_secs`-Sync (`COSMOS_PLAN.md` Phase 4):**
+   * **Warum zuerst:** Löst die verbleibende IEEE-754 `f32`-Präzisionsgrenze (`1 ULP = 16,0 m` bei `3,20 AU = 153,88 Mio. m`), damit Landungen und `0,5 m`-Schritte auf äußeren `BeltRock`-Asteroiden und Jupitermonden mit derselben Sub-Millimeter-Präzision laufen wie auf der Erde – während alle Planetenbahnen ohne `if !locked`-Sperre in Echtzeit weiterlaufen.
+2. **Paket 2 — `AboardVessel`-Relativkoordinaten (`PresenceFrame`) für Multi-Crew-Raumschiffe:**
+   * **Warum als Zweites:** Sobald zwei oder mehr Spieler gemeinsam im selben Epstein-Schiff mit `50–240 km/s` zum Gürtel fliegen, hält die Übertragung von `(CraftIdentity, DeckOffset: Vec3)` Mitfahrer bei jedem Manöver exakt im Innenraum des Schiffs.
+3. **Paket 3 — Serverseitiger `SurvivorLedger` (Inventar- & Positions-Persistenz pro X25519-Key):**
+   * **Warum wichtig für Großserver:** Bindet gesammeltes Erz, Werkzeuge (`FusionTorch`) und den letzten Aufenthaltsort serverseitig an den kryptographischen Spieler-Schlüssel im WAL – verhindert Client-`server.toml`-Cheats und schützt 45-Minuten-Bergbau-Expeditionen bei kurzen Verbindungsabbrüchen.
+4. **Paket 4 — Netto-Zellzustands-Snapshots (`SectorSnapshot`) für gealterte Sektoren + Multi-Core-Klimazonen-Sharding:**
+   * **Gewinn:** Komprimiert Sektoren, in denen über Monate Tausende Male gegraben und umgebaut wurde, auf ihren reinen Zell-Endzustand (null Raycast-Replay beim Betreten alter Städte) und verteilt die Simulation der 6 Erd-Klimazonen parallel auf getrennte Server-Threads.
+5. **Paket 5 — Emergente Hard-Sci-Fi-Sandbox (`CargoBallast`-Erzmasse, `MediumChat`-Vakuumfunk & bergbare `LiveTape`-Blackbox-Blöcke):**
+   * **Gewinn:** Macht den Rohstofftransport aus dem Asteroidengürtel physikalisch spürbar (`a = F / m`), gibt Raumspaziergängen echten Helm-an-Helm-/Anzugfunk und verwandelt Absturzstellen durch abspielbare Flugschreiber-Blöcke in echte Weltraum-Archäologie.

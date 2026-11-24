@@ -79,6 +79,10 @@ impl VesselDeck for HostedPlanet {
         self.host.world().present_vessels(sink);
         self.host.present_guest_vessels(sink);
     }
+    fn present_vessels_near(&self, center: Vec3, radius: f32, sink: &mut dyn world::VesselSink) {
+        self.host.world().present_vessels_near(center, radius, sink);
+        self.host.present_guest_vessels(sink);
+    }
     fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<world::PlannedMount> {
         self.host.world().plan_molded_block(eye, direction, avatar_pos, mold)
     }

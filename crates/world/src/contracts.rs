@@ -76,6 +76,9 @@ pub trait VesselDeck {
     fn helm_revoked(&mut self, _craft: CraftIdentity) -> bool { false }
     fn emit_active_crafts(&self, _target: &mut dyn MeshTarget) {}
     fn present_vessels(&self, _sink: &mut dyn VesselSink) {}
+    fn present_vessels_near(&self, _center: Vec3, _radius: f32, sink: &mut dyn VesselSink) {
+        self.present_vessels(sink);
+    }
     fn plan_molded_block(&self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> Option<PlannedMount> { None }
     fn capture_vehicle_blueprint(&self, _eye: Vec3, _direction: Vec3) -> Option<CraftBlueprint> { None }
     fn aimed_empty_rig(&self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3) -> bool { false }

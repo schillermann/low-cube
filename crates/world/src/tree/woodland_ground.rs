@@ -4,28 +4,22 @@ use crate::topology::ClimateZone;
 use super::planting_ground::PlantingGround;
 
 /// Decorator modulating arboreal density across biomes (dense forest, solitary trees, open clearings).
-pub struct WoodlandGround<'a> {
-    origin: Box<dyn PlantingGround + 'a>,
-    frequency: Box<dyn SpatialFrequency>,
+pub struct WoodlandGround<G, F = CoherentNoise> {
+    origin: G,
+    frequency: F,
     zone: ClimateZone,
 }
 
-impl<'a> WoodlandGround<'a> {
+impl<G, F> WoodlandGround<G, F> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(
-        origin: Box<dyn PlantingGround + 'a>,
-        frequency: Box<dyn SpatialFrequency>,
-        zone: ClimateZone,
-    ) -> Self {
-        Self {
-            origin,
-            frequency,
-            zone,
-        }
+    pub const fn new(origin: G, frequency: F, zone: ClimateZone) -> Self {
+        Self { origin, frequency, zone }
     }
+}
 
-    /// Secondary constructor initializing zone-calibrated macro frequency.
-    pub fn in_zone(origin: Box<dyn PlantingGround + 'a>, zone: ClimateZone) -> Self {
+impl<G> WoodlandGround<G, CoherentNoise> {
+    /// Secondary constructor initializing zone-calibrated macro frequency without heap allocation.
+    pub fn in_zone(origin: G, zone: ClimateZone) -> Self {
         let seed = match zone {
             ClimateZone::Temperate => 701,
             ClimateZone::Volcanic => 702,
@@ -34,12 +28,11 @@ impl<'a> WoodlandGround<'a> {
             ClimateZone::Jungle => 705,
             ClimateZone::Steppe => 706,
         };
-        let noise = Box::new(CoherentNoise::new(seed, 0.04));
-        Self::new(origin, noise, zone)
+        Self::new(origin, CoherentNoise::new(seed, 0.04), zone)
     }
 }
 
-impl<'a> PlantingGround for WoodlandGround<'a> {
+impl<G: PlantingGround, F: SpatialFrequency> PlantingGround for WoodlandGround<G, F> {
     fn receptive(&self, cell_u: i32, cell_v: i32, hash: i32) -> bool {
         if !self.origin.receptive(cell_u, cell_v, hash) {
             return false;

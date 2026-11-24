@@ -41,6 +41,10 @@ impl AwakenedBody {
         &mut self.planet
     }
 
+    pub fn into_parts(self) -> (BodyId, f32, CubePlanet) {
+        (self.id_and_half.0, self.id_and_half.1, self.planet.into_inner())
+    }
+
     pub fn near(&self, pos: Vec3, pad: f32) -> bool {
         (pos - self.center).abs().max_element() <= self.id_and_half.1 + pad
     }

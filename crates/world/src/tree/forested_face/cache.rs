@@ -1,87 +1,7 @@
-use std::sync::RwLock;
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
-use crate::{Face, MeshTarget, Quad};
-use super::super::arboreal::Arboreal;
-
-struct FloraQuadTarget<'a>(&'a mut Vec<Quad>);
-
-impl MeshTarget for FloraQuadTarget<'_> {
-    fn push_quad(&mut self, quad: Quad) {
-        self.0.push(quad);
-    }
-}
-
-/// Cached per-specimen flora quad lists for a planetary face.
-pub(super) struct FloraCache {
-    slots: RwLock<Vec<Vec<Quad>>>,
-    settled: bool,
-}
-
-impl FloraCache {
-    pub(super) const fn new(slots: RwLock<Vec<Vec<Quad>>>, settled: bool) -> Self {
-        Self { slots, settled }
-    }
-
-    pub(super) fn build_tree_quads(tree: &dyn Arboreal) -> Vec<Quad> {
-        let mut quads = Vec::with_capacity(32);
-        let mut collector = FloraQuadTarget(&mut quads);
-        tree.emit_surface(&mut collector);
-        quads
-    }
-
-    pub(super) fn refresh_slot(&mut self, idx: usize, trees: &[Box<dyn Arboreal>]) {
-        let flora = self.slots.get_mut().expect("Flora cache lock poisoned");
-        if flora.len() == trees.len() {
-            flora[idx] = Self::build_tree_quads(trees[idx].as_ref());
-        }
-    }
-
-    pub(super) fn append_specimen(&mut self, tree: &dyn Arboreal, total_after: usize) {
-        let flora = self.slots.get_mut().expect("Flora cache lock poisoned");
-        if flora.len() + 1 == total_after {
-            flora.push(Self::build_tree_quads(tree));
-        } else {
-            flora.clear();
-        }
-    }
-
-    pub(super) fn mark_settled(&mut self) {
-        self.settled = true;
-    }
-
-    pub(super) fn take_settled(&mut self) -> bool {
-        let prev = self.settled;
-        self.settled = false;
-        prev
-    }
-
-    pub(super) fn emit(&self, trees: &[Box<dyn Arboreal>], target: &mut dyn MeshTarget) {
-        if let Ok(flora) = self.slots.read() {
-            if flora.len() == trees.len() {
-                for tree_quads in flora.iter() {
-                    for &quad in tree_quads {
-                        target.push_quad(quad);
-                    }
-                }
-                return;
-            }
-        }
-        let mut flora = self.slots.write().expect("Flora cache lock poisoned");
-        if flora.len() != trees.len() {
-            flora.clear();
-            flora.reserve(trees.len());
-            for tree in trees {
-                flora.push(Self::build_tree_quads(tree.as_ref()));
-            }
-        }
-        for tree_quads in flora.iter() {
-            for &quad in tree_quads {
-                target.push_quad(quad);
-            }
-        }
-    }
-}
+use crate::Face;
+use super::super::sector_forest::SectorForest;
 
 /// Resolves deterministic resting ground coordinates when an item is cast onto a face.
 pub(super) struct LitterLanding<'a> {
@@ -138,14 +58,12 @@ impl<'a> LitterLanding<'a> {
         Some((bu, bv, belev))
     }
 
-    pub(super) fn resolve(
-        &self,
-        eye: Vec3,
-        direction: Vec3,
-        trees: &[Box<dyn Arboreal>],
-    ) -> Option<(f32, f32, f32, f32)> {
+    pub(super) fn resolve(&self, eye: Vec3, direction: Vec3, forest: &mut SectorForest) -> Option<(f32, f32, f32, f32)> {
         let (bu, bv, belev) = self.base_spot(eye, direction)?;
         let eye_elev = self.frame.elevation_of(eye);
+        let center = SectorForest::sector_uv(bu, bv);
+        forest.ensure_neighborhood(center, 1, self.origin, self.frame);
+        let salt = forest.sector_revision(center.0, center.1) as f32;
         for attempt in 0..8usize {
             let (u, v, elev) = if attempt == 0 {
                 (bu, bv, belev)
@@ -159,12 +77,14 @@ impl<'a> LitterLanding<'a> {
                 }
                 (cu, cv, g)
             };
-            if !trees.iter().any(|t| t.crowds_spot(u, v, elev)) {
-                let yaw = (u * 3.7 + v * 5.3 + (trees.len() as f32) * 0.85).rem_euclid(std::f32::consts::TAU);
+            let probe = self.frame.point_at(u, v, elev + 0.2);
+            let constrained = forest.constrain_near(probe, u, v, 0.2, self.origin, &self.frame);
+            if (constrained - probe).length_squared() < 1e-4 {
+                let yaw = (u * 3.7 + v * 5.3 + salt * 0.85).rem_euclid(std::f32::consts::TAU);
                 return Some((u, v, elev, yaw));
             }
         }
-        let yaw = (bu * 3.7 + bv * 5.3 + (trees.len() as f32) * 0.85).rem_euclid(std::f32::consts::TAU);
+        let yaw = (bu * 3.7 + bv * 5.3 + salt * 0.85).rem_euclid(std::f32::consts::TAU);
         Some((bu, bv, belev, yaw))
     }
 }

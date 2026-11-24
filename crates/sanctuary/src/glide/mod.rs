@@ -59,6 +59,18 @@ impl CompanionGlide {
         self.to.1
     }
 
+    pub fn push_craft_with_speed(self, out: &mut Vec<(DrivenCraft, f32)>) {
+        let PilotCraft::Driving(cur) = self.to.1 else { return };
+        let step_speed = match self.from.1 {
+            PilotCraft::Driving(prev) if prev.identity() == cur.identity() => {
+                (cur.pose().origin() - prev.pose().origin()).length() / self.clock.cadence_secs().max(0.01)
+            }
+            _ => 0.0,
+        };
+        let thrust_speed = DeckFrame::thrust_from_pose(cur.pose()) * 180.0;
+        out.push((cur, step_speed.max(thrust_speed)));
+    }
+
     pub fn presence_at(self, render_secs: f64) -> CompanionPresence {
         CircularStrideCurve::new(
             WaypointCurve::new(self.from.0, self.to.0, self.clock),

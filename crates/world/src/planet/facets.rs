@@ -70,7 +70,7 @@ impl TerrainMesh for CubePlanet {
     }
 
     fn visible_slice_mask(&self, position: Vec3) -> u32 {
-        ModifiedSlices::horizon_mask(&self.faces, position, self.surface_up_at(position))
+        ModifiedSlices::horizon_mask(&self.faces, position, self.surface_up_at(position), self.boundary.half_span())
     }
 
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {
@@ -94,6 +94,28 @@ impl VesselDeck for CubePlanet {
     fn present_vessels(&self, sink: &mut dyn VesselSink) {
         for face in &self.faces {
             face.present_vessels(sink);
+        }
+    }
+
+    fn present_vessels_near(&self, center: Vec3, radius: f32, sink: &mut dyn VesselSink) {
+        struct LocalVesselSink<'a> {
+            center: Vec3,
+            radius_sq: f32,
+            inner: &'a mut dyn VesselSink,
+        }
+        impl VesselSink for LocalVesselSink<'_> {
+            fn receive_vessel(&mut self, blueprint: &CraftBlueprint, pose: crate::CraftPose) {
+                if (pose.origin() - self.center).length_squared() <= self.radius_sq {
+                    self.inner.receive_vessel(blueprint, pose);
+                }
+            }
+        }
+        let half = self.boundary.half_span();
+        let mut local = LocalVesselSink { center, radius_sq: radius * radius, inner: sink };
+        for face in &self.faces {
+            if center.dot(face.surface_up()) >= half - radius {
+                face.present_vessels(&mut local);
+            }
         }
     }
 

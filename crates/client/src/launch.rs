@@ -110,9 +110,15 @@ impl SessionAssembly for SessionLaunch {
         ));
 
         let slice_count = planet.face_count() * 2;
+        let initial_mask = planet.visible_slice_mask(spawn_position);
         let mut primary_faces: Vec<Box<dyn engine::Mesh>> = Vec::with_capacity(slice_count + 1);
+        let empty_cpu = CpuMeshBatch::empty();
         let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
         for idx in 0..slice_count {
+            if (initial_mask >> idx.min(31)) & 1 == 0 {
+                primary_faces.push(surface.upload_mesh(&empty_cpu));
+                continue;
+            }
             let patch_count = planet.face_patch_count(idx);
             if patch_count > 0 {
                 let mut patches = Vec::with_capacity(patch_count);
@@ -129,7 +135,6 @@ impl SessionAssembly for SessionLaunch {
             }
         }
         let mut initial_ring = world::MeadowRing::cold();
-        let empty_cpu = CpuMeshBatch::empty();
         let mut meadow_patches: Vec<Box<dyn engine::Mesh>> =
             (0..world::MEADOW_RING_SLOTS).map(|_| surface.upload_mesh(&empty_cpu)).collect();
         while let Some(slot) = planet.drain_stale_meadow_patch(spawn_position, &mut initial_ring, &mut patch_buf) {
@@ -138,8 +143,7 @@ impl SessionAssembly for SessionLaunch {
         }
         primary_faces.push(Box::new(engine::SectorGridMesh::new(meadow_patches)));
 
-        let initial_mask = planet.visible_slice_mask(spawn_position);
-        let primary_mesh = PlanetaryMesh::with_mask(primary_faces, initial_mask);
+        let primary_mesh = PlanetaryMesh::with_horizon(primary_faces, initial_mask, initial_mask);
         let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
         let canopy = Box::new(CalibratedCanopy::planetary(world_blocks));
         let primary_pipeline = surface.assemble_diurnal_pipeline(

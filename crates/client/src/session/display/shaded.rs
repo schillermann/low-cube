@@ -59,16 +59,17 @@ impl ShadedScenePass {
         avatar: &dyn Avatar,
         sight_scale: f32,
     ) {
+        let cone = avatar.sight_cone().scaled(sight_scale);
+        let viewer = cone.observe_from(|eye| eye);
         self.actors.reset();
         self.actors.collect_vessels(surface, |sink| {
             avatar.present_vessel(sink);
-            world.present_vessels(sink);
+            world.present_vessels_near(viewer, 2_400.0, sink);
         });
         self.actors.emit_actors(|figures| {
             avatar.emit_figure(figures);
             avatar.emit_placement_preview(world, figures);
             CompanionFigure::emit_figures(world, figures);
-            let cone = avatar.sight_cone().scaled(sight_scale);
             world.emit_wildlife(cone, figures);
             world.emit_cosmic_field(cone, figures);
         });
@@ -82,18 +83,29 @@ impl ShadedScenePass {
         sight: SightMode,
         sight_scale: f32,
     ) {
+        let cone = avatar.sight_cone_for_mode(sight).scaled(sight_scale);
+        let viewer = cone.observe_from(|eye| eye);
         self.actors.reset();
         self.actors.collect_vessels(surface, |sink| {
             avatar.present_vessel(sink);
-            world.present_vessels(sink);
+            world.present_vessels_near(viewer, 2_400.0, sink);
         });
         self.actors.emit_actors(|figures| {
             avatar.emit_figure_for_sight(sight, figures);
             CompanionFigure::emit_figures(world, figures);
-            let cone = avatar.sight_cone_for_mode(sight).scaled(sight_scale);
             world.emit_wildlife(cone, figures);
             world.emit_cosmic_field(cone, figures);
         });
+    }
+
+    fn ensure_horizon_slices(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, mask: u32) {
+        self.mesh.select_visible(mask);
+        let mut missing = self.mesh.missing_slices(mask, world.face_count() * 2);
+        while missing != 0 {
+            let idx = missing.trailing_zeros() as usize;
+            missing &= !(1u32 << idx);
+            self.refresh_face_slice(surface, world, idx);
+        }
     }
 }
 
@@ -102,7 +114,12 @@ impl ScenePass for ShadedScenePass {
         self.mesh.select_visible(mask);
     }
 
+    fn reset_horizon(&mut self) {
+        self.mesh.reset_uploaded();
+    }
+
     fn refresh_face_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, idx: usize) {
+        self.mesh.mark_uploaded(idx);
         let empty_init = CpuMeshBatch::empty();
         self.mesh.ensure_slice(idx, || surface.upload_mesh(&empty_init));
         let patch_count = world.face_patch_count(idx);
@@ -185,6 +202,7 @@ impl ScenePass for ShadedScenePass {
             if !updated_patch && self.mesh.patch_at(0, 0).is_none() {
                 let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
                 let idx = world.emit_modified_face(&mut cpu_buf);
+                self.mesh.mark_uploaded(idx);
                 let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);
                 self.mesh.store_slice(idx, next);
             }
@@ -193,6 +211,7 @@ impl ScenePass for ShadedScenePass {
         while world.pending_slices() {
             let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
             if let Some(idx) = world.drain_modified_slice(&mut cpu_buf) {
+                self.mesh.mark_uploaded(idx);
                 let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);
                 self.mesh.store_slice(idx, next);
             }
@@ -206,7 +225,8 @@ impl ScenePass for ShadedScenePass {
         sight: SightMode,
         sight_scale: f32,
     ) -> Vec<glam::Vec3> {
-        self.mesh.select_visible(avatar.visible_slices(world));
+        let mask = avatar.visible_slices(world);
+        self.ensure_horizon_slices(surface, world, mask);
         self.populate_sight_actors(surface, world, avatar, sight, sight_scale);
         let viewer = avatar.sight_cone_for_mode(sight).observe_from(|eye| eye);
         use crate::rayleigh_shell::{AtlasSkyProjection, EphemerisSync, SkyProjection};
@@ -231,7 +251,8 @@ impl ScenePass for ShadedScenePass {
         modal: &dyn SessionModal,
         sight_scale: f32,
     ) {
-        self.mesh.select_visible(avatar.visible_slices(world));
+        let mask = avatar.visible_slices(world);
+        self.ensure_horizon_slices(surface, world, mask);
         self.populate_actors(surface, world, avatar, sight_scale);
         let viewer = avatar.sight_cone().observe_from(|eye| eye);
         use crate::rayleigh_shell::{AtlasSkyProjection, EphemerisSync, SkyProjection};

@@ -80,3 +80,35 @@ fn test_belt_asteroid_awakens_as_landable_crust_cube() {
     let contact = world.surface_contact(approach, 0.0);
     assert!(contact.landable(), "BeltRock asteroid must materialize on demand as a landable voxel crust");
 }
+
+#[test]
+fn test_continental_4096_forested_world_isolates_climate_zones_and_lazy_sector_groves() {
+    use crate::{
+        BiomedCubeWorld, ClimateZone, FacetedReliefFace, ForestedFace, PlanetaryWorld, TerrainMesh,
+    };
+
+    let relief = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, 2_048.0, 8_192));
+    let forested = ForestedFace::in_zone(relief, ClimateZone::Temperate, 2_048.0);
+    assert_eq!(
+        forested.materialized_grove_count(),
+        0,
+        "4096³ ForestedFace must allocate zero eager tree groves at startup"
+    );
+
+    let mut planet = BiomedCubeWorld::beveled(4_096, 1.0);
+    let stand = planet.constrain_to_surface(Vec3::new(0.25, 2_050.0, 0.25), 0.0);
+    let mask = planet.visible_slice_mask(stand);
+    let terrain_bits = mask & 0b0011_1111;
+    let flora_bits = (mask >> 6) & 0b0011_1111;
+    assert_eq!(
+        terrain_bits.count_ones(),
+        1,
+        "Standing inside Temperate on 4096³ Earth must expose only 1 ClimateZone face, got mask {terrain_bits:#08b}"
+    );
+    assert_eq!(
+        flora_bits,
+        0,
+        "4096³ continental flora slices must remain 0 because local trees stream via MeadowRing"
+    );
+    assert!(!planet.step_surface(1.0 / 120.0), "Untouched 4096³ ClimateZones must sleep during step_surface");
+}

@@ -1,34 +1,41 @@
 use std::collections::HashMap;
 use glam::Vec3;
-use crate::{TerrainMesh, TranslatedWorld, WorldFact};
-use super::super::alien_worlds::AlienWorld;
+use crate::{TranslatedWorld, WorldFact};
 use super::super::belt::AsteroidBelt;
 use super::super::catalog::BodyId;
 use super::super::ephemeris::SolarEphemeris;
 use super::super::proportions::SolarProportions;
 use super::awakened::{ActiveVicinity, AwakenedBody};
+use super::vault::OffworldVault;
 
-/// Dual-slot LRU off-world `CubePlanet` pool (`slices 6..11` & `18..23`) with `WorldFact` persistence (`<= 4` fields).
+/// Dual-slot client GPU window (`slices 6..11` & `18..23`) backed by warm authoritative `OffworldVault` (`<= 4` fields).
 pub struct VicinityCache {
     slots: [ActiveVicinity; 2],
     stamps: ([u64; 2], u64),
-    authoritative: bool,
-    chronicles: HashMap<BodyId, Vec<WorldFact>>,
+    vault: OffworldVault,
 }
 
 impl VicinityCache {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
+    pub const fn with_vault(
+        slots: [ActiveVicinity; 2],
+        stamps: ([u64; 2], u64),
+        vault: OffworldVault,
+    ) -> Self {
+        Self { slots, stamps, vault }
+    }
+
+    pub fn new(
         slots: [ActiveVicinity; 2],
         stamps: ([u64; 2], u64),
         authoritative: bool,
         chronicles: HashMap<BodyId, Vec<WorldFact>>,
     ) -> Self {
-        Self { slots, stamps, authoritative, chronicles }
+        Self::with_vault(slots, stamps, OffworldVault::new(authoritative, chronicles, HashMap::new()))
     }
 
     pub fn empty(authoritative: bool) -> Self {
-        Self::new([ActiveVicinity::Dormant, ActiveVicinity::Dormant], ([0, 0], 0), authoritative, HashMap::new())
+        Self::with_vault([ActiveVicinity::Dormant, ActiveVicinity::Dormant], ([0, 0], 0), OffworldVault::empty(authoritative))
     }
 
     pub const fn active_ids(&self) -> [Option<BodyId>; 2] {
@@ -41,6 +48,10 @@ impl VicinityCache {
 
     pub const fn any_active(&self) -> bool {
         self.slots[0].body().is_some() || self.slots[1].body().is_some()
+    }
+
+    pub fn warm_body_count(&self) -> usize {
+        self.vault.warm_body_count()
     }
 
     pub const fn slot_body(&self, idx: usize) -> Option<&AwakenedBody> {
@@ -64,7 +75,15 @@ impl VicinityCache {
     }
 
     pub fn record_local_fact(&mut self, id: BodyId, fact: WorldFact) {
-        self.chronicles.entry(id).or_default().push(fact);
+        self.vault.record_fact(id, fact);
+    }
+
+    fn evict_slot(&mut self, idx: usize) {
+        let prev = std::mem::replace(&mut self.slots[idx], ActiveVicinity::Dormant);
+        if let ActiveVicinity::Awakened(body) = prev {
+            let (id, half, cube) = body.into_parts();
+            self.vault.shelve(id, cube, half);
+        }
     }
 
     fn mount_in_slot(&mut self, id: BodyId, center: Vec3, proportions: SolarProportions) -> usize {
@@ -84,19 +103,8 @@ impl VicinityCache {
         } else {
             1
         };
-        let (mut cube, half) = AlienWorld::build_body(id, proportions, self.authoritative);
-        if let Some(facts) = self.chronicles.get(&id) {
-            for fact in facts {
-                let _ = fact.clone().enact_on(&mut cube);
-            }
-            struct DrainSink;
-            impl crate::MeshTarget for DrainSink {
-                fn push_quad(&mut self, _q: crate::Quad) {}
-            }
-            let mut sink = DrainSink;
-            while cube.drain_modified_patch(&mut sink).is_some() {}
-            while cube.drain_modified_slice(&mut sink).is_some() {}
-        }
+        self.evict_slot(target_idx);
+        let (cube, half) = self.vault.checkout(id, proportions);
         self.stamps.1 += 1;
         self.stamps.0[target_idx] = self.stamps.1;
         self.slots[target_idx] = ActiveVicinity::Awakened(AwakenedBody::new(
@@ -109,8 +117,8 @@ impl VicinityCache {
     }
 
     fn prune_distant(&mut self, probe: Vec3) {
-        for slot in &mut self.slots {
-            let keep = slot.body().is_some_and(|b| {
+        for idx in 0..2 {
+            let keep = self.slots[idx].body().is_some_and(|b| {
                 let pad = if b.body_id().belt_slot().is_some() {
                     96.0
                 } else {
@@ -119,7 +127,7 @@ impl VicinityCache {
                 b.near(probe, pad)
             });
             if !keep {
-                *slot = ActiveVicinity::Dormant;
+                self.evict_slot(idx);
             }
         }
     }
@@ -235,22 +243,12 @@ impl VicinityCache {
                 if ok {
                     b.mark_all_dirty();
                     if local_fact.durable() {
-                        self.chronicles.entry(id).or_default().push(local_fact.clone());
+                        self.vault.record_fact(id, local_fact.clone());
                     }
                 }
                 return ok;
             }
         }
-        let (mut cube, _) = AlienWorld::build_body(id, proportions, self.authoritative);
-        if let Some(facts) = self.chronicles.get(&id) {
-            for fact in facts {
-                let _ = fact.enact_on(&mut cube);
-            }
-        }
-        let ok = local_fact.enact_on(&mut cube);
-        if ok && local_fact.durable() {
-            self.record_local_fact(id, local_fact.clone());
-        }
-        ok
+        self.vault.enact_inactive(id, local_fact, proportions)
     }
 }

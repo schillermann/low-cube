@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.113.0] - 2026-11-24
+
+### Added
+- Added strict horizon & `ClimateZone` isolation decorators eliminating cross-continent and far-field CPU, RAM, GPU, and network leakage across `4096³` worlds and large multiplayer servers:
+  - `SectorForest` and `SectorGrove` (`crates/world/src/tree/sector_forest.rs`, `sector_grove.rs`, `zoned_forest.rs`, and `forested_face/mod.rs`): starts `4096³` forested planets with `0` eager heap-allocated trees, evaluates untouched trunk collision and canopy drag on the CPU stack with zero heap allocations (`constrain_untouched_sector` / `canopy_drag_untouched_sector`), ticks `step_flora` exclusively on active notched/felled `4m × 4m` sectors, and streams continental woodland flora per local `MeadowRing` sector (`crates/world/src/continental_cosmos_tests.rs`).
+  - `PlanetaryMesh::with_horizon` (`crates/engine/src/composite_mesh.rs`, wired into `crates/client/src/launch.rs`, `SessionDisplay::refresh_world_mesh`, `ShadedScenePass`, `ModifiedSlices::horizon_mask`, and `HeliosphereWorld::visible_slice_mask`) plus `VesselDeck::present_vessels_near`: builds and uploads only the player's visible `ClimateZone` face at ground level (streaming adjacent `ClimateZone` faces within `180 m` of a cube seam or upon ascending into orbit) and skips off-horizon `ClimateZone` faces during per-frame vessel rendering.
+  - `SectorGridAudience` and `VelocityScaledSight` (`crates/sanctuary/src/sector_audience.rs`), `SpatialFactIndex` and `HorizonStream` (`crates/sanctuary/src/spatial_chronicle.rs`), and `SectorCracks` (`crates/sanctuary/src/aura.rs`): replaces `O(N²)` audience scanning with `O(N)` `160 m` spatial buckets + hemisphere/seam isolation, extends sight distance up to `2,400 m` for fast descending spacecraft in the local sky dome, isolates `PeerCrack` queues per `160 m` sector, omits all `93` wildlife bytes outside `160 m` boar earshot, and streams `HostChronicle` `WorldFact`s exclusively within each guest's `256 m` `ClimateZone` / approached-body horizon (`crates/sanctuary/src/tests/horizon_isolation.rs`).
+  - `VaultStream` buffered WAL (`DiskVaultChronicle` in `crates/sanctuary/src/chronicle_decorators.rs`), ring-evicted `ReliefCellCache` (`crates/world/src/relief/face/cache.rs`), and `OffworldVault` (`crates/world/src/celestial/heliosphere/vault.rs`): eliminates per-fact `open()`/`close()` syscalls via tick-flushed `BufWriter<File>`, retains local cell rings instead of `cells.clear()`, and keeps up to `32` warm authoritative off-world `CubePlanet`s in server RAM to prevent `2`-slot LRU thrashing.
+
 ## [0.112.0] - 2026-11-24
 
 ### Added

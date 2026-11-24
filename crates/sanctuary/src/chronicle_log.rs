@@ -5,6 +5,10 @@ pub trait ChronicleStore: Send {
     fn total(&self) -> u32;
     fn record(&mut self, fact: WorldFact);
     fn batch_from(&self, ack_seq: u32) -> Option<(u32, Vec<WorldFact>)>;
+    fn fact_at(&self, _index: usize) -> Option<&WorldFact> {
+        None
+    }
+    fn flush_tick(&mut self) {}
 }
 
 /// Ordered in-memory log of durable `WorldFact`s enabling loss-tolerant UDP streaming and late-joiner sync.
@@ -54,5 +58,9 @@ impl ChronicleStore for ChronicleLog {
             batch.push(fact.clone());
         }
         Some((ack_seq, batch))
+    }
+
+    fn fact_at(&self, index: usize) -> Option<&WorldFact> {
+        self.facts.get(index)
     }
 }

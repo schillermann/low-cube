@@ -117,7 +117,6 @@ impl HostWire {
         if parked {
             mutated = true;
         }
-        self.state.refresh_beacons(world);
         let mut buf = [0u8; 1500];
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
             let pkt = &buf[..len];
@@ -135,7 +134,8 @@ impl HostWire {
             self.state.refresh_beacons(world);
         }
         if pulse_ready {
-            self.state.broadcast(&self.socket);
+            let epoch = world.celestial_atlas().ephemeris().map_or(0.0, |e| e.epoch_secs());
+            self.state.broadcast(&self.socket, self.identity.proportions(), epoch);
         }
         (mutated, self.state.active_craft_count())
     }
@@ -143,7 +143,8 @@ impl HostWire {
 
 impl PortalBeat for HostWire {
     fn step_standby(&mut self, dt: f32) -> usize {
-        let max_extent = self.identity.proportions().heliosphere_span();
+        let proportions = self.identity.proportions();
+        let max_extent = proportions.heliosphere_span();
         let mut buf = [0u8; 1500];
         while let Ok((len, src)) = self.socket.recv_from(&mut buf) {
             let pkt = &buf[..len];
@@ -155,7 +156,7 @@ impl PortalBeat for HostWire {
                 self.state.process_standby_datagram(&self.socket, cid, src, pkt, max_extent, &mut self.deferred);
             }
         }
-        self.state.step_standby_clocks(&self.socket, dt, &mut self.deferred);
+        self.state.step_standby_clocks(&self.socket, dt, proportions, &mut self.deferred);
         self.state.active_craft_count()
     }
 }

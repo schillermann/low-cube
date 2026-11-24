@@ -9,50 +9,46 @@ use crate::{
     VesselSink,
 };
 use super::arboreal::Arboreal;
-use super::depository::WoodlandDepository;
-use super::floor_litter::FloorLitter;
+use super::sector_forest::SectorForest;
 use super::timber_yield::{CleaveOutcome, SurfaceFind};
-use super::zoned_forest::ZonedForest;
-use self::cache::{FloraCache, LitterLanding};
+use self::cache::LitterLanding;
 
-/// Composite decorator populating a planetary face with climate-adapted arboreal specimens.
+/// Composite decorator populating a planetary face lazily per local `4m × 4m` sector (`<= 4` fields).
 pub struct ForestedFace {
     origin: Box<dyn Face>,
     frame: SurfaceFrame,
-    trees: Vec<Box<dyn Arboreal>>,
-    cache: FloraCache,
+    forest: RwLock<SectorForest>,
 }
 
 impl ForestedFace {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_forest(
+        origin: Box<dyn Face>,
+        frame: SurfaceFrame,
+        forest: RwLock<SectorForest>,
+    ) -> Self {
+        Self { origin, frame, forest }
+    }
+
+    /// Secondary constructor seeding custom specimens into sector `(0, 0)` for deterministic unit tests.
     pub fn new(
         origin: Box<dyn Face>,
         frame: SurfaceFrame,
         trees: Vec<Box<dyn Arboreal>>,
-        cached_flora: RwLock<Vec<Vec<Quad>>>,
+        _unused_cache: RwLock<Vec<Vec<Quad>>>,
     ) -> Self {
-        Self {
-            origin,
-            frame,
-            trees,
-            cache: FloraCache::new(cached_flora, false),
-        }
+        let half = frame.point_at(0.0, 0.0, 0.0).abs().max_element().max(8.0);
+        Self::with_forest(origin, frame, RwLock::new(SectorForest::with_specimens(half, trees)))
     }
 
-    /// Secondary constructor populating the face with native trees and gatherable floor litter.
+    /// Secondary constructor initializing a lazy sector-partitioned woodland (`0` eager trees at startup).
     pub fn in_zone(origin: Box<dyn Face>, zone: ClimateZone, half_size: f32) -> Self {
         let frame = zone.surface_frame(half_size);
-        let trees = ZonedForest::new(zone).populate_face(origin.as_ref(), frame, half_size);
-        Self::new(origin, frame, trees, RwLock::new(Vec::new()))
+        Self::with_forest(origin, frame, RwLock::new(SectorForest::lazy_zone(zone, half_size)))
     }
 
-    fn settle_flora(&mut self) {
-        for idx in 0..self.trees.len() {
-            if self.trees[idx].settle_onto(self.origin.as_ref(), &self.frame) {
-                self.cache.refresh_slot(idx, &self.trees);
-                self.cache.mark_settled();
-            }
-        }
+    pub fn materialized_grove_count(&self) -> usize {
+        self.forest.read().expect("SectorForest lock poisoned").materialized_grove_count()
     }
 }
 
@@ -62,12 +58,12 @@ impl Face for ForestedFace {
     fn pull_direction(&self) -> Vec3 { self.origin.pull_direction() }
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {
-        let mut position = self.origin.constrain(point, distance);
+        let pos = self.origin.constrain(point, distance);
         let (u, v) = self.frame.decompose(point);
-        for tree in &self.trees {
-            position = tree.constrain_surface(position, u, v, &self.frame, distance);
-        }
-        position
+        self.forest
+            .read()
+            .expect("SectorForest lock poisoned")
+            .constrain_near(pos, u, v, distance, self.origin.as_ref(), &self.frame)
     }
 
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
@@ -88,48 +84,52 @@ impl Face for ForestedFace {
     fn pending_terrain_patches(&self) -> bool { self.origin.pending_terrain_patches() }
     fn drain_terrain_patch(&mut self, target: &mut dyn MeshTarget) -> Option<usize> { self.origin.drain_terrain_patch(target) }
     fn meadow_center_sector(&self, center: Vec3) -> (i32, i32) { self.origin.meadow_center_sector(center) }
-    fn meadow_sector_revision(&self, gsu: i32, gsv: i32) -> u32 { self.origin.meadow_sector_revision(gsu, gsv) }
-    fn emit_meadow_sector(&self, gsu: i32, gsv: i32, lod: u8, target: &mut dyn MeshTarget) { self.origin.emit_meadow_sector(gsu, gsv, lod, target); }
+
+    fn meadow_sector_revision(&self, gsu: i32, gsv: i32) -> u32 {
+        let base = self.origin.meadow_sector_revision(gsu, gsv);
+        let flora = self.forest.read().expect("SectorForest lock poisoned").sector_revision(gsu, gsv);
+        base.wrapping_add(flora.wrapping_mul(65_537))
+    }
+
+    fn emit_meadow_sector(&self, gsu: i32, gsv: i32, lod: u8, target: &mut dyn MeshTarget) {
+        self.origin.emit_meadow_sector(gsu, gsv, lod, target);
+        let mut forest = self.forest.write().expect("SectorForest lock poisoned");
+        if forest.continental() {
+            forest.emit_sector((gsu, gsv), self.origin.as_ref(), self.frame, target);
+        }
+    }
 
     fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
-        let variant = selector as u32;
-        let near_count = self
-            .trees
-            .iter()
-            .filter_map(|t| t.crown_perch(variant))
-            .filter(|&p| (p - center).length_squared() <= 576.0)
-            .count();
-        if near_count > 0 {
-            return self
-                .trees
-                .iter()
-                .filter_map(|t| t.crown_perch(variant))
-                .filter(|&p| (p - center).length_squared() <= 576.0)
-                .nth(selector % near_count);
-        }
-        let total = self.trees.iter().filter_map(|t| t.crown_perch(variant)).count();
-        (total > 0).then(|| self.trees.iter().filter_map(|t| t.crown_perch(variant)).nth(selector % total)).flatten()
+        self.forest
+            .write()
+            .expect("SectorForest lock poisoned")
+            .perch_near(center, selector, self.origin.as_ref(), &self.frame)
     }
 
     fn emit_flora(&self, target: &mut dyn MeshTarget) {
-        self.cache.emit(&self.trees, target);
+        self.forest
+            .write()
+            .expect("SectorForest lock poisoned")
+            .emit_compact_face(self.origin.as_ref(), self.frame, target);
     }
 
     fn canopy_drag(&self, point: Vec3) -> f32 {
         let (u, v) = self.frame.decompose(point);
         let elev = self.frame.elevation_of(point);
-        let mut peak = self.origin.canopy_drag(point);
-        for tree in &self.trees {
-            let drag = tree.canopy_drag(u, v, elev);
-            if drag > peak { peak = drag; }
-        }
-        peak
+        let base = self.origin.canopy_drag(point);
+        self.forest
+            .read()
+            .expect("SectorForest lock poisoned")
+            .canopy_drag_near(u, v, elev, base, self.origin.as_ref(), &self.frame)
     }
 
     fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
         let harvested = self.origin.harvest(eye, direction);
         if harvested.is_some() {
-            self.settle_flora();
+            self.forest
+                .get_mut()
+                .expect("SectorForest lock poisoned")
+                .settle_near(eye, self.origin.as_ref(), &self.frame);
         }
         harvested
     }
@@ -139,46 +139,29 @@ impl Face for ForestedFace {
     }
 
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
-        let mut depository = WoodlandDepository::new();
-        for idx in 0..self.trees.len() {
-            let (next_tree, hit) = self.trees[idx].cleave_at(eye, direction, &mut depository);
-            if hit {
-                let outcome = if next_tree.standing() {
-                    CleaveOutcome::Notched
-                } else {
-                    CleaveOutcome::Felled
-                };
-                self.trees[idx] = next_tree;
-                self.cache.refresh_slot(idx, &self.trees);
-                return outcome;
-            }
-        }
-        CleaveOutcome::Missed
+        self.forest
+            .get_mut()
+            .expect("SectorForest lock poisoned")
+            .strike_near(eye, direction, self.origin.as_ref(), &self.frame)
     }
 
     fn forage_timber(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
-        for idx in (0..self.trees.len()).rev() {
-            let (next_tree, find) = self.trees[idx].forage_at(eye, direction);
-            if find.gathered() {
-                self.trees[idx] = next_tree;
-                self.cache.refresh_slot(idx, &self.trees);
-                return find;
-            }
-        }
-        SurfaceFind::EmptyHanded
+        self.forest
+            .get_mut()
+            .expect("SectorForest lock poisoned")
+            .forage_near(eye, direction, self.origin.as_ref(), &self.frame)
     }
 
     fn cast_litter(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool {
         if !find.gathered() {
             return false;
         }
+        let forest = self.forest.get_mut().expect("SectorForest lock poisoned");
         let landing = LitterLanding::new(self.origin.as_ref(), self.frame);
-        let Some((u, v, elev, yaw)) = landing.resolve(eye, direction, &self.trees) else {
+        let Some(spot) = landing.resolve(eye, direction, forest) else {
             return false;
         };
-        let specimen = FloorLitter::new(self.frame, u, v, elev, find, yaw);
-        self.trees.push(Box::new(specimen));
-        self.cache.append_specimen(&specimen, self.trees.len());
+        forest.append_litter(spot, find, self.origin.as_ref(), self.frame);
         true
     }
 
@@ -189,7 +172,10 @@ impl Face for ForestedFace {
     fn place_molded_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         let changed = self.origin.place_molded_block(eye, direction, avatar_pos, mold);
         if changed {
-            self.settle_flora();
+            self.forest
+                .get_mut()
+                .expect("SectorForest lock poisoned")
+                .settle_near(eye, self.origin.as_ref(), &self.frame);
         }
         changed
     }
@@ -198,17 +184,13 @@ impl Face for ForestedFace {
         self.origin.adjust_rig(eye, direction, delta_steps, rotate_quarter)
     }
 
-    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {
-        self.origin.lower_rig(eye, direction)
-    }
+    fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool { self.origin.lower_rig(eye, direction) }
 
     fn board_vehicle(&mut self, eye: Vec3, direction: Vec3, holding_block: bool) -> Option<VehicleAssembly> {
         self.origin.board_vehicle(eye, direction, holding_block)
     }
 
-    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool {
-        self.origin.park_vehicle(assembly)
-    }
+    fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool { self.origin.park_vehicle(assembly) }
 
     fn capture_vehicle_blueprint(&self, eye: Vec3, direction: Vec3) -> Option<CraftBlueprint> {
         self.origin.capture_vehicle_blueprint(eye, direction)
@@ -221,36 +203,21 @@ impl Face for ForestedFace {
     fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
         let changed = self.origin.build_rig_blueprint(eye, direction, blueprint);
         if changed {
-            self.settle_flora();
+            self.forest
+                .get_mut()
+                .expect("SectorForest lock poisoned")
+                .settle_near(eye, self.origin.as_ref(), &self.frame);
         }
         changed
     }
 
-    fn present_vessels(&self, sink: &mut dyn VesselSink) {
-        self.origin.present_vessels(sink);
-    }
-
-    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> {
-        self.origin.placed_camera_tripod()
-    }
-
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
-        self.origin.collect_spawn_points(out);
-    }
-
-    fn step_surface(&mut self, dt: f32) -> bool {
-        self.origin.step_surface(dt)
-    }
+    fn present_vessels(&self, sink: &mut dyn VesselSink) { self.origin.present_vessels(sink); }
+    fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.origin.placed_camera_tripod() }
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.origin.collect_spawn_points(out); }
+    fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
 
     fn step_flora(&mut self, dt: f32) -> bool {
-        let mut timber_moved = self.cache.take_settled();
-        for idx in 0..self.trees.len() {
-            if self.trees[idx].step_timber(dt) {
-                self.cache.refresh_slot(idx, &self.trees);
-                timber_moved = true;
-            }
-        }
-        timber_moved
+        self.forest.get_mut().expect("SectorForest lock poisoned").step_active(dt)
     }
 
     fn lethal_at(&self, point: Vec3) -> bool { self.origin.lethal_at(point) }

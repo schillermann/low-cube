@@ -23,6 +23,8 @@ mod remote_wildlife;
 mod sanctuary_host;
 mod seal;
 mod seal_batch;
+mod sector_audience;
+mod spatial_chronicle;
 mod standby_link;
 mod ticket;
 mod ward;
@@ -37,9 +39,11 @@ pub use audience::{
     MtuBudgetAudience, ProximityAudience, PulseAudience, WorldAudience, CHAT_EARSHOT_METERS,
     INTIMATE_NEIGHBOR_CAP, NEARBY_SIGHT_METERS, PACKET_COMPANION_CAP,
 };
-pub use aura::{AuraEvents, HostAura, HostIdentity, HostPresence, PeerCrack};
-pub use chronicle_decorators::{CompactedChronicle, DiskVaultChronicle};
+pub use aura::{AuraEvents, HostAura, HostIdentity, HostPresence, PeerCrack, SectorCracks};
+pub use chronicle_decorators::{CompactedChronicle, DiskVaultChronicle, VaultStream};
 pub use chronicle_log::{ChronicleLog, ChronicleStore};
+pub use sector_audience::{SectorGridAudience, VelocityScaledSight};
+pub use spatial_chronicle::{HorizonStream, SpatialFactIndex};
 pub use chronicled_planet::{ChronicledPlanet, FactJournal};
 pub use cohort::GuestCohort;
 pub use config::{SanctuaryEndpoint, SanctuaryPlan, SanctuaryToml};

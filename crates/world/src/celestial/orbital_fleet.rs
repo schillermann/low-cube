@@ -200,6 +200,15 @@ impl<W: VesselDeck> VesselDeck for OrbitalFleetWorld<W> {
             sink.receive_vessel(craft.blueprint(), craft.pose());
         }
     }
+    fn present_vessels_near(&self, center: Vec3, radius: f32, sink: &mut dyn VesselSink) {
+        self.origin.present_vessels_near(center, radius, sink);
+        let r_sq = radius * radius;
+        for craft in &self.drifting {
+            if (craft.origin() - center).length_squared() <= r_sq {
+                sink.receive_vessel(craft.blueprint(), craft.pose());
+            }
+        }
+    }
     fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
         self.origin.plan_molded_block(eye, direction, avatar_pos, mold)
     }

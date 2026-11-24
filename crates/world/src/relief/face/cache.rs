@@ -135,7 +135,10 @@ impl ReliefCellCache {
         let built = self.build_cell(u, v, half, frame, relief, palette);
         if let Ok(mut cells) = self.vault.cells.write() {
             if cells.len() >= MAX_CACHED_CELLS {
-                cells.clear();
+                cells.retain(|&(ku, kv), _| (ku - u).abs().max((kv - v).abs()) <= 192);
+                if cells.len() >= MAX_CACHED_CELLS {
+                    cells.retain(|&(ku, kv), _| (ku - u).abs().max((kv - v).abs()) <= 64);
+                }
             }
             cells.insert((u, v), built.clone());
         }
@@ -206,7 +209,11 @@ impl ReliefCellCache {
         let v0 = gsv * (SECTOR_SPAN as i32);
         let Ok(mut tufts) = self.vault.tufts.write() else { return };
         if tufts.len() >= MAX_CACHED_CELLS {
-            tufts.clear();
+            let (cu, cv) = (u0 + 4, v0 + 4);
+            tufts.retain(|&(ku, kv), _| (ku - cu).abs().max((kv - cv).abs()) <= 192);
+            if tufts.len() >= MAX_CACHED_CELLS {
+                tufts.retain(|&(ku, kv), _| (ku - cu).abs().max((kv - cv).abs()) <= 64);
+            }
         }
         for gv in v0..(v0 + (SECTOR_SPAN as i32)) {
             for gu in u0..(u0 + (SECTOR_SPAN as i32)) {

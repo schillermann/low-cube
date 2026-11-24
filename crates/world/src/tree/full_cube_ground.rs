@@ -3,27 +3,22 @@ use crate::frame::SurfaceFrame;
 use super::planting_ground::PlantingGround;
 
 /// Decorator enforcing that trees are only planted on flat, unsloped Full-Cube blocks.
-pub struct FullCubeGround<'a> {
-    origin: Box<dyn PlantingGround + 'a>,
+pub struct FullCubeGround<'a, G = Box<dyn PlantingGround + 'a>> {
+    origin: G,
     face: &'a dyn Face,
     frame: &'a SurfaceFrame,
     half_size: f32,
 }
 
-impl<'a> FullCubeGround<'a> {
+impl<'a, G> FullCubeGround<'a, G> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(
-        origin: Box<dyn PlantingGround + 'a>,
+    pub const fn new(
+        origin: G,
         face: &'a dyn Face,
         frame: &'a SurfaceFrame,
         half_size: f32,
     ) -> Self {
-        Self {
-            origin,
-            face,
-            frame,
-            half_size,
-        }
+        Self { origin, face, frame, half_size }
     }
 
     fn flat_cube(&self, cell_u: i32, cell_v: i32) -> bool {
@@ -57,12 +52,9 @@ impl<'a> FullCubeGround<'a> {
     }
 }
 
-impl<'a> PlantingGround for FullCubeGround<'a> {
+impl<G: PlantingGround> PlantingGround for FullCubeGround<'_, G> {
     fn receptive(&self, cell_u: i32, cell_v: i32, hash: i32) -> bool {
-        if !self.origin.receptive(cell_u, cell_v, hash) {
-            return false;
-        }
-        self.flat_cube(cell_u, cell_v)
+        self.origin.receptive(cell_u, cell_v, hash) && self.flat_cube(cell_u, cell_v)
     }
 
     fn ground_elevation(&self, cell_u: i32, cell_v: i32) -> f32 {

@@ -29,12 +29,17 @@ impl<'a> Mesh for CompositeMesh<'a> {
 pub struct PlanetaryMesh {
     faces: Vec<Box<dyn Mesh>>,
     visible_mask: u32,
+    uploaded_mask: u32,
 }
 
 impl PlanetaryMesh {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub fn with_horizon(faces: Vec<Box<dyn Mesh>>, visible_mask: u32, uploaded_mask: u32) -> Self {
+        Self { faces, visible_mask, uploaded_mask }
+    }
+
     pub fn with_mask(faces: Vec<Box<dyn Mesh>>, visible_mask: u32) -> Self {
-        Self { faces, visible_mask }
+        Self::with_horizon(faces, visible_mask, u32::MAX)
     }
 
     /// Secondary constructor enabling all slices by default.
@@ -44,6 +49,21 @@ impl PlanetaryMesh {
 
     pub fn select_visible(&mut self, visible_mask: u32) {
         self.visible_mask = visible_mask;
+    }
+
+    pub fn reset_uploaded(&mut self) {
+        self.uploaded_mask = 0;
+    }
+
+    pub fn mark_uploaded(&mut self, index: usize) {
+        if index < 32 {
+            self.uploaded_mask |= 1u32 << index;
+        }
+    }
+
+    pub fn missing_slices(&self, visible_mask: u32, slice_limit: usize) -> u32 {
+        let cap_mask = if slice_limit >= 32 { u32::MAX } else { (1u32 << slice_limit) - 1 };
+        (visible_mask & cap_mask) & !self.uploaded_mask
     }
 
     pub fn ensure_slice(&mut self, index: usize, make_empty: impl Fn() -> Box<dyn Mesh>) {

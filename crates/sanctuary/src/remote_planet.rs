@@ -232,6 +232,15 @@ impl VesselDeck for RemotePlanet {
             self.journal.fleet().present_vessels(&crafts, sink);
         }
     }
+    fn present_vessels_near(&self, center: Vec3, radius: f32, sink: &mut dyn world::VesselSink) {
+        self.world.present_vessels_near(center, radius, sink);
+        if self.journal.active_craft_count() > 0 {
+            let mut crafts = Vec::new();
+            self.journal.crafts(&mut crafts);
+            crafts.retain(|c| c.within_reach(center, radius));
+            self.journal.fleet().present_vessels(&crafts, sink);
+        }
+    }
     fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<world::PlannedMount> {
         self.world.plan_molded_block(eye, direction, avatar_pos, mold)
     }

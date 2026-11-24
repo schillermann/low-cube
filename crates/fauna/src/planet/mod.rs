@@ -132,6 +132,9 @@ impl<R> VesselDeck for WoodlandPlanet<R> {
     fn helm_revoked(&mut self, craft: CraftIdentity) -> bool { self.origin.helm_revoked(craft) }
     fn emit_active_crafts(&self, target: &mut dyn MeshTarget) { self.origin.emit_active_crafts(target); }
     fn present_vessels(&self, sink: &mut dyn VesselSink) { self.origin.present_vessels(sink); }
+    fn present_vessels_near(&self, center: Vec3, radius: f32, sink: &mut dyn VesselSink) {
+        self.origin.present_vessels_near(center, radius, sink);
+    }
     fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
         self.origin.plan_molded_block(eye, direction, avatar_pos, mold)
     }

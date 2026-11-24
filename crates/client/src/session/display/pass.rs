@@ -7,6 +7,7 @@ use crate::surface::PlatformSurface;
 /// Polymorphic rendering pass refreshing world slices and drawing the 3D scene.
 pub trait ScenePass {
     fn select_visible(&mut self, mask: u32);
+    fn reset_horizon(&mut self) {}
     fn refresh_face_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, idx: usize);
     fn refresh_meadow_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, avatar: &dyn Avatar);
     fn stream_meadow_slice(
@@ -62,6 +63,10 @@ impl<P> PolaroidScenePass<P> {
 impl<P: ScenePass> ScenePass for PolaroidScenePass<P> {
     fn select_visible(&mut self, mask: u32) {
         self.origin.select_visible(mask);
+    }
+
+    fn reset_horizon(&mut self) {
+        self.origin.reset_horizon();
     }
 
     fn refresh_face_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, idx: usize) {

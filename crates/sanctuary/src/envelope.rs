@@ -18,6 +18,10 @@ impl CrackNotice {
         Self { eye, direction, stage }
     }
 
+    pub const fn eye_point(self) -> Vec3 {
+        self.eye
+    }
+
     pub fn enact_on(self, world: &mut dyn PlanetaryWorld) -> bool {
         world.loosen_surface(self.eye, self.direction, self.stage).is_some()
     }
@@ -121,7 +125,9 @@ impl SanctuaryEnvelope {
                     written += 1;
                 }
                 out[count_idx] = written;
-                wildlife.inscribe(out);
+                if *wildlife != WildlifePulse::calm() {
+                    wildlife.inscribe(out);
+                }
             }
             Self::GuestUtterance { text } => {
                 out.push(5);

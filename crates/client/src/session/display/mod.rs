@@ -64,8 +64,12 @@ impl SessionDisplay {
     }
 
     pub(super) fn refresh_world_mesh(&mut self, world: &dyn PlanetaryWorld, avatar: &dyn Avatar) {
+        self.pass.reset_horizon();
+        let mask = avatar.visible_slices(world);
         for idx in 0..(world.face_count() * 2) {
-            self.refresh_face_slice(world, idx);
+            if (mask >> idx.min(31)) & 1 != 0 {
+                self.refresh_face_slice(world, idx);
+            }
         }
         self.refresh_meadow_slice(world, avatar);
     }

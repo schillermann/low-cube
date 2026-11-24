@@ -2,6 +2,7 @@ mod awakened;
 mod cosmic_sky;
 mod earthworks;
 mod facets;
+mod vault;
 mod vicinity;
 
 use std::cell::RefCell;

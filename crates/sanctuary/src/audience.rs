@@ -127,10 +127,6 @@ impl<A: PulseAudience> PulseAudience for MtuBudgetAudience<A> {
             let db = (anchor_pos - b.pose().origin()).length_squared();
             da.total_cmp(&db)
         });
-        out_crafts.retain(|dc| {
-            dc.within_reach(anchor_pos, 48.0)
-                || out_companions.iter().any(|c| dc.same_slot(c.slot()))
-        });
         if out_crafts.len() > 8 {
             out_crafts.truncate(8);
         }

@@ -8,6 +8,9 @@ pub trait SeamBoundary: Send + Sync {
     fn within_approach(&self, _position: Vec3) -> bool {
         true
     }
+    fn half_span(&self) -> f32 {
+        64.0
+    }
 }
 
 /// Null-Object `SeamBoundary` leaving planar single-face coordinates and normals untouched.
@@ -64,6 +67,10 @@ impl SeamBoundary for CubicBoundary {
         let band = (self.half_size * 0.45).clamp(36.0, 160.0);
         position.abs().max_element() <= self.half_size + band
     }
+
+    fn half_span(&self) -> f32 {
+        self.half_size
+    }
 }
 
 /// Focused 2-method `SeamBoundary` decorator smoothing surface normals continuously across cube seam bevels.
@@ -104,5 +111,9 @@ impl<B: SeamBoundary> SeamBoundary for BeveledBoundary<B> {
 
     fn within_approach(&self, position: Vec3) -> bool {
         self.origin.within_approach(position)
+    }
+
+    fn half_span(&self) -> f32 {
+        self.half_size
     }
 }

@@ -148,11 +148,20 @@ impl TerrainMesh for HeliosphereWorld {
         let home_half = self.ephemeris.proportions().earth_half();
         let earth_dist = position.length();
         if earth_dist <= EARTH_VOXEL_HANDOFF {
-            let show_flora = earth_dist <= home_half + 420.0;
+            let continental = home_half > 128.0;
+            let orbital = position.abs().max_element() > home_half + 96.0;
+            let show_flora = !continental && earth_dist <= home_half + 420.0;
             let up = self.earth.surface_up_at(position);
             for (idx, zone) in ClimateZone::all().into_iter().enumerate() {
                 let n = zone.normal();
-                if position.dot(n) > -home_half * 0.45 || n.dot(up) > -0.5 {
+                let visible = if continental {
+                    n.dot(up) > 0.2
+                        || position.dot(n) >= home_half - 180.0
+                        || (orbital && position.dot(n) > -home_half * 0.25)
+                } else {
+                    position.dot(n) > -home_half * 0.45 || n.dot(up) > -0.5
+                };
+                if visible {
                     mask |= 1u32 << idx;
                     if show_flora {
                         mask |= 1u32 << (12 + idx);
@@ -198,6 +207,20 @@ impl VesselDeck for HeliosphereWorld {
         for slot in 0..2 {
             if let Some(body) = vic.slot_body(slot) {
                 body.planet().present_vessels(sink);
+            }
+        }
+    }
+
+    fn present_vessels_near(&self, center: Vec3, radius: f32, sink: &mut dyn VesselSink) {
+        if self.near_earth(center) || center.abs().max_element() <= self.ephemeris.proportions().earth_half() + radius {
+            self.earth.present_vessels_near(center, radius, sink);
+        }
+        let vic = self.vicinity.borrow();
+        for slot in 0..2 {
+            if let Some(body) = vic.slot_body(slot) {
+                if body.near(center, radius) {
+                    body.planet().present_vessels_near(center, radius, sink);
+                }
             }
         }
     }

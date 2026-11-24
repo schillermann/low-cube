@@ -1,7 +1,8 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
+use std::io::{BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use world::{CraftIdentity, PlanetaryWorld, WorldFact};
 use crate::chronicle_log::ChronicleStore;
 
@@ -56,18 +57,74 @@ impl<S: ChronicleStore> ChronicleStore for CompactedChronicle<S> {
     fn batch_from(&self, ack_seq: u32) -> Option<(u32, Vec<WorldFact>)> {
         self.origin.batch_from(ack_seq)
     }
+
+    fn fact_at(&self, index: usize) -> Option<&WorldFact> {
+        self.origin.fact_at(index)
+    }
+
+    fn flush_tick(&mut self) {
+        self.origin.flush_tick();
+    }
 }
 
-/// Append-only SSD write-ahead journal decorator persisting durable `WorldFact`s across server restarts.
+/// Polymorphic buffered WAL handle avoiding nullable `Option<BufWriter<File>>` state and per-fact `open()` syscalls.
+pub enum VaultStream {
+    Dormant,
+    Open(Mutex<BufWriter<File>>),
+}
+
+impl VaultStream {
+    fn open_append(path: &Path) -> std::io::Result<Self> {
+        let file = OpenOptions::new().create(true).append(true).open(path)?;
+        Ok(Self::Open(Mutex::new(BufWriter::with_capacity(16_384, file))))
+    }
+
+    fn write_frame(&mut self, path: &Path, payload: &[u8]) {
+        if matches!(self, Self::Dormant) {
+            if let Ok(opened) = Self::open_append(path) {
+                *self = opened;
+            }
+        }
+        if let Self::Open(lock) = self {
+            if let Ok(mut out) = lock.lock() {
+                let len_bytes = (payload.len() as u32).to_le_bytes();
+                let _ = out.write_all(&len_bytes);
+                let _ = out.write_all(payload);
+            }
+        }
+    }
+
+    fn flush_pending(&mut self) {
+        if let Self::Open(lock) = self {
+            if let Ok(mut out) = lock.lock() {
+                let _ = out.flush();
+            }
+        }
+    }
+}
+
+/// Append-only buffered SSD write-ahead journal decorator persisting durable `WorldFact`s across server restarts.
 pub struct DiskVaultChronicle<S> {
     origin: S,
     journal_path: PathBuf,
+    stream: VaultStream,
+    dirty: bool,
 }
 
 impl<S> DiskVaultChronicle<S> {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_stream(origin: S, journal_path: PathBuf, stream: VaultStream, dirty: bool) -> Self {
+        Self { origin, journal_path, stream, dirty }
+    }
+
     pub const fn new(origin: S, journal_path: PathBuf) -> Self {
-        Self { origin, journal_path }
+        Self::with_stream(origin, journal_path, VaultStream::Dormant, false)
+    }
+}
+
+impl<S> Drop for DiskVaultChronicle<S> {
+    fn drop(&mut self) {
+        self.stream.flush_pending();
     }
 }
 
@@ -89,7 +146,8 @@ impl<S: ChronicleStore> DiskVaultChronicle<S> {
                 origin.record(fact);
             }
         }
-        Ok(Self::new(origin, journal_path))
+        let stream = VaultStream::open_append(&journal_path)?;
+        Ok(Self::with_stream(origin, journal_path, stream, false))
     }
 
     fn decode_frames(buf: &[u8]) -> Vec<WorldFact> {
@@ -115,7 +173,7 @@ impl<S: ChronicleStore> DiskVaultChronicle<S> {
     }
 
     fn fold_fleet_history(facts: Vec<WorldFact>) -> Vec<WorldFact> {
-        let mut last_park_idx = std::collections::HashMap::<CraftIdentity, usize>::new();
+        let mut last_park_idx = HashMap::<CraftIdentity, usize>::new();
         for (idx, fact) in facts.iter().enumerate() {
             match fact {
                 WorldFact::HelmReleased { craft, .. } if craft.assigned() => {
@@ -147,16 +205,6 @@ impl<S: ChronicleStore> DiskVaultChronicle<S> {
             .map(|(_, f)| f)
             .collect()
     }
-
-    fn append_frame(&self, fact: &WorldFact) {
-        let mut payload = Vec::with_capacity(64);
-        fact.inscribe(&mut payload);
-        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&self.journal_path) {
-            let len_bytes = (payload.len() as u32).to_le_bytes();
-            let _ = file.write_all(&len_bytes);
-            let _ = file.write_all(&payload);
-        }
-    }
 }
 
 impl<S: ChronicleStore> ChronicleStore for DiskVaultChronicle<S> {
@@ -168,11 +216,26 @@ impl<S: ChronicleStore> ChronicleStore for DiskVaultChronicle<S> {
         let before = self.origin.total();
         self.origin.record(fact.clone());
         if self.origin.total() > before {
-            self.append_frame(&fact);
+            let mut payload = Vec::with_capacity(64);
+            fact.inscribe(&mut payload);
+            self.stream.write_frame(&self.journal_path, &payload);
+            self.dirty = true;
         }
     }
 
     fn batch_from(&self, ack_seq: u32) -> Option<(u32, Vec<WorldFact>)> {
         self.origin.batch_from(ack_seq)
+    }
+
+    fn fact_at(&self, index: usize) -> Option<&WorldFact> {
+        self.origin.fact_at(index)
+    }
+
+    fn flush_tick(&mut self) {
+        if self.dirty {
+            self.stream.flush_pending();
+            self.dirty = false;
+        }
+        self.origin.flush_tick();
     }
 }

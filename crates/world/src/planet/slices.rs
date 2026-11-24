@@ -61,14 +61,23 @@ impl ModifiedSlices {
         None
     }
 
-    pub fn horizon_mask(faces: &[Box<dyn Face>], position: Vec3, up: Vec3) -> u32 {
+    pub fn horizon_mask(faces: &[Box<dyn Face>], position: Vec3, up: Vec3, half_span: f32) -> u32 {
         let len = faces.len();
         let mut mask = 1u32 << (len * 2).min(31);
+        let continental = half_span > 128.0;
+        let orbital = position.abs().max_element() > half_span + 96.0;
         for (idx, face) in faces.iter().enumerate() {
             let f_up = face.surface_up();
-            if f_up.dot(up) > -0.5 {
+            let visible = if continental {
+                f_up.dot(up) > 0.2
+                    || position.dot(f_up) >= half_span - 180.0
+                    || (orbital && position.dot(f_up) > -half_span * 0.25)
+            } else {
+                f_up.dot(up) > -0.5
+            };
+            if visible {
                 mask |= 1u32 << idx.min(31);
-                if f_up.dot(up) > 0.2 || position.dot(f_up) >= -4.0 {
+                if !continental && (f_up.dot(up) > 0.2 || position.dot(f_up) >= -4.0) {
                     mask |= 1u32 << (len + idx).min(31);
                 }
             }

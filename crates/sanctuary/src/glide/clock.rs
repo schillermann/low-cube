@@ -59,6 +59,10 @@ impl GlideClock {
         self.last_arrival >= 0.0
     }
 
+    pub const fn cadence_secs(self) -> f32 {
+        self.cadence_secs
+    }
+
     pub fn stale_at(self, now: f64) -> bool {
         !self.live() || (now - self.last_arrival) >= 0.50
     }

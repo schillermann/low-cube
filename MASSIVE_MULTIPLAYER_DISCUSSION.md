@@ -1,6 +1,6 @@
 # Diskussionsplattform: Großserver-Architektur (100–500+ Spieler)
 
-> **Status:** Design-Leitplanken entschieden (§3); bereit für Umsetzungsplanung im Zusammenspiel mit [`COSMOS_PLAN.md`](./COSMOS_PLAN.md).
+> **Status:** Basis-Architektur in `v0.112.0` umgesetzt; Feinjustierungen für Dauerbetrieb (§5) spezifiziert im Zusammenspiel mit [`COSMOS_PLAN.md`](./COSMOS_PLAN.md) und [`ARCHITECTURE_REFLECTION.md`](./ARCHITECTURE_REFLECTION.md).
 > **Ziel:** Festhalten aller technischen Befunde, Rechenwerte, Architektur-Bausteine und beschlossenen Gamedesign-Entscheidungen für Community- und Großserver mit Hunderten gleichzeitigen Spielern.
 
 ---
@@ -43,25 +43,27 @@ Das P2P-/Dedicated-Protokoll in `crates/sanctuary` ist aktuell ideal für **klei
 
 Das Sektor-Streaming (Phase 3) und die lokalen `BodyId`-Bezugssysteme (Phase 4) aus [`COSMOS_PLAN.md`](./COSMOS_PLAN.md) legen bereits das ideale Fundament, auf dem vier Server-Erweiterungen aufsetzen können:
 
-### Baustein A: Reines Nahfeld-Interest-Management (`SightCohort`, `0 Hz` Fernfeld)
-* Weit entfernte Spieler braucht der Client überhaupt nicht zu kennen. Statt alle Spieler der Welt in ein Paket zu packen, erhält jeder Gast ausschließlich sein lokales **Nahfeld-Fenster (`SightCohort` / Sektor-Nachbarschaft)**:
-  1. **Nahfeld (`20–30 Hz`):** Nur Spieler und Fahrzeuge auf demselben Himmelskörper (`BodyId`) innerhalb des lokalen Sichtrings (z. B. `~120–160 m` am Boden bzw. lokaler Raumsektor) – strikt gedeckelt auf ein MTU-sicheres Paketbudget (`<= 1.240 Bytes`, max. `~16–18` Akteure pro Datagramm).
-  2. **Hotspot-Fairness ohne Flackern (`SmoothRoster`-Lease):** Stehen z. B. 80 Spieler gleichzeitig an einem Ort, werden die nächsten `8–10` Nachbarn in jedem Puls aktualisiert und die übrigen per Priority-Round-Robin rotiert. In `SmoothRoster::reconcile_snapshot` (`crates/sanctuary/src/glide/mod.rs`) wird das bisherige harte `entries.retain(...)` durch ein kurzes **Sicht-Lease (`~0,8 s` TTL)** ersetzt, sodass rotierte Nachbarn nicht zwischen zwei Paketen verschwinden, sondern über `CompanionGlide` lückenlos weitergleiten.
-  3. **Fernfeld & andere Planeten (`0 Hz / 0 Byte`):** Alle weiter entfernten Spieler auf demselben Planeten sowie alle Spieler auf anderen Himmelskörpern erzeugen **null** Netzwerkverkehr.
+### Baustein A: Strikte Horizont- & Klimazonen-Isolation (`0 Hz / 0 RAM / 0 GPU` außerhalb des Sichtrings)
+* Einen Spieler (z. B. in `Temperate` auf der Erde) darf technisch **weder im Netzwerk, noch im RAM, noch auf der CPU, noch im GPU-VRAM** belasten, was weiter weg auf seiner eigenen Würfelseite, in einer der anderen 5 `ClimateZone`s (`Arctic`, `Jungle`, `Desert`, `Steppe`, `Volcanic`) oder auf einem fernen Planeten geschieht:
+  1. **Nahfeld (`20–30 Hz`):** Nur Spieler, Fahrzeuge, Grab-Risse (`PeerCrack`) und Wildtiere (`SectorFauna`) innerhalb des lokalen Sichtrings (`~160 m`, über `(BodyId, ClimateZone, Sector)` indiziert; Faltung in die Nachbar-Klimazone ausschließlich im `160 m`-Randstreifen einer Würfelkante) – strikt gedeckelt auf `<= 1.240 Bytes` (`max. 16` Nachbarn pro Paket).
+  2. **Hotspot-Fairness ohne Flackern (`SmoothRoster`-Lease):** Stehen 80–120 Spieler am selben Raumhafen, werden die nächsten `8` Nachbarn jeden Puls gesendet und die übrigen per Round-Robin rotiert (`0,85 s` Sight-Lease für butterweiches `CompanionGlide`).
+  3. **Fernfeld, andere Klimazonen & andere Planeten (`0 Hz / 0 Byte / 0 Objekte`):** Ferne Gebiete derselben Klimazone, die 5 anderen Klimazonen (inkl. ihrer Bäume `SectorForest`, geparkten Fahrzeuge `HorizonVessels` und GPU-Slices am Boden) sowie andere Himmelskörper kosten **null** Bandbreite, RAM und Tick-Zeit.
 
-### Baustein B: Sektor-Zustands-Snapshots statt globalem Event-Replay
-* Ablösung des endlosen `Vec<WorldFact>`-Replays durch **versionierte Sektor-Zustände (`SectorChronicle` pro `(BodyId, ClimateZone, SectorCoord)`)**:
-  * Mehrere Änderungen an derselben `GridCell` falten sich sofort zum **aktuellen Endzustand** zusammen (Graben + Bauen + Abreißen = 1 Zustand statt 30 historischer Events).
-  * Ein beitretender oder reisender Client abonniert ausschließlich die Sektoren in seinem Sichtring (komprimiert via RLE/LZ4 in MTU-Happen) $\rightarrow$ **Login-Sync dauert immer `< 0,5 Sekunden`**, unabhängig davon, ob der Server 10 Minuten oder 2 Jahre läuft.
-  * Innerhalb bereits geladener Nachbar-Sektoren werden Live-Änderungen weiterhin sofort als schlanke Delta-`WorldFact`s gestreamt.
+### Baustein B: Räumliche Sektor-Zustands-Snapshots (`SectorChronicle`) + Entkoppeltes `VesselCatalog`
+* **Warum weder ein globales noch ein bloß pro `BodyId` geteiltes Event-Log ausreicht:**
+  1. Auf einer `4096³`-Erde (`100,7 km²`) finden `80–90 %` aller Grab- und Bauaktionen auf `BodyId::EARTH` statt – eine reine `BodyId`-Partitionierung ließe die Erde weiterhin auf Millionen Raycast-Events anwachsen, obwohl ein Spieler in `Temperate` Änderungen auf der Rückseite (`Volcanic`, `6 km` entfernt) gar nicht sehen kann.
+  2. Raumschiffe (`CraftCommissioned`, `HelmReleased`) reisen zwischen Erde, Mars und Asteroiden und gehören deshalb **keinem** festen Himmelskörper an.
+* **Zweigeteilte Zielarchitektur:**
+  1. **Ortsfestes Terrain (`SectorChronicle` pro `(BodyId, Face, SectorCoord)`):** Mehrere Änderungen an derselben `GridCell` falten sich sofort zum **aktuellen Netto-Zellzustand (`SectorSnapshot`)** zusammen (null Raycast-Replay für historische Zwischenschritte). Ein Client abonniert wie bei `ProximityAudience` ausschließlich die Sektoren in seinem lokalen Sichtring (`HorizonSectors`) $\rightarrow$ **Login-Sync dauert immer `< 0,2–0,5 Sekunden`**, und ferne Kontinente kosten ebenso `0 Bytes` wie ferne Monde. Bereits geladene Nachbar-Sektoren erhalten Live-Änderungen weiterhin sofort als schlanke Delta-`WorldFact`s.
+  2. **Reisende Schiffe (`VesselCatalog`):** Schiffs-Blaupausen (`CraftIdentity -> CraftBlueprint`) und geparkte Posen sind vom Boden-Log entkoppelt. Sobald ein fremdes Schiff (fliegend oder geparkt) erstmals in den Sichthorizont eines Clients eintritt, überträgt der Server einmalig dessen kompaktes `CraftBlueprint` on-demand.
 
 ### Baustein C: Disk-Persistenz & Kalte-Sektor-Auslagerung (`VaultArchive`)
 * Jeder Sektor schreibt Änderungen in ein schnelles Append-Only-Journal auf SSD und verdichtet sich periodisch zu kompakten Sektor-Snapshots.
 * Sektoren und fremde Monde ohne anwesende Spieler werden nach einer Ruhefrist aus dem Server-RAM entladen und bei Annäherung verzögerungsfrei von SSD geladen.
 
-### Baustein D: Parallele Paket-Versiegelung & Sharded Simulation
+### Baustein D: Parallele Paket-Versiegelung & Klimazonen-/Cluster-Sharding
 * **Parallele Sitzungs-Versiegelung (`ParallelSeals`):** Eingehende UDP-Datagramme und ausgehende versiegelte Pakete werden außerhalb des Welt-Ticks parallel über `SessionSeal` entschlüsselt/verschlüsselt.
-* **Simulation pro Himmelskörper (`BodyId`):** Da Erde, Mond, Mars, Titan und Asteroiden dank der „Gravity Bubbles“ (Phase 4 in `COSMOS_PLAN.md`) physikalisch getrennte lokale Koordinatenräume besitzen, können stark bevölkerte Himmelskörper im Server-Tick parallel auf mehreren CPU-Kernen berechnet werden!
+* **Simulation nach `(BodyId, ClimateZone, SectorCluster)` statt nur nach `BodyId`:** Würde man nur nach `BodyId` parallelisieren, lägen `900` Erd-Spieler auf einem einzigen CPU-Kern! Weil sich Klimazonen und entfernte Sektor-Inseln gegenseitig nicht beeinflussen, rechnet der Server alle 6 Klimazonen der Erde sowie aktive Mond-/Asteroiden-Sektoren parallel auf getrennten Kernen, während unbewohnte Sektoren komplett schlafen (`0 %` CPU).
 
 ### Baustein E: Begehbarer Voxel-Asteroidengürtel (`2,20 .. 3,20 AU`)
 * `BeltRock` (`crates/world/src/celestial/belt.rs`) nutzt bereits deterministische Sektor-Hashes und `32.768` reservierte `BodyId::belt_rock`-Kennungen (`0x8000 | slot`), wird aktuell aber nur visuell als einzelner Würfel gezeichnet.
@@ -130,3 +132,23 @@ Weil weit entfernte Spieler **null** Bandbreite füreinander erzeugen (`0 Hz`), 
 * Selbst wenn sich **80–120 Spieler gleichzeitig am selben Raumhafen oder Spawn-Punkt** versammeln, reißt kein einziges UDP-Paket die `1.500 Byte`-MTU-Grenze:
   * Jedes `20 Hz`-Paket enthält die `8–10` unmittelbarsten Nachbarn (`< 25 m`) plus `8` rotierende Nachbarn aus dem weiteren Sichtfeld (`25–150 m`).
   * Durch das `~0,8 s`-Sicht-Lease in `SmoothRoster` bleiben alle `80–120` Spieler vor Ort gleichzeitig sichtbar und gleiten flüssig über den Bildschirm, während Spieler jenseits des Sichtrings sauber ausgeblendet werden (`0 Hz`).
+
+---
+
+## 5. Umsetzungsstand (`v0.113.0`) & Verbleibende Ausbaustufen
+
+### 5.1 In `v0.112.0` & `v0.113.0` produktiv umgesetzt
+* **Strikte Horizont- & Klimazonen-Isolation (`v0.113.0`):**
+  * **`SectorForest` & `SectorGrove` (`crates/world/src/tree/sector_forest.rs`, `sector_grove.rs` & `zoned_forest.rs`):** `0` eager erzeugte Bäume beim Start einer `4096³`-Welt; allokationsfreie Stack-Kollision (`constrain_untouched_sector`) und Kronenreibung im `120 Hz`-Hotpath; Bäume und `FloorLitter` entstehen und ticken ausschließlich in aktiven `4m × 4m`-Sektoren und streamen lokal über `MeadowRing`.
+  * **Horizont-GPU-Slices (`PlanetaryMesh::with_horizon` in `crates/engine/src/composite_mesh.rs`, `launch.rs`, `ShadedScenePass`) & `present_vessels_near`:** Am Boden von `Temperate` wird auf `4096³` initial nur die eigene `ClimateZone` gebaut und hochgeladen (Nachbar-Klimazone erst `< 180 m` vor der Würfelkante, andere Seiten erst im Orbit); geparkte Fahrzeuge anderer Klimazonen werden im Frame-Loop übersprungen.
+  * **`SectorGridAudience` + `VelocityScaledSight` (`crates/sanctuary/src/sector_audience.rs`):** `O(N)`-Raumgitter (`160 m`-Zellen) mit Hemisphären-/Klimazonen-Trennung und geschwindigkeitsskalierter Sichtweite (`bis 2.400 m`) für im eigenen Himmel landende Raumschiffe.
+  * **`SpatialFactIndex` & `HorizonStream` (`crates/sanctuary/src/spatial_chronicle.rs`):** Jeder Gast erhält einen persönlichen `HostChronicle`-Strom ausschließlich aus seinem `256 m`-Sichtring derselben (bzw. kanten-angrenzenden) `ClimateZone`, angeflogenen Himmelskörpern und sichtbaren Schiffs-Blueprints (`0 Bytes` für andere Klimazonen und ferne Planeten).
+  * **`SectorCracks` (`crates/sanctuary/src/aura.rs`), `0 Byte` ruhiges `WildlifePulse` (`envelope.rs`), `VaultStream` (`chronicle_decorators.rs`), `RingEvicted` `ReliefCellCache` & `OffworldVault` (`crates/world/src/celestial/heliosphere/vault.rs`):** Sektor-isolierte Grab-Risse, null Wildtier-Traffic außerhalb von `160 m`, Tick-gepuffertes `BufWriter<File>`-SSD-WAL, ringförmige Zell-Cache-Verdrängung und ein warmer `32`-Körper-Serverpool gegen `2`-Slot-LRU-Thrashing.
+* **Basis-Großserver & Kosmos (`v0.112.0`):** `MtuBudgetAudience` + `SmoothRoster` (`0,85 s` Sight-Lease), `AdminBlockWard` + `SpawnBeacons` (`SpawnStone`), `ParallelSeals`, `EPSTEIN_HOUR_AU_CAP` (`< 1 h` bis `3,20 AU`), `10 Gm` Log-Depth, `SurfaceContact` und `96 m` `ProximityChatModal`.
+
+### 5.2 Was als Nächstes umgesetzt werden kann (Priorisierte Ausbaustufen)
+1. **Mitbewegte lokale Hill-Sphären („Gravity Bubbles“ `(BodyId, LocalOffset: Vec3)`) + `epoch_secs`-Handshake-Sync (`COSMOS_PLAN.md` Phase 4):** Beseitigt die IEEE-754 `f32`-Quantisierung (`1 ULP = 16 m` bei `3,20 AU = 153,88 Mio. m`) beim Landen und Gehen auf äußeren Asteroiden und lässt Planetenbahnen kontinuierlich weiterlaufen, während Crews auf Monden stehen.
+2. **Netto-Zellzustands-Snapshots (`SectorSnapshot`) bei Langzeit-WAL-Kompaktierung:** Faltet hundertfach umgebaute Sektoren auf ihren reinen Zell-Endzustand zusammen (null historische Raycasts beim Betreten alter Städte).
+3. **`AboardVessel`-Relativkoordinaten (`PresenceFrame`) für Multi-Crew-Raumschiffe:** Überträgt Mitfahrer auf fliegenden `VesselDeck`s relativ zum Schiffsrumpf, damit Besatzungen auch bei `50–240 km/s` frei durch die Kabine laufen können.
+4. **Serverseitiger `SurvivorLedger` (Inventar & Auslogg-Ort pro X25519-Key):** Schützt die endliche Erz-Ökonomie vor lokalen `server.toml`-Manipulationen und bewahrt Position + Beute bei Verbindungsabbrüchen im Asteroidengürtel.
+5. **Klimazonen-/Cluster-paralleler Server-Tick & Physikalische Sandbox-Vertiefung (`CargoBallast`-Erzmasse, Vakuum-Kontaktfunk, bergbare `LiveTape`-Blackboxes):** Multi-Core-Simulation der 6 Erd-Klimazonen plus emergentes Hard-Sci-Fi-Gameplay ohne globale Broadcasts.

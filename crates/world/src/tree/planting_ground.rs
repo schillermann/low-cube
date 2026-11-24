@@ -6,3 +6,13 @@ pub trait PlantingGround: Send + Sync {
     /// Evaluates the ground elevation in meters at the given cell coordinates.
     fn ground_elevation(&self, cell_u: i32, cell_v: i32) -> f32;
 }
+
+impl<G: PlantingGround + ?Sized> PlantingGround for Box<G> {
+    fn receptive(&self, cell_u: i32, cell_v: i32, hash: i32) -> bool {
+        (**self).receptive(cell_u, cell_v, hash)
+    }
+
+    fn ground_elevation(&self, cell_u: i32, cell_v: i32) -> f32 {
+        (**self).ground_elevation(cell_u, cell_v)
+    }
+}

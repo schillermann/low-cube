@@ -124,6 +124,10 @@ impl GuestWard {
         self.glide.authoritative_craft().push_active(out);
     }
 
+    pub fn push_authoritative_craft_with_speed(&self, out: &mut Vec<(DrivenCraft, f32)>) {
+        self.glide.push_craft_with_speed(out);
+    }
+
     pub fn push_craft_at(&self, render_secs: f64, out: &mut Vec<DrivenCraft>) {
         self.glide.craft_at(render_secs).push_active(out);
     }

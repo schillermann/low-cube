@@ -47,6 +47,10 @@ impl<W> TranslatedWorld<W> {
         &mut self.origin
     }
 
+    pub fn into_inner(self) -> W {
+        self.origin
+    }
+
     pub fn in_vicinity(&self, position: Vec3, cheb_bound: f32) -> bool {
         (position - self.center).abs().max_element() <= cheb_bound
     }
@@ -156,6 +160,10 @@ impl<W: VesselDeck> VesselDeck for TranslatedWorld<W> {
     fn present_vessels(&self, sink: &mut dyn VesselSink) {
         let mut shifted = TranslatedVesselSink { shift: self.center, inner: sink };
         self.origin.present_vessels(&mut shifted);
+    }
+    fn present_vessels_near(&self, center: Vec3, radius: f32, sink: &mut dyn VesselSink) {
+        let mut shifted = TranslatedVesselSink { shift: self.center, inner: sink };
+        self.origin.present_vessels_near(center - self.center, radius, &mut shifted);
     }
     fn plan_molded_block(&self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> Option<PlannedMount> {
         self.origin

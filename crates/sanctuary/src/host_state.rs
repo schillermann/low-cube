@@ -98,7 +98,11 @@ impl HostState {
         if let WorldFact::Loosened { eye, direction, stage } = fact {
             self.aura.record_crack(author_slot, CrackNotice::new(eye, direction, stage.min(4)));
         }
+        let before = self.chronicle.total();
         self.chronicle.record(fact);
+        if self.chronicle.total() > before && author_slot >= 2 {
+            self.cohort.ensure_authored_fact(author_slot, before);
+        }
     }
 
     pub fn record_disclosure(&mut self, face: u8, stratum: ExposedStratum) {
@@ -214,7 +218,13 @@ impl HostState {
         }
     }
 
-    pub fn step_standby_clocks(&mut self, socket: &UdpSocket, dt: f32, deferred: &mut VecDeque<(u32, WorldFact)>) {
+    pub fn step_standby_clocks(
+        &mut self,
+        socket: &UdpSocket,
+        dt: f32,
+        proportions: world::SolarProportions,
+        deferred: &mut VecDeque<(u32, WorldFact)>,
+    ) {
         self.wormhole.step(socket, dt);
         let mut abandoned = Vec::new();
         let pulse_ready = self.cohort.advance_wards(dt, &mut abandoned);
@@ -227,19 +237,21 @@ impl HostState {
             self.aura.fleet_mut().release_slot(cid);
         }
         if pulse_ready {
-            self.broadcast(socket);
+            self.broadcast(socket, proportions, 0.0);
         }
     }
 
-    pub fn step_clocks(&mut self, socket: &UdpSocket, dt: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        self.wormhole.step(socket, dt);
+    pub fn step_clocks(&mut self, _socket: &UdpSocket, dt: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
+        self.wormhole.step(_socket, dt);
         let mut observers = Vec::with_capacity(8);
         if let Some((pos, crouching)) = self.aura.pedestrian_observer(world) {
             observers.push((1, pos, crouching));
         }
         self.cohort.push_pedestrian_observers(world, &mut observers);
-        if let Some((cid, shove)) = self.aura.wildlife_mut().step_authoritative(dt, &observers, world) {
-            self.cohort.record_guest_gore(cid, shove);
+        if !observers.is_empty() {
+            if let Some((cid, shove)) = self.aura.wildlife_mut().step_authoritative(dt, &observers, world) {
+                self.cohort.record_guest_gore(cid, shove);
+            }
         }
         let mut abandoned = Vec::new();
         let pulse_ready = self.cohort.advance_wards(dt, &mut abandoned);
@@ -259,8 +271,8 @@ impl HostState {
         (pulse_ready, parked_any)
     }
 
-    pub fn broadcast(&mut self, socket: &UdpSocket) {
-        self.cohort.broadcast(socket, self.chronicle.as_ref(), &mut self.aura);
+    pub fn broadcast(&mut self, socket: &UdpSocket, proportions: world::SolarProportions, epoch_secs: f64) {
+        self.cohort.broadcast(socket, self.chronicle.as_mut(), &mut self.aura, proportions, epoch_secs);
     }
 }
 

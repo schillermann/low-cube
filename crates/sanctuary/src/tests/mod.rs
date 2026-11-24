@@ -1,5 +1,6 @@
 mod conduit;
 mod driving;
+mod horizon_isolation;
 mod massive;
 mod offworld_sync;
 mod simultaneous;

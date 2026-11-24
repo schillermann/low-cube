@@ -84,8 +84,8 @@ pub use topology::{
 pub use tree::{
     Arboreal, ArborealFacet, ArcticPine, ClearedPlot, CleaveOutcome, ConicalSkirt,
     DesertSucculent, FloorLitter, ForestedFace, FullCubeGround, HewnTimberTarget,
-    JungleEmergent, MeridianGround, PlantingGround, PolyhedralCrown, PrismTrunk,
-    SolidArboreal, SpawnSanctuaryGround, StandingTree, SteppeAcacia, SurfaceFind,
+    JungleEmergent, MeridianGround, PlantingGround, PolyhedralCrown, PrismTrunk, SectorForest,
+    SectorGrove, SolidArboreal, SpawnSanctuaryGround, StandingTree, SteppeAcacia, SurfaceFind,
     SurfaceGround, TemperateOak, TimberDepository, TimberYield, TreeSpecies,
     VolcanicSpire, WoodlandDepository, WoodlandGround, ZonedForest,
 };
