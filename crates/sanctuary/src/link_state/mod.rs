@@ -1,10 +1,12 @@
 mod sync;
+mod welcome;
 
 use std::net::{SocketAddr, UdpSocket};
 use crate::seal::{HandshakeIdentity, SessionSeal};
 use crate::ticket::{JoinTarget, PortalTicket};
 use crate::wormhole::{PunchCode, WormholePledge};
 pub use self::sync::LinkSync;
+pub use self::welcome::WelcomeFrame;
 
 /// Polymorphic P2P session establishment phase without nullable cipher fields.
 pub enum LinkPhase {

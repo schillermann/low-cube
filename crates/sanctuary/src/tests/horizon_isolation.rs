@@ -85,6 +85,7 @@ fn test_sector_cracks_and_calm_wildlife_prevent_cross_zone_leakage() {
         cracks: Vec::new(),
         companions: Vec::new(),
         crafts: Vec::new(),
+        berths: Vec::new(),
         wildlife: world::WildlifePulse::calm(),
     };
     calm_env.inscribe(&mut calm_bytes);

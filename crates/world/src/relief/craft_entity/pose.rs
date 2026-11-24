@@ -59,6 +59,20 @@ impl CraftPose {
         (seat, self.heading, self.axes.normal())
     }
 
+    pub fn world_point_at(self, local_pt: Vec3) -> Vec3 {
+        self.world_seat_at(local_pt).0
+    }
+
+    pub fn hull_rotation(self) -> Quat {
+        let frame = self.axes.surface_frame();
+        Quat::from_mat3(&glam::Mat3::from_cols(
+            frame.tangent().normalize_or_zero(),
+            frame.normal().normalize_or_zero(),
+            frame.bitangent().normalize_or_zero(),
+        ))
+        .normalize()
+    }
+
     pub fn local_point_of(self, world_pos: Vec3) -> Vec3 {
         let frame = self.axes.surface_frame();
         let shift = self.origin - frame.point_at(0.25, 0.25, 0.0);
@@ -96,7 +110,9 @@ impl CraftPose {
 
     pub fn interpolated(self, target: Self, alpha: f32) -> Self {
         let t = alpha.clamp(0.0, 1.0);
-        if (target.origin - self.origin).length_squared() > 64.0 {
+        if (target.origin - self.origin).length_squared() > 36_000_000.0
+            || self.axes.normal().dot(target.axes.normal()) < -0.5
+        {
             return target;
         }
         let origin = self.origin.lerp(target.origin, t);

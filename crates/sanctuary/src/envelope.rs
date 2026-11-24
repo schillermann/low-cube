@@ -1,8 +1,10 @@
 use glam::Vec3;
 use world::{
-    CompanionPresence, CosmicFrame, DrivenCraft, PilotCraft, PlanetaryWorld, ProximityUtterance,
-    WildlifePulse, WorldFact, MAX_UTTERANCE_BYTES,
+    CompanionPresence, CosmicFrame, CraftIdentity, DrivenCraft, PilotCraft, PlanetaryWorld,
+    ProximityUtterance, VesselBerth, WildlifePulse, WorldFact, MAX_UTTERANCE_BYTES,
 };
+
+const BERTH_TRAILER_TAG: u8 = 0xB7;
 
 /// Transient block-loosening crack stage broadcast across P2P companions.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -56,6 +58,7 @@ pub enum SanctuaryEnvelope {
         presence: CompanionPresence,
         craft: PilotCraft,
         frame: CosmicFrame,
+        berth: VesselBerth,
     },
     GuestPetition {
         fact: WorldFact,
@@ -69,6 +72,7 @@ pub enum SanctuaryEnvelope {
         cracks: Vec<CrackNotice>,
         companions: Vec<CompanionPresence>,
         crafts: Vec<DrivenCraft>,
+        berths: Vec<(u32, CraftIdentity)>,
         wildlife: WildlifePulse,
     },
     GuestUtterance {
@@ -83,13 +87,16 @@ impl SanctuaryEnvelope {
     pub fn inscribe(&self, out: &mut Vec<u8>) {
         out.clear();
         match self {
-            Self::GuestPulse { ack_seq, presence, craft, frame } => {
+            Self::GuestPulse { ack_seq, presence, craft, frame, berth } => {
                 out.push(1);
                 out.extend_from_slice(&ack_seq.to_le_bytes());
                 presence.inscribe(out);
                 craft.inscribe(out);
-                if !frame.earth_centered() {
+                if !frame.earth_centered() || berth.aboard_any() {
                     frame.inscribe(out);
+                    if berth.aboard_any() {
+                        berth.inscribe(out);
+                    }
                 }
             }
             Self::GuestPetition { fact } => {
@@ -104,7 +111,7 @@ impl SanctuaryEnvelope {
                     fact.inscribe(out);
                 }
             }
-            Self::HostPulse { total_facts, cracks, companions, crafts, wildlife } => {
+            Self::HostPulse { total_facts, cracks, companions, crafts, berths, wildlife } => {
                 out.push(4);
                 out.extend_from_slice(&total_facts.to_le_bytes());
                 out.push(cracks.len().min(16) as u8);
@@ -122,13 +129,22 @@ impl SanctuaryEnvelope {
                 for craft in crafts.iter().take(16) {
                     scratch.clear();
                     craft.inscribe(&mut scratch);
-                    if out.len() + scratch.len() > 1_240 {
+                    if out.len() + scratch.len() > 1_200 {
                         break;
                     }
                     out.extend_from_slice(&scratch);
                     written += 1;
                 }
                 out[count_idx] = written;
+                if !berths.is_empty() {
+                    let bcount = berths.len().min(64);
+                    out.push(BERTH_TRAILER_TAG);
+                    out.push(bcount as u8);
+                    for &(slot, id) in berths.iter().take(bcount) {
+                        out.extend_from_slice(&slot.to_le_bytes());
+                        id.inscribe(out);
+                    }
+                }
                 if *wildlife != WildlifePulse::calm() {
                     wildlife.inscribe(out);
                 }
@@ -160,12 +176,19 @@ impl SanctuaryEnvelope {
                     PilotCraft::decode(tail)?
                 };
                 let frame_tail = &tail[craft_used..];
-                let frame = if frame_tail.is_empty() {
-                    CosmicFrame::earth()
+                let (frame, berth) = if frame_tail.is_empty() {
+                    (CosmicFrame::earth(), VesselBerth::planetary())
                 } else {
-                    CosmicFrame::decode(frame_tail)?.0
+                    let (f, f_used) = CosmicFrame::decode(frame_tail)?;
+                    let b_tail = &frame_tail[f_used..];
+                    let b = if b_tail.is_empty() {
+                        VesselBerth::planetary()
+                    } else {
+                        VesselBerth::decode(b_tail)?.0
+                    };
+                    (f, b)
                 };
-                Some(Self::GuestPulse { ack_seq, presence, craft, frame })
+                Some(Self::GuestPulse { ack_seq, presence, craft, frame, berth })
             }
             2 if bytes.len() >= 2 => {
                 let (fact, _) = WorldFact::decode(&bytes[1..])?;
@@ -212,12 +235,27 @@ impl SanctuaryEnvelope {
                         cursor += used;
                     }
                 }
+                let mut berths = Vec::new();
+                if bytes.get(cursor).copied() == Some(BERTH_TRAILER_TAG) {
+                    let bcount = *bytes.get(cursor + 1)? as usize;
+                    cursor += 2;
+                    if bytes.len() < cursor + bcount * 12 {
+                        return None;
+                    }
+                    berths.reserve(bcount.min(64));
+                    for _ in 0..bcount {
+                        let slot = u32::from_le_bytes(bytes[cursor..cursor + 4].try_into().ok()?);
+                        let (id, _) = CraftIdentity::decode(&bytes[cursor + 4..cursor + 12])?;
+                        berths.push((slot, id));
+                        cursor += 12;
+                    }
+                }
                 let wildlife = if cursor < bytes.len() {
                     WildlifePulse::decode(&bytes[cursor..])?.0
                 } else {
                     WildlifePulse::calm()
                 };
-                Some(Self::HostPulse { total_facts, cracks, companions, crafts, wildlife })
+                Some(Self::HostPulse { total_facts, cracks, companions, crafts, berths, wildlife })
             }
             5 if bytes.len() >= 2 => {
                 let len = usize::from(bytes[1]);

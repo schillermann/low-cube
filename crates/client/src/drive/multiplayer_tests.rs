@@ -145,3 +145,116 @@ fn test_multiplayer_companion_car_renders_and_interpolates_subtick_without_telep
     });
     assert!(guest_parked, "Parked car must appear at its driven destination on the other player's world");
 }
+
+#[test]
+fn test_unseated_deck_crew_stays_aboard_heliosphere_ship_across_liftoff_and_orbit() {
+    use world::{CelestialSystem, CompanionPortal, CraftBlueprint, DrivenCraft, PilotCraft, SolarProportions, SurfaceFrame, VehicleAxes, VehiclePart};
+
+    let prop = SolarProportions::compressed(128, 0.02);
+    let earth_half = prop.earth_half();
+    let mut raw_host = SanctuaryHost::bind_cosmos(
+        "127.0.0.1:0",
+        CelestialSystem::barren_heliosphere(prop, 1.0),
+        prop,
+    )
+    .expect("bind heliosphere host");
+    let addr = raw_host.local_addr().expect("addr");
+
+    let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
+    let mut parts = Vec::new();
+    for gx in -1..=1 {
+        for gz in -1..=1 {
+            parts.push(VehiclePart::new(
+                (gx, gz),
+                0.0,
+                BlockMold::cube().in_medium(BlockMedium::PlanedPlanks).shape_for(Vec3::NEG_Z, &frame),
+            ));
+        }
+    }
+    parts.push(VehiclePart::new((0, 1), 0.5, BlockMold::cube().in_medium(BlockMedium::FlightConsole).shape_for(Vec3::NEG_Z, &frame)));
+    parts.push(VehiclePart::new((0, -1), 0.0, BlockMold::cube().in_medium(BlockMedium::RocketNozzle).shape_for(Vec3::NEG_Z, &frame)));
+    let bp = CraftBlueprint::commission(Vec3::new(0.25, earth_half + 2.0, 0.25), parts);
+    let ship_id = bp.identity();
+
+    raw_host.with_chronicled(|w| {
+        let _ = w.register_craft_blueprint(bp.clone());
+    });
+    raw_host.record_local_fact(world::WorldFact::CraftCommissioned { blueprint: bp });
+    let mut host_world = HostedPlanet::spawning(raw_host);
+    let mut crew_world = RemotePlanet::connect_cosmos(JoinTarget::Direct(addr), prop, 1.0).expect("crew connect");
+
+    let pad_origin = host_world.constrain_to_surface(Vec3::new(0.25, earth_half + 4.0, 0.25), 0.0) + Vec3::Y * 0.5;
+    let axes = VehicleAxes::new(Vec3::X, Vec3::Z, Vec3::Y);
+    let pad_pose = world::CraftPose::new(pad_origin, axes, Vec3::Z, (0.0, 0.0));
+    host_world.sync_presence(world::CompanionPresence::new(
+        1,
+        world::PresenceKinematics::new(pad_origin + Vec3::Y, glam::Quat::IDENTITY, glam::Quat::IDENTITY, (1.5, 0.0)),
+        (0.0, 0.0, 0.0, 0.0),
+        world::PresenceAttire::squire(),
+    ));
+    host_world.sync_pilot_craft(PilotCraft::Driving(DrivenCraft::new(1, ship_id, pad_pose)));
+    crew_world.sync_presence(world::CompanionPresence::new(
+        0,
+        world::PresenceKinematics::new(pad_origin + Vec3::Y * 1.55, glam::Quat::IDENTITY, glam::Quat::IDENTITY, (1.5, 0.0)),
+        (0.0, 0.0, 0.0, 0.0),
+        world::PresenceAttire::squire(),
+    ));
+    for _ in 0..8 {
+        let _ = host_world.step_surface(0.02);
+        let _ = crew_world.step_surface(0.02);
+    }
+
+    // Unseated crewmate boards the stationary launchpad deck first, then ship lifts off into HeliosphereWorld orbit!
+    let mut crew_avatar = PlanetaryAvatar::at(pad_origin + Vec3::Y * 1.55);
+    let idle = KeyMotion::idle();
+    let dt = 1.0 / 120.0;
+    for _ in 0..8 {
+        let _ = host_world.step_surface(0.02);
+        let _ = crew_world.step_surface(0.02);
+        crew_avatar.step_motion(dt, &idle, &crew_world);
+        crew_avatar.sync_world_presence(&mut crew_world);
+    }
+    let mut ship_y = pad_origin.y;
+    for tick in 0..120 {
+        ship_y += 2.0; // +240 m vertical liftoff into HeliosphereWorld orbit (where solar + Earth gravity > 1e-4!)
+        let burn = if tick < 90 { 1.2 } else { 0.0 }; // 90 ticks powered burn, 30 ticks 0.0g coast!
+        let next_pose = world::CraftPose::new(Vec3::new(pad_origin.x, ship_y, pad_origin.z), axes, Vec3::Z, (burn, 0.0));
+        host_world.sync_pilot_craft(PilotCraft::Driving(DrivenCraft::new(1, ship_id, next_pose)));
+        host_world.sync_berth_presence(
+            world::CompanionPresence::new(
+                1,
+                world::PresenceKinematics::new(
+                    next_pose.world_point_at(Vec3::new(0.0, 1.12, 0.5)),
+                    glam::Quat::IDENTITY,
+                    glam::Quat::IDENTITY,
+                    (1.5, 0.0),
+                ),
+                (0.0, 0.0, 0.0, 0.0),
+                world::PresenceAttire::squire(),
+            )
+            .localized_to_hull(next_pose),
+            world::VesselBerth::aboard(ship_id),
+        );
+        let _ = host_world.step_surface(dt);
+        let _ = crew_world.step_surface(dt);
+        crew_avatar.step_motion(dt, &idle, &crew_world);
+        crew_avatar.sync_world_presence(&mut crew_world);
+    }
+
+    for _ in 0..8 {
+        let _ = host_world.step_surface(0.02);
+        let _ = crew_world.step_surface(0.02);
+        crew_avatar.step_motion(dt, &idle, &crew_world);
+        crew_avatar.sync_world_presence(&mut crew_world);
+    }
+    let mut host_seen = Vec::new();
+    host_world.active_companions(&mut host_seen);
+    assert_eq!(host_seen.len(), 1, "Host pilot must see unseated deck crewmate aboard the ascending ship");
+    let crew_pos = host_seen[0].transfer(|_, kin, _, _| kin.transfer(|p, _, _, _, _| p));
+    assert!(
+        (crew_pos.y - (ship_y + 1.5)).abs() < 1.0,
+        "Unseated crewmate must ride the ship deck into HeliosphereWorld orbit with < 1m deck precision, got y={} vs ship_y={}",
+        crew_pos.y,
+        ship_y
+    );
+}

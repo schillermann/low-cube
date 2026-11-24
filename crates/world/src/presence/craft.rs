@@ -19,6 +19,10 @@ impl DrivenCraft {
         self.slot == slot
     }
 
+    pub const fn pilot_slot(self) -> u32 {
+        self.slot
+    }
+
     pub const fn identity(self) -> CraftIdentity {
         self.identity
     }

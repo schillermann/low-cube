@@ -55,6 +55,10 @@ impl CockpitBerth {
         self.pilot.pilot_craft()
     }
 
+    pub(super) fn active_hull(&self, world: &dyn PlanetaryWorld) -> Option<(world::CraftIdentity, world::CraftPose)> {
+        self.pilot.active_hull(world).or_else(|| self.footing.active_hull(world))
+    }
+
     pub(super) fn emit(&self, target: &mut dyn MeshTarget) {
         self.pilot.emit(target);
     }

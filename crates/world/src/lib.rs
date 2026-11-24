@@ -64,7 +64,7 @@ pub use planet::{CubePlanet, PatchCoord};
 pub use presence::{
     BoarPresence, BoarStance, CompanionPresence, DrivenCraft, GoreStamp, PilotCraft,
     PresenceAttire, PresenceKinematics, PresenceRhythm, ProximityUtterance, SounderPresence,
-    WildlifePulse, MAX_UTTERANCE_BYTES,
+    VesselBerth, WildlifePulse, MAX_UTTERANCE_BYTES,
 };
 pub use sight_cone::SightCone;
 pub use surface_contact::SurfaceContact;

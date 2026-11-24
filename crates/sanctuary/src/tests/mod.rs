@@ -2,6 +2,7 @@ mod conduit;
 mod driving;
 mod horizon_isolation;
 mod massive;
+mod multi_crew;
 mod offworld_sync;
 mod simultaneous;
 mod wildlife;
@@ -186,6 +187,7 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
         ),
         craft: world::PilotCraft::Pedestrian,
         frame: world::CosmicFrame::earth(),
+        berth: world::VesselBerth::planetary(),
     };
     pulse.inscribe(&mut payload);
     seal.seal(cid, &payload, &mut frame);

@@ -52,8 +52,8 @@ pub use config::{SanctuaryEndpoint, SanctuaryPlan, SanctuaryToml};
 pub use envelope::{CrackNotice, SanctuaryEnvelope};
 pub use fleet_ledger::FleetLedger;
 pub use glide::{
-    CircularStrideCurve, CompanionGlide, GlideClock, PresenceCurve, SmoothRoster, TimelineClock,
-    WaypointCurve,
+    CircularStrideCurve, CompanionGlide, GlideClock, PresenceCurve, SightRole, SmoothRoster,
+    TimelineClock, VesselDeckCurve, WaypointCurve,
 };
 pub use guest_journal::GuestJournal;
 pub use host_sounder::{HostSounder, PendingShove, PendingSnort};

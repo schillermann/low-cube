@@ -108,24 +108,15 @@ impl SanctuaryHost {
         let secret = PortalCode::draw_secret();
         let socket = Self::bind_slot_socket(bind_addr, secret)?;
         socket.set_nonblocking(true)?;
-        Ok(Self::assemble_bound(
+        let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
+        Ok(Self::assemble_with_store(
             socket,
             advertised,
             secret,
             world,
             world::SolarProportions::true_scale(blocks_per_edge),
+            store,
         ))
-    }
-
-    fn assemble_bound(
-        socket: UdpSocket,
-        endpoint: SocketAddr,
-        secret: u8,
-        world: Box<dyn PlanetaryWorld>,
-        proportions: world::SolarProportions,
-    ) -> Self {
-        let store = Box::new(CompactedChronicle::wrapping(ChronicleLog::empty()));
-        Self::assemble_with_store(socket, endpoint, secret, world, proportions, store)
     }
 
     fn assemble_with_store(
@@ -168,6 +159,9 @@ impl SanctuaryHost {
     pub fn ticket(&self) -> PortalTicket { self.read_wire(HostWire::ticket) }
     pub fn punch_nat_peer(&mut self, peer: SocketAddr) { self.write_wire(|w| w.punch_peer(peer)); }
     pub fn sync_host_presence(&mut self, presence: CompanionPresence) { self.write_wire(|w| w.state_mut().occupy_host(presence)); }
+    pub fn sync_host_berth_presence(&mut self, presence: CompanionPresence, berth: world::VesselBerth) {
+        self.write_wire(|w| w.state_mut().occupy_host_berth(presence, berth));
+    }
     pub fn sync_host_craft(&mut self, craft: PilotCraft) { self.write_wire(|w| w.state_mut().pilot_host(craft)); }
     pub fn guest_companions(&self, out: &mut Vec<CompanionPresence>) { self.read_wire(|w| w.guest_companions(out)); }
     pub fn guest_crafts(&self, out: &mut Vec<DrivenCraft>) { self.read_wire(|w| w.guest_crafts(out)); }

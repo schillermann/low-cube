@@ -91,6 +91,23 @@ impl VehiclePilot {
     pub fn apply_frame_handoff(&mut self, handoff: world::FrameHandoff, world: &dyn PlanetaryWorld) -> Option<Vec3> {
         match self {
             Self::Driving(craft) | Self::Perch(craft) => Some(craft.apply_frame_handoff(handoff, world)),
+            Self::Passenger(berth) => {
+                let (next_berth, eye_pos) = berth.apply_handoff(handoff);
+                *self = Self::Passenger(next_berth);
+                Some(eye_pos)
+            }
+            Self::Pedestrian => None,
+        }
+    }
+
+    pub fn active_hull(&self, world: &dyn PlanetaryWorld) -> Option<(CraftIdentity, world::CraftPose)> {
+        match self {
+            Self::Driving(craft) if craft.identity().assigned() => {
+                Some((craft.identity(), craft.visual_pose()))
+            }
+            Self::Passenger(berth) if berth.craft_id().assigned() => {
+                world.resolve_deck_pose(berth.craft_id()).map(|(pose, _)| (berth.craft_id(), pose))
+            }
             _ => None,
         }
     }

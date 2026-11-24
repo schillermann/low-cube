@@ -1,11 +1,14 @@
 mod attire;
+mod berth;
 mod boar;
 mod craft;
 mod rhythm;
 mod utterance;
 
 use glam::{Quat, Vec3};
+use crate::relief::CraftPose;
 pub use self::attire::PresenceAttire;
+pub use self::berth::VesselBerth;
 pub use self::boar::{BoarPresence, BoarStance, GoreStamp, SounderPresence, WildlifePulse};
 pub use self::craft::{DrivenCraft, PilotCraft};
 pub use self::rhythm::PresenceRhythm;
@@ -32,6 +35,26 @@ impl PresenceKinematics {
 
     pub fn shifted(self, delta: Vec3) -> Self {
         Self::new(self.position + delta, self.surface_rot, self.view_rot, self.eye_and_leap)
+    }
+
+    pub fn localized_to_hull(self, hull_pose: CraftPose) -> Self {
+        let inv = hull_pose.hull_rotation().conjugate();
+        Self::new(
+            hull_pose.local_point_of(self.position),
+            (inv * self.surface_rot).normalize(),
+            (inv * self.view_rot).normalize(),
+            self.eye_and_leap,
+        )
+    }
+
+    pub fn folded_onto_hull(self, hull_pose: CraftPose) -> Self {
+        let rot = hull_pose.hull_rotation();
+        Self::new(
+            hull_pose.world_point_at(self.position),
+            (rot * self.surface_rot).normalize(),
+            (rot * self.view_rot).normalize(),
+            self.eye_and_leap,
+        )
     }
 
     pub fn interpolated(self, target: Self, alpha: f32) -> Self {
@@ -91,6 +114,14 @@ impl CompanionPresence {
 
     pub fn shifted(self, delta: Vec3) -> Self {
         Self::new(self.slot, self.kinematics.shifted(delta), self.rhythm, self.attire)
+    }
+
+    pub fn localized_to_hull(self, hull_pose: CraftPose) -> Self {
+        Self::new(self.slot, self.kinematics.localized_to_hull(hull_pose), self.rhythm, self.attire)
+    }
+
+    pub fn folded_onto_hull(self, hull_pose: CraftPose) -> Self {
+        Self::new(self.slot, self.kinematics.folded_onto_hull(hull_pose), self.rhythm, self.attire)
     }
 
     pub fn within_reach(&self, eye: Vec3, max_dist: f32) -> bool {

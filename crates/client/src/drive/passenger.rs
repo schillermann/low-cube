@@ -30,6 +30,19 @@ impl PassengerBerth {
         (Self::new(craft, local_seat, seat, (heading, up)), eye_pos, heading)
     }
 
+    pub const fn craft_id(&self) -> CraftIdentity {
+        self.craft
+    }
+
+    pub fn apply_handoff(self, handoff: world::FrameHandoff) -> (Self, Vec3) {
+        let next_seat = self.seat_pos + handoff.pos_shift();
+        let up = self.orientation.1.normalize_or_zero();
+        (
+            Self::new(self.craft, self.local_seat, next_seat, self.orientation),
+            next_seat + up * (SEAT_EYE_SUPPORT + 0.12),
+        )
+    }
+
     pub fn shape_pose(&self, pose: BodyPose) -> BodyPose {
         let (raw_fwd, raw_up) = self.orientation;
         let up = raw_up.normalize_or_zero();

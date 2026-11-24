@@ -3,7 +3,7 @@ use std::net::{SocketAddr, UdpSocket};
 use glam::{Quat, Vec3};
 use world::{
     CompanionPresence, CosmicFrame, DrivenCraft, FrameHandoff, PilotCraft, PlanetaryWorld,
-    PresenceKinematics, ProximityUtterance, WorldFact,
+    PresenceKinematics, ProximityUtterance, VesselBerth, WorldFact,
 };
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
@@ -26,11 +26,11 @@ pub enum EpochSync {
     Pending(f64),
 }
 
-/// Synchronized chronicle cursor, smoothly interpolated companion roster, avatar + bubble frame, and arrival state (`<= 4` fields).
+/// Synchronized chronicle cursor, smoothly interpolated companion roster, avatar + berth + frame, and arrival (`<= 4` fields).
 pub struct LinkSync {
     cursors: (u32, f32),
     roster: SmoothRoster,
-    local_avatar: (CompanionPresence, PilotCraft, CosmicFrame),
+    local_avatar: (CompanionPresence, PilotCraft, CosmicFrame, VesselBerth),
     arrival: (WelcomeSpawn, EpochSync),
 }
 
@@ -39,7 +39,7 @@ impl LinkSync {
     pub const fn with_arrival(
         cursors: (u32, f32),
         roster: SmoothRoster,
-        local_avatar: (CompanionPresence, PilotCraft, CosmicFrame),
+        local_avatar: (CompanionPresence, PilotCraft, CosmicFrame, VesselBerth),
         arrival: (WelcomeSpawn, EpochSync),
     ) -> Self {
         Self { cursors, roster, local_avatar, arrival }
@@ -54,7 +54,7 @@ impl LinkSync {
         Self::with_arrival(
             cursors,
             roster,
-            (local_avatar.0, local_avatar.1, CosmicFrame::earth()),
+            (local_avatar.0, local_avatar.1, CosmicFrame::earth(), VesselBerth::planetary()),
             (welcome_spawn, EpochSync::Aligned),
         )
     }
@@ -92,7 +92,9 @@ impl LinkSync {
     }
 
     pub fn apply_frame_handoff(&mut self, handoff: FrameHandoff) {
-        self.local_avatar.0 = self.local_avatar.0.shifted(handoff.pos_shift());
+        if !self.local_avatar.3.aboard_any() {
+            self.local_avatar.0 = self.local_avatar.0.shifted(handoff.pos_shift());
+        }
         self.local_avatar.1 = self.local_avatar.1.shifted(handoff.pos_shift());
         self.local_avatar.2 = handoff.next_frame();
         self.roster.shift_frame(handoff.pos_shift());
@@ -100,11 +102,16 @@ impl LinkSync {
     }
 
     pub fn update_presence(&mut self, presence: CompanionPresence, cid: u32) {
+        self.update_berth_presence(presence, VesselBerth::planetary(), cid);
+    }
+
+    pub fn update_berth_presence(&mut self, presence: CompanionPresence, berth: VesselBerth, cid: u32) {
         let prev_pos = self.local_avatar.0.transfer(|_, kin, _, _| kin.transfer(|p, _, _, _, _| p));
-        if !presence.within_reach(prev_pos, 4.0) {
+        if self.local_avatar.3 != berth || !presence.within_reach(prev_pos, 4.0) {
             self.cursors.1 = 1.0;
         }
         self.local_avatar.0 = presence.with_slot(cid);
+        self.local_avatar.3 = berth;
     }
 
     pub fn update_craft(&mut self, craft: PilotCraft, cid: u32) {
@@ -121,10 +128,13 @@ impl LinkSync {
         let attire = self.local_avatar.0.transfer(|_, _, _, a| a);
         let kin = PresenceKinematics::new(spawn, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
         self.local_avatar.0 = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), attire);
+        self.local_avatar.3 = VesselBerth::planetary();
     }
 
     pub const fn roster(&self) -> &SmoothRoster { &self.roster }
-    pub fn copy_companions(&self, out: &mut Vec<CompanionPresence>) { self.roster.copy_companions(out); }
+    pub fn copy_companions(&self, out: &mut Vec<CompanionPresence>) {
+        self.roster.copy_companions_aboard(self.local_avatar.1, out);
+    }
     pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) { self.roster.copy_crafts(out); }
     pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { self.roster.drain_utterances(out); }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.roster.blend_subtick(subtick_secs); }
@@ -139,6 +149,7 @@ impl LinkSync {
             presence: self.local_avatar.0,
             craft: self.local_avatar.1,
             frame: self.local_avatar.2,
+            berth: self.local_avatar.3,
         };
         pulse.inscribe(&mut payload);
         seal.seal(cid, &payload, &mut frame);
@@ -217,8 +228,8 @@ impl LinkSync {
 
     pub fn absorb_standby_envelope(&mut self, env: SanctuaryEnvelope, deferred: &mut VecDeque<SanctuaryEnvelope>) {
         match env {
-            SanctuaryEnvelope::HostPulse { total_facts, cracks, companions, crafts, wildlife } => {
-                self.roster.reconcile_snapshot(&companions, &crafts);
+            SanctuaryEnvelope::HostPulse { total_facts, cracks, companions, crafts, berths, wildlife } => {
+                self.roster.reconcile_snapshot_with_berths(&companions, &crafts, &berths);
                 self.roster.reconcile_wildlife(wildlife);
                 if !cracks.is_empty() && deferred.len() < 64 {
                     deferred.push_back(SanctuaryEnvelope::HostPulse {
@@ -226,6 +237,7 @@ impl LinkSync {
                         cracks,
                         companions: Vec::new(),
                         crafts: Vec::new(),
+                        berths: Vec::new(),
                         wildlife: world::WildlifePulse::calm(),
                     });
                 }
@@ -264,8 +276,8 @@ impl LinkSync {
                 }
                 changed
             }
-            SanctuaryEnvelope::HostPulse { cracks, companions, crafts, wildlife, .. } => {
-                self.roster.reconcile_snapshot(&companions, &crafts);
+            SanctuaryEnvelope::HostPulse { cracks, companions, crafts, berths, wildlife, .. } => {
+                self.roster.reconcile_snapshot_with_berths(&companions, &crafts, &berths);
                 self.roster.reconcile_wildlife(wildlife);
                 let mut changed = false;
                 for crack in cracks {

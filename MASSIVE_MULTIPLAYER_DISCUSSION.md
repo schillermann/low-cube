@@ -137,7 +137,9 @@ Weil weit entfernte Spieler **null** Bandbreite füreinander erzeugen (`0 Hz`), 
 
 ## 5. Umsetzungsstand (`v0.113.0`) & Verbleibende Ausbaustufen
 
-### 5.1 In `v0.112.0` bis `v0.114.0` produktiv umgesetzt
+### 5.1 In `v0.112.0` bis `v0.115.0` produktiv umgesetzt
+* **Multi-Crew-Relativkoordinaten (`VesselBerth` / `VesselDeckCurve` in `v0.115.0`):**
+  * **`VesselBerth` (`crates/world/src/presence/berth.rs`) & `VesselDeckCurve<C>` (`crates/sanctuary/src/glide/curve.rs`):** Überträgt Piloten, `PassengerBerth`-Beifahrer und frei auf dem Schiffsdeck laufende Crew-Mitglieder (`DeckFooting::Aboard` in `crates/client/src/avatar/deck.rs`) in orthonormalen Rumpf-Koordinaten (`localized_to_hull` / `folded_onto_hull`), faltet ihre Bewegung auf die lokale Sub-Tick-`CraftPose` (`0,000 m` Schlupf selbst bei `240 km/s` & `180°` Flip-&-Burn, `0` Extra-Bytes am Boden) und hält den Kabinen-Proximity-Chat im tiefen Raum aufrecht.
 * **Mitbewegte lokale Hill-Sphären („Gravity Bubbles“ `CosmicFrame` / `GravityBubble` / `FrameHandoff`) + `LWEL` `epoch_secs`-Sync (`v0.114.0`):**
   * **`CosmicFrame` (`Body(BodyId)`, `BeltAsteroid { id, cell }`, `DeepSpace([i64; 3])` mit `4.096 m`-Sektoren in `crates/world/src/celestial/bubble.rs`):** Sub-Millimeter-`f32`-Präzision (`< 0,13 mm` ULP) von der Erde über den äußeren Asteroidengürtel (`3,20 AU`) bis `Triton` (`30,07 AU`), inklusive `0 m/s` Flip-&-Burn-Wendemanövern; kontinuierlich weiterlaufende Planetenbahnen ohne `if !locked`-Orbit-Freeze (`HeliosphereWorld::step_surface`) und freie Gezeitenkompensation (`-frame_accel`).
   * **`MtuBudgetAudience(CosmicCraftSight(CosmicBubbleAudience))` (`crates/sanctuary/src/bubble_audience.rs`) & `EpochSync` (`link_state/sync.rs`):** Synchronisiert beim `LWEL`-Handshake die live laufende Server-`epoch_secs`, isoliert Mitspieler, `SectorCracks` und `HorizonStream` pro `CosmicFrame` (`0 Hz / 0 Extra-Bytes` für Erdspieler) und projiziert bis `2.400 m` nahe Raumschiffe über Bubble-Grenzen hinweg exakt in `f64`.
@@ -150,7 +152,6 @@ Weil weit entfernte Spieler **null** Bandbreite füreinander erzeugen (`0 Hz`), 
 * **Basis-Großserver & Kosmos (`v0.112.0`):** `MtuBudgetAudience` + `SmoothRoster` (`0,85 s` Sight-Lease), `AdminBlockWard` + `SpawnBeacons` (`SpawnStone`), `ParallelSeals`, `EPSTEIN_HOUR_AU_CAP` (`< 1 h` bis `3,20 AU`), `10 Gm` Log-Depth, `SurfaceContact` und `96 m` `ProximityChatModal`.
 
 ### 5.2 Was als Nächstes umgesetzt werden kann (Priorisierte Ausbaustufen)
-1. **`AboardVessel`-Relativkoordinaten (`PresenceFrame`) für Multi-Crew-Raumschiffe:** Überträgt Mitfahrer auf fliegenden `VesselDeck`s relativ zum Schiffsrumpf, damit Besatzungen auch bei `50–240 km/s` frei durch die Kabine laufen können.
-2. **Serverseitiger `SurvivorLedger` (Inventar & Auslogg-Ort pro X25519-Key):** Schützt die endliche Erz-Ökonomie vor lokalen `server.toml`-Manipulationen und bewahrt Position + Beute bei Verbindungsabbrüchen im Asteroidengürtel.
-3. **Netto-Zellzustands-Snapshots (`SectorSnapshot`) bei Langzeit-WAL-Kompaktierung:** Faltet hundertfach umgebaute Sektoren auf ihren reinen Zell-Endzustand zusammen (null historische Raycasts beim Betreten alter Städte).
-4. **Klimazonen-/Cluster-paralleler Server-Tick & Physikalische Sandbox-Vertiefung (`CargoBallast`-Erzmasse, Vakuum-Kontaktfunk, bergbare `LiveTape`-Blackboxes):** Multi-Core-Simulation der 6 Erd-Klimazonen plus emergentes Hard-Sci-Fi-Gameplay ohne globale Broadcasts.
+1. **Serverseitiger `SurvivorLedger` (Inventar & Auslogg-Ort pro X25519-Key):** Schützt die endliche Erz-Ökonomie vor lokalen `server.toml`-Manipulationen und bewahrt Position + Beute bei Verbindungsabbrüchen im Asteroidengürtel.
+2. **Netto-Zellzustands-Snapshots (`SectorSnapshot`) bei Langzeit-WAL-Kompaktierung:** Faltet hundertfach umgebaute Sektoren auf ihren reinen Zell-Endzustand zusammen (null historische Raycasts beim Betreten alter Städte).
+3. **Klimazonen-/Cluster-paralleler Server-Tick & Physikalische Sandbox-Vertiefung (`CargoBallast`-Erzmasse, Vakuum-Kontaktfunk, bergbare `LiveTape`-Blackboxes):** Multi-Core-Simulation der 6 Erd-Klimazonen plus emergentes Hard-Sci-Fi-Gameplay ohne globale Broadcasts.

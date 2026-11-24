@@ -126,8 +126,9 @@ impl AvatarPresence for EmbodiedAvatar {
     }
 
     fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) {
-        world.sync_presence(self.current_presence());
         world.sync_pilot_craft(self.body.pilot_craft());
+        let (pres, berth) = self.body.berth_presence(self.current_presence(), world);
+        world.sync_berth_presence(pres, berth);
     }
 
     fn report_presence(&self, sink: &mut dyn crate::black_box::PresenceSink) {

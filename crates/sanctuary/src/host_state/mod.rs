@@ -58,12 +58,15 @@ impl HostState {
     pub fn reanchor_host(&mut self, handoff: FrameHandoff) { self.aura.reanchor_host(handoff); }
     pub fn punch_peer(&mut self, socket: &UdpSocket, peer: SocketAddr) { self.wormhole.punch_peer(socket, peer); }
     pub fn occupy_host(&mut self, presence: CompanionPresence) { self.aura.occupy(presence); }
+    pub fn occupy_host_berth(&mut self, presence: CompanionPresence, berth: world::VesselBerth) {
+        self.aura.occupy_berth(presence, berth);
+    }
     pub fn pilot_host(&mut self, craft: PilotCraft) { self.aura.pilot(craft); }
     pub fn active_craft_count(&self) -> usize { self.cohort.active_craft_count() }
 
     pub fn guest_companions(&self, proportions: SolarProportions, out: &mut Vec<CompanionPresence>) {
         let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
-        self.cohort.guest_companions(self.aura.host_frame(), self.aura.occupied_position(), bubble, out);
+        self.cohort.guest_companions(&self.aura, bubble, out);
     }
 
     pub fn guest_crafts(&self, proportions: SolarProportions, out: &mut Vec<DrivenCraft>) {
@@ -183,19 +186,19 @@ impl HostState {
         let now = self.cohort.tick_secs();
         let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
         match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame }) => {
+            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame, berth }) => {
                 let vetted = match craft {
                     PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
                     other => other,
                 };
                 if let Some(ward) = self.cohort.ward_mut(cid) {
-                    ward.absorb_pulse(cid, ack_seq, now, frame, presence, vetted, bubble, world);
+                    ward.absorb_pulse(cid, ack_seq, now, frame, berth, presence, vetted, bubble, world);
                 }
                 false
             }
             Some(SanctuaryEnvelope::GuestPetition { fact }) => self.enact_guest_petition(cid, fact, world),
             Some(SanctuaryEnvelope::GuestUtterance { text }) => {
-                if let Some((wf, pos)) = self.cohort.ward_locus(cid) {
+                if let Some((wf, pos)) = self.cohort.ward_world_locus(cid, &self.aura) {
                     if let Some(utterance) = ProximityUtterance::sanitized(cid, pos, &text) {
                         self.cohort.relay_utterance(socket, wf, utterance, &mut self.aura);
                     }
@@ -219,13 +222,13 @@ impl HostState {
         let now = self.cohort.tick_secs();
         let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
         match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame }) => {
+            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame, berth }) => {
                 let vetted = match craft {
                     PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
                     other => other,
                 };
                 if let Some(ward) = self.cohort.ward_mut(cid) {
-                    ward.absorb_standby_pulse(cid, ack_seq, now, frame, presence, vetted, bubble);
+                    ward.absorb_standby_pulse(cid, ack_seq, now, frame, berth, presence, vetted, bubble);
                 }
             }
             Some(SanctuaryEnvelope::GuestPetition { fact }) => {
@@ -234,7 +237,7 @@ impl HostState {
                 }
             }
             Some(SanctuaryEnvelope::GuestUtterance { text }) => {
-                if let Some((wf, pos)) = self.cohort.ward_locus(cid) {
+                if let Some((wf, pos)) = self.cohort.ward_world_locus(cid, &self.aura) {
                     if let Some(utterance) = ProximityUtterance::sanitized(cid, pos, &text) {
                         self.cohort.relay_utterance(socket, wf, utterance, &mut self.aura);
                     }

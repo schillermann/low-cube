@@ -60,6 +60,9 @@ impl GuestJournal {
     pub const fn fleet(&self) -> &FleetLedger { &self.ledger.1 }
     pub fn fleet_mut(&mut self) -> &mut FleetLedger { &mut self.ledger.1 }
     pub fn sync_local_presence(&mut self, presence: CompanionPresence) { self.write_link(|l| l.sync_local_presence(presence)); }
+    pub fn sync_local_berth_presence(&mut self, presence: CompanionPresence, berth: world::VesselBerth) {
+        self.write_link(|l| l.sync_local_berth_presence(presence, berth));
+    }
     pub fn sync_local_craft(&mut self, craft: PilotCraft) { self.write_link(|l| l.sync_local_craft(craft)); }
     pub fn apply_frame_handoff(&mut self, handoff: world::FrameHandoff) { self.write_link(|l| l.apply_frame_handoff(handoff)); }
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.read_link(|l| l.companions(out)); }

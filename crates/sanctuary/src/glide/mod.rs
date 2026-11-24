@@ -1,34 +1,61 @@
 mod clock;
 mod curve;
+mod roster;
 
 use glam::Vec3;
-use world::{CompanionPresence, DeckFrame, DrivenCraft, PilotCraft, ProximityUtterance, WildlifePulse};
-use crate::audience::PACKET_COMPANION_CAP;
-use crate::fleet_ledger::FleetLedger;
-use crate::remote_wildlife::RemoteWildlife;
+use world::{
+    CompanionPresence, CraftPose, DeckFrame, DrivenCraft, PilotCraft, VesselBerth,
+};
 pub use self::clock::{GlideClock, TimelineClock};
-pub use self::curve::{CircularStrideCurve, PresenceCurve, WaypointCurve};
+pub use self::curve::{CircularStrideCurve, PresenceCurve, VesselDeckCurve, WaypointCurve};
+pub use self::roster::SmoothRoster;
 
-/// Immutable companion trajectory pairing driver posture and driven vehicle across a `GlideClock` horizon.
+/// Polymorphic visibility role distinguishing `<= 160 m` companions from `160..2400 m` distant spacecraft.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SightRole {
+    FullActor(VesselBerth),
+    DistantVessel,
+}
+
+/// Immutable companion trajectory pairing posture, driven vehicle, `GlideClock`, and `SightRole` (`<= 4` fields).
 #[derive(Clone, Copy, Debug)]
 pub struct CompanionGlide {
     from: (CompanionPresence, PilotCraft),
     to: (CompanionPresence, PilotCraft),
     clock: GlideClock,
+    role: SightRole,
 }
 
 impl CompanionGlide {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_role(
+        from: (CompanionPresence, PilotCraft),
+        to: (CompanionPresence, PilotCraft),
+        clock: GlideClock,
+        role: SightRole,
+    ) -> Self {
+        Self { from, to, clock, role }
+    }
+
     pub const fn new(
         from: (CompanionPresence, PilotCraft),
         to: (CompanionPresence, PilotCraft),
         clock: GlideClock,
     ) -> Self {
-        Self { from, to, clock }
+        Self::with_role(from, to, clock, SightRole::FullActor(VesselBerth::planetary()))
+    }
+
+    pub const fn anchored_with_berth(
+        now: f64,
+        presence: CompanionPresence,
+        craft: PilotCraft,
+        berth: VesselBerth,
+    ) -> Self {
+        Self::with_role((presence, craft), (presence, craft), GlideClock::settled(now), SightRole::FullActor(berth))
     }
 
     pub const fn anchored(now: f64, presence: CompanionPresence, craft: PilotCraft) -> Self {
-        Self::new((presence, craft), (presence, craft), GlideClock::settled(now))
+        Self::anchored_with_berth(now, presence, craft, VesselBerth::planetary())
     }
 
     pub const fn awaiting_first(presence: CompanionPresence) -> Self {
@@ -39,25 +66,18 @@ impl CompanionGlide {
         )
     }
 
-    pub const fn live(self) -> bool {
-        self.clock.live()
+    pub const fn live(self) -> bool { self.clock.live() }
+    pub const fn full_actor(self) -> bool { matches!(self.role, SightRole::FullActor(_)) }
+    pub const fn berth(self) -> VesselBerth {
+        match self.role {
+            SightRole::FullActor(b) => b,
+            SightRole::DistantVessel => VesselBerth::planetary(),
+        }
     }
-
-    pub fn lease_expired_at(self, now: f64) -> bool {
-        self.clock.lease_expired_at(now)
-    }
-
-    pub const fn authoritative_presence(self) -> CompanionPresence {
-        self.to.0
-    }
-
-    pub const fn authoritative_craft(self) -> PilotCraft {
-        self.to.1
-    }
-
-    pub const fn into_authoritative_craft(self) -> PilotCraft {
-        self.to.1
-    }
+    pub fn lease_expired_at(self, now: f64) -> bool { self.clock.lease_expired_at(now) }
+    pub const fn authoritative_presence(self) -> CompanionPresence { self.to.0 }
+    pub const fn authoritative_craft(self) -> PilotCraft { self.to.1 }
+    pub const fn into_authoritative_craft(self) -> PilotCraft { self.to.1 }
 
     pub fn push_craft_with_speed(self, out: &mut Vec<(DrivenCraft, f32)>) {
         let PilotCraft::Driving(cur) = self.to.1 else { return };
@@ -72,12 +92,19 @@ impl CompanionGlide {
     }
 
     pub fn presence_at(self, render_secs: f64) -> CompanionPresence {
-        CircularStrideCurve::new(
+        self.presence_at_with_hull(render_secs, None)
+    }
+
+    pub fn presence_at_with_hull(self, render_secs: f64, hull_pose: Option<CraftPose>) -> CompanionPresence {
+        let local_curve = CircularStrideCurve::new(
             WaypointCurve::new(self.from.0, self.to.0, self.clock),
             (self.from.0, self.to.0),
             self.clock,
-        )
-        .sample_at(render_secs)
+        );
+        match (self.berth(), hull_pose) {
+            (VesselBerth::Aboard(_), Some(pose)) => VesselDeckCurve::new(local_curve, pose).sample_at(render_secs),
+            _ => local_curve.sample_at(render_secs),
+        }
     }
 
     pub fn craft_at(self, render_secs: f64) -> PilotCraft {
@@ -85,175 +112,54 @@ impl CompanionGlide {
     }
 
     pub fn shifted(self, delta: Vec3) -> Self {
-        Self::new(
-            (self.from.0.shifted(delta), self.from.1.shifted(delta)),
-            (self.to.0.shifted(delta), self.to.1.shifted(delta)),
+        let aboard = self.berth().aboard_any();
+        let next_from_p = if aboard { self.from.0 } else { self.from.0.shifted(delta) };
+        let next_to_p = if aboard { self.to.0 } else { self.to.0.shifted(delta) };
+        Self::with_role(
+            (next_from_p, self.from.1.shifted(delta)),
+            (next_to_p, self.to.1.shifted(delta)),
             self.clock,
+            self.role,
         )
     }
 
     pub fn absorbed(self, now: f64, next_presence: CompanionPresence, next_craft: PilotCraft) -> Self {
+        self.absorbed_with_role(now, next_presence, next_craft, self.role)
+    }
+
+    pub fn absorbed_with_berth(
+        self,
+        now: f64,
+        next_presence: CompanionPresence,
+        next_craft: PilotCraft,
+        next_berth: VesselBerth,
+    ) -> Self {
+        self.absorbed_with_role(now, next_presence, next_craft, SightRole::FullActor(next_berth))
+    }
+
+    pub fn absorbed_with_role(
+        self,
+        now: f64,
+        next_presence: CompanionPresence,
+        next_craft: PilotCraft,
+        next_role: SightRole,
+    ) -> Self {
+        if self.role != next_role {
+            return Self::with_role((next_presence, next_craft), (next_presence, next_craft), GlideClock::settled(now), next_role);
+        }
         if self.clock.live() && self.to.0 == next_presence && self.to.1 == next_craft {
             return self;
         }
         let cur_pres = self.presence_at(now);
-        let teleport = !next_presence.within_reach(
-            cur_pres.transfer(|_, kin, _, _| kin.transfer(|p, _, _, _, _| p)),
-            8.0,
-        );
+        let teleport = matches!(next_role, SightRole::FullActor(_))
+            && !next_presence.within_reach(
+                cur_pres.transfer(|_, kin, _, _| kin.transfer(|p, _, _, _, _| p)),
+                8.0,
+            );
         if !self.clock.live() || teleport || self.clock.stale_at(now) {
-            return Self::anchored(now, next_presence, next_craft);
+            return Self::with_role((next_presence, next_craft), (next_presence, next_craft), GlideClock::settled(now), next_role);
         }
         let cur_craft = self.craft_at(now);
-        Self::new((cur_pres, cur_craft), (next_presence, next_craft), self.clock.absorbed(now))
-    }
-}
-
-/// Smoothly interpolated remote companion, vehicle, wild-boar, and proximity utterance roster (`<= 4` fields).
-pub struct SmoothRoster {
-    timeline: TimelineClock,
-    entries: Vec<(u32, CompanionGlide)>,
-    wildlife: RemoteWildlife,
-    utterances: Vec<ProximityUtterance>,
-}
-
-impl SmoothRoster {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        timeline: TimelineClock,
-        entries: Vec<(u32, CompanionGlide)>,
-        wildlife: RemoteWildlife,
-        utterances: Vec<ProximityUtterance>,
-    ) -> Self {
-        Self { timeline, entries, wildlife, utterances }
-    }
-
-    pub const fn empty() -> Self {
-        Self::new(TimelineClock::origin(), Vec::new(), RemoteWildlife::calm(), Vec::new())
-    }
-
-    pub fn record_utterance(&mut self, utterance: ProximityUtterance) {
-        if self.utterances.len() >= 32 {
-            self.utterances.remove(0);
-        }
-        self.utterances.push(utterance);
-    }
-
-    pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) {
-        out.append(&mut self.utterances);
-    }
-
-    pub const fn render_secs(&self) -> f64 {
-        self.timeline.render_secs()
-    }
-
-    pub const fn wildlife(&self) -> &RemoteWildlife {
-        &self.wildlife
-    }
-
-    pub fn wildlife_mut(&mut self) -> &mut RemoteWildlife {
-        &mut self.wildlife
-    }
-
-    pub fn active_craft_count(&self) -> usize {
-        let at = self.timeline.render_secs();
-        self.entries
-            .iter()
-            .filter(|(_, g)| matches!(g.craft_at(at), PilotCraft::Driving(_)))
-            .count()
-    }
-
-    pub fn reconcile_wildlife(&mut self, pulse: WildlifePulse) {
-        self.wildlife.absorb(self.timeline.tick_secs(), pulse);
-    }
-
-    pub fn reconcile_snapshot(&mut self, companions: &[CompanionPresence], crafts: &[DrivenCraft]) {
-        let now = self.timeline.tick_secs();
-        let saturated = companions.len() >= PACKET_COMPANION_CAP;
-        self.entries.retain(|(slot, glide)| {
-            companions.iter().any(|c| c.same_slot(*slot))
-                || (saturated && !glide.lease_expired_at(now))
-        });
-        for &comp in companions {
-            let slot = comp.slot();
-            let pilot_craft = crafts
-                .iter()
-                .find(|c| c.same_slot(slot))
-                .copied()
-                .map_or(PilotCraft::Pedestrian, PilotCraft::Driving);
-            if let Some((_, glide)) = self.entries.iter_mut().find(|(s, _)| *s == slot) {
-                *glide = glide.absorbed(now, comp, pilot_craft);
-            } else {
-                self.entries.push((slot, CompanionGlide::anchored(now, comp, pilot_craft)));
-            }
-        }
-    }
-
-    pub fn advance_tick(&mut self, dt: f32) {
-        self.timeline = self.timeline.advanced(dt);
-    }
-
-    pub fn blend_subtick(&mut self, subtick_secs: f32) {
-        self.timeline = self.timeline.blended(subtick_secs);
-    }
-
-    pub fn shift_frame(&mut self, delta: Vec3) {
-        for (_, glide) in &mut self.entries {
-            *glide = glide.shifted(delta);
-        }
-    }
-
-    pub fn copy_companions(&self, out: &mut Vec<CompanionPresence>) {
-        let at = self.timeline.render_secs();
-        out.clear();
-        for (_, glide) in &self.entries {
-            out.push(glide.presence_at(at));
-        }
-    }
-
-    pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) {
-        let at = self.timeline.render_secs();
-        out.clear();
-        for (_, glide) in &self.entries {
-            glide.craft_at(at).push_active(out);
-        }
-    }
-
-    pub fn constrain_crafts(
-        &self,
-        fleet: &FleetLedger,
-        position: Vec3,
-        player_height: f32,
-        up: Vec3,
-    ) -> Option<Vec3> {
-        let at = self.timeline.render_secs();
-        let mut best: Option<Vec3> = None;
-        for (_, glide) in &self.entries {
-            if let PilotCraft::Driving(craft) = glide.craft_at(at) {
-                if let Some(top) = fleet.constrain_crafts(std::slice::from_ref(&craft), position, player_height) {
-                    if best.is_none_or(|prev| top.dot(up) > prev.dot(up)) {
-                        best = Some(top);
-                    }
-                }
-            }
-        }
-        best
-    }
-
-    pub fn sample_deck_at(
-        &self,
-        fleet: &FleetLedger,
-        position: Vec3,
-        player_height: f32,
-    ) -> Option<DeckFrame> {
-        let at = self.timeline.render_secs();
-        for (_, glide) in &self.entries {
-            if let PilotCraft::Driving(craft) = glide.craft_at(at) {
-                if let Some(deck) = fleet.sample_deck_at(std::slice::from_ref(&craft), position, player_height) {
-                    return Some(deck);
-                }
-            }
-        }
-        None
+        Self::with_role((cur_pres, cur_craft), (next_presence, next_craft), self.clock.absorbed(now), next_role)
     }
 }

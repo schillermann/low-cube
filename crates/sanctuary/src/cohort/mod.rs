@@ -1,3 +1,4 @@
+mod deck_view;
 mod pulse;
 
 use std::collections::HashMap;
@@ -8,7 +9,7 @@ use world::{
     PlanetaryWorld, PresenceAttire, ProximityUtterance, SolarProportions,
 };
 use crate::admin_ward::SpawnBeacons;
-use crate::audience::{CHAT_EARSHOT_METERS, NEARBY_SIGHT_METERS};
+use crate::audience::CHAT_EARSHOT_METERS;
 use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_log::ChronicleStore;
 use crate::envelope::SanctuaryEnvelope;
@@ -16,6 +17,7 @@ use crate::fleet_ledger::FleetLedger;
 use crate::glide::TimelineClock;
 use crate::spatial_chronicle::HorizonStream;
 use crate::ward::{GuestWard, WardVitals};
+use self::deck_view::HostDeckView;
 use self::pulse::CohortPulse;
 
 const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
@@ -55,6 +57,10 @@ impl GuestCohort {
 
     pub const fn tick_secs(&self) -> f64 { self.timeline.0.tick_secs() }
 
+    fn view(&self) -> HostDeckView<'_> {
+        HostDeckView::new(&self.wards, self.timeline.0.render_secs())
+    }
+
     pub fn active_craft_count(&self) -> usize {
         let at = self.timeline.0.render_secs();
         self.wards.values().filter(|(w, _)| matches!(w.craft_at(at), PilotCraft::Driving(_))).count()
@@ -66,6 +72,17 @@ impl GuestCohort {
 
     pub fn ward_locus(&self, cid: u32) -> Option<(CosmicFrame, Vec3)> {
         self.wards.get(&cid).map(|(w, _)| (w.cosmic_frame(), w.anchor_position()))
+    }
+
+    pub fn ward_world_locus(&self, cid: u32, aura: &HostAura) -> Option<(CosmicFrame, Vec3)> {
+        let (ward, _) = self.wards.get(&cid)?;
+        let raw = ward.anchor_position();
+        if let Some(id) = ward.berth().craft_id() {
+            if let Some((sf, pose)) = self.view().active_ship(id, aura) {
+                return Some((sf, pose.world_point_at(raw)));
+            }
+        }
+        Some((ward.cosmic_frame(), raw))
     }
 
     pub fn ensure_authored_fact(&mut self, cid: u32, fact_id: u32) {
@@ -88,31 +105,8 @@ impl GuestCohort {
         }
     }
 
-    pub fn guest_companions(
-        &self,
-        host_frame: CosmicFrame,
-        host_anchor: Option<Vec3>,
-        bubble: GravityBubble,
-        out: &mut Vec<CompanionPresence>,
-    ) {
-        let at = self.timeline.0.render_secs();
-        let reach_sq = f64::from(NEARBY_SIGHT_METERS * NEARBY_SIGHT_METERS);
-        out.clear();
-        for (ward, _) in self.wards.values() {
-            let wf = ward.cosmic_frame();
-            let p = ward.presence_at(at);
-            let pos = p.transfer(|_, kin, _, _| kin.transfer(|pt, _, _, _, _| pt));
-            if wf == host_frame {
-                if host_anchor.is_none_or(|anchor| p.within_reach(anchor, NEARBY_SIGHT_METERS)) {
-                    out.push(p);
-                }
-            } else if let Some(anchor) = host_anchor {
-                let mapped = bubble.map_position(wf, pos, host_frame);
-                if (mapped - anchor.as_dvec3()).length_squared() <= reach_sq {
-                    out.push(p.with_position(mapped.as_vec3()));
-                }
-            }
-        }
+    pub fn guest_companions(&self, aura: &HostAura, bubble: GravityBubble, out: &mut Vec<CompanionPresence>) {
+        self.view().companions(aura, bubble, out);
     }
 
     pub fn guest_crafts(
@@ -122,23 +116,7 @@ impl GuestCohort {
         bubble: GravityBubble,
         out: &mut Vec<DrivenCraft>,
     ) {
-        let at = self.timeline.0.render_secs();
-        let reach_sq = 2_400.0_f64 * 2_400.0_f64;
-        out.clear();
-        for (ward, _) in self.wards.values() {
-            let wf = ward.cosmic_frame();
-            let PilotCraft::Driving(dc) = ward.craft_at(at) else { continue };
-            if wf == host_frame {
-                if host_anchor.is_none_or(|anchor| dc.within_reach(anchor, 2_400.0)) {
-                    out.push(dc);
-                }
-            } else if let Some(anchor) = host_anchor {
-                let mapped = bubble.map_position(wf, dc.pose().origin(), host_frame);
-                if (mapped - anchor.as_dvec3()).length_squared() <= reach_sq {
-                    out.push(dc.with_origin(mapped.as_vec3()));
-                }
-            }
-        }
+        self.view().crafts(host_frame, host_anchor, bubble, out);
     }
 
     pub fn constrain_crafts(
@@ -149,20 +127,7 @@ impl GuestCohort {
         player_height: f32,
         up: Vec3,
     ) -> Option<Vec3> {
-        let at = self.timeline.0.render_secs();
-        let mut best: Option<Vec3> = None;
-        for (ward, _) in self.wards.values().filter(|(w, _)| w.cosmic_frame() == host_frame) {
-            if let PilotCraft::Driving(craft) = ward.craft_at(at) {
-                if craft.within_reach(position, 32.0) {
-                    if let Some(top) = fleet.constrain_crafts(std::slice::from_ref(&craft), position, player_height) {
-                        if best.is_none_or(|prev| top.dot(up) > prev.dot(up)) {
-                            best = Some(top);
-                        }
-                    }
-                }
-            }
-        }
-        best
+        self.view().constrain_crafts(fleet, host_frame, position, player_height, up)
     }
 
     pub fn sample_deck_at(
@@ -172,22 +137,10 @@ impl GuestCohort {
         position: Vec3,
         player_height: f32,
     ) -> Option<DeckFrame> {
-        let at = self.timeline.0.render_secs();
-        for (ward, _) in self.wards.values().filter(|(w, _)| w.cosmic_frame() == host_frame) {
-            if let PilotCraft::Driving(craft) = ward.craft_at(at) {
-                if craft.within_reach(position, 32.0) {
-                    if let Some(deck) = fleet.sample_deck_at(std::slice::from_ref(&craft), position, player_height) {
-                        return Some(deck);
-                    }
-                }
-            }
-        }
-        None
+        self.view().sample_deck_at(fleet, host_frame, position, player_height)
     }
 
-    pub fn blend_subtick(&mut self, subtick_secs: f32) {
-        self.timeline.0 = self.timeline.0.blended(subtick_secs);
-    }
+    pub fn blend_subtick(&mut self, subtick_secs: f32) { self.timeline.0 = self.timeline.0.blended(subtick_secs); }
 
     pub fn admit_guest(
         &mut self,
@@ -249,11 +202,19 @@ impl GuestCohort {
         let mut payload = Vec::with_capacity(64);
         SanctuaryEnvelope::HostUtterance { utterance: utterance.clone() }.inscribe(&mut payload);
         let mut scratch = Vec::with_capacity(96);
-        for (&cid, (ward, _)) in &mut self.wards {
-            if cid != speaker
-                && ward.cosmic_frame() == speaker_frame
-                && utterance.audible_at(ward.anchor_position(), CHAT_EARSHOT_METERS)
-            {
+        let recipient_ids: Vec<u32> = self
+            .wards
+            .keys()
+            .copied()
+            .filter(|&cid| {
+                cid != speaker
+                    && self
+                        .ward_world_locus(cid, aura)
+                        .is_some_and(|(wf, pos)| wf == speaker_frame && utterance.audible_at(pos, CHAT_EARSHOT_METERS))
+            })
+            .collect();
+        for cid in recipient_ids {
+            if let Some((ward, _)) = self.wards.get_mut(&cid) {
                 ward.send_sealed(socket, cid, &payload, &mut scratch);
             }
         }

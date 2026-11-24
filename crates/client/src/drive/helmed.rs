@@ -68,14 +68,20 @@ impl HelmedCraft {
         self.drive.optic_telemetry(mount, &self.assembly)
     }
 
-    pub fn camera_views(&self, out: &mut Vec<HullOptic>) {
+    pub fn visual_pose(&self) -> world::CraftPose {
         let (prev, alpha) = self.origin_span;
         let cur = self.assembly.origin();
-        let visual_shift = if (cur - prev).length_squared() > 64.0 {
-            Vec3::ZERO
+        let visual_origin = if (cur - prev).length_squared() > 36_000_000.0 {
+            cur
         } else {
-            prev.lerp(cur, alpha) - cur
+            prev.lerp(cur, alpha)
         };
+        let (m0, m1) = self.drive.motion_channels();
+        self.assembly.pose().with_origin(visual_origin).with_motion(m0, m1)
+    }
+
+    pub fn camera_views(&self, out: &mut Vec<HullOptic>) {
+        let visual_shift = self.visual_pose().origin() - self.assembly.origin();
         let start = out.len();
         self.assembly.push_camera_views(out);
         for view in &mut out[start..] {
@@ -84,12 +90,7 @@ impl HelmedCraft {
     }
 
     pub fn pilot_craft(&self) -> world::PilotCraft {
-        let (m0, m1) = self.drive.motion_channels();
-        world::PilotCraft::Driving(world::DrivenCraft::new(
-            0,
-            self.assembly.identity(),
-            self.assembly.pose().with_motion(m0, m1),
-        ))
+        world::PilotCraft::Driving(world::DrivenCraft::new(0, self.assembly.identity(), self.visual_pose()))
     }
 
     fn orbital_at(pos: Vec3, world: &dyn PlanetaryWorld) -> bool {
@@ -184,19 +185,11 @@ impl HelmedCraft {
     }
 
     pub fn emit(&self, target: &mut dyn MeshTarget) {
-        let (prev, alpha) = self.origin_span;
-        let cur = self.assembly.origin();
-        let visual_origin = if (cur - prev).length_squared() > 64.0 { cur } else { prev.lerp(cur, alpha) };
-        let (m0, m1) = self.drive.motion_channels();
-        self.assembly.emit_driven_at(visual_origin, m0, m1, target);
+        let pose = self.visual_pose();
+        self.assembly.emit_driven_at(pose.origin(), pose.wheel_spin(), pose.steer_turn(), target);
     }
 
     pub fn present_vessel(&self, sink: &mut dyn world::VesselSink) {
-        let (prev, alpha) = self.origin_span;
-        let cur = self.assembly.origin();
-        let visual_origin = if (cur - prev).length_squared() > 64.0 { cur } else { prev.lerp(cur, alpha) };
-        let (m0, m1) = self.drive.motion_channels();
-        let pose = self.assembly.pose().with_origin(visual_origin).with_motion(m0, m1);
-        sink.receive_vessel(self.assembly.blueprint(), pose);
+        sink.receive_vessel(self.assembly.blueprint(), self.visual_pose());
     }
 }

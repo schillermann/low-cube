@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.115.0] - 2026-11-24
+
+### Added
+- Added hull-relative multi-crew presence & trajectory decorators eliminating high-speed cabin desync (`0.000 m` slip up to `240,000 m/s` and across `180°` Flip-&-Burn maneuvers):
+  - `VesselBerth` (`Planetary` vs. `Aboard(CraftIdentity)` in `crates/world/src/presence/berth.rs`), `CompanionPresence::localized_to_hull` / `folded_onto_hull` (`crates/world/src/presence/mod.rs`), `CraftPose::hull_rotation` / `world_point_at` (`crates/world/src/relief/craft_entity/pose.rs`), and `CompanionPortal::sync_berth_presence`: captures pilot, seated `PassengerBerth`, and unseated `DeckFooting::Aboard` crew kinematics in orthonormal hull-local coordinates with `0` extra wire bytes for planetary players.
+  - `VesselDeckCurve<C>` (`PresenceCurve` decorator in `crates/sanctuary/src/glide/curve.rs`), `SightRole` (`FullActor(VesselBerth)` vs. `DistantVessel` in `crates/sanctuary/src/glide/mod.rs` and `roster.rs`), `HostDeckView` (`crates/sanctuary/src/cohort/deck_view.rs`), and `CohortPulse` hull-anchor indexing (`crates/sanctuary/src/cohort/pulse.rs`): interpolates crew stride/posture smoothly in cabin space and folds onto the local pilot's sub-tick `HelmedCraft::visual_pose` or `SmoothRoster`'s interpolated `CraftPose`, preserves cabin `ProximityUtterance` chat at `200+ km/s`, and keeps distant `160..2,400 m` `CosmicCraftSight` vessels smooth in `SmoothRoster` (`crates/sanctuary/src/tests/multi_crew.rs`).
+
+### Fixed
+- Fixed `DeckFooting::step_aboard` (`crates/client/src/avatar/deck.rs`) dropping unseated ship-deck crewmates in `HeliosphereWorld` orbit where solar/orbital `apply_pull` exceeds `1e-4`, applying Einstein free-fall equivalence in space and smooth planetary-to-thrust gravity handoff from launchpad liftoff into orbit (`crates/client/src/drive/multiplayer_tests.rs`).
+
 ## [0.114.0] - 2026-11-24
 
 ### Added

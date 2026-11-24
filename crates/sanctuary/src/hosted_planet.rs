@@ -92,6 +92,9 @@ impl VesselDeck for HostedPlanet {
 
 impl CompanionPortal for HostedPlanet {
     fn sync_presence(&mut self, presence: CompanionPresence) { self.host.sync_host_presence(presence); }
+    fn sync_berth_presence(&mut self, presence: CompanionPresence, berth: world::VesselBerth) {
+        self.host.sync_host_berth_presence(presence, berth);
+    }
     fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.host.sync_host_craft(craft); }
     fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.host.guest_companions(out); }
     fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.host.guest_crafts(out); }

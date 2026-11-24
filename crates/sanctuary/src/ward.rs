@@ -2,7 +2,7 @@ use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
     CompanionPresence, CosmicFrame, CraftPose, DrivenCraft, GoreStamp, GravityBubble, PilotCraft,
-    PlanetaryWorld,
+    PlanetaryWorld, VesselBerth,
 };
 use crate::glide::CompanionGlide;
 use crate::seal::SessionSeal;
@@ -36,12 +36,10 @@ impl WardVitals {
         self.cadence = (next_tokens, self.cadence.1 + dt);
     }
 
-    pub fn alive(&self) -> bool {
-        self.cadence.1 < 12.0
-    }
+    pub fn alive(&self) -> bool { self.cadence.1 < 12.0 }
 }
 
-/// Authoritative P2P companion session sealing UDP frames and vetting reach, Hill-bubble frame, cadence, and credits.
+/// Authoritative P2P companion session sealing UDP frames and vetting reach, Hill-bubble frame, berth, cadence, and credits.
 pub struct GuestWard {
     seal: SessionSeal,
     locus: (SocketAddr, CosmicFrame),
@@ -60,71 +58,34 @@ impl GuestWard {
         Self { seal, locus, glide, vitals }
     }
 
-    pub fn with_glide(
-        seal: SessionSeal,
-        peer: SocketAddr,
-        glide: CompanionGlide,
-        vitals: WardVitals,
-    ) -> Self {
+    pub fn with_glide(seal: SessionSeal, peer: SocketAddr, glide: CompanionGlide, vitals: WardVitals) -> Self {
         Self::with_locus(seal, (peer, CosmicFrame::earth()), glide, vitals)
     }
 
     /// Secondary constructor anchoring an admitted companion awaiting its first live pulse.
-    pub fn new(
-        seal: SessionSeal,
-        peer: SocketAddr,
-        presence: CompanionPresence,
-        vitals: WardVitals,
-    ) -> Self {
+    pub fn new(seal: SessionSeal, peer: SocketAddr, presence: CompanionPresence, vitals: WardVitals) -> Self {
         Self::with_glide(seal, peer, CompanionGlide::awaiting_first(presence), vitals)
     }
 
-    pub fn step(&mut self, dt: f32) {
-        self.vitals.advance(dt);
+    pub fn step(&mut self, dt: f32) { self.vitals.advance(dt); }
+    pub fn alive(&self) -> bool { self.vitals.alive() }
+    pub const fn cosmic_frame(&self) -> CosmicFrame { self.locus.1 }
+    pub const fn berth(&self) -> VesselBerth { self.glide.berth() }
+    pub const fn ack_seq(&self) -> u32 { self.vitals.ledger.0 }
+    pub const fn gore_stamp(&self) -> GoreStamp { self.vitals.gore }
+    pub fn record_gore(&mut self, impulse: Vec3) { self.vitals.gore = self.vitals.gore.advanced(impulse); }
+    pub fn presence(&self) -> CompanionPresence { self.glide.authoritative_presence() }
+    pub fn anchor_position(&self) -> Vec3 { self.presence().transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos)) }
+    pub fn sight_cursor_mut(&mut self) -> &mut usize { &mut self.vitals.sight_cursor }
+    pub fn presence_at(&self, render_secs: f64) -> CompanionPresence { self.glide.presence_at(render_secs) }
+    pub fn presence_at_with_hull(&self, render_secs: f64, hull: Option<CraftPose>) -> CompanionPresence {
+        self.glide.presence_at_with_hull(render_secs, hull)
     }
-
-    pub fn alive(&self) -> bool {
-        self.vitals.alive()
-    }
-
-    pub const fn cosmic_frame(&self) -> CosmicFrame {
-        self.locus.1
-    }
-
-    pub const fn ack_seq(&self) -> u32 {
-        self.vitals.ledger.0
-    }
-
-    pub const fn gore_stamp(&self) -> GoreStamp {
-        self.vitals.gore
-    }
-
-    pub fn record_gore(&mut self, impulse: Vec3) {
-        self.vitals.gore = self.vitals.gore.advanced(impulse);
-    }
-
-    pub fn presence(&self) -> CompanionPresence {
-        self.glide.authoritative_presence()
-    }
-
-    pub fn anchor_position(&self) -> Vec3 {
-        self.presence().transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos))
-    }
-
-    pub fn sight_cursor_mut(&mut self) -> &mut usize {
-        &mut self.vitals.sight_cursor
-    }
-
-    pub fn presence_at(&self, render_secs: f64) -> CompanionPresence {
-        self.glide.presence_at(render_secs)
-    }
-
-    pub fn craft_at(&self, render_secs: f64) -> PilotCraft {
-        self.glide.craft_at(render_secs)
-    }
+    pub fn craft_at(&self, render_secs: f64) -> PilotCraft { self.glide.craft_at(render_secs) }
 
     pub fn pedestrian_observer(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, bool)> {
         if !self.locus.1.earth_centered()
+            || self.glide.berth().aboard_any()
             || !self.glide.live()
             || matches!(self.glide.authoritative_craft(), PilotCraft::Driving(_))
         {
@@ -145,9 +106,7 @@ impl GuestWard {
         }
     }
 
-    pub fn into_pilot_craft(self) -> PilotCraft {
-        self.glide.into_authoritative_craft()
-    }
+    pub fn into_pilot_craft(self) -> PilotCraft { self.glide.into_authoritative_craft() }
 
     pub fn open_datagram(&mut self, src: SocketAddr, frame: &[u8]) -> Option<Vec<u8>> {
         let (_, body) = self.seal.open_frame(frame)?;
@@ -162,11 +121,16 @@ impl GuestWard {
         ack_seq: u32,
         now: f64,
         frame: CosmicFrame,
+        berth: VesselBerth,
         presence: CompanionPresence,
         craft: PilotCraft,
         bubble: GravityBubble,
         world: &dyn PlanetaryWorld,
     ) {
+        if berth.aboard_any() {
+            self.absorb_standby_pulse(companion_id, ack_seq, now, frame, berth, presence, craft, bubble);
+            return;
+        }
         self.vitals.ledger.0 = self.vitals.ledger.0.max(ack_seq);
         let frame_changed = self.locus.1 != frame;
         if frame == world.cosmic_frame() {
@@ -183,12 +147,12 @@ impl GuestWard {
             let rec_craft = self.glide.authoritative_craft().reconciled(companion_id, craft, world);
             self.locus.1 = frame;
             self.glide = if frame_changed {
-                CompanionGlide::anchored(now, rec_pres, rec_craft)
+                CompanionGlide::anchored_with_berth(now, rec_pres, rec_craft, berth)
             } else {
-                self.glide.absorbed(now, rec_pres, rec_craft)
+                self.glide.absorbed_with_berth(now, rec_pres, rec_craft, berth)
             };
         } else {
-            self.absorb_standby_pulse(companion_id, ack_seq, now, frame, presence, craft, bubble);
+            self.absorb_standby_pulse(companion_id, ack_seq, now, frame, berth, presence, craft, bubble);
         }
     }
 
@@ -198,13 +162,20 @@ impl GuestWard {
         ack_seq: u32,
         now: f64,
         frame: CosmicFrame,
+        berth: VesselBerth,
         presence: CompanionPresence,
         craft: PilotCraft,
         bubble: GravityBubble,
     ) {
         self.vitals.ledger.0 = self.vitals.ledger.0.max(ack_seq);
         let valid_pos = presence.transfer(|_, kin, _, _| {
-            kin.transfer(|p, _, _, _, _| bubble.valid_local_point(frame, p))
+            kin.transfer(|p, _, _, _, _| {
+                if berth.aboard_any() {
+                    berth.valid_local_offset(p)
+                } else {
+                    bubble.valid_local_point(frame, p)
+                }
+            })
         });
         if !valid_pos {
             return;
@@ -217,24 +188,34 @@ impl GuestWard {
             }
             PilotCraft::Driving(_) => self.glide.authoritative_craft().with_slot(companion_id),
         };
-        let frame_changed = self.locus.1 != frame;
+        let frame_changed = self.locus.1 != frame && !berth.aboard_any();
         self.locus.1 = frame;
         self.glide = if frame_changed {
-            CompanionGlide::anchored(now, rec_pres, rec_craft)
+            CompanionGlide::anchored_with_berth(now, rec_pres, rec_craft, berth)
         } else {
-            self.glide.absorbed(now, rec_pres, rec_craft)
+            self.glide.absorbed_with_berth(now, rec_pres, rec_craft, berth)
         };
     }
 
     pub fn eye_within_reach(&self, eye: Vec3, direction: Vec3) -> bool {
-        if !eye.is_finite() || !direction.is_finite() || direction.length_squared() < 1e-4 {
+        if self.glide.berth().aboard_any()
+            || !eye.is_finite()
+            || !direction.is_finite()
+            || direction.length_squared() < 1e-4
+        {
             return false;
         }
         self.presence().within_reach(eye, MAX_HEAD_REACH_FROM_BODY)
     }
 
     pub fn pose_within_reach(&self, pose: CraftPose) -> bool {
-        pose.origin().is_finite() && self.presence().within_reach(pose.origin(), MAX_CRAFT_PARK_REACH)
+        if !pose.origin().is_finite() {
+            return false;
+        }
+        if self.glide.berth().aboard_any() {
+            return self.anchor_position().abs().max_element() <= MAX_CRAFT_PARK_REACH;
+        }
+        self.presence().within_reach(pose.origin(), MAX_CRAFT_PARK_REACH)
     }
 
     pub fn consume_harvest_token(&mut self) -> bool {
@@ -246,13 +227,8 @@ impl GuestWard {
         }
     }
 
-    pub fn credit_blocks(&mut self, count: u32) {
-        self.vitals.ledger.1 = self.vitals.ledger.1.saturating_add(count);
-    }
-
-    pub fn spend_block(&mut self) -> bool {
-        self.spend_blocks(1)
-    }
+    pub fn credit_blocks(&mut self, count: u32) { self.vitals.ledger.1 = self.vitals.ledger.1.saturating_add(count); }
+    pub fn spend_block(&mut self) -> bool { self.spend_blocks(1) }
 
     pub fn spend_blocks(&mut self, count: u32) -> bool {
         if count > 0 && self.vitals.ledger.1 >= count {

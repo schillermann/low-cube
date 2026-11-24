@@ -107,6 +107,9 @@ impl VesselDeck for RemotePlanet {
 
 impl CompanionPortal for RemotePlanet {
     fn sync_presence(&mut self, presence: CompanionPresence) { self.journal.sync_local_presence(presence); }
+    fn sync_berth_presence(&mut self, presence: CompanionPresence, berth: world::VesselBerth) {
+        self.journal.sync_local_berth_presence(presence, berth);
+    }
     fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.journal.sync_local_craft(craft); }
     fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.journal.companions(out); }
     fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.journal.crafts(out); }

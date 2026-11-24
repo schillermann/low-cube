@@ -97,16 +97,16 @@ Auch kreative Ideen müssen sich dem Gesetz beugen: **Keine globalen Server-Broa
 
 ---
 
-## 5. Umsetzungsstand & Was als Nächstes umgesetzt werden kann (Priorisierte Roadmap ab `v0.114.0`)
+## 5. Umsetzungsstand & Was als Nächstes umgesetzt werden kann (Priorisierte Roadmap ab `v0.115.0`)
 
-Nachdem sowohl die strikte Horizont-/Klimazonen-Isolation (`v0.113.0`) als auch **Paket 1 — Mitbewegte lokale Hill-Sphären („Gravity Bubbles“ `CosmicFrame` / `GravityBubble` / `FrameHandoff`) + `LWEL` `epoch_secs`-Sync (`v0.114.0`)** vollständig umgesetzt und getestet sind, verbleiben vier klar abgegrenzte nächste Umsetzungspakete:
+Nachdem die strikte Horizont-/Klimazonen-Isolation (`v0.113.0`), **Paket 1 — Mitbewegte lokale Hill-Sphären (`v0.114.0`)** und **Paket 2 — Multi-Crew-Relativkoordinaten (`VesselBerth` / `VesselDeckCurve` in `v0.115.0`)** vollständig umgesetzt und getestet sind, verbleiben drei klar abgegrenzte nächste Umsetzungspakete:
 
 1. ✅ **Erledigt in `v0.114.0` — Lokale Hill-Sphären (`CosmicFrame::Body`, `BeltAsteroid`, `4,096 m` `DeepSpace`) + `LWEL` `epoch_secs`-Sync:**
    * Sub-Millimeter-`f32`-Präzision (`< 0,13 mm` ULP) bis `30,07 AU` (`Triton`), kontinuierlich weiterlaufende Planetenbahnen ohne `if !locked`-Sperre sowie `MtuBudgetAudience(CosmicCraftSight(CosmicBubbleAudience))`-Isolation im Multiplayer.
-2. **Nächstes Paket (Paket 2) — `AboardVessel`-Relativkoordinaten (`PresenceFrame`) für Multi-Crew-Raumschiffe:**
-   * **Warum als Nächstes:** Sobald zwei oder mehr Spieler gemeinsam im selben Epstein-Schiff mit `50–240 km/s` zum Gürtel fliegen, hält die Übertragung von `(CraftIdentity, DeckOffset: Vec3)` Mitfahrer bei jedem Manöver exakt im Innenraum des Schiffs.
-3. **Paket 3 — Serverseitiger `SurvivorLedger` (Inventar- & Positions-Persistenz pro X25519-Key):**
-   * **Warum wichtig für Großserver:** Bindet gesammeltes Erz, Werkzeuge (`FusionTorch`) und den letzten Aufenthaltsort serverseitig an den kryptographischen Spieler-Schlüssel im WAL – verhindert Client-`server.toml`-Cheats und schützt 45-Minuten-Bergbau-Expeditionen bei kurzen Verbindungsabbrüchen.
+2. ✅ **Erledigt in `v0.115.0` — `VesselBerth`-Relativkoordinaten & `VesselDeckCurve` für Multi-Crew-Raumschiffe:**
+   * Hält Piloten, sitzende Beifahrer (`PassengerBerth`) und frei über das Deck laufende Crew-Mitglieder (`DeckFooting::Aboard` inkl. Startrampe-zu-Orbit-Äquivalenzprinzip & Kabinen-Proximity-Chat) selbst bei `240.000 m/s` und `180°` Flip-&-Burn mit `0,000 m` Schlupf exakt im Schiffsrumpf (`0` Extra-Bytes für Bodenspieler).
+3. **Nächstes Paket (Paket 3) — Serverseitiger `SurvivorLedger` (Inventar- & Positions-Persistenz pro X25519-Key):**
+   * **Warum als Nächstes:** Bindet gesammeltes Erz, Werkzeuge (`FusionTorch`) und den letzten Aufenthaltsort serverseitig an den kryptographischen Spieler-Schlüssel im WAL – verhindert Client-`server.toml`-Cheats und schützt 45-Minuten-Bergbau-Expeditionen bei kurzen Verbindungsabbrüchen.
 4. **Paket 4 — Netto-Zellzustands-Snapshots (`SectorSnapshot`) für gealterte Sektoren + Multi-Core-Klimazonen-Sharding:**
    * **Gewinn:** Komprimiert Sektoren, in denen über Monate Tausende Male gegraben und umgebaut wurde, auf ihren reinen Zell-Endzustand (null Raycast-Replay beim Betreten alter Städte) und verteilt die Simulation der 6 Erd-Klimazonen parallel auf getrennte Server-Threads.
 5. **Paket 5 — Emergente Hard-Sci-Fi-Sandbox (`CargoBallast`-Erzmasse, `MediumChat`-Vakuumfunk & bergbare `LiveTape`-Blackbox-Blöcke):**

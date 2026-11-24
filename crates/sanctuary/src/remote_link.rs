@@ -9,7 +9,7 @@ use world::{
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::SmoothRoster;
-use crate::link_state::{LinkPhase, LinkSync};
+use crate::link_state::{LinkPhase, LinkSync, WelcomeFrame};
 use crate::nat::NatAperture;
 use crate::seal::HandshakeIdentity;
 use crate::ticket::JoinTarget;
@@ -73,6 +73,9 @@ impl RemoteLink {
     pub(crate) const fn roster(&self) -> &SmoothRoster { self.sync.roster() }
     pub fn sync_local_presence(&mut self, presence: CompanionPresence) {
         self.sync.update_presence(presence, self.companion_slot());
+    }
+    pub fn sync_local_berth_presence(&mut self, presence: CompanionPresence, berth: world::VesselBerth) {
+        self.sync.update_berth_presence(presence, berth, self.companion_slot());
     }
     pub fn sync_local_craft(&mut self, craft: PilotCraft) {
         self.sync.update_craft(craft, self.companion_slot());
@@ -167,46 +170,7 @@ impl RemoteLink {
     }
 
     fn try_accept_welcome(&mut self, src: SocketAddr, pkt: &[u8]) -> Option<world::SolarProportions> {
-        if pkt.len() < 44 || &pkt[0..4] != b"LWEL" {
-            return None;
-        }
-        let mut host_pub = [0u8; 32];
-        host_pub.copy_from_slice(&pkt[4..36]);
-        if let JoinTarget::Ticket(ticket) = self.target {
-            if ticket.host_key() != host_pub {
-                return None;
-            }
-        }
-        let cid = u32::from_le_bytes(pkt[36..40].try_into().ok()?);
-        let blocks = u32::from_le_bytes(pkt[40..44].try_into().ok()?);
-        let proportions = world::SolarProportions::decode_tail(blocks, &pkt[44..]);
-        if let LinkPhase::Knocking { ref keys, .. } = self.phase {
-            let seal = keys.establish(host_pub, true);
-            self.phase = LinkPhase::Sealed { companion_id: cid, seal, peer: src };
-            self.sync.assign_slot(cid);
-            if pkt.len() >= 72 {
-                let sx = f32::from_le_bytes(pkt[60..64].try_into().ok()?);
-                let sy = f32::from_le_bytes(pkt[64..68].try_into().ok()?);
-                let sz = f32::from_le_bytes(pkt[68..72].try_into().ok()?);
-                let pt = Vec3::new(sx, sy, sz);
-                if pt.is_finite() {
-                    self.sync.assign_spawn_point(pt, cid);
-                }
-            }
-            let epoch_slice = if pkt.len() == 68 {
-                Some(&pkt[60..68])
-            } else if pkt.len() >= 80 {
-                Some(&pkt[72..80])
-            } else {
-                None
-            };
-            if let Some(ep_bytes) = epoch_slice {
-                let epoch_secs = f64::from_le_bytes(ep_bytes.try_into().ok()?);
-                self.sync.assign_welcome_epoch(epoch_secs);
-            }
-            return Some(proportions);
-        }
-        None
+        WelcomeFrame::new(src, self.target, pkt).accept(&mut self.phase, &mut self.sync)
     }
 
     pub fn send_petition(&mut self, fact: WorldFact) {

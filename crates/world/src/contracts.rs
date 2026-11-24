@@ -87,6 +87,9 @@ pub trait VesselDeck {
 /// Focused multiplayer companion presence, active fleet, and P2P portal session contract.
 pub trait CompanionPortal {
     fn sync_presence(&mut self, _presence: CompanionPresence) {}
+    fn sync_berth_presence(&mut self, presence: CompanionPresence, _berth: crate::VesselBerth) {
+        self.sync_presence(presence);
+    }
     fn sync_pilot_craft(&mut self, _craft: PilotCraft) {}
     fn active_companions(&self, _out: &mut Vec<CompanionPresence>) {}
     fn active_crafts(&self, _out: &mut Vec<DrivenCraft>) {}

@@ -40,6 +40,17 @@ impl AvatarBody {
     pub fn settle_span(&mut self) { self.span = self.span.settled(); }
     pub fn shape_pose(&self, pose: BodyPose) -> BodyPose { self.berth.shape_pose(pose) }
     pub fn pilot_craft(&self) -> world::PilotCraft { self.berth.pilot_craft() }
+    pub fn berth_presence(
+        &self,
+        world_presence: world::CompanionPresence,
+        world: &dyn PlanetaryWorld,
+    ) -> (world::CompanionPresence, world::VesselBerth) {
+        if let Some((craft_id, hull_pose)) = self.berth.active_hull(world) {
+            (world_presence.localized_to_hull(hull_pose), world::VesselBerth::aboard(craft_id))
+        } else {
+            (world_presence, world::VesselBerth::planetary())
+        }
+    }
     pub fn emit_vehicle(&self, target: &mut dyn MeshTarget) { self.berth.emit(target); }
     pub fn present_vessel(&self, sink: &mut dyn world::VesselSink) { self.berth.present_vessel(sink); }
     pub fn hull_camera_lens(&self) -> Option<(Vec3, Vec3, Vec3, f32)> { self.berth.hull_camera_lens() }
@@ -134,22 +145,7 @@ impl AvatarBody {
     }
 
     pub fn respawn(&mut self, world: &dyn PlanetaryWorld) {
-        let spawn = if let Some(beacon) = world.assigned_spawn_point() {
-            world.constrain_to_surface(beacon, 1.0)
-        } else {
-            let probe_y = world
-                .celestial_atlas()
-                .ephemeris()
-                .map_or(1_024.0, |e| (e.proportions().earth_half() * 2.0).max(1_024.0))
-                + 64.0;
-            [(0.25, 0.25), (2.25, 0.25), (-2.25, 0.25), (0.25, 2.25), (0.25, -2.25)]
-                .into_iter()
-                .map(|(x, z)| world.constrain_to_surface(Vec3::new(x, probe_y, z), 1.0))
-                .fold(world.constrain_to_surface(Vec3::new(0.25, probe_y, 0.25), 1.0), |acc, c| {
-                    if c.y > acc.y + 1.5 { c } else { acc }
-                })
-        };
-        self.span = BodySpan::anchored(spawn);
+        self.span = BodySpan::spawned_on(world);
         self.posture = AvatarPosture::standing();
         self.berth = CockpitBerth::pedestrian();
         self.flight.ground();

@@ -3,8 +3,8 @@ mod cracks;
 use std::net::SocketAddr;
 use glam::Vec3;
 use world::{
-    CompanionPresence, CosmicFrame, DeckFrame, DrivenCraft, FrameHandoff, PilotCraft,
-    PlanetaryWorld, ProximityUtterance, SolarProportions,
+    CompanionPresence, CosmicFrame, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, FrameHandoff,
+    PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions, VesselBerth,
 };
 use crate::admin_ward::SpawnBeacons;
 use crate::envelope::CrackNotice;
@@ -68,9 +68,9 @@ impl AuraEvents {
     }
 }
 
-/// Strictly encapsulated local host seat + orbital clock, transient `AuraEvents`, `FleetLedger`, and `HostSounder`.
+/// Strictly encapsulated local host seat + berth + orbital clock, `AuraEvents`, `FleetLedger`, and `HostSounder`.
 pub struct HostAura {
-    seat: ((HostPresence, PilotCraft), (CosmicFrame, f64)),
+    seat: ((HostPresence, PilotCraft, VesselBerth), (CosmicFrame, f64)),
     events: AuraEvents,
     fleet: FleetLedger,
     wildlife: HostSounder,
@@ -79,7 +79,7 @@ pub struct HostAura {
 impl HostAura {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn with_cosmos_seat(
-        seat: ((HostPresence, PilotCraft), (CosmicFrame, f64)),
+        seat: ((HostPresence, PilotCraft, VesselBerth), (CosmicFrame, f64)),
         events: AuraEvents,
         fleet: FleetLedger,
         wildlife: HostSounder,
@@ -93,7 +93,7 @@ impl HostAura {
         fleet: FleetLedger,
         wildlife: HostSounder,
     ) -> Self {
-        Self::with_cosmos_seat((seat, (CosmicFrame::earth(), 0.0)), events, fleet, wildlife)
+        Self::with_cosmos_seat(((seat.0, seat.1, VesselBerth::planetary()), (CosmicFrame::earth(), 0.0)), events, fleet, wildlife)
     }
 
     pub fn new(
@@ -124,20 +124,29 @@ impl HostAura {
     }
 
     pub const fn host_frame(&self) -> CosmicFrame { (self.seat.1).0 }
+    pub const fn host_berth(&self) -> VesselBerth { (self.seat.0).2 }
+    pub const fn host_craft(&self) -> PilotCraft { (self.seat.0).1 }
     pub const fn epoch_secs(&self) -> f64 { (self.seat.1).1 }
     pub fn sync_epoch(&mut self, epoch_secs: f64) { (self.seat.1).1 = epoch_secs; }
     pub fn advance_epoch(&mut self, dt: f32) { (self.seat.1).1 += f64::from(dt.max(0.0)); }
 
     pub fn reanchor_host(&mut self, handoff: FrameHandoff) {
         (self.seat.1).0 = handoff.next_frame();
-        if let HostPresence::Occupied(p) = (self.seat.0).0 {
-            (self.seat.0).0 = HostPresence::Occupied(p.shifted(handoff.pos_shift()));
+        if !(self.seat.0).2.aboard_any() {
+            if let HostPresence::Occupied(p) = (self.seat.0).0 {
+                (self.seat.0).0 = HostPresence::Occupied(p.shifted(handoff.pos_shift()));
+            }
         }
         (self.seat.0).1 = (self.seat.0).1.shifted(handoff.pos_shift());
     }
 
     pub fn occupy(&mut self, presence: CompanionPresence) {
+        self.occupy_berth(presence, VesselBerth::planetary());
+    }
+
+    pub fn occupy_berth(&mut self, presence: CompanionPresence, berth: VesselBerth) {
         (self.seat.0).0 = HostPresence::Occupied(presence.with_slot(1));
+        (self.seat.0).2 = berth;
     }
 
     pub fn pilot(&mut self, craft: PilotCraft) {
@@ -146,13 +155,29 @@ impl HostAura {
 
     pub const fn presence(&self) -> HostPresence { (self.seat.0).0 }
 
+    pub fn host_hull_pose(&self, craft_id: CraftIdentity) -> Option<CraftPose> {
+        match (self.seat.0).1 {
+            PilotCraft::Driving(dc) if dc.identity() == craft_id => Some(dc.pose()),
+            _ => None,
+        }
+    }
+
     pub fn occupied_position(&self) -> Option<Vec3> {
         let HostPresence::Occupied(p) = (self.seat.0).0 else { return None };
-        Some(p.transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos)))
+        let raw = p.transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos));
+        if let Some(id) = (self.seat.0).2.craft_id() {
+            if let Some(pose) = self.host_hull_pose(id) {
+                return Some(pose.world_point_at(raw));
+            }
+        }
+        Some(raw)
     }
 
     pub fn pedestrian_observer(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, bool)> {
-        if !self.host_frame().earth_centered() || matches!((self.seat.0).1, PilotCraft::Driving(_)) {
+        if !self.host_frame().earth_centered()
+            || (self.seat.0).2.aboard_any()
+            || matches!((self.seat.0).1, PilotCraft::Driving(_))
+        {
             return None;
         }
         let HostPresence::Occupied(p) = (self.seat.0).0 else { return None };
@@ -180,9 +205,7 @@ impl HostAura {
         self.events.cracks.record_in_frame(author_slot, frame, notice);
     }
 
-    pub fn drain_cracks(&mut self) -> SectorCracks {
-        self.events.cracks.drain_into_buckets()
-    }
+    pub fn drain_cracks(&mut self) -> SectorCracks { self.events.cracks.drain_into_buckets() }
 
     pub fn receive_utterance(&mut self, speaker_frame: CosmicFrame, utterance: ProximityUtterance, earshot_meters: f32) {
         if speaker_frame != self.host_frame() {

@@ -225,6 +225,9 @@ impl<W: VesselDeck> VesselDeck for OrbitalFleetWorld<W> {
 
 impl<W: CompanionPortal> CompanionPortal for OrbitalFleetWorld<W> {
     fn sync_presence(&mut self, presence: CompanionPresence) { self.origin.sync_presence(presence); }
+    fn sync_berth_presence(&mut self, presence: CompanionPresence, berth: crate::VesselBerth) {
+        self.origin.sync_berth_presence(presence, berth);
+    }
     fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.origin.sync_pilot_craft(craft); }
     fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.origin.active_companions(out); }
     fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.origin.active_crafts(out); }
