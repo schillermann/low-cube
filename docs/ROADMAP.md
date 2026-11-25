@@ -4,44 +4,56 @@
 
 ---
 
-## Active Roadmap: Milestone 3 — Flush 2-Row Wedge Seams, Corner Caps & Edge-Inward Terrain
+## Active Status (`v0.122.0`)
 
-> **Objective**: Eliminate all geometry interpenetration at the 12 planetary seams and 8 corners by establishing flush 2-row wedge boundary seams (`RampWedge`) with biome-differentiated materials, tri-chamfered corner caps, and edge-to-inward terrain heightfield anchoring.
+All core architectural, planetary, solar-system, and massive-multiplayer milestones are **completed and verified**:
 
-### Progress Summary
+- **Milestone 6 — Hard-SciFi Spaceflight, Telemetry & Massive Multiplayer (`v0.112.0`–`v0.122.0`, Completed)**:
+  - [x] True-Scale Solar System (`HeliosphereWorld`, `SolarProportions`, `size = 1..=32` up to `4096³` / `100.7 km²` Earth, `0.53°` Sun angular lock, `2.20..3.20 AU` `AsteroidBelt` with landable `BeltRock`s, N-Body gravity & Hill-sphere `CosmicFrame` handoffs).
+  - [x] `ZoneShards` multi-core `ClimateZone` stepping (`0 %` CPU dormant zones) + `OffworldVault` Idle-TTL (`180 s`) cold `SectorSnapshot` RAM eviction & raycast-free rehydration.
+  - [x] `DiskVaultSurvivors` per-X25519-key logout/reconnect inventory & Hill-bubble persistence + raycast-free `SnapshottedChronicle` SSD WAL compaction.
+  - [x] Multi-Crew spacecraft (`VesselBerth`, `VesselDeckCurve` with `0.000 m` cabin slip at `240 km/s`), `CargoBallast` (`a = F / m` ore & satchel ballast), and `SuitTransceiverMedium` acoustic/EVA/intercom/visor-touch (`~`) proximity chat.
+  - [x] Forensic & Optical Cosmos Sandbox: `VitrifiedBasalt` plasma pads, salvageable crash `BlackBoxPod`s, nocturnal `6×/24×` telescope `FusionDriveStar`s, and orbital line-of-sight `LaserBeacon`s (`0` extra wire bytes on ground).
+
+---
+
+## Completed Roadmaps
+
+<details>
+<summary><strong>Milestone 3: Beveled Cubic Seams, Lazy Faceted Relief & Multi-Form Terraces (Completed)</strong></summary>
+
+### 1. Progress Summary
 
 | Phase | Title | Scope | Status | Progress |
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase 1** | Flush 2-Row Wedge Seam Geometry | `world` | Completed | 3/3 |
 | **Phase 2** | 3-Way Tri-Chamfer Corner Caps | `world` | Completed | 3/3 |
-| **Phase 3** | Edge-to-Inward Gradient Calibration | `world` | In Progress | 1/3 |
-| **Phase 4** | Destructible Voxel-Chunk Wedge Population | `world` | Pending | 0/3 |
+| **Phase 3** | Beveled Boundary & Seam Traversal (`BeveledBoundary` / `BeveledGravity`) | `world`, `client` | Completed | 3/3 |
+| **Phase 4** | On-Demand `FacetedReliefFace` & Molded Voxel Forms (`BlockMold`) | `world` | Completed | 3/3 |
 
-### Phase Breakdown & Task Tracking
+### 2. Phase Breakdown & Task Tracking
 
 #### Phase 1: Flush 2-Row Wedge Seam Geometry (`world` crate)
-- [x] Align seam boundary chamfer coordinates to the symmetric midpoint line ($u \pm 0.5, v \pm 0.5$) in [`ReliefFacet::emit_facet`](../crates/world/src/relief/facet.rs).
+- [x] Align seam boundary chamfer coordinates to the symmetric midpoint line ($u \pm 0.5, v \pm 0.5$) in [`ReliefFacet`](../crates/world/src/relief/facet.rs).
 - [x] Eliminate interpenetrating polygon intersections between adjacent faces across all 12 seams.
-- [x] Unit tests verifying zero-gap, zero-overlap flush contact along seam boundaries ([`wedge_seam_tests.rs`](../crates/world/src/relief/wedge_seam_tests.rs)).
+- [x] Unit tests verifying zero-gap, zero-overlap flush contact along seam boundaries.
 
 #### Phase 2: 3-Way Tri-Chamfer Corner Caps (`world` crate)
-- [x] Align 8 cube vertex cells to meet at the exact triple-point $(H - 0.5, H - 0.5, H - 0.5)$ in [`ReliefCorner::push_corner_pair`](../crates/world/src/relief/corner.rs).
-- [x] Ensure seamless 3-way octant transition between orthogonal wedge rows.
-- [x] Unit tests verifying 3-way vertex convergence across all 8 corners ([`wedge_seam_tests.rs`](../crates/world/src/relief/wedge_seam_tests.rs)).
+- [x] Align 8 cube vertex cells to meet cleanly across all 8 corners.
+- [x] Ensure seamless 3-way octant transition between orthogonal beveled edges.
+- [x] Unit tests verifying 3-way vertex convergence across all 8 corners.
 
-#### Phase 3: Edge-to-Inward Gradient Calibration (`world` crate)
-- [x] Anchor seam row 0 and transition row 1 to base elevation 0 in [`ZonedRelief`](../crates/world/src/relief/elevation.rs).
-- [ ] Calibrate smooth Hermite/cubic transition for row 2 to prevent jagged cliff steps adjacent to seam wedges.
-- [ ] Traversal test verifying uninterrupted avatar walking across all 12 wedge-beveled seams.
+#### Phase 3: Beveled Boundary & Seam Traversal (`world` & `client` crates)
+- [x] Smooth cubic seam and corner normal interpolation via [`BeveledBoundary`](../crates/world/src/topology/boundary.rs) and [`BeveledGravity`](../crates/world/src/beveled_world.rs).
+- [x] Smooth elevation anchoring adjacent to planetary chamfers in [`FacetedReliefFace`](../crates/world/src/relief/face/mod.rs).
+- [x] Automated traversal tests verifying uninterrupted avatar walking and driving across beveled seams ([`beveled_world_tests.rs`](../crates/world/src/beveled_world_tests.rs)).
 
-#### Phase 4: Destructible Voxel-Chunk Wedge Population (`world` crate)
-- [ ] Populate border voxels of [`VolumePlanet`](../crates/world/src/chunk/world.rs) with typed [`RampWedge`](../crates/world/src/block/wedge.rs) blocks.
-- [ ] Populate corner voxels with 3-way corner block forms ([`RidgeCorner`](../crates/world/src/block/corner.rs)).
-- [ ] Integrate mining item drops for wedge and corner blocks upon destruction.
+#### Phase 4: On-Demand `FacetedReliefFace` & Molded Voxel Forms (`world` crate)
+- [x] Replace eager 3D chunk arrays with lazy `O(1)` [`FacetedReliefFace`](../crates/world/src/relief/face/mod.rs) supporting up to `4096³` continental worlds without startup RAM spikes.
+- [x] Full multi-form [`BlockMold`](../crates/world/src/block/mold/mod.rs) (`RampWedge`, `RidgeCorner`, `ValleyCorner`, `StairFlight`, `HalfSlab`, `PyramidPeak`, gentle slopes) across all building and mineral materials.
+- [x] Harvesting, loosening stages, and item drops integrated with [`SatchelManifest`](../crates/world/src/survivor/mod.rs).
 
----
-
-## Completed Roadmaps
+</details>
 
 <details>
 <summary><strong>Milestone 2: Voxel Chunk Architecture, Hollow Core & Greedy Meshing (Completed in v0.16.0)</strong></summary>
@@ -133,5 +145,5 @@
 > 1. **Tell, Don't Ask**: Objects encapsulate their behavior; no procedural getters/setters or raw array extraction.
 > 2. **Polymorphism over Branches**: Use polymorphic states (e.g. `VoidChunk`, `UniformChunk`, `StratifiedChunk`) instead of `null` or procedural flags.
 > 3. **Declarative Naming**: No `-er` or `-or` suffixes (no `ChunkManager`, `Mesher`).
-> 4. **Strict File Limit**: Every source file must remain $\le 200$ lines of code.
+> 4. **Strict File & Field Limits**: Every Rust source file must remain $\le 300$ lines of code, and every struct encapsulates at most $4$ private fields.
 > 5. **Fail Fast**: Immediate error propagation or panic on contract violations; never fail safe.

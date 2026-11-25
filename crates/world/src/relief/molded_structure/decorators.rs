@@ -125,8 +125,8 @@ impl WorldBlocks {
         self.grid.settle_gravity(|u, v| (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP, scars)
     }
 
-    pub fn collect_spawn_points(&self, frame: &SurfaceFrame, out: &mut Vec<Vec3>) {
-        self.grid.collect_spawn_points(frame, out);
+    pub fn collect_medium_sites(&self, medium: BlockMedium, frame: &SurfaceFrame, out: &mut Vec<(Vec3, Vec3)>) {
+        self.grid.collect_medium_sites(medium, frame, out);
     }
 
     pub fn capture_sector(&self, gsu: i32, gsv: i32) -> Vec<crate::SnapshotBlock> {

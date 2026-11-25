@@ -169,9 +169,9 @@ impl PlanetaryWorld for CubePlanet {
         self.faces.iter().find_map(|f| f.placed_camera_tripod())
     }
 
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
+    fn collect_medium_sites(&self, medium: crate::BlockMedium, out: &mut Vec<(Vec3, Vec3)>) {
         for face in &self.faces {
-            face.collect_spawn_points(out);
+            face.collect_medium_sites(medium, out);
         }
     }
 

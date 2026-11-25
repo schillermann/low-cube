@@ -213,13 +213,7 @@ impl SatchelManifest {
     }
 
     pub fn reconcile_from_presence(&mut self, presence: CompanionPresence) {
-        let (r, l) = presence.transfer(|_, _, _, attire| {
-            attire.transfer(|g, _, _| {
-                let rc = (g[5] & 0x0F) | (((g[4] >> 4) & 1) << 4) | (((g[4] >> 6) & 1) << 5);
-                let lc = (g[5] >> 4) | (((g[4] >> 5) & 1) << 4) | (((g[4] >> 7) & 1) << 5);
-                (rc, lc)
-            })
-        });
+        let (r, l) = presence.transfer(|_, _, _, attire| attire.held_codes());
         self.reconcile_hands(r, l);
     }
 

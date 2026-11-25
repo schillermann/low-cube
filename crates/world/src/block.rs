@@ -41,7 +41,7 @@ pub use earth_clods::EarthClods;
 pub(crate) use earth_clods::LOAM_CROWN;
 pub use elevated_shape::{ElevatedShape, NicheColumn, TurfCoat, TurfSod};
 pub use field_camera::FieldCameraTripod;
-pub use forensic_blocks::{BlackBoxPodMesh, VitrifiedBasaltMesh};
+pub use forensic_blocks::{BlackBoxPodMesh, LaserBeaconMesh, VitrifiedBasaltMesh};
 pub use gentle_ridge::GentleRidge;
 pub use gentle_valley::GentleValley;
 pub use gentle_wedge::GentleWedge;

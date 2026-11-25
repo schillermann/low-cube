@@ -21,6 +21,7 @@ impl RelicLexicon {
         HeldRelic::RocketCamera,
         HeldRelic::TitaniumHull,
         HeldRelic::CarbonSilicate,
+        HeldRelic::LaserBeacon,
         HeldRelic::BlackBoxPod,
         HeldRelic::AircraftEngine,
         HeldRelic::ExcavatedEarth,
@@ -78,6 +79,7 @@ impl RelicLexicon {
                 | HeldRelic::CarbonSilicate
                 | HeldRelic::VitrifiedBasalt
                 | HeldRelic::BlackBoxPod
+                | HeldRelic::LaserBeacon
         )
     }
 
@@ -136,6 +138,7 @@ impl RelicLexicon {
             HeldRelic::CarbonSilicate => "CARBON LACE",
             HeldRelic::VitrifiedBasalt => "VITRIFIED BASALT",
             HeldRelic::BlackBoxPod => "BLACKBOX POD",
+            HeldRelic::LaserBeacon => "LASER BEACON",
         }
     }
 
@@ -165,6 +168,7 @@ impl RelicLexicon {
             HeldRelic::CarbonSilicate => BlockMedium::CarbonSilicate,
             HeldRelic::VitrifiedBasalt => BlockMedium::VitrifiedBasalt,
             HeldRelic::BlackBoxPod => BlockMedium::BlackBoxPod,
+            HeldRelic::LaserBeacon => BlockMedium::LaserBeacon,
             _ => BlockMedium::TurfEarth,
         }
     }
@@ -196,6 +200,7 @@ impl RelicLexicon {
             BlockMedium::CarbonSilicate => HeldRelic::CarbonSilicate,
             BlockMedium::VitrifiedBasalt => HeldRelic::VitrifiedBasalt,
             BlockMedium::BlackBoxPod => HeldRelic::BlackBoxPod,
+            BlockMedium::LaserBeacon => HeldRelic::LaserBeacon,
         }
     }
 

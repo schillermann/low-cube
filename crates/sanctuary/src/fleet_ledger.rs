@@ -34,6 +34,10 @@ impl FleetLedger {
         self.catalog.contains(id)
     }
 
+    pub fn fusion_equipped(&self, id: CraftIdentity) -> bool {
+        self.catalog.find(id).is_some_and(CraftBlueprint::fusion_equipped)
+    }
+
     pub fn claim_helm(&mut self, craft: CraftIdentity, pilot_slot: u32) -> bool {
         self.locks.claim(craft, pilot_slot)
     }

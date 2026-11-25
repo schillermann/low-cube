@@ -5,20 +5,33 @@ use world::{
     WorldEarthworks, WorldFact,
 };
 
-/// Active admin-placed `SpawnStone` coordinates distributing joining guests across multiple arrival plinths.
+/// Active admin `SpawnStone` coordinates and surface `LaserBeacon` sites (`<= 4` fields).
 pub struct SpawnBeacons {
     points: Vec<(Vec3, Vec3)>,
     cursor: usize,
+    lasers: Vec<(world::CosmicFrame, Vec3, Vec3)>,
 }
 
 impl SpawnBeacons {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_lasers(
+        points: Vec<(Vec3, Vec3)>,
+        cursor: usize,
+        lasers: Vec<(world::CosmicFrame, Vec3, Vec3)>,
+    ) -> Self {
+        Self { points, cursor, lasers }
+    }
+
     pub const fn new(points: Vec<(Vec3, Vec3)>, cursor: usize) -> Self {
-        Self { points, cursor }
+        Self::with_lasers(points, cursor, Vec::new())
     }
 
     pub const fn empty() -> Self {
         Self::new(Vec::new(), 0)
+    }
+
+    pub fn optical_beacons(&self) -> &[(world::CosmicFrame, Vec3, Vec3)] {
+        &self.lasers
     }
 
     pub fn refresh_from(&mut self, world: &dyn PlanetaryWorld) {
@@ -28,6 +41,17 @@ impl SpawnBeacons {
         for pos in raw {
             let up = world.surface_up_at(pos).normalize_or(Vec3::Y);
             self.points.push((pos, up));
+        }
+        self.lasers.clear();
+        let mut earth_lasers = Vec::new();
+        world.collect_optical_beacons(&mut earth_lasers);
+        for (pos, n) in earth_lasers {
+            self.lasers.push((world.cosmic_frame(), pos, n));
+        }
+        let mut offworld_lasers = Vec::new();
+        world.collect_offworld_medium_sites(BlockMedium::LaserBeacon, &mut offworld_lasers);
+        for (body, pos, n) in offworld_lasers {
+            self.lasers.push((world::CosmicFrame::Body(body), pos, n));
         }
     }
 

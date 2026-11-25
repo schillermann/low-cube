@@ -64,6 +64,7 @@ impl GuestJournal {
         self.write_link(|l| l.sync_local_berth_presence(presence, berth));
     }
     pub fn sync_local_craft(&mut self, craft: PilotCraft) { self.write_link(|l| l.sync_local_craft(craft)); }
+    pub fn sync_sky_watch(&mut self, active: bool) { self.write_link(|l| l.sync_sky_watch(active)); }
     pub fn apply_frame_handoff(&mut self, handoff: world::FrameHandoff) { self.write_link(|l| l.apply_frame_handoff(handoff)); }
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.read_link(|l| l.companions(out)); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.read_link(|l| l.crafts(out)); }
@@ -108,6 +109,10 @@ impl GuestJournal {
 
     pub fn emit_wildlife(&self, cone: world::SightCone, world: &dyn PlanetaryWorld, target: &mut dyn world::MeshTarget) {
         self.read_link(|l| l.emit_wildlife(cone, world, target));
+    }
+
+    pub fn emit_sky_signals(&self, cone: world::SightCone, target: &mut dyn world::MeshTarget) {
+        self.read_link(|l| l.emit_sky_signals(cone, target));
     }
 
     pub fn ticket_string(&self) -> Option<String> { self.read_link(RemoteLink::ticket_string) }

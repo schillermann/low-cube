@@ -15,6 +15,7 @@ use crate::chat_medium::{ChatLocus, ChatMedium, SuitTransceiverMedium};
 use crate::chronicle_log::ChronicleStore;
 use crate::envelope::SanctuaryEnvelope;
 use crate::seal_batch::{OutboundFrame, ParallelSeals, PulseDelivery, SequentialDelivery};
+use crate::sky_signals::SkyHorizon;
 use crate::spatial_chronicle::HorizonStream;
 use crate::ward::GuestWard;
 
@@ -107,8 +108,16 @@ impl CohortPulse {
         );
         let sounder = aura.wildlife().presence();
         let sector_cracks = aura.drain_cracks();
+        let ephemeris = world::SolarEphemeris::new(self.proportions, self.epoch_secs);
+        let sky_horizon = SkyHorizon::indexed(
+            &crafts,
+            aura.fleet(),
+            aura.beacons().optical_beacons(),
+            bubble,
+            ephemeris,
+        );
         let mut frames = Vec::with_capacity(wards.len());
-        let fact_index = aura.fact_index_mut() as &_;
+        let fact_index = aura.fact_index() as &_;
         for (&cid, (ward, stream)) in wards {
             let (wf, anchor, own_ship) = match ward.berth().craft_id().and_then(|id| Self::resolve_ship(id, &crafts)) {
                 Some((sf, dc)) => (sf, dc.pose().world_point_at(ward.anchor_position()), Some(dc.identity())),
@@ -145,6 +154,10 @@ impl CohortPulse {
                 SanctuaryEnvelope::HostChronicle { base_seq, facts }.inscribe(&mut out);
                 payloads.push(out);
             }
+            let mut signals = Vec::new();
+            if ward.live_presence() {
+                sky_horizon.select_for_observer(cid, wf, anchor, ward.sky_watch(), &mut signals);
+            }
             let cracks = sector_cracks.collect_in_frame(wf, anchor, cid, NEARBY_SIGHT_METERS);
             let wildlife = WildlifePulse::new(sounder_near_anchor(wf, sounder, anchor), ward.gore_stamp());
             let mut pulse_bytes = Vec::new();
@@ -154,6 +167,7 @@ impl CohortPulse {
                 companions: others,
                 crafts: other_crafts,
                 berths,
+                signals,
                 wildlife,
             }
             .inscribe(&mut pulse_bytes);

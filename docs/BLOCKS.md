@@ -65,18 +65,28 @@ Every harvestable block, vehicle component, foraged resource, tool, and weapon i
 | **`EARTH BLOCK`** | `HeldRelic::ExcavatedEarth` / `BlockMedium::TurfEarth` | Building Block | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
 | **`WOOD BLOCK`** | `HeldRelic::TimberBlock` / `BlockMedium::RawTimber` | Building Block | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
 | **`SEAT BLOCK`** | `HeldRelic::CabinSeat` / `BlockMedium::CabinSeat` | Vehicle Block | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
+| **`ROCKET CAMERA`** | `HeldRelic::RocketCamera` / `BlockMedium::RocketCamera` | Spacecraft Optic | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
+| **`BLACKBOX POD`** | `HeldRelic::BlackBoxPod` / `BlockMedium::BlackBoxPod` | Flight Telemetry Pod | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
+| **`LASER BEACON`** | `HeldRelic::LaserBeacon` / `BlockMedium::LaserBeacon` | Optical Orbit Beacon | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
+| **`BOAR MEAT`** | `HeldRelic::BoarMeat` | Edible Provision | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
 | **`FLINT STONE`** | `HeldRelic::FlintStone` | Foraged Resource | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
 | **`WOODEN MALLET`** | `HeldRelic::WoodenMallet` | Tool | **`MODERATE`** | `10× -> WEIGHTY` | Warm Amber |
 | **`STONE BLOCK`** | `HeldRelic::QuarriedStone` / `BlockMedium::QuarriedStone` | Building Block | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
+| **`VITRIFIED BASALT`** | `HeldRelic::VitrifiedBasalt` / `BlockMedium::VitrifiedBasalt` | Plasma-Fused Pad | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
+| **`COPPER ORE`** | `HeldRelic::CopperOre` / `BlockMedium::CopperOre` | Subterranean Ore | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
+| **`IRON ORE`** | `HeldRelic::IronOre` / `BlockMedium::IronOre` | Subterranean Ore | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
 | **`CAR WHEEL`** | `HeldRelic::CarWheel` / `BlockMedium::CarWheel` | Vehicle Block | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
 | **`IRON SPADE`** | `HeldRelic::IronSpade` | Excavation Tool | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
 | **`WOODMAN AXE`** | `HeldRelic::WoodmanAxe` | Felling Tool / Weapon | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
 | **`KNIGHT SWORD`** | `HeldRelic::KnightlySword` | Martial Weapon | **`WEIGHTY`** | `10× -> HEAVY` | Burnt Orange |
 | **`CRUST BLOCK`** | `HeldRelic::CrustBlock` / `BlockMedium::CrustRock` | Building Block | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
+| **`GOLD ORE`** | `HeldRelic::GoldOre` / `BlockMedium::GoldOre` | Subterranean Ore | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
 | **`CRANE LIFT`** | `HeldRelic::CantileverCrane` / `BlockMedium::CantileverRig` | Assembly Apparatus | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
 | **`PLANE ENGINE`** | `HeldRelic::AircraftEngine` / `BlockMedium::AircraftEngine` | Vehicle Engine | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
 | **`FLIGHT CONSOLE`** | `HeldRelic::FlightConsole` / `BlockMedium::FlightConsole` | Spacecraft Helm | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
 | **`ROCKET NOZZLE`** | `HeldRelic::RocketNozzle` / `BlockMedium::RocketNozzle` | Spacecraft Nozzle | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
+| **`FUSION TORCH`** | `HeldRelic::FusionTorch` / `BlockMedium::FusionTorch` | Epstein Fusion Drive | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
+| **`SPAWN STONE`** | `HeldRelic::SpawnStone` / `BlockMedium::SpawnStone` | Admin Arrival Plinth | **`HEAVY`** | `1× = HEAVY` | Crimson Red |
 
 ---
 

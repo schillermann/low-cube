@@ -118,12 +118,13 @@ impl<'a> StandbyCourt<'a> {
         let now = self.cohort.tick_secs();
         let bubble = GravityBubble::new(proportions, self.aura.epoch_secs());
         match SanctuaryEnvelope::decode(&body) {
-            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame, berth }) => {
+            Some(SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame, berth, sky_watch }) => {
                 let vetted = match craft {
                     PilotCraft::Driving(dc) if !self.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
                     other => other,
                 };
                 if let Some(ward) = self.cohort.ward_mut(cid) {
+                    ward.update_sky_watch(sky_watch);
                     ward.absorb_standby_pulse(cid, ack_seq, now, frame, berth, presence, vetted, bubble);
                 }
                 self.cohort.commit_survivor(cid, self.aura, false);
@@ -159,12 +160,13 @@ impl<'a> StandbyCourt<'a> {
         let now = state.cohort.tick_secs();
         let bubble = GravityBubble::new(proportions, state.aura.epoch_secs());
         match env {
-            SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame, berth } => {
+            SanctuaryEnvelope::GuestPulse { ack_seq, presence, craft, frame, berth, sky_watch } => {
                 let vetted = match craft {
                     PilotCraft::Driving(dc) if !state.aura.fleet().helmed_by(dc.identity(), cid) => PilotCraft::Pedestrian,
                     other => other,
                 };
                 if let Some(ward) = state.cohort.ward_mut(cid) {
+                    ward.update_sky_watch(sky_watch);
                     ward.absorb_pulse(cid, ack_seq, now, frame, berth, presence, vetted, bubble, world);
                 }
                 state.cohort.commit_survivor(cid, &state.aura, false);

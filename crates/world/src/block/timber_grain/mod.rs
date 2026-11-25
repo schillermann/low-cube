@@ -38,6 +38,7 @@ pub enum BlockMedium {
     CarbonSilicate,
     VitrifiedBasalt,
     BlackBoxPod,
+    LaserBeacon,
 }
 
 impl BlockMedium {
@@ -70,6 +71,7 @@ impl BlockMedium {
             Self::CarbonSilicate => 23,
             Self::VitrifiedBasalt => 24,
             Self::BlackBoxPod => 25,
+            Self::LaserBeacon => 26,
         }
     }
 
@@ -101,6 +103,7 @@ impl BlockMedium {
             23 => Self::CarbonSilicate,
             24 => Self::VitrifiedBasalt,
             25 => Self::BlackBoxPod,
+            26 => Self::LaserBeacon,
             _ => Self::TurfEarth,
         }
     }
@@ -149,7 +152,7 @@ impl BlockMedium {
 
     /// Indicates whether this medium is a portable item picked up in a single click without excavation stages.
     pub const fn instant_pickup(self) -> bool {
-        matches!(self, Self::FieldCamera | Self::BlackBoxPod)
+        matches!(self, Self::FieldCamera | Self::BlackBoxPod | Self::LaserBeacon)
     }
 
     /// Indicates whether this medium is physical spacecraft residue (plasma-fused basalt or crash black-box pod).
@@ -206,6 +209,7 @@ impl BlockMedium {
             Self::CarbonSilicate => (Vec3::new(0.24, 0.80, 0.98), Vec3::new(0.14, 0.18, 0.26)),
             Self::VitrifiedBasalt => (Vec3::new(0.14, 0.16, 0.22), Vec3::new(0.96, 0.34, 0.08)),
             Self::BlackBoxPod => (Vec3::new(0.98, 0.36, 0.05), Vec3::new(0.20, 0.23, 0.28)),
+            Self::LaserBeacon => (Vec3::new(0.18, 1.00, 0.62), Vec3::new(0.92, 0.74, 0.24)),
         }
     }
 

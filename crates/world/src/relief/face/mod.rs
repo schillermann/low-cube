@@ -192,8 +192,8 @@ impl Face for FacetedReliefFace {
         self.domain.relief.placed_camera_tripod(&self.domain.frame)
     }
 
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
-        self.domain.relief.collect_spawn_points(&self.domain.frame, out);
+    fn collect_medium_sites(&self, medium: BlockMedium, out: &mut Vec<(Vec3, Vec3)>) {
+        self.domain.relief.collect_medium_sites(medium, &self.domain.frame, out);
     }
 
     fn lower_rig(&mut self, eye: Vec3, direction: Vec3) -> bool {

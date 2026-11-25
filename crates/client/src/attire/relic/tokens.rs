@@ -46,6 +46,7 @@ impl RelicLexicon {
             "carbonsilicate" | "carbonlace" | "silicatelace" | "cermet" | "keramik" => Some(HeldRelic::CarbonSilicate),
             "vitrifiedbasalt" | "fusedbasalt" | "scorchbasalt" | "schmelzbasalt" => Some(HeldRelic::VitrifiedBasalt),
             "blackboxpod" | "blackbox" | "flightblackbox" | "flugschreiber" => Some(HeldRelic::BlackBoxPod),
+            "laserbeacon" | "opticalbeacon" | "leuchtfeuer" | "beacon" => Some(HeldRelic::LaserBeacon),
             _ => None,
         }
     }

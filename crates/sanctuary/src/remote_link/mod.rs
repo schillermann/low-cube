@@ -76,9 +76,12 @@ impl RemoteLink {
         self.sync.update_berth_presence(presence, berth, self.companion_slot());
     }
     pub fn sync_local_craft(&mut self, craft: PilotCraft) { self.sync.update_craft(craft, self.companion_slot()); }
+    pub fn sync_sky_watch(&mut self, active: bool) { self.sync.update_sky_watch(active); }
     pub fn companions(&self, out: &mut Vec<CompanionPresence>) { self.sync.copy_companions(out); }
-    pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) { self.sync.copy_crafts(out); }
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.sync.copy_crafts(out); }
+    pub fn emit_sky_signals(&self, cone: world::SightCone, target: &mut dyn world::MeshTarget) {
+        self.sync.roster().emit_sky_signals(cone, target);
+    }
     pub const fn assigned_spawn(&self) -> Option<Vec3> { self.sync.assigned_spawn() }
     pub const fn assigned_survivor(&self) -> Option<SurvivorWelcome> { self.sync.assigned_survivor() }
     pub fn take_pending_epoch(&mut self) -> Option<f64> { self.sync.take_pending_epoch() }

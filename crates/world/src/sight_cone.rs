@@ -44,6 +44,11 @@ impl SightCone {
         delta.dot(self.forward) >= self.aperture * dist_sq.sqrt()
     }
 
+    /// Evaluates whether unit direction `dir` lies inside the active view hemisphere.
+    pub fn faces_direction(&self, dir: Vec3) -> bool {
+        dir.dot(self.forward) >= self.aperture
+    }
+
     /// Transfers the observer `eye` to a spatial-hash collaborator without exposing internal fields.
     pub fn observe_from<R>(self, f: impl FnOnce(Vec3) -> R) -> R {
         f(self.eye)

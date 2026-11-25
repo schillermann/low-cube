@@ -1,30 +1,40 @@
 use glam::{Quat, Vec3};
 use world::{
-    CompanionPresence, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, PilotCraft,
-    PresenceAttire, PresenceKinematics, ProximityUtterance, VesselBerth, WildlifePulse,
+    CompanionPresence, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, MeshTarget, PilotCraft,
+    PresenceAttire, PresenceKinematics, ProximityUtterance, SightCone, SkySignal, VesselBerth,
+    WildlifePulse,
 };
 use crate::audience::PACKET_COMPANION_CAP;
 use crate::fleet_ledger::FleetLedger;
 use crate::remote_wildlife::RemoteWildlife;
 use super::{CompanionGlide, GlideClock, SightRole, TimelineClock};
 
-/// Smoothly interpolated remote companion, vehicle, wild-boar, and proximity utterance roster (`<= 4` fields).
+/// Smoothly interpolated remote companion, vehicle, wild-boar, sky-signal, and proximity utterance roster (`<= 4` fields).
 pub struct SmoothRoster {
     timeline: TimelineClock,
     entries: Vec<(u32, CompanionGlide)>,
     wildlife: RemoteWildlife,
-    utterances: Vec<ProximityUtterance>,
+    inbox: (Vec<ProximityUtterance>, Vec<SkySignal>),
 }
 
 impl SmoothRoster {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_signals(
+        timeline: TimelineClock,
+        entries: Vec<(u32, CompanionGlide)>,
+        wildlife: RemoteWildlife,
+        inbox: (Vec<ProximityUtterance>, Vec<SkySignal>),
+    ) -> Self {
+        Self { timeline, entries, wildlife, inbox }
+    }
+
     pub const fn new(
         timeline: TimelineClock,
         entries: Vec<(u32, CompanionGlide)>,
         wildlife: RemoteWildlife,
         utterances: Vec<ProximityUtterance>,
     ) -> Self {
-        Self { timeline, entries, wildlife, utterances }
+        Self::with_signals(timeline, entries, wildlife, (utterances, Vec::new()))
     }
 
     pub const fn empty() -> Self {
@@ -32,13 +42,22 @@ impl SmoothRoster {
     }
 
     pub fn record_utterance(&mut self, utterance: ProximityUtterance) {
-        if self.utterances.len() >= 32 {
-            self.utterances.remove(0);
+        if self.inbox.0.len() >= 32 {
+            self.inbox.0.remove(0);
         }
-        self.utterances.push(utterance);
+        self.inbox.0.push(utterance);
     }
 
-    pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { out.append(&mut self.utterances); }
+    pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { out.append(&mut self.inbox.0); }
+    pub fn reconcile_signals(&mut self, signals: &[SkySignal]) {
+        self.inbox.1.clear();
+        self.inbox.1.extend_from_slice(signals);
+    }
+    pub fn emit_sky_signals(&self, cone: SightCone, target: &mut dyn MeshTarget) {
+        for &sig in &self.inbox.1 {
+            sig.emit(cone, target);
+        }
+    }
     pub const fn render_secs(&self) -> f64 { self.timeline.render_secs() }
     pub const fn wildlife(&self) -> &RemoteWildlife { &self.wildlife }
     pub fn wildlife_mut(&mut self) -> &mut RemoteWildlife { &mut self.wildlife }

@@ -31,6 +31,8 @@ mod continental_cosmos_tests;
 mod gravity_tests;
 #[cfg(test)]
 mod mesh_target_tests;
+#[cfg(test)]
+mod offworld_eviction_tests;
 
 pub use beveled_world::BeveledGravity;
 pub use biome::BiomedCubeWorld;
@@ -40,16 +42,18 @@ pub use celestial::{
     BodySnapshot, CelestialAtlas, CelestialSystem, CosmicFrame, EllipticShape, FrameHandoff,
     GravityBubble, HeliosphereWorld, KeplerAnomaly, LunarCraterRelief, LunarWorld, OrbitElements,
     OrbitalFleetWorld, OrbitalLocus, OrbitalPlane, OrbitalSpec, PlanetarySpin, RadialWell,
-    SolarCatalog, SolarEphemeris, SolarProportions, SurfaceNature, TranslatedWorld, VicinityCache,
-    DEEP_SPACE_SECTOR_SPAN, MAJOR_BODY_COUNT,
+    SignalKind, SkySignal, SolarCatalog, SolarEphemeris, SolarProportions, SurfaceNature,
+    TranslatedWorld, VicinityCache, DEEP_SPACE_SECTOR_SPAN, MAJOR_BODY_COUNT,
+    OFFWORLD_IDLE_TTL_SECS,
 };
 pub use block::{
     AttitudeNozzleMesh, BlackBoxPodMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,
     ConsoleOrrery, CornerHeading, CuboidShape, DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh,
-    FootwellPlinth, FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape,
-    MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak,
-    RampWedge, RidgeCorner, RocketNozzleMesh, SpawnPlinthMesh, StairCorner, StairFlight,
-    ValleyCorner, VitrifiedBasaltMesh, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
+    FootwellPlinth, FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell,
+    LaserBeaconMesh, MediumShape, MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, PalmMolds,
+    PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, RocketNozzleMesh, SpawnPlinthMesh,
+    StairCorner, StairFlight, ValleyCorner, VitrifiedBasaltMesh, VoxelShape, WalnutFloorPan,
+    WedgeHeading, WheelProfile,
 };
 pub use chronicle::{
     RigSnapshot, SectorColumnState, SectorSnapshot, SnapshotBlock, WorldFact,
@@ -158,7 +162,12 @@ pub trait Face: Send + Sync {
     fn build_rig_blueprint(&mut self, _eye: Vec3, _direction: Vec3, _blueprint: &CraftBlueprint) -> bool { false }
     fn present_vessels(&self, _sink: &mut dyn VesselSink) {}
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { None }
-    fn collect_spawn_points(&self, _out: &mut Vec<Vec3>) {}
+    fn collect_medium_sites(&self, _medium: BlockMedium, _out: &mut Vec<(Vec3, Vec3)>) {}
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
+        let mut sites = Vec::new();
+        self.collect_medium_sites(BlockMedium::SpawnStone, &mut sites);
+        out.extend(sites.into_iter().map(|(p, _)| p));
+    }
     fn step_surface(&mut self, _dt: f32) -> bool { false }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.step_surface(dt) }
     fn step_flora(&mut self, _dt: f32) -> bool { false }

@@ -244,7 +244,36 @@ fn test_fusion_torch_vitrifies_launchpad_crash_deposits_blackbox_pod_and_hand_re
         after_hud.count
     );
 
-    // Verify `ControlAction::CraftingBook` still functions cleanly alongside 20 recipes:
+    // Verify `ControlAction::CraftingBook` still functions cleanly alongside 21 recipes:
     assert!(explorer.dispatch_trigger(InputTrigger::Key(KeyCode::KeyC)));
     let _ = ControlAction::CraftingBook;
+}
+
+#[test]
+fn test_six_bit_laser_beacon_multiplayer_attire_roundtrip_crafting_and_instant_pickup() {
+    let tome = ArtisanTome::new(24, true);
+    assert_eq!(tome.selected_entry().product(), HeldRelic::LaserBeacon);
+    assert_eq!(HeldRelic::LaserBeacon.code(), 36, "LaserBeacon exercises the 6th HeldRelic bit (`code = 36 >= 32`)");
+
+    let satchel = BeltSatchel::empty()
+        .with_stowed_relic(HeldRelic::GoldOre, 2)
+        .with_stowed_relic(HeldRelic::CopperOre, 1);
+    let (_, _, crafted_attire, ok) = tome.craft_selected(1.0, satchel, YouthAttire::squire());
+    assert!(ok && crafted_attire.held_pair().0 == HeldRelic::LaserBeacon, "ArtisanTome #24 must craft LaserBeacon");
+
+    // Pair code 36 (LaserBeacon) in right palm with code 35 (BlackBoxPod) in left palm inside 9 garment bytes (`0` extra bytes!)
+    let dual = crafted_attire.with_relics(HeldRelic::LaserBeacon, HeldRelic::BlackBoxPod);
+    let wire_bytes = dual.multiplayer_bytes();
+    assert_eq!(wire_bytes.len(), 9);
+    let decoded = YouthAttire::from_multiplayer_bytes(wire_bytes);
+    assert_eq!(decoded.held_pair(), (HeldRelic::LaserBeacon, HeldRelic::BlackBoxPod));
+
+    let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
+    let g = world.constrain_to_surface(Vec3::new(0.25, 16.0, -0.75), 0.0);
+    let mold = BlockMold::with_medium(MoldArchetype::FullCube, CardinalTurn::Forward, BlockMedium::LaserBeacon);
+    assert!(world.place_molded_surface_block(g + Vec3::Y * 1.2, Vec3::NEG_Y, g + Vec3::Z * 2.5, mold));
+    let mut beacons = Vec::new();
+    world.collect_optical_beacons(&mut beacons);
+    assert_eq!(beacons.len(), 1);
+    assert_eq!(world.harvest_surface(g + Vec3::Y * 1.2, Vec3::NEG_Y), Some(BlockMedium::LaserBeacon));
 }

@@ -114,6 +114,62 @@ impl BlackBoxPodMesh {
     }
 }
 
+/// Optical line-of-sight `LaserBeacon` plinth with brass collimator dome and coherent emerald skyward beam (`<= 4` fields).
+#[derive(Clone, Copy, Debug)]
+pub struct LaserBeaconMesh {
+    cell: GridCell,
+    floor_elevation: f32,
+}
+
+impl LaserBeaconMesh {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(cell: GridCell, floor_elevation: f32) -> Self {
+        Self { cell, floor_elevation }
+    }
+
+    pub fn emit(&self, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
+        let (cu, cv) = self.cell.center();
+        let h = GridCell::SPAN * 0.46;
+        let z0 = self.floor_elevation;
+        let titanium_base = Vec3::new(0.18, 0.21, 0.27);
+        let brass_ring = Vec3::new(0.92, 0.74, 0.24);
+        let emerald_lens = Vec3::new(0.18, 1.00, 0.62);
+        let beam_core = Vec3::new(0.42, 1.00, 0.74);
+        emit_glowing_prism(
+            frame,
+            [cu - h, cu + h, cv - h, cv + h, z0, z0 + 0.16],
+            titanium_base,
+            titanium_base,
+            0.0,
+            target,
+        );
+        emit_glowing_prism(
+            frame,
+            [cu - 0.15, cu + 0.15, cv - 0.15, cv + 0.15, z0 + 0.16, z0 + 0.34],
+            brass_ring,
+            brass_ring,
+            0.18,
+            target,
+        );
+        emit_glowing_prism(
+            frame,
+            [cu - 0.09, cu + 0.09, cv - 0.09, cv + 0.09, z0 + 0.34, z0 + 0.48],
+            emerald_lens,
+            emerald_lens,
+            0.96,
+            target,
+        );
+        emit_glowing_prism(
+            frame,
+            [cu - 0.022, cu + 0.022, cv - 0.022, cv + 0.022, z0 + 0.48, z0 + 2.40],
+            beam_core,
+            emerald_lens,
+            1.00,
+            target,
+        );
+    }
+}
+
 fn emit_glowing_prism(
     frame: &SurfaceFrame,
     bounds: [f32; 6],

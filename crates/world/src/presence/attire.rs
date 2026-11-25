@@ -26,6 +26,28 @@ impl PresenceAttire {
         Self::new(garments, regions, PalmMolds::cubes())
     }
 
+    /// Packs 4-bit crown style and two 6-bit (`0..=63`) hand item codes into `garments[4..=5]`.
+    pub const fn pack_hands(crown: u8, right: u8, left: u8) -> (u8, u8) {
+        let b4 = (crown & 0x0F)
+            | (((right >> 4) & 1) << 4)
+            | (((left >> 4) & 1) << 5)
+            | (((right >> 5) & 1) << 6)
+            | (((left >> 5) & 1) << 7);
+        let b5 = (right & 0x0F) | ((left & 0x0F) << 4);
+        (b4, b5)
+    }
+
+    /// Unpacks two 6-bit (`0..=63`) `(right, left)` hand item codes from `garments[4..=5]`.
+    pub const fn unpack_hands(b4: u8, b5: u8) -> (u8, u8) {
+        let right = (b5 & 0x0F) | (((b4 >> 4) & 1) << 4) | (((b4 >> 6) & 1) << 5);
+        let left = (b5 >> 4) | (((b4 >> 5) & 1) << 4) | (((b4 >> 7) & 1) << 5);
+        (right, left)
+    }
+
+    pub const fn held_codes(self) -> (u8, u8) {
+        Self::unpack_hands(self.garments[4], self.garments[5])
+    }
+
     pub fn transfer<T>(self, f: impl FnOnce([u8; 9], [u8; 4], PalmMolds) -> T) -> T {
         f(self.garments, self.regions, self.molds)
     }

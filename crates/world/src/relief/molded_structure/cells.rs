@@ -196,12 +196,13 @@ impl VoxelCells {
         self.cells.into_iter().flat_map(|(cell, list)| list.into_iter().map(move |shape| (cell, shape)))
     }
 
-    pub fn collect_spawn_points(&self, frame: &SurfaceFrame, out: &mut Vec<Vec3>) {
+    pub fn collect_medium_sites(&self, medium: BlockMedium, frame: &SurfaceFrame, out: &mut Vec<(Vec3, Vec3)>) {
+        let normal = frame.normal();
         for (&(u, v), list) in &self.cells {
             let (cx, cy) = GridCell::new(u, v).center();
             for block in list {
-                if block.block_medium() == BlockMedium::SpawnStone {
-                    out.push(frame.point_at(cx, cy, block.ceiling()));
+                if block.block_medium() == medium {
+                    out.push((frame.point_at(cx, cy, block.ceiling()), normal));
                 }
             }
         }

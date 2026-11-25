@@ -7,6 +7,7 @@ mod offworld_sync;
 mod passport_identity;
 mod sector_sharding;
 mod simultaneous;
+mod sky_signals;
 mod survivor_persistence;
 mod vacuum_chat;
 mod wildlife;
@@ -192,6 +193,7 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
         craft: world::PilotCraft::Pedestrian,
         frame: world::CosmicFrame::earth(),
         berth: world::VesselBerth::planetary(),
+        sky_watch: false,
     };
     pulse.inscribe(&mut payload);
     seal.seal(cid, &payload, &mut frame);

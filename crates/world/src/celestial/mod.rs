@@ -11,6 +11,7 @@ mod kepler;
 mod lunar;
 mod orbital_fleet;
 mod proportions;
+mod sky_signal;
 mod spin;
 mod translated;
 
@@ -27,11 +28,14 @@ pub use self::catalog::{
 };
 pub use self::ephemeris::{BodyKinematics, BodySnapshot, SolarEphemeris};
 pub use self::gravity::{BinaryGravity, RadialWell};
-pub use self::heliosphere::{ActiveVicinity, AwakenedBody, HeliosphereWorld, VicinityCache};
+pub use self::heliosphere::{
+    ActiveVicinity, AwakenedBody, HeliosphereWorld, VicinityCache, OFFWORLD_IDLE_TTL_SECS,
+};
 pub use self::kepler::{EllipticShape, KeplerAnomaly, OrbitElements, OrbitalLocus, OrbitalPlane};
 pub use self::lunar::{LunarCraterRelief, LunarWorld};
 pub use self::orbital_fleet::OrbitalFleetWorld;
 pub use self::proportions::{BeltAndReach, SolarProportions};
+pub use self::sky_signal::{SignalKind, SkySignal};
 pub use self::spin::{ApexSpin, PlanetarySpin};
 pub use self::translated::TranslatedWorld;
 

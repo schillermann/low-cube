@@ -54,7 +54,7 @@ impl WardCredential {
 pub struct WardVitals {
     ledger: (u32, u32),
     cadence: (f32, f32),
-    cursors: (GoreStamp, usize),
+    cursors: (GoreStamp, usize, bool),
     credential: WardCredential,
 }
 
@@ -63,7 +63,7 @@ impl WardVitals {
     pub const fn with_credential(
         ledger: (u32, u32),
         cadence: (f32, f32),
-        cursors: (GoreStamp, usize),
+        cursors: (GoreStamp, usize, bool),
         credential: WardCredential,
     ) -> Self {
         Self { ledger, cadence, cursors, credential }
@@ -73,7 +73,7 @@ impl WardVitals {
         Self::with_credential(
             ledger,
             cadence,
-            (gore, sight_cursor),
+            (gore, sight_cursor, false),
             WardCredential::new([0u8; 32], Callsign::unnamed(), SatchelManifest::starter_kit()),
         )
     }
@@ -90,7 +90,7 @@ impl WardVitals {
         Self::with_credential(
             (0, INITIAL_STARTER_BLOCKS),
             (MAX_DIG_BURST_TOKENS, 0.0),
-            (GoreStamp::calm(), 0),
+            (GoreStamp::calm(), 0, false),
             WardCredential::new(pubkey, callsign, manifest),
         )
     }
@@ -133,6 +133,8 @@ impl WardVitals {
     pub const fn gore_stamp(&self) -> GoreStamp { self.cursors.0 }
     pub fn record_gore(&mut self, impulse: Vec3) { self.cursors.0 = self.cursors.0.advanced(impulse); }
     pub fn sight_cursor_mut(&mut self) -> &mut usize { &mut self.cursors.1 }
+    pub const fn sky_watch(&self) -> bool { self.cursors.2 }
+    pub fn update_sky_watch(&mut self, active: bool) { self.cursors.2 = active; }
     pub const fn guest_pubkey(&self) -> [u8; 32] { self.credential.pubkey() }
     pub const fn callsign(&self) -> Callsign { self.credential.callsign() }
     pub const fn manifest(&self) -> SatchelManifest { self.credential.manifest() }

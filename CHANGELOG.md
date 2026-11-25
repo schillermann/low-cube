@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.122.0] - 2026-11-25
+
+### Added
+- Added telescope `FusionDriveStar`s, orbital line-of-sight `LaserBeacon`s, centralized `PresenceAttire` 6-bit hand packing (`0..=63`), and `OffworldVault` Idle-TTL cold `SectorSnapshot` RAM eviction:
+  - `SkySignal` & `SignalKind` (`FusionDriveStar` vs. `OpticalBeacon` in `crates/world/src/celestial/sky_signal.rs`, `11` bytes on wire), `SkyHorizon` (`crates/sanctuary/src/sky_signals.rs`), `PulseCodec` (`crates/sanctuary/src/envelope/pulse_codec.rs` with `0`-byte trailers when idle), `CompanionPortal::sync_sky_watch`, and `EmbodiedAvatar::sync_world_presence` (`6×/24×` `OpticZoom` detection): streams up to `4` bright cyan-white cruciform `FusionDriveStar`s (`> 2.4 km` distant burning `FusionTorch` ships) strictly to vacuum/orbital observers or nighttime surface observers actively peering through a `6×/24×` camera into their open sky hemisphere (`0` extra wire bytes for daytime, underground, or unzoomed players; `crates/sanctuary/src/tests/sky_signals.rs`).
+  - `BlockMedium::LaserBeacon` / `LaserBeaconMesh` (`code 26` in `crates/world/src/block/forensic_blocks.rs` & `timber_grain/`), `HeldRelic::LaserBeacon` (`code 36`, `ArtisanTome` recipe `#24`: `2 GoldOre + 1 CopperOre`), `PresenceAttire::pack_hands` / `unpack_hands` (`crates/world/src/presence/attire.rs`, `0` extra wire bytes), `SectorSnapshot::collect_medium_sites`, and `SpawnBeacons::optical_beacons` (`crates/sanctuary/src/admin_ward.rs`): renders sculpted emerald optical beacons locally and projects pinpoint orbital `OpticalBeacon` markers (`160 m .. 65 km`) strictly above the beacon's `ClimateZone` tangent horizon plane (`0` extra wire bytes to other `ClimateZone`s and behind the planet) in both singleplayer (`HeliosphereWorld::emit_cosmic_field`) and multiplayer (`RemotePlanet::emit_cosmic_field`).
+  - `OFFWORLD_IDLE_TTL_SECS` (`180.0 s`) and `OffworldVault::evict_to_cold` (`crates/world/src/celestial/heliosphere/vault.rs` & `vicinity.rs`): folds modified sectors of uninhabited moons and `BeltRock` asteroids into compact raycast-free `WorldFact::SectorSnapshot`s after `180 s` idle (or longest-idle at the `32`-body pool cap), drops the `CubePlanet` instance from RAM (`0 Bytes`), scans cold `SectorSnapshot`s without waking `CubePlanet`s, and rehydrates identically on return (`crates/world/src/offworld_eviction_tests.rs`).
+
+### Changed
+- Updated reference documentation across `docs/ROADMAP.md`, `docs/BLOCKS.md`, `docs/MULTIPLAYER.md`, `server.toml`, `ARCHITECTURE_REFLECTION.md`, and `MASSIVE_MULTIPLAYER_DISCUSSION.md` to match the `v0.122.0` architecture (`<= 300` lines, `<= 4` fields, 37 `HeldRelic` items, `SurvivorStore`, `ChatMedium`, `SkyHorizon`, and cold `OffworldVault` eviction).
+
 ## [0.121.0] - 2026-11-25
 
 ### Added

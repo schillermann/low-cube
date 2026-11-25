@@ -187,8 +187,8 @@ impl ReliefElevation for TerracedRelief {
         self.molds.placed_camera_tripod(frame)
     }
 
-    fn collect_spawn_points(&self, frame: &SurfaceFrame, out: &mut Vec<Vec3>) {
-        self.molds.collect_spawn_points(frame, out);
+    fn collect_medium_sites(&self, medium: BlockMedium, frame: &SurfaceFrame, out: &mut Vec<(Vec3, Vec3)>) {
+        self.molds.collect_medium_sites(medium, frame, out);
     }
 
     fn lower_rig_at(&mut self, u: i32, v: i32) -> bool {

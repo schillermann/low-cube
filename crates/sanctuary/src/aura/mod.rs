@@ -210,7 +210,9 @@ impl HostAura {
     pub fn fleet_mut(&mut self) -> &mut FleetLedger { &mut self.fleet }
     pub const fn wildlife(&self) -> &HostSounder { &self.wildlife }
     pub fn wildlife_mut(&mut self) -> &mut HostSounder { &mut self.wildlife }
+    pub const fn beacons(&self) -> &SpawnBeacons { &self.events.beacons }
     pub fn beacons_mut(&mut self) -> &mut SpawnBeacons { &mut self.events.beacons }
+    pub const fn fact_index(&self) -> &SpatialFactIndex { &self.events.fact_index }
     pub fn fact_index_mut(&mut self) -> &mut SpatialFactIndex { &mut self.events.fact_index }
 
     pub fn push_host_craft_with_speed(&self, out: &mut Vec<(CosmicFrame, DrivenCraft, f32)>) {

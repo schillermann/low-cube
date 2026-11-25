@@ -127,6 +127,8 @@ impl AvatarPresence for EmbodiedAvatar {
 
     fn sync_world_presence(&self, world: &mut dyn PlanetaryWorld) {
         world.sync_pilot_craft(self.body.pilot_craft());
+        let sky_watch = self.body.hull_camera_lens().is_some_and(|(_, _, _, zoom)| zoom > 1.5);
+        world.sync_sky_watch(sky_watch);
         let (pres, berth) = self.body.berth_presence(self.current_presence(), world);
         world.sync_berth_presence(pres, berth);
     }

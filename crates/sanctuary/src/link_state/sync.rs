@@ -9,13 +9,13 @@ use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
 use crate::glide::SmoothRoster;
 use crate::seal::SessionSeal;
-use super::arrival::{WelcomeArrival, WelcomeSpawn};
+use super::arrival::WelcomeArrival;
 
 const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;
 
 /// Synchronized chronicle cursor, smoothly interpolated companion roster, avatar + berth + frame, and arrival (`<= 4` fields).
 pub struct LinkSync {
-    cursors: (u32, f32),
+    cursors: (u32, f32, bool),
     roster: SmoothRoster,
     local_avatar: (CompanionPresence, PilotCraft, CosmicFrame, VesselBerth),
     arrival: WelcomeArrival,
@@ -24,26 +24,12 @@ pub struct LinkSync {
 impl LinkSync {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn with_arrival(
-        cursors: (u32, f32),
+        cursors: (u32, f32, bool),
         roster: SmoothRoster,
         local_avatar: (CompanionPresence, PilotCraft, CosmicFrame, VesselBerth),
         arrival: WelcomeArrival,
     ) -> Self {
         Self { cursors, roster, local_avatar, arrival }
-    }
-
-    pub const fn with_spawn(
-        cursors: (u32, f32),
-        roster: SmoothRoster,
-        local_avatar: (CompanionPresence, PilotCraft),
-        welcome_spawn: WelcomeSpawn,
-    ) -> Self {
-        Self::with_arrival(
-            cursors,
-            roster,
-            (local_avatar.0, local_avatar.1, CosmicFrame::earth(), VesselBerth::planetary()),
-            WelcomeArrival::with_spawn(welcome_spawn),
-        )
     }
 
     pub const fn new(
@@ -53,7 +39,7 @@ impl LinkSync {
         local_avatar: (CompanionPresence, PilotCraft),
     ) -> Self {
         Self::with_arrival(
-            (ack_seq, pulse_clock),
+            (ack_seq, pulse_clock, false),
             roster,
             (local_avatar.0, local_avatar.1, CosmicFrame::earth(), VesselBerth::planetary()),
             WelcomeArrival::natural(),
@@ -112,6 +98,13 @@ impl LinkSync {
         self.local_avatar.1 = craft.with_slot(cid);
     }
 
+    pub fn update_sky_watch(&mut self, active: bool) {
+        if self.cursors.2 != active {
+            self.cursors.2 = active;
+            self.cursors.1 = 1.0;
+        }
+    }
+
     pub fn assign_slot(&mut self, cid: u32) {
         self.local_avatar.0 = self.local_avatar.0.with_slot(cid);
         self.local_avatar.1 = self.local_avatar.1.with_slot(cid);
@@ -144,6 +137,7 @@ impl LinkSync {
             craft: self.local_avatar.1,
             frame: self.local_avatar.2,
             berth: self.local_avatar.3,
+            sky_watch: self.cursors.2,
         };
         pulse.inscribe(&mut payload);
         seal.seal(cid, &payload, &mut frame);
@@ -222,8 +216,9 @@ impl LinkSync {
 
     pub fn absorb_standby_envelope(&mut self, env: SanctuaryEnvelope, deferred: &mut VecDeque<SanctuaryEnvelope>) {
         match env {
-            SanctuaryEnvelope::HostPulse { total_facts, cracks, companions, crafts, berths, wildlife } => {
+            SanctuaryEnvelope::HostPulse { total_facts, cracks, companions, crafts, berths, signals, wildlife } => {
                 self.roster.reconcile_snapshot_with_berths(&companions, &crafts, &berths);
+                self.roster.reconcile_signals(&signals);
                 self.roster.reconcile_wildlife(wildlife);
                 if !cracks.is_empty() && deferred.len() < 64 {
                     deferred.push_back(SanctuaryEnvelope::HostPulse {
@@ -232,6 +227,7 @@ impl LinkSync {
                         companions: Vec::new(),
                         crafts: Vec::new(),
                         berths: Vec::new(),
+                        signals: Vec::new(),
                         wildlife: world::WildlifePulse::calm(),
                     });
                 }
@@ -270,8 +266,9 @@ impl LinkSync {
                 }
                 changed
             }
-            SanctuaryEnvelope::HostPulse { cracks, companions, crafts, berths, wildlife, .. } => {
+            SanctuaryEnvelope::HostPulse { cracks, companions, crafts, berths, signals, wildlife, .. } => {
                 self.roster.reconcile_snapshot_with_berths(&companions, &crafts, &berths);
+                self.roster.reconcile_signals(&signals);
                 self.roster.reconcile_wildlife(wildlife);
                 let mut changed = false;
                 for crack in cracks {

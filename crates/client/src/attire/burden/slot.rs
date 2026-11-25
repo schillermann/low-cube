@@ -77,6 +77,7 @@ impl SlotBurden {
             | HeldRelic::CabinSeat
             | HeldRelic::RocketCamera
             | HeldRelic::BlackBoxPod
+            | HeldRelic::LaserBeacon
             | HeldRelic::BoarMeat => WeightGrade::Moderate,
             HeldRelic::QuarriedStone
             | HeldRelic::IronPickaxe

@@ -185,7 +185,12 @@ impl<R: FaunaRealm> PlanetaryWorld for WoodlandPlanet<R> {
     fn surface_contact(&self, probe: Vec3, clearance: f32) -> world::SurfaceContact { self.origin.surface_contact(probe, clearance) }
     fn canopy_drag(&self, position: Vec3) -> f32 { self.origin.canopy_drag(position) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.origin.placed_camera_tripod() }
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.origin.collect_spawn_points(out); }
+    fn collect_medium_sites(&self, medium: world::BlockMedium, out: &mut Vec<(Vec3, Vec3)>) {
+        self.origin.collect_medium_sites(medium, out);
+    }
+    fn collect_offworld_medium_sites(&self, medium: world::BlockMedium, out: &mut Vec<(world::BodyId, Vec3, Vec3)>) {
+        self.origin.collect_offworld_medium_sites(medium, out);
+    }
     fn assigned_spawn_point(&self) -> Option<Vec3> { self.origin.assigned_spawn_point() }
     fn assigned_survivor(&self) -> Option<world::SurvivorWelcome> { self.origin.assigned_survivor() }
     fn anchor_to_frame(&mut self, frame: world::CosmicFrame, local_pos: Vec3) {

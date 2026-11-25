@@ -20,7 +20,10 @@ impl TerrainMesh for RemotePlanet {
         self.world.drain_stale_meadow_patch(center, ring, target)
     }
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) { self.world.emit_meadow_around(center, view_dir, target); }
-    fn emit_cosmic_field(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.world.emit_cosmic_field(cone, target); }
+    fn emit_cosmic_field(&self, cone: SightCone, target: &mut dyn MeshTarget) {
+        self.world.emit_cosmic_field(cone, target);
+        self.journal.emit_sky_signals(cone, target);
+    }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.world.visible_slice_mask(position) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.world.drain_disclosures(out); }
 }
@@ -111,6 +114,7 @@ impl CompanionPortal for RemotePlanet {
         self.journal.sync_local_berth_presence(presence, berth);
     }
     fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.journal.sync_local_craft(craft); }
+    fn sync_sky_watch(&mut self, active: bool) { self.journal.sync_sky_watch(active); }
     fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.journal.companions(out); }
     fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.journal.crafts(out); }
     fn blend_companions(&mut self, subtick_secs: f32) { self.journal.blend_subtick(subtick_secs); }
@@ -144,7 +148,12 @@ impl PlanetaryWorld for RemotePlanet {
     }
     fn canopy_drag(&self, position: Vec3) -> f32 { self.world.canopy_drag(position) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.world.placed_camera_tripod() }
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.world.collect_spawn_points(out); }
+    fn collect_medium_sites(&self, medium: world::BlockMedium, out: &mut Vec<(Vec3, Vec3)>) {
+        self.world.collect_medium_sites(medium, out);
+    }
+    fn collect_offworld_medium_sites(&self, medium: world::BlockMedium, out: &mut Vec<(world::BodyId, Vec3, Vec3)>) {
+        self.world.collect_offworld_medium_sites(medium, out);
+    }
     fn assigned_spawn_point(&self) -> Option<Vec3> {
         self.journal.assigned_spawn().or_else(|| self.world.assigned_spawn_point())
     }

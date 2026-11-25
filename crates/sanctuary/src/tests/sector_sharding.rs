@@ -264,6 +264,7 @@ fn test_parallel_inbox_authenticates_24_companion_burst_in_deterministic_order()
             craft: PilotCraft::Pedestrian,
             frame: CosmicFrame::earth(),
             berth: VesselBerth::planetary(),
+            sky_watch: false,
         }
         .inscribe(&mut plain);
         guest_seal.seal(cid, &plain, &mut wire);

@@ -57,6 +57,24 @@ impl AwakenedBody {
         (pos - self.center).abs().max_element() <= self.id_and_half.1 + pad
     }
 
+    pub fn within_vicinity(&self, probe: Vec3) -> bool {
+        let pad = if self.id_and_half.0.belt_slot().is_some() {
+            96.0
+        } else {
+            (self.id_and_half.1 * 26.0).clamp(144.0, 1_050.0)
+        };
+        self.near(probe, pad)
+    }
+
+    pub fn recenter_to(&mut self, frame: crate::CosmicFrame, snaps: &[super::super::ephemeris::BodySnapshot]) {
+        let id = self.id_and_half.0;
+        if frame.anchored_body() == Some(id) {
+            self.relocate(Vec3::ZERO);
+        } else if let Some(snap) = snaps.iter().find(|s| s.id() == id) {
+            self.relocate(snap.center().as_vec3());
+        }
+    }
+
     pub fn surface_gap(&self, pos: Vec3) -> f32 {
         (pos - self.center).abs().max_element() - self.id_and_half.1
     }

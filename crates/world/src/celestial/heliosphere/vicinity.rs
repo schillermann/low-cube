@@ -50,9 +50,9 @@ impl VicinityCache {
         self.slots[0].body().is_some() || self.slots[1].body().is_some()
     }
 
-    pub fn warm_body_count(&self) -> usize {
-        self.vault.warm_body_count()
-    }
+    pub const fn authoritative(&self) -> bool { self.vault.authoritative() }
+    pub fn warm_body_count(&self) -> usize { self.vault.warm_body_count() }
+    pub fn cold_chronicle_count(&self, id: BodyId) -> usize { self.vault.cold_chronicle_count(id) }
 
     pub const fn slot_body(&self, idx: usize) -> Option<&AwakenedBody> {
         if idx < 2 { self.slots[idx].body() } else { None }
@@ -118,15 +118,7 @@ impl VicinityCache {
 
     fn prune_distant(&mut self, probe: Vec3) {
         for idx in 0..2 {
-            let keep = self.slots[idx].body().is_some_and(|b| {
-                let pad = if b.body_id().belt_slot().is_some() {
-                    96.0
-                } else {
-                    (b.half_size() * 26.0).clamp(144.0, 1_050.0)
-                };
-                b.near(probe, pad)
-            });
-            if !keep {
+            if !self.slots[idx].body().is_some_and(|b| b.within_vicinity(probe)) {
                 self.evict_slot(idx);
             }
         }
@@ -152,17 +144,10 @@ impl VicinityCache {
         }
         let mut best_slot: Option<(usize, f32)> = None;
         for idx in 0..2 {
-            if let Some(b) = self.slots[idx].body() {
-                let pad = if b.body_id().belt_slot().is_some() {
-                    96.0
-                } else {
-                    (b.half_size() * 26.0).clamp(144.0, 1_050.0)
-                };
-                if b.near(probe, pad) {
-                    let gap = b.surface_gap(probe);
-                    if best_slot.map_or(true, |(_, g)| gap < g) {
-                        best_slot = Some((idx, gap));
-                    }
+            if let Some(b) = self.slots[idx].body().filter(|b| b.within_vicinity(probe)) {
+                let gap = b.surface_gap(probe);
+                if best_slot.map_or(true, |(_, g)| gap < g) {
+                    best_slot = Some((idx, gap));
                 }
             }
         }
@@ -231,12 +216,8 @@ impl VicinityCache {
         let snaps = ephemeris.snapshot_all(0.0);
         let frame = ephemeris.frame();
         for slot in &mut self.slots {
-            let Some(b) = slot.body_mut() else { continue };
-            let id = b.body_id();
-            if frame.anchored_body() == Some(id) {
-                b.relocate(Vec3::ZERO);
-            } else if let Some(snap) = snaps.iter().find(|s| s.id() == id) {
-                b.relocate(snap.center().as_vec3());
+            if let Some(b) = slot.body_mut() {
+                b.recenter_to(frame, &snaps);
             }
         }
     }
@@ -275,11 +256,36 @@ impl VicinityCache {
         self.vault.collect_all_snapshots(proportions, self.active_ids(), out);
     }
 
+    pub fn collect_offworld_medium_sites(
+        &self,
+        medium: crate::BlockMedium,
+        proportions: SolarProportions,
+        out: &mut Vec<(BodyId, Vec3, Vec3)>,
+    ) {
+        use crate::PlanetaryWorld as _;
+        let mut local = Vec::new();
+        for slot in &self.slots {
+            if let Some(b) = slot.body() {
+                local.clear();
+                b.planet().inner().collect_medium_sites(medium, &mut local);
+                out.extend(local.drain(..).map(|(p, n)| (b.body_id(), p, n)));
+            }
+        }
+        self.vault.collect_medium_sites(medium, proportions, self.active_ids(), out);
+    }
+
     pub fn step_active_bodies(&mut self, dt: f32, active: &[BodyId]) -> bool {
+        if self.vault.authoritative() {
+            for idx in 0..2 {
+                if self.slots[idx].body().is_some_and(|b| !active.contains(&b.body_id())) {
+                    self.evict_slot(idx);
+                }
+            }
+        }
         let mut changed = false;
         for slot in &mut self.slots {
             if let Some(b) = slot.body_mut() {
-                let mask = if active.contains(&b.body_id()) { 0b0011_1111 } else { 0 };
+                let mask = if !self.vault.authoritative() || active.contains(&b.body_id()) { 0b0011_1111 } else { 0 };
                 changed |= crate::PlanetaryWorld::step_active_zones(b.planet_mut(), dt, mask, active);
             }
         }

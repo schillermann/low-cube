@@ -66,6 +66,7 @@ fn test_vessel_deck_curve_bijection_and_zero_overhead_planetary_wire_footprint()
         craft: PilotCraft::Pedestrian,
         frame: CosmicFrame::earth(),
         berth: VesselBerth::planetary(),
+        sky_watch: false,
     };
     env_earth.inscribe(&mut earth_pulse);
     assert_eq!(SanctuaryEnvelope::decode(&earth_pulse), Some(env_earth));

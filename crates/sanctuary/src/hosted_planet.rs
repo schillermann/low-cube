@@ -117,7 +117,12 @@ impl PlanetaryWorld for HostedPlanet {
     fn surface_contact(&self, probe: Vec3, clearance: f32) -> world::SurfaceContact { self.host.world().surface_contact(probe, clearance) }
     fn canopy_drag(&self, position: Vec3) -> f32 { self.host.world().canopy_drag(position) }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.host.world().placed_camera_tripod() }
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.host.world().collect_spawn_points(out); }
+    fn collect_medium_sites(&self, medium: world::BlockMedium, out: &mut Vec<(Vec3, Vec3)>) {
+        self.host.world().collect_medium_sites(medium, out);
+    }
+    fn collect_offworld_medium_sites(&self, medium: world::BlockMedium, out: &mut Vec<(world::BodyId, Vec3, Vec3)>) {
+        self.host.world().collect_offworld_medium_sites(medium, out);
+    }
     fn step_surface(&mut self, dt: f32) -> bool {
         let regrown = self.host.step_active_surface(dt);
         let net_changed = self.host.pump_network(dt);

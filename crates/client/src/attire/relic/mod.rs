@@ -48,10 +48,11 @@ pub enum HeldRelic {
     CarbonSilicate,
     VitrifiedBasalt,
     BlackBoxPod,
+    LaserBeacon,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 36;
+    pub const COUNT: usize = 37;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -96,7 +97,8 @@ impl HeldRelic {
             32 => Self::TitaniumHull,
             33 => Self::CarbonSilicate,
             34 => Self::VitrifiedBasalt,
-            _ => Self::BlackBoxPod,
+            35 => Self::BlackBoxPod,
+            _ => Self::LaserBeacon,
         }
     }
 
@@ -138,6 +140,7 @@ impl HeldRelic {
             Self::CarbonSilicate => 33,
             Self::VitrifiedBasalt => 34,
             Self::BlackBoxPod => 35,
+            Self::LaserBeacon => 36,
         }
     }
 
@@ -188,7 +191,8 @@ impl HeldRelic {
     }
 
     pub const fn rotatable_in_palm(self) -> bool {
-        (self.placeable_block() && !matches!(self, Self::VehicleBlueprint | Self::BlackBoxPod))
+        (self.placeable_block()
+            && !matches!(self, Self::VehicleBlueprint | Self::BlackBoxPod | Self::LaserBeacon))
             || self.field_camera()
     }
 

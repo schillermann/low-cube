@@ -43,6 +43,10 @@ impl<W> TranslatedWorld<W> {
         Self { origin, center }
     }
 
+    pub const fn inner(&self) -> &W {
+        &self.origin
+    }
+
     pub fn inner_mut(&mut self) -> &mut W {
         &mut self.origin
     }
@@ -206,10 +210,10 @@ impl<W: PlanetaryWorld> PlanetaryWorld for TranslatedWorld<W> {
         let (hub, fwd, up) = self.origin.placed_camera_tripod()?;
         Some((hub + self.center, fwd, up))
     }
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
+    fn collect_medium_sites(&self, medium: crate::BlockMedium, out: &mut Vec<(Vec3, Vec3)>) {
         let start = out.len();
-        self.origin.collect_spawn_points(out);
-        for p in &mut out[start..] {
+        self.origin.collect_medium_sites(medium, out);
+        for (p, _) in &mut out[start..] {
             *p += self.center;
         }
     }

@@ -151,8 +151,8 @@ impl OverhangMolds {
         self.decorated().tripod_hub(frame)
     }
 
-    pub fn collect_spawn_points(&self, frame: &SurfaceFrame, out: &mut Vec<Vec3>) {
-        self.world_blocks.collect_spawn_points(frame, out);
+    pub fn collect_medium_sites(&self, medium: BlockMedium, frame: &SurfaceFrame, out: &mut Vec<(Vec3, Vec3)>) {
+        self.world_blocks.collect_medium_sites(medium, frame, out);
     }
 
     pub fn remove_layer(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {

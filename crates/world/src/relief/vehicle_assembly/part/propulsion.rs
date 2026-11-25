@@ -47,7 +47,7 @@ impl<'a> PartPropulsion<'a> {
     pub(super) fn part_mass(&self) -> f32 {
         match self.shape.block_medium() {
             BlockMedium::CabinSeat | BlockMedium::FlightConsole | BlockMedium::FusionTorch => CORE_MODULE_MASS,
-            BlockMedium::BlackBoxPod => BLACK_BOX_MASS,
+            BlockMedium::BlackBoxPod | BlockMedium::LaserBeacon => BLACK_BOX_MASS,
             BlockMedium::RocketCamera => OUTBOARD_POD_MASS,
             BlockMedium::RocketNozzle => match self.nozzle_axis() {
                 Some(axis) if axis.attitude_pod() => OUTBOARD_POD_MASS,

@@ -113,6 +113,7 @@ pub trait CompanionPortal {
         self.sync_presence(presence);
     }
     fn sync_pilot_craft(&mut self, _craft: PilotCraft) {}
+    fn sync_sky_watch(&mut self, _active: bool) {}
     fn active_companions(&self, _out: &mut Vec<CompanionPresence>) {}
     fn active_crafts(&self, _out: &mut Vec<DrivenCraft>) {}
     fn blend_companions(&mut self, _subtick_secs: f32) {}
@@ -139,7 +140,16 @@ pub trait PlanetaryWorld:
     }
     fn canopy_drag(&self, _position: Vec3) -> f32 { 0.0 }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { None }
-    fn collect_spawn_points(&self, _out: &mut Vec<Vec3>) {}
+    fn collect_medium_sites(&self, _medium: BlockMedium, _out: &mut Vec<(Vec3, Vec3)>) {}
+    fn collect_offworld_medium_sites(&self, _medium: BlockMedium, _out: &mut Vec<(crate::BodyId, Vec3, Vec3)>) {}
+    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
+        let mut sites = Vec::new();
+        self.collect_medium_sites(BlockMedium::SpawnStone, &mut sites);
+        out.extend(sites.into_iter().map(|(p, _)| p));
+    }
+    fn collect_optical_beacons(&self, out: &mut Vec<(Vec3, Vec3)>) {
+        self.collect_medium_sites(BlockMedium::LaserBeacon, out);
+    }
     fn assigned_spawn_point(&self) -> Option<Vec3> {
         let mut pts = Vec::new();
         self.collect_spawn_points(&mut pts);

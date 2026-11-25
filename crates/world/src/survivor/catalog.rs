@@ -1,9 +1,9 @@
 use crate::{BlockMedium, SurfaceFind};
 
-/// Total number of held/stowed item codes (`0..=35`, matching `HeldRelic::COUNT` and 6-bit palm wire span).
-pub const RELIC_SLOT_COUNT: usize = 36;
+/// Total number of held/stowed item codes (`0..=36`, matching `HeldRelic::COUNT` and 6-bit palm wire span).
+pub const RELIC_SLOT_COUNT: usize = 37;
 
-/// Domain catalog mapping `BlockMedium`, `SurfaceFind`, config tokens, and 24 crafting recipes to item codes (`<= 4` fields).
+/// Domain catalog mapping `BlockMedium`, `SurfaceFind`, config tokens, and 25 crafting recipes to item codes (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RelicCatalog {
     code: u8,
@@ -60,6 +60,7 @@ impl RelicCatalog {
             33 => "carbon_silicate",
             34 => "vitrified_basalt",
             35 => "black_box_pod",
+            36 => "laser_beacon",
             _ => "empty",
         }
     }
@@ -91,6 +92,7 @@ impl RelicCatalog {
             BlockMedium::CarbonSilicate => 33,
             BlockMedium::VitrifiedBasalt => 34,
             BlockMedium::BlackBoxPod => 35,
+            BlockMedium::LaserBeacon => 36,
         }
     }
 
@@ -144,7 +146,7 @@ impl RelicCatalog {
             "pedalblock" | "pedalcluster" | "pedals" | "pedal" => Some(20),
             "copperore" | "copper" | "kupfer" => Some(21),
             "ironore" | "iron" | "eisen" => Some(22),
-            "goldore" | "gold" => Some(23),
+            "goldore" | "gold" | "golderz" => Some(23),
             "boarmeat" | "meat" | "venison" | "fleisch" | "wildschwein" => Some(24),
             "blueprint" | "blueprintblock" | "vehicleblueprint" | "bauplan" => Some(27),
             "spawnstone" | "spawnblock" | "spawnpoint" | "arrivalstone" => Some(29),
@@ -156,11 +158,12 @@ impl RelicCatalog {
             "carbonsilicate" | "carbonlace" | "silicatelace" | "cermet" | "keramik" => Some(33),
             "vitrifiedbasalt" | "fusedbasalt" | "scorchbasalt" | "schmelzbasalt" => Some(34),
             "blackboxpod" | "blackbox" | "flightblackbox" | "flugschreiber" => Some(35),
+            "laserbeacon" | "opticalbeacon" | "leuchtfeuer" | "beacon" => Some(36),
             _ => None,
         }
     }
 
-    /// Authoritative recipe table `(product_code, batch_yield, [(ing0, qty0), (ing1, qty1)])` for `0..24`.
+    /// Authoritative recipe table `(product_code, batch_yield, [(ing0, qty0), (ing1, qty1)])` for `0..25`.
     pub const fn recipe_spec(recipe_idx: u8) -> Option<(u8, u32, [(u8, u32); 2])> {
         match recipe_idx {
             0 => Some((4, 1, [(8, 1), (9, 1)])),
@@ -187,6 +190,7 @@ impl RelicCatalog {
             21 => Some((32, 4, [(22, 2), (12, 1)])),
             22 => Some((33, 4, [(23, 1), (9, 2)])),
             23 => Some((35, 1, [(22, 2), (21, 1)])),
+            24 => Some((36, 1, [(23, 2), (21, 1)])),
             _ => None,
         }
     }

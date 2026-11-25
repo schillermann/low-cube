@@ -12,6 +12,7 @@ use crate::{CompanionPortal, CubePlanet, GravityField, PlanetaryWorld, TerrainMe
 use super::catalog::SurfaceNature;
 use super::ephemeris::SolarEphemeris;
 pub use self::awakened::{ActiveVicinity, AwakenedBody};
+pub use self::vault::OFFWORLD_IDLE_TTL_SECS;
 pub use self::vicinity::VicinityCache;
 
 /// Scaled solar-system world uniting Earth (`0..6`), dual-slot `VicinityCache` (`6..12` & `18..24`), `NBodyGravity`, and `AsteroidBelt`.
@@ -33,6 +34,14 @@ impl HeliosphereWorld {
 
     pub fn assembled(earth: CubePlanet, ephemeris: SolarEphemeris, authoritative: bool) -> Self {
         Self::new(earth, ephemeris, RefCell::new(VicinityCache::empty(authoritative)))
+    }
+
+    pub fn warm_offworld_count(&self) -> usize {
+        self.vicinity.borrow().warm_body_count()
+    }
+
+    pub fn cold_chronicle_count(&self, id: crate::BodyId) -> usize {
+        self.vicinity.borrow().cold_chronicle_count(id)
     }
 
     pub(super) fn near_earth(&self, pos: Vec3) -> bool {
@@ -147,8 +156,14 @@ impl PlanetaryWorld for HeliosphereWorld {
         })
     }
 
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
-        self.earth.collect_spawn_points(out);
+    fn collect_medium_sites(&self, medium: crate::BlockMedium, out: &mut Vec<(Vec3, Vec3)>) {
+        self.earth.collect_medium_sites(medium, out);
+    }
+
+    fn collect_offworld_medium_sites(&self, medium: crate::BlockMedium, out: &mut Vec<(crate::BodyId, Vec3, Vec3)>) {
+        self.vicinity
+            .borrow()
+            .collect_offworld_medium_sites(medium, self.ephemeris.proportions(), out);
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {

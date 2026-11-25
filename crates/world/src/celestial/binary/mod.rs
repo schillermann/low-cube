@@ -217,9 +217,9 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
         self.home.placed_camera_tripod().or_else(|| self.moon.placed_camera_tripod())
     }
 
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) {
-        self.home.collect_spawn_points(out);
-        self.moon.collect_spawn_points(out);
+    fn collect_medium_sites(&self, medium: crate::BlockMedium, out: &mut Vec<(Vec3, Vec3)>) {
+        self.home.collect_medium_sites(medium, out);
+        self.moon.collect_medium_sites(medium, out);
     }
 
     fn step_surface(&mut self, dt: f32) -> bool {

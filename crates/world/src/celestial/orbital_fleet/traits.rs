@@ -39,6 +39,7 @@ impl<W: CompanionPortal> CompanionPortal for OrbitalFleetWorld<W> {
         self.origin.sync_berth_presence(presence, berth);
     }
     fn sync_pilot_craft(&mut self, craft: PilotCraft) { self.origin.sync_pilot_craft(craft); }
+    fn sync_sky_watch(&mut self, active: bool) { self.origin.sync_sky_watch(active); }
     fn active_companions(&self, out: &mut Vec<CompanionPresence>) { self.origin.active_companions(out); }
     fn active_crafts(&self, out: &mut Vec<DrivenCraft>) { self.origin.active_crafts(out); }
     fn blend_companions(&mut self, subtick_secs: f32) { self.origin.blend_companions(subtick_secs); }

@@ -55,16 +55,19 @@ impl AlienWorld {
         ReliefPalette::uniform(top, floor, wall)
     }
 
-    /// Builds a 6-face beveled `CubePlanet` scaled to `proportions` for `id` (`authoritative` controls live mineral veins).
-    pub fn build_body(id: BodyId, proportions: SolarProportions, authoritative: bool) -> (CubePlanet, f32) {
-        let blocks = if let Some(slot) = id.belt_slot() {
-            let tier = u32::from(slot & 0x3) % 3;
-            proportions.belt_rock_blocks(tier)
+    pub fn body_blocks(id: BodyId, proportions: SolarProportions) -> u32 {
+        if let Some(slot) = id.belt_slot() {
+            proportions.belt_rock_blocks(u32::from(slot & 0x3) % 3)
         } else if let Some(spec) = SolarCatalog::new().spec_for(id) {
             proportions.voxel_blocks(spec.physique().diameter_ratio())
         } else {
             32
-        };
+        }
+    }
+
+    /// Builds a 6-face beveled `CubePlanet` scaled to `proportions` for `id` (`authoritative` controls live mineral veins).
+    pub fn build_body(id: BodyId, proportions: SolarProportions, authoritative: bool) -> (CubePlanet, f32) {
+        let blocks = Self::body_blocks(id, proportions);
         let half_size = (blocks as f32) * 0.5;
         let divs = blocks * 2;
         let seed_bias = u64::from(id.raw_code()).wrapping_mul(0x9E37_79B9);

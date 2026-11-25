@@ -217,7 +217,9 @@ impl Face for ForestedFace {
 
     fn present_vessels(&self, sink: &mut dyn VesselSink) { self.origin.present_vessels(sink); }
     fn placed_camera_tripod(&self) -> Option<(Vec3, Vec3, Vec3)> { self.origin.placed_camera_tripod() }
-    fn collect_spawn_points(&self, out: &mut Vec<Vec3>) { self.origin.collect_spawn_points(out); }
+    fn collect_medium_sites(&self, medium: BlockMedium, out: &mut Vec<(Vec3, Vec3)>) {
+        self.origin.collect_medium_sites(medium, out);
+    }
     fn step_surface(&mut self, dt: f32) -> bool { self.origin.step_surface(dt) }
 
     fn step_flora(&mut self, dt: f32) -> bool {

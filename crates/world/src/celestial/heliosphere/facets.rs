@@ -132,6 +132,30 @@ impl TerrainMesh for HeliosphereWorld {
         let sun = snaps[0];
         AsteroidBelt::new(self.ephemeris.proportions(), self.ephemeris.epoch_secs())
             .emit_local_field(cone, sun.center(), sun.gm(), active_ids, target);
+        if !self.vicinity.borrow().authoritative() {
+            return;
+        }
+        let mut beacons = Vec::new();
+        if earth_voxel_active {
+            crate::PlanetaryWorld::collect_medium_sites(&self.earth, crate::BlockMedium::LaserBeacon, &mut beacons);
+        }
+        {
+            let vic = self.vicinity.borrow();
+            for slot in 0..2 {
+                if let Some(body) = vic.slot_body(slot) {
+                    crate::PlanetaryWorld::collect_medium_sites(body.planet(), crate::BlockMedium::LaserBeacon, &mut beacons);
+                }
+            }
+        }
+        for (b_pos, b_normal) in beacons.into_iter().take(16) {
+            let delta = viewer - b_pos;
+            let dist = delta.length();
+            if dist > 160.0 && delta.dot(b_normal) > 0.0 {
+                let dir = -delta / dist;
+                let elev = (delta.dot(b_normal) / dist).clamp(0.08, 1.0);
+                crate::SkySignal::optical_beacon(dir, dist * 0.001, elev).emit(cone, target);
+            }
+        }
     }
 
     fn visible_slice_mask(&self, position: Vec3) -> u32 {

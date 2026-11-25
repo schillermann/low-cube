@@ -42,10 +42,18 @@ Place an optional `server.toml` file in the same folder as `low-cube-server-wind
 [server]
 port = 27777
 
+[storage]
+journal = "sanctuary.wal"   # Persistent SSD write-ahead chronicle + <journal>.survivors vault
+
 [world]
-size = 1            # 1 = 128^3 blocks, 2 = 256^3 blocks
+size = 1                    # 1..=32 (1 = 128^3 blocks, 8 = 1024^3, 32 = 4096^3 = 100.7 km^2 Earth)
 cycle = 20
+
+[cosmos]
+asteroid_density = 1.0      # Mars-Jupiter Asteroid Belt (2.20..3.20 AU) density (0.0..=8.0)
 ```
+
+When `journal` is configured, the server automatically persists both terrain/fleet changes (via raycast-free `SectorSnapshot` compaction) and each player's inventory, equipped palms, and Hill-bubble logout position (keyed by their X25519 identity in `<journal>.survivors`). Uninhabited off-world moons and asteroids fold into cold `SectorSnapshot`s after `180 s` idle so server RAM stays flat across the entire solar system.
 
 See the [Server & Game Settings Guide](SETTINGS.md) for all world, gravity, and aurora options.
 
@@ -72,10 +80,12 @@ All six cube faces can be worked solo or cooperatively on the same face. Beneath
 
 | Ore | Geological Stratum | Weight Grade | Primary Crafting Uses (`C`) |
 |---|---|---|---|
-| **Copper Ore** | Upper-to-mid mantle (`2–4` layers below surface) | `WEIGHTY` | **Steering Wheel**, **Field Camera**, **Plane Engine** |
-| **Iron Ore** | Mid-to-deep mantle (`5+` layers below surface) | `WEIGHTY` | **Plane Engine**, **Rocket Engine** |
-| **Gold Ore** | Deep core boundary (`0–3` layers above core vault) | `HEAVY` | **Field Camera**, **Rocket Engine** |
+| **Copper Ore** | Upper-to-mid mantle (`2–4` layers below surface) | `WEIGHTY` | **Steering Wheel**, **Field Camera**, **Rocket Camera**, **Flight Console**, **Blackbox Pod**, **Laser Beacon** |
+| **Iron Ore** | Mid-to-deep mantle (`5+` layers below surface) | `WEIGHTY` | **Plane Engine**, **Rocket Nozzle**, **Fusion Torch**, **Blackbox Pod** |
+| **Gold Ore** | Deep core boundary (`0–3` layers above core vault) | `HEAVY` | **Field Camera**, **Flight Console**, **Rocket Nozzle**, **Fusion Torch**, **Rocket Camera**, **Laser Beacon** |
 
-### Fair-Play Protections
-- **X-Ray Proof**: Hidden ores do not exist on client machines until an adjacent shaft wall or floor block is physically excavated.
-- **Anti-Strip-Mining**: Mineral veins grow organically with finite yield budgets, and heavily strip-mined `16×16` sectors saturate—rewarding genuine exploration across mountains and planetary faces instead of blind grid-tunneling.
+### Fair-Play Protections & Hard-SciFi Space Telemetry
+- **X-Ray Proof & Horizon Isolation**: Hidden ores do not exist on client machines until an adjacent shaft wall or floor block is physically excavated, and terrain/companion packets are strictly isolated to each player's `160 m` local horizon (`0 Hz` across other `ClimateZone`s and planets).
+- **Anti-Strip-Mining**: Mineral veins grow organically with finite yield budgets, and heavily strip-mined `16×16` sectors saturate—rewarding genuine exploration across mountains, moons, and belt asteroids.
+- **Physical Voice, Cabin Intercom & Visor-Touch Chat (`Enter`)**: Acoustic voice carries `96 m` in atmospheres (`Earth`, `Venus`, `Titan`), short-range suit radio carries `32 m` in vacuum, multi-crew passengers aboard the same spacecraft share a full-cabin intercom at any speed, and prefixing a message with `~` (`~follow me`) restricts transmission to `1.85 m` helmet-touch conduction with zero radio leakage.
+- **Telescope Drive Stars & Orbital Laser Beacons**: Distant firing `FusionTorch` ships (`> 2.4 km`) appear as cyan-white drive stars in vacuum or when zooming into the night sky with a `6×/24×` hull camera (`F`), and placed `LaserBeacon` blocks shine up into orbit strictly above their local `ClimateZone` horizon plane (`0` extra wire bytes on the ground).

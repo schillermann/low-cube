@@ -74,6 +74,8 @@ impl GuestWard {
     }
     pub const fn ack_seq(&self) -> u32 { self.vitals.ack_seq() }
     pub const fn gore_stamp(&self) -> GoreStamp { self.vitals.gore_stamp() }
+    pub const fn sky_watch(&self) -> bool { self.vitals.sky_watch() }
+    pub fn update_sky_watch(&mut self, active: bool) { self.vitals.update_sky_watch(active); }
     pub fn record_gore(&mut self, impulse: Vec3) { self.vitals.record_gore(impulse); }
     pub fn presence(&self) -> CompanionPresence { self.glide.authoritative_presence() }
     pub fn anchor_position(&self) -> Vec3 { self.presence().transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos)) }
