@@ -31,7 +31,7 @@ pub use self::heliosphere::{ActiveVicinity, AwakenedBody, HeliosphereWorld, Vici
 pub use self::kepler::{EllipticShape, KeplerAnomaly, OrbitElements, OrbitalLocus, OrbitalPlane};
 pub use self::lunar::{LunarCraterRelief, LunarWorld};
 pub use self::orbital_fleet::OrbitalFleetWorld;
-pub use self::proportions::{BeltAndReach, BodyRatios, SolarProportions};
+pub use self::proportions::{BeltAndReach, SolarProportions};
 pub use self::spin::{ApexSpin, PlanetarySpin};
 pub use self::translated::TranslatedWorld;
 

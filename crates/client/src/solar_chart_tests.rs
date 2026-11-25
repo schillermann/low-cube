@@ -80,7 +80,7 @@ fn build_fusion_torchship(world: &mut dyn PlanetaryWorld) -> Vec3 {
 fn test_system_map_key_m_opens_clicks_mars_and_jupiter_and_plots_curved_slingshot_courses() {
     assert_eq!(ActionBindings::seeded().trigger_for(ControlAction::SystemMap), InputTrigger::Key(KeyCode::KeyM));
 
-    let prop = SolarProportions::compressed(32, 0.01).with_sun_scale(0.02);
+    let prop = SolarProportions::compressed(32, 0.01);
     let mut world = CelestialSystem::barren_heliosphere(prop, 1.0);
     let spawn = build_fusion_torchship(world.as_mut());
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
@@ -179,7 +179,7 @@ fn test_high_g_tunnel_vision_fusion_hum_and_end_to_end_earth_to_mars_brachistoch
     assert!(vig.0 >= 64, "High-G strain must emit peripheral tunnel-vision vignette bands");
 
     // Commission FusionTorch vessel in Low Earth Orbit aimed along BrachistochroneArc's gravity-solved vector
-    let prop = SolarProportions::compressed(32, 0.01).with_sun_scale(0.02);
+    let prop = SolarProportions::compressed(32, 0.01);
     let mut world = CelestialSystem::barren_heliosphere(prop, 1.0);
     let mars_center = world.body_center(BodyId::MARS).expect("Mars center");
     let leo_origin = Vec3::new(0.0, 48.0, 0.0);

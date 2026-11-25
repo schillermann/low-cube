@@ -256,15 +256,21 @@ impl CockpitBerth {
         Some(fallback)
     }
 
+    pub(super) fn drain_flight_residue(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        self.pilot.drain_flight_residue(world)
+    }
+
     pub(super) fn step_driving(
         &mut self,
         dt: f32,
+        cargo_mass: f32,
         controls: &dyn KeyboardControls,
         span: BodySpan,
         posture: AvatarPosture,
         sight_line: &mut AvatarSight,
         world: &dyn PlanetaryWorld,
     ) -> Option<(BodySpan, AvatarPosture, bool)> {
+        self.pilot.sync_cargo_ballast(cargo_mass);
         let was_riding = self.pilot.riding();
         let (seat_pos, seat_up, steer_px) = self.pilot.step(dt, controls, world)?;
         let next_span = if was_riding && self.pilot.riding() {

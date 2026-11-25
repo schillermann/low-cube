@@ -61,6 +61,19 @@ impl VehiclePilot {
         }
     }
 
+    pub fn sync_cargo_ballast(&mut self, cargo_mass: f32) {
+        if let Self::Driving(craft) = self {
+            craft.sync_cargo_ballast(cargo_mass);
+        }
+    }
+
+    pub fn drain_flight_residue(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        match self {
+            Self::Driving(craft) => craft.drain_flight_residue(world),
+            _ => false,
+        }
+    }
+
     pub fn flip_burn_readout(&self) -> super::FlipBurnReadout {
         match self {
             Self::Driving(craft) => craft.flip_burn_readout(),

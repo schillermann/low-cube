@@ -64,6 +64,14 @@ impl GuestWard {
     }
     pub const fn cosmic_frame(&self) -> CosmicFrame { self.locus.1 }
     pub const fn berth(&self) -> VesselBerth { self.glide.berth() }
+    pub fn piloting_craft(&self) -> bool { matches!(self.glide.authoritative_craft(), PilotCraft::Driving(_)) }
+    pub fn effective_berth(&self) -> VesselBerth {
+        match (self.glide.berth(), self.glide.authoritative_craft()) {
+            (VesselBerth::Aboard(id), _) => VesselBerth::Aboard(id),
+            (VesselBerth::Planetary, PilotCraft::Driving(dc)) => VesselBerth::Aboard(dc.identity()),
+            _ => VesselBerth::Planetary,
+        }
+    }
     pub const fn ack_seq(&self) -> u32 { self.vitals.ack_seq() }
     pub const fn gore_stamp(&self) -> GoreStamp { self.vitals.gore_stamp() }
     pub fn record_gore(&mut self, impulse: Vec3) { self.vitals.record_gore(impulse); }

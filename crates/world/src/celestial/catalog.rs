@@ -58,6 +58,11 @@ impl BodyId {
             None
         }
     }
+
+    /// True when open acoustic pressure waves propagate on this body (`0.0 m` in airless vacuum).
+    pub const fn atmospheric_sound(self) -> bool {
+        matches!(self.code, 2 | 3 | 5 | 9 | 14 | 16 | 17 | 19)
+    }
 }
 
 /// Polymorphic physical nature of a celestial cube without runtime type-checking flags.

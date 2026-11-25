@@ -178,6 +178,10 @@ impl SurfaceReach {
             return (reconciled, attire, dig.with_grip(next_grip.without_pending_place()), next_rhythm, false);
         }
         if let Some(med) = world.loosen_surface(self.eye, self.view_dir, progress.div_ceil(2).clamp(1, 3) as u8) {
+            if med.instant_pickup() && world.harvest_surface(self.eye, self.view_dir) == Some(med) {
+                let (ns, na) = reconciled.collect_excavated_block(side, HeldRelic::from_medium(med), attire);
+                return (ns, na, dig.with_grip(DigGrip::idle()), next_rhythm, true);
+            }
             return (reconciled, attire, dig.loosen_stroke(progress, next_grip, site, med, &active), next_rhythm, false);
         }
         (reconciled, attire, dig.with_grip(fallback), next_rhythm, false)

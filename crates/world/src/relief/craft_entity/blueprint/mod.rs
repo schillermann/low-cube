@@ -12,8 +12,8 @@ use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::super::craft_cluster::CraftCluster;
 use super::super::vehicle_assembly::{
-    CockpitAxes, ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage, MainBellStage,
-    PilotOrder, RigidImpulse, VehiclePart, VernierAttitudeStage,
+    CargoBallast, CockpitAxes, ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage,
+    MainBellStage, PilotOrder, RigidImpulse, VehiclePart, VernierAttitudeStage,
 };
 use super::identity::CraftIdentity;
 use super::pose::CraftPose;
@@ -118,6 +118,10 @@ impl CraftBlueprint {
     }
 
     pub fn sample_impulse(&self, order: &PilotOrder, pose: CraftPose) -> RigidImpulse {
+        self.sample_loaded_impulse(order, pose, 0.0)
+    }
+
+    pub fn sample_loaded_impulse(&self, order: &PilotOrder, pose: CraftPose, cargo_mass: f32) -> RigidImpulse {
         if self.parts.is_empty() {
             return RigidImpulse::zero();
         }
@@ -128,7 +132,7 @@ impl CraftBlueprint {
         let hull = (&self.parts[..], &car_frame);
         let trim = (lift, com);
         let cmd = (*order, axes);
-        let ballast = HullBallast::new(hull.0, hull.1, trim);
+        let ballast = CargoBallast::new(HullBallast::new(hull.0, hull.1, trim), cargo_mass);
         let gyro = ConsoleGyroStage::new(ballast, hull.0, cmd);
         let bell = MainBellStage::new(gyro, hull, trim, cmd);
         let rcs = VernierAttitudeStage::new(bell, hull, trim, cmd);

@@ -100,7 +100,7 @@ impl<S: SpaceStep> SpaceStep for GravitationStep<'_, S> {
 pub(super) struct NozzleThrustStep<'a, S> {
     origin: S,
     assembly: &'a VehicleAssembly,
-    order: PilotOrder,
+    burn: (PilotOrder, f32),
     world: &'a dyn PlanetaryWorld,
 }
 
@@ -109,17 +109,18 @@ impl<'a, S> NozzleThrustStep<'a, S> {
     pub(super) const fn new(
         origin: S,
         assembly: &'a VehicleAssembly,
-        order: PilotOrder,
+        burn: (PilotOrder, f32),
         world: &'a dyn PlanetaryWorld,
     ) -> Self {
-        Self { origin, assembly, order, world }
+        Self { origin, assembly, burn, world }
     }
 }
 
 impl<S: SpaceStep> SpaceStep for NozzleThrustStep<'_, S> {
     fn resolve(&self, dt: f32) -> SpaceState {
         let s = self.origin.resolve(dt);
-        let impulse = self.assembly.sample_impulse(&self.order);
+        let (order, cargo_mass) = self.burn;
+        let impulse = self.assembly.sample_loaded_impulse(&order, cargo_mass);
         let fusion = self.assembly.fusion_equipped();
         let chem_cap = self
             .world
@@ -155,23 +156,24 @@ impl<S: SpaceStep> SpaceStep for NozzleThrustStep<'_, S> {
 pub(super) struct GyroStep<'a, S> {
     origin: S,
     assembly: &'a VehicleAssembly,
-    order: PilotOrder,
+    burn: (PilotOrder, f32),
 }
 
 impl<'a, S> GyroStep<'a, S> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(origin: S, assembly: &'a VehicleAssembly, order: PilotOrder) -> Self {
-        Self { origin, assembly, order }
+    pub(super) const fn new(origin: S, assembly: &'a VehicleAssembly, burn: (PilotOrder, f32)) -> Self {
+        Self { origin, assembly, burn }
     }
 }
 
 impl<S: SpaceStep> SpaceStep for GyroStep<'_, S> {
     fn resolve(&self, dt: f32) -> SpaceState {
         let s = self.origin.resolve(dt);
-        let impulse = self.assembly.sample_impulse(&self.order);
+        let (order, cargo_mass) = self.burn;
+        let impulse = self.assembly.sample_loaded_impulse(&order, cargo_mass);
         let (next_omega, step_rot) = impulse.integrate_attitude(
             s.angular_velocity,
-            self.order.guidance(),
+            order.guidance(),
             dt,
         );
         SpaceState::new(s.origin, s.velocity, next_omega, (step_rot * s.rotation).normalize())

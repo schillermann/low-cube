@@ -49,6 +49,11 @@ impl SatchelBurden {
         Self::new(self.mass.saturating_add(extra))
     }
 
+    /// Physical spacecraft ballast tonnage (`a = F / m`) contributed by carried satchel payload.
+    pub fn ballast_tonnage(self) -> f32 {
+        (self.mass as f32) * 0.16
+    }
+
     pub fn scale_pace(self, unencumbered_pace: f32) -> f32 {
         if self.mass == 0 {
             unencumbered_pace

@@ -1,5 +1,6 @@
 mod acoustics;
 mod controls;
+mod residue;
 
 use glam::{Quat, Vec3};
 use world::{AttitudeGuidance, CockpitAxes, OpticMount, PilotOrder, PlanetaryWorld, VehicleAssembly};
@@ -43,9 +44,9 @@ impl RocketDrive {
         )
     }
 
-    fn peak_burn_accel(assembly: &VehicleAssembly) -> f32 {
+    fn peak_burn_accel(assembly: &VehicleAssembly, cargo_mass: f32) -> f32 {
         let full = PilotOrder::from_channels(Vec3::Y, Vec3::ZERO, Vec3::ZERO, AttitudeGuidance::Engaged);
-        let imp = assembly.sample_impulse(&full);
+        let imp = assembly.sample_loaded_impulse(&full, cargo_mass);
         if assembly.fusion_equipped() {
             imp.keel_fusion_velocity_delta(assembly.aerospace_framed(), 1.0).length()
         } else {
@@ -71,6 +72,14 @@ impl CraftDrive for RocketDrive {
         self.kinematics.proper_g()
     }
 
+    fn sync_cargo_ballast(&mut self, cargo_mass: f32) {
+        self.trim.sync_cargo_ballast(cargo_mass);
+    }
+
+    fn drain_flight_residue(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        self.trim.residue_mut().drain_into(world)
+    }
+
     fn helm_optic_channel(&self, assembly: &VehicleAssembly) -> u8 {
         u8::from(assembly.camera_equipped())
     }
@@ -88,11 +97,12 @@ impl CraftDrive for RocketDrive {
     }
 
     fn flip_burn_readout(&self, assembly: &VehicleAssembly) -> FlipBurnReadout {
-        self.kinematics.transfer(|vel, _| self.chart.flip_burn_readout(assembly, vel))
+        let accel = Self::peak_burn_accel(assembly, self.trim.cargo_ballast());
+        self.kinematics.transfer(|vel, _| self.chart.flip_burn_readout(assembly, vel, accel))
     }
 
     fn solar_chart_snapshot(&self, assembly: &VehicleAssembly) -> Option<(OrrerySnapshot, f32, bool)> {
-        let accel = Self::peak_burn_accel(assembly);
+        let accel = Self::peak_burn_accel(assembly, self.trim.cargo_ballast());
         let fusion = assembly.fusion_equipped();
         Some(self.kinematics.transfer(|vel, _| (self.chart.cockpit_snapshot(assembly, vel), accel, fusion)))
     }
@@ -149,9 +159,10 @@ impl CraftDrive for RocketDrive {
         let target_controls = RocketControls::clamped(stick_x, stick_z, vert);
         self.controls = self.controls.blended(target_controls, 14.0 * dt);
         let fusion = assembly.fusion_equipped();
+        let cargo = self.trim.cargo_ballast();
         self.trim.advance_burn(order, assembly, flipping, dt);
 
-        let imp = assembly.sample_impulse(&order);
+        let imp = assembly.sample_loaded_impulse(&order, cargo);
         let thrust_dv = if fusion {
             imp.keel_fusion_velocity_delta(assembly.aerospace_framed(), dt)
         } else {
@@ -159,29 +170,31 @@ impl CraftDrive for RocketDrive {
         };
         let proper_g = if dt > 1e-5 { thrust_dv.length() / (dt * 9.81) } else { 0.0 };
 
-        let chain = TouchdownStep::new(
-            AtmosphericEntryStep::new(
-                GyroStep::new(
-                    NozzleThrustStep::new(
-                        GravitationStep::new(
-                            InertialDrift::new(assembly.origin(), lin_vel, ang_vel),
-                            world,
-                        ),
-                        assembly,
-                        order,
+        let burn = (order, cargo);
+        let pre_flight = AtmosphericEntryStep::new(
+            GyroStep::new(
+                NozzleThrustStep::new(
+                    GravitationStep::new(
+                        InertialDrift::new(assembly.origin(), lin_vel, ang_vel),
                         world,
                     ),
                     assembly,
-                    order,
+                    burn,
+                    world,
                 ),
                 assembly,
-                world,
+                burn,
             ),
             assembly,
             world,
         );
-        let stepped = chain.resolve(dt);
+        let pre_vel = pre_flight.resolve(dt).transfer(|_, v, _, _| v);
+        let stepped = TouchdownStep::new(pre_flight, assembly, world).resolve(dt);
         let (next_origin, next_vel, next_omega, step_rot) = stepped.transfer(|o, v, w, r| (o, v, w, r));
+        let fusion_lit = fusion && order.vertical_burn() > 0.35;
+        self.trim.residue_mut().note_fusion_exhaust(fusion_lit, next_origin, world);
+        self.trim.residue_mut().note_touchdown(next_origin, pre_vel, next_vel, world);
+
         self.kinematics = SpaceKinematics::new(next_vel, next_omega, proper_g);
         if step_rot != Quat::IDENTITY {
             assembly.rotate_3d(step_rot);

@@ -117,11 +117,11 @@ impl HelmChart {
         OrrerySnapshot::new(self.atlas, assembly.origin(), (nose, velocity), self.course)
     }
 
-    pub fn flip_burn_readout(&self, assembly: &VehicleAssembly, velocity: Vec3) -> FlipBurnReadout {
+    pub fn flip_burn_readout(&self, assembly: &VehicleAssembly, velocity: Vec3, live_accel: f32) -> FlipBurnReadout {
         match self.course {
             NavigationCourse::Uncharted => FlipBurnReadout::Inactive,
             NavigationCourse::Charted(ref arc) => {
-                arc.sample_flip_burn(assembly.origin(), velocity, assembly.normal())
+                arc.sample_flip_burn_with_accel(assembly.origin(), velocity, assembly.normal(), live_accel)
             }
         }
     }

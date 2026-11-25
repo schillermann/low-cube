@@ -58,6 +58,11 @@ impl ProximityUtterance {
         format!("{}: {}", self.callsign.speaker_label(self.speaker), self.text)
     }
 
+    /// True when prefixed with `~` to mute suit radio transceivers in vacuum (helmet-contact only).
+    pub fn radio_silent(&self) -> bool {
+        self.text.starts_with('~')
+    }
+
     /// Transfers `(speaker_slot, origin, text)` to a collaborator without exposing fields.
     pub fn transfer<R>(&self, f: impl FnOnce(u32, Vec3, &str) -> R) -> R {
         f(self.speaker, self.origin, &self.text)

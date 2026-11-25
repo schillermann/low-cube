@@ -7,7 +7,8 @@ This guide explains how players and server operators can customize world physics
 ## 1. Overview
 
 In *Low-Cube*, world parameters are kept deliberately simple and intuitive:
-- **World-Cube Size (`size`)**: Sets the integer scale factor of the cubic planet (`>= 1`, default: `1` corresponding to $128 \times 128 \times 128$ blocks / $128\,\text{m}$ edge length; values smaller than `1` are not permitted and fail fast on startup). The hollow interior and the central molten magma core scale proportionally with the world-cube dimensions.
+- **World-Cube & Solar Scale (`size`)**: Sets the integer scale factor of the cubic planet and coupled solar system (`1..=32`, default: `1` corresponding to $128 \times 128 \times 128$ blocks / $128\,\text{m}$ edge length; `8` = $1024^3$ multiplayer standard; `32` = $4096^3$ continental world / $100.7\,\text{km}^2$; values outside `1..=32` fail fast on startup). Planets, moons, the cubic Sun, landable belt asteroids, and orbital distances scale directly with `size`, with `1 AU` capped at $\le 48.09\,\text{Mm}$ so the outer Mars–Jupiter Asteroid Belt ($3.20\,\text{AU}$) stays reachable in under 1 hour by Epstein-Drive.
+- **Asteroid Belt Occupancy (`[cosmos] asteroid_density`)**: Adjusts procedural `BeltRock` occupancy in the $2.20\dots 3.20\,\text{AU}$ Mars–Jupiter Asteroid Belt (`0.0..=8.0`, default: `1.0`).
 - **Planetary Gravity (`gravity`)**: Governs jump height and airborne trajectory.
 - **Day/Night Cycle Duration (`cycle`)**: Sets the length of a complete planetary day and night rotation in minutes (default: `20` minutes; plain number in minutes, set to `0` for permanent noon).
 - **Polar Lights Schedule (`[aurora]`)**: Governs the nocturnal appearance of waving green and violet aurora curtains over the Arctic face:
@@ -47,14 +48,18 @@ port = 27777
 gravity = 10
 
 [world]
-# World-Cube scale factor (integer >= 1; default: 1 = 128x128x128 blocks).
-# Values smaller than 1 are invalid and rejected at startup.
+# World-Cube & Solar-System scale factor (integer 1..=32; default: 1 = 128x128x128 blocks, 8 = 1024^3, 32 = 4096^3).
+# Values outside 1..=32 are invalid and rejected at startup.
 size = 1
 
 # Duration of a full planetary day/night rotation in minutes.
 # Default: 20 (20 minutes: 10 min daylight, 7 min night, 3 min twilight transitions).
 # Set to 0 to freeze the sun at permanent noon.
 cycle = 20
+
+[cosmos]
+# Procedural Asteroid Belt occupancy density (0.0..=8.0, default: 1.0).
+asteroid_density = 1.0
 
 [aurora]
 # Nocturnal polar lights over Arctic.
@@ -79,7 +84,8 @@ Pass configuration flags when launching the executable:
 
 | Flag | Format | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `--size` | `--size <factor>`<br>`--size=<factor>` | `1` | World-Cube size factor (`>= 1`, where `1` = $128^3$ blocks). Smaller values than `1` are rejected. (`--scale` is also supported as an alias.) |
+| `--size` | `--size <factor>`<br>`--size=<factor>` | `1` | World-Cube & Solar-System scale factor (`1..=32`, where `1` = $128^3$, `8` = $1024^3$, `32` = $4096^3$ blocks). (`--scale` is also supported as an alias.) |
+| `--asteroid-density` | `--asteroid-density <val>`<br>`--asteroid-density=<val>` | `1.0` | Procedural Asteroid Belt occupancy density (`>= 0.0`). (`--belt-density` is also accepted.) |
 | `--cycle` | `--cycle <minutes>` | `20` | Duration of a complete day/night cycle in minutes. Set to `0` to freeze the sun at permanent noon. |
 | `--gravity` | `--gravity <value>` | `10` | Planetary surface gravity. Lower values increase jump height; higher values reduce jump height. |
 | `--aurora` | `--aurora <mode>`<br>`--aurora=<mode>` | `nightly` | Aurora schedule: `nightly`, `off`, `rare`, `normal`, or `frequent`. |
@@ -131,7 +137,8 @@ Set configuration environment variables before starting the executable:
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `LOW_CUBE_SIZE` | `1` | World-Cube integer scale factor (`>= 1`, where `1` = $128^3$ blocks; `LOW_CUBE_SCALE` is also accepted). |
+| `LOW_CUBE_SIZE` | `1` | World-Cube & Solar-System integer scale factor (`1..=32`, where `1` = $128^3$ blocks; `LOW_CUBE_SCALE` is also accepted). |
+| `LOW_CUBE_ASTEROID_DENSITY` | `1.0` | Procedural Asteroid Belt occupancy density (`>= 0.0`). |
 | `LOW_CUBE_GRAVITY` | `10` | Planetary surface gravity. |
 | `LOW_CUBE_CYCLE` | `20` | Duration of full day/night cycle in minutes. |
 | `LOW_CUBE_AURORA` | `nightly` | Aurora schedule (`nightly`, `off`, `rare`, `normal`, `frequent`). |

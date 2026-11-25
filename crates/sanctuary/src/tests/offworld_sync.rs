@@ -54,9 +54,16 @@ fn test_coop_mars_and_europa_earthworks_sync_across_moving_orbits_and_snapshots(
 
     let mut guest = RemotePlanet::connect_cosmos(JoinTarget::Direct(addr), prop, 0.5)
         .expect("guest connect cosmos");
+    let mars_c1 = guest.body_center(BodyId::MARS).expect("Guest Mars center");
+    guest.sync_presence(CompanionPresence::new(
+        0,
+        PresenceKinematics::new(mars_c1 + local_probe, Quat::IDENTITY, Quat::IDENTITY, (1.4, 0.0)),
+        (0.0, 0.0, 0.0, 0.0),
+        PresenceAttire::squire(),
+    ));
     for _ in 0..8 {
-        let _ = guest.pump_portal(0.03);
-        let _ = hosted.pump_portal(0.03);
+        let _ = guest.step_surface(0.03);
+        let _ = hosted.step_surface(0.03);
     }
 
     let mars_c1 = guest.body_center(BodyId::MARS).expect("Guest Mars center");

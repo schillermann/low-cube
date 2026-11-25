@@ -7,7 +7,7 @@ use crate::MeshTarget;
 use super::craft_entity::{CraftBlueprint, CraftIdentity, CraftPose, HullOptic, HullWireframe, PosedHull};
 pub use self::axes::VehicleAxes;
 pub(in crate::relief) use self::impulse::{
-    ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage, MainBellStage,
+    CargoBallast, ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage, MainBellStage,
     VernierAttitudeStage,
 };
 pub use self::impulse::{AttitudeGuidance, CockpitAxes, PilotOrder, RigidImpulse};
@@ -66,6 +66,9 @@ impl VehicleAssembly {
         PosedHull::new(&self.blueprint, pose).visit_soles(visitor);
     }
     pub fn sample_impulse(&self, order: &PilotOrder) -> RigidImpulse { self.blueprint.sample_impulse(order, self.pose) }
+    pub fn sample_loaded_impulse(&self, order: &PilotOrder, cargo_mass: f32) -> RigidImpulse {
+        self.blueprint.sample_loaded_impulse(order, self.pose, cargo_mass)
+    }
     pub fn sample_wireframe(&self, order: &PilotOrder) -> HullWireframe { self.blueprint.sample_wireframe(order, self.pose) }
     pub fn seat_floor_offset(&self) -> f32 { self.blueprint.seat_floor_offset() }
     pub fn wheel_radius(&self) -> f32 { self.blueprint.wheel_radius() }

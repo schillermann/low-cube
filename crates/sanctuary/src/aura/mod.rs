@@ -137,6 +137,13 @@ impl HostAura {
     pub const fn host_frame(&self) -> CosmicFrame { (self.seat.1).0 }
     pub const fn host_berth(&self) -> VesselBerth { (self.seat.0).2 }
     pub const fn host_craft(&self) -> PilotCraft { (self.seat.0).1 }
+    pub fn effective_berth(&self) -> VesselBerth {
+        match ((self.seat.0).2, (self.seat.0).1) {
+            (VesselBerth::Aboard(id), _) => VesselBerth::Aboard(id),
+            (VesselBerth::Planetary, PilotCraft::Driving(dc)) => VesselBerth::Aboard(dc.identity()),
+            _ => VesselBerth::Planetary,
+        }
+    }
     pub const fn epoch_secs(&self) -> f64 { (self.seat.1).1 }
     pub fn sync_epoch(&mut self, epoch_secs: f64) { (self.seat.1).1 = epoch_secs; }
     pub fn advance_epoch(&mut self, dt: f32) { (self.seat.1).1 += f64::from(dt.max(0.0)); }
@@ -218,12 +225,15 @@ impl HostAura {
 
     pub fn drain_cracks(&mut self) -> SectorCracks { self.events.cracks.drain_into_buckets() }
 
-    pub fn receive_utterance(&mut self, speaker_frame: CosmicFrame, utterance: ProximityUtterance, earshot_meters: f32) {
-        if speaker_frame != self.host_frame() {
-            return;
-        }
+    pub fn receive_utterance(
+        &mut self,
+        speaker: crate::chat_medium::ChatLocus,
+        utterance: ProximityUtterance,
+        medium: &dyn crate::chat_medium::ChatMedium,
+    ) {
         if let Some(pos) = self.occupied_position() {
-            if utterance.audible_at(pos, earshot_meters) {
+            let listener = crate::chat_medium::ChatLocus::new(self.host_frame(), self.effective_berth(), pos, true);
+            if medium.carries(speaker, listener) {
                 if self.events.utterances.len() >= 32 {
                     self.events.utterances.remove(0);
                 }

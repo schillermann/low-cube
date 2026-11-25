@@ -1,6 +1,7 @@
 mod lexicon;
 mod mesh;
 mod plinth;
+mod tokens;
 mod tools;
 
 use world::{BlockMedium, BlockMold, MiningEdge, SurfaceFind};
@@ -45,10 +46,12 @@ pub enum HeldRelic {
     IronPickaxe,
     TitaniumHull,
     CarbonSilicate,
+    VitrifiedBasalt,
+    BlackBoxPod,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 34;
+    pub const COUNT: usize = 36;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -91,7 +94,9 @@ impl HeldRelic {
             30 => Self::FlintPickaxe,
             31 => Self::IronPickaxe,
             32 => Self::TitaniumHull,
-            _ => Self::CarbonSilicate,
+            33 => Self::CarbonSilicate,
+            34 => Self::VitrifiedBasalt,
+            _ => Self::BlackBoxPod,
         }
     }
 
@@ -131,6 +136,8 @@ impl HeldRelic {
             Self::IronPickaxe => 31,
             Self::TitaniumHull => 32,
             Self::CarbonSilicate => 33,
+            Self::VitrifiedBasalt => 34,
+            Self::BlackBoxPod => 35,
         }
     }
 
@@ -181,7 +188,8 @@ impl HeldRelic {
     }
 
     pub const fn rotatable_in_palm(self) -> bool {
-        (self.placeable_block() && !matches!(self, Self::VehicleBlueprint)) || self.field_camera()
+        (self.placeable_block() && !matches!(self, Self::VehicleBlueprint | Self::BlackBoxPod))
+            || self.field_camera()
     }
 
     pub const fn turnable_in_palm(self) -> bool {
@@ -194,7 +202,10 @@ impl HeldRelic {
 
     pub const fn stowed_block(self) -> bool {
         self.placeable_block()
-            && !matches!(self, Self::CantileverCrane | Self::FieldCamera | Self::VehicleBlueprint)
+            && !matches!(
+                self,
+                Self::CantileverCrane | Self::FieldCamera | Self::VehicleBlueprint | Self::BlackBoxPod
+            )
     }
 
     pub const fn stackable_in_tray(self) -> bool {
@@ -230,32 +241,7 @@ impl HeldRelic {
     }
 
     pub const fn placeable_block(self) -> bool {
-        matches!(
-            self,
-            Self::ExcavatedEarth
-                | Self::QuarriedStone
-                | Self::TimberBlock
-                | Self::PlankBlock
-                | Self::CrustBlock
-                | Self::CantileverCrane
-                | Self::SteeringWheel
-                | Self::AircraftEngine
-                | Self::FlightConsole
-                | Self::RocketNozzle
-                | Self::RocketCamera
-                | Self::CabinSeat
-                | Self::CarWheel
-                | Self::FieldCamera
-                | Self::PedalCluster
-                | Self::CopperOre
-                | Self::IronOre
-                | Self::GoldOre
-                | Self::VehicleBlueprint
-                | Self::FusionTorch
-                | Self::SpawnStone
-                | Self::TitaniumHull
-                | Self::CarbonSilicate
-        )
+        RelicLexicon::new(self).placeable_block()
     }
 
     pub const fn block_medium(self) -> BlockMedium {

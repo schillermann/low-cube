@@ -36,7 +36,7 @@ pub use beveled_world::BeveledGravity;
 pub use biome::BiomedCubeWorld;
 pub use celestial::{
     ActiveVicinity, AlienWorld, ApexSpin, AsteroidBelt, AtlasMode, AwakenedBody, BeltAndReach,
-    BeltRock, BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique, BodyRatios,
+    BeltRock, BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique,
     BodySnapshot, CelestialAtlas, CelestialSystem, CosmicFrame, EllipticShape, FrameHandoff,
     GravityBubble, HeliosphereWorld, KeplerAnomaly, LunarCraterRelief, LunarWorld, OrbitElements,
     OrbitalFleetWorld, OrbitalLocus, OrbitalPlane, OrbitalSpec, PlanetarySpin, RadialWell,
@@ -44,12 +44,12 @@ pub use celestial::{
     DEEP_SPACE_SECTOR_SPAN, MAJOR_BODY_COUNT,
 };
 pub use block::{
-    AttitudeNozzleMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,
+    AttitudeNozzleMesh, BlackBoxPodMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,
     ConsoleOrrery, CornerHeading, CuboidShape, DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh,
     FootwellPlinth, FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, MediumShape,
     MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak,
     RampWedge, RidgeCorner, RocketNozzleMesh, SpawnPlinthMesh, StairCorner, StairFlight,
-    ValleyCorner, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
+    ValleyCorner, VitrifiedBasaltMesh, VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
 };
 pub use chronicle::{
     RigSnapshot, SectorColumnState, SectorSnapshot, SnapshotBlock, WorldFact,

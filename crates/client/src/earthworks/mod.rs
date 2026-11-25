@@ -53,6 +53,9 @@ impl PalmEarthworks {
     pub fn encumber_order(&self, attire: YouthAttire, order: LocomotionOrder) -> LocomotionOrder {
         order.with_burden(self.satchel.carried_burden(attire))
     }
+    pub fn cargo_ballast(&self, attire: YouthAttire) -> f32 {
+        self.satchel.carried_burden(attire).ballast_tonnage()
+    }
     pub fn step_toss(self, dt: f32) -> Self { Self { toss: self.toss.advance(dt), ..self } }
     fn with_satchel(self, satchel: BeltSatchel) -> Self { Self { satchel, ..self } }
     pub fn mold_next_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }

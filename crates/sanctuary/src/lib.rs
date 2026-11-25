@@ -2,6 +2,7 @@ mod admin_ward;
 mod audience;
 mod aura;
 mod bubble_audience;
+mod chat_medium;
 mod chronicle_decorators;
 mod chronicle_log;
 mod chronicled_planet;
@@ -47,6 +48,10 @@ pub use audience::{
 };
 pub use aura::{AuraEvents, HostAura, HostIdentity, HostPresence, PeerCrack, SectorCracks};
 pub use bubble_audience::{CosmicBubbleAudience, CosmicCraftSight};
+pub use chat_medium::{
+    AtmosphericVoiceMedium, CabinIntercomMedium, ChatLocus, ChatMedium, HelmetContactMedium,
+    SuitTransceiverMedium, HELMET_TOUCH_METERS, SUIT_RADIO_METERS,
+};
 pub use chronicle_decorators::{CompactedChronicle, DiskVaultChronicle, VaultStream};
 pub use chronicle_log::{ChronicleEntry, ChronicleLog, ChronicleStore};
 pub use inbox_batch::{InboundBatch, ParallelInbox, PulseInbox, SequentialInbox};

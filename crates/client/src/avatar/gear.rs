@@ -79,6 +79,8 @@ impl AvatarGear {
         self.earthworks.encumber_order(self.attire, order)
     }
 
+    pub fn cargo_ballast(&self) -> f32 { self.earthworks.cargo_ballast(self.attire) }
+
     pub fn shaft_yaw_play(&self) -> f32 {
         self.attire.shaft_yaw_play()
     }
@@ -130,11 +132,15 @@ impl AvatarGear {
             bearing.reconcile_mount(self.active_camera_mount());
             return true;
         }
-        if trigger == InputTrigger::WheelClick
-            && !self.satchel_open()
-            && bearing.press_shutter(self.active_camera_mount())
-        {
-            return true;
+        if trigger == InputTrigger::WheelClick && !self.satchel_open() {
+            let (r, l) = self.attire.held_pair();
+            if r == HeldRelic::BlackBoxPod || l == HeldRelic::BlackBoxPod {
+                bearing.trigger_log_sheet(1800, 1);
+                return true;
+            }
+            if bearing.press_shutter(self.active_camera_mount()) {
+                return true;
+            }
         }
         let (ew, attire, handled) = self.earthworks.handle_trigger(trigger, &self.bindings, self.attire);
         if handled {
@@ -231,20 +237,17 @@ impl AvatarGear {
         }
         bearing.apply_rhythm(next_rhythm);
         bearing.reconcile_mount(self.active_camera_mount());
+        if !changed && !nourished && self.attire.hand_pair(side).0 == HeldRelic::BlackBoxPod {
+            bearing.trigger_log_sheet(1800, 1);
+            return true;
+        }
         changed || nourished
     }
 
     pub fn strike_fauna(
         &self, side: f32, reach: SurfaceReach, bearing: &mut AvatarBearing, world: &mut dyn PlanetaryWorld,
     ) -> (bool, bool) {
-        let (active, other) = self.attire.hand_pair(side);
-        let (weapon, swing_side) = if active.hunting_power() > 1 {
-            (active, side)
-        } else if active.free_palm() && other.hunting_power() > 1 {
-            (other, -side)
-        } else {
-            (active, side)
-        };
+        let (weapon, swing_side) = self.attire.hunting_hand(side);
         let (struck, dropped) =
             world.strike_boar(reach.eye(), reach.view_dir(), weapon.hunting_power(), weapon.hunting_reach());
         if struck {

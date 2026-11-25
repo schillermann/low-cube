@@ -6,7 +6,7 @@ use crate::frame::SurfaceFrame;
 use super::super::craft_entity::CraftPose;
 pub use self::order::PilotOrder;
 pub use self::stages::{
-    ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage, MainBellStage,
+    CargoBallast, ConsoleGyroStage, FusionTorchStage, HullBallast, ImpulseStage, MainBellStage,
     VernierAttitudeStage,
 };
 
@@ -100,6 +100,11 @@ impl InertiaTensor {
         Self::new(0.0, Vec3::ONE, (Vec3::X, Vec3::Y, Vec3::Z))
     }
 
+    fn with_cargo(self, cargo_mass: f32) -> Self {
+        let m = cargo_mass.max(0.0);
+        Self::new(self.mass + m, self.principal + Vec3::splat(m * 0.22), self.axes)
+    }
+
     fn angular_accel(self, world_torque: Vec3) -> Vec3 {
         let (ax, ay, az) = self.axes;
         let ix = self.principal.x.max(MIN_AXIS_INERTIA);
@@ -138,6 +143,14 @@ impl RigidImpulse {
     pub fn with_ballast(mass: f32, principal: Vec3, frame: SurfaceFrame) -> Self {
         let axes = (frame.tangent(), frame.normal(), frame.bitangent());
         Self::new(Vec3::ZERO, Vec3::ZERO, InertiaTensor::new(mass, principal, axes), (0.0, Vec3::ZERO))
+    }
+
+    pub fn with_cargo_ballast(self, cargo_mass: f32) -> Self {
+        if cargo_mass <= 0.0 {
+            self
+        } else {
+            Self::new(self.linear_force, self.torque, self.tensor.with_cargo(cargo_mass), self.gyro_trim)
+        }
     }
 
     pub fn with_gyro(self, steer_demand: Vec3) -> Self {

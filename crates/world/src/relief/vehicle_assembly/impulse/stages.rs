@@ -38,6 +38,25 @@ impl ImpulseStage for HullBallast<'_> {
     }
 }
 
+/// `ImpulseStage` decorator folding carried cargo/satchel payload mass into `a = F / m` and rotational inertia.
+pub struct CargoBallast<S> {
+    origin: S,
+    cargo_mass: f32,
+}
+
+impl<S> CargoBallast<S> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(origin: S, cargo_mass: f32) -> Self {
+        Self { origin, cargo_mass }
+    }
+}
+
+impl<S: ImpulseStage> ImpulseStage for CargoBallast<S> {
+    fn resolve(&self) -> RigidImpulse {
+        self.origin.resolve().with_cargo_ballast(self.cargo_mass)
+    }
+}
+
 /// `ImpulseStage` decorator folding reaction-wheel gyro authority when `FlightConsole` guidance is engaged.
 pub struct ConsoleGyroStage<'a, S> {
     origin: S,

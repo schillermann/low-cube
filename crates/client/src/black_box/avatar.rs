@@ -187,7 +187,13 @@ impl AvatarMotor for BlackBoxAvatar {
         acted
     }
 
-    fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.step_digging(world) }
+    fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        let changed = self.origin.step_digging(world);
+        if changed {
+            self.tape.record_event(FlightEvent::SurfaceAltered);
+        }
+        changed
+    }
 
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
         let acted = self.origin.adjust_aimed_rig(trigger, world);
@@ -237,7 +243,14 @@ impl AvatarMotor for BlackBoxAvatar {
 impl Avatar for BlackBoxAvatar {
     fn apply_attire(&mut self, attire: YouthAttire) { self.origin.apply_attire(attire); }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.origin.apply_bindings(bindings); }
-    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool { self.origin.dispatch_trigger(trigger) }
+    fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
+        let handled = self.origin.dispatch_trigger(trigger);
+        if handled && trigger == InputTrigger::WheelClick && self.tape.populated() {
+            let (ticks, anomalies) = self.tape.summary_counts();
+            self.origin.trigger_log_sheet(ticks.min(u16::MAX as usize) as u16, anomalies);
+        }
+        handled
+    }
     fn typing_text(&self) -> bool { self.origin.typing_text() }
     fn accept_typed_text(&mut self, text: &str) -> bool { self.origin.accept_typed_text(text) }
     fn blend_subtick(&mut self, alpha: f32) { self.origin.blend_subtick(alpha); }

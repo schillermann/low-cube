@@ -21,9 +21,11 @@ impl RelicLexicon {
         HeldRelic::RocketCamera,
         HeldRelic::TitaniumHull,
         HeldRelic::CarbonSilicate,
+        HeldRelic::BlackBoxPod,
         HeldRelic::AircraftEngine,
         HeldRelic::ExcavatedEarth,
         HeldRelic::CrustBlock,
+        HeldRelic::VitrifiedBasalt,
         HeldRelic::QuarriedStone,
         HeldRelic::TimberBlock,
         HeldRelic::PlankBlock,
@@ -46,6 +48,37 @@ impl RelicLexicon {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(relic: HeldRelic) -> Self {
         Self { relic }
+    }
+
+    pub const fn placeable_block(&self) -> bool {
+        matches!(
+            self.relic,
+            HeldRelic::ExcavatedEarth
+                | HeldRelic::QuarriedStone
+                | HeldRelic::TimberBlock
+                | HeldRelic::PlankBlock
+                | HeldRelic::CrustBlock
+                | HeldRelic::CantileverCrane
+                | HeldRelic::SteeringWheel
+                | HeldRelic::AircraftEngine
+                | HeldRelic::FlightConsole
+                | HeldRelic::RocketNozzle
+                | HeldRelic::RocketCamera
+                | HeldRelic::CabinSeat
+                | HeldRelic::CarWheel
+                | HeldRelic::FieldCamera
+                | HeldRelic::PedalCluster
+                | HeldRelic::CopperOre
+                | HeldRelic::IronOre
+                | HeldRelic::GoldOre
+                | HeldRelic::VehicleBlueprint
+                | HeldRelic::FusionTorch
+                | HeldRelic::SpawnStone
+                | HeldRelic::TitaniumHull
+                | HeldRelic::CarbonSilicate
+                | HeldRelic::VitrifiedBasalt
+                | HeldRelic::BlackBoxPod
+        )
     }
 
     pub const fn stackable_in_tray(&self) -> bool {
@@ -101,53 +134,8 @@ impl RelicLexicon {
             HeldRelic::SpawnStone => "SPAWN STONE",
             HeldRelic::TitaniumHull => "TITANIUM HULL",
             HeldRelic::CarbonSilicate => "CARBON LACE",
-        }
-    }
-
-    pub fn parse(&self, token: &str) -> Option<HeldRelic> {
-        let key: String = token
-            .trim()
-            .chars()
-            .filter(|c| !matches!(c, '_' | '-' | ' '))
-            .map(|c| c.to_ascii_lowercase())
-            .collect();
-        match key.as_str() {
-            "camera" | "fieldcamera" => Some(HeldRelic::FieldCamera),
-            "stoneblock" | "quarriedstone" | "stone" => Some(HeldRelic::QuarriedStone),
-            "timbertorch" | "torch" => Some(HeldRelic::TimberTorch),
-            "woodenmallet" | "mallet" => Some(HeldRelic::WoodenMallet),
-            "woodmanaxe" | "axe" => Some(HeldRelic::WoodmanAxe),
-            "knightlysword" | "knightsword" | "sword" => Some(HeldRelic::KnightlySword),
-            "ironspade" | "spade" => Some(HeldRelic::IronSpade),
-            "flintpickaxe" | "flintpick" | "stonepickaxe" | "pickaxe" | "hacke" | "spitzhacke" | "feuersteinhacke" => {
-                Some(HeldRelic::FlintPickaxe)
-            }
-            "ironpickaxe" | "ironpick" | "eisenhacke" => Some(HeldRelic::IronPickaxe),
-            "earthblock" | "excavatedearth" | "earth" | "dirt" => Some(HeldRelic::ExcavatedEarth),
-            "deadwood" | "deadwoodbough" => Some(HeldRelic::DeadwoodBough),
-            "flintstone" | "flint" => Some(HeldRelic::FlintStone),
-            "woodblock" | "timberblock" | "timber" => Some(HeldRelic::TimberBlock),
-            "woodplanks" | "plankblock" | "planks" => Some(HeldRelic::PlankBlock),
-            "crustblock" | "crust" => Some(HeldRelic::CrustBlock),
-            "cranelift" | "cantilevercrane" | "crane" => Some(HeldRelic::CantileverCrane),
-            "steeringwheel" | "steering" => Some(HeldRelic::SteeringWheel),
-            "planeengine" | "aircraftengine" => Some(HeldRelic::AircraftEngine),
-            "flightconsole" | "console" | "steuerkonsole" => Some(HeldRelic::FlightConsole),
-            "fusiontorch" | "fusiondrive" | "epstein" | "fusionsantrieb" => Some(HeldRelic::FusionTorch),
-            "rocketnozzle" | "nozzle" | "thruster" | "triebwerk" | "rocket" => Some(HeldRelic::RocketNozzle),
-            "rocketcamera" | "hullcamera" | "spacecamera" | "raketenkamera" | "nosecamera" => Some(HeldRelic::RocketCamera),
-            "seatblock" | "cabinsat" | "cabinseat" | "seat" => Some(HeldRelic::CabinSeat),
-            "carwheel" | "wheel" => Some(HeldRelic::CarWheel),
-            "pedalblock" | "pedalcluster" | "pedals" | "pedal" => Some(HeldRelic::PedalCluster),
-            "copperore" | "copper" | "kupfer" => Some(HeldRelic::CopperOre),
-            "ironore" | "iron" | "eisen" => Some(HeldRelic::IronOre),
-            "goldore" | "gold" => Some(HeldRelic::GoldOre),
-            "boarmeat" | "meat" | "venison" | "fleisch" | "wildschwein" => Some(HeldRelic::BoarMeat),
-            "blueprint" | "blueprintblock" | "vehicleblueprint" | "bauplan" => Some(HeldRelic::VehicleBlueprint),
-            "spawnstone" | "spawnblock" | "spawnpoint" | "arrivalstone" => Some(HeldRelic::SpawnStone),
-            "titaniumhull" | "titanium" | "titaniumalloy" | "titan" | "titanhuelle" => Some(HeldRelic::TitaniumHull),
-            "carbonsilicate" | "carbonlace" | "silicatelace" | "cermet" | "keramik" => Some(HeldRelic::CarbonSilicate),
-            _ => None,
+            HeldRelic::VitrifiedBasalt => "VITRIFIED BASALT",
+            HeldRelic::BlackBoxPod => "BLACKBOX POD",
         }
     }
 
@@ -175,6 +163,8 @@ impl RelicLexicon {
             HeldRelic::SpawnStone => BlockMedium::SpawnStone,
             HeldRelic::TitaniumHull => BlockMedium::TitaniumHull,
             HeldRelic::CarbonSilicate => BlockMedium::CarbonSilicate,
+            HeldRelic::VitrifiedBasalt => BlockMedium::VitrifiedBasalt,
+            HeldRelic::BlackBoxPod => BlockMedium::BlackBoxPod,
             _ => BlockMedium::TurfEarth,
         }
     }
@@ -204,6 +194,8 @@ impl RelicLexicon {
             BlockMedium::SpawnStone => HeldRelic::SpawnStone,
             BlockMedium::TitaniumHull => HeldRelic::TitaniumHull,
             BlockMedium::CarbonSilicate => HeldRelic::CarbonSilicate,
+            BlockMedium::VitrifiedBasalt => HeldRelic::VitrifiedBasalt,
+            BlockMedium::BlackBoxPod => HeldRelic::BlackBoxPod,
         }
     }
 

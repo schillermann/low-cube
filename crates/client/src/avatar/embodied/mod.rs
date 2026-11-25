@@ -90,6 +90,7 @@ impl EmbodiedAvatar {
 
     pub(super) fn flush_world_notes(&mut self, world: &mut dyn PlanetaryWorld) {
         self.gear.drain_crafted_notes(world);
+        let _ = self.body.drain_flight_residue(world);
     }
 
     fn tick_ambient(&mut self, dt: f32) {
@@ -181,9 +182,13 @@ impl AvatarMotor for EmbodiedAvatar {
 
     fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
         self.body.reconcile_helm(&mut self.sight_line, world);
+        let residue = self.body.drain_flight_residue(world);
+        if self.body.driving() {
+            return residue;
+        }
         let (next_rhythm, changed) = self.gear.continue_digging(self.surface_reach(), self.bearing.rhythm(), world);
         self.bearing.apply_rhythm(next_rhythm);
-        changed
+        changed || residue
     }
 
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
@@ -206,7 +211,8 @@ impl AvatarMotor for EmbodiedAvatar {
         self.tick_ambient(dt);
         let pos = self.body.position();
         let terrain_up = world.surface_up_at(pos);
-        if self.body.step_driving(dt, controls, &mut self.sight_line, world) {
+        let cargo = self.gear.cargo_ballast();
+        if self.body.step_driving(dt, cargo, controls, &mut self.sight_line, world) {
             let cur = self.body.position();
             self.bearing.step_vehicle_stride(self.body.driving(), cur, world.surface_up_at(cur), dt);
             return;

@@ -39,6 +39,16 @@ impl BodySpan {
         self.prior.lerp(self.current, self.blend)
     }
 
+    pub fn sector_stamp(self) -> (u8, i32, i32, i32) {
+        let p = self.current;
+        (
+            world::ClimateZone::dominant(p).index() as u8,
+            ((p.x * 0.125).floor() as i32) * 16,
+            ((p.y * 0.125).floor() as i32) * 16,
+            ((p.z * 0.125).floor() as i32) * 16,
+        )
+    }
+
     pub fn landed_on(world: &dyn world::PlanetaryWorld) -> Self {
         if let Some(rec) = world.assigned_survivor().and_then(|w| w.restored_record()) {
             Self::anchored(world.constrain_to_surface(rec.position(), 1.0))

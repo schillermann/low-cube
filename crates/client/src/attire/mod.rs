@@ -191,6 +191,16 @@ impl YouthAttire {
     pub const fn hand_pair(&self, side: f32) -> (HeldRelic, HeldRelic) {
         if side > 0.0 { (self.hands.relic, self.hands.offhand) } else { (self.hands.offhand, self.hands.relic) }
     }
+    pub const fn hunting_hand(self, side: f32) -> (HeldRelic, f32) {
+        let (active, other) = self.hand_pair(side);
+        if active.hunting_power() > 1 {
+            (active, side)
+        } else if active.free_palm() && other.hunting_power() > 1 {
+            (other, -side)
+        } else {
+            (active, side)
+        }
+    }
     pub const fn with_hand_relic(mut self, side: f32, relic: HeldRelic) -> Self {
         if side > 0.0 { self.hands.relic = relic; } else { self.hands.offhand = relic; }
         self

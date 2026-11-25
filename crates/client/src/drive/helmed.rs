@@ -37,6 +37,10 @@ impl HelmedCraft {
     }
     pub fn free_look(&self) -> bool { self.drive.free_look() }
     pub fn proper_g_load(&self) -> f32 { self.drive.proper_g_load() }
+    pub fn sync_cargo_ballast(&mut self, cargo_mass: f32) { self.drive.sync_cargo_ballast(cargo_mass); }
+    pub fn drain_flight_residue(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        self.drive.drain_flight_residue(world)
+    }
     pub fn helm_optic_channel(&self) -> u8 { self.drive.helm_optic_channel(&self.assembly) }
     pub fn chassis_up(&self) -> Vec3 { self.assembly.normal().normalize_or_zero() }
     pub fn blend_subtick(&mut self, alpha: f32) { self.origin_span.1 = alpha.clamp(0.0, 1.0); }

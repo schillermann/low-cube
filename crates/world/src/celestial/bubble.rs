@@ -32,6 +32,13 @@ impl CosmicFrame {
         }
     }
 
+    pub const fn atmospheric_sound(self) -> bool {
+        match self {
+            Self::Body(id) => id.atmospheric_sound(),
+            Self::BeltAsteroid { .. } | Self::DeepSpace(_) => false,
+        }
+    }
+
     pub fn inscribe(&self, out: &mut Vec<u8>) {
         match *self {
             Self::Body(id) => {

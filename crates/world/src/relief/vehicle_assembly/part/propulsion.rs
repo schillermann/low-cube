@@ -11,9 +11,13 @@ use crate::relief::craft_entity::{
 use super::super::impulse::{CockpitAxes, PilotOrder, RigidImpulse};
 
 const CORE_MODULE_MASS: f32 = 1.00;
+const BLACK_BOX_MASS: f32 = 0.85;
 const OUTBOARD_POD_MASS: f32 = 0.75;
 const DENSE_HULL_MASS: f32 = 0.45;
 const TIMBER_EARTH_MASS: f32 = 0.35;
+const COPPER_ORE_MASS: f32 = 1.95;
+const IRON_ORE_MASS: f32 = 2.75;
+const GOLD_ORE_MASS: f32 = 4.25;
 const LIGHT_FRAME_MASS: f32 = 0.22;
 const TITANIUM_KEEL_MASS: f32 = 0.12;
 const CARBON_LACE_MASS: f32 = 0.08;
@@ -43,16 +47,18 @@ impl<'a> PartPropulsion<'a> {
     pub(super) fn part_mass(&self) -> f32 {
         match self.shape.block_medium() {
             BlockMedium::CabinSeat | BlockMedium::FlightConsole | BlockMedium::FusionTorch => CORE_MODULE_MASS,
+            BlockMedium::BlackBoxPod => BLACK_BOX_MASS,
             BlockMedium::RocketCamera => OUTBOARD_POD_MASS,
             BlockMedium::RocketNozzle => match self.nozzle_axis() {
                 Some(axis) if axis.attitude_pod() => OUTBOARD_POD_MASS,
                 _ => CORE_MODULE_MASS,
             },
+            BlockMedium::GoldOre => GOLD_ORE_MASS,
+            BlockMedium::IronOre => IRON_ORE_MASS,
+            BlockMedium::CopperOre => COPPER_ORE_MASS,
             BlockMedium::QuarriedStone
             | BlockMedium::CrustRock
-            | BlockMedium::CopperOre
-            | BlockMedium::IronOre
-            | BlockMedium::GoldOre => DENSE_HULL_MASS,
+            | BlockMedium::VitrifiedBasalt => DENSE_HULL_MASS,
             BlockMedium::TurfEarth | BlockMedium::Sand | BlockMedium::RawTimber => TIMBER_EARTH_MASS,
             BlockMedium::TitaniumHull => TITANIUM_KEEL_MASS,
             BlockMedium::CarbonSilicate => CARBON_LACE_MASS,

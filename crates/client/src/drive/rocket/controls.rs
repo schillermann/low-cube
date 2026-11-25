@@ -3,6 +3,7 @@ use world::{AttitudeGuidance, PilotOrder, VehicleAssembly};
 use crate::controls::LocomotionTarget;
 use crate::menu::GuidanceReadout;
 use super::acoustics::HullBurnPulse;
+use super::residue::FlightResidue;
 
 /// Cockpit 6-DOF directional thruster burn collector implementing `LocomotionTarget` for `FlightConsole`.
 pub(super) struct ConsolePedals {
@@ -68,55 +69,72 @@ impl LocomotionTarget for ConsolePedals {
     }
 }
 
-/// Encapsulated flight guidance computer toggle, retro-flip state, `HullBurnPulse`, and active `PilotOrder`.
+/// Encapsulated flight guidance + retro-flip flags, `HullBurnPulse`, `(PilotOrder, cargo_mass)`, and `FlightResidue`.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct HelmTrim {
-    guidance: AttitudeGuidance,
-    flip_retro: bool,
+    flags: (AttitudeGuidance, bool),
     pulse: HullBurnPulse,
-    order: PilotOrder,
+    order_ballast: (PilotOrder, f32),
+    residue: FlightResidue,
 }
 
 impl HelmTrim {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub(super) const fn new(
-        guidance: AttitudeGuidance,
-        flip_retro: bool,
+        flags: (AttitudeGuidance, bool),
         pulse: HullBurnPulse,
-        order: PilotOrder,
+        order_ballast: (PilotOrder, f32),
+        residue: FlightResidue,
     ) -> Self {
-        Self { guidance, flip_retro, pulse, order }
+        Self { flags, pulse, order_ballast, residue }
     }
 
     pub(super) const fn pad_engaged() -> Self {
-        Self::new(AttitudeGuidance::Engaged, false, HullBurnPulse::silent(), PilotOrder::idle())
+        Self::new(
+            (AttitudeGuidance::Engaged, false),
+            HullBurnPulse::silent(),
+            (PilotOrder::idle(), 0.0),
+            FlightResidue::clean(),
+        )
     }
 
     pub(super) fn pose_channels(self) -> (f32, f32) {
-        self.order.pose_motion()
+        self.order_ballast.0.pose_motion()
     }
 
     pub(super) const fn active_order(self) -> PilotOrder {
-        self.order
+        self.order_ballast.0
+    }
+
+    pub(super) const fn cargo_ballast(self) -> f32 {
+        self.order_ballast.1
+    }
+
+    pub(super) fn sync_cargo_ballast(&mut self, cargo_mass: f32) {
+        self.order_ballast.1 = cargo_mass.max(0.0);
+    }
+
+    pub(super) fn residue_mut(&mut self) -> &mut FlightResidue {
+        &mut self.residue
     }
 
     pub(super) const fn attitude_guidance(self) -> AttitudeGuidance {
-        self.guidance
+        self.flags.0
     }
 
     pub(super) fn cancel_flip(&mut self) {
-        self.flip_retro = false;
+        self.flags.1 = false;
     }
 
     pub(super) const fn flipping(self) -> bool {
-        self.flip_retro
+        self.flags.1
     }
 
     pub(super) fn toggle_retro(&mut self, capable: bool, moving: bool) -> bool {
-        if !capable || !self.guidance.engaged() || !moving {
+        if !capable || !self.flags.0.engaged() || !moving {
             return false;
         }
-        self.flip_retro = !self.flip_retro;
+        self.flags.1 = !self.flags.1;
         true
     }
 
@@ -124,15 +142,15 @@ impl HelmTrim {
         if !spacefaring {
             return false;
         }
-        self.guidance = self.guidance.toggled();
-        if !self.guidance.engaged() {
-            self.flip_retro = false;
+        self.flags.0 = self.flags.0.toggled();
+        if !self.flags.0.engaged() {
+            self.flags.1 = false;
         }
         true
     }
 
     pub(super) fn readout(self) -> GuidanceReadout {
-        if self.guidance.engaged() {
+        if self.flags.0.engaged() {
             GuidanceReadout::Engaged
         } else {
             GuidanceReadout::Manual
@@ -146,9 +164,9 @@ impl HelmTrim {
         flipping: bool,
         dt: f32,
     ) {
-        self.order = order;
+        self.order_ballast.0 = order;
         let wireframe = assembly.sample_wireframe(&order);
-        let flip_capable = assembly.attitude_capable() && self.guidance.engaged();
+        let flip_capable = assembly.attitude_capable() && self.flags.0.engaged();
         self.pulse.advance(&wireframe, flipping, flip_capable, dt);
     }
 }

@@ -19,8 +19,9 @@ journal = ""
 gravity = 10
 
 [world]
-# World-Cube edge multiple (integer 1..=32; 1 = 128 blocks, 32 = 4096 blocks = 100.7 km² Earth).
-# Scales Earth as well as baseline planet, moon, Sun, and landable belt-asteroid dimensions.
+# World-Cube edge multiple (integer 1..=32; 1 = 128 blocks, 8 = 1024 blocks, 32 = 4096 blocks = 100.7 km² Earth).
+# Governs Earth as well as astronomical planet, moon, Sun, and landable belt-asteroid dimensions (capped so the
+# 3.20 AU outer Asteroid Belt remains reachable in under 1 hour by Epstein-Drive).
 size = 1
 
 # Day/night cycle rotation in minutes (default: 20 min).
@@ -28,14 +29,9 @@ size = 1
 cycle = 20
 
 [cosmos]
-# Unified Solar-System scale factor (1.0 = astronomical proportions capped at <= 48.09M m/AU so
-# an Epstein-Drive ship reaches the outer Mars-Jupiter Asteroid Belt at 3.20 AU in under 1 hour).
-# Scales orbital distances, planet sizes, Sun size, and moon sizes together unless overridden below:
-#   distance_scale   = 1.0   # Orbital radii of planets and moons
-#   body_scale       = 1.0   # Sizes of planets, moons, and belt asteroids
-#   sun_scale        = 1.0   # Size of the cubic Sun
-#   asteroid_density = 1.0   # Procedural Asteroid Belt occupancy
-scale = 1.0
+# Procedural Mars-Jupiter Asteroid Belt (2.20..3.20 AU) occupancy density (0.0..=8.0, default: 1.0).
+# Override via LOW_CUBE_ASTEROID_DENSITY or --asteroid-density.
+asteroid_density = 1.0
 
 [aurora]
 # Nocturnal polar lights over Arctic.
@@ -51,7 +47,7 @@ mode = "nightly"
 # Starting items stowed in the player's satchel upon entering the world.
 # Format: comma-separated item names with optional ":count" (or "none" for an empty satchel).
 # Supported items:
-#   field_camera, vehicle_blueprint, rocket_camera, flight_console, rocket_nozzle, fusion_torch, titanium_hull, carbon_silicate, aircraft_engine, steering_wheel, car_wheel, cabin_seat, pedal_cluster,
+#   field_camera, vehicle_blueprint, rocket_camera, flight_console, rocket_nozzle, fusion_torch, titanium_hull, carbon_silicate, black_box_pod, vitrified_basalt, aircraft_engine, steering_wheel, car_wheel, cabin_seat, pedal_cluster,
 #   cantilever_crane, spawn_stone, flint_pickaxe, iron_pickaxe, iron_spade, woodman_axe, knightly_sword, wooden_mallet, timber_torch,
 #   quarried_stone, excavated_earth, timber_block, plank_block, crust_block, deadwood_bough, flint_stone
 items = "field_camera, vehicle_blueprint, rocket_camera:4, flight_console, rocket_nozzle:6, aircraft_engine, steering_wheel, car_wheel:8, cabin_seat:2, pedal_cluster:2"

@@ -58,38 +58,38 @@ Die separaten Verzerrungsfaktoren (`body_scale`, `sun_scale`, `distance_scale`) 
 
 ---
 
-## 4. Übergreifende Master-Checkliste
+## 4. Übergreifende Master-Checkliste (Vollständig abgeschlossen in `v0.112.0`–`v0.118.0`)
 
-- [ ] **Phase 1: Polymorpher Krusten- & Raumkontakt (Fix des Raketen-Abprall-Bugs)**
-  - [ ] Domänenobjekt `SurfaceContact` (`Vacuum`, `GasEnvelope`, `SolidCrust`) in `crates/world` einführen
-  - [ ] `PlanetaryWorld::surface_contact` ohne Dummy-`position`-Fallback implementieren (`CubePlanet`, `TranslatedWorld`, `BinaryPlanet`, `HeliosphereWorld`, `OrbitalFleetWorld`)
-  - [ ] `HeliosphereWorld::near_earth` von starren `+ 64 m` auf den echten Gravitations-/Kontaktbereich umstellen
-  - [ ] `HullClearance` und `TouchdownStep` auf `SurfaceContact` umstellen (kein Lande-Snap im Vakuum oder in Gasriesen-Wolken)
-  - [ ] Atomare Reproduktions- und Regressionstests für Rückflug aus `1.000 m` / `5.000 m` Höhe (senkrecht & über 45°-Kanten) sowie Gasriesen-Eintauchen grün
-- [ ] **Phase 2: Gekoppelter Kosmos-Maßstab (`size = 1..=32`) & `< 1h` Epstein-Gürtel-Garantie**
-  - [ ] Separate Verzerrungsfaktoren (`[cosmos] scale`, `body_scale`, `sun_scale`, `distance_scale`, `--*-scale`) entfernen; `[world] size` (`1..=32`, Standard `8` = `1024³`) als einzigen Maßstabs-Parameter beibehalten
-  - [ ] `SolarProportions::astronomical_unit` mit dem `< 1h`-Epstein-Deckel (`<= 48,1 Mio. m`) versehen und Log-Depth-Far-Plane in `crates/engine/src/shader.rs` auf `10 Mrd. m` erweitern
-  - [ ] `CosmosOverrides` (`crates/client/src/cosmos_scale.rs`) und `ServerCosmosScale` (`crates/sanctuary/src/config/cosmos.rs`) verschlanken (nur optionale `belt_density`, kein toter Code!)
-  - [ ] Chemische Antriebsgrenze (`MAX_COSMIC_SPEED`) mit $\sqrt{\text{size}}$ skalieren und künstliche `48 km/s`-Drossel (`MAX_FUSION_SPEED`) für den Epstein-Drive öffnen (`>= 200 km/s`)
-  - [ ] Multiplayer-Handshake (`seal.rs` / `remote_link.rs`) und Dokumentation (`server.toml`, `docs/SETTINGS.md`, `README.md`) aktualisieren
-- [ ] **Phase 3: On-Demand Sektor-Streaming, `4096³`-Freigabe & Begehbarer Asteroidengürtel**
-  - [ ] `ReliefCellCache` (`crates/world/src/relief/face/cache.rs`) von Eager-Vollflächen-Generierung auf bedarfsgesteuerte Sektor-Materialisierung (`LazySectorGrid`) umstellen
-  - [ ] Grobes Orbital-Facetten-Mesh (`OrbitalFaceShell`) für ferne/ungeladene Sektoren großer Planeten (`512..=4096` Blöcke) ergänzen
-  - [ ] `512`-Block-Clamp für Felsplaneten/Monde auf `4096` anheben (`EARTH` bis `4096`, `VENUS` bis `3888`, `MARS` bis `2180`)
-  - [ ] Angeflogene Gürtel-Asteroiden (`BeltRock` / `BodyId::belt_rock` in `2,20..3,20 AU`) on-demand als echte begeh- und abbaubare Voxel-Würfel (`16³..128³` mit reichen `LivingVeins`) materialisieren
-  - [ ] Server-Welthaltung für alle Körper & aktiven Asteroiden von GPU-Mesh-Slots entkoppeln (`BodyChronicles`: prozedurale Höhenabfrage + geänderte Voxel pro `BodyId` ohne 2-Slot-Verdrängung im Multiplayer)
-  - [ ] Startzeit-, RAM- und `allocation_audit`-Tests für `1024³`- und `4096³`-Heimatwelten grün
-- [ ] **Phase 4: Mitbewegte „Gravity Bubbles“ (`BodyFrame`) gegen `f32`-Jitter & Orbit-Freeze**
-  - [ ] Lokale Referenz-Koordinate `AnchoredPoint` (`BodyId` + lokaler `Vec3`) und `BubbleBoundary` (Hill-Sphären-Radien in `f64`) definieren
-  - [ ] Nahtlosen Referenzwechsel (`FrameCrossing`) für `RocketDrive` (`SpaceState`) und Fußgänger-Avatar beim Durchfliegen einer Hill-Sphäre implementieren
-  - [ ] Erd-Sonderrolle in `HeliosphereWorld` auflösen: Erde nutzt denselben `BodyId::EARTH`-Frame-Mechanismus wie Mond, Mars und Titan
-  - [ ] Ephemeriden-Sperre (`if !locked` in `HeliosphereWorld::step_surface`) entfernen $\rightarrow$ kontinuierliche Live-Planetenbahnen und echte Eigenrotation auch während Landungen
-  - [ ] Kamera- und Rendering-Pipeline (`CosmicBodyCube`, `GiantCloudShell`, `TranslatedWorld`) relativ zum aktiven lokalen `BodyId`-Ursprung rendern (Sub-Millimeter-`f32`-Präzision bis Neptun/Triton)
-- [ ] **Phase 5: Multiplayer-Protokoll, Navigations-HUD & Endabnahme**
-  - [ ] Sanctuary-Netzwerkprotokoll (`CompanionPresence`, `DrivenCraft`, `WorldFact`, `WardedPlanet`) auf `(BodyId, Vec3)`-Verankerung erweitern
-  - [ ] Anti-Cheat (`WardedPlanet`) pro aktivem Himmelskörper-Frame validieren statt globalem `heliosphere_span`
-  - [ ] `HelmChart`, `TransferArc` und `OrreryFrame` auf `1024³`-Maßstab und bewegte Referenzblasen abstimmen
-  - [ ] Vollständiger Testlauf (`cargo test --workspace`), Zeilenlimit-Prüfung (`<= 300` Zeilen) und Pure-OOP-Audit
+- [x] **Phase 1: Polymorpher Krusten- & Raumkontakt (Fix des Raketen-Abprall-Bugs)**
+  - [x] Domänenobjekt `SurfaceContact` (`Vacuum`, `GasEnvelope`, `SolidCrust`) in `crates/world` einführen
+  - [x] `PlanetaryWorld::surface_contact` ohne Dummy-`position`-Fallback implementieren (`CubePlanet`, `TranslatedWorld`, `BinaryPlanet`, `HeliosphereWorld`, `OrbitalFleetWorld`)
+  - [x] `HeliosphereWorld::near_earth` von starren `+ 64 m` auf den echten Gravitations-/Kontaktbereich umstellen
+  - [x] `HullClearance` und `TouchdownStep` auf `SurfaceContact` umstellen (kein Lande-Snap im Vakuum oder in Gasriesen-Wolken)
+  - [x] Atomare Reproduktions- und Regressionstests für Rückflug aus `1.000 m` / `5.000 m` Höhe (senkrecht & über 45°-Kanten) sowie Gasriesen-Eintauchen grün
+- [x] **Phase 2: Gekoppelter Kosmos-Maßstab (`size = 1..=32`) & `< 1h` Epstein-Gürtel-Garantie**
+  - [x] Separate Verzerrungsfaktoren (`[cosmos] scale`, `body_scale`, `sun_scale`, `distance_scale`, `--*-scale`) entfernen; `[world] size` (`1..=32`, bis `4096³`) als einzigen Maßstabs-Parameter beibehalten
+  - [x] `SolarProportions::astronomical_unit` mit dem `< 1h`-Epstein-Deckel (`<= 48,1 Mio. m`) versehen und Log-Depth-Far-Plane in `crates/engine/src/shader.rs` auf `10 Mrd. m` erweitern
+  - [x] `BeltDensity` (`crates/client/src/cosmos_scale.rs`) und `ServerCosmosScale` (`crates/sanctuary/src/config/cosmos.rs`) verschlanken (nur optionale `asteroid_density`, kein toter Code!)
+  - [x] Chemische Antriebsgrenze (`MAX_COSMIC_SPEED`) mit $\sqrt{\text{size}}$ skalieren und künstliche `48 km/s`-Drossel (`MAX_FUSION_SPEED`) für den Epstein-Drive öffnen (`240 km/s`)
+  - [x] Multiplayer-Handshake (`seal.rs` / `remote_link.rs`) und Dokumentation (`server.toml`, `docs/SETTINGS.md`) aktualisieren
+- [x] **Phase 3: On-Demand Sektor-Streaming, `4096³`-Freigabe & Begehbarer Asteroidengürtel**
+  - [x] `ReliefCellCache` (`crates/world/src/relief/face/cache.rs`) von Eager-Vollflächen-Generierung auf bedarfsgesteuerte Sektor-Materialisierung umstellen
+  - [x] Grobes Orbital-Facetten-Mesh (`OrbitalShell`) für ferne/ungeladene Sektoren großer Planeten (`512..=4096` Blöcke) ergänzen
+  - [x] `512`-Block-Clamp für Felsplaneten/Monde auf `4096` anheben (`EARTH` bis `4096`, `VENUS` bis `3888`, `MARS` bis `2180`)
+  - [x] Angeflogene Gürtel-Asteroiden (`BeltRock` / `BodyId::belt_rock` in `2,20..3,20 AU`) on-demand als echte begeh- und abbaubare Voxel-Würfel (`16³..128³` mit reichen `LivingVeins`) materialisieren
+  - [x] Server-Welthaltung für alle Körper & aktiven Asteroiden von GPU-Mesh-Slots entkoppeln (`OffworldVault` + `SpatialFactIndex` pro `(BodyId, ClimateZone, Sector)` ohne 2-Slot-Verdrängung im Multiplayer)
+  - [x] Startzeit-, RAM- und `allocation_audit`-Tests für `1024³`- und `4096³`-Heimatwelten grün
+- [x] **Phase 4: Mitbewegte „Gravity Bubbles“ (`CosmicFrame`) gegen `f32`-Jitter & Orbit-Freeze**
+  - [x] Lokale Referenz-Koordinate `CosmicFrame` (`Body`, `BeltAsteroid`, `DeepSpace`) und `GravityBubble` (Hill-Sphären-Radien in `f64`) definieren
+  - [x] Nahtlosen Referenzwechsel (`FrameHandoff`) für `RocketDrive` (`SpaceState`) und Fußgänger-Avatar beim Durchfliegen einer Hill-Sphäre implementieren
+  - [x] Erd-Sonderrolle in `HeliosphereWorld` auflösen: Erde nutzt denselben `BodyId::EARTH`-Frame-Mechanismus wie Mond, Mars und Titan
+  - [x] Ephemeriden-Sperre (`if !locked` in `HeliosphereWorld::step_surface`) entfernen $\rightarrow$ kontinuierliche Live-Planetenbahnen und echte Eigenrotation auch während Landungen
+  - [x] Kamera- und Rendering-Pipeline (`CosmicBodyCube`, `GiantCloudShell`, `TranslatedWorld`) relativ zum aktiven lokalen `CosmicFrame`-Ursprung rendern (Sub-Millimeter-`f32`-Präzision bis Neptun/Triton)
+- [x] **Phase 5: Multiplayer-Protokoll, Navigations-HUD & Endabnahme**
+  - [x] Sanctuary-Netzwerkprotokoll (`CompanionPresence`, `DrivenCraft`, `WorldFact`, `WardedPlanet`) auf `CosmicFrame`- und `VesselBerth`-Verankerung erweitern
+  - [x] Anti-Cheat (`WardedPlanet`) pro aktivem Himmelskörper-Frame validieren statt globalem `heliosphere_span`
+  - [x] `HelmChart`, `TransferArc` und `OrreryFrame` auf `1024³`-Maßstab, bewegte Referenzblasen und `CargoBallast`-Masse abstimmen
+  - [x] Vollständiger Testlauf (`cargo test --workspace`), Zeilenlimit-Prüfung (`<= 300` Zeilen) und Pure-OOP-Audit
 
 ---
 

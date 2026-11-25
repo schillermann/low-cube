@@ -92,14 +92,22 @@ impl WorldEarthworks for WardedPlanet<'_> {
     }
 
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
-        if !self.ward.eye_within_reach(eye, direction) || !self.ward.spend_block() {
+        if !self.ward.eye_within_reach(eye, direction) {
+            return false;
+        }
+        let residue = mold.medium().flight_residue() && self.ward.piloting_craft();
+        if !residue && !self.ward.spend_block() {
             return false;
         }
         if self.origin.place_molded_surface_block(eye, direction, avatar_pos, mold) {
-            self.ward.manifest_mut().deduct_medium_if_present(mold.medium());
+            if !residue {
+                self.ward.manifest_mut().deduct_medium_if_present(mold.medium());
+            }
             return true;
         }
-        self.ward.credit_blocks(1);
+        if !residue {
+            self.ward.credit_blocks(1);
+        }
         false
     }
 
@@ -190,14 +198,22 @@ impl WorldEarthworks for WardedPlanet<'_> {
                 true
             }
             WorldFact::MoldPlaced { eye, direction, mold, .. } => {
-                if !self.ward.eye_within_reach(eye + c, direction) || !self.ward.spend_block() {
+                if !self.ward.eye_within_reach(eye + c, direction) {
+                    return false;
+                }
+                let residue = mold.medium().flight_residue() && self.ward.piloting_craft();
+                if !residue && !self.ward.spend_block() {
                     return false;
                 }
                 if self.origin.enact_offworld(body, fact) {
-                    self.ward.manifest_mut().deduct_medium_if_present(mold.medium());
+                    if !residue {
+                        self.ward.manifest_mut().deduct_medium_if_present(mold.medium());
+                    }
                     true
                 } else {
-                    self.ward.credit_blocks(1);
+                    if !residue {
+                        self.ward.credit_blocks(1);
+                    }
                     false
                 }
             }

@@ -1,9 +1,9 @@
 use crate::{BlockMedium, SurfaceFind};
 
-/// Total number of held/stowed item codes (`0..=33`, matching `HeldRelic::COUNT` and 6-bit palm wire span).
-pub const RELIC_SLOT_COUNT: usize = 34;
+/// Total number of held/stowed item codes (`0..=35`, matching `HeldRelic::COUNT` and 6-bit palm wire span).
+pub const RELIC_SLOT_COUNT: usize = 36;
 
-/// Domain catalog mapping `BlockMedium`, `SurfaceFind`, config tokens, and 23 crafting recipes to item codes (`<= 4` fields).
+/// Domain catalog mapping `BlockMedium`, `SurfaceFind`, config tokens, and 24 crafting recipes to item codes (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RelicCatalog {
     code: u8,
@@ -58,6 +58,8 @@ impl RelicCatalog {
             31 => "iron_pickaxe",
             32 => "titanium_hull",
             33 => "carbon_silicate",
+            34 => "vitrified_basalt",
+            35 => "black_box_pod",
             _ => "empty",
         }
     }
@@ -87,6 +89,8 @@ impl RelicCatalog {
             BlockMedium::SpawnStone => 29,
             BlockMedium::TitaniumHull => 32,
             BlockMedium::CarbonSilicate => 33,
+            BlockMedium::VitrifiedBasalt => 34,
+            BlockMedium::BlackBoxPod => 35,
         }
     }
 
@@ -150,11 +154,13 @@ impl RelicCatalog {
             "ironpickaxe" | "ironpick" | "eisenhacke" => Some(31),
             "titaniumhull" | "titanium" | "titaniumalloy" | "titan" | "titanhuelle" => Some(32),
             "carbonsilicate" | "carbonlace" | "silicatelace" | "cermet" | "keramik" => Some(33),
+            "vitrifiedbasalt" | "fusedbasalt" | "scorchbasalt" | "schmelzbasalt" => Some(34),
+            "blackboxpod" | "blackbox" | "flightblackbox" | "flugschreiber" => Some(35),
             _ => None,
         }
     }
 
-    /// Authoritative recipe table `(product_code, batch_yield, [(ing0, qty0), (ing1, qty1)])` for `0..23`.
+    /// Authoritative recipe table `(product_code, batch_yield, [(ing0, qty0), (ing1, qty1)])` for `0..24`.
     pub const fn recipe_spec(recipe_idx: u8) -> Option<(u8, u32, [(u8, u32); 2])> {
         match recipe_idx {
             0 => Some((4, 1, [(8, 1), (9, 1)])),
@@ -180,6 +186,7 @@ impl RelicCatalog {
             20 => Some((31, 1, [(11, 1), (22, 2)])),
             21 => Some((32, 4, [(22, 2), (12, 1)])),
             22 => Some((33, 4, [(23, 1), (9, 2)])),
+            23 => Some((35, 1, [(22, 2), (21, 1)])),
             _ => None,
         }
     }

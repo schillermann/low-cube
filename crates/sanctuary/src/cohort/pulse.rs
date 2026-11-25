@@ -11,6 +11,7 @@ use crate::audience::{
 };
 use crate::aura::{HostAura, HostPresence};
 use crate::bubble_audience::{CosmicBubbleAudience, CosmicCraftSight};
+use crate::chat_medium::{ChatLocus, ChatMedium, SuitTransceiverMedium};
 use crate::chronicle_log::ChronicleStore;
 use crate::envelope::SanctuaryEnvelope;
 use crate::seal_batch::{OutboundFrame, ParallelSeals, PulseDelivery, SequentialDelivery};
@@ -171,9 +172,16 @@ impl CohortPulse {
         aura: &mut HostAura,
         render_secs: f64,
     ) {
-        let speaker = utterance.transfer(|slot, _, _| slot);
+        let (speaker, origin) = utterance.transfer(|slot, pos, _| (slot, pos));
+        let speaker_berth = if speaker == 1 {
+            aura.effective_berth()
+        } else {
+            wards.get(&speaker).map_or(VesselBerth::planetary(), |(w, _)| w.effective_berth())
+        };
+        let speaker_locus = ChatLocus::new(speaker_frame, speaker_berth, origin, !utterance.radio_silent());
+        let medium = SuitTransceiverMedium::cosmos();
         if speaker != 1 {
-            aura.receive_utterance(speaker_frame, utterance.clone(), crate::audience::CHAT_EARSHOT_METERS);
+            aura.receive_utterance(speaker_locus, utterance.clone(), &medium);
         }
         let mut payload = Vec::with_capacity(80);
         SanctuaryEnvelope::HostUtterance { utterance: utterance.clone() }.inscribe(&mut payload);
@@ -190,8 +198,8 @@ impl CohortPulse {
                     Some((sf, pose)) => (sf, pose.world_point_at(raw)),
                     None => (ward.cosmic_frame(), raw),
                 };
-                (wf == speaker_frame && utterance.audible_at(pos, crate::audience::CHAT_EARSHOT_METERS))
-                    .then_some(cid)
+                let listener = ChatLocus::new(wf, ward.effective_berth(), pos, true);
+                medium.carries(speaker_locus, listener).then_some(cid)
             })
             .collect();
         for cid in recipient_ids {

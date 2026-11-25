@@ -118,10 +118,8 @@ impl SanctuaryEndpoint {
         println!("=== LOW-CUBE DEDICATED SERVER ===");
         println!("Listening UDP:  {bound} ({blocks_per_edge} blocks/edge)");
         println!(
-            "Solar Scale:    dist={:.4} body={:.2} sun={:.2} belt={:.2}",
-            proportions.distance_scale(),
-            proportions.body_scale(),
-            proportions.sun_scale(),
+            "Solar Reach:    1 AU={:.2} Mm belt_density={:.2}",
+            proportions.astronomical_unit() * 1.0e-6,
             proportions.belt_density(),
         );
         println!("Portal Code:    {}", host.code().encode());

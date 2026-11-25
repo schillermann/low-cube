@@ -19,6 +19,8 @@ mod expanse_hull_tests;
 #[cfg(test)]
 mod expanse_tests;
 #[cfg(test)]
+mod hard_scifi_sandbox_tests;
+#[cfg(test)]
 mod hollow_nozzle_tests;
 #[cfg(test)]
 mod liftoff_tests;
@@ -70,6 +72,8 @@ pub trait CraftDrive: Send + Sync {
     fn shape_pilot_pose(&self, pose: BodyPose) -> BodyPose;
     fn free_look(&self) -> bool;
     fn proper_g_load(&self) -> f32 { 0.0 }
+    fn sync_cargo_ballast(&mut self, _cargo_mass: f32) {}
+    fn drain_flight_residue(&mut self, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn helm_optic_channel(&self, _assembly: &VehicleAssembly) -> u8 { 0 }
     fn toggle_retro_flip(&mut self, _assembly: &VehicleAssembly) -> bool { false }
     fn toggle_flight_guidance(&mut self, _assembly: &VehicleAssembly) -> bool { false }

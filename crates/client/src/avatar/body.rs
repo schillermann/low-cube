@@ -113,13 +113,11 @@ impl AvatarBody {
     }
 
     pub fn sector_stamp(&self) -> (u8, i32, i32, i32) {
-        let p = self.span.current();
-        (
-            world::ClimateZone::dominant(p).index() as u8,
-            ((p.x * 0.125).floor() as i32) * 16,
-            ((p.y * 0.125).floor() as i32) * 16,
-            ((p.z * 0.125).floor() as i32) * 16,
-        )
+        self.span.sector_stamp()
+    }
+
+    pub fn drain_flight_residue(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        self.berth.drain_flight_residue(world)
     }
 
     pub fn visible_slices(&self, world: &dyn PlanetaryWorld) -> u32 {
@@ -191,10 +189,10 @@ impl AvatarBody {
     }
 
     pub fn step_driving(
-        &mut self, dt: f32, controls: &dyn KeyboardControls, sight_line: &mut AvatarSight, world: &dyn PlanetaryWorld,
+        &mut self, dt: f32, cargo_mass: f32, controls: &dyn KeyboardControls, sight_line: &mut AvatarSight, world: &dyn PlanetaryWorld,
     ) -> bool {
         let Some((next_span, next_posture, ground_flight)) =
-            self.berth.step_driving(dt, controls, self.span, self.posture, sight_line, world)
+            self.berth.step_driving(dt, cargo_mass, controls, self.span, self.posture, sight_line, world)
         else {
             return false;
         };

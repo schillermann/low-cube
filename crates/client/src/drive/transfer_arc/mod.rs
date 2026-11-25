@@ -193,6 +193,19 @@ impl TransferArc {
     }
 
     pub fn sample_flip_burn(&self, ship_pos: Vec3, velocity: Vec3, nose_axis: Vec3) -> FlipBurnReadout {
+        let CourseProfile::Brachistochrone { burn_accel, .. } = self.profile else {
+            return FlipBurnReadout::Inactive;
+        };
+        self.sample_flip_burn_with_accel(ship_pos, velocity, nose_axis, burn_accel)
+    }
+
+    pub fn sample_flip_burn_with_accel(
+        &self,
+        ship_pos: Vec3,
+        velocity: Vec3,
+        nose_axis: Vec3,
+        live_accel: f32,
+    ) -> FlipBurnReadout {
         let CourseProfile::Brachistochrone { flip_point, burn_accel, .. } = self.profile else {
             return FlipBurnReadout::Inactive;
         };
@@ -208,7 +221,7 @@ impl TransferArc {
         }
         let close_dir = to_dest / rem_dist;
         let v_close = velocity.dot(close_dir).max(0.0);
-        let a = burn_accel.max(5.0);
+        let a = if live_accel > 0.5 { live_accel.max(1.5) } else { burn_accel.max(5.0) };
         let stop_dist = (v_close * v_close) / (2.0 * a);
         if progress < 0.48 && stop_dist < rem_dist * 0.92 {
             let d_flip = (flip_point - ship_pos).dot(axis).max(0.0);

@@ -61,6 +61,7 @@ pub enum FlightEvent {
     HandReleased,
     RigAdjusted,
     RelicCast,
+    SurfaceAltered,
     WorldLanded { blocks: u32 },
     Anomaly(AnomalyKind),
 }
@@ -73,6 +74,7 @@ impl FlightEvent {
             Self::HandReleased => "hand_released".to_string(),
             Self::RigAdjusted => "rig_adjusted".to_string(),
             Self::RelicCast => "relic_cast".to_string(),
+            Self::SurfaceAltered => "surface_altered".to_string(),
             Self::WorldLanded { blocks } => format!("world_landed:{blocks}"),
             Self::Anomaly(kind) => format!("anomaly:{}", kind.label()),
         }

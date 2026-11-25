@@ -7,6 +7,7 @@ use super::super::cabin_seat::CabinSeatMesh;
 use super::super::cell::GridCell;
 use super::super::earth_clods::EarthClods;
 use super::super::field_camera::FieldCameraTripod;
+use super::super::forensic_blocks::{BlackBoxPodMesh, VitrifiedBasaltMesh};
 use super::super::mineral_seam::MineralSeam;
 use super::super::mold::MoldArchetype;
 use super::super::pedal_cluster::{FootwellPlinth, PedalClusterMesh};
@@ -65,6 +66,7 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
                     | BlockMedium::FieldCamera
                     | BlockMedium::VehicleBlueprint
                     | BlockMedium::SpawnStone
+                    | BlockMedium::BlackBoxPod
             )
         {
             GridCell::SPAN
@@ -148,6 +150,11 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             (BlockMedium::PedalCluster, _) => PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
             (BlockMedium::SpawnStone, _) => SpawnPlinthMesh::new(cell, floor_elevation).emit(frame, target),
+            (BlockMedium::BlackBoxPod, _) => BlackBoxPodMesh::new(cell, floor_elevation).emit(frame, target),
+            (BlockMedium::VitrifiedBasalt, full) => {
+                let h = if full { GridCell::SPAN } else { GridCell::SPAN * 0.5 };
+                VitrifiedBasaltMesh::new(cell, floor_elevation, h).emit(frame, target);
+            }
             (
                 BlockMedium::FlightConsole | BlockMedium::RocketNozzle | BlockMedium::RocketCamera | BlockMedium::FusionTorch,
                 _,

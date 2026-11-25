@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.121.0] - 2026-11-25
+
+### Added
+- Added emergent Hard-Sci-Fi sandbox decorators (`Paket 5` — 100% horizon-local with zero global broadcasts):
+  - `CargoBallast<S>` (`ImpulseStage` decorator in `crates/world/src/relief/vehicle_assembly/impulse/stages.rs` and `RigidImpulse::with_cargo_ballast` in `impulse/mod.rs`), physical mineral hull densities (`GoldOre > IronOre > CopperOre > QuarriedStone` in `part/propulsion.rs`), `SatchelBurden::ballast_tonnage` (`crates/client/src/attire/burden/mod.rs`), and `TransferArc::sample_flip_burn_with_accel` (`crates/client/src/drive/transfer_arc/mod.rs` and `RocketDrive`): scales spacecraft `a = F / m` acceleration, principal rotational inertia, `SolarChartModal` Brachistochrone plotting, and `FlipBurnReadout` turnaround warnings dynamically with hull ore blocks and pilot satchel cargo (`crates/client/src/drive/hard_scifi_sandbox_tests.rs`).
+  - `ChatMedium` decorator chain (`SuitTransceiverMedium(AtmosphericVoiceMedium(CabinIntercomMedium(HelmetContactMedium)))` in `crates/sanctuary/src/chat_medium.rs`, `CosmicFrame::atmospheric_sound` in `crates/world/src/celestial/bubble.rs`, and `ProximityUtterance::radio_silent` in `crates/world/src/presence/utterance.rs`, wired into `CohortPulse::relay_utterance` and `HostAura::receive_utterance`): carries open voice up to `96 m` on atmosphere-bearing worlds (`Earth`, `Mars`, `Venus`, `Titan`), `0 m` open sound in airless vacuum (`Luna`, `BeltAsteroid`, `DeepSpace`), `<= 32 m` EVA suit VHF radio unless silenced with `~`, `<= 1.85 m` visor-to-visor helmet conduction under total radio silence, and `240 km/s` pressurized cabin intercom across shared `VesselBerth::Aboard` hulls (`crates/sanctuary/src/tests/vacuum_chat.rs`).
+  - `BlockMedium::VitrifiedBasalt` / `VitrifiedBasaltMesh` (`code 24`, `HeldRelic::VitrifiedBasalt = 34`), `BlockMedium::BlackBoxPod` / `BlackBoxPodMesh` (`code 25`, `HeldRelic::BlackBoxPod = 35` with single-click `instant_pickup`, `ArtisanTome` recipe `#23` in `crates/world/src/survivor/catalog.rs` & `crates/client/src/attire/tome.rs`), and `FlightResidue` (`crates/client/src/drive/rocket/residue.rs`): vitrifies planetary launchpads beneath active `FusionTorch` plumes into obsidian-glassy basalt with glowing cooling fissures, ejects salvageable safety-orange `BlackBoxPod` capsules upon severe spacecraft impacts (`v_norm < -26 m/s`), and unfolds the tilted ruled `IncidentSheet` telemetry log on `WheelClick` in hand.
+
+### Changed
+- Consolidated solar-system scaling directly onto `[world] size = 1..=32` plus optional `asteroid_density` (`COSMOS_PLAN.md` Phase 2), removing independent distortion overrides (`body_scale`, `sun_scale`, `distance_scale`, `[cosmos] scale`, `--*-scale`, `BodyRatios`, and `CosmosOverrides`) across `SolarProportions` (`crates/world/src/celestial/proportions.rs`), `BeltDensity` (`crates/client/src/cosmos_scale.rs`), `ServerCosmosScale` (`crates/sanctuary/src/config/cosmos.rs`), `server.toml`, and `docs/SETTINGS.md`.
+
 ## [0.120.0] - 2026-11-25
 
 ### Added
