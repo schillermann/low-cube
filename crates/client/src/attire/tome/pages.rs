@@ -83,7 +83,7 @@ impl<'a, S: FolioSpread> FolioSpread for LeftGridFolio<'a, S> {
                 } else if ready {
                     Vec3::new(0.26, 0.68, 0.38)
                 } else {
-                    Vec3::new(0.32, 0.36, 0.46)
+                    Vec3::new(0.72, 0.28, 0.24)
                 };
                 let slot_frame = left.shifted(sx, sy, sz).scaled(0.82);
                 let plaque = ReadinessPipCompartment::new(
@@ -107,7 +107,7 @@ impl<'a, S: FolioSpread> FolioSpread for LeftGridFolio<'a, S> {
     }
 }
 
-/// Decorator rendering the right-page tilted Polaroid showcase, formula equation, action badges, and legend strip.
+/// Decorator rendering the right-page tilted Polaroid showcase, ingredient list, action badges, and legend strip.
 #[derive(Clone, Copy)]
 pub struct RightPolaroidFolio<'a, S> {
     origin: S,
@@ -142,7 +142,7 @@ impl<'a, S: FolioSpread> FolioSpread for RightPolaroidFolio<'a, S> {
             FolioSelection::Highlighted(_, entry) => {
                 let polaroid_frame = right.shifted(0.0, 0.074, -0.006).rolled(-0.048);
                 PinnedPolaroid::new(
-                    PolaroidCard::new(entry.product().title(), entry.batch_yield()),
+                    PolaroidCard::new(SlotBurden::new(entry.product(), entry.batch_yield())),
                     entry.product().figure(BlockMold::cube()),
                 )
                 .emit_slot(&polaroid_frame, target);

@@ -26,7 +26,9 @@ pub use self::domain::{
     FolioSelection as TestFolioSelection, FolioTab as TestFolioTab, StockScope as TestStockScope,
 };
 #[cfg(test)]
-pub use self::polaroid::{PinnedPolaroid, PolaroidCard, ReadinessPipCompartment, VacantScopePlaque};
+pub use self::polaroid::{
+    IngredientFormula, PinnedPolaroid, PolaroidCard, ReadinessPipCompartment, VacantScopePlaque,
+};
 #[cfg(test)]
 pub use self::shelf::{CanonicalShelf, ReadyStockShelf, RecipeShelf, TabbedShelf};
 #[cfg(test)]

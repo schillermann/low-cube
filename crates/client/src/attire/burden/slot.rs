@@ -162,13 +162,24 @@ impl SlotBurden {
         ));
     }
 
-    pub fn emit_grade_badge(&self, badge_frame: &LimbFrame, target: &mut dyn MeshTarget) {
-        let pigment = self.corner_pigment();
-        let rim = (pigment * 0.58).clamp(Vec3::splat(0.20), Vec3::splat(1.05));
-        badge_frame.emit_framed_plaque(0.052, 0.015, 0.0020, Vec3::new(0.11, 0.13, 0.19), rim, target);
-        let label = format!("{}", self.summed_grade());
-        PixelStamp::new(0.0019, 0.0021, pigment)
-            .emit_on_frame(&label, 0.0, 0.0, 0.016, badge_frame, target);
+    pub fn emit_polaroid_chin(&self, frame: &LimbFrame, target: &mut dyn MeshTarget) {
+        let caption = if self.count > 1 {
+            format!("{} X{}", self.relic.title(), self.count)
+        } else {
+            self.relic.title().to_string()
+        };
+        PixelStamp::new(0.0017, 0.0019, Vec3::new(0.10, 0.13, 0.20))
+            .emit_on_frame(&caption, 0.0, -0.051, 0.0160, frame, target);
+
+        let ink = match self.escalated_rank() {
+            0 => Vec3::new(0.10, 0.44, 0.22),
+            1 => Vec3::new(0.54, 0.34, 0.06),
+            2 => Vec3::new(0.64, 0.24, 0.08),
+            _ => Vec3::new(0.62, 0.12, 0.14),
+        };
+        let weight_note = format!("WEIGHT: {}", self.summed_grade());
+        PixelStamp::new(0.0014, 0.0016, ink)
+            .emit_on_frame(&weight_note, 0.0, -0.072, 0.0160, frame, target);
     }
 }
 

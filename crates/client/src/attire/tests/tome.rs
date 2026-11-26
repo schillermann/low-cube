@@ -4,10 +4,10 @@ use world::{BiomedCubeWorld, BlockMold, PlanetaryWorld};
 use crate::attire::compartment::{CompartmentBackplate, ShowcasedCompartment, SlotPlaque, WeightedCompartment};
 use crate::attire::burden::SlotBurden;
 use crate::attire::tome::{
-    ArtisanTome, CanonicalShelf, PinnedPolaroid, PolaroidCard, ReadinessPipCompartment,
-    ReadyStockShelf, RecipeShelf, TabbedShelf, TestFolioSelection, TestFolioSpread as _,
-    TestFolioTab, TestIndexTabbedFolio, TestRingSpineFolio, TestSlateFolioCovers, TestStockScope,
-    VacantScopePlaque,
+    ArtisanTome, CanonicalShelf, IngredientFormula, PinnedPolaroid, PolaroidCard,
+    ReadinessPipCompartment, ReadyStockShelf, RecipeShelf, TabbedShelf, TestFolioSelection,
+    TestFolioSpread as _, TestFolioTab, TestIndexTabbedFolio, TestRingSpineFolio,
+    TestSlateFolioCovers, TestStockScope, VacantScopePlaque,
 };
 use crate::attire::{BeltSatchel, HeldRelic, LimbFrame, YouthAttire};
 use crate::avatar::{Avatar as _, AvatarOptics as _, PlanetaryAvatar};
@@ -87,9 +87,10 @@ fn test_folio_spread_and_polaroid_slot_plaque_decorators_compose_layered_ring_bi
     ReadinessPipCompartment::new(base_slot, true, 4).emit_slot(&frame, &mut pipped);
     assert!(pipped.exceeds(&unpipped), "ReadinessPipCompartment must add readiness corner pip and X4 yield tag");
 
-    PolaroidCard::new("WOODMAN AXE", 1).emit_slot(&frame, &mut polaroid_card);
+    let axe_burden = SlotBurden::new(HeldRelic::WoodmanAxe, 1);
+    PolaroidCard::new(axe_burden).emit_slot(&frame, &mut polaroid_card);
     PinnedPolaroid::new(
-        PolaroidCard::new("WOODMAN AXE", 1),
+        PolaroidCard::new(axe_burden),
         HeldRelic::WoodmanAxe.figure(BlockMold::cube()),
     )
     .emit_slot(&frame, &mut pinned_polaroid);
@@ -98,6 +99,35 @@ fn test_folio_spread_and_polaroid_slot_plaque_decorators_compose_layered_ring_bi
     VacantScopePlaque::new(TestFolioTab::Orbital).emit_slot(&frame, &mut vacant);
     assert!(vacant.populated());
     assert!(!TestFolioSelection::VacantTab(TestFolioTab::Orbital).highlights_recipe(0));
+}
+
+#[test]
+fn test_ingredient_formula_omits_locked_badge_and_trailing_product_duplicate() {
+    let frame = LimbFrame::new(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::NEG_Z);
+    let squire = YouthAttire::squire();
+    let entries = ArtisanTome::entries();
+    let plank_entry = entries[1];
+    let axe_entry = entries[0];
+
+    let empty_satchel = BeltSatchel::empty();
+    let stocked_satchel = BeltSatchel::empty().with_stowed_relic(HeldRelic::TimberBlock, 1);
+    let (mut missing_planks, mut ready_planks, mut missing_axe) = (
+        QuadLedger::empty(),
+        QuadLedger::empty(),
+        QuadLedger::empty(),
+    );
+    IngredientFormula::new(plank_entry, &empty_satchel, squire).emit_slot(&frame, &mut missing_planks);
+    IngredientFormula::new(plank_entry, &stocked_satchel, squire).emit_slot(&frame, &mut ready_planks);
+    IngredientFormula::new(axe_entry, &empty_satchel, squire).emit_slot(&frame, &mut missing_axe);
+
+    assert!(
+        ready_planks.exceeds(&missing_planks),
+        "Craftable recipe must add CRAFT button over bare burden badge without rendering a LOCKED plaque when unready"
+    );
+    assert!(
+        missing_axe.exceeds(&missing_planks),
+        "Dual-ingredient formula must render both ingredient compartments around '+' while single-ingredient renders one"
+    );
 }
 
 #[test]

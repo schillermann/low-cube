@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.123.1] - 2026-11-26
+
+### Changed
+- Simplified `ArtisanTome` right-page inspection clarity (`crates/client/src/attire/tome/polaroid.rs`, `pages.rs` & `crates/client/src/attire/burden/slot.rs`):
+  - Removed the `LOCKED` plaque and trailing `-> [Product]` preview from `IngredientFormula` so only the centered required ingredients (`[Ing 1] + [Ing 2]` or `[Ing 1]`) and, when craftable, the `CRAFT` action button appear below the Polaroid showcase (`crates/client/src/attire/tests/tome.rs`).
+  - Framed unready recipe compartments in `LeftGridFolio` in red to match missing ingredient borders.
+  - Replaced the button-shaped `SlotBurden::emit_grade_badge` plaque with `SlotBurden::emit_polaroid_chin`, stamping unframed `WEIGHT: <GRADE>` ink directly onto `PolaroidCard`'s cream paper margin beneath the item title.
+
 ## [0.123.0] - 2026-11-26
 
 ### Added

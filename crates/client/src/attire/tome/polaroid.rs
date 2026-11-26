@@ -82,17 +82,16 @@ impl SlotPlaque for PaperSheet {
     }
 }
 
-/// Tactile Polaroid print card with drop shadow, warm cream paper stock, dark aperture, and bottom chin caption.
+/// Tactile Polaroid print card with drop shadow, warm cream paper stock, dark aperture, and stamped title & weight chin.
 #[derive(Clone, Copy)]
 pub struct PolaroidCard {
-    title: &'static str,
-    batch_yield: u32,
+    burden: SlotBurden,
 }
 
 impl PolaroidCard {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(title: &'static str, batch_yield: u32) -> Self {
-        Self { title, batch_yield }
+    pub const fn new(burden: SlotBurden) -> Self {
+        Self { burden }
     }
 }
 
@@ -102,14 +101,7 @@ impl SlotPlaque for PolaroidCard {
         PaperSheet::new((-0.092, -0.090, 0.092, 0.090), 0.0185, Vec3::new(0.76, 0.74, 0.68)).emit_slot(frame, target);
         PaperSheet::new((-0.089, -0.087, 0.089, 0.087), 0.0178, Vec3::new(0.98, 0.96, 0.91)).emit_slot(frame, target);
         PaperSheet::new((-0.076, -0.036, 0.076, 0.074), 0.0170, Vec3::new(0.11, 0.14, 0.21)).emit_slot(frame, target);
-
-        let caption = if self.batch_yield > 1 {
-            format!("{} X{}", self.title, self.batch_yield)
-        } else {
-            self.title.to_string()
-        };
-        PixelStamp::new(0.0017, 0.0020, Vec3::new(0.10, 0.13, 0.20))
-            .emit_on_frame(&caption, 0.0, -0.062, 0.0160, frame, target);
+        self.burden.emit_polaroid_chin(frame, target);
     }
 }
 
@@ -153,7 +145,7 @@ impl<P: SlotPlaque> SlotPlaque for PinnedPolaroid<P> {
     }
 }
 
-/// Right-page visual formula (`[Ing 1] + [Ing 2] -> [Product]`) paired with weight grade and `CRAFT` stamp.
+/// Right-page ingredient list (`[Ing 1] + [Ing 2]`) and conditional `CRAFT` action plaque.
 #[derive(Clone, Copy)]
 pub struct IngredientFormula<'a> {
     entry: CraftingEntry,
@@ -194,43 +186,26 @@ impl<'a> SlotPlaque for IngredientFormula<'a> {
         let op_stamp = PixelStamp::new(0.0022, 0.0022, Vec3::new(1.48, 1.46, 1.38));
 
         if ings[1].1 > 0 {
-            self.emit_mini_ingredient(ings[0].0, ings[0].1, -0.088, &eq, target);
-            op_stamp.emit_on_frame("+", -0.044, 0.008, 0.0155, &eq, target);
-            self.emit_mini_ingredient(ings[1].0, ings[1].1, 0.0, &eq, target);
-            op_stamp.emit_on_frame("->", 0.046, 0.008, 0.0155, &eq, target);
+            self.emit_mini_ingredient(ings[0].0, ings[0].1, -0.052, &eq, target);
+            op_stamp.emit_on_frame("+", 0.0, 0.008, 0.0155, &eq, target);
+            self.emit_mini_ingredient(ings[1].0, ings[1].1, 0.052, &eq, target);
         } else {
-            self.emit_mini_ingredient(ings[0].0, ings[0].1, -0.048, &eq, target);
-            op_stamp.emit_on_frame("->", 0.018, 0.008, 0.0155, &eq, target);
+            self.emit_mini_ingredient(ings[0].0, ings[0].1, 0.0, &eq, target);
         }
-        let out_x = if ings[1].1 > 0 { 0.090 } else { 0.072 };
-        let out_rim = if ready { Vec3::new(0.95, 0.78, 0.24) } else { Vec3::new(0.42, 0.46, 0.56) };
-        let out_cell = eq.shifted(out_x, 0.008, 0.0).scaled(0.46);
-        self.entry.product().figure(BlockMold::cube()).emit_in_slot(ready, out_rim, &out_cell, target);
-        PixelStamp::new(0.0017, 0.0018, Vec3::new(1.56, 1.46, 0.88))
-            .emit_on_frame(&format!("X{}", self.entry.batch_yield()), out_x, -0.022, 0.0155, &eq, target);
 
-        let bar = frame.shifted(0.0, -0.150, -0.006);
-        SlotBurden::new(self.entry.product(), self.entry.batch_yield())
-            .emit_grade_badge(&bar.shifted(-0.060, 0.0, 0.0), target);
-
-        let btn = bar.shifted(0.062, 0.0, 0.0);
-        let (btn_bg, btn_rim, btn_txt, label) = if ready {
-            (
+        if ready {
+            let btn = frame.shifted(0.0, -0.150, -0.006);
+            btn.emit_framed_plaque(
+                0.062,
+                0.016,
+                0.0020,
                 Vec3::new(0.86, 0.62, 0.16),
                 Vec3::new(1.00, 0.84, 0.34),
-                Vec3::new(0.09, 0.11, 0.16),
-                "CRAFT",
-            )
-        } else {
-            (
-                Vec3::new(0.14, 0.17, 0.24),
-                Vec3::new(0.36, 0.32, 0.28),
-                Vec3::new(0.96, 0.82, 0.72),
-                "LOCKED",
-            )
-        };
-        btn.emit_framed_plaque(0.054, 0.015, 0.0020, btn_bg, btn_rim, target);
-        PixelStamp::new(0.0021, 0.0022, btn_txt).emit_on_frame(label, 0.0, 0.0, 0.0155, &btn, target);
+                target,
+            );
+            PixelStamp::new(0.0021, 0.0022, Vec3::new(0.09, 0.11, 0.16))
+                .emit_on_frame("CRAFT", 0.0, 0.0, 0.0155, &btn, target);
+        }
     }
 }
 
