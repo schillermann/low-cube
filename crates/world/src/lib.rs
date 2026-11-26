@@ -105,8 +105,8 @@ pub use tree::{
 };
 pub use weather::{
     BiomeMoisture, ClimateHumidity, CloudStratum, CloudVeil, CloudVolume, ConvergenceCell,
-    LocalDownpour, MoistureField, PlanarNoise, PlanetaryWeather, RainShaft, SmoothScalarField,
-    StratumBand, TroposphereDeck, TroposphereField, WeatherSample,
+    LocalDownpour, MoistureField, PlanarNoise, PlanetaryWeather, SmoothScalarField, StratumBand,
+    TroposphereDeck, TroposphereField, WeatherSample,
 };
 pub use quad::Quad;
 

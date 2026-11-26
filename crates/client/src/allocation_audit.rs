@@ -224,7 +224,7 @@ fn test_asteroid_belt_flythrough_zero_heap_allocations() {
     let sky_allocs = count_allocations(|| {
         use world::PlanetaryWeather as _;
         for step in 0..120 {
-            let plane_eye = Vec3::new((step as f32) * 0.4 - 20.0, 64.0 + 15.0 + (step as f32) * 0.12, 4.0);
+            let plane_eye = Vec3::new((step as f32) * 0.4 - 20.0, 64.0 + 34.0 + (step as f32) * 0.12, 4.0);
             earth_sky.emit_around(world::SightCone::omnidirectional(plane_eye), &mut sky_sink);
         }
     });

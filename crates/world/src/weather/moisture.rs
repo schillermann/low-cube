@@ -87,12 +87,12 @@ impl ClimateHumidity {
 impl BiomeMoisture for ClimateHumidity {
     fn profile(&self) -> (f32, f32, bool) {
         match self.zone {
-            ClimateZone::Jungle => (0.25, 1.05, false),
-            ClimateZone::Temperate => (0.16, 1.00, false),
-            ClimateZone::Arctic => (0.15, 0.90, true),
-            ClimateZone::Steppe => (0.09, 1.20, false),
-            ClimateZone::Volcanic => (-0.22, 0.95, false),
-            ClimateZone::Desert => (-0.36, 1.10, false),
+            ClimateZone::Jungle => (0.14, 1.00, false),
+            ClimateZone::Temperate => (0.05, 0.95, false),
+            ClimateZone::Arctic => (0.04, 0.88, true),
+            ClimateZone::Steppe => (-0.03, 1.12, false),
+            ClimateZone::Volcanic => (-0.20, 0.92, false),
+            ClimateZone::Desert => (-0.38, 1.05, false),
         }
     }
 }
@@ -163,7 +163,7 @@ impl MoistureField {
     }
 
     pub(super) fn cell_span(self) -> f32 {
-        (self.half_size * 0.26).clamp(4.5, 18.0)
+        (self.half_size * 0.38).clamp(8.5, 28.0)
     }
 }
 
@@ -177,52 +177,54 @@ impl TroposphereField for MoistureField {
         let t = self.epoch_secs * wind_k;
 
         if layer == 0 {
-            let su1 = u / span - t * 0.055;
-            let sv1 = v / span - t * 0.022;
-            let su2 = u / (span * 1.32) + t * 0.019;
-            let sv2 = v / (span * 1.32) - t * 0.043;
+            let su1 = u / span - t * 0.022;
+            let sv1 = v / span - t * 0.009;
+            let su2 = u / (span * 1.32) + t * 0.008;
+            let sv2 = v / (span * 1.32) - t * 0.018;
             let bank_a = SmoothScalarField::new(seed ^ 0xA511_E9B3).sample(su1, sv1);
             let bank_b = SmoothScalarField::new(seed ^ 0x63D8_3595).sample(su2, sv2);
             let potential =
-                (bank_a * 0.48 + bank_b * 0.35 + (bank_a * bank_b) * 0.44 + supply).clamp(0.0, 1.18);
-            if potential <= 0.43 {
+                (bank_a * 0.48 + bank_b * 0.35 + (bank_a * bank_b) * 0.44 + supply).clamp(0.0, 1.35);
+            if potential <= 0.72 {
                 return ConvergenceCell::clear();
             }
-            let excess = ((potential - 0.74) / 0.28).clamp(0.0, 1.0);
+            let excess = ((potential - 0.95) / 0.24).clamp(0.0, 1.0);
             let phase = SmoothScalarField::new(seed ^ 0x3C6E_F372).sample(su1 * 0.45, sv2 * 0.45);
-            let cycle = (phase + t * 0.0085).rem_euclid(1.0);
+            let cycle = (phase + t * 0.0065).rem_euclid(1.0);
             let onset = WeatherCurve::new(0.18, 0.36).sample(cycle);
             let taper = 1.0 - WeatherCurve::new(0.76, 0.92).sample(cycle);
             let rain_rate = (excess * onset * taper * 1.25).clamp(0.0, 1.0);
-            let drained = WeatherCurve::new(0.42, 0.94).sample(cycle) * 0.28 * excess;
-            let condensed = ((potential - drained - 0.43) / 0.55).clamp(0.0, 1.0);
-            let upper_shadow = self.sample_layer(1, u, v).mass * 0.22;
-            let darkness = (WeatherCurve::new(0.22, 0.88).sample(condensed + upper_shadow) * 0.86)
-                .clamp(0.0, 0.88);
+            let drained = WeatherCurve::new(0.42, 0.94).sample(cycle) * 0.22 * excess;
+            let condensed = ((potential - drained - 0.72) / 0.48).clamp(0.0, 1.0);
+            let upper_shadow = self.sample_layer(1, u, v).mass * 0.16;
+            let darkness = (WeatherCurve::new(0.26, 0.60).sample(condensed + upper_shadow * 0.3)
+                * 0.62
+                + excess * 0.20)
+                .clamp(0.0, 0.74);
             return ConvergenceCell::new(condensed, darkness, rain_rate, frozen);
         }
 
         if layer == 1 {
-            let su = u / (span * 1.45) - t * 0.088;
-            let sv = v / (span * 1.45) + t * 0.052;
+            let su = u / (span * 1.45) - t * 0.036;
+            let sv = v / (span * 1.45) + t * 0.021;
             let alt_n = SmoothScalarField::new(seed ^ 0xB7E1_5163).sample(su, sv);
-            let raw = alt_n * 0.82 + supply * 0.55;
-            if raw <= 0.48 {
+            let raw = alt_n * 0.84 + supply * 0.35;
+            if raw <= 0.68 {
                 return ConvergenceCell::clear();
             }
-            let mass = ((raw - 0.48) / 0.42).clamp(0.0, 0.85);
-            let darkness = WeatherCurve::new(0.30, 0.90).sample(mass) * 0.34;
+            let mass = ((raw - 0.68) / 0.26).clamp(0.0, 0.72);
+            let darkness = WeatherCurve::new(0.45, 0.95).sample(mass) * 0.14;
             return ConvergenceCell::new(mass, darkness, 0.0, frozen);
         }
 
-        let su = u / (span * 1.95) - t * 0.135;
-        let sv = v / (span * 1.30) - t * 0.075;
+        let su = u / (span * 1.95) - t * 0.052;
+        let sv = v / (span * 1.30) - t * 0.028;
         let cir_n = SmoothScalarField::new(seed ^ 0x27D4_EB2F).sample(su, sv);
-        let raw = cir_n * 0.88 + supply * 0.20;
-        if raw <= 0.54 {
+        let raw = cir_n * 0.88 + supply * 0.16;
+        if raw <= 0.73 {
             return ConvergenceCell::clear();
         }
-        let mass = ((raw - 0.54) / 0.38).clamp(0.0, 0.70);
-        ConvergenceCell::new(mass, 0.05 * mass, 0.0, true)
+        let mass = ((raw - 0.73) / 0.24).clamp(0.0, 0.58);
+        ConvergenceCell::new(mass, 0.03 * mass, 0.0, true)
     }
 }

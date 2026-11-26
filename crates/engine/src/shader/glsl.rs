@@ -81,26 +81,67 @@ void main() {
     gl_FragDepth = (v_persp > 0.5)
         ? clamp(log2(max(v_logz, 1.0)) * 0.030103, 0.0, 0.999999)
         : gl_FragCoord.z;
+    if (v_glow < -7.5) {
+        float base_a = clamp(-v_glow - 8.0, 0.01, 0.58);
+        float mu = dot(world_plateau_zenith(v_world), normalize(u_light_dir));
+        float day = smoothstep(-0.24, 0.24, mu);
+        vec3 amb = mix(vec3(0.16, 0.21, 0.32), vec3(0.97, 0.98, 1.00), day);
+        frag_color = vec4(v_color * amb, base_a);
+        return;
+    }
     if (v_glow < -5.5) {
-        float base_a = clamp(-v_glow - 6.0, 0.02, 0.92);
-        float edge_x = smoothstep(0.0, 0.22, min(v_uv.x, 1.0 - v_uv.x));
-        float edge_y = smoothstep(0.0, 0.14, min(v_uv.y, 1.0 - v_uv.y));
+        vec2 p = v_uv * 2.0 - 1.0;
+        float r2 = dot(p, p);
+        if (r2 >= 1.0) {
+            discard;
+        }
+        float base_a = clamp(-v_glow - 6.0, 0.02, 0.85);
+        float soft = 1.0 - r2;
+        float alpha = base_a * soft * soft;
+        if (alpha < 0.005) {
+            discard;
+        }
         float mu = dot(world_plateau_zenith(v_world), normalize(u_light_dir));
         float day = smoothstep(-0.24, 0.22, mu);
-        vec3 amb = mix(vec3(0.16, 0.20, 0.30), vec3(0.94, 0.97, 1.00), day);
-        frag_color = vec4(v_color * amb, base_a * edge_x * edge_y);
+        vec3 amb = mix(vec3(0.20, 0.25, 0.36), vec3(0.95, 0.98, 1.00), day);
+        frag_color = vec4(v_color * amb, alpha);
         return;
     }
     if (v_glow < -3.5) {
-        float base_a = clamp(-v_glow - 4.0, 0.02, 0.95);
+        vec2 p = v_uv * 2.0 - 1.0;
+        float r = length(p);
+        if (r >= 0.96) {
+            discard;
+        }
+        float base_a = clamp(-v_glow - 4.0, 0.01, 0.65);
+        float seed = (length(v_normal) - 1.0) * 6.2831853;
+        float ang = (r > 1e-4) ? atan(p.y, p.x) : 0.0;
+        float lobes = 0.13 * sin(ang * 3.0 + seed)
+                    + 0.08 * cos(ang * 5.0 - seed * 1.7)
+                    + 0.04 * sin(ang * 7.0 + seed * 2.3);
+        float max_r = clamp(0.70 + lobes, 0.45, 0.95);
+        if (r >= max_r) {
+            discard;
+        }
+        float u = r / max_r;
+        float soft = 1.0 - u * u;
+        float puff = soft * soft;
+        float wisp = 0.88 + 0.12 * sin(p.x * 3.6 + seed) * cos(p.y * 3.2 - seed);
+        float alpha = base_a * puff * wisp;
+        if (alpha < 0.004) {
+            discard;
+        }
         vec3 sun = normalize(u_light_dir);
-        float l_dot = dot(normalize(v_normal), sun);
-        float facet = clamp(l_dot * 0.32 + 0.70, 0.36, 1.04);
-        float mu = dot(world_plateau_zenith(v_world), sun);
+        vec3 up = world_plateau_zenith(v_world);
+        vec3 dome_n = normalize(normalize(v_normal) + up * (0.22 - u * 0.18));
+        float l_dot = dot(dome_n, sun);
+        float silver = (1.0 - soft) * soft * clamp(l_dot * 0.5 + 0.5, 0.0, 1.0) * 0.16;
+        float facet = clamp(l_dot * 0.22 + 0.82, 0.58, 1.04);
+        float mu = dot(up, sun);
         float day = smoothstep(-0.24, 0.24, mu);
         float dusk = exp(-pow((mu - 0.02) / 0.18, 2.0)) * (1.0 - smoothstep(0.18, 0.45, mu));
-        vec3 sky_env = mix(vec3(0.12, 0.16, 0.26), mix(vec3(1.0), vec3(1.06, 0.68, 0.44), dusk * 0.65), day);
-        frag_color = vec4(min(v_color * facet * sky_env, vec3(1.0)), base_a);
+        vec3 sky_env = mix(vec3(0.14, 0.19, 0.30), mix(vec3(1.0), vec3(1.06, 0.70, 0.48), dusk * 0.65), day);
+        frag_color = vec4(min((v_color * facet + vec3(silver)) * sky_env, vec3(1.0)), alpha);
         return;
     }
     if (v_glow < -1.5) {

@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.127.1] - 2026-11-26
+
+### Fixed
+- Raised troposphere cloud strata (`34 m / 48 m / 60 m` baselines in `CloudStratum`), lowered moisture condensation coverage to keep skies predominantly open (`> 65 %` clear in `Temperate`), gated adjacent cube-face horizons in `TroposphereDeck`, and replaced hard-edged 6-sided cloud slabs with camera-facing multi-puff billows (`CloudVolume`) rendered via multi-lobed radial `discard` feathering and sunlit silver rims in `crates/engine/src/shader/glsl.rs`.
+- Refined `LocalDownpour` raindrops and snowflakes with radial shader falloff and separated `CloudVeil` cockpit vapor immersion (`v_glow < -7.5`) from feathered cloud puffs (`crates/world/src/weather/precipitation.rs`).
+
+### Removed
+- Removed hanging rectangular `RainShaft` Virga curtain quads so distant showers never project oppressive rectangular slabs from the sky (`crates/world/src/weather/strata.rs`, `mod.rs` & `crates/world/src/lib.rs`).
+
 ## [0.127.0] - 2026-11-26
 
 ### Added
