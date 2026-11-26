@@ -3,7 +3,7 @@ use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{CraftIdentity, CraftPose, PlanetaryWorld, WorldFact};
 use crate::aura::HostIdentity;
-use crate::host_state::HostState;
+use crate::host_state::{AuthoredChronicle, HostState};
 use crate::mailbox::PortalBeat;
 use crate::passport::KnockFrame;
 use crate::ticket::PortalTicket;

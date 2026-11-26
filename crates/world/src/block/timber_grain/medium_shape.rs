@@ -134,11 +134,11 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
     fn emit_terraced_shape(&self, cell: GridCell, floor_elevation: f32, frame: &SurfaceFrame, top_color: Vec3, _wall_color: Vec3, bare_top: bool, target: &mut dyn MeshTarget) {
         match (self.medium, self.archetype.full_height_flat()) {
             (BlockMedium::TurfEarth, true) => EarthClods::new(cell, floor_elevation).emit_terraced(top_color, bare_top, frame, target),
-            (BlockMedium::CrustRock, true) => BlockMedium::emit_crust_rock_cube(cell, floor_elevation, frame, target),
+            (BlockMedium::CrustRock, true) => super::cubes::GrainCubeMesh::new(cell, floor_elevation).emit_crust_rock(frame, target),
             (med, true) if med.mineral_ore() => MineralSeam::new(med).emit_ore_cube(cell, floor_elevation, frame, target),
-            (BlockMedium::RawTimber, true) => BlockMedium::emit_raw_timber_cube(cell, floor_elevation, frame, target),
+            (BlockMedium::RawTimber, true) => super::cubes::GrainCubeMesh::new(cell, floor_elevation).emit_raw_timber(frame, target),
             (BlockMedium::PlanedPlanks, true) | (BlockMedium::CantileverRig, _) => {
-                BlockMedium::emit_planed_planks_cube(cell, floor_elevation, self.cross_grain(), frame, target);
+                super::cubes::GrainCubeMesh::new(cell, floor_elevation).emit_planed_planks(self.cross_grain(), frame, target);
             }
             (med, true) if med.aerospace_hull() => {
                 AerospacePlating::new(med, self.cross_grain()).emit_cube(cell, floor_elevation, frame, target);

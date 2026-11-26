@@ -1,7 +1,11 @@
 use super::{HeldRelic, RelicLexicon};
 
-impl RelicLexicon {
-    pub fn parse(&self, token: &str) -> Option<HeldRelic> {
+pub(super) trait RelicTokenLexicon {
+    fn parse(&self, token: &str) -> Option<HeldRelic>;
+}
+
+impl RelicTokenLexicon for RelicLexicon {
+    fn parse(&self, token: &str) -> Option<HeldRelic> {
         let key: String = token
             .trim()
             .chars()

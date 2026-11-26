@@ -1,137 +1,15 @@
+mod uniforms;
+
 use glow::HasContext;
 use engine::Mesh;
 use crate::aurora_canopy::AuroraCanopy;
-use crate::firmament::{
-    FirmamentEphemeris, SkyFirmament, VaultEphemeris, VaultFrame, VaultGlow, VaultLuminance,
-    VaultView,
+use crate::firmament::{SkyFirmament, VaultEphemeris, VaultGlow, VaultView};
+use self::uniforms::{
+    AtmosphereUniforms, CanopyUniforms, EphemerisUniforms, GlowUniformGroup, MagnetosphereUniforms,
+    OrientationUniforms, StageUniformGroup, StageUniforms, ViewUniformGroup,
 };
 
-trait ViewUniformGroup {
-    fn bind_view(&self, gl: &glow::Context, view: &VaultView);
-}
-
-struct OrientationUniforms {
-    u_inv_view_proj: glow::UniformLocation,
-    u_sun_dir: glow::UniformLocation,
-    u_celestial_pole: glow::UniformLocation,
-}
-
-impl OrientationUniforms {
-    const fn new(
-        u_inv_view_proj: glow::UniformLocation,
-        u_sun_dir: glow::UniformLocation,
-        u_celestial_pole: glow::UniformLocation,
-    ) -> Self {
-        Self { u_inv_view_proj, u_sun_dir, u_celestial_pole }
-    }
-}
-
-impl ViewUniformGroup for OrientationUniforms {
-    fn bind_view(&self, gl: &glow::Context, view: &VaultView) {
-        view.bind_gl(gl, &self.u_inv_view_proj, &self.u_sun_dir, &self.u_celestial_pole);
-    }
-}
-
-trait GlowUniformGroup {
-    fn bind_glow(&self, gl: &glow::Context, glow_state: &VaultGlow);
-}
-
-struct AtmosphereUniforms {
-    u_aurora_factor: glow::UniformLocation,
-    u_time: glow::UniformLocation,
-}
-
-impl AtmosphereUniforms {
-    const fn new(u_aurora_factor: glow::UniformLocation, u_time: glow::UniformLocation) -> Self {
-        Self { u_aurora_factor, u_time }
-    }
-}
-
-impl GlowUniformGroup for AtmosphereUniforms {
-    fn bind_glow(&self, gl: &glow::Context, glow_state: &VaultGlow) {
-        glow_state.bind_gl(gl, &self.u_aurora_factor, &self.u_time);
-    }
-}
-
-trait CanopyUniformGroup {
-    fn bind_canopy(&self, gl: &glow::Context);
-}
-
-struct CanopyUniforms {
-    u_face_half: glow::UniformLocation,
-    u_aurora_radius: glow::UniformLocation,
-    u_ceiling_altitude: glow::UniformLocation,
-    canopy: Box<dyn AuroraCanopy>,
-}
-
-impl CanopyUniforms {
-    fn new(
-        u_face_half: glow::UniformLocation,
-        u_aurora_radius: glow::UniformLocation,
-        u_ceiling_altitude: glow::UniformLocation,
-        canopy: Box<dyn AuroraCanopy>,
-    ) -> Self {
-        Self { u_face_half, u_aurora_radius, u_ceiling_altitude, canopy }
-    }
-}
-
-impl CanopyUniformGroup for CanopyUniforms {
-    fn bind_canopy(&self, gl: &glow::Context) {
-        self.canopy.bind_canopy(gl, &self.u_face_half, &self.u_aurora_radius, &self.u_ceiling_altitude);
-    }
-}
-
-trait EphemerisUniformGroup {
-    fn bind_ephemeris(&self, gl: &glow::Context, ephemeris: &VaultEphemeris);
-}
-
-struct EphemerisUniforms {
-    u_planets: glow::UniformLocation,
-    u_eclipse: glow::UniformLocation,
-    u_atmo_geom: glow::UniformLocation,
-    u_atmo_tint: glow::UniformLocation,
-}
-
-impl EphemerisUniforms {
-    const fn new(
-        u_planets: glow::UniformLocation,
-        u_eclipse: glow::UniformLocation,
-        u_atmo_geom: glow::UniformLocation,
-        u_atmo_tint: glow::UniformLocation,
-    ) -> Self {
-        Self { u_planets, u_eclipse, u_atmo_geom, u_atmo_tint }
-    }
-}
-
-impl EphemerisUniformGroup for EphemerisUniforms {
-    fn bind_ephemeris(&self, gl: &glow::Context, ephemeris: &VaultEphemeris) {
-        ephemeris.bind_gl(gl, &self.u_planets, &self.u_eclipse, &self.u_atmo_geom, &self.u_atmo_tint);
-    }
-}
-
-trait StageUniformGroup {
-    fn bind_stage(&self, gl: &glow::Context, ephemeris: &VaultEphemeris);
-}
-
-struct StageUniforms {
-    canopy: CanopyUniforms,
-    ephemeris: EphemerisUniforms,
-}
-
-impl StageUniforms {
-    fn new(canopy: CanopyUniforms, ephemeris: EphemerisUniforms) -> Self {
-        Self { canopy, ephemeris }
-    }
-}
-
-impl StageUniformGroup for StageUniforms {
-    fn bind_stage(&self, gl: &glow::Context, ephemeris: &VaultEphemeris) {
-        self.ephemeris.bind_ephemeris(gl, ephemeris);
-        self.canopy.bind_canopy(gl);
-    }
-}
-
-/// GPU shader program rendering the celestial vault with cubic Sun, real-time planets, eclipses, and Aurora.
+/// GPU shader program rendering the celestial vault with cubic Sun, planets, eclipses, and 3D polar ionosphere.
 pub struct GlFirmament {
     program: glow::Program,
     orientation: OrientationUniforms,
@@ -254,6 +132,7 @@ impl FirmamentProgramSource for FirmamentShaderSource {
                     loc("u_atmo_geom"),
                     loc("u_atmo_tint"),
                 ),
+                MagnetosphereUniforms::new(loc("u_aurora_lower"), loc("u_aurora_upper")),
             ),
         ))
     }

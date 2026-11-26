@@ -11,7 +11,7 @@ use world::{
 use crate::aura::{HostAura, HostIdentity};
 use crate::chronicle_decorators::CompactedChronicle;
 use crate::chronicle_log::{ChronicleLog, ChronicleStore};
-use crate::cohort::{CohortAdmission, GuestCohort};
+use crate::cohort::{CohortAdmission, CohortGate, GuestCohort};
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
 use crate::host_sounder::HostSounder;
@@ -21,6 +21,7 @@ use crate::snapshot_chronicle::SnapshottedChronicle;
 use crate::ticket::PortalTicket;
 use crate::wormhole::{PortalCode, WormholeGate};
 use self::court::{AbandonedDock, StandbyCourt};
+pub use self::journal::AuthoredChronicle;
 
 /// Strictly encapsulated chronicle store, guest cohort, host aura, and SPAKE2 wormhole gate (`<= 4` fields).
 pub struct HostState {

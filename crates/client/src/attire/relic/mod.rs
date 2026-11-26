@@ -8,6 +8,7 @@ use world::{BlockMedium, BlockMold, MiningEdge, SurfaceFind};
 pub use super::rhythm::MartialStyle;
 pub use mesh::RelicFigure;
 use lexicon::RelicLexicon;
+use tokens::RelicTokenLexicon;
 
 /// Object held in the avatar's right or left hand visible in first-person and multiplayer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

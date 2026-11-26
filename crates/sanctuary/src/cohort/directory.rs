@@ -184,8 +184,27 @@ impl SlotLedger {
     }
 }
 
-impl GuestCohort {
-    pub fn admit_guest(
+/// Focused admission contract admitting pinned or passport-knocking companions into a `GuestCohort`.
+pub trait CohortGate {
+    fn admit_guest(
+        &mut self,
+        identity: &HostIdentity,
+        aura: &mut HostAura,
+        peer: SocketAddr,
+        guest_pub: [u8; 32],
+    ) -> (u32, Option<Vec3>, SurvivorWelcome);
+
+    fn admit_knock(
+        &mut self,
+        identity: &HostIdentity,
+        aura: &mut HostAura,
+        peer: SocketAddr,
+        knock: KnockFrame,
+    ) -> CohortAdmission;
+}
+
+impl CohortGate for GuestCohort {
+    fn admit_guest(
         &mut self,
         identity: &HostIdentity,
         aura: &mut HostAura,
@@ -196,7 +215,7 @@ impl GuestCohort {
         self.admit_knock(identity, aura, peer, knock).into_legacy_tuple()
     }
 
-    pub fn admit_knock(
+    fn admit_knock(
         &mut self,
         identity: &HostIdentity,
         aura: &mut HostAura,

@@ -1,7 +1,10 @@
+mod ephemeris;
+
+pub use self::ephemeris::{FirmamentEphemeris, VaultEphemeris};
+
 use glam::{Mat4, Vec3, Vec4};
 use glow::HasContext;
 use engine::Mesh;
-use crate::rayleigh_shell::{AtmosphericEnvelope, AtmosphericShell};
 
 /// Focused contract binding camera projection and solar frame uniforms to OpenGL.
 pub trait VaultFrame: Copy {
@@ -92,110 +95,6 @@ impl VaultLuminance for VaultGlow {
     }
 }
 
-/// Focused contract for polymorphic planetary ephemeris state (`CadenceFallback` vs. `HelioActive`).
-pub trait FirmamentEphemeris: Copy {
-    fn for_pass_camera(&self, cam_pos: Vec3) -> VaultEphemeris;
-    fn evaluate_illumination<R>(
-        &self,
-        helio_sink: impl FnOnce(Vec3, f32, AtmosphericShell) -> R,
-        fallback_sink: impl FnOnce() -> R,
-    ) -> R;
-    fn bind_gl(
-        &self,
-        gl: &glow::Context,
-        u_planets: &glow::UniformLocation,
-        u_eclipse: &glow::UniformLocation,
-        u_atmo_geom: &glow::UniformLocation,
-        u_atmo_tint: &glow::UniformLocation,
-    );
-}
-
-#[derive(Clone, Copy, Debug)]
-enum EphemerisMode {
-    CadenceFallback,
-    HelioActive {
-        planet_cubes: [[f32; 4]; 8],
-        occluder: [f32; 4],
-        atmosphere: AtmosphericShell,
-    },
-}
-
-/// Polymorphic planetary ephemeris state (`<= 4` fields) without magic-zero sentinels.
-#[derive(Clone, Copy, Debug)]
-pub struct VaultEphemeris {
-    mode: EphemerisMode,
-}
-
-impl VaultEphemeris {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    const fn from_mode(mode: EphemerisMode) -> Self {
-        Self { mode }
-    }
-
-    pub const fn dormant() -> Self {
-        Self::from_mode(EphemerisMode::CadenceFallback)
-    }
-
-    pub const fn active(
-        planet_cubes: [[f32; 4]; 8],
-        occluder: [f32; 4],
-        atmosphere: AtmosphericShell,
-    ) -> Self {
-        Self::from_mode(EphemerisMode::HelioActive { planet_cubes, occluder, atmosphere })
-    }
-}
-
-impl FirmamentEphemeris for VaultEphemeris {
-    fn for_pass_camera(&self, cam_pos: Vec3) -> VaultEphemeris {
-        match self.mode {
-            EphemerisMode::CadenceFallback => Self::dormant(),
-            EphemerisMode::HelioActive { planet_cubes, occluder, atmosphere } => {
-                Self::active(planet_cubes, occluder, atmosphere.for_pass_camera(cam_pos))
-            }
-        }
-    }
-
-    fn evaluate_illumination<R>(
-        &self,
-        helio_sink: impl FnOnce(Vec3, f32, AtmosphericShell) -> R,
-        fallback_sink: impl FnOnce() -> R,
-    ) -> R {
-        match self.mode {
-            EphemerisMode::CadenceFallback => fallback_sink(),
-            EphemerisMode::HelioActive { planet_cubes, atmosphere, .. } => {
-                let sun = Vec3::new(planet_cubes[7][0], planet_cubes[7][1], planet_cubes[7][2])
-                    .normalize_or_zero();
-                helio_sink(sun, planet_cubes[7][3], atmosphere)
-            }
-        }
-    }
-
-    fn bind_gl(
-        &self,
-        gl: &glow::Context,
-        u_planets: &glow::UniformLocation,
-        u_eclipse: &glow::UniformLocation,
-        u_atmo_geom: &glow::UniformLocation,
-        u_atmo_tint: &glow::UniformLocation,
-    ) {
-        let (cubes, occ, shell) = match self.mode {
-            EphemerisMode::CadenceFallback => ([[0.0; 4]; 8], [0.0; 4], AtmosphericShell::vacuum()),
-            EphemerisMode::HelioActive { planet_cubes, occluder, atmosphere } => {
-                (planet_cubes, occluder, atmosphere)
-            }
-        };
-        let mut flat_planets = [0.0_f32; 32];
-        for (i, cube) in cubes.iter().enumerate() {
-            flat_planets[i * 4..i * 4 + 4].copy_from_slice(cube);
-        }
-        unsafe {
-            gl.uniform_4_f32_slice(Some(u_planets), &flat_planets);
-            gl.uniform_4_f32(Some(u_eclipse), occ[0], occ[1], occ[2], occ[3]);
-        }
-        shell.bind_gl(gl, u_atmo_geom, u_atmo_tint);
-    }
-}
-
 /// Focused contract for rendering the celestial sky vault without wide parameter lists.
 pub trait SkyFirmament: Send + Sync {
     fn draw_firmament(
@@ -214,9 +113,7 @@ pub struct VoidFirmament;
 
 #[cfg(test)]
 impl VoidFirmament {
-    pub const fn new() -> Self {
-        Self
-    }
+    pub const fn new() -> Self { Self }
 }
 
 #[cfg(test)]
@@ -237,9 +134,7 @@ pub struct VoidMesh;
 
 #[cfg(test)]
 impl VoidMesh {
-    pub const fn new() -> Self {
-        Self
-    }
+    pub const fn new() -> Self { Self }
 }
 
 #[cfg(test)]

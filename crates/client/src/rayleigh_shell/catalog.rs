@@ -1,6 +1,7 @@
 use glam::{DVec3, Vec3};
 use world::{BodyId, BodySnapshot};
-use super::{AtmosphericEnvelope, AtmosphericShell};
+use super::magnetosphere::Magnetosphere;
+use super::{AtmosphericEnvelope, AtmosphericShell, ShellOptics};
 
 /// Focused contract resolving living `AtmosphericShell` envelopes (`Vacuum` Null Object for airless worlds).
 pub trait AirCatalog {
@@ -8,7 +9,7 @@ pub trait AirCatalog {
     fn nearest_shell(&self, snaps: &[BodySnapshot], viewer: DVec3) -> AtmosphericShell;
 }
 
-/// Authoritative solar-system planetary atmosphere catalog (`Earth`, `Mars`, `Venus`, `Titan`).
+/// Authoritative solar-system planetary atmosphere and magnetosphere catalog (`Earth`, `Mars`, `Venus`, `Titan`).
 #[derive(Clone, Copy, Debug)]
 pub struct SolarAirCatalog;
 
@@ -22,13 +23,33 @@ impl SolarAirCatalog {
 impl AirCatalog for SolarAirCatalog {
     fn shell_for(&self, id: BodyId, rel_cam: Vec3, body_half: f32) -> AtmosphericShell {
         if id == BodyId::EARTH {
-            AtmosphericShell::cubic(rel_cam, body_half, Vec3::new(0.18, 0.56, 1.00), (body_half * 0.30).max(10.0))
+            AtmosphericShell::cubic(
+                rel_cam,
+                body_half,
+                ShellOptics::new(Vec3::new(0.18, 0.56, 1.00), (body_half * 0.30).max(10.0)),
+                Magnetosphere::terrestrial_arctic(),
+            )
         } else if id == BodyId::MARS {
-            AtmosphericShell::cubic(rel_cam, body_half, Vec3::new(0.86, 0.48, 0.28), (body_half * 0.22).max(6.0))
+            AtmosphericShell::cubic(
+                rel_cam,
+                body_half,
+                ShellOptics::new(Vec3::new(0.86, 0.48, 0.28), (body_half * 0.22).max(6.0)),
+                Magnetosphere::crustal_wisps(),
+            )
         } else if id == BodyId::VENUS {
-            AtmosphericShell::cubic(rel_cam, body_half, Vec3::new(0.95, 0.78, 0.42), (body_half * 0.38).max(12.0))
+            AtmosphericShell::cubic(
+                rel_cam,
+                body_half,
+                ShellOptics::new(Vec3::new(0.95, 0.78, 0.42), (body_half * 0.38).max(12.0)),
+                Magnetosphere::void(),
+            )
         } else if id == BodyId::TITAN {
-            AtmosphericShell::cubic(rel_cam, body_half, Vec3::new(0.90, 0.58, 0.20), (body_half * 0.36).max(8.0))
+            AtmosphericShell::cubic(
+                rel_cam,
+                body_half,
+                ShellOptics::new(Vec3::new(0.90, 0.58, 0.20), (body_half * 0.36).max(8.0)),
+                Magnetosphere::saturnian_methane(),
+            )
         } else {
             AtmosphericShell::vacuum()
         }

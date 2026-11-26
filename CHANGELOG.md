@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.124.0] - 2026-11-26
+
+### Added
+- Added penetrable 3D `Arctic (-X)` ionosphere aurora curtains, $C_4$-symmetric $L^4$ superellipse magnetic ovals, diegetic `-X` horizon compass glow, and polymorphic planetary magnetospheres (`crates/client/src/rayleigh_shell/ionosphere.rs`, `magnetosphere.rs`, `catalog.rs` & `crates/client/src/firmament_glsl/`):
+  - Decoupled the geomagnetic aurora pole (`ClimateZone::Arctic` `-X`) from the corner-to-corner `ApexSpin` diurnal rotation axis so polar lights crown the center of `Arctic` symmetrically across all four quadrants while neighboring `Temperate`, `Jungle`, and `Steppe` skies remain clear overhead with a subtle western `-X` horizon glow.
+  - Replaced the flat 2D ceiling plane and `on_earth` distance cutoff with a 5-step 3D AABB ionosphere slab occluded by the solid planetary crust, allowing rockets to fly directly through `557.7 nm` emerald-to-`630 nm` violet/crimson curtains into orbit and scaling dynamically with `body_h` across continental worlds (`up to 4096³`) and remote servers.
+  - Added polymorphic `Magnetosphere` spectra to `SolarAirCatalog` (`Earth` emerald-violet `Arctic` dipole, `Titan` Saturnian indigo-magenta methane curtains, `Mars` crustal cyan-UV wisps, and `Magnetosphere::void()` on `Venus` and airless moons).
+
+### Refactored
+- Split `firmament`, `gl_firmament`, and `firmament_glsl` into focused Pure-OOP submodule directories (`<= 250` lines per file, `<= 4` fields per struct) and extracted `GrainCubeMesh`, `RelicTokenLexicon`, `CohortGate`, and `AuthoredChronicle` trait implementations to satisfy workspace-wide local-`impl` architectural audits.
+
 ## [0.123.1] - 2026-11-26
 
 ### Changed

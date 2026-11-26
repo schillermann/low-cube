@@ -19,7 +19,7 @@ use crate::spatial_chronicle::HorizonStream;
 use crate::survivor_ledger::{MemorySurvivors, SurvivorStore};
 use crate::ward::GuestWard;
 use self::deck_view::HostDeckView;
-pub use self::directory::{CohortAdmission, SlotLedger};
+pub use self::directory::{CohortAdmission, CohortGate, SlotLedger};
 use self::pulse::CohortPulse;
 
 const PULSE_INTERVAL_SECS: f32 = 1.0 / 60.0;

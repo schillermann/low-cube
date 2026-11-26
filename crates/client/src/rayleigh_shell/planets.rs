@@ -49,8 +49,8 @@ impl FirmamentPlanets {
 
 impl EphemerisSync for FirmamentPlanets {
     fn sync_pipeline(&self, pipeline: &dyn GraphicPipeline) {
-        self.atmosphere.transfer_uniforms(|geom, tint| {
-            pipeline.sync_ephemeris(&self.planet_cubes, self.occluder, (geom, tint));
+        self.atmosphere.transfer_shell_quad(|quad| {
+            pipeline.sync_ephemeris(&self.planet_cubes, self.occluder, quad);
         });
     }
 }

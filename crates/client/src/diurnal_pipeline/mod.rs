@@ -75,13 +75,13 @@ impl GraphicPipeline for DiurnalPipeline {
         &self,
         planet_cubes: &[[f32; 4]; 8],
         eclipse_occluder: [f32; 4],
-        (atmo_geom, atmo_tint): ([f32; 4], [f32; 4]),
+        atmo_shell: [[f32; 4]; 4],
     ) {
         let mut guard = self.ephemeris_state.lock().expect("VaultEphemeris lock poisoned");
         let packet = SyncedEphemerisPacket::new(
             *planet_cubes,
             eclipse_occluder,
-            SyncedShellPair::new(atmo_geom, atmo_tint),
+            SyncedShellPair::new(atmo_shell),
         );
         *guard = packet.decode_ephemeris();
     }

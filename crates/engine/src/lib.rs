@@ -42,7 +42,7 @@ pub trait GraphicPipeline {
         &self,
         _planet_cubes: &[[f32; 4]; 8],
         _eclipse_occluder: [f32; 4],
-        _atmo_shell: ([f32; 4], [f32; 4]),
+        _atmo_shell: [[f32; 4]; 4],
     ) {
     }
 

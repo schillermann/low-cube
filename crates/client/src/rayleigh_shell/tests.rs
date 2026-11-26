@@ -1,8 +1,10 @@
 use glam::Vec3;
+use world::BodyId;
 use super::{
-    AirSample, AirStratum, AtmosphericEnvelope, AtmosphericShell, BarometricStratum,
+    AirCatalog, AirSample, AirStratum, AtmosphericEnvelope, AtmosphericShell, BarometricStratum,
     CobaltShadowArch, CrimsonDusk, CubicAirVolume, CubicRayleighShell, HorizonHazeMedium,
-    OpticalMedium, PlateauZenith, SolarFluxMedium, TropopauseRim, VacuumMedium, ZenithField,
+    IonosphereMedium, Magnetosphere, OpticalMedium, PlateauZenith, PolarIonosphere,
+    SolarAirCatalog, SolarFluxMedium, TropopauseRim, VacuumMedium, ZenithField,
 };
 
 #[test]
@@ -107,4 +109,94 @@ fn test_vacuum_and_stratum_decorators_compose_cobalt_dusk_rim_and_flux() {
     let vol = CubicAirVolume::new(64.0, 19.2, rimmed);
     let boosted = SolarFluxMedium::new(HorizonHazeMedium::pale(vol), 1.2);
     assert!(boosted.scatter_along(Vec3::new(0.0, 65.5, 0.0), Vec3::Y, Vec3::Y).0.z > vol.scatter_along(Vec3::new(0.0, 65.5, 0.0), Vec3::Y, Vec3::Y).0.z);
+}
+
+#[test]
+fn test_arctic_ionosphere_centers_symmetrically_over_arctic_face_not_corner() {
+    let iono = PolarIonosphere::planetary(64.0, Magnetosphere::terrestrial_arctic(), 1.0, 0.0);
+    let cam = Vec3::new(-65.5, 0.0, 0.0);
+    let midnight_sun = Vec3::X;
+
+    let zenith_eye = iono.radiance_along(cam, Vec3::NEG_X, midnight_sun);
+    let north = iono.radiance_along(cam, Vec3::new(-1.0, 0.85, 0.0).normalize(), midnight_sun);
+    let south = iono.radiance_along(cam, Vec3::new(-1.0, -0.85, 0.0).normalize(), midnight_sun);
+    let east = iono.radiance_along(cam, Vec3::new(-1.0, 0.0, 0.85).normalize(), midnight_sun);
+    let west = iono.radiance_along(cam, Vec3::new(-1.0, 0.0, -0.85).normalize(), midnight_sun);
+
+    assert_eq!(zenith_eye, Vec3::ZERO, "Central L^4 oval eye directly at (-1,0,0) zenith must stay clear");
+    assert!(north.y > 0.12 && south.y > 0.12 && east.y > 0.12 && west.y > 0.12);
+    assert!(
+        (north.length() - south.length()).abs() < 0.08 && (east.length() - west.length()).abs() < 0.08,
+        "Aurora oval must frame all four sides of Arctic symmetrically: N={north:?}, S={south:?}, E={east:?}, W={west:?}"
+    );
+}
+
+#[test]
+fn test_temperate_and_steppe_clear_zenith_with_low_western_arctic_compass_glow() {
+    let iono = PolarIonosphere::planetary(64.0, Magnetosphere::terrestrial_arctic(), 1.0, 0.0);
+    let midnight_sun = Vec3::X;
+    let temp_cam = Vec3::new(0.0, 65.5, 0.0);
+    let steppe_cam = Vec3::new(0.0, 0.0, -65.5);
+
+    assert_eq!(iono.radiance_along(temp_cam, Vec3::Y, midnight_sun), Vec3::ZERO);
+    assert_eq!(iono.radiance_along(steppe_cam, Vec3::NEG_Z, midnight_sun), Vec3::ZERO);
+    assert_eq!(
+        iono.radiance_along(temp_cam, Vec3::new(-1.0, 1.0, -1.0).normalize(), midnight_sun),
+        Vec3::ZERO,
+        "Northern tri-corner must no longer host overhead Temperate aurora"
+    );
+
+    let west_compass =
+        iono.radiance_along(temp_cam, Vec3::new(-1.0, 0.12, 0.0).normalize(), midnight_sun);
+    assert!(
+        west_compass.length() > 0.01 && west_compass.length() < 0.45,
+        "Low -X western horizon from Temperate should show gentle distant Arctic compass glow, got {west_compass:?}"
+    );
+}
+
+#[test]
+fn test_rocket_penetrates_3d_curtains_and_orbit_views_nightside_crown() {
+    let iono = PolarIonosphere::planetary(64.0, Magnetosphere::terrestrial_arctic(), 1.0, 4.0);
+    let midnight_sun = Vec3::X;
+
+    let inside_curtain = iono.radiance_along(
+        Vec3::new(-108.0, 36.0, 0.0),
+        Vec3::new(-0.35, 0.90, 0.25).normalize(),
+        midnight_sun,
+    );
+    let orbital_down = iono.radiance_along(
+        Vec3::new(-220.0, 38.0, 0.0),
+        Vec3::X,
+        midnight_sun,
+    );
+    let desert_blocked = iono.radiance_along(Vec3::new(65.5, 0.0, 0.0), Vec3::NEG_X, midnight_sun);
+    let arctic_daylight =
+        iono.radiance_along(Vec3::new(-65.5, 0.0, 0.0), Vec3::new(-1.0, 0.85, 0.0).normalize(), Vec3::NEG_X);
+
+    assert!(inside_curtain.length() > 0.05, "Spacecraft inside ionosphere must fly through glowing 3D curtains");
+    assert!(orbital_down.length() > 0.05, "Orbital observer must see nightside Arctic aurora crown");
+    assert_eq!(desert_blocked, Vec3::ZERO, "Solid planet core must occlude Arctic aurora from Desert (+X)");
+    assert_eq!(arctic_daylight, Vec3::ZERO, "Sunlit Arctic noon ionosphere must remain dark");
+}
+
+#[test]
+fn test_large_continental_world_and_alien_magnetospheres_scale_cleanly() {
+    let continental = PolarIonosphere::planetary(512.0, Magnetosphere::terrestrial_arctic(), 1.0, 2.0);
+    let glow = continental.radiance_along(
+        Vec3::new(-513.5, 0.0, 0.0),
+        Vec3::new(-1.0, 0.85, 0.0).normalize(),
+        Vec3::X,
+    );
+    assert!(glow.y > 0.10, "512m continental Arctic world must scale ionosphere without clipping underground");
+
+    let cat = SolarAirCatalog::new();
+    assert!(cat.shell_for(BodyId::EARTH, Vec3::ZERO, 64.0).magnetized());
+    assert!(cat.shell_for(BodyId::TITAN, Vec3::ZERO, 26.0).magnetized());
+    assert!(cat.shell_for(BodyId::MARS, Vec3::ZERO, 34.0).magnetized());
+    assert!(!cat.shell_for(BodyId::VENUS, Vec3::ZERO, 60.0).magnetized());
+    assert!(!cat.shell_for(BodyId::LUNA, Vec3::ZERO, 18.0).magnetized());
+
+    let titan = PolarIonosphere::planetary(26.0, Magnetosphere::saturnian_methane(), 1.0, 1.0)
+        .radiance_along(Vec3::new(-27.5, 0.0, 0.0), Vec3::new(-1.0, 0.85, 0.0).normalize(), Vec3::X);
+    assert!(titan.z > titan.y, "Titan methane magnetosphere must emit deep indigo-amber spectrum: {titan:?}");
 }

@@ -9,7 +9,7 @@ use crate::aura::HostAura;
 use crate::chronicle_log::ChronicleStore;
 use crate::cohort::GuestCohort;
 use crate::envelope::SanctuaryEnvelope;
-use crate::host_state::HostState;
+use crate::host_state::{AuthoredChronicle, HostState};
 
 /// Focused custodian docking vehicles abandoned by disconnected companions on Earth or off-world bodies (`<= 4` fields).
 pub(super) struct AbandonedDock<'a> {

@@ -29,8 +29,15 @@ impl FactJournal for HostState {
     }
 }
 
-impl HostState {
-    pub fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
+/// Focused chronicle mutation and guest petition enactment contract for `HostState`.
+pub trait AuthoredChronicle {
+    fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact);
+    fn record_disclosure(&mut self, face: u8, stratum: ExposedStratum);
+    fn enact_guest_petition(&mut self, cid: u32, fact: WorldFact, world: &mut dyn PlanetaryWorld) -> bool;
+}
+
+impl AuthoredChronicle for HostState {
+    fn record_authored_fact(&mut self, author_slot: u32, fact: WorldFact) {
         match fact {
             WorldFact::Loosened { eye, direction, stage } => {
                 let frame = if author_slot == 1 {
@@ -54,11 +61,11 @@ impl HostState {
         }
     }
 
-    pub fn record_disclosure(&mut self, face: u8, stratum: ExposedStratum) {
+    fn record_disclosure(&mut self, face: u8, stratum: ExposedStratum) {
         self.chronicle.record(WorldFact::StratumDisclosed { face, stratum });
     }
 
-    pub fn enact_guest_petition(&mut self, cid: u32, fact: WorldFact, world: &mut dyn PlanetaryWorld) -> bool {
+    fn enact_guest_petition(&mut self, cid: u32, fact: WorldFact, world: &mut dyn PlanetaryWorld) -> bool {
         match fact {
             WorldFact::StratumDisclosed { .. } | WorldFact::SectorSnapshot { .. } => false,
             WorldFact::OffWorld { ref fact, .. }

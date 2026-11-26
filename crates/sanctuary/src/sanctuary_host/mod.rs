@@ -15,7 +15,7 @@ use crate::aura::HostIdentity;
 use crate::chronicle_decorators::CompactedChronicle;
 use crate::chronicle_log::{ChronicleLog, ChronicleStore};
 use crate::chronicled_planet::ChronicledPlanet;
-use crate::host_state::HostState;
+use crate::host_state::{AuthoredChronicle, HostState};
 use crate::host_wire::HostWire;
 use crate::mailbox::{PortalBeat, PortalMailbox, SocketLoop};
 use crate::seal::HandshakeIdentity;

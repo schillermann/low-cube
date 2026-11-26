@@ -65,6 +65,10 @@ fn test_firmament_glsl_contains_camera_pos_and_aurora_uniforms() {
         assert!(frag.contains("u_aurora_radius"));
         assert!(frag.contains("u_ceiling_altitude"));
         assert!(frag.contains("u_aurora_factor"));
+        assert!(frag.contains("u_aurora_lower"));
+        assert!(frag.contains("u_aurora_upper"));
+        assert!(frag.contains("aabb_slab"));
+        assert!(!frag.contains("on_earth"));
     });
 }
 
