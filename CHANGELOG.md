@@ -8,6 +8,13 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.129.1] - 2026-11-26
+
+### Fixed
+- Fixed spawn plinth arrival stance and walkability so avatars always stand directly on `OriginStone` and `SpawnStone` instead of landing or getting stranded beside them (`crates/world/src/block/spawn_plinth.rs`, `crates/world/src/block/timber_grain/medium_shape.rs`, `crates/world/src/block/elevated_shape/mod.rs`, `crates/world/src/relief/molded_structure/cells.rs`, `crates/sanctuary/src/link_state/arrival.rs`, `crates/sanctuary/src/remote_planet/facets.rs`, `crates/sanctuary/src/cohort/directory.rs`, `crates/client/src/avatar/span.rs`, `crates/client/src/launch.rs` & `crates/client/src/session/headless/mod.rs`):
+  - Sculpted `OriginPlinthMesh` and `SpawnPlinthMesh` at a walkable `0.25 m` (`PLINTH_HEIGHT`) architectural dais height (`<= 0.35 m` human stride) and anchored `VoxelCells::collect_medium_sites` to `ElevatedShape::crown_elevation` so avatars spawn cleanly atop the plinth and smoothly walk back onto it from any side even under full starter-satchel encumbrance.
+  - Preserved unstreamed `WelcomeSpawn::Beacon` plinth support across `BodySpan::spawned_on` and `RemotePlanet::constrain_to_surface` before initial chronicle delivery, re-anchored legacy `(0, half, 0)` datum survivor records onto active sanctuary plinths, and aligned `SessionLaunch` and `HeadlessSession::solitary` directly onto `BodySpan::landed_on`.
+
 ## [0.129.0] - 2026-11-26
 
 ### Added

@@ -112,7 +112,7 @@ fn test_headless_guest_closing_menu_connects_in_background_when_host_auto_punch_
     let invite = PortalInvite::hosted(live_code.encode(), raw_host.ticket().encode());
     let hosted_planet: Box<dyn PlanetaryWorld> = Box::new(HostedPlanet::new(raw_host));
 
-    let spawn = hosted_planet.constrain_to_surface(Vec3::new(0.25, 6.0, 0.25), 1.0);
+    let spawn = crate::avatar::BodySpan::landed_on(hosted_planet.as_ref()).current();
     let host_avatar = Box::new(BlackBoxAvatar::wrapping(
         Box::new(
             PlanetaryAvatar::with_attire_and_bindings(

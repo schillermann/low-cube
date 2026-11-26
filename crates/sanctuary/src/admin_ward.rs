@@ -58,7 +58,7 @@ impl SpawnBeacons {
         if self.points.is_empty() {
             return (
                 PresenceKinematics::new(
-                    Vec3::new(0.0, fallback_half, 0.0),
+                    Vec3::new(-0.25, fallback_half + 1.25, -0.25),
                     Quat::IDENTITY,
                     Quat::IDENTITY,
                     (0.0, 0.0),

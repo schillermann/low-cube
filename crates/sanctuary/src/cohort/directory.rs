@@ -241,8 +241,15 @@ impl CohortGate for GuestCohort {
         let callsign = self.survivors.resolve_callsign(survivor_pub, desired_callsign, &active);
         let half = (identity.blocks_per_edge() as f32) * 0.5;
         let (kin, beacon_stand) = match welcome.restored_record() {
-            Some(rec) => (PresenceKinematics::new(rec.position(), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)), None),
-            None => aura.beacons_mut().allocate_kinematics(half),
+            Some(rec)
+                if !(rec.frame().earth_centered()
+                    && rec.position().x == 0.0
+                    && rec.position().z == 0.0
+                    && (rec.position().y - half).abs() < 0.05) =>
+            {
+                (PresenceKinematics::new(rec.position(), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)), None)
+            }
+            _ => aura.beacons_mut().allocate_kinematics(half),
         };
         if minted_secret.is_some() && !knock_retry {
             let spawn_pos = kin.transfer(|p, _, _, _, _| p);

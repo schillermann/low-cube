@@ -70,6 +70,9 @@ impl GuestJournal {
     pub fn crafts(&self, out: &mut Vec<DrivenCraft>) { self.read_link(|l| l.crafts(out)); }
     pub fn assigned_spawn(&self) -> Option<glam::Vec3> { self.read_link(RemoteLink::assigned_spawn) }
     pub fn assigned_survivor(&self) -> Option<world::SurvivorWelcome> { self.read_link(RemoteLink::assigned_survivor) }
+    pub fn constrain_arrival(&self, pos: glam::Vec3, height: f32, ground: glam::Vec3, on_earth: bool) -> glam::Vec3 {
+        self.read_link(|l| l.constrain_arrival(pos, height, ground, on_earth))
+    }
     pub fn anchor_local_frame(&mut self, frame: world::CosmicFrame) { self.write_link(|l| l.anchor_local_frame(frame)); }
     pub fn send_inventory_notice(&mut self, notice: crate::envelope::InventoryNotice) {
         self.write_link(|l| l.send_inventory_notice(notice));

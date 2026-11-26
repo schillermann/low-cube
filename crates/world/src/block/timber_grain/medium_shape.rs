@@ -60,15 +60,15 @@ impl<S: VoxelShape> MediumShape<S> {
 
 impl<S: VoxelShape> VoxelShape for MediumShape<S> {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
-        if self.medium.mechanical_part()
+        if matches!(self.medium, BlockMedium::SpawnStone | BlockMedium::OriginStone) {
+            super::super::spawn_plinth::PLINTH_HEIGHT
+        } else if self.medium.mechanical_part()
             || self.medium.artisan_hearth()
             || matches!(
                 self.medium,
                 BlockMedium::CantileverRig
                     | BlockMedium::FieldCamera
                     | BlockMedium::VehicleBlueprint
-                    | BlockMedium::SpawnStone
-                    | BlockMedium::OriginStone
                     | BlockMedium::BlackBoxPod
                     | BlockMedium::LaserBeacon
             )
@@ -89,7 +89,13 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
         self.archetype.full_height_flat()
             && !self.medium.mechanical_part()
             && !self.medium.artisan_hearth()
-            && !matches!(self.medium, BlockMedium::FieldCamera | BlockMedium::VehicleBlueprint)
+            && !matches!(
+                self.medium,
+                BlockMedium::FieldCamera
+                    | BlockMedium::VehicleBlueprint
+                    | BlockMedium::SpawnStone
+                    | BlockMedium::OriginStone
+            )
     }
     fn step_camera_turn(&mut self, delta: i32) -> bool {
         if self.medium == BlockMedium::FieldCamera {

@@ -50,6 +50,9 @@ impl LinkSync {
     pub const fn urgent_pulse(&self) -> bool { self.cursors.1 >= PULSE_INTERVAL_SECS }
     pub const fn assigned_spawn(&self) -> Option<Vec3> { self.arrival.assigned_spawn() }
     pub const fn assigned_survivor(&self) -> Option<SurvivorWelcome> { self.arrival.assigned_survivor() }
+    pub fn constrain_arrival(&self, pos: Vec3, height: f32, ground: Vec3, on_earth: bool) -> Vec3 {
+        if on_earth && self.cursors.0 == 0 { self.arrival.constrain_unstreamed(pos, height, ground) } else { ground }
+    }
     pub fn assign_welcome_epoch(&mut self, epoch_secs: f64) { self.arrival.assign_epoch(epoch_secs); }
     pub fn take_pending_epoch(&mut self) -> Option<f64> { self.arrival.take_pending_epoch() }
     pub fn take_pending_anchor(&mut self) -> Option<(CosmicFrame, Vec3)> { self.arrival.take_pending_anchor() }

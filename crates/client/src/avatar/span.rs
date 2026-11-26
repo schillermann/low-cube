@@ -50,7 +50,20 @@ impl BodySpan {
     }
 
     pub fn landed_on(world: &dyn world::PlanetaryWorld) -> Self {
-        if let Some(rec) = world.assigned_survivor().and_then(|w| w.restored_record()) {
+        let half = world
+            .celestial_atlas()
+            .ephemeris()
+            .map_or(16.0, |e| e.proportions().earth_half());
+        if let Some(rec) = world
+            .assigned_survivor()
+            .and_then(|w| w.restored_record())
+            .filter(|r| {
+                !(r.frame().earth_centered()
+                    && r.position().x == 0.0
+                    && r.position().z == 0.0
+                    && (r.position().y - half).abs() < 0.05)
+            })
+        {
             Self::anchored(world.constrain_to_surface(rec.position(), 1.0))
         } else {
             Self::spawned_on(world)
@@ -59,7 +72,13 @@ impl BodySpan {
 
     pub fn spawned_on(world: &dyn world::PlanetaryWorld) -> Self {
         let spawn = if let Some(beacon) = world.assigned_spawn_point() {
-            world.constrain_to_surface(beacon, 1.0)
+            let up = world.surface_up_at(beacon);
+            let surface = world.constrain_to_surface(beacon, 1.0);
+            if (surface - beacon).dot(up) > 0.0 {
+                surface
+            } else {
+                beacon
+            }
         } else {
             let probe_y = world
                 .celestial_atlas()

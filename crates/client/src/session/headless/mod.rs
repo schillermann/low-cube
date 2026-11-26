@@ -2,7 +2,6 @@ mod surface;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use glam::Vec3;
 use winit::keyboard::KeyCode;
 use engine::{CpuMeshBatch, PlanetaryMesh, VoxelShaderSource};
 use world::{BiomedCubeWorld, PlanetaryWorld, Quad};
@@ -67,8 +66,7 @@ impl HeadlessSession {
 
     pub fn solitary(blocks: u32, modal: Box<dyn SessionModal>) -> Self {
         let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::barren_beveled(blocks, 1.0));
-        let half = (blocks as f32) * 0.5;
-        let spawn = world.constrain_to_surface(Vec3::new(0.25, half + 2.0, 0.25), 1.0);
+        let spawn = crate::avatar::BodySpan::landed_on(world.as_ref()).current();
         let inner = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(crate::zero_g_flight::ZeroGFlight::wrapping(

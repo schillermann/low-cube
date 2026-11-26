@@ -132,6 +132,11 @@ impl ElevatedShape {
         self.elevation_offset + BLOCK_HEIGHT
     }
 
+    /// Walkable upper crown elevation of this block's sculpted center profile above face datum.
+    pub fn crown_elevation(&self) -> f32 {
+        self.elevation_offset + self.shape.elevation_at(0.5, 0.5)
+    }
+
     /// Elevates the supporting surface height when this block sits beneath the avatar or obstructs passage.
     pub fn constrain_support(&self, local_u: f32, local_v: f32, support_h: f32, foot_elev: f32, body_span: f32) -> f32 {
         let dh = self.shape.elevation_at(local_u, local_v);

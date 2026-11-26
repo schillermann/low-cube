@@ -211,7 +211,7 @@ impl VoxelCells {
             let (cx, cy) = GridCell::new(u, v).center();
             for block in list {
                 if block.block_medium() == medium {
-                    out.push((frame.point_at(cx, cy, block.ceiling()), normal));
+                    out.push((frame.point_at(cx, cy, block.crown_elevation()), normal));
                 }
             }
         }

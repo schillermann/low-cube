@@ -84,6 +84,9 @@ impl RemoteLink {
     }
     pub const fn assigned_spawn(&self) -> Option<Vec3> { self.sync.assigned_spawn() }
     pub const fn assigned_survivor(&self) -> Option<SurvivorWelcome> { self.sync.assigned_survivor() }
+    pub fn constrain_arrival(&self, pos: Vec3, height: f32, ground: Vec3, on_earth: bool) -> Vec3 {
+        self.sync.constrain_arrival(pos, height, ground, on_earth)
+    }
     pub fn take_pending_epoch(&mut self) -> Option<f64> { self.sync.take_pending_epoch() }
     pub fn take_pending_anchor(&mut self) -> Option<(CosmicFrame, Vec3)> { self.sync.take_pending_anchor() }
     pub fn anchor_local_frame(&mut self, frame: CosmicFrame) { self.sync.anchor_local_frame(frame); }

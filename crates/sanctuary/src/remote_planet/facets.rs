@@ -133,7 +133,13 @@ impl CompanionPortal for RemotePlanet {
 
 impl PlanetaryWorld for RemotePlanet {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
-        let ground = self.world.constrain_to_surface(position, player_height);
+        let raw_ground = self.world.constrain_to_surface(position, player_height);
+        let ground = self.journal.constrain_arrival(
+            position,
+            player_height,
+            raw_ground,
+            self.world.cosmic_frame().earth_centered(),
+        );
         if self.journal.active_craft_count() == 0 {
             return ground;
         }

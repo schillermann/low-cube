@@ -22,6 +22,25 @@ impl WelcomeSpawn {
             Self::Beacon(pt) => Some(pt),
         }
     }
+
+    pub fn constrain_unstreamed(self, position: Vec3, player_height: f32, ground: Vec3) -> Vec3 {
+        let Self::Beacon(beacon) = self else { return ground };
+        if player_height <= 0.0 {
+            return ground;
+        }
+        let zone = world::ClimateZone::dominant(beacon);
+        let up = zone.normal();
+        let plinth_top = beacon - up;
+        let delta = position - plinth_top;
+        let within_cell = delta.dot(zone.tangent()).abs() <= 0.25
+            && delta.dot(zone.bitangent()).abs() <= 0.25;
+        let stand = position + up * (plinth_top + up * player_height - position).dot(up);
+        if within_cell && delta.dot(up) >= player_height - 0.30 && stand.dot(up) > ground.dot(up) {
+            stand
+        } else {
+            ground
+        }
+    }
 }
 
 /// Polymorphic server orbital epoch handoff avoiding nullable `Option<f64>` fields.
@@ -78,6 +97,10 @@ impl WelcomeArrival {
             WelcomeSpawn::Natural => None,
             WelcomeSpawn::Beacon(pt) => Some(pt),
         }
+    }
+
+    pub fn constrain_unstreamed(&self, position: Vec3, player_height: f32, ground: Vec3) -> Vec3 {
+        self.spawn.constrain_unstreamed(position, player_height, ground)
     }
 
     pub const fn assigned_survivor(&self) -> Option<SurvivorWelcome> {

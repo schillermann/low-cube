@@ -1,6 +1,6 @@
 [package]
 name = "acoustics"
-version = "0.129.0"
+version = "0.129.1"
 edition = "2021"
 
 [dependencies]

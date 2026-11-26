@@ -102,7 +102,7 @@ impl SessionAssembly for SessionLaunch {
             bindings,
         )
         .with_starting_satchel(&ServerSatchel::assembled());
-        if planet.assigned_survivor().is_some() {
+        {
             use crate::avatar::Avatar as _;
             embodied.land_on_world(planet.as_ref());
         }

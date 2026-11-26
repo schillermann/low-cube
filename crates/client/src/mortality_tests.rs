@@ -157,3 +157,94 @@ fn test_heliosphere_origin_stone_anchors_spawn_blocks_destruction_and_prevents_s
         probe.position()
     );
 }
+
+#[test]
+fn test_avatar_stands_on_origin_and_remote_spawn_plinths_and_walks_onto_them_when_burdened() {
+    use sanctuary::RemoteLink;
+    use world::{BlockMedium, BlockMold};
+    use crate::avatar::BodySpan;
+    use crate::black_box::PresenceProbe;
+    use crate::controls::{InputTrigger, KeyboardControls as _};
+    use crate::server_satchel::ServerSatchel;
+
+    let base = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let mut origins = Vec::new();
+    base.collect_medium_sites(BlockMedium::OriginStone, &mut origins);
+    let (origin_top, origin_up) = origins[0];
+
+    let spawn = BodySpan::landed_on(&base).current();
+    assert!((spawn - (origin_top + origin_up)).length() < 1e-3, "Avatar must land directly on OriginStone");
+    let mut burdened = PlanetaryAvatar::at(spawn).with_starting_satchel(&ServerSatchel::assembled());
+    let mut keys = KeyMotion::idle();
+    for _ in 0..30 {
+        burdened.step_motion(1.0 / 60.0, &keys, &base);
+    }
+    let mut probe = PresenceProbe::at_origin();
+    burdened.report_presence(&mut probe);
+    assert!(
+        (probe.position() - (origin_top + origin_up)).length() < 0.02,
+        "Idle burdened avatar must remain standing on OriginStone, got {:?}",
+        probe.position()
+    );
+
+    // Step off forward (-Z) onto turf, then walk backward (+Z) back onto the walkable 0.25m OriginStone plinth without jumping
+    keys.register_trigger(InputTrigger::Key(KeyCode::KeyW), true);
+    for _ in 0..18 {
+        burdened.step_motion(1.0 / 60.0, &keys, &base);
+    }
+    keys.register_trigger(InputTrigger::Key(KeyCode::KeyW), false);
+    keys.register_trigger(InputTrigger::Key(KeyCode::KeyS), true);
+    for _ in 0..18 {
+        burdened.step_motion(1.0 / 60.0, &keys, &base);
+    }
+    burdened.report_presence(&mut probe);
+    assert!(
+        (probe.position().y - (origin_top.y + 1.0)).abs() < 0.03
+            && (probe.position().x - origin_top.x).abs() < 0.24
+            && (probe.position().z - origin_top.z).abs() < 0.24,
+        "Heavily burdened avatar must smoothly walk back onto OriginStone without jumping, got {:?}",
+        probe.position()
+    );
+
+    // Remote guest joining an unstreamed admin SpawnStone must stand on top of the SpawnStone from tick 0
+    let host = SanctuaryHost::bind("127.0.0.1:0", Box::new(base), 16).expect("bind host");
+    let addr = host.local_addr().expect("addr");
+    let mut host_planet = HostedPlanet::new(host);
+    let spawn_mold = BlockMold::cube().in_medium(BlockMedium::SpawnStone);
+    assert!(host_planet.place_molded_surface_block(
+        Vec3::new(3.25, 11.0, 0.25),
+        Vec3::NEG_Y,
+        Vec3::new(1.25, 9.0, 0.25),
+        spawn_mold,
+    ));
+    let mut link = RemoteLink::bind(JoinTarget::Direct(addr)).expect("guest link");
+    for _ in 0..20 {
+        let _ = host_planet.step_surface(0.02);
+        let _ = link.step_handshake(0.02);
+        if link.connected() {
+            break;
+        }
+    }
+    assert!(link.connected());
+    let mut guest_planet = RemotePlanet::from_link(link, 16, 1.0);
+    let guest_spawn = BodySpan::landed_on(&guest_planet).current();
+    assert!(
+        (guest_spawn - Vec3::new(3.25, 9.25, 0.25)).length() < 1e-3,
+        "Joining guest must land on top of admin SpawnStone even before chronicle stream arrives, got {guest_spawn:?}"
+    );
+    let mut guest_avatar = PlanetaryAvatar::at(guest_spawn);
+    for _ in 0..10 {
+        guest_avatar.step_motion(1.0 / 60.0, &KeyMotion::idle(), &guest_planet);
+    }
+    for _ in 0..8 {
+        let _ = guest_planet.step_surface(0.02);
+        let _ = host_planet.step_surface(0.02);
+        guest_avatar.step_motion(1.0 / 60.0, &KeyMotion::idle(), &guest_planet);
+    }
+    guest_avatar.report_presence(&mut probe);
+    assert!(
+        (probe.position() - Vec3::new(3.25, 9.25, 0.25)).length() < 0.03,
+        "Guest must remain standing on admin SpawnStone before and after chronicle sync, got {:?}",
+        probe.position()
+    );
+}
