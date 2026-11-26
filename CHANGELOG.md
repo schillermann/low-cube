@@ -8,6 +8,13 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.130.1] - 2026-11-26
+
+### Fixed
+- Fixed `OriginStone` protruding above the ground and first-person downward camera projection aiming past the underfoot spawn block (`crates/world/src/biome.rs`, `crates/world/src/block/spawn_plinth.rs`, `crates/world/src/block/timber_grain/medium_shape.rs`, `crates/world/src/relief/molded_structure/world_blocks.rs`, `crates/world/src/relief/overhang_molds/mod.rs`, `crates/world/src/relief/facet.rs`, `crates/client/src/horizon.rs` & `crates/client/src/orientation/mod.rs`):
+  - Restored full `GridCell::SPAN` (`0.5 m`) cube geometry with flush planar top inlays on `OriginPlinthMesh` and `SpawnPlinthMesh`, inlaid `OriginPlinthRelief` at `-GridCell::SPAN..0.0` via `WorldBlocks::inlay_sanctuary` so `OriginStone` sits completely flush (`bündig`) with neighboring `y = half` terrain blocks without sloping surrounding grass, and suppressed redundant grass caps/tufts on inlaid cells in `ReliefFacet::emit_ground_with_vault`.
+  - Anchored `CameraHorizon::view_matrix_at` to a constant `0.09 m` cranial offset above the avatar's boot insteps (eliminating forward pitch projection when looking down) and extended unobstructed `MouseLook` pitch to `1.54 rad` (`88.2°`) so looking down in `FirstPersonSight` centers the `OriginStone` directly underfoot.
+
 ## [0.130.0] - 2026-11-26
 
 ### Added

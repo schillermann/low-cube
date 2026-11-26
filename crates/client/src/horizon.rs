@@ -1,5 +1,4 @@
 use glam::{Mat4, Quat, Vec3};
-use world::SurfaceSightRay;
 use crate::orientation::ViewOrientation;
 
 /// Interface for viewport view-matrix generation without leaking raw vector internals ("Tell, Don't Ask").
@@ -32,7 +31,7 @@ impl ViewFrame for CameraHorizon {
         let forward = (self.view_rot * Vec3::NEG_Z).normalize();
         let right = (self.view_rot * Vec3::X).normalize();
         let flat_fwd = up.cross(right).normalize();
-        let eye = SurfaceSightRay::new(position + up * eye_height, forward).brow_origin(up, flat_fwd);
+        let eye = position + up * eye_height + flat_fwd * 0.09;
         Mat4::look_to_rh(eye, forward, up)
     }
 }

@@ -196,12 +196,12 @@ impl OverhangMolds {
                 true
             }
             RigPlacement::WorldCube => {
-                let Some(next_floor) = BlueprintSite::new(&self.rigs, &self.fleet).resolve_world_floor(
-                    &self.world_blocks,
-                    (u, v),
-                    (ground_top, raw_floor),
-                    sub,
-                ) else {
+                if shape.block_medium().indestructible() {
+                    self.world_blocks.inlay_sanctuary(u, v, raw_floor, shape);
+                    return true;
+                }
+                let site = BlueprintSite::new(&self.rigs, &self.fleet);
+                let Some(next_floor) = site.resolve_world_floor(&self.world_blocks, (u, v), (ground_top, raw_floor), sub) else {
                     return false;
                 };
                 self.world_blocks.stack_bare(u, v, next_floor, ground_top, sub, shape, &mut self.scars);

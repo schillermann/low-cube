@@ -37,6 +37,10 @@ impl WorldBlocks {
         self.grid.insert_elevated(u, v, shape);
     }
 
+    pub fn inlay_sanctuary(&mut self, u: i32, v: i32, floor_elev: f32, shape: Box<dyn VoxelShape>) {
+        self.insert_elevated(u, v, ElevatedShape::new(Box::new(TurfCoat::bare(shape)), floor_elev));
+    }
+
     pub fn stack_bare(
         &mut self,
         u: i32,

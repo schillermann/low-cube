@@ -22,7 +22,7 @@ impl ShoulderArc {
 
     pub fn clamp_pitch(self, pitch: f32) -> f32 {
         let limit = match self {
-            Self::Unobstructed(_) => 1.4,
+            Self::Unobstructed(_) => 1.54,
             Self::Wedged(_, _) => 0.96,
         };
         pitch.clamp(-limit, limit)
@@ -75,7 +75,7 @@ impl MouseLook {
 impl ViewOrientation for MouseLook {
     fn rotate(&mut self, dx: f32, dy: f32) {
         self.yaw -= dx;
-        self.pitch = (self.pitch - dy).clamp(-1.4, 1.4);
+        self.pitch = (self.pitch - dy).clamp(-1.54, 1.54);
     }
 
     fn level_pitch(&mut self) {

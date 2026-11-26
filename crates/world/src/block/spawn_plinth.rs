@@ -3,9 +3,6 @@ use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
 use super::cell::GridCell;
 
-/// Walkable architectural stone plinth height (`0.25 m`, below `0.35 m` human stride threshold).
-pub const PLINTH_HEIGHT: f32 = GridCell::SPAN * 0.5;
-
 /// Focused 3D stone plinth sculpture contract ("Tell, Don't Ask").
 trait PlinthSculpture {
     fn emit(&self, frame: &SurfaceFrame, target: &mut dyn MeshTarget);
@@ -95,21 +92,21 @@ impl PlinthSculpture for SpawnPlinthMesh {
     fn emit(&self, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let (cu, cv) = self.cell.center();
         let h = GridCell::SPAN * 0.5;
-        let (z0, z1) = (self.floor_elevation, self.floor_elevation + PLINTH_HEIGHT);
+        let (z0, z1) = (self.floor_elevation, self.floor_elevation + GridCell::SPAN);
         let basalt = PlinthSlab::new(
-            [cu - h, cu + h, cv - h, cv + h, z0, z1 - 0.03],
+            [cu - h, cu + h, cv - h, cv + h, z0, z1],
             (Vec3::new(0.30, 0.34, 0.42), Vec3::new(0.22, 0.25, 0.32)),
             0.0,
         );
         let brass = Vec3::new(0.92, 0.76, 0.28);
         let collar = PlinthSlab::new(
-            [cu - h * 0.82, cu + h * 0.82, cv - h * 0.82, cv + h * 0.82, z1 - 0.03, z1],
+            [cu - h * 0.82, cu + h * 0.82, cv - h * 0.82, cv + h * 0.82, z1, z1 + 0.001],
             (brass, brass * 0.82),
             0.25,
         );
         let cyan = Vec3::new(0.22, 0.94, 0.98);
         let beacon = PlinthSlab::new(
-            [cu - h * 0.46, cu + h * 0.46, cv - h * 0.46, cv + h * 0.46, z1, z1 + 0.012],
+            [cu - h * 0.46, cu + h * 0.46, cv - h * 0.46, cv + h * 0.46, z1 + 0.001, z1 + 0.002],
             (cyan, cyan),
             0.88,
         );
@@ -139,32 +136,32 @@ impl PlinthSculpture for OriginPlinthMesh {
     fn emit(&self, frame: &SurfaceFrame, target: &mut dyn MeshTarget) {
         let (cu, cv) = self.cell.center();
         let h = GridCell::SPAN * 0.5;
-        let (z0, z1) = (self.floor_elevation, self.floor_elevation + PLINTH_HEIGHT);
+        let (z0, z1) = (self.floor_elevation, self.floor_elevation + GridCell::SPAN);
         let alabaster = PlinthSlab::new(
-            [cu - h, cu + h, cv - h, cv + h, z0, z1 - 0.035],
+            [cu - h, cu + h, cv - h, cv + h, z0, z1],
             (Vec3::new(0.76, 0.78, 0.82), Vec3::new(0.58, 0.61, 0.66)),
             0.0,
         );
         let gold = Vec3::new(0.95, 0.80, 0.32);
         let collar = PlinthSlab::new(
-            [cu - h * 0.86, cu + h * 0.86, cv - h * 0.86, cv + h * 0.86, z1 - 0.035, z1],
+            [cu - h * 0.86, cu + h * 0.86, cv - h * 0.86, cv + h * 0.86, z1, z1 + 0.001],
             (gold, gold * 0.84),
             0.30,
         );
         let rose = Vec3::new(0.98, 0.88, 0.48);
         let east_west = PlinthSlab::new(
-            [cu - h * 0.72, cu + h * 0.72, cv - h * 0.16, cv + h * 0.16, z1, z1 + 0.010],
+            [cu - h * 0.72, cu + h * 0.72, cv - h * 0.16, cv + h * 0.16, z1 + 0.001, z1 + 0.002],
             (rose, rose),
             0.55,
         );
         let north_south = PlinthSlab::new(
-            [cu - h * 0.16, cu + h * 0.16, cv - h * 0.72, cv + h * 0.72, z1, z1 + 0.010],
+            [cu - h * 0.16, cu + h * 0.16, cv - h * 0.72, cv + h * 0.72, z1 + 0.001, z1 + 0.002],
             (rose, rose),
             0.55,
         );
         let emerald = Vec3::new(0.32, 0.96, 0.68);
         let heart = PlinthSlab::new(
-            [cu - h * 0.34, cu + h * 0.34, cv - h * 0.34, cv + h * 0.34, z1, z1 + 0.018],
+            [cu - h * 0.34, cu + h * 0.34, cv - h * 0.34, cv + h * 0.34, z1 + 0.002, z1 + 0.003],
             (emerald, emerald),
             0.92,
         );

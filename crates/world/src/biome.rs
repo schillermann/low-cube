@@ -58,7 +58,7 @@ impl<R: ReliefMold> ReliefMold for OriginPlinthRelief<R> {
             let shape = BlockMold::cube()
                 .in_medium(BlockMedium::OriginStone)
                 .shape_for(frame.bitangent(), &frame);
-            face.with_molded_block(-1, -1, 0.0, shape)
+            face.with_molded_block(-1, -1, -crate::GridCell::SPAN, shape)
         } else {
             face
         }

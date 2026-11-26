@@ -93,9 +93,8 @@ fn test_heliosphere_origin_stone_anchors_spawn_blocks_destruction_and_prevents_s
     assert!(
         (origin_top.x + 0.25).abs() < 1e-3
             && (origin_top.z + 0.25).abs() < 1e-3
-            && origin_top.y > half
-            && origin_top.y < half + 8.0,
-        "OriginStone must rest on Earth's temperate surface, got {origin_top:?}"
+            && (origin_top.y - half).abs() < 1e-3,
+        "OriginStone must sit flush with Earth's temperate surface, got {origin_top:?} vs half={half}"
     );
 
     // OriginStone must be indestructible and forbid stacking blocks on top of it
@@ -159,22 +158,54 @@ fn test_heliosphere_origin_stone_anchors_spawn_blocks_destruction_and_prevents_s
 }
 
 #[test]
-fn test_avatar_stands_on_origin_and_remote_spawn_plinths_and_walks_onto_them_when_burdened() {
+fn test_avatar_stands_on_flush_origin_stone_sees_it_underfoot_and_lands_on_remote_spawn_stone() {
     use sanctuary::RemoteLink;
-    use world::{BlockMedium, BlockMold};
-    use crate::avatar::BodySpan;
+    use world::{BlockMedium, BlockMold, TerrainMesh as _};
+    use crate::avatar::{AvatarOptics as _, BodySpan};
     use crate::black_box::PresenceProbe;
     use crate::controls::{InputTrigger, KeyboardControls as _};
     use crate::server_satchel::ServerSatchel;
+
+    struct RadiantCrest(f32);
+    impl world::MeshTarget for RadiantCrest {
+        fn push_quad(&mut self, quad: world::Quad) {
+            if quad.radiate(|glow| glow) > 0.2 {
+                let _ = quad.transfer(|a, b, c, d, _, _| {
+                    self.0 = self.0.max(a.y).max(b.y).max(c.y).max(d.y);
+                    quad
+                });
+            }
+        }
+    }
 
     let base = BiomedCubeWorld::barren_beveled(16, 1.0);
     let mut origins = Vec::new();
     base.collect_medium_sites(BlockMedium::OriginStone, &mut origins);
     let (origin_top, origin_up) = origins[0];
+    assert!(
+        (origin_top - Vec3::new(-0.25, 8.0, -0.25)).length() < 1e-3,
+        "OriginStone top must sit flush at y=8.0, got {origin_top:?}"
+    );
+    let mut crest = RadiantCrest(f32::NEG_INFINITY);
+    for slot in 0..base.face_patch_count(0) {
+        base.emit_face_patch(0, slot, &mut crest);
+    }
+    assert!(
+        (crest.0 - 8.0).abs() < 0.005,
+        "OriginStone mesh must sit flush with surrounding y=8.0 blocks without protruding, got crest={}",
+        crest.0
+    );
 
     let spawn = BodySpan::landed_on(&base).current();
     assert!((spawn - (origin_top + origin_up)).length() < 1e-3, "Avatar must land directly on OriginStone");
     let mut burdened = PlanetaryAvatar::at(spawn).with_starting_satchel(&ServerSatchel::assembled());
+    burdened.rotate_view(0.0, 10_000.0);
+    let clip = burdened.view_projection_matrix(16.0 / 9.0).project_point3(origin_top);
+    assert!(
+        clip.x.abs() < 0.05 && clip.y.abs() < 0.25,
+        "Looking straight down in first person must center OriginStone underfoot, got NDC {clip:?}"
+    );
+
     let mut keys = KeyMotion::idle();
     for _ in 0..30 {
         burdened.step_motion(1.0 / 60.0, &keys, &base);
@@ -187,7 +218,7 @@ fn test_avatar_stands_on_origin_and_remote_spawn_plinths_and_walks_onto_them_whe
         probe.position()
     );
 
-    // Step off forward (-Z) onto turf, then walk backward (+Z) back onto the walkable 0.25m OriginStone plinth without jumping
+    // Step off forward (-Z) onto flush turf, then walk backward (+Z) back onto OriginStone
     keys.register_trigger(InputTrigger::Key(KeyCode::KeyW), true);
     for _ in 0..18 {
         burdened.step_motion(1.0 / 60.0, &keys, &base);
@@ -202,11 +233,11 @@ fn test_avatar_stands_on_origin_and_remote_spawn_plinths_and_walks_onto_them_whe
         (probe.position().y - (origin_top.y + 1.0)).abs() < 0.03
             && (probe.position().x - origin_top.x).abs() < 0.24
             && (probe.position().z - origin_top.z).abs() < 0.24,
-        "Heavily burdened avatar must smoothly walk back onto OriginStone without jumping, got {:?}",
+        "Avatar must walk seamlessly across flush OriginStone boundary, got {:?}",
         probe.position()
     );
 
-    // Remote guest joining an unstreamed admin SpawnStone must stand on top of the SpawnStone from tick 0
+    // Remote guest joining an unstreamed admin SpawnStone must stand on top of the 0.5m SpawnStone from tick 0
     let host = SanctuaryHost::bind("127.0.0.1:0", Box::new(base), 16).expect("bind host");
     let addr = host.local_addr().expect("addr");
     let mut host_planet = HostedPlanet::new(host);
@@ -229,7 +260,7 @@ fn test_avatar_stands_on_origin_and_remote_spawn_plinths_and_walks_onto_them_whe
     let mut guest_planet = RemotePlanet::from_link(link, 16, 1.0);
     let guest_spawn = BodySpan::landed_on(&guest_planet).current();
     assert!(
-        (guest_spawn - Vec3::new(3.25, 9.25, 0.25)).length() < 1e-3,
+        (guest_spawn - Vec3::new(3.25, 9.5, 0.25)).length() < 1e-3,
         "Joining guest must land on top of admin SpawnStone even before chronicle stream arrives, got {guest_spawn:?}"
     );
     let mut guest_avatar = PlanetaryAvatar::at(guest_spawn);
@@ -243,7 +274,7 @@ fn test_avatar_stands_on_origin_and_remote_spawn_plinths_and_walks_onto_them_whe
     }
     guest_avatar.report_presence(&mut probe);
     assert!(
-        (probe.position() - Vec3::new(3.25, 9.25, 0.25)).length() < 0.03,
+        (probe.position() - Vec3::new(3.25, 9.5, 0.25)).length() < 0.03,
         "Guest must remain standing on admin SpawnStone before and after chronicle sync, got {:?}",
         probe.position()
     );

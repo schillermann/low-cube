@@ -97,10 +97,11 @@ impl ReliefFacet {
         );
         let ((u0, u1), (v0, v1), top_h) = (cell.u_bounds(), cell.v_bounds(), (h as f32) * 0.5);
         let stage = relief.layer_dig_stage_at(u, v, top_h - 0.25);
+        let inlaid = relief.layer_occupied_at(u, v, top_h - 0.25);
         let (tn, ts, te, tw) = (v + 1 >= half_blocks, v <= -half_blocks, u + 1 >= half_blocks, u <= -half_blocks);
         let ground_bare = relief.ground_bare_at(u, v);
         let mut suppressed = SuppressedTop;
-        let top_out: &mut dyn MeshTarget = if stage == 0 { target } else { &mut suppressed };
+        let top_out: &mut dyn MeshTarget = if stage == 0 && !inlaid { target } else { &mut suppressed };
 
         let (corners, top_col) = if h == 0 && (tn || ts || te || tw) {
             let cu0 = if tw { u0 + 0.25 } else { u0 };
@@ -149,8 +150,9 @@ impl ReliefFacet {
         if stage > 0 && !mineral_top {
             self.emit_dig_crater(u0, u1, v0, v1, corners, stage, top_col, palette, frame, target);
         }
-        let turf_rim = (!ground_bare && !mineral_top).then_some(surf_col);
-        self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, corners, vault, relief, frame, cliff_col, turf_rim, target);
+        let wall_corners = if inlaid { corners.map(|c| c.min(top_h - 0.5)) } else { corners };
+        let turf_rim = (!ground_bare && !mineral_top && !inlaid).then_some(surf_col);
+        self.wall.emit_walls(u, v, u0, u1, v0, v1, h, hn, hs, he, hw, wall_corners, vault, relief, frame, cliff_col, turf_rim, target);
     }
 
     #[allow(clippy::too_many_arguments)]
