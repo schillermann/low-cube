@@ -1,9 +1,9 @@
 use crate::{BlockMedium, SurfaceFind};
 
-/// Total number of held/stowed item codes (`0..=36`, matching `HeldRelic::COUNT` and 6-bit palm wire span).
-pub const RELIC_SLOT_COUNT: usize = 37;
+/// Total number of held/stowed item codes (`0..=41`, matching `HeldRelic::COUNT` and 6-bit palm wire span).
+pub const RELIC_SLOT_COUNT: usize = 42;
 
-/// Domain catalog mapping `BlockMedium`, `SurfaceFind`, config tokens, and 25 crafting recipes to item codes (`<= 4` fields).
+/// Domain catalog mapping `BlockMedium`, `SurfaceFind`, config tokens, and 30 crafting recipes to item codes (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RelicCatalog {
     code: u8,
@@ -21,6 +21,11 @@ impl RelicCatalog {
 
     pub const fn guest_permitted(self) -> bool {
         self.code > 0 && (self.code as usize) < RELIC_SLOT_COUNT && self.code != 29
+    }
+
+    /// Indicates whether a survivor may expend this item through nourishment or tool fracture.
+    pub const fn expendable(self) -> bool {
+        matches!(self.code, 3..=6 | 24 | 30 | 31 | 37..=41)
     }
 
     pub const fn slug(self) -> &'static str {
@@ -61,6 +66,11 @@ impl RelicCatalog {
             34 => "vitrified_basalt",
             35 => "black_box_pod",
             36 => "laser_beacon",
+            37 => "wooden_spade",
+            38 => "copper_spade",
+            39 => "titanium_spade",
+            40 => "copper_pickaxe",
+            41 => "titanium_pickaxe",
             _ => "empty",
         }
     }
@@ -109,6 +119,11 @@ impl RelicCatalog {
             SurfaceFind::BoarMeat => 24,
             SurfaceFind::FlintPickaxe => 30,
             SurfaceFind::IronPickaxe => 31,
+            SurfaceFind::WoodenSpade => 37,
+            SurfaceFind::CopperSpade => 38,
+            SurfaceFind::TitaniumSpade => 39,
+            SurfaceFind::CopperPickaxe => 40,
+            SurfaceFind::TitaniumPickaxe => 41,
             SurfaceFind::LooseBlock(m) => Self::from_medium(m),
         }
     }
@@ -127,7 +142,10 @@ impl RelicCatalog {
             "woodenmallet" | "mallet" => Some(3),
             "woodmanaxe" | "axe" => Some(4),
             "knightlysword" | "knightsword" | "sword" => Some(5),
-            "ironspade" | "spade" => Some(6),
+            "ironspade" | "spade" | "eisenspaten" => Some(6),
+            "woodenspade" | "woodspade" | "holzspaten" => Some(37),
+            "copperspade" | "kupferspaten" => Some(38),
+            "titaniumspade" | "titanspaten" => Some(39),
             "earthblock" | "excavatedearth" | "earth" | "dirt" => Some(7),
             "deadwood" | "deadwoodbough" => Some(8),
             "flintstone" | "flint" => Some(9),
@@ -153,7 +171,9 @@ impl RelicCatalog {
             "flintpickaxe" | "flintpick" | "stonepickaxe" | "pickaxe" | "hacke" | "spitzhacke" | "feuersteinhacke" => {
                 Some(30)
             }
-            "ironpickaxe" | "ironpick" | "eisenhacke" => Some(31),
+            "copperpickaxe" | "copperpick" | "kupferhacke" | "kupferspitzhacke" => Some(40),
+            "ironpickaxe" | "ironpick" | "eisenhacke" | "eisenspitzhacke" => Some(31),
+            "titaniumpickaxe" | "titaniumpick" | "titanhacke" | "titanspitzhacke" => Some(41),
             "titaniumhull" | "titanium" | "titaniumalloy" | "titan" | "titanhuelle" => Some(32),
             "carbonsilicate" | "carbonlace" | "silicatelace" | "cermet" | "keramik" => Some(33),
             "vitrifiedbasalt" | "fusedbasalt" | "scorchbasalt" | "schmelzbasalt" => Some(34),
@@ -163,16 +183,16 @@ impl RelicCatalog {
         }
     }
 
-    /// Authoritative recipe table `(product_code, batch_yield, [(ing0, qty0), (ing1, qty1)])` for `0..25`.
+    /// Authoritative recipe table `(product_code, batch_yield, [(ing0, qty0), (ing1, qty1)])` for `0..30`.
     pub const fn recipe_spec(recipe_idx: u8) -> Option<(u8, u32, [(u8, u32); 2])> {
         match recipe_idx {
-            0 => Some((4, 1, [(8, 1), (9, 1)])),
+            0 => Some((4, 1, [(11, 1), (22, 2)])),
             1 => Some((11, 4, [(10, 1), (0, 0)])),
             2 => Some((13, 1, [(11, 2), (1, 1)])),
             3 => Some((27, 1, [(11, 1), (9, 1)])),
-            4 => Some((3, 1, [(8, 2), (9, 1)])),
-            5 => Some((6, 1, [(8, 1), (9, 2)])),
-            6 => Some((5, 1, [(8, 1), (9, 3)])),
+            4 => Some((3, 1, [(8, 2), (0, 0)])),
+            5 => Some((6, 1, [(11, 1), (22, 2)])),
+            6 => Some((5, 1, [(11, 1), (22, 3)])),
             7 => Some((2, 1, [(8, 1), (9, 1)])),
             8 => Some((1, 1, [(9, 2), (0, 0)])),
             9 => Some((17, 1, [(11, 1), (0, 0)])),
@@ -191,6 +211,11 @@ impl RelicCatalog {
             22 => Some((33, 4, [(23, 1), (9, 2)])),
             23 => Some((35, 1, [(22, 2), (21, 1)])),
             24 => Some((36, 1, [(23, 2), (21, 1)])),
+            25 => Some((37, 1, [(8, 2), (0, 0)])),
+            26 => Some((38, 1, [(11, 1), (21, 2)])),
+            27 => Some((39, 1, [(11, 1), (32, 2)])),
+            28 => Some((40, 1, [(11, 1), (21, 2)])),
+            29 => Some((41, 1, [(11, 1), (32, 2)])),
             _ => None,
         }
     }

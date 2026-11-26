@@ -154,12 +154,8 @@ impl AvatarGear {
     }
 
     pub fn try_cast_relic(
-        &mut self,
-        trigger: InputTrigger,
-        bearing: &mut AvatarBearing,
-        eye: Vec3,
-        view_dir: Vec3,
-        world: &mut dyn PlanetaryWorld,
+        &mut self, trigger: InputTrigger, bearing: &mut AvatarBearing,
+        eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> bool {
         if self.folio.open() {
             return false;
@@ -245,13 +241,14 @@ impl AvatarGear {
     }
 
     pub fn strike_fauna(
-        &self, side: f32, reach: SurfaceReach, bearing: &mut AvatarBearing, world: &mut dyn PlanetaryWorld,
+        &mut self, side: f32, reach: SurfaceReach, bearing: &mut AvatarBearing, world: &mut dyn PlanetaryWorld,
     ) -> (bool, bool) {
         let (weapon, swing_side) = self.attire.hunting_hand(side);
         let (struck, dropped) =
             world.strike_boar(reach.eye(), reach.view_dir(), weapon.hunting_power(), weapon.hunting_reach());
         if struck {
             bearing.apply_rhythm(SurfaceReach::swing_rhythm(self.attire, bearing.rhythm(), swing_side));
+            (self.earthworks, self.attire) = self.earthworks.wear_hand(swing_side, 1, self.attire, world);
         }
         (struck, dropped)
     }

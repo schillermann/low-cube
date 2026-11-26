@@ -111,6 +111,8 @@ mod threshold_tests;
 #[cfg(test)]
 mod tilt_tests;
 #[cfg(test)]
+mod tool_wear_tests;
+#[cfg(test)]
 mod toss_tests;
 #[cfg(test)]
 mod traversal_tests;

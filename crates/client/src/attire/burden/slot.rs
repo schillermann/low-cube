@@ -63,6 +63,7 @@ impl SlotBurden {
             HeldRelic::EmptyPalm
             | HeldRelic::DeadwoodBough
             | HeldRelic::TimberTorch
+            | HeldRelic::WoodenSpade
             | HeldRelic::PlankBlock
             | HeldRelic::SteeringWheel
             | HeldRelic::PedalCluster
@@ -72,6 +73,8 @@ impl SlotBurden {
             | HeldRelic::CarbonSilicate => WeightGrade::Light,
             HeldRelic::FlintStone
             | HeldRelic::FlintPickaxe
+            | HeldRelic::TitaniumSpade
+            | HeldRelic::TitaniumPickaxe
             | HeldRelic::ExcavatedEarth
             | HeldRelic::TimberBlock
             | HeldRelic::WoodenMallet
@@ -81,6 +84,8 @@ impl SlotBurden {
             | HeldRelic::LaserBeacon
             | HeldRelic::BoarMeat => WeightGrade::Moderate,
             HeldRelic::QuarriedStone
+            | HeldRelic::CopperSpade
+            | HeldRelic::CopperPickaxe
             | HeldRelic::IronPickaxe
             | HeldRelic::VitrifiedBasalt
             | HeldRelic::IronSpade

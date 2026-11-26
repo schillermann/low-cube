@@ -1,13 +1,16 @@
 mod lexicon;
 mod mesh;
 mod plinth;
+mod temper;
 mod tokens;
 mod tools;
 
 use world::{BlockMedium, BlockMold, MiningEdge, SurfaceFind};
 pub use super::rhythm::MartialStyle;
 pub use mesh::RelicFigure;
+pub use temper::ToolCondition;
 use lexicon::RelicLexicon;
+use temper::ToolTemper;
 use tokens::RelicTokenLexicon;
 
 /// Object held in the avatar's right or left hand visible in first-person and multiplayer.
@@ -50,10 +53,15 @@ pub enum HeldRelic {
     VitrifiedBasalt,
     BlackBoxPod,
     LaserBeacon,
+    WoodenSpade,
+    CopperSpade,
+    TitaniumSpade,
+    CopperPickaxe,
+    TitaniumPickaxe,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 37;
+    pub const COUNT: usize = 42;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -99,7 +107,12 @@ impl HeldRelic {
             33 => Self::CarbonSilicate,
             34 => Self::VitrifiedBasalt,
             35 => Self::BlackBoxPod,
-            _ => Self::LaserBeacon,
+            36 => Self::LaserBeacon,
+            37 => Self::WoodenSpade,
+            38 => Self::CopperSpade,
+            39 => Self::TitaniumSpade,
+            40 => Self::CopperPickaxe,
+            _ => Self::TitaniumPickaxe,
         }
     }
 
@@ -142,73 +155,38 @@ impl HeldRelic {
             Self::VitrifiedBasalt => 34,
             Self::BlackBoxPod => 35,
             Self::LaserBeacon => 36,
+            Self::WoodenSpade => 37,
+            Self::CopperSpade => 38,
+            Self::TitaniumSpade => 39,
+            Self::CopperPickaxe => 40,
+            Self::TitaniumPickaxe => 41,
         }
     }
 
-    pub const fn title(self) -> &'static str {
-        RelicLexicon::new(self).title()
-    }
-
-    pub const fn short_title(self) -> &'static str {
-        RelicLexicon::new(self).short_title()
-    }
-
-    pub fn parse_token(&self, token: &str) -> Option<Self> {
-        RelicLexicon::new(*self).parse(token)
-    }
-
-    pub const fn gripped(self) -> bool {
-        !matches!(self, Self::EmptyPalm)
-    }
-
-    pub const fn free_palm(self) -> bool {
-        matches!(self, Self::EmptyPalm)
-    }
-
-    pub const fn field_camera(self) -> bool {
-        matches!(self, Self::FieldCamera)
-    }
-
+    pub const fn title(self) -> &'static str { RelicLexicon::new(self).title() }
+    pub const fn short_title(self) -> &'static str { RelicLexicon::new(self).short_title() }
+    pub fn parse_token(&self, token: &str) -> Option<Self> { RelicLexicon::new(*self).parse(token) }
+    pub const fn gripped(self) -> bool { !matches!(self, Self::EmptyPalm) }
+    pub const fn free_palm(self) -> bool { matches!(self, Self::EmptyPalm) }
+    pub const fn field_camera(self) -> bool { matches!(self, Self::FieldCamera) }
     pub const fn independent_palm_mold(self) -> bool {
         matches!(self, Self::FieldCamera | Self::RocketNozzle | Self::RocketCamera)
     }
-
-    pub const fn edible_provision(self) -> bool {
-        matches!(self, Self::BoarMeat)
-    }
-
-    pub const fn hunting_power(self) -> u8 {
-        match self {
-            Self::KnightlySword => 4,
-            Self::WoodmanAxe | Self::IronPickaxe => 3,
-            Self::IronSpade | Self::WoodenMallet | Self::FlintPickaxe => 2,
-            _ => 1,
-        }
-    }
-
-    pub const fn hunting_reach(self) -> f32 {
-        match self {
-            Self::KnightlySword => 2.55,
-            Self::WoodmanAxe | Self::IronSpade | Self::WoodenMallet | Self::FlintPickaxe | Self::IronPickaxe => 2.25,
-            Self::TimberTorch | Self::DeadwoodBough => 2.00,
-            _ => 1.75,
-        }
-    }
-
+    pub const fn edible_provision(self) -> bool { matches!(self, Self::BoarMeat) }
+    pub const fn wearable(self) -> bool { ToolTemper::new(self).wearable() }
+    pub const fn endurance_span(self) -> u16 { ToolTemper::new(self).endurance_span() }
+    pub const fn harvest_strain(medium: BlockMedium) -> u16 { ToolTemper::harvest_strain(medium) }
+    pub const fn hunting_power(self) -> u8 { ToolTemper::new(self).hunting_power() }
+    pub const fn hunting_reach(self) -> f32 { ToolTemper::new(self).hunting_reach() }
     pub const fn rotatable_in_palm(self) -> bool {
         (self.placeable_block()
             && !matches!(self, Self::VehicleBlueprint | Self::BlackBoxPod | Self::LaserBeacon))
             || self.field_camera()
     }
-
     pub const fn turnable_in_palm(self) -> bool {
         self.placeable_block() && self.block_medium().mechanical_part()
     }
-
-    pub const fn blocks_perch(self) -> bool {
-        self.placeable_block() && !self.field_camera()
-    }
-
+    pub const fn blocks_perch(self) -> bool { self.placeable_block() && !self.field_camera() }
     pub const fn stowed_block(self) -> bool {
         self.placeable_block()
             && !matches!(
@@ -216,64 +194,23 @@ impl HeldRelic {
                 Self::CantileverCrane | Self::FieldCamera | Self::VehicleBlueprint | Self::BlackBoxPod
             )
     }
-
-    pub const fn stackable_in_tray(self) -> bool {
-        RelicLexicon::new(self).stackable_in_tray()
-    }
-
-    pub const fn spade_blade(self) -> bool {
-        matches!(self, Self::IronSpade)
-    }
-
-    pub const fn pickaxe_head(self) -> bool {
-        matches!(self, Self::FlintPickaxe | Self::IronPickaxe)
-    }
-
-    pub const fn mining_edge(self) -> MiningEdge {
-        match self {
-            Self::IronPickaxe => MiningEdge::IronPick,
-            Self::FlintPickaxe => MiningEdge::FlintPick,
-            _ => MiningEdge::BarePalm,
-        }
-    }
-
-    pub const fn excavation_effort(self) -> u32 {
-        match self {
-            Self::IronSpade | Self::IronPickaxe => 4,
-            Self::FlintPickaxe => 3,
-            _ => 1,
-        }
-    }
-
-    pub const fn axe_blade(self) -> bool {
-        matches!(self, Self::WoodmanAxe | Self::WoodenMallet)
-    }
-
-    pub const fn placeable_block(self) -> bool {
-        RelicLexicon::new(self).placeable_block()
-    }
-
-    pub const fn block_medium(self) -> BlockMedium {
-        RelicLexicon::new(self).block_medium()
-    }
-
-    pub const fn from_medium(medium: BlockMedium) -> Self {
-        RelicLexicon::from_medium(medium)
-    }
-
-    pub const fn martial_style(self) -> MartialStyle {
-        RelicLexicon::new(self).martial_style()
-    }
-
+    pub const fn stackable_in_tray(self) -> bool { RelicLexicon::new(self).stackable_in_tray() }
+    pub const fn spade_blade(self) -> bool { ToolTemper::new(self).spade_blade() }
+    pub const fn pickaxe_head(self) -> bool { ToolTemper::new(self).pickaxe_head() }
+    pub const fn metallic_ring(self) -> bool { ToolTemper::new(self).metallic_ring() }
+    pub const fn mining_edge(self) -> MiningEdge { ToolTemper::new(self).mining_edge() }
+    pub const fn excavation_effort(self) -> u32 { ToolTemper::new(self).excavation_effort() }
+    pub const fn axe_blade(self) -> bool { matches!(self, Self::WoodmanAxe | Self::WoodenMallet) }
+    pub const fn placeable_block(self) -> bool { RelicLexicon::new(self).placeable_block() }
+    pub const fn block_medium(self) -> BlockMedium { RelicLexicon::new(self).block_medium() }
+    pub const fn from_medium(medium: BlockMedium) -> Self { RelicLexicon::from_medium(medium) }
+    pub const fn martial_style(self) -> MartialStyle { ToolTemper::new(self).martial_style() }
     pub const fn figure(self, mold: BlockMold) -> RelicFigure {
-        RelicFigure::new(self, mold)
+        RelicFigure::new(self, mold, ToolCondition::from_mold(mold))
     }
-
-    pub const fn surface_find(self) -> SurfaceFind {
-        RelicLexicon::new(self).surface_find()
+    pub const fn worn_figure(self, mold: BlockMold, condition: ToolCondition) -> RelicFigure {
+        RelicFigure::new(self, mold, condition)
     }
-
-    pub const fn from_surface_find(find: SurfaceFind) -> Self {
-        RelicLexicon::from_surface_find(find)
-    }
+    pub const fn surface_find(self) -> SurfaceFind { RelicLexicon::new(self).surface_find() }
+    pub const fn from_surface_find(find: SurfaceFind) -> Self { RelicLexicon::from_surface_find(find) }
 }

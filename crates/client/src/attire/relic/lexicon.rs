@@ -1,5 +1,5 @@
 use world::{BlockMedium, SurfaceFind};
-use super::{HeldRelic, MartialStyle};
+use super::HeldRelic;
 
 /// Domain lexicon and property catalog for `HeldRelic` items.
 pub struct RelicLexicon {
@@ -37,9 +37,14 @@ impl RelicLexicon {
         HeldRelic::VehicleBlueprint,
         HeldRelic::SpawnStone,
         HeldRelic::CantileverCrane,
+        HeldRelic::TitaniumPickaxe,
         HeldRelic::IronPickaxe,
+        HeldRelic::CopperPickaxe,
         HeldRelic::FlintPickaxe,
+        HeldRelic::TitaniumSpade,
         HeldRelic::IronSpade,
+        HeldRelic::CopperSpade,
+        HeldRelic::WoodenSpade,
         HeldRelic::WoodmanAxe,
         HeldRelic::KnightlySword,
         HeldRelic::WoodenMallet,
@@ -91,8 +96,13 @@ impl RelicLexicon {
                 | HeldRelic::VehicleBlueprint
                 | HeldRelic::CantileverCrane
                 | HeldRelic::FlintPickaxe
+                | HeldRelic::CopperPickaxe
                 | HeldRelic::IronPickaxe
+                | HeldRelic::TitaniumPickaxe
+                | HeldRelic::WoodenSpade
+                | HeldRelic::CopperSpade
                 | HeldRelic::IronSpade
+                | HeldRelic::TitaniumSpade
                 | HeldRelic::WoodmanAxe
                 | HeldRelic::KnightlySword
                 | HeldRelic::WoodenMallet
@@ -108,9 +118,14 @@ impl RelicLexicon {
             HeldRelic::WoodenMallet => "WOODEN MALLET",
             HeldRelic::WoodmanAxe => "WOODMAN AXE",
             HeldRelic::KnightlySword => "KNIGHT SWORD",
+            HeldRelic::WoodenSpade => "WOODEN SPADE",
+            HeldRelic::CopperSpade => "COPPER SPADE",
             HeldRelic::IronSpade => "IRON SPADE",
+            HeldRelic::TitaniumSpade => "TITANIUM SPADE",
             HeldRelic::FlintPickaxe => "FLINT PICKAXE",
+            HeldRelic::CopperPickaxe => "COPPER PICKAXE",
             HeldRelic::IronPickaxe => "IRON PICKAXE",
+            HeldRelic::TitaniumPickaxe => "TITANIUM PICKAXE",
             HeldRelic::ExcavatedEarth => "EARTH BLOCK",
             HeldRelic::DeadwoodBough => "DEADWOOD",
             HeldRelic::FlintStone => "FLINT STONE",
@@ -154,6 +169,7 @@ impl RelicLexicon {
             HeldRelic::IronOre => "IRON",
             HeldRelic::GoldOre => "GOLD",
             HeldRelic::ExcavatedEarth => "EARTH",
+            HeldRelic::TitaniumHull => "TITANIUM",
             _ => self.title(),
         }
     }
@@ -220,19 +236,6 @@ impl RelicLexicon {
         }
     }
 
-    pub const fn martial_style(&self) -> MartialStyle {
-        match self.relic {
-            HeldRelic::EmptyPalm => MartialStyle::Unarmed,
-            HeldRelic::IronSpade => MartialStyle::SpadeDig,
-            HeldRelic::WoodenMallet
-            | HeldRelic::WoodmanAxe
-            | HeldRelic::FlintPickaxe
-            | HeldRelic::IronPickaxe => MartialStyle::LumberjackCleave,
-            HeldRelic::TimberTorch | HeldRelic::KnightlySword => MartialStyle::SwordplaySlash,
-            _ => MartialStyle::PalmCradle,
-        }
-    }
-
     pub const fn surface_find(&self) -> SurfaceFind {
         match self.relic {
             HeldRelic::EmptyPalm => SurfaceFind::EmptyHanded,
@@ -242,9 +245,14 @@ impl RelicLexicon {
             HeldRelic::WoodenMallet => SurfaceFind::WoodenMallet,
             HeldRelic::WoodmanAxe => SurfaceFind::WoodmanAxe,
             HeldRelic::KnightlySword => SurfaceFind::KnightlySword,
+            HeldRelic::WoodenSpade => SurfaceFind::WoodenSpade,
+            HeldRelic::CopperSpade => SurfaceFind::CopperSpade,
             HeldRelic::IronSpade => SurfaceFind::IronSpade,
+            HeldRelic::TitaniumSpade => SurfaceFind::TitaniumSpade,
             HeldRelic::FlintPickaxe => SurfaceFind::FlintPickaxe,
+            HeldRelic::CopperPickaxe => SurfaceFind::CopperPickaxe,
             HeldRelic::IronPickaxe => SurfaceFind::IronPickaxe,
+            HeldRelic::TitaniumPickaxe => SurfaceFind::TitaniumPickaxe,
             HeldRelic::BoarMeat => SurfaceFind::BoarMeat,
             _ => SurfaceFind::LooseBlock(self.block_medium()),
         }
@@ -259,9 +267,14 @@ impl RelicLexicon {
             SurfaceFind::WoodenMallet => HeldRelic::WoodenMallet,
             SurfaceFind::WoodmanAxe => HeldRelic::WoodmanAxe,
             SurfaceFind::KnightlySword => HeldRelic::KnightlySword,
+            SurfaceFind::WoodenSpade => HeldRelic::WoodenSpade,
+            SurfaceFind::CopperSpade => HeldRelic::CopperSpade,
             SurfaceFind::IronSpade => HeldRelic::IronSpade,
+            SurfaceFind::TitaniumSpade => HeldRelic::TitaniumSpade,
             SurfaceFind::FlintPickaxe => HeldRelic::FlintPickaxe,
+            SurfaceFind::CopperPickaxe => HeldRelic::CopperPickaxe,
             SurfaceFind::IronPickaxe => HeldRelic::IronPickaxe,
+            SurfaceFind::TitaniumPickaxe => HeldRelic::TitaniumPickaxe,
             SurfaceFind::BoarMeat => HeldRelic::BoarMeat,
             SurfaceFind::LooseBlock(medium) => Self::from_medium(medium),
         }

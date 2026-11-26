@@ -97,7 +97,7 @@ pub trait StrokeResonance {
 
 impl StrokeResonance for HeldRelic {
     fn resonate(&self, cadence: u32) {
-        if self.spade_blade() || self.pickaxe_head() {
+        if self.metallic_ring() {
             CadencedWave::spade(cadence).thump();
         } else {
             CadencedWave::palm(cadence).thump();

@@ -1,29 +1,34 @@
 mod intake;
 mod palms;
+mod temper;
 
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, PalmMolds, PlanetaryWorld};
 use super::burden::{CarryLoad, JoinedLoad, SatchelBurden};
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
+#[cfg(test)]
+use super::relic::ToolCondition;
 use super::sight::{CameraMount, TripodMount};
 use super::tray::{SatchelTray, TrayState};
 use super::YouthAttire;
 use self::intake::SatchelIntake;
 use self::palms::PalmStack;
+use self::temper::SatchelTemper;
 
-/// Shared satchel inventory with invisible stowed storage, WASD inspection grid, and dual-hand block molds.
+/// Shared satchel inventory with stowed storage, WASD inspection grid, palm molds, and tool wear (`4` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BeltSatchel {
     palms: PalmStack,
     tray: SatchelTray,
     tripod: TripodMount,
+    temper: SatchelTemper,
 }
 
 impl BeltSatchel {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    const fn new(palms: PalmStack, tray: SatchelTray, tripod: TripodMount) -> Self {
-        Self { palms, tray, tripod }
+    const fn new(palms: PalmStack, tray: SatchelTray, tripod: TripodMount, temper: SatchelTemper) -> Self {
+        Self { palms, tray, tripod, temper }
     }
 
     pub const fn empty() -> Self {
@@ -31,6 +36,7 @@ impl BeltSatchel {
             PalmStack::new(0, 0, PalmMolds::cubes()),
             SatchelTray::new([0; HeldRelic::COUNT], 1.0, 0, TrayState::Closed),
             TripodMount::Unmounted,
+            SatchelTemper::empty(),
         )
     }
 
@@ -38,28 +44,26 @@ impl BeltSatchel {
         if count == 0 {
             return self;
         }
-        Self::new(self.palms, self.tray.stowed_with(relic, count), self.tripod)
+        Self::new(self.palms, self.tray.stowed_with(relic, count), self.tripod, self.temper)
     }
 
     pub fn from_survivor_manifest(manifest: world::SatchelManifest, attire: YouthAttire) -> (Self, YouthAttire) {
-        let clean = manifest.sanitized();
-        let (rc, lc) = clean.held_codes();
-        let (right, left) = (HeldRelic::from_code(rc), HeldRelic::from_code(lc));
-        let next_attire = attire.with_relics(right, left);
-        let mut satchel = Self::empty();
-        for code in 1..(HeldRelic::COUNT as u8) {
-            let held = u32::from(right.code() == code) + u32::from(left.code() == code);
-            let stowed = clean.count_of(code).saturating_sub(held);
-            if stowed > 0 {
-                satchel = satchel.with_stowed_relic(HeldRelic::from_code(code), stowed);
-            }
-        }
-        (satchel.reconcile_attire(next_attire), next_attire)
+        let base = Self::empty();
+        let (p, t, tm, next_attire) = SatchelIntake::new(base.palms, base.tray, base.temper).from_manifest(manifest, attire);
+        (Self::new(p, t, base.tripod, tm), next_attire)
     }
 
     pub const fn open(&self) -> bool { self.tray.open() }
-    pub const fn with_open(self, open: bool) -> Self { Self::new(self.palms, self.tray.with_open(open), self.tripod) }
+    pub const fn with_open(self, open: bool) -> Self { Self::new(self.palms, self.tray.with_open(open), self.tripod, self.temper) }
+    #[cfg(test)]
     pub const fn palm_molds(&self) -> PalmMolds { self.palms.palm_molds() }
+    pub fn wardrobe_molds(&self, attire: YouthAttire) -> PalmMolds {
+        self.temper.wardrobe_molds(self.palms.palm_molds(), attire)
+    }
+    #[cfg(test)]
+    pub const fn hand_condition(&self, side: f32, attire: YouthAttire) -> ToolCondition {
+        self.temper.palm_condition(side, attire.hand_pair(side).0)
+    }
 
     pub fn active_preview_mold(&self, attire: YouthAttire, pending_side: f32) -> Option<(f32, BlockMold)> {
         if self.tray.open() {
@@ -94,11 +98,7 @@ impl BeltSatchel {
 
     pub fn placed_camera_lens(&self, attire: YouthAttire) -> Option<(Vec3, Vec3, Vec3)> {
         let (r, l) = attire.held_pair();
-        if r.field_camera() || l.field_camera() {
-            None
-        } else {
-            self.tripod.lens_ray()
-        }
+        if r.field_camera() || l.field_camera() { None } else { self.tripod.lens_ray() }
     }
 
     pub fn resource_tally(&self, relic: HeldRelic, attire: YouthAttire) -> u32 {
@@ -137,38 +137,39 @@ impl BeltSatchel {
 
     pub fn reconcile_attire(mut self, attire: YouthAttire) -> Self {
         self.palms.reconcile_attire(attire);
+        self.temper.reconcile_attire(attire);
         self
     }
 
     pub fn transition_attire(mut self, prev: YouthAttire, next: YouthAttire) -> Self {
         let ((pr, pl), (nr, nl)) = (prev.held_pair(), next.held_pair());
-        if nr != pr && nr.independent_palm_mold() {
-            self.palms.reset_mold(1.0);
-        }
-        if nl != pl && nl.independent_palm_mold() {
-            self.palms.reset_mold(-1.0);
-        }
+        if nr != pr && nr.independent_palm_mold() { self.palms.reset_mold(1.0); }
+        if nl != pl && nl.independent_palm_mold() { self.palms.reset_mold(-1.0); }
+        self.temper.transition_attire(prev, next);
         self.reconcile_attire(next)
     }
 
     pub fn toggle_open(self) -> (Self, bool) {
-        (Self::new(self.palms, self.tray.toggled_open(), self.tripod), true)
+        (Self::new(self.palms, self.tray.toggled_open(), self.tripod, self.temper), true)
     }
 
     pub const fn navigate(self, dx: i32, dy: i32) -> (Self, bool) {
         let (next_tray, ok) = self.tray.navigated(dx, dy);
-        (Self::new(self.palms, next_tray, self.tripod), ok)
+        (Self::new(self.palms, next_tray, self.tripod, self.temper), ok)
     }
 
     pub fn transfer_hand(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
         let (mut state, (hand, other)) = (self.reconcile_attire(attire), attire.hand_pair(side));
         if state.tray.open() {
-            let chosen = state.tray.selected_relic();
+            let (chosen, chosen_rank) = state.tray.selected_slot();
             if chosen.gripped() {
+                let drawn_wear = state.temper.take_stowed_wear(chosen, chosen_rank);
                 let (mut next_tray, _) = state.tray.taken_stowed(chosen);
                 if hand.gripped() {
+                    state.temper.push_stowed_wear(hand, state.temper.palm_wear(side));
                     next_tray = next_tray.stowed_with(hand, state.palms.blocks_on(side));
                 }
+                state.temper.assign_palm_wear(side, drawn_wear);
                 if chosen.placeable_block() && other.placeable_block() && !chosen.independent_palm_mold() && !other.independent_palm_mold() {
                     state.palms.sync_mold_from_opposite(side);
                 } else if !chosen.placeable_block() || chosen.independent_palm_mold() {
@@ -180,11 +181,11 @@ impl BeltSatchel {
             }
         }
         if hand.gripped() {
+            state.temper.push_stowed_wear(hand, state.temper.palm_wear(side));
+            state.temper.assign_palm_wear(side, 0);
             state.tray = state.tray.closed().stowed_with(hand, state.palms.blocks_on(side)).focused_on(side);
             state.palms.assign_blocks(side, 0);
-            if hand.independent_palm_mold() {
-                state.palms.reset_mold(side);
-            }
+            if hand.independent_palm_mold() { state.palms.reset_mold(side); }
             (state, attire.with_hand_relic(side, HeldRelic::EmptyPalm), true)
         } else if state.tray.open() {
             state.tray = state.tray.closed();
@@ -221,35 +222,41 @@ impl BeltSatchel {
         (self, attire.with_hand_relic(side, next_hand), true)
     }
 
-    pub fn collect_excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
-        if relic == HeldRelic::FieldCamera {
-            self.tripod = TripodMount::Unmounted;
+    pub fn strain_hand(
+        mut self, side: f32, strain: u16, attire: YouthAttire, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, YouthAttire) {
+        let (hand, _) = attire.hand_pair(side);
+        if self.temper.strain_palm(side, hand, strain) {
+            world.note_consumed_provision(hand.code());
+            self.palms.assign_blocks(side, 0);
+            (self, attire.with_hand_relic(side, HeldRelic::EmptyPalm))
+        } else {
+            (self, attire)
         }
-        let (palms, tray, next_attire) = SatchelIntake::new(self.palms, self.tray).excavated_block(side, relic, attire);
-        (Self::new(palms, tray, self.tripod), next_attire)
+    }
+
+    pub fn collect_excavated_block(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
+        if relic == HeldRelic::FieldCamera { self.tripod = TripodMount::Unmounted; }
+        let (p, t, tm, na) = SatchelIntake::new(self.palms, self.tray, self.temper).excavated_block(side, relic, attire);
+        (Self::new(p, t, self.tripod, tm), na)
     }
 
     pub fn collect_foraged(mut self, side: f32, relic: HeldRelic, attire: YouthAttire) -> (Self, YouthAttire) {
-        if relic == HeldRelic::FieldCamera {
-            self.tripod = TripodMount::Unmounted;
-        }
-        let (palms, tray, next_attire) = SatchelIntake::new(self.palms, self.tray).foraged(side, relic, attire);
-        (Self::new(palms, tray, self.tripod), next_attire)
+        if relic == HeldRelic::FieldCamera { self.tripod = TripodMount::Unmounted; }
+        let (p, t, tm, na) = SatchelIntake::new(self.palms, self.tray, self.temper).foraged(side, relic, attire);
+        (Self::new(p, t, self.tripod, tm), na)
     }
 
-    pub const fn take_cast_relic(self, relic: HeldRelic) -> (Self, bool) {
-        if !relic.gripped() {
-            return (self, false);
-        }
+    pub fn take_cast_relic(mut self, relic: HeldRelic) -> (Self, bool) {
+        if !relic.gripped() { return (self, false); }
         let (next_tray, ok) = self.tray.taken_stowed(relic);
-        (Self::new(self.palms, next_tray, self.tripod), ok)
+        if ok { let _ = self.temper.take_stowed_wear(relic, 0); }
+        (Self::new(self.palms, next_tray, self.tripod, self.temper), ok)
     }
 
     pub fn consume_provision(mut self, side: f32, attire: YouthAttire) -> (Self, YouthAttire, bool) {
         let (hand, _) = attire.hand_pair(side);
-        if !hand.edible_provision() {
-            return (self, attire, false);
-        }
+        if !hand.edible_provision() { return (self, attire, false); }
         let (next_tray, refilled) = self.tray.closed().focused_on(side).taken_stowed(hand);
         self.tray = next_tray;
         let next_hand = if refilled { hand } else { HeldRelic::EmptyPalm };
@@ -258,25 +265,26 @@ impl BeltSatchel {
     }
 
     pub fn collect_felled_timber(self, side: f32, attire: YouthAttire) -> (Self, YouthAttire) {
-        let (palms, tray, next_attire) = SatchelIntake::new(self.palms, self.tray).felled_timber(side, attire);
-        (Self::new(palms, tray, self.tripod), next_attire)
+        let (p, t, tm, na) = SatchelIntake::new(self.palms, self.tray, self.temper).felled_timber(side, attire);
+        (Self::new(p, t, self.tripod, tm), na)
     }
 
     pub fn consume_and_equip(
         self, ingredients: [(HeldRelic, u32); 2], product: HeldRelic, batch_yield: u32, side: f32, attire: YouthAttire,
     ) -> (Self, YouthAttire) {
-        let (palms, tray, next_attire) = SatchelIntake::new(self.palms, self.tray).crafted_batch(ingredients, product, batch_yield, side, attire);
-        (Self::new(palms, tray, self.tripod), next_attire)
+        let (p, t, tm, na) = SatchelIntake::new(self.palms, self.tray, self.temper).crafted_batch(ingredients, product, batch_yield, side, attire);
+        (Self::new(p, t, self.tripod, tm), na)
     }
 
     pub fn consume_manifest(self, manifest: &[(HeldRelic, u32)], attire: YouthAttire) -> Option<(Self, YouthAttire)> {
         let state = self.reconcile_attire(attire);
-        let (palms, tray, next_attire) = SatchelIntake::new(state.palms, state.tray).consume_manifest(manifest, attire)?;
-        Some((Self::new(palms, tray, state.tripod), next_attire))
+        let (p, t, tm, na) = SatchelIntake::new(state.palms, state.tray, state.temper).consume_manifest(manifest, attire)?;
+        Some((Self::new(p, t, state.tripod, tm), na))
     }
 
     pub fn emit_for_attire(&self, pose: &BodyPose, attire: YouthAttire, target: &mut dyn MeshTarget) {
         let scaled = attire.scaled_pose(pose);
-        self.tray.emit_with_burden(&scaled, self.carried_burden(attire), target);
+        let temper = self.temper;
+        self.tray.emit_with_burden(&scaled, self.carried_burden(attire), |item, rank| temper.stowed_condition(item, rank), target);
     }
 }

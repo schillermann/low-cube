@@ -3,17 +3,22 @@
 pub enum MiningEdge {
     BarePalm,
     FlintPick,
+    CopperPick,
     IronPick,
+    TitaniumPick,
 }
 
 impl MiningEdge {
-    /// Indicates whether this edge cleaves quarried stone, copper ore, and iron ore.
+    /// Indicates whether this edge cleaves quarried stone, vitrified basalt, copper ore, and iron ore.
     pub const fn pierces_stone(self) -> bool {
-        matches!(self, Self::FlintPick | Self::IronPick)
+        matches!(
+            self,
+            Self::FlintPick | Self::CopperPick | Self::IronPick | Self::TitaniumPick
+        )
     }
 
     /// Indicates whether this edge cleaves deep planetary crust rock and gold ore.
     pub const fn pierces_crust(self) -> bool {
-        matches!(self, Self::IronPick)
+        matches!(self, Self::IronPick | Self::TitaniumPick)
     }
 }

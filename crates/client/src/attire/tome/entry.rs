@@ -57,16 +57,16 @@ impl CraftingEntry {
     }
 }
 
-pub const RECIPE_CATALOG: [CraftingEntry; 25] = {
+pub const RECIPE_CATALOG: [CraftingEntry; 30] = {
     use FolioTab::{Blocks, Orbital, Tools, Vehicles};
     [
-        CraftingEntry::new(HeldRelic::WoodmanAxe, 1, Tools, [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
+        CraftingEntry::new(HeldRelic::WoodmanAxe, 1, Tools, [(HeldRelic::PlankBlock, 1), (HeldRelic::IronOre, 2)]),
         CraftingEntry::new(HeldRelic::PlankBlock, 4, Blocks, [(HeldRelic::TimberBlock, 1), (HeldRelic::EmptyPalm, 0)]),
         CraftingEntry::new(HeldRelic::CantileverCrane, 1, Blocks, [(HeldRelic::PlankBlock, 2), (HeldRelic::QuarriedStone, 1)]),
         CraftingEntry::new(HeldRelic::VehicleBlueprint, 1, Blocks, [(HeldRelic::PlankBlock, 1), (HeldRelic::FlintStone, 1)]),
-        CraftingEntry::new(HeldRelic::WoodenMallet, 1, Tools, [(HeldRelic::DeadwoodBough, 2), (HeldRelic::FlintStone, 1)]),
-        CraftingEntry::new(HeldRelic::IronSpade, 1, Tools, [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 2)]),
-        CraftingEntry::new(HeldRelic::KnightlySword, 1, Tools, [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 3)]),
+        CraftingEntry::new(HeldRelic::WoodenMallet, 1, Tools, [(HeldRelic::DeadwoodBough, 2), (HeldRelic::EmptyPalm, 0)]),
+        CraftingEntry::new(HeldRelic::IronSpade, 1, Tools, [(HeldRelic::PlankBlock, 1), (HeldRelic::IronOre, 2)]),
+        CraftingEntry::new(HeldRelic::KnightlySword, 1, Tools, [(HeldRelic::PlankBlock, 1), (HeldRelic::IronOre, 3)]),
         CraftingEntry::new(HeldRelic::TimberTorch, 1, Tools, [(HeldRelic::DeadwoodBough, 1), (HeldRelic::FlintStone, 1)]),
         CraftingEntry::new(HeldRelic::QuarriedStone, 1, Blocks, [(HeldRelic::FlintStone, 2), (HeldRelic::EmptyPalm, 0)]),
         CraftingEntry::new(HeldRelic::CabinSeat, 1, Vehicles, [(HeldRelic::PlankBlock, 1), (HeldRelic::EmptyPalm, 0)]),
@@ -85,5 +85,10 @@ pub const RECIPE_CATALOG: [CraftingEntry; 25] = {
         CraftingEntry::new(HeldRelic::CarbonSilicate, 4, Blocks, [(HeldRelic::GoldOre, 1), (HeldRelic::FlintStone, 2)]),
         CraftingEntry::new(HeldRelic::BlackBoxPod, 1, Orbital, [(HeldRelic::IronOre, 2), (HeldRelic::CopperOre, 1)]),
         CraftingEntry::new(HeldRelic::LaserBeacon, 1, Orbital, [(HeldRelic::GoldOre, 2), (HeldRelic::CopperOre, 1)]),
+        CraftingEntry::new(HeldRelic::WoodenSpade, 1, Tools, [(HeldRelic::DeadwoodBough, 2), (HeldRelic::EmptyPalm, 0)]),
+        CraftingEntry::new(HeldRelic::CopperSpade, 1, Tools, [(HeldRelic::PlankBlock, 1), (HeldRelic::CopperOre, 2)]),
+        CraftingEntry::new(HeldRelic::TitaniumSpade, 1, Tools, [(HeldRelic::PlankBlock, 1), (HeldRelic::TitaniumHull, 2)]),
+        CraftingEntry::new(HeldRelic::CopperPickaxe, 1, Tools, [(HeldRelic::PlankBlock, 1), (HeldRelic::CopperOre, 2)]),
+        CraftingEntry::new(HeldRelic::TitaniumPickaxe, 1, Tools, [(HeldRelic::PlankBlock, 1), (HeldRelic::TitaniumHull, 2)]),
     ]
 };

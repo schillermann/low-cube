@@ -134,14 +134,8 @@ impl PalmEarthworks {
     }
 
     pub fn try_cast_relic(
-        self,
-        trigger: InputTrigger,
-        bindings: &ActionBindings,
-        attire: YouthAttire,
-        rhythm: StrideRhythm,
-        eye: Vec3,
-        view_dir: Vec3,
-        world: &mut dyn PlanetaryWorld,
+        self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire,
+        rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> (Self, StrideRhythm, bool) {
         if self.satchel.open() || self.tome.open() {
             return (self, rhythm, false);
@@ -149,6 +143,13 @@ impl PalmEarthworks {
         let (ns, nt, nr, ok) = self.toss.try_cast(self.satchel, trigger, bindings, attire, rhythm, eye, view_dir, world);
         let next_dig = if ok { self.dig.with_grip(DigGrip::idle()) } else { self.dig };
         (Self::with_state(ns, self.tome, next_dig, nt), nr, ok)
+    }
+
+    pub fn wear_hand(
+        self, side: f32, strain: u16, attire: YouthAttire, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, YouthAttire) {
+        let (ns, na) = self.satchel.reconcile_attire(attire).strain_hand(side, strain, attire, world);
+        (self.with_satchel(ns), na)
     }
 
     pub fn try_adjust_rig(
@@ -176,15 +177,11 @@ impl PalmEarthworks {
     }
 
     pub fn emit_attire(
-        &self,
-        attire: &YouthAttire,
-        pose: &BodyPose,
-        sight: SightMode,
-        inspection_open: bool,
-        target: &mut dyn MeshTarget,
+        &self, attire: &YouthAttire, pose: &BodyPose, sight: SightMode,
+        inspection_open: bool, target: &mut dyn MeshTarget,
     ) {
         let active = self.dig.bare_hand_attire(*attire);
-        MoldedWardrobe::new(active, self.satchel.palm_molds(), inspection_open).emit(pose, sight, target);
+        MoldedWardrobe::new(active, self.satchel.wardrobe_molds(active), inspection_open).emit(pose, sight, target);
     }
 
     pub fn emit_inspection(&self, folio: &BlueprintFolio, attire: YouthAttire, pose: &BodyPose, target: &mut dyn MeshTarget) {
@@ -194,10 +191,7 @@ impl PalmEarthworks {
     }
 
     pub fn act_folio(
-        self,
-        folio: &mut BlueprintFolio,
-        attire: YouthAttire,
-        world: &mut dyn PlanetaryWorld,
+        self, folio: &mut BlueprintFolio, attire: YouthAttire, world: &mut dyn PlanetaryWorld,
     ) -> (Self, YouthAttire, bool, bool) {
         let state = self.reconcile_attire(attire);
         let (ns, na, built, handled) = folio.act_open(state.satchel, attire, world);
@@ -205,12 +199,8 @@ impl PalmEarthworks {
     }
 
     pub fn try_build_folio(
-        self,
-        folio: &mut BlueprintFolio,
-        trigger: InputTrigger,
-        bindings: &ActionBindings,
-        attire: YouthAttire,
-        world: &mut dyn PlanetaryWorld,
+        self, folio: &mut BlueprintFolio, trigger: InputTrigger, bindings: &ActionBindings,
+        attire: YouthAttire, world: &mut dyn PlanetaryWorld,
     ) -> (Self, YouthAttire, bool) {
         let state = self.reconcile_attire(attire);
         let (ns, na, built) = folio.try_build_trigger(trigger, bindings, state.satchel, attire, world);
@@ -219,7 +209,7 @@ impl PalmEarthworks {
 
     pub fn presence_attire(&self, attire: YouthAttire) -> PresenceAttire {
         let active = self.dig.bare_hand_attire(attire);
-        PresenceAttire::new(active.multiplayer_bytes(), active.region_bytes(), self.satchel.palm_molds())
+        PresenceAttire::new(active.multiplayer_bytes(), active.region_bytes(), self.satchel.wardrobe_molds(active))
     }
 
     pub fn emit_debris(&self, view_dir: Vec3, surface_up: Vec3, rhythm: StrideRhythm, target: &mut dyn MeshTarget) {

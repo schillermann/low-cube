@@ -97,7 +97,7 @@ impl ArtisanTome {
     }
 
     #[cfg(test)]
-    pub const fn entries() -> [CraftingEntry; 25] {
+    pub const fn entries() -> [CraftingEntry; 30] {
         RECIPE_CATALOG
     }
 

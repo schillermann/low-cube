@@ -181,10 +181,11 @@ impl SatchelManifest {
     }
 
     pub fn consume_edible(&mut self, code: u8) -> bool {
-        if code != 24 || self.totals[24] == 0 {
+        let idx = code as usize;
+        if !RelicCatalog::new(code).expendable() || idx >= RELIC_SLOT_COUNT || self.totals[idx] == 0 {
             return false;
         }
-        self.totals[24] -= 1;
+        self.totals[idx] -= 1;
         *self = self.sanitized();
         true
     }

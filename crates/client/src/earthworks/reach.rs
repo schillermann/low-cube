@@ -113,7 +113,8 @@ impl SurfaceReach {
             }
         }
         if dig.untouched() && !dig.grip().any_held() && active == HeldRelic::WoodenMallet && world.adjust_rig(self.eye, self.view_dir, 1, false) {
-            return (reconciled, attire, dig.with_grip(DigGrip::idle()), Self::swing_rhythm(attire, rhythm, side), true);
+            let (ns, na) = reconciled.strain_hand(side, 1, attire, world);
+            return (ns, na, dig.with_grip(DigGrip::idle()), Self::swing_rhythm(attire, rhythm, side), true);
         }
         if dig.untouched()
             && !dig.grip().any_held()
@@ -150,6 +151,7 @@ impl SurfaceReach {
             let outcome = if other.axe_blade() { world.strike_timber(self.eye, self.view_dir) } else { CleaveOutcome::Missed };
             if outcome.struck() {
                 let (ns, na) = if outcome.felled() { reconciled.collect_felled_timber(side, attire) } else { (reconciled, attire) };
+                let (ns, na) = ns.strain_hand(-side, 1, na, world);
                 return (ns, na, dig.with_grip(DigGrip::with_dig_on(side, false)), Self::swing_rhythm(attire, rhythm, -side), true);
             }
             DigStroke::single_palm(side, deferred, weightless, w_place, rhythm)
@@ -157,6 +159,7 @@ impl SurfaceReach {
             let outcome = if active.axe_blade() { world.strike_timber(self.eye, self.view_dir) } else { CleaveOutcome::Missed };
             if outcome.struck() {
                 let (ns, na) = if outcome.felled() { reconciled.collect_felled_timber(-side, attire) } else { (reconciled, attire) };
+                let (ns, na) = ns.strain_hand(side, 1, na, world);
                 let grip = if active.axe_blade() { DigGrip::with_dig_on(side, false) } else { DigGrip::idle() };
                 return (ns, na, dig.with_grip(grip), Self::swing_rhythm(attire, rhythm, side), true);
             }
@@ -166,12 +169,18 @@ impl SurfaceReach {
         let fallback = if w_place { DigGrip::with_pending_place(side) } else { next_grip.without_pending_place() };
         if !world.surface_yields_to(self.eye, self.view_dir, active.mining_edge()) {
             let _ = dig.clear_cracks(self.eye, self.view_dir, world);
-            return (reconciled, attire, dig.with_grip(fallback), next_rhythm, false);
+            let (ns, na) = if deferred == 0 {
+                reconciled.strain_hand(side, 1, attire, world)
+            } else {
+                (reconciled, attire)
+            };
+            return (ns, na, dig.with_grip(fallback), next_rhythm, false);
         }
         let (site, progress) = (dig.resolve_site(self.eye, self.view_dir, world), dig.step_progress(stroke));
         if progress >= EXCAVATION_THRESHOLD {
             if let Some(med) = world.harvest_surface(self.eye, self.view_dir) {
                 let (ns, na) = reconciled.collect_excavated_block(stroke.recipient_side(), HeldRelic::from_medium(med), attire);
+                let (ns, na) = ns.strain_hand(side, HeldRelic::harvest_strain(med), na, world);
                 let harvested_dig = dig.advanced_stroke(0, next_grip.without_pending_place(), site, med, &active);
                 return (ns, na, harvested_dig, next_rhythm, true);
             }

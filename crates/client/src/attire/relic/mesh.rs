@@ -3,6 +3,7 @@ use world::{BlockMold, MeshTarget, Quad};
 use super::super::compartment::{CompartmentBackplate, ShowcasedCompartment, SlotPlaque};
 use super::super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
 use super::plinth::{BoarHaunch, SlopedBeam, SquarePlinth};
+use super::temper::ToolCondition;
 use super::tools::ToolSculpture;
 use super::HeldRelic;
 
@@ -25,17 +26,18 @@ impl<'a> MeshTarget for LitSlotTarget<'a> {
     }
 }
 
-/// Decorator over `HeldRelic` and `BlockMold` emitting 3D palm-held and satchel-slot geometry.
+/// Decorator over `HeldRelic`, `BlockMold`, and `ToolCondition` emitting 3D palm-held and satchel-slot geometry.
 #[derive(Clone, Copy)]
 pub struct RelicFigure {
     relic: HeldRelic,
     mold: BlockMold,
+    condition: ToolCondition,
 }
 
 impl RelicFigure {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(relic: HeldRelic, mold: BlockMold) -> Self {
-        Self { relic, mold }
+    pub const fn new(relic: HeldRelic, mold: BlockMold, condition: ToolCondition) -> Self {
+        Self { relic, mold, condition }
     }
 
     fn emit_deadwood(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
@@ -113,112 +115,85 @@ impl RelicFigure {
 
     pub fn emit_in_palm(self, side: f32, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let (gx, gz) = (-side * 0.025, 0.054);
-        match self.relic {
-            HeldRelic::EmptyPalm => {}
-            HeldRelic::QuarriedStone
-            | HeldRelic::ExcavatedEarth
-            | HeldRelic::TimberBlock
-            | HeldRelic::PlankBlock
-            | HeldRelic::CrustBlock
-            | HeldRelic::SteeringWheel
-            | HeldRelic::AircraftEngine
-            | HeldRelic::FlightConsole
-            | HeldRelic::FusionTorch
-            | HeldRelic::RocketNozzle
-            | HeldRelic::RocketCamera
-            | HeldRelic::CabinSeat
-            | HeldRelic::CarWheel
-            | HeldRelic::PedalCluster
-            | HeldRelic::CopperOre
-            | HeldRelic::IronOre
-            | HeldRelic::GoldOre
-            | HeldRelic::VehicleBlueprint
-            | HeldRelic::SpawnStone
-            | HeldRelic::TitaniumHull
-            | HeldRelic::CarbonSilicate
-            | HeldRelic::VitrifiedBasalt
-            | HeldRelic::BlackBoxPod
-            | HeldRelic::LaserBeacon => {
-                frame.emit_cradled_block(
-                    side,
-                    Vec3::new(-side * 0.015, 0.001, 0.048),
-                    self.mold.in_medium(self.relic.block_medium()),
-                    0.096,
-                    Vec3::new(0.44, 0.31, 0.19),
-                    Vec3::new(0.28, 0.65, 0.25),
-                    target,
-                );
-            }
-            HeldRelic::DeadwoodBough => Self::emit_deadwood(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
-            HeldRelic::FlintStone => Self::emit_flint(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target),
-            HeldRelic::BoarMeat => BoarHaunch.emit(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.002, 0.048)), true, target),
-            HeldRelic::TimberTorch
-            | HeldRelic::WoodenMallet
-            | HeldRelic::WoodmanAxe
-            | HeldRelic::KnightlySword
-            | HeldRelic::IronSpade
-            | HeldRelic::FlintPickaxe
-            | HeldRelic::IronPickaxe => ToolSculpture::new(self.relic).emit_in_palm(gx, gz, frame, target),
-            HeldRelic::CantileverCrane => Self::emit_cantilever(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), target),
-            HeldRelic::FieldCamera => {
-                let cradle = frame
-                    .palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048))
-                    .yawed(self.mold.palm_camera_yaw(side));
-                Self::emit_camera(&cradle, target);
-            }
+        if self.relic.free_palm() {
+            return;
+        }
+        if self.relic == HeldRelic::CantileverCrane {
+            Self::emit_cantilever(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), target);
+        } else if self.relic == HeldRelic::FieldCamera {
+            let cradle = frame
+                .palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048))
+                .yawed(self.mold.palm_camera_yaw(side));
+            Self::emit_camera(&cradle, target);
+        } else if self.relic.placeable_block() {
+            frame.emit_cradled_block(
+                side,
+                Vec3::new(-side * 0.015, 0.001, 0.048),
+                self.mold.in_medium(self.relic.block_medium()),
+                0.096,
+                Vec3::new(0.44, 0.31, 0.19),
+                Vec3::new(0.28, 0.65, 0.25),
+                target,
+            );
+        } else if self.relic == HeldRelic::DeadwoodBough {
+            Self::emit_deadwood(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target);
+        } else if self.relic == HeldRelic::FlintStone {
+            Self::emit_flint(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target);
+        } else if self.relic == HeldRelic::BoarMeat {
+            BoarHaunch.emit(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.002, 0.048)), true, target);
+        } else {
+            ToolSculpture::new(self.relic, self.condition).emit_in_palm(gx, gz, frame, target);
         }
     }
 
     pub fn emit_showcase(self, slot_frame: &LimbFrame, target: &mut dyn MeshTarget) {
+        if self.relic.free_palm() {
+            return;
+        }
         let light_dir = (slot_frame.point(0.4, 0.6, -0.7) - slot_frame.point(0.0, 0.0, 0.0)).normalize_or_zero();
         let zenith = (slot_frame.point(0.0, 1.0, -1.0) - slot_frame.point(0.0, 0.0, 0.0)).normalize_or_zero();
         let mut lit = LitSlotTarget { light_dir, zenith, inner: target };
         let showcase = slot_frame.shifted(0.0, 0.0, -0.048).pitched(-0.46).yawed(0.64);
-        match self.relic {
-            HeldRelic::EmptyPalm => {}
-            HeldRelic::ExcavatedEarth
-            | HeldRelic::QuarriedStone
-            | HeldRelic::TimberBlock
-            | HeldRelic::PlankBlock
-            | HeldRelic::CrustBlock
-            | HeldRelic::SteeringWheel
-            | HeldRelic::AircraftEngine
-            | HeldRelic::FlightConsole
-            | HeldRelic::FusionTorch
-            | HeldRelic::RocketNozzle
-            | HeldRelic::RocketCamera
-            | HeldRelic::CabinSeat
-            | HeldRelic::CarWheel
-            | HeldRelic::PedalCluster
-            | HeldRelic::CopperOre
-            | HeldRelic::IronOre
-            | HeldRelic::GoldOre
-            | HeldRelic::VehicleBlueprint
-            | HeldRelic::SpawnStone
-            | HeldRelic::TitaniumHull
-            | HeldRelic::CarbonSilicate
-            | HeldRelic::VitrifiedBasalt
-            | HeldRelic::BlackBoxPod
-            | HeldRelic::LaserBeacon => {
-                showcase.emit_upright_block(Vec3::new(0.0, -0.025, 0.0), self.mold.in_medium(self.relic.block_medium()), 0.082, Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.28, 0.65, 0.25), &mut lit);
-            }
-            HeldRelic::DeadwoodBough => Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit),
-            HeldRelic::FlintStone => Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit),
-            HeldRelic::BoarMeat => BoarHaunch.emit(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.56), true, &mut lit),
-            HeldRelic::CantileverCrane => Self::emit_cantilever(&showcase.shifted(0.0, -0.032, 0.0).scaled(0.44), &mut lit),
-            HeldRelic::FieldCamera => Self::emit_camera(&showcase.shifted(0.0, -0.022, 0.0).scaled(0.58), &mut lit),
-            _ => {
-                let (scale, yaw, mid_y, mid_z) = match self.relic {
-                    HeldRelic::KnightlySword => (0.090, 0.45, 0.285, 0.054),
-                    HeldRelic::IronSpade => (0.125, 0.45, 0.115, 0.062),
-                    HeldRelic::WoodmanAxe => (0.165, 1.32, 0.052, 0.092),
-                    HeldRelic::FlintPickaxe | HeldRelic::IronPickaxe => (0.148, 1.32, 0.060, 0.056),
-                    HeldRelic::TimberTorch => (0.185, 0.45, 0.075, 0.058),
-                    _ => (0.205, 0.85, 0.050, 0.054),
-                };
-                let tool_frame = slot_frame.shifted(0.0, 0.0, -0.035).pitched(-0.22).yawed(yaw).scaled(scale).shifted(0.025, -mid_y, -mid_z);
-                self.emit_in_palm(1.0, &tool_frame, &mut lit);
-            }
+        if self.relic == HeldRelic::CantileverCrane {
+            Self::emit_cantilever(&showcase.shifted(0.0, -0.032, 0.0).scaled(0.44), &mut lit);
+        } else if self.relic == HeldRelic::FieldCamera {
+            Self::emit_camera(&showcase.shifted(0.0, -0.022, 0.0).scaled(0.58), &mut lit);
+        } else if self.relic.placeable_block() {
+            showcase.emit_upright_block(
+                Vec3::new(0.0, -0.025, 0.0),
+                self.mold.in_medium(self.relic.block_medium()),
+                0.082,
+                Vec3::new(0.44, 0.31, 0.19),
+                Vec3::new(0.28, 0.65, 0.25),
+                &mut lit,
+            );
+        } else if self.relic == HeldRelic::DeadwoodBough {
+            Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit);
+        } else if self.relic == HeldRelic::FlintStone {
+            Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit);
+        } else if self.relic == HeldRelic::BoarMeat {
+            BoarHaunch.emit(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.56), true, &mut lit);
+        } else {
+            let (scale, yaw, mid_y, mid_z) = if self.relic == HeldRelic::KnightlySword {
+                (0.090, 0.45, 0.285, 0.054)
+            } else if self.relic.spade_blade() {
+                (0.125, 0.45, 0.115, 0.062)
+            } else if self.relic == HeldRelic::WoodmanAxe {
+                (0.165, 1.32, 0.052, 0.092)
+            } else if self.relic.pickaxe_head() {
+                (0.148, 1.32, 0.060, 0.056)
+            } else if self.relic == HeldRelic::TimberTorch {
+                (0.185, 0.45, 0.075, 0.058)
+            } else {
+                (0.205, 0.85, 0.050, 0.054)
+            };
+            let tool_frame = slot_frame
+                .shifted(0.0, 0.0, -0.035)
+                .pitched(-0.22)
+                .yawed(yaw)
+                .scaled(scale)
+                .shifted(0.025, -mid_y, -mid_z);
+            self.emit_in_palm(1.0, &tool_frame, &mut lit);
         }
     }
 

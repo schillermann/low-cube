@@ -8,15 +8,15 @@ pub trait RecipeShelf {
     fn collect_recipes(&self, out: &mut Vec<(usize, CraftingEntry)>);
 }
 
-/// Complete 25-recipe canonical shelf preserving multiplayer `RelicCatalog` index order.
+/// Complete 30-recipe canonical shelf preserving multiplayer `RelicCatalog` index order.
 #[derive(Clone, Copy, Debug)]
 pub struct CanonicalShelf {
-    entries: [CraftingEntry; 25],
+    entries: [CraftingEntry; 30],
 }
 
 impl CanonicalShelf {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(entries: [CraftingEntry; 25]) -> Self {
+    pub const fn new(entries: [CraftingEntry; 30]) -> Self {
         Self { entries }
     }
 
@@ -49,7 +49,7 @@ impl<S> TabbedShelf<S> {
 
 impl<S: RecipeShelf> RecipeShelf for TabbedShelf<S> {
     fn collect_recipes(&self, out: &mut Vec<(usize, CraftingEntry)>) {
-        let mut raw = Vec::with_capacity(25);
+        let mut raw = Vec::with_capacity(30);
         self.origin.collect_recipes(&mut raw);
         for (idx, entry) in raw {
             if entry.in_tab(self.tab) {

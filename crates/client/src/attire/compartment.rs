@@ -3,7 +3,7 @@ use world::MeshTarget;
 use crate::menu::PixelStamp;
 use super::burden::SlotBurden;
 use super::limb::LimbFrame;
-use super::relic::RelicFigure;
+use super::relic::{RelicFigure, ToolCondition};
 
 /// Focused interface for composable satchel compartment and plaque layers.
 pub trait SlotPlaque {
@@ -107,23 +107,24 @@ impl<P: SlotPlaque> SlotPlaque for TalliedCompartment<P> {
     }
 }
 
-/// Satchel legend plaque displaying the selected slot's item title, English weight grade, and controls.
+/// Satchel legend plaque displaying the selected slot's item title, physical wear condition, weight grade, and controls.
 #[derive(Clone, Copy)]
 pub struct LegendCompartment {
     burden: SlotBurden,
+    condition: ToolCondition,
 }
 
 impl LegendCompartment {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(burden: SlotBurden) -> Self {
-        Self { burden }
+    pub const fn with_condition(burden: SlotBurden, condition: ToolCondition) -> Self {
+        Self { burden, condition }
     }
 }
 
 impl SlotPlaque for LegendCompartment {
     fn emit_slot(&self, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         frame.emit_framed_plaque(0.182, 0.032, 0.0024, Vec3::new(0.08, 0.10, 0.15), Vec3::new(0.42, 0.27, 0.16), target);
-        let heading = format!("{}", self.burden);
+        let heading = format!("{}{}", self.condition.legend_prefix(), self.burden);
         PixelStamp::new(0.0021, 0.0023, Vec3::new(1.55, 1.30, 0.48))
             .emit_on_frame(&heading, 0.0, 0.017, 0.016, frame, target);
         let hint = PixelStamp::new(0.0021, 0.0021, Vec3::new(1.42, 1.46, 1.54));

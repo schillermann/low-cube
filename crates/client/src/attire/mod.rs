@@ -42,6 +42,8 @@ pub use pose::{BodyPose, RocketControls};
 pub use pouch::BeltSatchel;
 pub use proportion::{BodyRegion, PartProportion, YouthPhysique};
 pub use relic::{HeldRelic, MartialStyle};
+#[cfg(test)]
+pub use relic::ToolCondition;
 pub use rhythm::StrideRhythm;
 pub use sight::{CameraMount, PhotoShutter, SightMode};
 pub use tome::ArtisanTome;

@@ -8,6 +8,16 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.126.0] - 2026-11-26
+
+### Added
+- Added realistic 4-tier tool material progression (`Wood/Flint -> Copper -> Iron -> Titanium`) and diegetic 3D tool wear (`crates/client/src/attire/relic/`, `crates/client/src/attire/pouch/`, `crates/world/src/survivor/` & `crates/world/src/block/timber_grain/mining_edge.rs`):
+  - `HeldRelic::WoodenSpade`, `CopperSpade`, `TitaniumSpade`, `CopperPickaxe`, and `TitaniumPickaxe` (`codes 37..=41` in `RelicCatalog` and `SurfaceFind` `codes 11..=15`, `MiningEdge::CopperPick` & `TitaniumPick`, and `ArtisanTome` recipes `#25..=#29` filling all `12` slots of the `3 × 4` `1 TOOLS` folio page without scrolling): scales spade excavation from `4 -> 3 -> 2 -> 1` strikes, adds tough ductile copper tools (`64` endurance vs. `24` for wood/flint), and unlocks 1-strike aerospace titanium tools (`420` endurance vs. `160` for forged iron; `crates/client/src/tool_wear_tests.rs`).
+  - `ToolCondition` (`Pristine`, `Scuffed`, `Chipped`, `Splintered`), `ToolTemper`, `SatchelTemper` (`crates/client/src/attire/pouch/temper.rs`), `SpadeSculpture`, `PickaxeSculpture`, and `ToolSculpture` (`crates/client/src/attire/relic/tools/`): accumulates hardness-dependent wear across block excavation (`1..=3` strain), deflected strikes on impenetrable rock, timber felling, and wildlife combat, sculpting progressive tarnish, chipped asymmetric blades/tines, loose canted sockets, and shaft splinters directly onto held, multiplayer-replicated (`PresenceAttire`, `0` extra wire bytes), and stowed `SatchelTray` 3D tool figures before shattering exhausted tools and syncing `SatchelManifest` expenditure.
+
+### Changed
+- Corrected forged metal tool recipes in `RECIPE_CATALOG` and `RelicCatalog::recipe_spec` (`IronSpade` `#5`: `1 PlankBlock + 2 IronOre`, `WoodmanAxe` `#0`: `1 PlankBlock + 2 IronOre`, `KnightlySword` `#6`: `1 PlankBlock + 3 IronOre`, and pure-hardwood `WoodenMallet` `#4`: `2 DeadwoodBough`) so steel blades require `IronOre` rather than `FlintStone`.
+
 ## [0.125.0] - 2026-11-26
 
 ### Added

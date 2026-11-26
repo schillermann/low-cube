@@ -6,7 +6,7 @@ use super::compartment::{
     WeightedCompartment,
 };
 use super::pose::BodyPose;
-use super::relic::HeldRelic;
+use super::relic::{HeldRelic, ToolCondition};
 use super::sack::HangingSack;
 
 const TRAY_SLOTS: usize = 15;
@@ -66,9 +66,12 @@ impl SatchelTray {
         (opened, true)
     }
 
-    pub fn selected_relic(&self) -> HeldRelic {
+    pub fn selected_slot(&self) -> (HeldRelic, usize) {
         let (slots, _) = self.packed_slots();
-        slots[self.cursor.min(TRAY_SLOTS - 1)]
+        let sel = self.cursor.min(TRAY_SLOTS - 1);
+        let chosen = slots[sel];
+        let rank = slots[..sel].iter().filter(|&&r| r == chosen).count();
+        (chosen, rank)
     }
 
     pub const fn count(&self, relic: HeldRelic) -> u32 {
@@ -148,7 +151,13 @@ impl SatchelTray {
         (Self::new(self.stowed, self.active_side, next_cursor, self.state), true)
     }
 
-    pub fn emit_with_burden(&self, pose: &BodyPose, burden: SatchelBurden, target: &mut dyn MeshTarget) {
+    pub fn emit_with_burden(
+        &self,
+        pose: &BodyPose,
+        burden: SatchelBurden,
+        condition_at: impl Fn(HeldRelic, usize) -> ToolCondition,
+        target: &mut dyn MeshTarget,
+    ) {
         if !self.open() {
             return;
         }
@@ -172,14 +181,20 @@ impl SatchelTray {
             } else {
                 Vec3::new(0.28, 0.22, 0.17)
             };
-            let qty = if item.gripped() { self.count(item) } else { 0 };
+            let rank = slots[..i].iter().filter(|&&r| r == item).count();
+            let cond = condition_at(item, rank);
+            let qty = if item.gripped() {
+                if item.stackable_in_tray() { self.count(item) } else { 1 }
+            } else {
+                0
+            };
             let compartment = TalliedCompartment::new(
                 ShowcasedCompartment::new(
                     WeightedCompartment::new(
                         CompartmentBackplate::new(selected, item.gripped(), rim_col),
                         SlotBurden::new(item, qty),
                     ),
-                    item.figure(mold),
+                    item.worn_figure(mold, cond),
                 ),
                 eye,
                 rim_col,
@@ -189,8 +204,17 @@ impl SatchelTray {
         }
         HangingSack::new(burden).emit_slot(&tray, target);
         let chosen = slots[sel];
-        let qty = if chosen.gripped() { self.count(chosen) } else { 0 };
-        LegendCompartment::new(SlotBurden::new(chosen, qty)).emit_slot(&tray.shifted(0.0, -0.284, 0.0), target);
+        let chosen_rank = slots[..sel].iter().filter(|&&r| r == chosen).count();
+        let chosen_qty = if chosen.gripped() {
+            if chosen.stackable_in_tray() { self.count(chosen) } else { 1 }
+        } else {
+            0
+        };
+        LegendCompartment::with_condition(
+            SlotBurden::new(chosen, chosen_qty),
+            condition_at(chosen, chosen_rank),
+        )
+        .emit_slot(&tray.shifted(0.0, -0.284, 0.0), target);
     }
 }
 

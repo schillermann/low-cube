@@ -19,11 +19,16 @@ impl RelicTokenLexicon for RelicLexicon {
             "woodenmallet" | "mallet" => Some(HeldRelic::WoodenMallet),
             "woodmanaxe" | "axe" => Some(HeldRelic::WoodmanAxe),
             "knightlysword" | "knightsword" | "sword" => Some(HeldRelic::KnightlySword),
-            "ironspade" | "spade" => Some(HeldRelic::IronSpade),
+            "woodenspade" | "woodspade" | "holzspaten" => Some(HeldRelic::WoodenSpade),
+            "copperspade" | "kupferspaten" => Some(HeldRelic::CopperSpade),
+            "ironspade" | "spade" | "eisenspaten" => Some(HeldRelic::IronSpade),
+            "titaniumspade" | "titanspaten" => Some(HeldRelic::TitaniumSpade),
             "flintpickaxe" | "flintpick" | "stonepickaxe" | "pickaxe" | "hacke" | "spitzhacke" | "feuersteinhacke" => {
                 Some(HeldRelic::FlintPickaxe)
             }
-            "ironpickaxe" | "ironpick" | "eisenhacke" => Some(HeldRelic::IronPickaxe),
+            "copperpickaxe" | "copperpick" | "kupferhacke" | "kupferspitzhacke" => Some(HeldRelic::CopperPickaxe),
+            "ironpickaxe" | "ironpick" | "eisenhacke" | "eisenspitzhacke" => Some(HeldRelic::IronPickaxe),
+            "titaniumpickaxe" | "titaniumpick" | "titanhacke" | "titanspitzhacke" => Some(HeldRelic::TitaniumPickaxe),
             "earthblock" | "excavatedearth" | "earth" | "dirt" => Some(HeldRelic::ExcavatedEarth),
             "deadwood" | "deadwoodbough" => Some(HeldRelic::DeadwoodBough),
             "flintstone" | "flint" => Some(HeldRelic::FlintStone),
@@ -42,7 +47,7 @@ impl RelicTokenLexicon for RelicLexicon {
             "pedalblock" | "pedalcluster" | "pedals" | "pedal" => Some(HeldRelic::PedalCluster),
             "copperore" | "copper" | "kupfer" => Some(HeldRelic::CopperOre),
             "ironore" | "iron" | "eisen" => Some(HeldRelic::IronOre),
-            "goldore" | "gold" => Some(HeldRelic::GoldOre),
+            "goldore" | "gold" | "golderz" => Some(HeldRelic::GoldOre),
             "boarmeat" | "meat" | "venison" | "fleisch" | "wildschwein" => Some(HeldRelic::BoarMeat),
             "blueprint" | "blueprintblock" | "vehicleblueprint" | "bauplan" => Some(HeldRelic::VehicleBlueprint),
             "spawnstone" | "spawnblock" | "spawnpoint" | "arrivalstone" => Some(HeldRelic::SpawnStone),
