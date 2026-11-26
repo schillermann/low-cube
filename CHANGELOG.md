@@ -8,6 +8,13 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.130.0] - 2026-11-26
+
+### Added
+- Added `KnuckleWince` vocal `"Aua!"` pain exclamation when striking hard rock bare-handed (`crates/acoustics/src/knuckle_wince.rs`, `crates/acoustics/src/dig_decorators.rs`, `crates/client/src/earthworks/debris.rs`, `crates/client/src/earthworks/reach.rs` & `crates/client/src/pickaxe_tests/`):
+  - Synthesized `24 kHz` knuckle-on-stone impact transient followed by a two-syllable `/a/ -> /ʊ/ -> /ɐ/` formant-shaped `"Au-a!"` cry (`VowelTract` & `KnuckleWince::inflected` cycling across 4 natural pitch inflections).
+  - Extended `StrokeResonance::rebound` and `DigOperation::rebound_stroke` in `SurfaceReach::strike` and `SurfaceReach::sustain` so bare-hand strikes against unyielding stone and ore emit `KnuckleWince` while tool rebounds, empty-sky swings, and soft earth/sand digging do not.
+
 ## [0.129.1] - 2026-11-26
 
 ### Fixed

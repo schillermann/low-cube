@@ -7,6 +7,7 @@ mod fusion_hum;
 mod hearty_bite;
 mod hoofbeats;
 mod hull_chorus;
+mod knuckle_wince;
 mod nozzle_roar;
 mod outbox;
 mod rain_patter;
@@ -30,6 +31,7 @@ pub use self::fusion_hum::FusionHum;
 pub use self::hearty_bite::HeartyBite;
 pub use self::hoofbeats::RoeHoofbeats;
 pub use self::hull_chorus::{HullChorus, HullWaveTrace, PropulsionCue};
+pub use self::knuckle_wince::KnuckleWince;
 pub use self::nozzle_roar::NozzleRoar;
 use self::outbox::SoundOutbox;
 pub use self::rain_patter::{

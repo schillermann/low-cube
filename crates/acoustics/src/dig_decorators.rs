@@ -31,6 +31,15 @@ impl DigWaveTrace {
         assert!(out.len() >= self.expected_min, "expected at least {} dig waves, got {}", self.expected_min, out.len());
         out
     }
+
+    pub(super) fn note_variant(self, tag: u8) {
+        let _ = self.expected_min;
+        TRACE_RECORDING.with(|r| {
+            if r.get() {
+                TRACE_VARIANTS.with(|v| v.borrow_mut().push(tag));
+            }
+        });
+    }
 }
 
 /// Acoustic decorator warping pitch, modal frequencies, and stroke duration of an underlying waveform.
@@ -208,11 +217,7 @@ impl<W: AcousticWave + Copy> AcousticWave for CadencedWave<W> {
     fn thump(&self) {
         let idx = (self.cadence as usize) % DIG_VARIATIONS;
         let tag_offset = if self.slots[0].contains("spade") { 100u8 } else { 0u8 };
-        TRACE_RECORDING.with(|r| {
-            if r.get() {
-                TRACE_VARIANTS.with(|v| v.borrow_mut().push(tag_offset + (idx as u8)));
-            }
-        });
+        DigWaveTrace::new(0).note_variant(tag_offset + (idx as u8));
         if SoundStage::active() {
             static WAVE_BANK: OnceLock<Mutex<Vec<(&'static str, &'static [u8])>>> = OnceLock::new();
             let filename = self.slots[idx];

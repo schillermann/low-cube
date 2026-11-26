@@ -78,7 +78,12 @@ impl SurfaceReach {
                         return (reconciled, attire, dig.advanced_stroke(step, next_grip, site, med, &active), rhythm, true);
                     }
                 }
-                return (reconciled, attire, dig.with_grip(next_grip), rhythm, false);
+                let next_dig = if world.aimed_surface_medium(self.eye, self.view_dir).is_some() {
+                    dig.rebound_stroke(next_grip, &active)
+                } else {
+                    dig.with_grip(next_grip)
+                };
+                return (reconciled, attire, next_dig, rhythm, false);
             }
             let promoted = dig.promoted(next_grip);
             let follow = Self::new(self.eye, self.view_dir, self.stance_origin, false);
@@ -174,7 +179,12 @@ impl SurfaceReach {
             } else {
                 (reconciled, attire)
             };
-            return (ns, na, dig.with_grip(fallback), next_rhythm, false);
+            let next_dig = if world.aimed_surface_medium(self.eye, self.view_dir).is_some() {
+                dig.rebound_stroke(fallback, &active)
+            } else {
+                dig.with_grip(fallback)
+            };
+            return (ns, na, next_dig, next_rhythm, false);
         }
         let (site, progress) = (dig.resolve_site(self.eye, self.view_dir, world), dig.step_progress(stroke));
         if progress >= EXCAVATION_THRESHOLD {

@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{BlockMedium, MeshTarget, PlanetaryWorld};
 use crate::attire::{FacetedSolid, HeldRelic, LimbFrame, StrideRhythm, TaperedPrism, YouthAttire};
-use acoustics::{AcousticWave, CadencedWave};
+use acoustics::{AcousticWave, CadencedWave, KnuckleWince};
 use crate::grip::{DigGrip, DigStroke};
 
 const SUBTERRANEAN_ROOF_OFFSET: f32 = 0.5;
@@ -93,6 +93,7 @@ impl DebrisSplash {
 /// Polymorphic digging instrument resonance triggered at a progressive stroke cadence.
 pub trait StrokeResonance {
     fn resonate(&self, cadence: u32);
+    fn rebound(&self, cadence: u32);
 }
 
 impl StrokeResonance for HeldRelic {
@@ -101,6 +102,12 @@ impl StrokeResonance for HeldRelic {
             CadencedWave::spade(cadence).thump();
         } else {
             CadencedWave::palm(cadence).thump();
+        }
+    }
+
+    fn rebound(&self, cadence: u32) {
+        if self.free_palm() || self.placeable_block() {
+            KnuckleWince::inflected(cadence).thump();
         }
     }
 }
@@ -151,6 +158,11 @@ impl DigOperation {
         } else {
             Self::new(progress, self.cadence, grip, DebrisSplash::Spraying { site, medium })
         }
+    }
+
+    pub fn rebound_stroke(self, grip: DigGrip, instrument: &dyn StrokeResonance) -> Self {
+        instrument.rebound(self.cadence);
+        Self::new(0, self.cadence.wrapping_add(1), grip, DebrisSplash::Calm)
     }
 
     pub const fn untouched(self) -> bool {
