@@ -122,6 +122,11 @@ impl TerrainMesh for HeliosphereWorld {
             (vic.active_ids(), vic.uploaded_ids())
         };
         let earth_voxel_active = self.ephemeris.frame().earth_centered();
+        if earth_voxel_active {
+            use crate::PlanetaryWeather as _;
+            crate::TroposphereDeck::new(self.ephemeris.proportions().earth_half(), epoch)
+                .emit_around(cone, target);
+        }
         for snap in snaps {
             if matches!(snap.nature(), SurfaceNature::GasGiant { .. }) {
                 GiantCloudShell::new(snap, epoch).emit_near(viewer, target);

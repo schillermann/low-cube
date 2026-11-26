@@ -8,6 +8,13 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.125.0] - 2026-11-26
+
+### Added
+- Added deterministic 3-layer fly-through troposphere clouds, moisture-converging dark rain clouds, distant Virga rain shafts, near-camera rain/snowfall, and cockpit cloud-immersion fog (`crates/world/src/weather/` & `crates/engine/src/shader/`):
+  - `TroposphereDeck`, `CloudStratum`, `CloudVolume`, and `CloudVeil` (`crates/world/src/weather/mod.rs`, `strata.rs`, `precipitation.rs`): renders three distinct altitude corridors (`Cumulus/Nimbostratus`, `Altostratus`, and `Cirrus` below the 3D `Arctic` aurora ionosphere) in logarithmic-depth alpha space (`v_glow < -3.5`) with solar facet shading, golden twilight blush, nocturnal silhouettes, and smooth `0.065 m` cockpit vapor immersion when aircraft fly through clouds (`O(1)` local `9 × 9` cell window, `0` heap allocations, `0` extra multiplayer wire bytes).
+  - `MoistureField`, `ConvergenceCell`, `ClimateHumidity`, `RainShaft`, and `LocalDownpour` (`crates/world/src/weather/moisture.rs` & `precipitation.rs`): advects two converging wind trains per `ClimateZone`, darkening cloud bellies via Beer-Lambert self-shadowing as moisture accumulates, triggering local `RainShaft` curtains and toroidal falling rain streaks (`Arctic` snowflakes) above the saturation threshold before draining back to fair skies, while evaporating low rain over arid `Desert` (`crates/world/src/weather/tests.rs`).
+
 ## [0.124.0] - 2026-11-26
 
 ### Added

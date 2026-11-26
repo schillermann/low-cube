@@ -218,4 +218,19 @@ fn test_asteroid_belt_flythrough_zero_heap_allocations() {
         "Flying through the procedural Asteroid Belt (physics + nearest_rock + emit_cosmic_field) must perform 0 heap allocations"
     );
     assert!(sink.0 > 0, "Asteroid Belt flythrough must stream tumbling asteroid quads");
+
+    let earth_sky = world::TroposphereDeck::new(64.0, 24.0);
+    let mut sky_sink = BeltSink(0);
+    let sky_allocs = count_allocations(|| {
+        use world::PlanetaryWeather as _;
+        for step in 0..120 {
+            let plane_eye = Vec3::new((step as f32) * 0.4 - 20.0, 64.0 + 15.0 + (step as f32) * 0.12, 4.0);
+            earth_sky.emit_around(world::SightCone::omnidirectional(plane_eye), &mut sky_sink);
+        }
+    });
+    assert_eq!(
+        sky_allocs, 0,
+        "Flying an aircraft through multi-layer clouds and rain showers must perform 0 heap allocations"
+    );
+    assert!(sky_sink.0 > 0, "Aircraft cloud flythrough must emit 3D cloud and precipitation quads");
 }

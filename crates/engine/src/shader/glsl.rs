@@ -1,8 +1,4 @@
-use glam::{Mat4, Vec3};
-use glow::HasContext;
-use crate::{ShaderProgram, ShaderSource};
-
-const VERTEX_SHADER_SRC: &str = r#"#version 330 core
+pub(super) const VERTEX_SHADER_SRC: &str = r#"#version 330 core
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
 layout(location = 2) in vec3 in_color;
@@ -44,7 +40,7 @@ void main() {
 }
 "#;
 
-const FRAGMENT_SHADER_SRC: &str = r#"#version 330 core
+pub(super) const FRAGMENT_SHADER_SRC: &str = r#"#version 330 core
 in vec3 v_normal;
 in vec3 v_color;
 in float v_glow;
@@ -72,10 +68,41 @@ vec3 tier_scale(int t) {
          : vec3(1.44, 1.24, 1.25);
 }
 
+vec3 world_plateau_zenith(vec3 p) {
+    if (dot(p, p) <= 1e-6) {
+        return vec3(0.0, 1.0, 0.0);
+    }
+    vec3 n = normalize(p);
+    vec3 q2 = n * n;
+    return normalize(n * q2 * q2);
+}
+
 void main() {
     gl_FragDepth = (v_persp > 0.5)
         ? clamp(log2(max(v_logz, 1.0)) * 0.030103, 0.0, 0.999999)
         : gl_FragCoord.z;
+    if (v_glow < -5.5) {
+        float base_a = clamp(-v_glow - 6.0, 0.02, 0.92);
+        float edge_x = smoothstep(0.0, 0.22, min(v_uv.x, 1.0 - v_uv.x));
+        float edge_y = smoothstep(0.0, 0.14, min(v_uv.y, 1.0 - v_uv.y));
+        float mu = dot(world_plateau_zenith(v_world), normalize(u_light_dir));
+        float day = smoothstep(-0.24, 0.22, mu);
+        vec3 amb = mix(vec3(0.16, 0.20, 0.30), vec3(0.94, 0.97, 1.00), day);
+        frag_color = vec4(v_color * amb, base_a * edge_x * edge_y);
+        return;
+    }
+    if (v_glow < -3.5) {
+        float base_a = clamp(-v_glow - 4.0, 0.02, 0.95);
+        vec3 sun = normalize(u_light_dir);
+        float l_dot = dot(normalize(v_normal), sun);
+        float facet = clamp(l_dot * 0.32 + 0.70, 0.36, 1.04);
+        float mu = dot(world_plateau_zenith(v_world), sun);
+        float day = smoothstep(-0.24, 0.24, mu);
+        float dusk = exp(-pow((mu - 0.02) / 0.18, 2.0)) * (1.0 - smoothstep(0.18, 0.45, mu));
+        vec3 sky_env = mix(vec3(0.12, 0.16, 0.26), mix(vec3(1.0), vec3(1.06, 0.68, 0.44), dusk * 0.65), day);
+        frag_color = vec4(min(v_color * facet * sky_env, vec3(1.0)), base_a);
+        return;
+    }
     if (v_glow < -1.5) {
         float base_alpha = clamp(-v_glow - 2.0, 0.0, 1.0);
         float axial = clamp(1.0 - 0.72 * v_uv.y * v_uv.y, 0.08, 1.0);
@@ -146,97 +173,3 @@ void main() {
     frag_color = vec4(mix(lit, radiant, glow_mix), 1.0);
 }
 "#;
-
-/// Encapsulated GPU program with clean, code-free primary constructor.
-pub struct VoxelProgram {
-    program: glow::Program,
-    u_view_proj: glow::UniformLocation,
-    u_light_dir: glow::UniformLocation,
-    u_model: glow::UniformLocation,
-}
-
-impl VoxelProgram {
-    pub fn new(
-        program: glow::Program,
-        u_view_proj: glow::UniformLocation,
-        u_light_dir: glow::UniformLocation,
-        u_model: glow::UniformLocation,
-    ) -> Self {
-        Self {
-            program,
-            u_view_proj,
-            u_light_dir,
-            u_model,
-        }
-    }
-}
-
-impl ShaderProgram for VoxelProgram {
-    fn bind(&self, gl: &glow::Context, view_proj: &Mat4, light_dir: Vec3) {
-        unsafe {
-            gl.use_program(Some(self.program));
-            gl.uniform_matrix_4_f32_slice(Some(&self.u_view_proj), false, &view_proj.to_cols_array());
-            gl.uniform_matrix_4_f32_slice(Some(&self.u_model), false, &Mat4::IDENTITY.to_cols_array());
-            gl.uniform_3_f32(Some(&self.u_light_dir), light_dir.x, light_dir.y, light_dir.z);
-        }
-    }
-
-    fn apply_model(&self, gl: &glow::Context, model: &Mat4) {
-        unsafe {
-            gl.uniform_matrix_4_f32_slice(Some(&self.u_model), false, &model.to_cols_array());
-        }
-    }
-}
-
-/// Encapsulated GLSL source code for voxel rendering.
-pub struct VoxelShaderSource {
-    vertex: &'static str,
-    fragment: &'static str,
-}
-
-impl VoxelShaderSource {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(vertex: &'static str, fragment: &'static str) -> Self {
-        Self { vertex, fragment }
-    }
-
-    /// Embedded voxel shader sources compiled into the binary.
-    pub fn embedded() -> Self {
-        Self::new(VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC)
-    }
-}
-
-impl ShaderSource for VoxelShaderSource {
-    unsafe fn compile(&self, gl: &glow::Context) -> Box<dyn ShaderProgram> {
-        let vs = gl.create_shader(glow::VERTEX_SHADER).expect("VS create failed");
-        gl.shader_source(vs, self.vertex);
-        gl.compile_shader(vs);
-        if !gl.get_shader_compile_status(vs) {
-            panic!("VS compile error: {}", gl.get_shader_info_log(vs));
-        }
-
-        let fs = gl.create_shader(glow::FRAGMENT_SHADER).expect("FS create failed");
-        gl.shader_source(fs, self.fragment);
-        gl.compile_shader(fs);
-        if !gl.get_shader_compile_status(fs) {
-            panic!("FS compile error: {}", gl.get_shader_info_log(fs));
-        }
-
-        let program = gl.create_program().expect("Program create failed");
-        gl.attach_shader(program, vs);
-        gl.attach_shader(program, fs);
-        gl.link_program(program);
-        if !gl.get_program_link_status(program) {
-            panic!("Program link error: {}", gl.get_program_info_log(program));
-        }
-
-        gl.delete_shader(vs);
-        gl.delete_shader(fs);
-
-        let u_view_proj = gl.get_uniform_location(program, "u_view_proj").expect("u_view_proj missing");
-        let u_light_dir = gl.get_uniform_location(program, "u_light_dir").expect("u_light_dir missing");
-        let u_model = gl.get_uniform_location(program, "u_model").expect("u_model missing");
-
-        Box::new(VoxelProgram::new(program, u_view_proj, u_light_dir, u_model))
-    }
-}

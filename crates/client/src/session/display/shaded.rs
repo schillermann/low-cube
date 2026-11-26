@@ -37,7 +37,7 @@ impl ShadedScenePass {
         figures: StreamingMesh,
         meadow_ring: MeadowRing,
     ) -> Self {
-        let actors = SceneActors::new(figures, StreamingMesh::with_quad_capacity(256), VesselStage::empty());
+        let actors = SceneActors::new(figures, StreamingMesh::with_quad_capacity(1_024), VesselStage::empty());
         Self::with_stage(program, mesh, actors, meadow_ring)
     }
 

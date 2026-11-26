@@ -19,6 +19,7 @@ mod surface_contact;
 mod survivor;
 mod topology;
 mod tree;
+mod weather;
 mod wire_vector;
 
 #[cfg(test)]
@@ -100,6 +101,11 @@ pub use tree::{
     SectorGrove, SolidArboreal, SpawnSanctuaryGround, StandingTree, SteppeAcacia, SurfaceFind,
     SurfaceGround, TemperateOak, TimberDepository, TimberYield, TreeSpecies,
     VolcanicSpire, WoodlandDepository, WoodlandGround, ZonedForest,
+};
+pub use weather::{
+    BiomeMoisture, ClimateHumidity, CloudStratum, CloudVeil, CloudVolume, ConvergenceCell,
+    LocalDownpour, MoistureField, PlanarNoise, PlanetaryWeather, RainShaft, SmoothScalarField,
+    StratumBand, TroposphereDeck, TroposphereField, WeatherSample,
 };
 pub use quad::Quad;
 
