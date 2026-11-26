@@ -1,13 +1,19 @@
+mod bridge;
+
 use world::{BlockMedium, SurfaceFind};
 use super::HeldRelic;
+use self::bridge::RelicWorldBridge;
 
-/// Domain lexicon and property catalog for `HeldRelic` items.
+/// Domain lexicon and property catalog for `HeldRelic` items (`1` field).
 pub struct RelicLexicon {
     relic: HeldRelic,
 }
 
 impl RelicLexicon {
     pub const TRAY_ORDER: [HeldRelic; HeldRelic::COUNT - 1] = [
+        HeldRelic::TitaniumBillet,
+        HeldRelic::IronBloom,
+        HeldRelic::CopperBloom,
         HeldRelic::GoldOre,
         HeldRelic::IronOre,
         HeldRelic::CopperOre,
@@ -24,12 +30,16 @@ impl RelicLexicon {
         HeldRelic::LaserBeacon,
         HeldRelic::BlackBoxPod,
         HeldRelic::AircraftEngine,
+        HeldRelic::BakingOven,
+        HeldRelic::BloomeryForge,
+        HeldRelic::SmithyAnvil,
         HeldRelic::ExcavatedEarth,
         HeldRelic::CrustBlock,
         HeldRelic::VitrifiedBasalt,
         HeldRelic::QuarriedStone,
         HeldRelic::TimberBlock,
         HeldRelic::PlankBlock,
+        HeldRelic::RoastedBoar,
         HeldRelic::BoarMeat,
         HeldRelic::DeadwoodBough,
         HeldRelic::FlintStone,
@@ -85,6 +95,9 @@ impl RelicLexicon {
                 | HeldRelic::VitrifiedBasalt
                 | HeldRelic::BlackBoxPod
                 | HeldRelic::LaserBeacon
+                | HeldRelic::BakingOven
+                | HeldRelic::BloomeryForge
+                | HeldRelic::SmithyAnvil
         )
     }
 
@@ -147,6 +160,7 @@ impl RelicLexicon {
             HeldRelic::IronOre => "IRON ORE",
             HeldRelic::GoldOre => "GOLD ORE",
             HeldRelic::BoarMeat => "BOAR MEAT",
+            HeldRelic::RoastedBoar => "ROAST BOAR",
             HeldRelic::VehicleBlueprint => "BLUEPRINT BLOCK",
             HeldRelic::SpawnStone => "SPAWN STONE",
             HeldRelic::TitaniumHull => "TITANIUM HULL",
@@ -154,6 +168,12 @@ impl RelicLexicon {
             HeldRelic::VitrifiedBasalt => "VITRIFIED BASALT",
             HeldRelic::BlackBoxPod => "BLACKBOX POD",
             HeldRelic::LaserBeacon => "LASER BEACON",
+            HeldRelic::BakingOven => "BAKING OVEN",
+            HeldRelic::BloomeryForge => "SMELTING FORGE",
+            HeldRelic::SmithyAnvil => "SMITHY ANVIL",
+            HeldRelic::CopperBloom => "COPPER BLOOM",
+            HeldRelic::IronBloom => "IRON BLOOM",
+            HeldRelic::TitaniumBillet => "SPACE TITANIUM",
         }
     }
 
@@ -170,113 +190,31 @@ impl RelicLexicon {
             HeldRelic::GoldOre => "GOLD",
             HeldRelic::ExcavatedEarth => "EARTH",
             HeldRelic::TitaniumHull => "TITANIUM",
+            HeldRelic::TimberTorch => "TORCH",
+            HeldRelic::BakingOven => "OVEN",
+            HeldRelic::BloomeryForge => "FORGE",
+            HeldRelic::SmithyAnvil => "ANVIL",
+            HeldRelic::RoastedBoar => "ROAST",
+            HeldRelic::CopperBloom => "CU BLOOM",
+            HeldRelic::IronBloom => "FE BLOOM",
+            HeldRelic::TitaniumBillet => "TI BILLET",
             _ => self.title(),
         }
     }
 
     pub const fn block_medium(&self) -> BlockMedium {
-        match self.relic {
-            HeldRelic::CrustBlock => BlockMedium::CrustRock,
-            HeldRelic::QuarriedStone => BlockMedium::QuarriedStone,
-            HeldRelic::TimberBlock => BlockMedium::RawTimber,
-            HeldRelic::PlankBlock => BlockMedium::PlanedPlanks,
-            HeldRelic::CantileverCrane => BlockMedium::CantileverRig,
-            HeldRelic::SteeringWheel => BlockMedium::SteeringWheel,
-            HeldRelic::AircraftEngine => BlockMedium::AircraftEngine,
-            HeldRelic::FlightConsole => BlockMedium::FlightConsole,
-            HeldRelic::FusionTorch => BlockMedium::FusionTorch,
-            HeldRelic::RocketNozzle => BlockMedium::RocketNozzle,
-            HeldRelic::RocketCamera => BlockMedium::RocketCamera,
-            HeldRelic::CabinSeat => BlockMedium::CabinSeat,
-            HeldRelic::CarWheel => BlockMedium::CarWheel,
-            HeldRelic::FieldCamera => BlockMedium::FieldCamera,
-            HeldRelic::PedalCluster => BlockMedium::PedalCluster,
-            HeldRelic::CopperOre => BlockMedium::CopperOre,
-            HeldRelic::IronOre => BlockMedium::IronOre,
-            HeldRelic::GoldOre => BlockMedium::GoldOre,
-            HeldRelic::VehicleBlueprint => BlockMedium::VehicleBlueprint,
-            HeldRelic::SpawnStone => BlockMedium::SpawnStone,
-            HeldRelic::TitaniumHull => BlockMedium::TitaniumHull,
-            HeldRelic::CarbonSilicate => BlockMedium::CarbonSilicate,
-            HeldRelic::VitrifiedBasalt => BlockMedium::VitrifiedBasalt,
-            HeldRelic::BlackBoxPod => BlockMedium::BlackBoxPod,
-            HeldRelic::LaserBeacon => BlockMedium::LaserBeacon,
-            _ => BlockMedium::TurfEarth,
-        }
+        RelicWorldBridge::new(self.relic).block_medium()
     }
 
     pub const fn from_medium(medium: BlockMedium) -> HeldRelic {
-        match medium {
-            BlockMedium::TurfEarth | BlockMedium::Sand => HeldRelic::ExcavatedEarth,
-            BlockMedium::CrustRock => HeldRelic::CrustBlock,
-            BlockMedium::QuarriedStone => HeldRelic::QuarriedStone,
-            BlockMedium::RawTimber => HeldRelic::TimberBlock,
-            BlockMedium::PlanedPlanks => HeldRelic::PlankBlock,
-            BlockMedium::CantileverRig => HeldRelic::CantileverCrane,
-            BlockMedium::SteeringWheel => HeldRelic::SteeringWheel,
-            BlockMedium::AircraftEngine => HeldRelic::AircraftEngine,
-            BlockMedium::FlightConsole => HeldRelic::FlightConsole,
-            BlockMedium::RocketNozzle => HeldRelic::RocketNozzle,
-            BlockMedium::RocketCamera => HeldRelic::RocketCamera,
-            BlockMedium::CabinSeat => HeldRelic::CabinSeat,
-            BlockMedium::CarWheel => HeldRelic::CarWheel,
-            BlockMedium::FieldCamera => HeldRelic::FieldCamera,
-            BlockMedium::PedalCluster => HeldRelic::PedalCluster,
-            BlockMedium::CopperOre => HeldRelic::CopperOre,
-            BlockMedium::IronOre => HeldRelic::IronOre,
-            BlockMedium::GoldOre => HeldRelic::GoldOre,
-            BlockMedium::VehicleBlueprint => HeldRelic::VehicleBlueprint,
-            BlockMedium::FusionTorch => HeldRelic::FusionTorch,
-            BlockMedium::SpawnStone => HeldRelic::SpawnStone,
-            BlockMedium::TitaniumHull => HeldRelic::TitaniumHull,
-            BlockMedium::CarbonSilicate => HeldRelic::CarbonSilicate,
-            BlockMedium::VitrifiedBasalt => HeldRelic::VitrifiedBasalt,
-            BlockMedium::BlackBoxPod => HeldRelic::BlackBoxPod,
-            BlockMedium::LaserBeacon => HeldRelic::LaserBeacon,
-        }
+        RelicWorldBridge::from_medium(medium)
     }
 
     pub const fn surface_find(&self) -> SurfaceFind {
-        match self.relic {
-            HeldRelic::EmptyPalm => SurfaceFind::EmptyHanded,
-            HeldRelic::DeadwoodBough => SurfaceFind::DeadwoodBough,
-            HeldRelic::FlintStone => SurfaceFind::FlintStone,
-            HeldRelic::TimberTorch => SurfaceFind::TimberTorch,
-            HeldRelic::WoodenMallet => SurfaceFind::WoodenMallet,
-            HeldRelic::WoodmanAxe => SurfaceFind::WoodmanAxe,
-            HeldRelic::KnightlySword => SurfaceFind::KnightlySword,
-            HeldRelic::WoodenSpade => SurfaceFind::WoodenSpade,
-            HeldRelic::CopperSpade => SurfaceFind::CopperSpade,
-            HeldRelic::IronSpade => SurfaceFind::IronSpade,
-            HeldRelic::TitaniumSpade => SurfaceFind::TitaniumSpade,
-            HeldRelic::FlintPickaxe => SurfaceFind::FlintPickaxe,
-            HeldRelic::CopperPickaxe => SurfaceFind::CopperPickaxe,
-            HeldRelic::IronPickaxe => SurfaceFind::IronPickaxe,
-            HeldRelic::TitaniumPickaxe => SurfaceFind::TitaniumPickaxe,
-            HeldRelic::BoarMeat => SurfaceFind::BoarMeat,
-            _ => SurfaceFind::LooseBlock(self.block_medium()),
-        }
+        RelicWorldBridge::new(self.relic).surface_find()
     }
 
     pub const fn from_surface_find(find: SurfaceFind) -> HeldRelic {
-        match find {
-            SurfaceFind::EmptyHanded => HeldRelic::EmptyPalm,
-            SurfaceFind::DeadwoodBough => HeldRelic::DeadwoodBough,
-            SurfaceFind::FlintStone => HeldRelic::FlintStone,
-            SurfaceFind::TimberTorch => HeldRelic::TimberTorch,
-            SurfaceFind::WoodenMallet => HeldRelic::WoodenMallet,
-            SurfaceFind::WoodmanAxe => HeldRelic::WoodmanAxe,
-            SurfaceFind::KnightlySword => HeldRelic::KnightlySword,
-            SurfaceFind::WoodenSpade => HeldRelic::WoodenSpade,
-            SurfaceFind::CopperSpade => HeldRelic::CopperSpade,
-            SurfaceFind::IronSpade => HeldRelic::IronSpade,
-            SurfaceFind::TitaniumSpade => HeldRelic::TitaniumSpade,
-            SurfaceFind::FlintPickaxe => HeldRelic::FlintPickaxe,
-            SurfaceFind::CopperPickaxe => HeldRelic::CopperPickaxe,
-            SurfaceFind::IronPickaxe => HeldRelic::IronPickaxe,
-            SurfaceFind::TitaniumPickaxe => HeldRelic::TitaniumPickaxe,
-            SurfaceFind::BoarMeat => HeldRelic::BoarMeat,
-            SurfaceFind::LooseBlock(medium) => Self::from_medium(medium),
-        }
+        RelicWorldBridge::from_surface_find(find)
     }
 }

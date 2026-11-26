@@ -18,7 +18,7 @@ use super::QuadLedger;
 fn test_recipe_shelf_decorators_partition_all_thirty_recipes_and_filter_ready_stock() {
     let mut all = Vec::new();
     CanonicalShelf::catalog().collect_recipes(&mut all);
-    assert_eq!(all.len(), 30);
+    assert_eq!(all.len(), 33);
 
     let mut total_partitioned = 0usize;
     for tab in TestFolioTab::all() {
@@ -31,7 +31,7 @@ fn test_recipe_shelf_decorators_partition_all_thirty_recipes_and_filter_ready_st
         );
         total_partitioned += group.len();
     }
-    assert_eq!(total_partitioned, 30, "Four FolioTabs must partition all 30 canonical recipes without overlap");
+    assert_eq!(total_partitioned, 33, "Four FolioTabs must partition all 33 canonical recipes without overlap");
 
     let squire = YouthAttire::squire().with_relics(HeldRelic::TimberBlock, HeldRelic::EmptyPalm);
     let satchel = BeltSatchel::empty().reconcile_attire(squire);

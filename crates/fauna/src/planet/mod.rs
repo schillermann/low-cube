@@ -55,6 +55,7 @@ impl<R: FaunaRealm> WorldEarthworks for WoodlandPlanet<R> {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.origin.harvest_surface(eye, direction) }
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.origin.loosen_surface(eye, direction, stage) }
     fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool { self.origin.surface_yields_to(eye, direction, edge) }
+    fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.origin.aimed_surface_medium(eye, direction) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.origin.strike_timber(eye, direction) }
     fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
         self.fauna.strike_realm(eye, direction, power, max_reach, self.origin.as_mut())

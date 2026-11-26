@@ -209,6 +209,11 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
         }
     }
 
+    fn vacuum_medium_at(&self, probe: Vec3) -> bool {
+        self.near_moon(probe)
+            || matches!(self.home.surface_contact(probe, 0.0), crate::SurfaceContact::Vacuum)
+    }
+
     fn canopy_drag(&self, position: Vec3) -> f32 {
         if self.near_moon(position) { 0.0 } else { self.home.canopy_drag(position) }
     }

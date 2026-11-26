@@ -58,10 +58,17 @@ pub enum HeldRelic {
     TitaniumSpade,
     CopperPickaxe,
     TitaniumPickaxe,
+    BakingOven,
+    BloomeryForge,
+    SmithyAnvil,
+    RoastedBoar,
+    CopperBloom,
+    IronBloom,
+    TitaniumBillet,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 42;
+    pub const COUNT: usize = 49;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -112,7 +119,14 @@ impl HeldRelic {
             38 => Self::CopperSpade,
             39 => Self::TitaniumSpade,
             40 => Self::CopperPickaxe,
-            _ => Self::TitaniumPickaxe,
+            41 => Self::TitaniumPickaxe,
+            42 => Self::BakingOven,
+            43 => Self::BloomeryForge,
+            44 => Self::SmithyAnvil,
+            45 => Self::RoastedBoar,
+            46 => Self::CopperBloom,
+            47 => Self::IronBloom,
+            _ => Self::TitaniumBillet,
         }
     }
 
@@ -160,6 +174,13 @@ impl HeldRelic {
             Self::TitaniumSpade => 39,
             Self::CopperPickaxe => 40,
             Self::TitaniumPickaxe => 41,
+            Self::BakingOven => 42,
+            Self::BloomeryForge => 43,
+            Self::SmithyAnvil => 44,
+            Self::RoastedBoar => 45,
+            Self::CopperBloom => 46,
+            Self::IronBloom => 47,
+            Self::TitaniumBillet => 48,
         }
     }
 
@@ -172,7 +193,8 @@ impl HeldRelic {
     pub const fn independent_palm_mold(self) -> bool {
         matches!(self, Self::FieldCamera | Self::RocketNozzle | Self::RocketCamera)
     }
-    pub const fn edible_provision(self) -> bool { matches!(self, Self::BoarMeat) }
+    pub const fn edible_provision(self) -> bool { matches!(self, Self::BoarMeat | Self::RoastedBoar) }
+    pub const fn hearty_roast(self) -> bool { matches!(self, Self::RoastedBoar) }
     pub const fn wearable(self) -> bool { ToolTemper::new(self).wearable() }
     pub const fn endurance_span(self) -> u16 { ToolTemper::new(self).endurance_span() }
     pub const fn harvest_strain(medium: BlockMedium) -> u16 { ToolTemper::harvest_strain(medium) }
@@ -184,7 +206,8 @@ impl HeldRelic {
             || self.field_camera()
     }
     pub const fn turnable_in_palm(self) -> bool {
-        self.placeable_block() && self.block_medium().mechanical_part()
+        self.placeable_block()
+            && (self.block_medium().mechanical_part() || self.block_medium().artisan_hearth())
     }
     pub const fn blocks_perch(self) -> bool { self.placeable_block() && !self.field_camera() }
     pub const fn stowed_block(self) -> bool {

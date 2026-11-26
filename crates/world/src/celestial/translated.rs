@@ -90,6 +90,7 @@ impl<W: WorldEarthworks> WorldEarthworks for TranslatedWorld<W> {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.origin.harvest_surface(eye - self.center, direction) }
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.origin.loosen_surface(eye - self.center, direction, stage) }
     fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool { self.origin.surface_yields_to(eye - self.center, direction, edge) }
+    fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.origin.aimed_surface_medium(eye - self.center, direction) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.origin.strike_timber(eye - self.center, direction) }
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind { self.origin.forage_surface(eye - self.center, direction) }
     fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool { self.origin.cast_surface_find(eye - self.center, direction, find) }
@@ -222,6 +223,7 @@ impl<W: PlanetaryWorld> PlanetaryWorld for TranslatedWorld<W> {
         self.origin.step_active_zones(dt, earth_zone_mask, active_bodies)
     }
     fn lethal_at(&self, position: Vec3) -> bool { self.origin.lethal_at(position - self.center) }
+    fn vacuum_medium_at(&self, probe: Vec3) -> bool { self.origin.vacuum_medium_at(probe - self.center) }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 {
         self.origin.confine_beneath_crust(position - self.center) + self.center
     }

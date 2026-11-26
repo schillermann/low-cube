@@ -84,6 +84,9 @@ pub trait ReliefElevation: Send + Sync {
     /// Indicates whether the targeted block layer at (u, v) yields to `edge`.
     fn layer_yields_to(&self, _u: i32, _v: i32, _layer_elev: f32, _edge: MiningEdge) -> bool { true }
 
+    /// Material medium occupying `layer_elev` within `(u, v)`.
+    fn layer_medium_at(&self, _u: i32, _v: i32, _layer_elev: f32) -> BlockMedium { BlockMedium::TurfEarth }
+
     /// Excavates a specific vertical block layer within (u, v).
     fn excavate_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> bool {
         self.harvest_layer(u, v, layer_elev).is_some()

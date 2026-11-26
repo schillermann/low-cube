@@ -10,6 +10,7 @@ mod simultaneous;
 mod sky_signals;
 mod survivor_persistence;
 mod vacuum_chat;
+mod vacuum_forge;
 mod wildlife;
 mod wormhole;
 

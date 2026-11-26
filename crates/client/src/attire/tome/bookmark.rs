@@ -1,6 +1,6 @@
 use super::super::pouch::BeltSatchel;
 use super::super::YouthAttire;
-use super::domain::{FolioSelection, FolioTab, StockScope, TomeState, GRID_COLS, GRID_SLOTS};
+use super::domain::{CraftVenue, FolioSelection, FolioTab, StockScope, TomeState, GRID_COLS, GRID_SLOTS};
 use super::entry::{CraftingEntry, RECIPE_CATALOG};
 use super::shelf::{CanonicalShelf, ReadyStockShelf, RecipeShelf, TabbedShelf};
 
@@ -34,8 +34,22 @@ impl TomeBookmark {
         )
     }
 
+    pub const fn at_anvil_recipe(cursor: usize, open: bool) -> Self {
+        let bounded = cursor % RECIPE_CATALOG.len();
+        Self::new(
+            bounded,
+            FolioTab::containing_recipe(bounded),
+            StockScope::FullCatalog,
+            TomeState::at_anvil(open),
+        )
+    }
+
     pub const fn open(&self) -> bool {
         self.state.open()
+    }
+
+    pub const fn venue(&self) -> CraftVenue {
+        self.state.venue()
     }
 
     pub const fn focused_tab(&self) -> FolioTab {
@@ -55,14 +69,18 @@ impl TomeBookmark {
         Self::new(self.cursor, self.tab, self.scope, TomeState::from_flag(open))
     }
 
+    pub const fn opened_at_anvil(self) -> Self {
+        Self::new(self.cursor, self.tab, self.scope, TomeState::AnvilOpen)
+    }
+
     pub const fn toggled_open(self) -> Self {
         Self::new(self.cursor, self.tab, self.scope, self.state.toggled())
     }
 
     pub fn visible_recipes(&self, satchel: &BeltSatchel, attire: YouthAttire) -> Vec<(usize, CraftingEntry)> {
-        let shelf = ReadyStockShelf::new(
+        let shelf = ReadyStockShelf::at_venue(
             TabbedShelf::new(CanonicalShelf::catalog(), self.tab),
-            self.scope,
+            (self.scope, self.state.venue()),
             satchel,
             attire,
         );
@@ -81,7 +99,7 @@ impl TomeBookmark {
             .position(|&(idx, _)| idx == self.cursor)
             .unwrap_or(0);
         let (canonical, entry) = visible[slot];
-        FolioSelection::Highlighted(canonical, entry)
+        FolioSelection::Highlighted((canonical, self.state.venue()), entry)
     }
 
     pub fn selected_tab(self, tab: FolioTab, satchel: &BeltSatchel, attire: YouthAttire) -> Self {

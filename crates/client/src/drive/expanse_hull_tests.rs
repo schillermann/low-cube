@@ -42,12 +42,14 @@ fn assemble_hull(hull_medium: BlockMedium, block_count: i32) -> VehicleAssembly 
 fn test_titanium_and_carbon_silicate_craft_serialize_and_sculpt_3d_laced_meshes() {
     let squire = YouthAttire::squire();
     let stocked = BeltSatchel::empty()
-        .with_stowed_relic(HeldRelic::IronOre, 2)
-        .with_stowed_relic(HeldRelic::CrustBlock, 1)
+        .with_stowed_relic(HeldRelic::TitaniumBillet, 2)
+        .with_stowed_relic(HeldRelic::IronBloom, 1)
         .with_stowed_relic(HeldRelic::GoldOre, 1)
         .with_stowed_relic(HeldRelic::FlintStone, 2);
 
-    let (_, satchel_ti, attire_ti, ok_ti) = ArtisanTome::new(21, true).craft_selected(1.0, stocked, squire);
+    let (_, _, _, rejected_field) = ArtisanTome::new(21, true).craft_selected(1.0, stocked, squire);
+    assert!(!rejected_field, "TitaniumHull forging must require SmithyAnvil");
+    let (_, satchel_ti, attire_ti, ok_ti) = ArtisanTome::at_anvil(21, true).craft_selected(1.0, stocked, squire);
     assert!(ok_ti && satchel_ti.resource_tally(HeldRelic::TitaniumHull, attire_ti) == 4);
 
     let (_, satchel_cs, attire_cs, ok_cs) = ArtisanTome::new(22, true).craft_selected(-1.0, satchel_ti, attire_ti);
@@ -60,6 +62,9 @@ fn test_titanium_and_carbon_silicate_craft_serialize_and_sculpt_3d_laced_meshes(
     let mut manifest = SatchelManifest::empty();
     manifest.credit_code(RelicCatalog::from_medium(BlockMedium::IronOre), 2);
     manifest.credit_code(RelicCatalog::from_medium(BlockMedium::CrustRock), 1);
+    manifest.credit_code(HeldRelic::DeadwoodBough.code(), 1);
+    assert!(manifest.apply_recipe(103), "Vacuum BloomeryForge #103 must reduce CrustRock + IronOre into 2 TitaniumBillet");
+    assert!(manifest.apply_recipe(102), "BloomeryForge #102 must reduce IronOre + DeadwoodBough into IronBloom");
     assert!(manifest.apply_recipe(21) && manifest.count_of(32) == 4);
     let mut sparse = Vec::new();
     manifest.inscribe_sparse(&mut sparse);

@@ -113,9 +113,26 @@ impl GuestCohort {
         }
     }
 
-    pub fn apply_inventory_notice(&mut self, cid: u32, notice: InventoryNotice, aura: &HostAura) -> bool {
+    pub fn apply_inventory_notice(
+        &mut self,
+        cid: u32,
+        notice: InventoryNotice,
+        proportions: world::SolarProportions,
+        aura: &HostAura,
+    ) -> bool {
+        let in_vacuum = self
+            .ward_world_locus(cid, aura)
+            .is_some_and(|(wf, wpos)| proportions.vacuum_locus(wf, wpos));
         let applied = self.wards.get_mut(&cid).is_some_and(|(ward, _)| match notice {
-            InventoryNotice::Crafted { recipe } => ward.manifest_mut().apply_recipe(recipe),
+            InventoryNotice::Crafted { recipe } => {
+                if world::RelicCatalog::vacuum_hearth_recipe(recipe) && !in_vacuum {
+                    return false;
+                }
+                if world::RelicCatalog::air_hearth_recipe(recipe) && in_vacuum {
+                    return false;
+                }
+                ward.manifest_mut().apply_recipe(recipe)
+            }
             InventoryNotice::Consumed { relic_code } => ward.manifest_mut().consume_edible(relic_code),
         });
         if applied {

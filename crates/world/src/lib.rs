@@ -48,13 +48,14 @@ pub use celestial::{
     OFFWORLD_IDLE_TTL_SECS,
 };
 pub use block::{
-    AttitudeNozzleMesh, BlackBoxPodMesh, BlockMedium, BlockMold, BlueprintBlockMesh, CabinSeatMesh, CardinalTurn,
-    ConsoleOrrery, CornerHeading, CuboidShape, DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh,
-    FootwellPlinth, FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell,
-    LaserBeaconMesh, MediumShape, MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, PalmMolds,
-    PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, RocketNozzleMesh, SpawnPlinthMesh,
-    StairCorner, StairFlight, ValleyCorner, VitrifiedBasaltMesh, VoxelShape, WalnutFloorPan,
-    WedgeHeading, WheelProfile,
+    AttitudeNozzleMesh, BakingOvenMesh, BlackBoxPodMesh, BlockMedium, BlockMold, BloomeryForgeMesh,
+    BlueprintBlockMesh, CabinSeatMesh, CardinalTurn, ConsoleOrrery, CornerHeading, CuboidShape,
+    DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh, FootwellPlinth,
+    FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, LaserBeaconMesh, MediumShape,
+    MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak,
+    RampWedge, RidgeCorner, RocketNozzleMesh, SmithyAnvilMesh, SpawnPlinthMesh, StairCorner,
+    StairFlight, ValleyCorner, VitrifiedBasaltMesh, VoxelShape, WalnutFloorPan, WedgeHeading,
+    WheelProfile,
 };
 pub use chronicle::{
     RigSnapshot, SectorColumnState, SectorSnapshot, SnapshotBlock, WorldFact,
@@ -154,6 +155,7 @@ pub trait Face: Send + Sync {
     fn harvest(&mut self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> { None }
     fn loosen(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> Option<BlockMedium> { None }
     fn surface_yields_to(&self, _eye: Vec3, _direction: Vec3, _edge: MiningEdge) -> Option<bool> { None }
+    fn aimed_surface_medium(&self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> { None }
     fn strike_timber(&mut self, _eye: Vec3, _direction: Vec3) -> CleaveOutcome { CleaveOutcome::Missed }
     fn forage_timber(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind { SurfaceFind::EmptyHanded }
     fn cast_litter(&mut self, _eye: Vec3, _direction: Vec3, _find: SurfaceFind) -> bool { false }

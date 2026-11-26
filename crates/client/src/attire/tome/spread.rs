@@ -4,7 +4,7 @@ use crate::menu::PixelStamp;
 use super::super::limb::{AxialLimb, FacetedSolid, LimbFrame};
 use super::super::pouch::BeltSatchel;
 use super::super::YouthAttire;
-use super::domain::{FolioTab, StockScope};
+use super::domain::{FolioSection, FolioTab, StockScope};
 use super::shelf::{CanonicalShelf, ReadyStockShelf, RecipeShelf, TabbedShelf};
 
 /// Composable 3D tactile field-folio spread contract decorated by spine rings, index tabs, grid, and Polaroid layers.
@@ -75,31 +75,40 @@ impl<S: FolioSpread> FolioSpread for RingSpineFolio<S> {
 #[derive(Clone, Copy)]
 pub struct IndexTabbedFolio<'a, S> {
     origin: S,
-    focused_tab: FolioTab,
+    section: FolioSection,
     satchel: &'a BeltSatchel,
     attire: YouthAttire,
 }
 
 impl<'a, S> IndexTabbedFolio<'a, S> {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_section(
+        origin: S,
+        section: FolioSection,
+        satchel: &'a BeltSatchel,
+        attire: YouthAttire,
+    ) -> Self {
+        Self {
+            origin,
+            section,
+            satchel,
+            attire,
+        }
+    }
+
     pub const fn new(
         origin: S,
         focused_tab: FolioTab,
         satchel: &'a BeltSatchel,
         attire: YouthAttire,
     ) -> Self {
-        Self {
-            origin,
-            focused_tab,
-            satchel,
-            attire,
-        }
+        Self::with_section(origin, FolioSection::field(focused_tab), satchel, attire)
     }
 
     fn ready_in_tab(&self, tab: FolioTab) -> bool {
-        let shelf = ReadyStockShelf::new(
+        let shelf = ReadyStockShelf::at_venue(
             TabbedShelf::new(CanonicalShelf::catalog(), tab),
-            StockScope::ReadyStock,
+            (StockScope::ReadyStock, self.section.venue()),
             self.satchel,
             self.attire,
         );
@@ -113,7 +122,7 @@ impl<'a, S: FolioSpread> FolioSpread for IndexTabbedFolio<'a, S> {
     fn emit_spread(&self, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         self.origin.emit_spread(frame, target);
         for (idx, tab) in FolioTab::all().into_iter().enumerate() {
-            let selected = tab == self.focused_tab;
+            let selected = tab == self.section.tab();
             let ready = self.ready_in_tab(tab);
             let ty = 0.132 - (idx as f32) * 0.084;
             let tx = if selected { 0.340 } else { 0.332 };

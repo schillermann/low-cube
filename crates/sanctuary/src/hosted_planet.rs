@@ -150,6 +150,7 @@ impl WorldEarthworks for HostedPlanet {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.host.with_chronicled(|w| w.harvest_surface(eye, direction)) }
     fn loosen_surface(&mut self, eye: Vec3, direction: Vec3, stage: u8) -> Option<BlockMedium> { self.host.with_chronicled(|w| w.loosen_surface(eye, direction, stage)) }
     fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool { self.host.world().surface_yields_to(eye, direction, edge) }
+    fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.host.world().aimed_surface_medium(eye, direction) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.host.with_chronicled(|w| w.strike_timber(eye, direction)) }
     fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
         self.host.strike_host_boar(eye, direction, power, max_reach)

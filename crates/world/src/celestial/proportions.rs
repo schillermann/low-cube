@@ -1,3 +1,7 @@
+use glam::Vec3;
+use super::bubble::CosmicFrame;
+use super::catalog::SolarCatalog;
+
 /// Orbital distance multiplier and procedural asteroid belt occupancy density.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BeltAndReach {
@@ -132,6 +136,22 @@ impl SolarProportions {
     pub fn heliosphere_span(self) -> f32 {
         let outer = self.astronomical_unit() * 36.0 + 4_096.0;
         outer.min(1.0e15) as f32
+    }
+
+    /// Indicates whether `local_pos` inside `frame` lies in oxygen-free vacuum (airless body or above atmospheric envelope).
+    pub fn vacuum_locus(self, frame: CosmicFrame, local_pos: Vec3) -> bool {
+        if !frame.atmospheric_sound() {
+            return true;
+        }
+        let CosmicFrame::Body(id) = frame else {
+            return true;
+        };
+        let Some(spec) = SolarCatalog::new().spec_for(id) else {
+            return true;
+        };
+        let half = (self.voxel_blocks(spec.physique().diameter_ratio()) as f32) * 0.5;
+        let band = (half * 0.45).clamp(36.0, 160.0);
+        local_pos.abs().max_element() > half + band
     }
 
     /// Appends the 16-byte handshake tail (`1.0`, `1.0`, `distance`, `belt`) preserving wire alignment at byte `60`.

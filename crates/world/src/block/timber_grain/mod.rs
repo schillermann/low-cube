@@ -1,6 +1,7 @@
 mod cubes;
 mod medium_shape;
 mod mining_edge;
+mod tones;
 
 use glam::Vec3;
 use crate::frame::SurfaceFrame;
@@ -39,6 +40,9 @@ pub enum BlockMedium {
     VitrifiedBasalt,
     BlackBoxPod,
     LaserBeacon,
+    BakingOven,
+    BloomeryForge,
+    SmithyAnvil,
 }
 
 impl BlockMedium {
@@ -72,6 +76,9 @@ impl BlockMedium {
             Self::VitrifiedBasalt => 24,
             Self::BlackBoxPod => 25,
             Self::LaserBeacon => 26,
+            Self::BakingOven => 27,
+            Self::BloomeryForge => 28,
+            Self::SmithyAnvil => 29,
         }
     }
 
@@ -104,6 +111,9 @@ impl BlockMedium {
             24 => Self::VitrifiedBasalt,
             25 => Self::BlackBoxPod,
             26 => Self::LaserBeacon,
+            27 => Self::BakingOven,
+            28 => Self::BloomeryForge,
+            29 => Self::SmithyAnvil,
             _ => Self::TurfEarth,
         }
     }
@@ -160,57 +170,33 @@ impl BlockMedium {
         matches!(self, Self::VitrifiedBasalt | Self::BlackBoxPod)
     }
 
+    /// Indicates whether this medium is a placed culinary or metallurgical workstation (`BakingOven`, `BloomeryForge`, `SmithyAnvil`).
+    pub const fn artisan_hearth(self) -> bool {
+        matches!(self, Self::BakingOven | Self::BloomeryForge | Self::SmithyAnvil)
+    }
+
     /// Indicates whether this medium yields to the given `MiningEdge` during excavation.
     pub const fn yields_to(self, edge: MiningEdge) -> bool {
         match self {
-            Self::QuarriedStone | Self::VitrifiedBasalt | Self::CopperOre | Self::IronOre => edge.pierces_stone(),
+            Self::QuarriedStone
+            | Self::VitrifiedBasalt
+            | Self::CopperOre
+            | Self::IronOre
+            | Self::BakingOven
+            | Self::BloomeryForge
+            | Self::SmithyAnvil => edge.pierces_stone(),
             Self::CrustRock | Self::GoldOre => edge.pierces_crust(),
             _ => true,
         }
     }
 
     pub(super) const fn sculpted_tones(self) -> (Vec3, Vec3) {
-        match self {
-            Self::RawTimber => (Vec3::new(0.85, 0.70, 0.46), Vec3::new(0.32, 0.20, 0.11)),
-            Self::PlanedPlanks => (Vec3::new(0.84, 0.67, 0.41), Vec3::new(0.74, 0.56, 0.33)),
-            Self::QuarriedStone => (Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.50, 0.51, 0.53)),
-            Self::CopperOre => (Vec3::new(0.86, 0.46, 0.22), Vec3::new(0.36, 0.35, 0.33)),
-            Self::IronOre => (Vec3::new(0.72, 0.75, 0.80), Vec3::new(0.30, 0.30, 0.33)),
-            Self::GoldOre => (Vec3::new(0.98, 0.80, 0.22), Vec3::new(0.25, 0.23, 0.27)),
-            Self::Sand => (Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.78, 0.68, 0.44)),
-            Self::TitaniumHull | Self::CarbonSilicate => super::AerospacePlating::sculpted_tones(self),
-            _ => (Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.31, 0.27, 0.25)),
-        }
+        self::tones::MediumPalette::new(self).sculpted_tones()
     }
 
     /// Primary and secondary debris particle colors emitted when striking this block medium.
     pub const fn debris_tones(self) -> (Vec3, Vec3) {
-        match self {
-            Self::TurfEarth => (Vec3::new(0.44, 0.31, 0.19), Vec3::new(0.32, 0.22, 0.13)),
-            Self::CrustRock => (Vec3::new(0.35, 0.31, 0.28), Vec3::new(0.25, 0.21, 0.20)),
-            Self::QuarriedStone => (Vec3::new(0.62, 0.64, 0.66), Vec3::new(0.46, 0.48, 0.50)),
-            Self::RawTimber | Self::PlanedPlanks | Self::CantileverRig => (Vec3::new(0.82, 0.66, 0.42), Vec3::new(0.58, 0.42, 0.24)),
-            Self::Sand => (Vec3::new(0.88, 0.78, 0.52), Vec3::new(0.74, 0.64, 0.40)),
-            Self::SteeringWheel | Self::FieldCamera => (Vec3::new(0.94, 0.76, 0.24), Vec3::new(0.20, 0.22, 0.27)),
-            Self::AircraftEngine => (Vec3::new(0.22, 0.88, 0.98), Vec3::new(0.54, 0.62, 0.72)),
-            Self::FlightConsole => (Vec3::new(0.16, 0.94, 0.78), Vec3::new(0.90, 0.72, 0.24)),
-            Self::RocketNozzle => (Vec3::new(0.99, 0.38, 0.12), Vec3::new(0.22, 0.24, 0.30)),
-            Self::RocketCamera => (Vec3::new(0.24, 0.88, 0.98), Vec3::new(0.84, 0.88, 0.93)),
-            Self::CabinSeat => (Vec3::new(0.72, 0.24, 0.16), Vec3::new(0.36, 0.20, 0.13)),
-            Self::CarWheel => (Vec3::new(0.18, 0.20, 0.22), Vec3::new(0.68, 0.72, 0.78)),
-            Self::PedalCluster => (Vec3::new(0.88, 0.22, 0.18), Vec3::new(0.24, 0.84, 0.36)),
-            Self::CopperOre => (Vec3::new(0.86, 0.46, 0.22), Vec3::new(0.18, 0.68, 0.52)),
-            Self::IronOre => (Vec3::new(0.72, 0.75, 0.80), Vec3::new(0.64, 0.30, 0.20)),
-            Self::GoldOre => (Vec3::new(0.98, 0.80, 0.22), Vec3::new(0.25, 0.23, 0.27)),
-            Self::VehicleBlueprint => (Vec3::new(0.18, 0.52, 0.92), Vec3::new(0.88, 0.72, 0.26)),
-            Self::FusionTorch => (Vec3::new(0.28, 0.86, 1.00), Vec3::new(0.32, 0.36, 0.44)),
-            Self::SpawnStone => (Vec3::new(0.22, 0.94, 0.98), Vec3::new(0.92, 0.76, 0.28)),
-            Self::TitaniumHull => (Vec3::new(0.64, 0.70, 0.78), Vec3::new(0.34, 0.38, 0.45)),
-            Self::CarbonSilicate => (Vec3::new(0.24, 0.80, 0.98), Vec3::new(0.14, 0.18, 0.26)),
-            Self::VitrifiedBasalt => (Vec3::new(0.14, 0.16, 0.22), Vec3::new(0.96, 0.34, 0.08)),
-            Self::BlackBoxPod => (Vec3::new(0.98, 0.36, 0.05), Vec3::new(0.20, 0.23, 0.28)),
-            Self::LaserBeacon => (Vec3::new(0.18, 1.00, 0.62), Vec3::new(0.92, 0.74, 0.24)),
-        }
+        self::tones::MediumPalette::new(self).debris_tones()
     }
 
     #[allow(clippy::too_many_arguments)]

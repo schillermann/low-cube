@@ -46,6 +46,16 @@ impl WorldEarthworks for HeliosphereWorld {
         self.earth.surface_yields_to(eye, direction, edge)
     }
 
+    fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        let eph = self.ephemeris;
+        let mut vic = self.vicinity.borrow_mut();
+        if let Some(body) = vic.ensure_near_mut(eye, eph) {
+            return body.planet_mut().aimed_surface_medium(eye, direction);
+        }
+        drop(vic);
+        self.earth.aimed_surface_medium(eye, direction)
+    }
+
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
         if self.near_earth(eye) {
             self.earth.strike_timber(eye, direction)

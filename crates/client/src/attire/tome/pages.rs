@@ -47,13 +47,21 @@ impl<'a, S: FolioSpread> FolioSpread for LeftGridFolio<'a, S> {
         let left = frame.shifted(-0.162, 0.006, -0.004);
 
         let ready_scope = self.bookmark.ready_only();
+        let venue = self.bookmark.venue();
         let top_bar = left.shifted(0.0, 0.164, -0.003);
         let (bar_bg, bar_rim, bar_txt, mark) = if ready_scope {
             (
                 Vec3::new(0.11, 0.24, 0.17),
                 Vec3::new(0.28, 0.86, 0.48),
                 Vec3::new(0.82, 1.58, 0.96),
-                "[X] READY TO CRAFT (F)",
+                if venue.anvil_station() { "[X] ANVIL READY (F)" } else { "[X] READY TO CRAFT (F)" },
+            )
+        } else if venue.anvil_station() {
+            (
+                Vec3::new(0.22, 0.16, 0.11),
+                Vec3::new(0.92, 0.64, 0.24),
+                Vec3::new(1.58, 1.38, 0.86),
+                "[ ] SMITHY ANVIL (F)",
             )
         } else {
             (
@@ -76,7 +84,7 @@ impl<'a, S: FolioSpread> FolioSpread for LeftGridFolio<'a, S> {
             let sy = 0.104 - (row as f32) * 0.082;
             if let Some(&(canonical_idx, entry)) = visible.get(slot_idx) {
                 let selected = selection.highlights_recipe(canonical_idx);
-                let ready = entry.craftable(self.satchel, self.attire);
+                let ready = entry.craftable_at(self.satchel, self.attire, venue);
                 let sz = if selected { -0.012 } else { 0.0 };
                 let rim = if selected {
                     Vec3::new(0.96, 0.80, 0.26)
@@ -139,7 +147,7 @@ impl<'a, S: FolioSpread> FolioSpread for RightPolaroidFolio<'a, S> {
         let right = frame.shifted(0.162, 0.006, -0.004);
 
         match self.selection {
-            FolioSelection::Highlighted(_, entry) => {
+            FolioSelection::Highlighted((_, venue), entry) => {
                 let polaroid_frame = right.shifted(0.0, 0.074, -0.006).rolled(-0.048);
                 PinnedPolaroid::new(
                     PolaroidCard::new(SlotBurden::new(entry.product(), entry.batch_yield())),
@@ -147,7 +155,7 @@ impl<'a, S: FolioSpread> FolioSpread for RightPolaroidFolio<'a, S> {
                 )
                 .emit_slot(&polaroid_frame, target);
 
-                IngredientFormula::new(entry, self.satchel, self.attire)
+                IngredientFormula::at_venue(entry, self.satchel, self.attire, venue)
                     .emit_slot(&right, target);
             }
             FolioSelection::VacantTab(tab) => {

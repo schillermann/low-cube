@@ -112,6 +112,10 @@ impl AvatarPosture {
         Self::with_components(self.elevation, self.leap, self.vital.nourish(), HighGStrain::relaxed())
     }
 
+    pub fn nourish_roast(self) -> Self {
+        Self::with_components(self.elevation, self.leap, self.vital.nourish_roast(), HighGStrain::relaxed())
+    }
+
     pub fn sustain_high_g(self, proper_g: f32, dt: f32) -> Self {
         Self::with_components(self.elevation, self.leap, self.vital, self.high_g.sustain(proper_g, dt))
     }

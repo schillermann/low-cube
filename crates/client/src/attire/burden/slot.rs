@@ -82,7 +82,9 @@ impl SlotBurden {
             | HeldRelic::RocketCamera
             | HeldRelic::BlackBoxPod
             | HeldRelic::LaserBeacon
-            | HeldRelic::BoarMeat => WeightGrade::Moderate,
+            | HeldRelic::BoarMeat
+            | HeldRelic::RoastedBoar
+            | HeldRelic::TitaniumBillet => WeightGrade::Moderate,
             HeldRelic::QuarriedStone
             | HeldRelic::CopperSpade
             | HeldRelic::CopperPickaxe
@@ -93,7 +95,12 @@ impl SlotBurden {
             | HeldRelic::KnightlySword
             | HeldRelic::CarWheel
             | HeldRelic::CopperOre
-            | HeldRelic::IronOre => WeightGrade::Weighty,
+            | HeldRelic::IronOre
+            | HeldRelic::CopperBloom
+            | HeldRelic::IronBloom
+            | HeldRelic::BakingOven
+            | HeldRelic::BloomeryForge
+            | HeldRelic::SmithyAnvil => WeightGrade::Weighty,
             HeldRelic::CrustBlock
             | HeldRelic::GoldOre
             | HeldRelic::CantileverCrane

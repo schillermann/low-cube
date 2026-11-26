@@ -2,7 +2,7 @@ use glam::Vec3;
 use world::{BlockMold, MeshTarget, Quad};
 use super::super::compartment::{CompartmentBackplate, ShowcasedCompartment, SlotPlaque};
 use super::super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
-use super::plinth::{BoarHaunch, SlopedBeam, SquarePlinth};
+use super::plinth::{BoarHaunch, ForgeBillet, SlopedBeam, SquarePlinth};
 use super::temper::ToolCondition;
 use super::tools::ToolSculpture;
 use super::HeldRelic;
@@ -140,7 +140,15 @@ impl RelicFigure {
         } else if self.relic == HeldRelic::FlintStone {
             Self::emit_flint(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target);
         } else if self.relic == HeldRelic::BoarMeat {
-            BoarHaunch.emit(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.002, 0.048)), true, target);
+            BoarHaunch::raw().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.002, 0.048)), true, target);
+        } else if self.relic == HeldRelic::RoastedBoar {
+            BoarHaunch::oven_roasted().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.002, 0.048)), true, target);
+        } else if self.relic == HeldRelic::CopperBloom {
+            ForgeBillet::copper().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), true, target);
+        } else if self.relic == HeldRelic::IronBloom {
+            ForgeBillet::iron().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), true, target);
+        } else if self.relic == HeldRelic::TitaniumBillet {
+            ForgeBillet::space_titanium().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), true, target);
         } else {
             ToolSculpture::new(self.relic, self.condition).emit_in_palm(gx, gz, frame, target);
         }
@@ -172,7 +180,15 @@ impl RelicFigure {
         } else if self.relic == HeldRelic::FlintStone {
             Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit);
         } else if self.relic == HeldRelic::BoarMeat {
-            BoarHaunch.emit(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.56), true, &mut lit);
+            BoarHaunch::raw().emit(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.56), true, &mut lit);
+        } else if self.relic == HeldRelic::RoastedBoar {
+            BoarHaunch::oven_roasted().emit(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.56), true, &mut lit);
+        } else if self.relic == HeldRelic::CopperBloom {
+            ForgeBillet::copper().emit(&showcase.shifted(0.0, -0.018, 0.0).scaled(0.68), true, &mut lit);
+        } else if self.relic == HeldRelic::IronBloom {
+            ForgeBillet::iron().emit(&showcase.shifted(0.0, -0.018, 0.0).scaled(0.68), true, &mut lit);
+        } else if self.relic == HeldRelic::TitaniumBillet {
+            ForgeBillet::space_titanium().emit(&showcase.shifted(0.0, -0.018, 0.0).scaled(0.68), true, &mut lit);
         } else {
             let (scale, yaw, mid_y, mid_z) = if self.relic == HeldRelic::KnightlySword {
                 (0.090, 0.45, 0.285, 0.054)

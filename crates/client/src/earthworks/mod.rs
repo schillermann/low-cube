@@ -1,18 +1,28 @@
+mod actions;
 mod debris;
+mod hearth;
 mod reach;
 mod toss;
 
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, PlanetaryWorld, PresenceAttire};
 use crate::attire::{
-    ArtisanTome, BeltSatchel, BodyPose, CameraMount, HeldRelic, MoldedWardrobe, SightMode,
+    ArtisanTome, BeltSatchel, BodyPose, CameraMount, MoldedWardrobe, SightMode,
     StrideRhythm, Wardrobe, YouthAttire,
 };
 use crate::blueprint::BlueprintFolio;
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 pub use crate::grip::DigGrip;
 use crate::order::LocomotionOrder;
+use self::actions::PalmContact;
 use self::debris::DigOperation;
+pub use self::hearth::NourishedBody;
+pub(crate) use self::hearth::{MealOutcome, WorkstationStation};
+#[cfg(test)]
+pub use self::hearth::{
+    AtmosphericBloomery, ColdStone, CulinaryOven, HearthMedium, ThermalHearth,
+    VacuumForge,
+};
 pub use self::reach::SurfaceReach;
 use self::toss::TossCadence;
 
@@ -190,23 +200,6 @@ impl PalmEarthworks {
         folio.emit(&self.satchel, attire, pose, target);
     }
 
-    pub fn act_folio(
-        self, folio: &mut BlueprintFolio, attire: YouthAttire, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, bool, bool) {
-        let state = self.reconcile_attire(attire);
-        let (ns, na, built, handled) = folio.act_open(state.satchel, attire, world);
-        (Self::with_state(ns, state.tome, state.dig.halted(), TossCadence::Quiet), na, built, handled)
-    }
-
-    pub fn try_build_folio(
-        self, folio: &mut BlueprintFolio, trigger: InputTrigger, bindings: &ActionBindings,
-        attire: YouthAttire, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, bool) {
-        let state = self.reconcile_attire(attire);
-        let (ns, na, built) = folio.try_build_trigger(trigger, bindings, state.satchel, attire, world);
-        (Self::with_state(ns, state.tome, state.dig.halted(), TossCadence::Quiet), na, built)
-    }
-
     pub fn presence_attire(&self, attire: YouthAttire) -> PresenceAttire {
         let active = self.dig.bare_hand_attire(attire);
         PresenceAttire::new(active.multiplayer_bytes(), active.region_bytes(), self.satchel.wardrobe_molds(active))
@@ -220,7 +213,12 @@ impl PalmEarthworks {
         if self.satchel.open() || self.tome.open() || !self.dig.untouched() {
             return None;
         }
-        let (_, mold) = self.satchel.active_preview_mold(attire, self.dig.grip().pending_place_side())?;
+        let (side, mold) = self.satchel.active_preview_mold(attire, self.dig.grip().pending_place_side())?;
+        if let Some(aimed) = world.aimed_surface_medium(reach.eye(), reach.view_dir()) {
+            if WorkstationStation::claims_hand(aimed, attire.hand_pair(side).0) {
+                return None;
+            }
+        }
         world.plan_molded_block(reach.eye(), reach.view_dir(), reach.stance_origin(), mold)
     }
 
@@ -231,6 +229,19 @@ impl PalmEarthworks {
     pub const fn relinquish_perished(self) -> Self {
         let next_dig = if self.dig.untouched() { self.dig.halted() } else { self.dig };
         Self::with_state(self.satchel.with_open(false), ArtisanTome::closed(), next_dig, TossCadence::Quiet)
+    }
+
+    pub fn act_folio(
+        self, folio: &mut BlueprintFolio, attire: YouthAttire, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, YouthAttire, bool, bool) {
+        PalmContact::new(self).act_folio(folio, attire, world)
+    }
+
+    pub fn try_build_folio(
+        self, folio: &mut BlueprintFolio, trigger: InputTrigger, bindings: &ActionBindings,
+        attire: YouthAttire, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, YouthAttire, bool) {
+        PalmContact::new(self).try_build_folio(folio, trigger, bindings, attire, world)
     }
 
     pub fn abort_hand(self, reach: SurfaceReach, world: &mut dyn PlanetaryWorld) -> (Self, bool) {
@@ -256,32 +267,7 @@ impl PalmEarthworks {
 
     pub fn act_with_hand(
         self, side: f32, reach: SurfaceReach, attire: YouthAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, StrideRhythm, bool, bool) {
-        if self.satchel.open() {
-            let (next_satchel, next_attire, _) = self.satchel.transfer_hand(side, attire);
-            return (Self::with_dig(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle())), next_attire, rhythm, false, false);
-        }
-        if self.tome.open() {
-            let (next_tome, next_satchel, next_attire, ok) = self.tome.craft_selected(side, self.satchel, attire);
-            let next_tome = next_tome.drain_crafted_notes(world);
-            let next_rhythm = if ok { SurfaceReach::swing_rhythm(next_attire, rhythm, side) } else { rhythm };
-            return (Self::with_dig(next_satchel, next_tome, self.dig.with_grip(DigGrip::idle())), next_attire, next_rhythm, false, false);
-        }
-        if attire.hand_pair(side).0.edible_provision() && self.dig.untouched() && !self.dig.grip().any_held() {
-            let find = world.forage_surface(reach.eye(), reach.view_dir());
-            if find.gathered() {
-                let (ns, na) = self.satchel.reconcile_attire(attire).collect_foraged(side, HeldRelic::from_surface_find(find), attire);
-                return (Self::with_dig(ns, self.tome, self.dig.with_grip(DigGrip::idle())), na, rhythm, true, false);
-            }
-            let eaten_code = attire.hand_pair(side).0.code();
-            let (ns, na, ate) = self.satchel.reconcile_attire(attire).consume_provision(side, attire);
-            if ate {
-                world.note_consumed_provision(eaten_code);
-                let nr = SurfaceReach::swing_rhythm(attire, rhythm, side);
-                return (Self::with_dig(ns, self.tome, self.dig.with_grip(DigGrip::idle())), na, nr, false, true);
-            }
-        }
-        let (ns, na, nd, nr, changed) = reach.strike(side, self.satchel, attire, rhythm, self.dig, world);
-        (Self::with_dig(ns, self.tome, nd), na, nr, changed, false)
+    ) -> (Self, YouthAttire, StrideRhythm, bool, MealOutcome) {
+        PalmContact::new(self).act_with_hand(side, reach, attire, rhythm, world)
     }
 }

@@ -55,12 +55,20 @@ impl VitalStrain {
     }
 
     pub fn nourish(self) -> Self {
+        self.nourish_meal(0.75, 12.0)
+    }
+
+    pub fn nourish_roast(self) -> Self {
+        self.nourish_meal(1.0, 24.0)
+    }
+
+    fn nourish_meal(self, relief: f32, vigor_secs: f32) -> Self {
         match self {
             Self::Perishing { .. } => self,
             Self::Breathing { bruise, .. } => Self::Breathing {
                 shock: 0.0,
-                bruise: (bruise - 0.75).max(0.0),
-                vigor: 12.0,
+                bruise: (bruise - relief).max(0.0),
+                vigor: vigor_secs,
             },
         }
     }

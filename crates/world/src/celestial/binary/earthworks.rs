@@ -30,6 +30,14 @@ impl<G: GravityField + Send> WorldEarthworks for BinaryPlanet<G> {
         }
     }
 
+    fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        if self.near_moon(eye) {
+            self.moon.aimed_surface_medium(eye, direction)
+        } else {
+            self.home.aimed_surface_medium(eye, direction)
+        }
+    }
+
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
         if self.near_moon(eye) { CleaveOutcome::Missed } else { self.home.strike_timber(eye, direction) }
     }

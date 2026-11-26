@@ -47,6 +47,8 @@ pub use relic::ToolCondition;
 pub use rhythm::StrideRhythm;
 pub use sight::{CameraMount, PhotoShutter, SightMode};
 pub use tome::ArtisanTome;
+#[cfg(test)]
+pub use tome::CraftVenue;
 pub use wardrobe::{MoldedWardrobe, Wardrobe};
 
 /// Encapsulated four-piece medieval garment selection.

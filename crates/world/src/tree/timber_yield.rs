@@ -36,6 +36,10 @@ pub enum SurfaceFind {
     TitaniumSpade,
     CopperPickaxe,
     TitaniumPickaxe,
+    RoastedBoar,
+    CopperBloom,
+    IronBloom,
+    TitaniumBillet,
     LooseBlock(BlockMedium),
 }
 
@@ -65,6 +69,10 @@ impl SurfaceFind {
             Self::CopperPickaxe => 14,
             Self::TitaniumPickaxe => 15,
             Self::LooseBlock(medium) => 16 + medium.code(),
+            Self::RoastedBoar => 60,
+            Self::CopperBloom => 61,
+            Self::IronBloom => 62,
+            Self::TitaniumBillet => 63,
         }
     }
 
@@ -86,7 +94,11 @@ impl SurfaceFind {
             13 => Self::TitaniumSpade,
             14 => Self::CopperPickaxe,
             15 => Self::TitaniumPickaxe,
-            16..=42 => Self::LooseBlock(BlockMedium::from_code(code - 16)),
+            16..=45 => Self::LooseBlock(BlockMedium::from_code(code - 16)),
+            60 => Self::RoastedBoar,
+            61 => Self::CopperBloom,
+            62 => Self::IronBloom,
+            63 => Self::TitaniumBillet,
             _ => Self::EmptyHanded,
         }
     }

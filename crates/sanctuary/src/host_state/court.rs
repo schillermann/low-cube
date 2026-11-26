@@ -143,7 +143,7 @@ impl<'a> StandbyCourt<'a> {
                 }
             }
             Some(SanctuaryEnvelope::GuestInventory { notice }) => {
-                let _ = self.cohort.apply_inventory_notice(cid, notice, self.aura);
+                let _ = self.cohort.apply_inventory_notice(cid, notice, proportions, self.aura);
             }
             _ => {}
         }
@@ -183,7 +183,7 @@ impl<'a> StandbyCourt<'a> {
                 false
             }
             SanctuaryEnvelope::GuestInventory { notice } => {
-                let _ = state.cohort.apply_inventory_notice(cid, notice, &state.aura);
+                let _ = state.cohort.apply_inventory_notice(cid, notice, proportions, &state.aura);
                 false
             }
             _ => false,

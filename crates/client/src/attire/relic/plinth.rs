@@ -87,27 +87,85 @@ impl FacetedSolid for SlopedBeam {
     }
 }
 
-/// Sculpted wild-boar venison haunch with ivory shank bone, ruby game meat, and pale fat rind.
+/// Sculpted wild-boar venison haunch (`1` field, branchless raw vs. oven-glazed pigment palette).
 #[derive(Clone, Copy, Debug)]
-pub(super) struct BoarHaunch;
+pub(super) struct BoarHaunch {
+    tones: [Vec3; 4],
+}
 
-impl FacetedSolid for BoarHaunch {
-    fn emit(&self, frame: &LimbFrame, _capped: bool, target: &mut dyn MeshTarget) {
-        let (bone, ruby_meat, dark_rind, fat_cap) = (
+impl BoarHaunch {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub(super) const fn new(tones: [Vec3; 4]) -> Self {
+        Self { tones }
+    }
+
+    pub(super) const fn raw() -> Self {
+        Self::new([
             Vec3::new(0.90, 0.86, 0.76),
             Vec3::new(0.66, 0.18, 0.15),
             Vec3::new(0.42, 0.15, 0.11),
             Vec3::new(0.92, 0.82, 0.72),
-        );
+        ])
+    }
+
+    pub(super) const fn oven_roasted() -> Self {
+        Self::new([
+            Vec3::new(0.84, 0.78, 0.64),
+            Vec3::new(0.58, 0.27, 0.11),
+            Vec3::new(0.38, 0.16, 0.07),
+            Vec3::new(0.88, 0.54, 0.18),
+        ])
+    }
+}
+
+impl FacetedSolid for BoarHaunch {
+    fn emit(&self, frame: &LimbFrame, _capped: bool, target: &mut dyn MeshTarget) {
+        let [bone, meat, dark_rind, glaze_cap] = self.tones;
         TaperedPrism::new(6, Vec3::new(-0.082, 0.015, -0.012), Vec3::new(-0.068, 0.017, -0.009), 0.015, 0.013, 0.011, 0.010, bone)
             .emit(frame, true, target);
         AxialLimb::new(Vec3::new(-0.070, 0.017, -0.009), Vec3::new(-0.022, 0.022, -0.002), 0.010, 0.012, bone)
             .emit(frame, true, target);
-        TaperedPrism::new(7, Vec3::new(-0.026, 0.014, -0.003), Vec3::new(0.034, 0.026, 0.005), 0.034, 0.026, 0.044, 0.034, ruby_meat)
+        TaperedPrism::new(7, Vec3::new(-0.026, 0.014, -0.003), Vec3::new(0.034, 0.026, 0.005), 0.034, 0.026, 0.044, 0.034, meat)
             .emit(frame, true, target);
         TaperedPrism::new(7, Vec3::new(0.032, 0.026, 0.005), Vec3::new(0.066, 0.022, 0.009), 0.043, 0.033, 0.022, 0.018, dark_rind)
             .emit(frame, true, target);
-        TaperedPrism::new(6, Vec3::new(-0.012, 0.040, -0.001), Vec3::new(0.044, 0.048, 0.006), 0.026, 0.011, 0.030, 0.012, fat_cap)
+        TaperedPrism::new(6, Vec3::new(-0.012, 0.040, -0.001), Vec3::new(0.044, 0.048, 0.006), 0.026, 0.011, 0.030, 0.012, glaze_cap)
             .emit(frame, true, target);
+    }
+}
+
+/// Sculpted metallurgical bloom or vacuum-forged titanium billet cradled in palm (`1` field).
+#[derive(Clone, Copy, Debug)]
+pub(super) struct ForgeBillet {
+    tones: (Vec3, Vec3),
+}
+
+impl ForgeBillet {
+    pub(super) const fn copper() -> Self {
+        Self {
+            tones: (Vec3::new(0.56, 0.28, 0.14), Vec3::new(0.92, 0.52, 0.24)),
+        }
+    }
+
+    pub(super) const fn iron() -> Self {
+        Self {
+            tones: (Vec3::new(0.32, 0.34, 0.40), Vec3::new(0.76, 0.80, 0.86)),
+        }
+    }
+
+    pub(super) const fn space_titanium() -> Self {
+        Self {
+            tones: (Vec3::new(0.42, 0.54, 0.68), Vec3::new(0.80, 0.90, 1.00)),
+        }
+    }
+}
+
+impl FacetedSolid for ForgeBillet {
+    fn emit(&self, frame: &LimbFrame, capped: bool, target: &mut dyn MeshTarget) {
+        let (flank, crown) = self.tones;
+        SquarePlinth::new((Vec3::new(-0.056, 0.0, -0.028), Vec3::new(0.056, 0.026, 0.028)), (flank, crown))
+            .emit(frame, capped, target);
+        SquarePlinth::new((Vec3::new(-0.044, 0.026, -0.020), Vec3::new(0.044, 0.040, 0.020)), (flank, crown))
+            .emit(frame, false, target);
     }
 }

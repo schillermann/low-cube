@@ -136,15 +136,18 @@ fn test_crafting_flint_pickaxe_cleaves_stone_copper_and_iron_but_rejects_gold_an
 fn test_crafting_iron_pickaxe_cleaves_gold_and_crust_and_syncs_multiplayer_and_survivor_manifest() {
     let satchel = BeltSatchel::empty()
         .with_stowed_relic(HeldRelic::PlankBlock, 1)
-        .with_stowed_relic(HeldRelic::IronOre, 2);
+        .with_stowed_relic(HeldRelic::IronBloom, 2);
     let squire = YouthAttire::squire();
-    let tome = ArtisanTome::new(20, true);
+    let (_, _, _, field_ok) = ArtisanTome::new(20, true).craft_selected(1.0, satchel, squire);
+    assert!(!field_ok, "IronPickaxe must refuse bare-handed field crafting without SmithyAnvil");
+    let tome = ArtisanTome::at_anvil(20, true);
     assert_eq!(tome.selected_entry().product(), HeldRelic::IronPickaxe);
     let (_, _, armed_iron, crafted) = tome.craft_selected(1.0, satchel, squire);
-    assert!(crafted, "1 PlankBlock + 2 IronOre must craft IronPickaxe");
+    assert!(crafted, "1 PlankBlock + 2 IronBloom at SmithyAnvil must forge IronPickaxe");
     assert_eq!(armed_iron.held_pair(), (HeldRelic::IronPickaxe, HeldRelic::EmptyPalm));
 
-    let mut manifest = SatchelManifest::parse_server_kit("deadwood_bough:1, flint_stone:3, plank_block:1, iron_ore:2", "test");
+    let mut manifest = SatchelManifest::parse_server_kit("deadwood_bough:3, flint_stone:3, plank_block:1, iron_ore:2", "test");
+    assert!(manifest.apply_recipe(102) && manifest.apply_recipe(102), "BloomeryForge recipe #102 must smelt IronOre into IronBloom");
     assert!(manifest.apply_recipe(19) && manifest.apply_recipe(20));
     let mut wire = Vec::new();
     manifest.inscribe_sparse(&mut wire);

@@ -142,6 +142,10 @@ impl Face for ForestedFace {
         self.origin.surface_yields_to(eye, direction, edge)
     }
 
+    fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.origin.aimed_surface_medium(eye, direction)
+    }
+
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
         self.forest
             .get_mut()

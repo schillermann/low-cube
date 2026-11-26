@@ -1,22 +1,22 @@
 use super::super::pouch::BeltSatchel;
 use super::super::YouthAttire;
-use super::domain::{FolioTab, StockScope};
-use super::entry::{CraftingEntry, RECIPE_CATALOG};
+use super::domain::{CraftVenue, FolioTab, StockScope};
+use super::entry::{CraftingEntry, RECIPE_CATALOG, RECIPE_COUNT};
 
 /// Focused domain contract for collecting visible `(canonical_index, CraftingEntry)` pairs onto a folio page.
 pub trait RecipeShelf {
     fn collect_recipes(&self, out: &mut Vec<(usize, CraftingEntry)>);
 }
 
-/// Complete 30-recipe canonical shelf preserving multiplayer `RelicCatalog` index order.
+/// Complete canonical shelf preserving multiplayer `RelicCatalog` index order.
 #[derive(Clone, Copy, Debug)]
 pub struct CanonicalShelf {
-    entries: [CraftingEntry; 30],
+    entries: [CraftingEntry; RECIPE_COUNT],
 }
 
 impl CanonicalShelf {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(entries: [CraftingEntry; 30]) -> Self {
+    pub const fn new(entries: [CraftingEntry; RECIPE_COUNT]) -> Self {
         Self { entries }
     }
 
@@ -49,7 +49,7 @@ impl<S> TabbedShelf<S> {
 
 impl<S: RecipeShelf> RecipeShelf for TabbedShelf<S> {
     fn collect_recipes(&self, out: &mut Vec<(usize, CraftingEntry)>) {
-        let mut raw = Vec::with_capacity(30);
+        let mut raw = Vec::with_capacity(RECIPE_COUNT);
         self.origin.collect_recipes(&mut raw);
         for (idx, entry) in raw {
             if entry.in_tab(self.tab) {
@@ -59,38 +59,48 @@ impl<S: RecipeShelf> RecipeShelf for TabbedShelf<S> {
     }
 }
 
-/// Decorator over any `RecipeShelf` retaining immediately craftable entries when `StockScope::ReadyStock` is active.
+/// Decorator over any `RecipeShelf` retaining immediately craftable entries when `StockScope::ReadyStock` is active (`4` fields).
 #[derive(Clone, Copy)]
 pub struct ReadyStockShelf<'a, S> {
     origin: S,
-    scope: StockScope,
+    filter: (StockScope, CraftVenue),
     satchel: &'a BeltSatchel,
     attire: YouthAttire,
 }
 
 impl<'a, S> ReadyStockShelf<'a, S> {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn at_venue(
+        origin: S,
+        filter: (StockScope, CraftVenue),
+        satchel: &'a BeltSatchel,
+        attire: YouthAttire,
+    ) -> Self {
+        Self {
+            origin,
+            filter,
+            satchel,
+            attire,
+        }
+    }
+
     pub const fn new(
         origin: S,
         scope: StockScope,
         satchel: &'a BeltSatchel,
         attire: YouthAttire,
     ) -> Self {
-        Self {
-            origin,
-            scope,
-            satchel,
-            attire,
-        }
+        Self::at_venue(origin, (scope, CraftVenue::FieldHands), satchel, attire)
     }
 }
 
 impl<'a, S: RecipeShelf> RecipeShelf for ReadyStockShelf<'a, S> {
     fn collect_recipes(&self, out: &mut Vec<(usize, CraftingEntry)>) {
+        let (scope, venue) = self.filter;
         let mut scoped = Vec::with_capacity(12);
         self.origin.collect_recipes(&mut scoped);
         for (idx, entry) in scoped {
-            if !self.scope.ready_only() || entry.craftable(self.satchel, self.attire) {
+            if !scope.ready_only() || entry.craftable_at(self.satchel, self.attire, venue) {
                 out.push((idx, entry));
             }
         }

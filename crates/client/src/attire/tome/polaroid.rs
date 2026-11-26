@@ -7,7 +7,7 @@ use super::super::limb::{FacetedSolid, LimbFrame, TaperedPrism};
 use super::super::pouch::BeltSatchel;
 use super::super::relic::{HeldRelic, RelicFigure};
 use super::super::YouthAttire;
-use super::domain::FolioTab;
+use super::domain::{CraftVenue, FolioTab};
 use super::entry::CraftingEntry;
 
 /// Decorator over any `SlotPlaque` painting a bottom-right emerald readiness pip and multi-yield tag.
@@ -145,22 +145,33 @@ impl<P: SlotPlaque> SlotPlaque for PinnedPolaroid<P> {
     }
 }
 
-/// Right-page ingredient list (`[Ing 1] + [Ing 2]`) and conditional `CRAFT` action plaque.
+/// Right-page ingredient list (`[Ing 1] + [Ing 2]`) and conditional `CRAFT` / `SMITHY ANVIL` plaque (`4` fields).
 #[derive(Clone, Copy)]
 pub struct IngredientFormula<'a> {
     entry: CraftingEntry,
     satchel: &'a BeltSatchel,
     attire: YouthAttire,
+    venue: CraftVenue,
 }
 
 impl<'a> IngredientFormula<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(entry: CraftingEntry, satchel: &'a BeltSatchel, attire: YouthAttire) -> Self {
+    pub const fn at_venue(
+        entry: CraftingEntry,
+        satchel: &'a BeltSatchel,
+        attire: YouthAttire,
+        venue: CraftVenue,
+    ) -> Self {
         Self {
             entry,
             satchel,
             attire,
+            venue,
         }
+    }
+
+    pub const fn new(entry: CraftingEntry, satchel: &'a BeltSatchel, attire: YouthAttire) -> Self {
+        Self::at_venue(entry, satchel, attire, CraftVenue::FieldHands)
     }
 
     fn emit_mini_ingredient(&self, relic: HeldRelic, needed: u32, x: f32, row: &LimbFrame, target: &mut dyn MeshTarget) {
@@ -181,7 +192,7 @@ impl<'a> IngredientFormula<'a> {
 impl<'a> SlotPlaque for IngredientFormula<'a> {
     fn emit_slot(&self, frame: &LimbFrame, target: &mut dyn MeshTarget) {
         let ings = self.entry.ingredients();
-        let ready = self.entry.craftable(self.satchel, self.attire);
+        let ready = self.entry.craftable_at(self.satchel, self.attire, self.venue);
         let eq = frame.shifted(0.0, -0.068, -0.004);
         let op_stamp = PixelStamp::new(0.0022, 0.0022, Vec3::new(1.48, 1.46, 1.38));
 
@@ -203,8 +214,13 @@ impl<'a> SlotPlaque for IngredientFormula<'a> {
                 Vec3::new(1.00, 0.84, 0.34),
                 target,
             );
+            let label = if self.entry.requires_anvil() { "FORGE" } else { "CRAFT" };
             PixelStamp::new(0.0021, 0.0022, Vec3::new(0.09, 0.11, 0.16))
-                .emit_on_frame("CRAFT", 0.0, 0.0, 0.0155, &btn, target);
+                .emit_on_frame(label, 0.0, 0.0, 0.0155, &btn, target);
+        } else if self.entry.requires_anvil() && !self.venue.anvil_station() && self.entry.ingredients_stocked(self.satchel, self.attire) {
+            let note = frame.shifted(0.0, -0.150, -0.006);
+            PixelStamp::new(0.0017, 0.0018, Vec3::new(1.52, 1.18, 0.48))
+                .emit_on_frame("USE SMITHY ANVIL", 0.0, 0.0, 0.0155, &note, target);
         }
     }
 }

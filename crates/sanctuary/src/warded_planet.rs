@@ -38,6 +38,10 @@ impl WorldEarthworks for WardedPlanet<'_> {
         self.origin.surface_yields_to(eye, direction, edge)
     }
 
+    fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.origin.aimed_surface_medium(eye, direction)
+    }
+
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
         if !self.ward.eye_within_reach(eye, direction) || !self.ward.consume_harvest_token() {
             return None;

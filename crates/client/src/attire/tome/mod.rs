@@ -14,10 +14,11 @@ use super::pouch::BeltSatchel;
 use super::YouthAttire;
 
 use self::bookmark::TomeBookmark;
-use self::domain::{FolioSelection, FolioTab};
+use self::domain::{FolioSection, FolioSelection, FolioTab};
+pub use self::domain::CraftVenue;
 pub use self::entry::CraftingEntry;
 #[cfg(test)]
-use self::entry::RECIPE_CATALOG;
+use self::entry::{RECIPE_CATALOG, RECIPE_COUNT};
 use self::pages::{LeftGridFolio, RightPolaroidFolio};
 use self::spread::{FolioSpread, IndexTabbedFolio, RingSpineFolio, SlateFolioCovers};
 
@@ -88,6 +89,10 @@ impl ArtisanTome {
         Self::from_parts(TomeBookmark::at_recipe(cursor, open), CraftJournal::empty())
     }
 
+    pub const fn at_anvil(cursor: usize, open: bool) -> Self {
+        Self::from_parts(TomeBookmark::at_anvil_recipe(cursor, open), CraftJournal::empty())
+    }
+
     pub const fn closed() -> Self {
         Self::new(0, false)
     }
@@ -96,8 +101,12 @@ impl ArtisanTome {
         self.bookmark.open()
     }
 
+    pub const fn venue(&self) -> CraftVenue {
+        self.bookmark.venue()
+    }
+
     #[cfg(test)]
-    pub const fn entries() -> [CraftingEntry; 30] {
+    pub const fn entries() -> [CraftingEntry; RECIPE_COUNT] {
         RECIPE_CATALOG
     }
 
@@ -108,6 +117,15 @@ impl ArtisanTome {
 
     pub const fn toggle(self) -> Self {
         Self::from_parts(self.bookmark.toggled_open(), self.journal)
+    }
+
+    pub fn open_at_anvil(self, satchel: &BeltSatchel, attire: YouthAttire) -> Self {
+        let opened = self.bookmark.opened_at_anvil().selected_tab(FolioTab::Tools, satchel, attire);
+        Self::from_parts(opened, self.journal)
+    }
+
+    pub const fn noted_recipe(self, recipe_idx: u8) -> Self {
+        Self::from_parts(self.bookmark, self.journal.noted(recipe_idx))
     }
 
     pub fn drain_crafted_notes(self, world: &mut dyn PlanetaryWorld) -> Self {
@@ -121,12 +139,12 @@ impl ArtisanTome {
         attire: YouthAttire,
     ) -> (Self, BeltSatchel, YouthAttire, bool) {
         let state = satchel.reconcile_attire(attire);
-        let FolioSelection::Highlighted(recipe_idx, entry) =
+        let FolioSelection::Highlighted((recipe_idx, venue), entry) =
             self.bookmark.resolve_selection(&state, attire)
         else {
             return (self, state, attire, false);
         };
-        if !entry.craftable(&state, attire) {
+        if !entry.craftable_at(&state, attire, venue) {
             return (self, state, attire, false);
         }
         let (next_satchel, next_attire) = state.consume_and_equip(
@@ -219,9 +237,9 @@ impl ArtisanTome {
         let selection = self.bookmark.resolve_selection(satchel, attire);
         let spread = RightPolaroidFolio::new(
             LeftGridFolio::new(
-                IndexTabbedFolio::new(
+                IndexTabbedFolio::with_section(
                     RingSpineFolio::new(SlateFolioCovers::new(tab.pigment())),
-                    tab,
+                    FolioSection::new(tab, self.bookmark.venue()),
                     satchel,
                     attire,
                 ),

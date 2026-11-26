@@ -56,6 +56,15 @@ impl RelicTokenLexicon for RelicLexicon {
             "vitrifiedbasalt" | "fusedbasalt" | "scorchbasalt" | "schmelzbasalt" => Some(HeldRelic::VitrifiedBasalt),
             "blackboxpod" | "blackbox" | "flightblackbox" | "flugschreiber" => Some(HeldRelic::BlackBoxPod),
             "laserbeacon" | "opticalbeacon" | "leuchtfeuer" | "beacon" => Some(HeldRelic::LaserBeacon),
+            "bakingoven" | "breadoven" | "backofen" | "oven" => Some(HeldRelic::BakingOven),
+            "bloomeryforge" | "smeltingforge" | "bloomery" | "schmelzesse" | "schmelzofen" | "forge" => {
+                Some(HeldRelic::BloomeryForge)
+            }
+            "smithyanvil" | "anvil" | "amboss" => Some(HeldRelic::SmithyAnvil),
+            "roastedboar" | "roastboar" | "braten" | "wildschweinbraten" => Some(HeldRelic::RoastedBoar),
+            "copperbloom" | "kupferluppe" => Some(HeldRelic::CopperBloom),
+            "ironbloom" | "eisenluppe" | "roheisen" => Some(HeldRelic::IronBloom),
+            "titaniumbillet" | "spacetitanium" | "titanrohling" | "titanbarren" => Some(HeldRelic::TitaniumBillet),
             _ => None,
         }
     }

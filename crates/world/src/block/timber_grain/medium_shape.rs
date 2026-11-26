@@ -8,6 +8,7 @@ use super::super::cell::GridCell;
 use super::super::earth_clods::EarthClods;
 use super::super::field_camera::FieldCameraTripod;
 use super::super::forensic_blocks::{BlackBoxPodMesh, LaserBeaconMesh, VitrifiedBasaltMesh};
+use super::super::hearth_works::{BakingOvenMesh, BloomeryForgeMesh, SmithyAnvilMesh};
 use super::super::mineral_seam::MineralSeam;
 use super::super::mold::MoldArchetype;
 use super::super::pedal_cluster::{FootwellPlinth, PedalClusterMesh};
@@ -60,6 +61,7 @@ impl<S: VoxelShape> MediumShape<S> {
 impl<S: VoxelShape> VoxelShape for MediumShape<S> {
     fn elevation_at(&self, local_u: f32, local_v: f32) -> f32 {
         if self.medium.mechanical_part()
+            || self.medium.artisan_hearth()
             || matches!(
                 self.medium,
                 BlockMedium::CantileverRig
@@ -85,6 +87,7 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
     fn full_cube_envelope(&self) -> bool {
         self.archetype.full_height_flat()
             && !self.medium.mechanical_part()
+            && !self.medium.artisan_hearth()
             && !matches!(self.medium, BlockMedium::FieldCamera | BlockMedium::VehicleBlueprint)
     }
     fn step_camera_turn(&mut self, delta: i32) -> bool {
@@ -153,6 +156,9 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             (BlockMedium::SpawnStone, _) => SpawnPlinthMesh::new(cell, floor_elevation).emit(frame, target),
             (BlockMedium::BlackBoxPod, _) => BlackBoxPodMesh::new(cell, floor_elevation).emit(frame, target),
             (BlockMedium::LaserBeacon, _) => LaserBeaconMesh::new(cell, floor_elevation).emit(frame, target),
+            (BlockMedium::BakingOven, _) => BakingOvenMesh::new(cell, floor_elevation, self.heading).emit(frame, target),
+            (BlockMedium::BloomeryForge, _) => BloomeryForgeMesh::new(cell, floor_elevation, self.heading).emit(frame, target),
+            (BlockMedium::SmithyAnvil, _) => SmithyAnvilMesh::new(cell, floor_elevation, self.heading).emit(frame, target),
             (BlockMedium::VitrifiedBasalt, full) => {
                 let h = if full { GridCell::SPAN } else { GridCell::SPAN * 0.5 };
                 VitrifiedBasaltMesh::new(cell, floor_elevation, h).emit(frame, target);

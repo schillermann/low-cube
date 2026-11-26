@@ -120,6 +120,25 @@ impl<'a> GroundToolFigure<'a> {
                 self.bar((-0.07, 0.0, 0.056), (0.12, 0.0, 0.062), 0.058, 0.072, meat, target);
                 self.bar((0.10, 0.0, 0.062), (0.17, 0.0, 0.052), 0.066, 0.036, fat_rind, target);
             }
+            SurfaceFind::RoastedBoar => {
+                let (bone, glaze, crust) = (
+                    Vec3::new(0.86, 0.80, 0.66),
+                    Vec3::new(0.58, 0.27, 0.11),
+                    Vec3::new(0.84, 0.50, 0.18),
+                );
+                self.bar((-0.18, 0.0, 0.036), (-0.06, 0.0, 0.046), 0.020, 0.018, bone, target);
+                self.bar((-0.07, 0.0, 0.056), (0.12, 0.0, 0.062), 0.058, 0.072, glaze, target);
+                self.bar((0.10, 0.0, 0.062), (0.17, 0.0, 0.052), 0.066, 0.036, crust, target);
+            }
+            SurfaceFind::CopperBloom => {
+                self.bar((-0.10, 0.0, 0.046), (0.10, 0.0, 0.048), 0.056, 0.044, Vec3::new(0.86, 0.46, 0.22), target);
+            }
+            SurfaceFind::IronBloom => {
+                self.bar((-0.10, 0.0, 0.046), (0.10, 0.0, 0.048), 0.056, 0.044, Vec3::new(0.66, 0.70, 0.76), target);
+            }
+            SurfaceFind::TitaniumBillet => {
+                self.bar((-0.12, 0.0, 0.046), (0.12, 0.0, 0.048), 0.050, 0.038, Vec3::new(0.76, 0.84, 0.96), target);
+            }
             SurfaceFind::FlintPickaxe => self.emit_pickaxe(
                 Vec3::new(0.46, 0.29, 0.16),
                 Vec3::new(0.70, 0.56, 0.34),

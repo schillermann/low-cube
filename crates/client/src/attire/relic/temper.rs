@@ -199,7 +199,10 @@ impl ToolTemper {
             BlockMedium::QuarriedStone
             | BlockMedium::CopperOre
             | BlockMedium::IronOre
-            | BlockMedium::CarbonSilicate => 2,
+            | BlockMedium::CarbonSilicate
+            | BlockMedium::BakingOven
+            | BlockMedium::BloomeryForge
+            | BlockMedium::SmithyAnvil => 2,
             _ => 1,
         }
     }

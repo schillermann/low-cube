@@ -91,6 +91,8 @@ mod crust_ceiling_tests;
 #[cfg(test)]
 mod flight_tests;
 #[cfg(test)]
+mod hearth_smithy_tests;
+#[cfg(test)]
 mod heliosphere_tests;
 #[cfg(test)]
 mod mortality_tests;

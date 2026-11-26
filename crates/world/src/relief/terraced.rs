@@ -164,6 +164,10 @@ impl ReliefElevation for TerracedRelief {
             .yields_to(edge)
     }
 
+    fn layer_medium_at(&self, u: i32, v: i32, layer_elev: f32) -> BlockMedium {
+        self.molds.layer_medium_at(&self.strata, &self.shafts, u, v, layer_elev)
+    }
+
     fn harvest_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
         if self.molds.car_locked_at(u, v, layer_elev) {
             return None;

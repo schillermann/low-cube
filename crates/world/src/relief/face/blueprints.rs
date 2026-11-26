@@ -152,4 +152,11 @@ impl ReliefDomain {
             .target_layer(&self.frame, self.relief.as_ref(), half, half_size)?;
         Some(self.relief.layer_yields_to(cu, cv, layer, edge))
     }
+
+    pub(super) fn aimed_surface_medium(&self, half: i32, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        let half_size = self.frame.step_elevation(half);
+        let (cu, cv, layer) = SurfaceSightRay::new(eye, direction)
+            .target_layer(&self.frame, self.relief.as_ref(), half, half_size)?;
+        Some(self.relief.layer_medium_at(cu, cv, layer))
+    }
 }

@@ -15,6 +15,7 @@ pub trait WorldEarthworks {
     fn harvest_surface(&mut self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> { None }
     fn loosen_surface(&mut self, _eye: Vec3, _direction: Vec3, _stage: u8) -> Option<BlockMedium> { None }
     fn surface_yields_to(&self, _eye: Vec3, _direction: Vec3, _edge: MiningEdge) -> bool { true }
+    fn aimed_surface_medium(&self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> { None }
     fn strike_timber(&mut self, _eye: Vec3, _direction: Vec3) -> CleaveOutcome { CleaveOutcome::Missed }
     fn strike_boar(&mut self, _eye: Vec3, _direction: Vec3, _power: u8, _max_reach: f32) -> (bool, bool) { (false, false) }
     fn forage_surface(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind { SurfaceFind::EmptyHanded }
@@ -168,6 +169,15 @@ pub trait PlanetaryWorld:
     }
     fn step_local_flora(&mut self, dt: f32) -> bool { self.step_surface(dt) }
     fn lethal_at(&self, _position: Vec3) -> bool { false }
+    fn vacuum_medium_at(&self, probe: Vec3) -> bool {
+        if matches!(self.surface_contact(probe, 0.0), SurfaceContact::Vacuum) {
+            return true;
+        }
+        if let Some((body, _)) = self.offworld_frame(probe) {
+            return !body.atmospheric_sound();
+        }
+        !self.cosmic_frame().atmospheric_sound()
+    }
     fn confine_beneath_crust(&self, position: Vec3) -> Vec3 { position }
     fn local_body_point(&self, position: Vec3) -> Vec3 { position }
     fn celestial_atlas(&self) -> CelestialAtlas { CelestialAtlas::solitary(16.0) }

@@ -96,7 +96,6 @@ impl AvatarBody {
     pub fn handle_cockpit_trigger(&mut self, trigger: InputTrigger, bindings: &ActionBindings) -> bool {
         self.berth.handle_cockpit_trigger(trigger, bindings)
     }
-    pub fn nourish(&mut self) { self.posture = self.posture.nourish(); }
     pub fn pace_boost(&self) -> f32 { self.posture.pace_boost() }
 
     pub fn visual_position(&self) -> Vec3 {
@@ -293,4 +292,9 @@ impl AvatarBody {
         let wedged = active_env.wedged_in_shaft(final_pos, terrain_up, EYE_SUPPORT_HEIGHT, world);
         (final_pos, wedged, false)
     }
+}
+
+impl crate::earthworks::NourishedBody for AvatarBody {
+    fn nourish_venison(&mut self) { self.posture = self.posture.nourish(); }
+    fn nourish_oven_roast(&mut self) { self.posture = self.posture.nourish_roast(); }
 }

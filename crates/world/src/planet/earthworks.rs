@@ -19,6 +19,10 @@ impl WorldEarthworks for CubePlanet {
             .unwrap_or(false)
     }
 
+    fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
+        self.inspect_aimed_faces(eye, direction, |f| f.aimed_surface_medium(eye, direction))
+    }
+
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome {
         self.try_aimed_faces(eye, direction, true, |f| {
             let outcome = f.strike_timber(eye, direction);

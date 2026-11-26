@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.127.0] - 2026-11-26
+
+### Added
+- Added diegetic culinary baking, bloomery ore smelting, **Space-Forged** vacuum titanium metallurgy, and `SmithyAnvil` tool forging (`crates/world/src/block/hearth_works.rs`, `crates/client/src/earthworks/hearth/`, `crates/client/src/attire/tome/` & `crates/sanctuary/src/cohort/mod.rs`):
+  - `BakingOven` (`BAKING OVEN`, recipe `#30`: `2 QuarriedStone + 1 DeadwoodBough`), `BloomeryForge` (`SMELTING FORGE`, recipe `#31`: `3 QuarriedStone + 1 TimberTorch`), and `SmithyAnvil` (`SMITHY ANVIL`, recipe `#32`: `2 QuarriedStone + 1 TimberBlock`) with directional 3D sculpted meshes (`BakingOvenMesh`, `BloomeryForgeMesh`, `SmithyAnvilMesh`).
+  - Pure-OOP `ThermalHearth` decorator chain (`CulinaryOven(ColdStone)` for `~250 °C` wood-fired `BoarMeat -> RoastedBoar` baking with full bruise relief and `24 s` vigor, and `VacuumForge(AtmosphericBloomery(ColdStone))` for `~1,300 °C` `CopperOre -> CopperBloom` & `IronOre -> IronBloom` atmospheric reduction plus oxygen-free `CrustBlock + IronOre -> 2 TitaniumBillet` vacuum reduction in orbital space or on airless moons/asteroids; `crates/client/src/hearth_smithy_tests.rs`).
+  - Server-authoritative `SolarProportions::vacuum_locus` & `GuestCohort::apply_inventory_notice` validation rejecting oxygen-sensitive titanium reduction (`#103`) inside planetary atmospheres and rejecting wood-fired hearth recipes (`#100..=#102`) in airless vacuum (`crates/sanctuary/src/tests/vacuum_forge.rs`).
+
+### Changed
+- Gated all forged copper, iron, and titanium tools (`WoodmanAxe`, `CopperSpade`, `CopperPickaxe`, `IronSpade`, `IronPickaxe`, `KnightlySword`, `TitaniumSpade`, `TitaniumPickaxe`) and `TitaniumHull` plates behind `CraftVenue::SmithyAnvil` (`ArtisanTome` opened by interacting with a placed `SmithyAnvil`) and smelted `CopperBloom`, `IronBloom`, and Space-Forged `TitaniumBillet` feedstock instead of raw ores or `TitaniumHull` blocks.
+
 ## [0.126.0] - 2026-11-26
 
 ### Added

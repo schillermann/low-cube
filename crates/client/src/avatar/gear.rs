@@ -223,14 +223,10 @@ impl AvatarGear {
                 return false;
             }
         }
-        let (next_ew, next_attire, next_rhythm, changed, nourished) =
+        let (next_ew, next_attire, next_rhythm, changed, meal) =
             self.earthworks.act_with_hand(side, reach, self.attire, bearing.rhythm(), world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
-        if nourished {
-            use acoustics::{AcousticWave, HeartyBite};
-            body.nourish();
-            HeartyBite::savory().thump();
-        }
+        let nourished = meal.savor(body);
         bearing.apply_rhythm(next_rhythm);
         bearing.reconcile_mount(self.active_camera_mount());
         if !changed && !nourished && self.attire.hand_pair(side).0 == HeldRelic::BlackBoxPod {

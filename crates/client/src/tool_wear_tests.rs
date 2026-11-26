@@ -35,33 +35,39 @@ fn test_four_material_tiers_enforce_realistic_recipes_strike_cadence_and_mining_
         .with_stowed_relic(HeldRelic::DeadwoodBough, 5)
         .with_stowed_relic(HeldRelic::FlintStone, 3)
         .with_stowed_relic(HeldRelic::PlankBlock, 8)
-        .with_stowed_relic(HeldRelic::CopperOre, 4)
-        .with_stowed_relic(HeldRelic::IronOre, 9)
-        .with_stowed_relic(HeldRelic::TitaniumHull, 4);
+        .with_stowed_relic(HeldRelic::CopperBloom, 4)
+        .with_stowed_relic(HeldRelic::IronBloom, 9)
+        .with_stowed_relic(HeldRelic::TitaniumBillet, 4);
 
-    // Flint no longer crafts IronSpade, WoodmanAxe, or KnightlySword:
-    let flint_only = BeltSatchel::empty()
+    // Raw ores, Flint, and TitaniumHull blocks can never craft metal tools:
+    let raw_ores_only = BeltSatchel::empty()
         .with_stowed_relic(HeldRelic::DeadwoodBough, 2)
-        .with_stowed_relic(HeldRelic::FlintStone, 4);
-    for iron_recipe in [0usize, 5, 6] {
-        let (_, _, _, ok) = ArtisanTome::new(iron_recipe, true).craft_selected(1.0, flint_only, squire);
-        assert!(!ok, "Recipe #{iron_recipe} must require IronOre + PlankBlock, never FlintStone");
+        .with_stowed_relic(HeldRelic::FlintStone, 4)
+        .with_stowed_relic(HeldRelic::PlankBlock, 4)
+        .with_stowed_relic(HeldRelic::CopperOre, 4)
+        .with_stowed_relic(HeldRelic::IronOre, 6)
+        .with_stowed_relic(HeldRelic::TitaniumHull, 4);
+    for forged_recipe in [0usize, 5, 6, 20, 26, 27, 28, 29] {
+        let (_, _, _, ok_field) = ArtisanTome::new(forged_recipe, true).craft_selected(1.0, stocked, squire);
+        assert!(!ok_field, "Forged recipe #{forged_recipe} must require SmithyAnvil, never bare field hands");
+        let (_, _, _, ok_raw) = ArtisanTome::at_anvil(forged_recipe, true).craft_selected(1.0, raw_ores_only, squire);
+        assert!(!ok_raw, "Recipe #{forged_recipe} must require smelted blooms/billets, never raw ore or TitaniumHull");
     }
 
-    // Craft all 4 spade tiers and all 4 pickaxe tiers + forged axe & sword:
-    for (idx, expected) in [
-        (25usize, HeldRelic::WoodenSpade),
-        (26, HeldRelic::CopperSpade),
-        (5, HeldRelic::IronSpade),
-        (27, HeldRelic::TitaniumSpade),
-        (19, HeldRelic::FlintPickaxe),
-        (28, HeldRelic::CopperPickaxe),
-        (20, HeldRelic::IronPickaxe),
-        (29, HeldRelic::TitaniumPickaxe),
-        (0, HeldRelic::WoodmanAxe),
-        (6, HeldRelic::KnightlySword),
+    // Craft wood/flint tools in field and forge all Copper, Iron, and Space-Forged Titanium tools at SmithyAnvil:
+    for (idx, expected, at_anvil) in [
+        (25usize, HeldRelic::WoodenSpade, false),
+        (19, HeldRelic::FlintPickaxe, false),
+        (26, HeldRelic::CopperSpade, true),
+        (5, HeldRelic::IronSpade, true),
+        (27, HeldRelic::TitaniumSpade, true),
+        (28, HeldRelic::CopperPickaxe, true),
+        (20, HeldRelic::IronPickaxe, true),
+        (29, HeldRelic::TitaniumPickaxe, true),
+        (0, HeldRelic::WoodmanAxe, true),
+        (6, HeldRelic::KnightlySword, true),
     ] {
-        let tome = ArtisanTome::new(idx, true);
+        let tome = if at_anvil { ArtisanTome::at_anvil(idx, true) } else { ArtisanTome::new(idx, true) };
         assert_eq!(tome.selected_entry().product(), expected);
         let (_, _, armed, ok) = tome.craft_selected(1.0, stocked, squire);
         assert!(ok && armed.held_pair().0 == expected, "Recipe #{idx} must craft {expected:?}");
