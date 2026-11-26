@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.132.0] - 2026-11-26
+
+### Added
+- Replaced the exocentric Nose-Camera orrery table with an *Expanse*-style egocentric Newton Flight Director and added a Belly-Camera Predictive Touchdown Ghost via composable `OpticOverlay` decorators (`crates/client/src/menu/orrery_hud/` & `crates/client/src/drive/`):
+  - `CompassRingOverlay`, `ProgradeDriftOverlay`, `BurnMagnetOverlay`, and `CourseAlignmentOverlay` (`NoseFlightHud` in `crates/client/src/menu/orrery_hud/`) paired with `FlightKinematics` & polymorphic `BurnVector` (`crates/client/src/drive/kinematics.rs`): projects a 360° boresight compass dial clamping off-axis `HOME` and `LUNA` bearings without sign reversal, Newtonian `(o)` Prograde / `(x)` Retrograde flight-path vectors with elastic drift tethers, and a drift-cancelling `BURN` / `RETRO` / `LOCKED` diamond lead magnet.
+  - `TouchdownGhostOverlay` and `LateralSlipOverlay` (`BellyFlightHud` in `crates/client/src/menu/orrery_hud/`) paired with `TouchdownTrace`, `TouchdownFootprint`, and `TouchdownTone` (`crates/client/src/drive/touchdown_trace.rs`): integrates live ventral ballistic descent onto voxel terrain, projecting a 3D surface-aligned landing footprint ring, spire, and off-screen guard chevron color-coded across `SafeEmerald`, `CautionAmber`, and `CrashCoral` sink/slip regimes alongside a horizontal `SLIP` arrest reticle.
+  - `HudSightStage` and `HudPen` (`crates/client/src/menu/orrery_hud/sight_stage.rs` & `hud_pen.rs`): Tell-Don't-Ask 3D-to-NDC ray/world projection and aspect-calibrated vector drawing collaborators eliminating public field getters and world-fixed `OrreryConsole` / `OrreryFrame` tables.
+
 ## [0.131.0] - 2026-11-26
 
 ### Added

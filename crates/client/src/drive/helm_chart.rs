@@ -1,9 +1,11 @@
 use glam::Vec3;
 use world::{CelestialAtlas, HullWireframe, OpticMount, PilotOrder, PlanetaryWorld, VehicleAssembly};
 use super::clearance::{HullClearance, PadClearance};
+use super::kinematics::FlightKinematics;
+use super::touchdown_trace::TouchdownTrace;
 use super::transfer_arc::{FlipBurnReadout, NavigationCourse};
 
-/// Immutable telemetry packet for the Nose-Camera 3D Steuerkonsolen-Orrery and target range scale.
+/// Immutable telemetry packet for the Solar-Chart modal and Nose-Camera flight director (`<= 4` fields).
 #[derive(Clone, Copy, Debug)]
 pub struct OrrerySnapshot {
     atlas: CelestialAtlas,
@@ -30,25 +32,43 @@ impl OrrerySnapshot {
     ) -> R {
         f(self.atlas, self.ship_pos, self.ship_motion, self.course)
     }
+
+    /// Transfers `(atlas, FlightKinematics, course)` to Nose-Camera flight overlays without getters.
+    pub fn transfer_flight<R>(
+        self,
+        f: impl FnOnce(CelestialAtlas, FlightKinematics, NavigationCourse) -> R,
+    ) -> R {
+        let (nose, vel) = self.ship_motion;
+        f(self.atlas, FlightKinematics::new(self.ship_pos, nose, vel), self.course)
+    }
 }
 
-/// Immutable telemetry packet for the Belly-Camera ventral ground-clearance scale and target brackets.
+/// Immutable telemetry packet for the Belly-Camera ventral radar, touchdown ghost, and target brackets (`<= 4` fields).
 #[derive(Clone, Copy, Debug)]
 pub struct BellySnapshot {
     clearance: PadClearance,
+    trace: TouchdownTrace,
     course: NavigationCourse,
     ship_pos: Vec3,
 }
 
 impl BellySnapshot {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(clearance: PadClearance, course: NavigationCourse, ship_pos: Vec3) -> Self {
-        Self { clearance, course, ship_pos }
+    pub const fn new(
+        clearance: PadClearance,
+        trace: TouchdownTrace,
+        course: NavigationCourse,
+        ship_pos: Vec3,
+    ) -> Self {
+        Self { clearance, trace, course, ship_pos }
     }
 
-    /// Transfers `(clearance, course, ship_pos)` to a HUD view without getters.
-    pub fn transfer<R>(self, f: impl FnOnce(PadClearance, NavigationCourse, Vec3) -> R) -> R {
-        f(self.clearance, self.course, self.ship_pos)
+    /// Transfers `(clearance, touchdown_trace, course, ship_pos)` to a HUD view without getters.
+    pub fn transfer<R>(
+        self,
+        f: impl FnOnce(PadClearance, TouchdownTrace, NavigationCourse, Vec3) -> R,
+    ) -> R {
+        f(self.clearance, self.trace, self.course, self.ship_pos)
     }
 }
 
@@ -61,24 +81,31 @@ pub enum OpticTelemetry {
     Flank(HullWireframe),
 }
 
-/// Encapsulated spacecraft celestial atlas, plotted `NavigationCourse`, and live ventral `PadClearance`.
+/// Encapsulated celestial atlas, plotted `NavigationCourse`, ventral `PadClearance`, and `TouchdownTrace` (`<= 4` fields).
 #[derive(Clone, Copy, Debug)]
 pub struct HelmChart {
     atlas: CelestialAtlas,
     course: NavigationCourse,
     pad: PadClearance,
+    trace: TouchdownTrace,
 }
 
 impl HelmChart {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(atlas: CelestialAtlas, course: NavigationCourse, pad: PadClearance) -> Self {
-        Self { atlas, course, pad }
+    pub const fn new(
+        atlas: CelestialAtlas,
+        course: NavigationCourse,
+        pad: PadClearance,
+        trace: TouchdownTrace,
+    ) -> Self {
+        Self { atlas, course, pad, trace }
     }
 
     pub fn boarded(assembly: &VehicleAssembly, world: &dyn PlanetaryWorld) -> Self {
         let atlas = world.celestial_atlas();
         let pad = HullClearance::at_pose(assembly, Vec3::ZERO).sample_pad(atlas, world);
-        Self::new(atlas, NavigationCourse::Uncharted, pad)
+        let trace = TouchdownTrace::sample(assembly, Vec3::ZERO, pad, world);
+        Self::new(atlas, NavigationCourse::Uncharted, pad, trace)
     }
 
     pub fn install_course(&mut self, course: NavigationCourse) {
@@ -87,6 +114,7 @@ impl HelmChart {
 
     pub fn shift_frame(&mut self, delta: Vec3, world: &dyn PlanetaryWorld) {
         self.course.shift_frame(delta);
+        self.trace = self.trace.shifted_by(delta);
         self.atlas = world.celestial_atlas();
         self.course.sync_ephemeris(self.atlas);
     }
@@ -100,6 +128,7 @@ impl HelmChart {
         self.atlas = world.celestial_atlas();
         self.course.sync_ephemeris(self.atlas);
         self.pad = HullClearance::at_pose(assembly, velocity).sample_pad(self.atlas, world);
+        self.trace = TouchdownTrace::sample(assembly, velocity, self.pad, world);
     }
 
     pub fn mark_target(
@@ -117,7 +146,12 @@ impl HelmChart {
         OrrerySnapshot::new(self.atlas, assembly.origin(), (nose, velocity), self.course)
     }
 
-    pub fn flip_burn_readout(&self, assembly: &VehicleAssembly, velocity: Vec3, live_accel: f32) -> FlipBurnReadout {
+    pub fn flip_burn_readout(
+        &self,
+        assembly: &VehicleAssembly,
+        velocity: Vec3,
+        live_accel: f32,
+    ) -> FlipBurnReadout {
         match self.course {
             NavigationCourse::Uncharted => FlipBurnReadout::Inactive,
             NavigationCourse::Charted(ref arc) => {
@@ -140,7 +174,7 @@ impl HelmChart {
                 assembly.sample_wireframe(order),
             ),
             OpticMount::RocketBelly => OpticTelemetry::Belly(
-                BellySnapshot::new(self.pad, self.course, pos),
+                BellySnapshot::new(self.pad, self.trace, self.course, pos),
                 assembly.sample_wireframe(order),
             ),
             OpticMount::RocketSideLeft

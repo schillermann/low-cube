@@ -49,11 +49,13 @@ pub use lobby_modal::LobbyGateModal;
 pub use orrery_hud::{ChannelStripOverlay, OpticOverlay, ShipOpticHud};
 #[cfg(test)]
 pub use orrery_hud::{
-    BoresightTape, GlassPlateScale, PhosphorTone, RangeScale, ReticleStandoffScale, ScaleDomain,
-    SilentOverlay, TestApproachZoneScale as ApproachZoneScale,
+    BellyFlightHud, BoresightTape, BurnMagnetOverlay, COMPASS_RADIUS, CompassRingOverlay,
+    CourseAlignmentOverlay, DirectionSight, GlassPlateScale, HudSightStage, LateralSlipOverlay,
+    NoseFlightHud, PhosphorTone, ProgradeDriftOverlay, RangeScale, ReticleStandoffScale,
+    ScaleDomain, SilentOverlay, TestApproachZoneScale as ApproachZoneScale,
     TestChevronReadoutScale as ChevronReadoutScale, TestGraduatedSpine as GraduatedSpine,
-    TestOrreryFrame as OrreryFrame, TestRangeTapeOverlay as RangeTapeOverlay,
-    TestTargetLockOverlay as TargetLockOverlay, WireframeShipOverlay,
+    TestRangeTapeOverlay as RangeTapeOverlay, TestTargetLockOverlay as TargetLockOverlay,
+    TouchdownGhostOverlay, WireframeShipOverlay,
 };
 #[cfg(test)]
 pub use pause_panel::PausePanel;

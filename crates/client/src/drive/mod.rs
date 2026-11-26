@@ -1,12 +1,14 @@
 mod clearance;
 mod helm_chart;
 mod helmed;
+mod kinematics;
 mod passenger;
 mod pilot;
 mod reentry_step;
 mod road;
 mod rocket;
 mod space_step;
+mod touchdown_trace;
 mod track;
 mod transfer_arc;
 mod wheeled;
@@ -18,6 +20,8 @@ mod expanse_acoustics_tests;
 mod expanse_hull_tests;
 #[cfg(test)]
 mod expanse_tests;
+#[cfg(test)]
+mod flight_director_tests;
 #[cfg(test)]
 mod hard_scifi_sandbox_tests;
 #[cfg(test)]
@@ -56,6 +60,10 @@ use crate::controls::{KeyboardControls, LocomotionTarget};
 #[cfg(test)]
 pub use self::clearance::{HullClearance, PadClearance};
 pub use self::helm_chart::{BellySnapshot, OpticTelemetry, OrrerySnapshot};
+pub use self::kinematics::{BurnVector, FlightKinematics};
+pub use self::touchdown_trace::{
+    TOUCHDOWN_NODES, TouchdownFootprint, TouchdownTone, TouchdownTrace,
+};
 pub use self::helmed::HelmedCraft;
 pub use self::pilot::VehiclePilot;
 pub use self::transfer_arc::{

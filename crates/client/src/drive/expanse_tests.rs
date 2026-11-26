@@ -229,6 +229,7 @@ fn test_coop_thrust_gravity_grounds_crew_under_burn_and_floats_when_cut() {
     for _ in 0..90 {
         pilot.step_motion(dt, &burn, &host_world);
         pilot.sync_world_presence(&mut host_world);
+        crew.sync_world_presence(&mut guest_world);
         let _ = host_world.step_surface(dt);
         let _ = guest_world.step_surface(dt);
         crew.step_motion(dt, &idle, &guest_world);
@@ -245,6 +246,7 @@ fn test_coop_thrust_gravity_grounds_crew_under_burn_and_floats_when_cut() {
     for i in 0..60 {
         pilot.step_motion(dt, &idle, &host_world);
         pilot.sync_world_presence(&mut host_world);
+        crew.sync_world_presence(&mut guest_world);
         let _ = host_world.step_surface(dt);
         let _ = guest_world.step_surface(dt);
         crew.step_motion(dt, if i < 6 { &burn } else { &idle }, &guest_world);

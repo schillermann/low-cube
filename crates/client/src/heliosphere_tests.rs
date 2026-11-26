@@ -182,12 +182,11 @@ fn test_on_demand_mars_and_asteroid_belt_landing_persists_placed_blocks_across_p
 }
 
 #[test]
-fn test_nose_cam_sees_3d_moon_across_entire_flight_and_holo_orrery_matches_lunar_surface() {
-    use glam::Mat3;
+fn test_nose_cam_sees_3d_moon_across_entire_flight_and_compass_tracks_true_scale_luna() {
     use world::{MeshTarget, Quad, SightCone};
     use crate::drive::{ARC_NODES, NavigationCourse};
     use crate::lens::{PerspectiveLens, ProjectionLens};
-    use crate::menu::OrreryFrame;
+    use crate::menu::{COMPASS_RADIUS, DirectionSight, HudSightStage, ScreenPoint};
 
     let prop = SolarProportions::true_scale(256);
     let mut world = CelestialSystem::barren_heliosphere(prop, 1.0);
@@ -196,35 +195,28 @@ fn test_nose_cam_sees_3d_moon_across_entire_flight_and_holo_orrery_matches_lunar
     let moon_half = atlas0.transfer(|_, _, mh| mh);
     assert!(moon_center.length() > 7_000.0, "256-block true-scale Luna orbits beyond 4096m far plane");
 
-    // 1. OrreryFrame must be right-handed SO(3) (det = +1) and strictly exterior to vis_moon outside moon_half
-    let frame = OrreryFrame::from_atlas(atlas0);
-    let det = Mat3::from_cols(
-        frame.rotate_dir(Vec3::X),
-        frame.rotate_dir(Vec3::Y),
-        frame.rotate_dir(Vec3::Z),
-    )
-    .determinant();
-    assert!((det - 1.0).abs() < 1e-4, "OrreryFrame rotation must be right-handed SO(3), got det={det}");
-    let (_, vis_moon) = frame.visual_radii();
-    let moon_holo = frame.map_point(moon_center);
+    // 1. Nose-Cam HudSightStage maps true-scale Luna (>7km) InField on boresight and RimClamped behind ship
+    let lens = PerspectiveLens::human_eye().projection_matrix(16.0 / 9.0);
     let axis_to_earth = (Vec3::ZERO - moon_center).normalize();
-    for stand_off in [800.0_f32, 414.0, 200.0, 90.0] {
-        let ship_holo = frame.map_point(moon_center + axis_to_earth * stand_off);
-        let holo_cheb = (ship_holo - moon_holo).abs().max_element();
-        assert!(
-            holo_cheb > vis_moon + 0.002,
-            "Rocket {stand_off}m outside Moon must remain outside Holo Moon-Cube ({holo_cheb} <= {vis_moon})"
-        );
+    let to_moon_from_origin = moon_center.normalize();
+    let vp_aimed = lens * glam::Mat4::look_to_rh(Vec3::ZERO, to_moon_from_origin, Vec3::Y);
+    let stage_aimed = HudSightStage::new(vp_aimed, ScreenPoint::center(), 9.0 / 16.0);
+    match stage_aimed.project_direction(to_moon_from_origin, COMPASS_RADIUS) {
+        DirectionSight::InField { ndc, angle_deg } => {
+            assert!(ndc.length() < 1e-4 && angle_deg < 0.05, "Boresight Luna must sit at reticle center");
+        }
+        DirectionSight::RimClamped { .. } => panic!("Boresight Luna must project InField"),
     }
-    let lateral_miss = frame.map_point(moon_center + Vec3::Y * 220.0);
-    assert!((lateral_miss - moon_holo).abs().max_element() > vis_moon + 0.004);
-    let on_crust = frame.map_point(moon_center + Vec3::Z * moon_half);
-    assert!(((on_crust - moon_holo).length() - vis_moon).abs() < 1e-4);
-    let approach_frame = OrreryFrame::for_ship(atlas0, moon_center + axis_to_earth * (moon_half * 6.0));
-    assert!(approach_frame.approach_zoom() && !frame.approach_zoom());
+    let vp_aft = lens * glam::Mat4::look_to_rh(Vec3::ZERO, -to_moon_from_origin, Vec3::Y);
+    let stage_aft = HudSightStage::new(vp_aft, ScreenPoint::center(), 9.0 / 16.0);
+    match stage_aft.project_direction((to_moon_from_origin + Vec3::X * 0.35).normalize(), COMPASS_RADIUS) {
+        DirectionSight::RimClamped { angle_deg, outward, .. } => {
+            assert!(angle_deg > 155.0 && (outward.length() - 1.0).abs() < 1e-4);
+        }
+        DirectionSight::InField { .. } => panic!("Aft-hemisphere Luna must clamp onto compass rim"),
+    }
 
     // 2. Nose-Cam projection sees 3D Moon-Cube from launchpad (7,705m > 4,096m far clip) through mid-course
-    let lens = PerspectiveLens::human_eye().projection_matrix(16.0 / 9.0);
     struct BoresightMoonProbe {
         vp: glam::Mat4,
         hits: usize,
