@@ -34,6 +34,7 @@ impl TomeBookmark {
         )
     }
 
+    #[cfg(test)]
     pub const fn at_anvil_recipe(cursor: usize, open: bool) -> Self {
         let bounded = cursor % RECIPE_CATALOG.len();
         Self::new(

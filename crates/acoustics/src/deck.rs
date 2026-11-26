@@ -1,4 +1,5 @@
 use super::outbox::SoundOutbox;
+use super::rain_patter::ShowerDemand;
 use super::tape::TapeSample;
 use super::voice::{BurstVoice, LoopTrack};
 use super::SoundStage;
@@ -69,21 +70,68 @@ impl HullDriveDemand {
     }
 }
 
-/// Polyphonic stereo mixing deck uniting 3 continuous thruster loops, dead-man lease, and burst voices.
+/// Encapsulated atmospheric rain & snowfall stereo loops with dead-man lease (`<= 4` fields).
+struct ShowerTrack {
+    rain_loop: LoopTrack,
+    snow_loop: LoopTrack,
+    lease: u8,
+}
+
+impl ShowerTrack {
+    const fn new(rain_loop: LoopTrack, snow_loop: LoopTrack, lease: u8) -> Self {
+        Self { rain_loop, snow_loop, lease }
+    }
+
+    fn studio() -> Self {
+        Self::new(
+            LoopTrack::idle(TapeSample::rain_loop()),
+            LoopTrack::idle(TapeSample::snow_loop()),
+            0,
+        )
+    }
+
+    fn update(&mut self, demand: ShowerDemand) {
+        demand.apply_to(&mut self.rain_loop, &mut self.snow_loop);
+        self.lease = if demand.audible() { LEASE_CHUNKS } else { 0 };
+    }
+
+    fn audible(&self) -> bool {
+        self.rain_loop.audible() || self.snow_loop.audible()
+    }
+
+    fn step_lease(&mut self) {
+        if self.lease > 0 {
+            self.lease -= 1;
+            if self.lease == 0 {
+                self.rain_loop.fade_out();
+                self.snow_loop.fade_out();
+            }
+        }
+    }
+
+    fn mix_frame(&mut self, pair: (f32, f32)) -> (f32, f32) {
+        let with_rain = self.rain_loop.mix_frame(pair, false);
+        self.snow_loop.mix_frame(with_rain, false)
+    }
+}
+
+/// Polyphonic stereo mixing deck uniting thruster loops, atmospheric shower loops, dead-man lease, and burst voices.
 pub(super) struct SoundDeck {
     loops: [LoopTrack; 3],
     bursts: Vec<BurstVoice>,
     drive_lease: u8,
+    shower: ShowerTrack,
 }
 
 impl SoundDeck {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(
+    const fn new(
         loops: [LoopTrack; 3],
         bursts: Vec<BurstVoice>,
         drive_lease: u8,
+        shower: ShowerTrack,
     ) -> Self {
-        Self { loops, bursts, drive_lease }
+        Self { loops, bursts, drive_lease, shower }
     }
 
     pub(super) fn studio() -> Self {
@@ -95,12 +143,17 @@ impl SoundDeck {
             ],
             Vec::with_capacity(MAX_BURST_VOICES),
             0,
+            ShowerTrack::studio(),
         )
     }
 
     pub(super) fn update_drive(&mut self, demand: HullDriveDemand) {
         demand.apply_to(&mut self.loops);
         self.drive_lease = if demand.lit() { LEASE_CHUNKS } else { 0 };
+    }
+
+    pub(super) fn update_shower(&mut self, demand: ShowerDemand) {
+        self.shower.update(demand);
     }
 
     pub(super) fn push_burst(&mut self, voice: BurstVoice) {
@@ -111,7 +164,7 @@ impl SoundDeck {
     }
 
     pub(super) fn active(&self) -> bool {
-        !self.bursts.is_empty() || self.loops.iter().any(LoopTrack::audible)
+        !self.bursts.is_empty() || self.loops.iter().any(LoopTrack::audible) || self.shower.audible()
     }
 
     pub(super) fn mix_stereo_into(&mut self, out_interleaved: &mut [i16]) {
@@ -123,11 +176,13 @@ impl SoundDeck {
                 }
             }
         }
+        self.shower.step_lease();
         for frame in out_interleaved.chunks_exact_mut(2) {
             let mut acc = (0.0_f32, 0.0_f32);
             acc = self.loops[0].mix_frame(acc, false);
             acc = self.loops[1].mix_frame(acc, false);
             acc = self.loops[2].mix_frame(acc, true);
+            acc = self.shower.mix_frame(acc);
             let mut idx = 0;
             while idx < self.bursts.len() {
                 if let Some(next_acc) = self.bursts[idx].mix_frame(acc) {

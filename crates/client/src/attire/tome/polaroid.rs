@@ -170,6 +170,7 @@ impl<'a> IngredientFormula<'a> {
         }
     }
 
+    #[cfg(test)]
     pub const fn new(entry: CraftingEntry, satchel: &'a BeltSatchel, attire: YouthAttire) -> Self {
         Self::at_venue(entry, satchel, attire, CraftVenue::FieldHands)
     }

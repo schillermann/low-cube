@@ -1,3 +1,7 @@
+use std::sync::OnceLock;
+use super::rain_patter::{CanopyWash, MuffledCanopy, PatterDrops, WindSwell};
+use super::MonoSource;
+
 const EPSTEIN_LOOP_WAV: &[u8] = include_bytes!("../assets/epstein_loop.wav");
 const EPSTEIN_IGNITE_WAV: &[u8] = include_bytes!("../assets/epstein_ignite.wav");
 const BELL_LOOP_WAV: &[u8] = include_bytes!("../assets/bell_loop.wav");
@@ -61,6 +65,37 @@ impl TapeSample {
 
     pub const fn soil_crumble() -> Self {
         Self::new(SOIL_CRUMBLE_WAV, 44, 24000)
+    }
+
+    pub fn rain_loop() -> Self {
+        static RAIN_PCM: OnceLock<&'static [u8]> = OnceLock::new();
+        let raw = RAIN_PCM.get_or_init(|| {
+            let chain = MuffledCanopy::woodland_rain(WindSwell::periodic(PatterDrops::foliage(
+                CanopyWash::velvet(0x517C_C1B7),
+            )));
+            Self::bake_periodic_pcm(chain, 72_000, 24_000)
+        });
+        Self::new(raw, 0, 24_000)
+    }
+
+    pub fn snow_loop() -> Self {
+        static SNOW_PCM: OnceLock<&'static [u8]> = OnceLock::new();
+        let raw = SNOW_PCM.get_or_init(|| {
+            let chain = MuffledCanopy::polar_snow(WindSwell::periodic(CanopyWash::velvet(0x9E37_79B9)));
+            Self::bake_periodic_pcm(chain, 72_000, 24_000)
+        });
+        Self::new(raw, 0, 24_000)
+    }
+
+    fn bake_periodic_pcm<S: MonoSource>(source: S, frames: usize, rate: u32) -> &'static [u8] {
+        let mut bytes = Vec::with_capacity(frames * 2);
+        let inv = 1.0 / (rate as f32);
+        for idx in 0..frames {
+            let amp = source.dry_sample((idx as f32) * inv);
+            let pcm = (amp * 28_000.0).round().clamp(-32_767.0, 32_767.0) as i16;
+            bytes.extend_from_slice(&pcm.to_le_bytes());
+        }
+        Box::leak(bytes.into_boxed_slice())
     }
 
     pub const fn rate(&self) -> u32 {

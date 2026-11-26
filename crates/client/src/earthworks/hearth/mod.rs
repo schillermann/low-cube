@@ -1,7 +1,9 @@
 mod forge;
 
 use crate::attire::{BeltSatchel, HeldRelic, YouthAttire};
-pub use self::forge::{AtmosphericBloomery, VacuumForge, WorkstationStation};
+pub use self::forge::WorkstationStation;
+#[cfg(test)]
+pub use self::forge::{AtmosphericBloomery, VacuumForge};
 
 /// Focused nourishment sink decoupling `MealOutcome` from concrete `AvatarBody` internals.
 pub trait NourishedBody {

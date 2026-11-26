@@ -9,6 +9,7 @@ mod helm_optics;
 #[cfg(test)]
 mod gesture;
 mod planetary;
+mod rain_ear;
 mod satchel_guard;
 mod sight;
 mod span;

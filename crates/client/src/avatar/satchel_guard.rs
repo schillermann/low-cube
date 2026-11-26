@@ -28,6 +28,8 @@ impl<M: AvatarCondition> AvatarCondition for SatchelAvatar<M> {
     fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool { self.origin.lethal_contact(world) }
     fn satchel_open(&self) -> bool { self.origin.satchel_open() }
     fn driving(&self) -> bool { self.origin.driving() }
+    fn sheltered_berth(&self) -> bool { self.origin.sheltered_berth() }
+    fn ear_locus(&self) -> glam::Vec3 { self.origin.ear_locus() }
     fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.abort_hands(world) }
     fn step_satchel_idle(&mut self, dt: f32) { self.origin.step_satchel_idle(dt); }
     fn step_blackout(&mut self, dt: f32, world: &dyn PlanetaryWorld) { self.origin.step_blackout(dt, world); }

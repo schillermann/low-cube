@@ -171,6 +171,7 @@ impl TomeState {
         if open { Self::FieldOpen } else { Self::Closed }
     }
 
+    #[cfg(test)]
     pub const fn at_anvil(open: bool) -> Self {
         if open { Self::AnvilOpen } else { Self::Closed }
     }

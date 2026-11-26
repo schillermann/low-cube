@@ -113,21 +113,20 @@ void main() {
         if (r >= 0.96) {
             discard;
         }
-        float base_a = clamp(-v_glow - 4.0, 0.01, 0.65);
+        float base_a = clamp(-v_glow - 4.0, 0.01, 0.92);
         float seed = (length(v_normal) - 1.0) * 6.2831853;
         float ang = (r > 1e-4) ? atan(p.y, p.x) : 0.0;
-        float lobes = 0.13 * sin(ang * 3.0 + seed)
-                    + 0.08 * cos(ang * 5.0 - seed * 1.7)
-                    + 0.04 * sin(ang * 7.0 + seed * 2.3);
-        float max_r = clamp(0.70 + lobes, 0.45, 0.95);
+        float lobes = 0.08 * sin(ang * 2.0 + seed)
+                    + 0.05 * cos(ang * 3.0 - seed * 1.4);
+        float max_r = clamp(0.78 + lobes, 0.64, 0.92);
         if (r >= max_r) {
             discard;
         }
         float u = r / max_r;
         float soft = 1.0 - u * u;
-        float puff = soft * soft;
-        float wisp = 0.88 + 0.12 * sin(p.x * 3.6 + seed) * cos(p.y * 3.2 - seed);
-        float alpha = base_a * puff * wisp;
+        float storm_fill = smoothstep(0.58, 0.88, base_a);
+        float puff = mix(soft * soft, soft * (0.72 + 0.28 * soft), storm_fill * 0.65);
+        float alpha = base_a * puff;
         if (alpha < 0.004) {
             discard;
         }
@@ -135,8 +134,8 @@ void main() {
         vec3 up = world_plateau_zenith(v_world);
         vec3 dome_n = normalize(normalize(v_normal) + up * (0.22 - u * 0.18));
         float l_dot = dot(dome_n, sun);
-        float silver = (1.0 - soft) * soft * clamp(l_dot * 0.5 + 0.5, 0.0, 1.0) * 0.16;
-        float facet = clamp(l_dot * 0.22 + 0.82, 0.58, 1.04);
+        float silver = (1.0 - soft) * soft * clamp(l_dot * 0.5 + 0.5, 0.0, 1.0) * 0.16 * (1.0 - storm_fill * 0.72);
+        float facet = clamp(l_dot * 0.22 + 0.82, 0.52, 1.04);
         float mu = dot(up, sun);
         float day = smoothstep(-0.24, 0.24, mu);
         float dusk = exp(-pow((mu - 0.02) / 0.18, 2.0)) * (1.0 - smoothstep(0.18, 0.45, mu));
@@ -181,8 +180,12 @@ void main() {
         }
         float ridge = 1.0 - abs(lu - center) / half_w * 0.25;
         vec3 blade_col = v_color * vec3(0.75 + 0.42 * t, 0.84 + 0.34 * t, 0.70 + 0.18 * t) * ridge;
-        float diff = abs(dot(normalize(v_normal), normalize(u_light_dir))) * 0.45 + 0.55;
-        frag_color = vec4(min(blade_col * diff, vec3(1.0)), 1.0);
+        float sun_beam = clamp(length(u_light_dir), 0.25, 1.0);
+        float shade = 1.0 - sun_beam;
+        float diff = abs(dot(normalize(v_normal), normalize(u_light_dir))) * (0.45 * sun_beam)
+                   + mix(0.55, 0.36, shade);
+        vec3 storm_tint = mix(vec3(1.0), vec3(0.84, 0.90, 0.98), shade);
+        frag_color = vec4(min(blade_col * storm_tint * diff, vec3(1.0)), 1.0);
         return;
     }
     vec3 norm = normalize(v_normal);
@@ -198,9 +201,12 @@ void main() {
         float riser = (rx || ry) ? 0.88 : 1.0;
         base_col = clamp(v_color * tier_scale(t) * riser, vec3(0.0), vec3(1.0));
     }
+    float sun_beam = clamp(length(u_light_dir), 0.25, 1.0);
+    float shade = 1.0 - sun_beam;
     float l_dot = dot(norm, normalize(u_light_dir));
     float diff = max(l_dot, 0.0);
-    vec3 light = vec3(0.35) + vec3(0.65) * diff;
+    vec3 amb_floor = mix(vec3(0.35), vec3(0.22, 0.25, 0.31), shade);
+    vec3 light = amb_floor + vec3(0.65 * sun_beam) * diff;
     vec3 lit = base_col * light;
     float cam_dist = 1.0 / max(gl_FragCoord.w, 0.0001);
     float orb = smoothstep(55.0, 220.0, cam_dist) * (1.0 - smoothstep(450.0, 900.0, length(v_world)));

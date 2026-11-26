@@ -18,7 +18,9 @@ pub use medium::{CubicAirVolume, HorizonHazeMedium, SolarFluxMedium};
 pub use optics::CubicRayleighShell;
 #[cfg(test)]
 pub use optics::{CubicSolarBody, SolarDisc};
-pub use planets::{AtlasSkyProjection, EphemerisSync, SkyProjection};
+#[cfg(test)]
+pub use planets::AtlasSkyProjection;
+pub use planets::{EphemerisSync, SkyProjection, StormDarkenedProjection};
 pub use strata::{BandCurve, PlateauZenith, SmoothBand, ZenithField};
 #[cfg(test)]
 pub use strata::{
@@ -49,6 +51,7 @@ pub trait AtmosphericEnvelope: Copy {
     fn within_reach(&self, gap: f64) -> bool;
     fn sky_illumination(&self, sun_dir: Vec3) -> (Vec3, Vec4, f32);
     fn sky_illumination_with_flux(&self, sun_dir: Vec3, solar_half_ang: f32) -> (Vec3, Vec4, f32);
+    fn darkened(&self, overcast: f32) -> AtmosphericShell;
     fn for_pass_camera(&self, cam_pos: Vec3) -> AtmosphericShell;
     fn bind_gl(&self, gl: &glow::Context, u_geom: &glow::UniformLocation, u_tint: &glow::UniformLocation);
     fn bind_magnetosphere(
@@ -183,13 +186,29 @@ impl AtmosphericEnvelope for AtmosphericShell {
                     CubicRayleighShell::new(body_half, optics.thickness, optics.day_tint, flux)
                         .scatter_along(rel_cam, body_up, sun_dir);
                 let sky_lum = scatter_rgb.x.max(scatter_rgb.y).max(scatter_rgb.z);
-                let night = 1.0 - (sky_lum / 0.36).clamp(0.0, 1.0);
+                let lit_gate = 1.0 - SmoothBand::new(0.35, 0.62).sample(scatter_alpha);
+                let night = (1.0 - (sky_lum / 0.36).clamp(0.0, 1.0)) * lit_gate;
                 let iono_rgb = PolarIonosphere::planetary(body_half, magnetosphere, night, 0.0)
                     .radiance_along(rel_cam, body_up, sun_dir)
                     * 0.18;
                 let zenith_rgb = (space_black * (1.0 - scatter_alpha) + scatter_rgb + iono_rgb)
                     .clamp(Vec3::ZERO, Vec3::ONE);
                 (body_up, zenith_rgb.extend(1.0), night)
+            }
+        }
+    }
+
+    fn darkened(&self, overcast: f32) -> AtmosphericShell {
+        if overcast <= 0.01 {
+            return *self;
+        }
+        match self.state {
+            ShellState::Vacuum => Self::vacuum(),
+            ShellState::CubicBody { rel_cam, body_half, optics, magnetosphere } => {
+                let storm_slate = Vec3::new(0.11, 0.14, 0.20);
+                let k = (overcast * 0.86).clamp(0.0, 0.88);
+                let dimmed = ShellOptics::new(optics.day_tint.lerp(storm_slate, k), optics.thickness);
+                Self::cubic(rel_cam, body_half, dimmed, magnetosphere)
             }
         }
     }

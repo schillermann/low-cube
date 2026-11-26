@@ -7,6 +7,7 @@ use crate::rayleigh_shell::{
 /// Focused contract for polymorphic planetary ephemeris state (`CadenceFallback` vs. `HelioActive`).
 pub trait FirmamentEphemeris: Copy {
     fn for_pass_camera(&self, cam_pos: Vec3) -> VaultEphemeris;
+    fn sunbeam_transmittance(&self) -> f32;
     fn evaluate_illumination<R>(
         &self,
         helio_sink: impl FnOnce(Vec3, (f32, f32), AtmosphericShell) -> R,
@@ -69,6 +70,24 @@ impl FirmamentEphemeris for VaultEphemeris {
             EphemerisMode::CadenceFallback => Self::dormant(),
             EphemerisMode::HelioActive { planet_cubes, occluder, atmosphere } => {
                 Self::active(planet_cubes, occluder, atmosphere.for_pass_camera(cam_pos))
+            }
+        }
+    }
+
+    fn sunbeam_transmittance(&self) -> f32 {
+        match self.mode {
+            EphemerisMode::CadenceFallback => 1.0,
+            EphemerisMode::HelioActive { planet_cubes, occluder, .. } => {
+                let raw_sun = Vec3::new(planet_cubes[7][0], planet_cubes[7][1], planet_cubes[7][2]);
+                let sun = raw_sun.normalize_or_zero();
+                let weather_beam = raw_sun.length().clamp(0.28, 1.0);
+                let occ_dir = Vec3::new(occluder[0], occluder[1], occluder[2]).normalize_or_zero();
+                let eclipse_gate = if occluder[3] > 0.001 && occ_dir.dot(sun) > 0.992 {
+                    (occluder[3] / planet_cubes[7][3].max(0.001)).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                (weather_beam * (1.0 - 0.58 * eclipse_gate)).clamp(0.25, 1.0)
             }
         }
     }

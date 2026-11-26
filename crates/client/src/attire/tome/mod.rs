@@ -15,6 +15,7 @@ use super::YouthAttire;
 
 use self::bookmark::TomeBookmark;
 use self::domain::{FolioSection, FolioSelection, FolioTab};
+#[cfg(test)]
 pub use self::domain::CraftVenue;
 pub use self::entry::CraftingEntry;
 #[cfg(test)]
@@ -89,6 +90,7 @@ impl ArtisanTome {
         Self::from_parts(TomeBookmark::at_recipe(cursor, open), CraftJournal::empty())
     }
 
+    #[cfg(test)]
     pub const fn at_anvil(cursor: usize, open: bool) -> Self {
         Self::from_parts(TomeBookmark::at_anvil_recipe(cursor, open), CraftJournal::empty())
     }
@@ -101,6 +103,7 @@ impl ArtisanTome {
         self.bookmark.open()
     }
 
+    #[cfg(test)]
     pub const fn venue(&self) -> CraftVenue {
         self.bookmark.venue()
     }

@@ -96,6 +96,7 @@ impl<'a, S> IndexTabbedFolio<'a, S> {
         }
     }
 
+    #[cfg(test)]
     pub const fn new(
         origin: S,
         focused_tab: FolioTab,

@@ -84,6 +84,7 @@ impl<'a, S> ReadyStockShelf<'a, S> {
         }
     }
 
+    #[cfg(test)]
     pub const fn new(
         origin: S,
         scope: StockScope,

@@ -9,6 +9,7 @@ mod hoofbeats;
 mod hull_chorus;
 mod nozzle_roar;
 mod outbox;
+mod rain_patter;
 mod roe_bark;
 mod shutter;
 mod sink;
@@ -31,6 +32,10 @@ pub use self::hoofbeats::RoeHoofbeats;
 pub use self::hull_chorus::{HullChorus, HullWaveTrace, PropulsionCue};
 pub use self::nozzle_roar::NozzleRoar;
 use self::outbox::SoundOutbox;
+pub use self::rain_patter::{
+    CanopyWash, MuffledCanopy, PatterDrops, PrecipitationCue, RainWaveTrace, ShowerDemand,
+    WindSwell,
+};
 pub use self::roe_bark::RoeBark;
 pub use self::shutter::ShutterClick;
 pub use self::spatial::{MonoSource, SpatialStage};

@@ -1,4 +1,4 @@
-use glam::Vec3;
+use glam::{Quat, Vec3};
 use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
 use super::moisture::{ConvergenceCell, WeatherCurve, WeatherSample};
@@ -26,7 +26,7 @@ impl CloudStratum {
         self.layer
     }
 
-    fn metric_scale(self) -> f32 {
+    pub(super) fn metric_scale(self) -> f32 {
         (self.half_size / 64.0).clamp(0.45, 6.0)
     }
 }
@@ -79,12 +79,21 @@ impl CloudVolume {
         sample: ConvergenceCell,
     ) -> Self {
         let (base_h, max_thick) = stratum.elevation_band();
-        let (mass, dark, _, _) = sample.transfer(|m, d, r, f| (m, d, r, f));
-        let half_w = cell_span * stratum.footprint_ratio() * (0.56 + 0.48 * mass);
-        let thick = max_thick * (0.38 + 0.62 * mass + 0.18 * dark);
+        let (mass, dark, rain, _) = sample.transfer(|m, d, r, f| (m, d, r, f));
+        let storm = if stratum.layer_index() == 0 {
+            WeatherCurve::new(0.01, 0.28)
+                .sample(rain)
+                .max(WeatherCurve::new(0.36, 0.68).sample(dark))
+        } else {
+            0.0
+        };
+        let swell = 1.0 + 1.48 * storm;
+        let half_w = cell_span * stratum.footprint_ratio() * (0.56 + 0.48 * mass) * swell;
+        let low_h = base_h - 6.0 * stratum.metric_scale() * storm;
+        let thick = max_thick * (0.38 + 0.62 * mass + 0.35 * storm);
         Self::new(
-            (cu - half_w, cu + half_w, cv - half_w * 0.88, cv + half_w * 0.88),
-            (base_h, base_h + thick),
+            (cu - half_w, cu + half_w, cv - half_w * 0.90, cv + half_w * 0.90),
+            (low_h, low_h + thick),
             sample,
             stratum.layer_index(),
         )
@@ -132,12 +141,17 @@ impl CloudVolume {
         if !self.sample.present() || fade <= 0.02 {
             return;
         }
-        let (mass, dark, _, _) = self.sample.transfer(|m, d, r, f| (m, d, r, f));
-        let crown = Vec3::new(0.99, 0.99, 1.00).lerp(Vec3::new(0.56, 0.62, 0.72), dark);
-        let flank = Vec3::new(0.93, 0.96, 1.00).lerp(Vec3::new(0.42, 0.48, 0.58), dark);
-        let belly = Vec3::new(0.85, 0.90, 0.98).lerp(Vec3::new(0.24, 0.30, 0.42), dark);
+        let (mass, dark, rain, _) = self.sample.transfer(|m, d, r, f| (m, d, r, f));
+        let storm = WeatherCurve::new(0.01, 0.28)
+            .sample(rain)
+            .max(WeatherCurve::new(0.36, 0.68).sample(dark));
+        let crown = Vec3::new(0.99, 0.99, 1.00).lerp(Vec3::new(0.34, 0.39, 0.48), dark);
+        let flank = Vec3::new(0.93, 0.96, 1.00).lerp(Vec3::new(0.20, 0.24, 0.33), dark);
+        let belly = Vec3::new(0.85, 0.90, 0.98).lerp(Vec3::new(0.12, 0.15, 0.22), dark);
+        let fair_a = 0.28 + 0.24 * mass;
+        let storm_a = 0.80 + 0.10 * storm;
         let base_a = match self.layer {
-            0 => (0.28 + 0.28 * mass + 0.08 * dark) * fade,
+            0 => (fair_a + (storm_a - fair_a) * storm) * fade,
             1 => (0.16 + 0.18 * mass) * fade,
             _ => (0.10 + 0.14 * mass) * fade,
         };
@@ -151,11 +165,14 @@ impl CloudVolume {
 
         if self.layer == 0 {
             let (j1, k1) = self.puff_hash(1);
-            let off_u = (j1 - 0.5) * ru * 0.75;
-            let off_v = (k1 - 0.5) * rv * 0.75;
-            self.emit_puff(viewer, (cu, cv, h0 + dh * 0.30), (ru * 0.96, rv * 0.86), (-up * 0.45 + t_ax * 0.2, belly, base_a, 0), frame, target);
-            self.emit_puff(viewer, (cu + off_u, cv + off_v, h0 + dh * 0.46), (ru * 0.78, rv * 0.74), (up * 0.45 + t_ax * 0.5, flank, base_a * 0.92, 1), frame, target);
-            self.emit_puff(viewer, (cu - off_u * 0.85, cv - off_v * 0.80, h0 + dh * 0.50), (ru * 0.72, rv * 0.70), (up * 0.55 - b_ax * 0.4, flank.lerp(crown, 0.45), base_a * 0.90, 2), frame, target);
+            let off_u = (j1 - 0.5) * ru * 0.72;
+            let off_v = (k1 - 0.5) * rv * 0.72;
+            if storm > 0.18 {
+                self.emit_puff(viewer, (cu, cv, h0 + dh * 0.18), (ru * 1.08, rv * 1.02), (-up, belly, base_a, 6), frame, target);
+            }
+            self.emit_puff(viewer, (cu, cv, h0 + dh * 0.30), (ru * 0.96, rv * 0.88), (-up * 0.55 + t_ax * 0.2, belly, base_a, 0), frame, target);
+            self.emit_puff(viewer, (cu + off_u, cv + off_v, h0 + dh * 0.46), (ru * 0.80, rv * 0.76), (up * 0.35 + t_ax * 0.5, flank, base_a * 0.94, 1), frame, target);
+            self.emit_puff(viewer, (cu - off_u * 0.85, cv - off_v * 0.80, h0 + dh * 0.50), (ru * 0.76, rv * 0.72), (up * 0.45 - b_ax * 0.4, flank.lerp(crown, 0.40), base_a * 0.92, 2), frame, target);
             if mass > 0.22 {
                 self.emit_puff(viewer, (cu - off_v * 0.35, cv + off_u * 0.35, h0 + dh * 0.78), (ru * 0.74, rv * 0.72), (up, crown, base_a * 0.95, 3), frame, target);
             }
@@ -183,18 +200,19 @@ impl CloudVolume {
         let to_eye = viewer - pos;
         let dist = to_eye.length();
         let r_max = ru.max(rv).max(0.5);
-        let near_fade = WeatherCurve::new(r_max * 0.42, r_max * 1.65).sample(dist);
-        let a = (alpha * near_fade).clamp(0.0, 0.62);
+        let near_fade = WeatherCurve::new(r_max * 0.32, r_max * 1.25).sample(dist);
+        let a = (alpha * near_fade).clamp(0.0, 0.90);
         if a < 0.015 || dist < 0.05 {
             return;
         }
         let view_n = to_eye / dist;
-        let ref_ax = if view_n.dot(frame.tangent()).abs() < 0.88 {
-            frame.tangent()
+        let anchor = if view_n.dot(-frame.normal()) > -0.95 {
+            -frame.normal()
         } else {
-            frame.bitangent()
+            frame.normal()
         };
-        let right = ref_ax.cross(view_n).normalize_or_zero();
+        let align_rot = Quat::from_rotation_arc(anchor, view_n);
+        let right = (align_rot * frame.tangent()).normalize_or_zero();
         let up_ax = view_n.cross(right).normalize_or_zero();
         let (roll_u, seed_u) = self.puff_hash(slot + 8);
         let roll = roll_u * std::f32::consts::TAU;

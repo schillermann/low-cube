@@ -177,10 +177,11 @@ impl TroposphereField for MoistureField {
         let t = self.epoch_secs * wind_k;
 
         if layer == 0 {
-            let su1 = u / span - t * 0.022;
-            let sv1 = v / span - t * 0.009;
-            let su2 = u / (span * 1.32) + t * 0.008;
-            let sv2 = v / (span * 1.32) - t * 0.018;
+            let front_span = span * 2.1;
+            let su1 = u / front_span - t * 0.015;
+            let sv1 = v / front_span - t * 0.006;
+            let su2 = u / (front_span * 1.28) + t * 0.005;
+            let sv2 = v / (front_span * 1.28) - t * 0.012;
             let bank_a = SmoothScalarField::new(seed ^ 0xA511_E9B3).sample(su1, sv1);
             let bank_b = SmoothScalarField::new(seed ^ 0x63D8_3595).sample(su2, sv2);
             let potential =
@@ -190,17 +191,18 @@ impl TroposphereField for MoistureField {
             }
             let excess = ((potential - 0.95) / 0.24).clamp(0.0, 1.0);
             let phase = SmoothScalarField::new(seed ^ 0x3C6E_F372).sample(su1 * 0.45, sv2 * 0.45);
-            let cycle = (phase + t * 0.0065).rem_euclid(1.0);
+            let cycle = (phase + t * 0.0075).rem_euclid(1.0);
             let onset = WeatherCurve::new(0.18, 0.36).sample(cycle);
             let taper = 1.0 - WeatherCurve::new(0.76, 0.92).sample(cycle);
             let rain_rate = (excess * onset * taper * 1.25).clamp(0.0, 1.0);
             let drained = WeatherCurve::new(0.42, 0.94).sample(cycle) * 0.22 * excess;
             let condensed = ((potential - drained - 0.72) / 0.48).clamp(0.0, 1.0);
             let upper_shadow = self.sample_layer(1, u, v).mass * 0.16;
-            let darkness = (WeatherCurve::new(0.26, 0.60).sample(condensed + upper_shadow * 0.3)
-                * 0.62
-                + excess * 0.20)
-                .clamp(0.0, 0.74);
+            let darkness = (WeatherCurve::new(0.26, 0.58).sample(condensed + upper_shadow * 0.3)
+                * 0.66
+                + excess * 0.22
+                + rain_rate * 0.12)
+                .clamp(0.0, 0.90);
             return ConvergenceCell::new(condensed, darkness, rain_rate, frozen);
         }
 

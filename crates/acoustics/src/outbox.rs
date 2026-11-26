@@ -2,6 +2,7 @@ use std::sync::mpsc::{self, Receiver, SyncSender};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use super::deck::{HullDriveDemand, SoundDeck};
+use super::rain_patter::ShowerDemand;
 use super::sink::{WaveSink, CHUNK_SAMPLES};
 use super::tape::TapeSample;
 use super::voice::BurstVoice;
@@ -12,6 +13,7 @@ const PREBUFFER_CHUNKS: usize = 3;
 /// Non-blocking message delivered from 120 Hz gameplay ticks to the real-time audio stream thread.
 enum AudioOrder {
     Drive(HullDriveDemand),
+    Shower(ShowerDemand),
     TapeBurst(TapeSample, f32, (f32, f32)),
     RiffBurst(Vec<u8>),
 }
@@ -32,6 +34,7 @@ impl SoundOutbox {
         let _ = self.armed;
         match order {
             AudioOrder::Drive(demand) => deck.update_drive(demand),
+            AudioOrder::Shower(demand) => deck.update_shower(demand),
             AudioOrder::TapeBurst(tape, pitch, gains) => {
                 deck.push_burst(BurstVoice::from_tape(tape, pitch, gains));
             }
@@ -129,5 +132,13 @@ impl SoundOutbox {
             return;
         }
         let _ = self.channel().try_send(AudioOrder::Drive(demand));
+    }
+
+    pub(super) fn submit_shower(self, demand: ShowerDemand) {
+        if !self.armed {
+            let _ = demand;
+            return;
+        }
+        let _ = self.channel().try_send(AudioOrder::Shower(demand));
     }
 }

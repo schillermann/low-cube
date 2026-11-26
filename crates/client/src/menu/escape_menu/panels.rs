@@ -271,7 +271,12 @@ impl StudioPanels {
         unsafe {
             gl.disable(glow::DEPTH_TEST);
             gl.enable(glow::BLEND);
-            gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+            gl.blend_func_separate(
+                glow::SRC_ALPHA,
+                glow::ONE_MINUS_SRC_ALPHA,
+                glow::ONE,
+                glow::ONE_MINUS_SRC_ALPHA,
+            );
         }
         shader.bind(gl, &Mat4::IDENTITY, Vec3::Z);
         ui_batch.draw(gl);

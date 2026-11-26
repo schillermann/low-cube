@@ -8,6 +8,17 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.128.0] - 2026-11-26
+
+### Added
+- Added storm-darkened overcast sky, foliage/terrain sunlight attenuation, and multi-stage precipitation acoustics (`crates/world/src/weather/`, `crates/client/src/rayleigh_shell/`, `crates/client/src/diurnal_pipeline/`, `crates/acoustics/src/rain_patter/` & `crates/client/src/avatar/rain_ear.rs`):
+  - `PlanetaryWeather::overcast_at`, `StormDarkenedProjection`, `AtmosphericEnvelope::darkened`, and `OvercastCanopyEpoch` (`crates/world/src/weather/mod.rs`, `crates/client/src/rayleigh_shell/planets.rs`, `mod.rs`, `crates/client/src/diurnal_pipeline/epoch.rs` & `crates/engine/src/shader/glsl.rs`): swells active rain clouds into a closed dark Nimbostratus canopy, darkens Rayleigh sky optics and solar corona halos beneath storm decks without triggering false daytime stars or polar aurora, and attenuates direct terrain/grass sunlight while clearing back to full sunshine above the cloud deck.
+  - `MuffledCanopy(WindSwell(PatterDrops(CanopyWash)))`, `ShowerDemand`, `RainWaveTrace`, `PrecipitationCue`, and `RainEarMotor` (`crates/acoustics/src/rain_patter/`, `deck.rs`, `tape.rs` & `crates/client/src/avatar/rain_ear.rs`): streams exact-periodic `24 kHz` woodland rain patter, cabin-muffled roof rain, and hushed polar snowfall loops through `SoundDeck` with zero runtime heap allocations and smooth lease fadeout.
+
+### Fixed
+- Fixed Wayland/X11/DWM compositor destination-alpha bleed-through across translucent clouds, plumes, and modal backdrops by enforcing opaque window surfaces in `GlHostEnvironment::attach` (`crates/client/src/host_env.rs`), switching all blend passes to `gl.blend_func_separate` (`vessel_stage.rs`, `chat_modal.rs`, `solar_chart/mod.rs`, `escape_menu/panels.rs`), and adding a permanent `SourceFileAudit` guard in `crates/client/src/architecture_tests.rs`.
+- Replaced threshold-switching cloud billboard axes in `CloudVolume::emit_puff` (`crates/world/src/weather/strata.rs`) with continuous `Quat::from_rotation_arc` alignment, removed internal grid-Moiré terms in `glsl.rs`, and gated test-only hearth/folio constructors under `#[cfg(test)]` for zero compiler warnings across `--bins` and `--tests`.
+
 ## [0.127.1] - 2026-11-26
 
 ### Fixed

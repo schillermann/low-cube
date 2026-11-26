@@ -37,16 +37,19 @@ impl HostEnvironment for GlHostEnvironment {
     fn attach(&self, event_loop: &ActiveEventLoop) -> Box<dyn PlatformSurface> {
         let window_attributes = WindowAttributes::default()
             .with_title(self.title)
+            .with_transparent(false)
             .with_inner_size(winit::dpi::LogicalSize::new(self.width, self.height));
 
-        let template = ConfigTemplateBuilder::new().with_alpha_size(8);
+        let template = ConfigTemplateBuilder::new().with_transparency(false);
         let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_attributes));
 
         let (window, gl_config) = display_builder
             .build(event_loop, template, |configs| {
                 configs
                     .reduce(|accum, config| {
-                        if config.num_samples() > accum.num_samples() {
+                        let opaque_pref = (config.alpha_size() == 0, config.num_samples());
+                        let accum_pref = (accum.alpha_size() == 0, accum.num_samples());
+                        if opaque_pref > accum_pref {
                             config
                         } else {
                             accum

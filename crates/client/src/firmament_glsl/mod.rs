@@ -104,12 +104,15 @@ void main() {
     float core_open = (body_h > 0.5 && core_hit.x > 0.0 && core_hit.x <= core_hit.y) ? 0.0 : 1.0;
     float halo_horizon = mix(smoothstep(-0.38, -0.04, dot(active_sun, cam_up)), 1.0, atmo_fade);
     float corona_scale = clamp(s_half / 0.00465, 0.25, 4.5);
+    float clear_sky = helio_active ? clamp(max(day_tint.r, max(day_tint.g, day_tint.b)) / 0.55, 0.14, 1.0) : 1.0;
+    float halo_att = mix(1.0, clear_sky, atmo.a);
     vec3 sun_core = mix(vec3(1.0, 0.95, 0.62), vec3(1.0, 0.72, 0.25), edge_bevel) * sun_cube * 2.8 * (1.0 - eclipse_occ * 0.985);
-    vec3 sun_halo = (vec3(1.0, 0.58, 0.14) * pow(sun_dot, 36.0 / sqrt(corona_scale)) * 0.44 + vec3(0.95, 0.34, 0.08) * pow(sun_dot, 9.0) * 0.16) * sqrt(corona_scale) * (1.0 - eclipse_occ * 0.85);
+    vec3 sun_halo = (vec3(1.0, 0.58, 0.14) * pow(sun_dot, 36.0 / sqrt(corona_scale)) * 0.44 + vec3(0.95, 0.34, 0.08) * pow(sun_dot, 9.0) * 0.16) * sqrt(corona_scale) * halo_att * (1.0 - eclipse_occ * 0.85);
     vec3 sun_color = sun_core * core_open + sun_halo * (core_open * halo_horizon);
 
     float sky_lum = max(atmo.r, max(atmo.g, atmo.b));
-    float star_vis = 1.0 - clamp(sky_lum / 0.36, 0.0, 1.0);
+    float lit_day_gate = 1.0 - smoothstep(0.35, 0.62, atmo.a);
+    float star_vis = (1.0 - clamp(sky_lum / 0.36, 0.0, 1.0)) * lit_day_gate;
     float belt_plane = helio_active ? abs(dir.y) : abs(dot(dir, u_celestial_pole));
     vec3 belt_dust = vec3(0.42, 0.39, 0.36) * exp(-belt_plane * 26.0) * (0.04 + 0.03 * star_noise(floor(dir * 60.0))) * star_vis;
     vec3 beacons = vec3(0.0);

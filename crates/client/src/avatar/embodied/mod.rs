@@ -137,6 +137,8 @@ impl AvatarCondition for EmbodiedAvatar {
     fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool { world.lethal_at(self.body.position()) }
     fn satchel_open(&self) -> bool { self.gear.satchel_open() }
     fn driving(&self) -> bool { self.body.driving() }
+    fn sheltered_berth(&self) -> bool { !self.body.standing() }
+    fn ear_locus(&self) -> Vec3 { self.body.position() }
 
     fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
         self.gear.abort_hands(self.surface_reach(), world)

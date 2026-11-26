@@ -36,6 +36,18 @@ impl FirmamentPlanets {
         Self::new([[0.0; 4]; 8], [0.0; 4], AtmosphericShell::vacuum())
     }
 
+    pub fn with_overcast(self, overcast: f32) -> Self {
+        let clamped = overcast.clamp(0.0, 1.0);
+        let beam = (1.0 - 0.64 * clamped).clamp(0.32, 1.0);
+        let mut cubes = self.planet_cubes;
+        let raw_sun = Vec3::new(cubes[7][0], cubes[7][1], cubes[7][2]);
+        if raw_sun.length_squared() > 1e-6 {
+            let scaled = raw_sun.normalize() * beam;
+            cubes[7] = [scaled.x, scaled.y, scaled.z, cubes[7][3]];
+        }
+        Self::new(cubes, self.occluder, self.atmosphere.darkened(clamped))
+    }
+
     #[cfg(test)]
     pub fn transfer<R>(self, sink: impl FnOnce(&[[f32; 4]; 8], [f32; 4]) -> R) -> R {
         sink(&self.planet_cubes, self.occluder)
@@ -124,5 +136,41 @@ impl<C: AirCatalog> SkyProjection for AtlasSkyProjection<C> {
             }
         }
         FirmamentPlanets::new(cubes, best_occ.1, self.catalog.nearest_shell(&snaps, viewer_d))
+    }
+}
+
+/// `SkyProjection` decorator darkening terrestrial `AtmosphericShell` optics beneath rain clouds (`<= 4` fields).
+#[derive(Clone, Copy, Debug)]
+pub struct StormDarkenedProjection<P> {
+    origin: P,
+    atlas: CelestialAtlas,
+}
+
+impl<P> StormDarkenedProjection<P> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(origin: P, atlas: CelestialAtlas) -> Self {
+        Self { origin, atlas }
+    }
+}
+
+impl StormDarkenedProjection<AtlasSkyProjection<SolarAirCatalog>> {
+    /// Secondary constructor decorating `AtlasSkyProjection::solar(atlas)` with live `TroposphereDeck` overcast.
+    pub const fn solar(atlas: CelestialAtlas) -> Self {
+        Self::new(AtlasSkyProjection::solar(atlas), atlas)
+    }
+}
+
+impl<P: SkyProjection> SkyProjection for StormDarkenedProjection<P> {
+    fn project_from(&self, viewer: Vec3) -> FirmamentPlanets {
+        let base = self.origin.project_from(viewer);
+        let Some(eph) = self.atlas.ephemeris() else {
+            return base;
+        };
+        if !eph.frame().earth_centered() {
+            return base;
+        }
+        use world::PlanetaryWeather as _;
+        let deck = world::TroposphereDeck::new(eph.proportions().earth_half(), eph.epoch_secs() as f32);
+        base.with_overcast(deck.overcast_at(viewer))
     }
 }

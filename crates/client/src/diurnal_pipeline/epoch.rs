@@ -79,3 +79,28 @@ impl DiurnalEpoch for MeasuredEpoch {
         (sun_dir, view, glow)
     }
 }
+
+/// `DiurnalEpoch` decorator attenuating direct terrain sunlight beneath rain clouds and solar eclipses.
+pub struct OvercastCanopyEpoch<E> {
+    origin: E,
+}
+
+impl<E> OvercastCanopyEpoch<E> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(origin: E) -> Self {
+        Self { origin }
+    }
+}
+
+impl<E: DiurnalEpoch> DiurnalEpoch for OvercastCanopyEpoch<E> {
+    fn evaluate_pass(
+        &self,
+        inv_view_proj: Mat4,
+        cam_pos: Vec3,
+        ephemeris: &VaultEphemeris,
+    ) -> (Vec3, VaultView, VaultGlow) {
+        let (sun_dir, view, glow) = self.origin.evaluate_pass(inv_view_proj, cam_pos, ephemeris);
+        let beam = ephemeris.sunbeam_transmittance();
+        (sun_dir.normalize_or_zero() * beam, view, glow)
+    }
+}

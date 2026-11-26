@@ -8,6 +8,7 @@ use crate::flight::GravitationalFlight;
 use crate::flight::SurfaceFlight;
 use super::condition::AvatarCondition;
 use super::embodied::EmbodiedAvatar;
+use super::rain_ear::RainEarMotor;
 use super::satchel_guard::SatchelAvatar;
 use super::{Avatar, AvatarMotor, AvatarOptics, AvatarPresence, BlackBoxDeck, PhotoPort};
 
@@ -34,6 +35,18 @@ impl<M: AvatarCondition> MortalMotor<M> {
     fn incapacitated(&self, world: &dyn PlanetaryWorld) -> bool {
         self.origin.perished() || self.origin.lethal_contact(world)
     }
+}
+
+impl<M: AvatarCondition> AvatarCondition for MortalMotor<M> {
+    fn perished(&self) -> bool { self.origin.perished() }
+    fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool { self.origin.lethal_contact(world) }
+    fn satchel_open(&self) -> bool { self.origin.satchel_open() }
+    fn driving(&self) -> bool { self.origin.driving() }
+    fn sheltered_berth(&self) -> bool { self.origin.sheltered_berth() }
+    fn ear_locus(&self) -> Vec3 { self.origin.ear_locus() }
+    fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.abort_hands(world) }
+    fn step_satchel_idle(&mut self, dt: f32) { self.origin.step_satchel_idle(dt); }
+    fn step_blackout(&mut self, dt: f32, world: &dyn PlanetaryWorld) { self.origin.step_blackout(dt, world); }
 }
 
 impl<M: AvatarMotor + AvatarCondition> AvatarMotor for MortalMotor<M> {
@@ -92,25 +105,22 @@ impl<M: AvatarMotor + AvatarCondition> AvatarMotor for MortalMotor<M> {
     }
 }
 
-/// Player avatar composing mortality- and satchel-guarded `AvatarMotor` layers over `EmbodiedAvatar`.
+/// Player avatar composing rain-acoustic, mortality-, and satchel-guarded `AvatarMotor` layers over `EmbodiedAvatar`.
 pub struct PlanetaryAvatar {
-    motor: MortalMotor<SatchelAvatar<EmbodiedAvatar>>,
+    motor: RainEarMotor<MortalMotor<SatchelAvatar<EmbodiedAvatar>>>,
 }
 
 impl PlanetaryAvatar {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    const fn from_motor(motor: MortalMotor<SatchelAvatar<EmbodiedAvatar>>) -> Self {
+    const fn from_motor(motor: RainEarMotor<MortalMotor<SatchelAvatar<EmbodiedAvatar>>>) -> Self {
         Self { motor }
     }
 
     pub fn with_attire_and_bindings(
         initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: YouthAttire, bindings: ActionBindings,
     ) -> Self {
-        Self::from_motor(MortalMotor::new(SatchelAvatar::new(EmbodiedAvatar::with_attire_and_bindings(
-            initial_position,
-            flight,
-            attire,
-            bindings,
+        Self::from_motor(RainEarMotor::new(MortalMotor::new(SatchelAvatar::new(
+            EmbodiedAvatar::with_attire_and_bindings(initial_position, flight, attire, bindings),
         ))))
     }
 
@@ -137,11 +147,11 @@ impl PlanetaryAvatar {
     }
 
     const fn core(&self) -> &EmbodiedAvatar {
-        self.motor.inner().inner()
+        self.motor.inner().inner().inner()
     }
 
     fn core_mut(&mut self) -> &mut EmbodiedAvatar {
-        self.motor.inner_mut().inner_mut()
+        self.motor.inner_mut().inner_mut().inner_mut()
     }
 }
 

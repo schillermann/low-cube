@@ -8,8 +8,7 @@ use super::{
 struct ClassifiedQuadSink {
     cloud_quads: usize,
     rain_quads: usize,
-    veil_quads: usize,
-    darkest_luma: f32,
+    optics: (f32, f32),
 }
 
 impl ClassifiedQuadSink {
@@ -17,8 +16,7 @@ impl ClassifiedQuadSink {
         Self {
             cloud_quads: 0,
             rain_quads: 0,
-            veil_quads: 0,
-            darkest_luma: 1.0,
+            optics: (1.0, 0.0),
         }
     }
 }
@@ -26,18 +24,23 @@ impl ClassifiedQuadSink {
 impl MeshTarget for ClassifiedQuadSink {
     fn push_quad(&mut self, quad: Quad) {
         if quad.radiate(|g| g < -7.5) {
-            self.veil_quads += 1;
-        } else if quad.radiate(|g| g < -5.5) {
+            return;
+        }
+        if quad.radiate(|g| g < -5.5) {
             self.rain_quads += 1;
         } else if quad.radiate(|g| g < -3.5) {
             self.cloud_quads += 1;
+            quad.radiate(|g| {
+                self.optics.1 = self.optics.1.max(-g - 4.0);
+                true
+            });
             quad.transfer(|_, _, _, _, n, col| {
                 assert!(
                     n.length() > 1.02 && n.length() < 2.02,
                     "Cloud puff normal must encode constant organic lobe seed without grid seams"
                 );
                 let luma = (col.x + col.y + col.z) / 3.0;
-                self.darkest_luma = self.darkest_luma.min(luma);
+                self.optics.0 = self.optics.0.min(luma);
             });
         }
     }
@@ -165,18 +168,32 @@ fn test_troposphere_deck_omits_hanging_curtains_and_bounds_neighbor_faces() {
     );
 
     let mut shower_sink = ClassifiedQuadSink::empty();
-    for step_t in 0..48 {
-        let t = (step_t as f32) * 20.0;
+    let mut peak_overcast = 0.0_f32;
+    let mut above_storm_overcast = 1.0_f32;
+    for step_t in 0..64 {
+        let t = (step_t as f32) * 28.0;
         let deck = TroposphereDeck::new(64.0, t);
         for iu in -2..=2 {
             let probe = Vec3::new((iu as f32) * 18.0, 4.0, 66.0);
-            if deck.precipitation_at(probe).0 > 0.12 {
+            if deck.precipitation_at(probe).0 > 0.16 {
+                peak_overcast = peak_overcast.max(deck.overcast_at(probe));
+                above_storm_overcast =
+                    above_storm_overcast.min(deck.overcast_at(Vec3::new(probe.x, probe.y, 118.0)));
                 deck.emit_around(SightCone::omnidirectional(probe), &mut shower_sink);
             }
         }
     }
     assert!(shower_sink.rain_quads > 0, "Active overhead shower must emit fine falling raindrops");
-    assert!(shower_sink.darkest_luma < 0.62, "Storm belly puffs must show Beer-Lambert shading");
+    assert!(
+        peak_overcast > 0.55 && above_storm_overcast == 0.0,
+        "Rainstorms must strongly darken sky overcast ({peak_overcast}) below deck while clearing above clouds ({above_storm_overcast})"
+    );
+    assert!(
+        shower_sink.optics.0 < 0.32 && shower_sink.optics.1 > 0.78,
+        "Raining storm canopy must darken (luma={}) and thicken (alpha={}) to occlude sunny blue sky",
+        shower_sink.optics.0,
+        shower_sink.optics.1
+    );
 
     let mut continental_sink = ClassifiedQuadSink::empty();
     TroposphereDeck::new(2_048.0, 42.0).emit_around(
@@ -188,4 +205,41 @@ fn test_troposphere_deck_omits_hanging_curtains_and_bounds_neighbor_faces() {
         "4096^3 continental world must bound cloud puffs to O(1) local window, got {}",
         continental_sink.cloud_quads
     );
+}
+
+#[test]
+fn test_walking_toward_cloud_rotates_billboard_smoothly_without_axis_flip() {
+    struct FirstCornerSink(Option<Vec3>);
+    impl MeshTarget for FirstCornerSink {
+        fn push_quad(&mut self, quad: Quad) {
+            if self.0.is_none() {
+                quad.transfer(|v0, _, _, _, _, _| self.0 = Some(v0));
+            }
+        }
+    }
+
+    let frame = ClimateZone::Temperate.surface_frame(64.0);
+    let vol = CloudVolume::from_cell(
+        0.0,
+        0.0,
+        24.0,
+        CloudStratum::new(0, 64.0),
+        ConvergenceCell::new(0.55, 0.10, 0.0, false),
+    );
+    let mut prev_v0: Option<Vec3> = None;
+    for step in 0..=40 {
+        let walk_x = -85.0 + (step as f32) * 2.0;
+        let viewer = frame.point_at(walk_x, 0.0, 1.7);
+        let mut sink = FirstCornerSink(None);
+        vol.emit(viewer, 1.0, &frame, &mut sink);
+        let cur_v0 = sink.0.expect("cloud puff must emit corner");
+        if let Some(prev) = prev_v0 {
+            let jump = (cur_v0 - prev).length();
+            assert!(
+                jump < 0.85,
+                "Cloud puff billboard snapped discontinuously ({jump:.2}m) while walking at x={walk_x}"
+            );
+        }
+        prev_v0 = Some(cur_v0);
+    }
 }

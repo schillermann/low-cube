@@ -229,8 +229,8 @@ impl ScenePass for ShadedScenePass {
         self.ensure_horizon_slices(surface, world, mask);
         self.populate_sight_actors(surface, world, avatar, sight, sight_scale);
         let viewer = avatar.sight_cone_for_mode(sight).observe_from(|eye| eye);
-        use crate::rayleigh_shell::{AtlasSkyProjection, EphemerisSync, SkyProjection};
-        AtlasSkyProjection::solar(world.celestial_atlas())
+        use crate::rayleigh_shell::{EphemerisSync, SkyProjection, StormDarkenedProjection};
+        StormDarkenedProjection::solar(world.celestial_atlas())
             .project_from(viewer)
             .sync_pipeline(self.program.0.as_ref());
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
@@ -255,8 +255,8 @@ impl ScenePass for ShadedScenePass {
         self.ensure_horizon_slices(surface, world, mask);
         self.populate_actors(surface, world, avatar, sight_scale);
         let viewer = avatar.sight_cone().observe_from(|eye| eye);
-        use crate::rayleigh_shell::{AtlasSkyProjection, EphemerisSync, SkyProjection};
-        AtlasSkyProjection::solar(world.celestial_atlas())
+        use crate::rayleigh_shell::{EphemerisSync, SkyProjection, StormDarkenedProjection};
+        StormDarkenedProjection::solar(world.celestial_atlas())
             .project_from(viewer)
             .sync_pipeline(self.program.0.as_ref());
         let composed = CompositeMesh::new(&self.mesh, &self.actors);

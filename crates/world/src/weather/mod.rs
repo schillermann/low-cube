@@ -20,6 +20,7 @@ pub trait PlanetaryWeather: Copy {
     fn emit_around(&self, cone: SightCone, target: &mut dyn MeshTarget);
     fn immersion_at(&self, point: Vec3) -> (f32, f32);
     fn precipitation_at(&self, point: Vec3) -> (f32, bool);
+    fn overcast_at(&self, point: Vec3) -> f32;
 }
 
 /// Deterministic 3-layer troposphere deck (`Cumulus`, `Altocumulus`, `Cirrus`; `<= 4` fields).
@@ -183,5 +184,32 @@ impl PlanetaryWeather for TroposphereDeck {
         let (u, v) = frame.decompose(point);
         let sample = MoistureField::new(zone, self.half_size, self.epoch_secs).sample_layer(0, u, v);
         sample.transfer(|_, _, rate, frozen| (rate, frozen))
+    }
+
+    fn overcast_at(&self, point: Vec3) -> f32 {
+        if self.half_size < 4.0 {
+            return 0.0;
+        }
+        let zone = ClimateZone::dominant(point);
+        let frame = zone.surface_frame(self.half_size);
+        let elev = frame.elevation_of(point);
+        let (low_base, low_thick) = CloudStratum::new(0, self.half_size).elevation_band();
+        if elev < -4.0 || elev > low_base + low_thick * 1.4 {
+            return 0.0;
+        }
+        let below = 1.0 - WeatherCurve::new(low_base * 0.82, low_base + low_thick * 1.3).sample(elev);
+        let (u, v) = frame.decompose(point);
+        let field = MoistureField::new(zone, self.half_size, self.epoch_secs);
+        let step = field.cell_span() * 0.60;
+        let probe = |du: f32, dv: f32| {
+            field.sample_layer(0, u + du, v + dv).transfer(|_, dark, rain, _| {
+                let d_cov = WeatherCurve::new(0.34, 0.68).sample(dark) * 0.62;
+                let r_cov = WeatherCurve::new(0.02, 0.30).sample(rain) * 0.72;
+                (d_cov + r_cov).clamp(0.0, 1.0)
+            })
+        };
+        let mean = probe(0.0, 0.0) * 0.44
+            + (probe(step, 0.0) + probe(-step, 0.0) + probe(0.0, step) + probe(0.0, -step)) * 0.14;
+        (mean * below).clamp(0.0, 1.0)
     }
 }

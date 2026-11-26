@@ -200,3 +200,81 @@ fn test_large_continental_world_and_alien_magnetospheres_scale_cleanly() {
         .radiance_along(Vec3::new(-27.5, 0.0, 0.0), Vec3::new(-1.0, 0.85, 0.0).normalize(), Vec3::X);
     assert!(titan.z > titan.y, "Titan methane magnetosphere must emit deep indigo-amber spectrum: {titan:?}");
 }
+
+#[test]
+fn test_rainstorm_overcast_darkens_daytime_sky_without_triggering_false_night_aurora() {
+    let cat = SolarAirCatalog::new();
+    let cam = Vec3::new(0.0, 65.5, 0.0);
+    let noon_sun = Vec3::Y;
+    let sunny = cat.shell_for(BodyId::EARTH, cam, 64.0);
+    let stormy = sunny.darkened(0.90);
+
+    let (_, sunny_sky, sunny_night) = sunny.sky_illumination(noon_sun);
+    let (_, storm_sky, storm_night) = stormy.sky_illumination(noon_sun);
+
+    let sunny_lum = sunny_sky.x + sunny_sky.y + sunny_sky.z;
+    let storm_lum = storm_sky.x + storm_sky.y + storm_sky.z;
+    assert!(
+        storm_lum < sunny_lum * 0.52,
+        "Rainstorm overcast must darken daytime sky strongly: sunny={sunny_sky:?}, storm={storm_sky:?}"
+    );
+    assert_eq!(sunny_night, 0.0);
+    assert_eq!(
+        storm_night, 0.0,
+        "Daytime rainstorm darkening must never trigger nocturnal stars or aurora"
+    );
+}
+
+#[test]
+fn test_overcast_canopy_epoch_dims_ground_sunbeam_and_rain_ear_motor_emits_shower_cues() {
+    use glam::{Mat4, Vec4};
+    use crate::avatar::{AvatarMotor as _, PlanetaryAvatar};
+    use crate::controls::{ActionBindings, KeyMotion};
+    use crate::diurnal_pipeline::{DiurnalEpoch, OvercastCanopyEpoch};
+    use crate::firmament::{VaultEphemeris, VaultGlow, VaultView};
+
+    struct NoonEpoch;
+    impl DiurnalEpoch for NoonEpoch {
+        fn evaluate_pass(&self, ivp: Mat4, _cam: Vec3, _eph: &VaultEphemeris) -> (Vec3, VaultView, VaultGlow) {
+            let sun = Vec3::new(0.0, 1.0, 0.0);
+            (sun, VaultView::new(ivp, sun, Vec3::Y), VaultGlow::new(Vec4::ONE, 0.0, 0.0))
+        }
+    }
+
+    let cat = SolarAirCatalog::new();
+    let cam = Vec3::new(0.0, 65.5, 0.0);
+    let shell = cat.shell_for(BodyId::EARTH, cam, 64.0);
+    let mut clear_cubes = [[0.0_f32; 4]; 8];
+    clear_cubes[7] = [0.0, 1.0, 0.0, 0.00465];
+    let clear_eph = VaultEphemeris::active(clear_cubes, [0.0; 4], shell);
+    let mut storm_cubes = clear_cubes;
+    storm_cubes[7] = [0.0, 0.42, 0.0, 0.00465];
+    let storm_eph = VaultEphemeris::active(storm_cubes, [0.0; 4], shell.darkened(0.90));
+
+    let canopy = OvercastCanopyEpoch::new(NoonEpoch);
+    let (clear_sun, _, _) = canopy.evaluate_pass(Mat4::IDENTITY, cam, &clear_eph);
+    let (storm_sun, _, _) = canopy.evaluate_pass(Mat4::IDENTITY, cam, &storm_eph);
+    assert!((clear_sun.length() - 1.0).abs() < 1e-4);
+    assert!(storm_sun.length() < 0.48 && storm_sun.normalize().dot(Vec3::Y) > 0.999);
+
+    let prop = world::SolarProportions::compressed(32, 0.01);
+    let controls = KeyMotion::new(std::collections::HashSet::new(), ActionBindings::seeded());
+    let mut shower_cues = Vec::new();
+    for step_t in 0..48 {
+        let helio = world::HeliosphereWorld::assembled(
+            world::BiomedCubeWorld::barren_beveled(32, 1.0),
+            world::SolarEphemeris::new(prop, f64::from(step_t) * 24.0),
+            true,
+        );
+        let probe = Vec3::new(0.0, 2.0, 17.5);
+        let mut walker = PlanetaryAvatar::at(probe);
+        let captured = acoustics::RainWaveTrace::new(0).capture(|| {
+            walker.step_motion(1.0 / 60.0, &controls, &helio);
+        });
+        shower_cues.extend(captured);
+    }
+    assert!(
+        shower_cues.contains(&acoustics::PrecipitationCue::WoodlandRain),
+        "RainEarMotor decorator must emit WoodlandRain cues when stepping under active Jungle rain"
+    );
+}

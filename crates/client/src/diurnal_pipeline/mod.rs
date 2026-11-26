@@ -1,7 +1,7 @@
 mod epoch;
 mod quad;
 
-pub use epoch::{DiurnalEpoch, MeasuredEpoch};
+pub use epoch::{DiurnalEpoch, MeasuredEpoch, OvercastCanopyEpoch};
 pub use quad::{FirmamentQuadSource, QuadUpload};
 
 use std::sync::Mutex;
@@ -153,7 +153,12 @@ impl DiurnalStageAssembly for GlDiurnalStage {
     unsafe fn assemble_gl(self, gl: &glow::Context) -> Box<dyn GraphicPipeline> {
         let clock = Box::new(SystemClock::new());
         let start = clock.current_instant();
-        let epoch = Box::new(MeasuredEpoch::new(self.cadence, self.aurora, clock, start));
+        let epoch = Box::new(OvercastCanopyEpoch::new(MeasuredEpoch::new(
+            self.cadence,
+            self.aurora,
+            clock,
+            start,
+        )));
         let sky = FirmamentShaderSource::embedded().compile(self.canopy, gl);
         let sky_mesh = FirmamentQuadSource::new().upload(gl);
         Box::new(DiurnalPipeline::new(epoch, sky, sky_mesh, Mutex::new(VaultEphemeris::dormant())))

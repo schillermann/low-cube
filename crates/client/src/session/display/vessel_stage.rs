@@ -164,7 +164,12 @@ impl Mesh for SceneActors {
         self.figures.draw(gl);
         unsafe {
             gl.enable(glow::BLEND);
-            gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+            gl.blend_func_separate(
+                glow::SRC_ALPHA,
+                glow::ONE_MINUS_SRC_ALPHA,
+                glow::ONE,
+                glow::ONE_MINUS_SRC_ALPHA,
+            );
             gl.depth_mask(false);
             self.plumes.draw(gl);
             gl.depth_mask(true);
@@ -177,7 +182,12 @@ impl Mesh for SceneActors {
         self.figures.draw_posed(gl, shader);
         unsafe {
             gl.enable(glow::BLEND);
-            gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+            gl.blend_func_separate(
+                glow::SRC_ALPHA,
+                glow::ONE_MINUS_SRC_ALPHA,
+                glow::ONE,
+                glow::ONE_MINUS_SRC_ALPHA,
+            );
             gl.depth_mask(false);
             self.plumes.draw_posed(gl, shader);
             gl.depth_mask(true);
