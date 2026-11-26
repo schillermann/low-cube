@@ -1,6 +1,7 @@
 mod burden;
 mod camera;
 mod encumbrance;
+mod tome;
 
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;

@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.123.0] - 2026-11-26
+
+### Added
+- Redesigned `ArtisanTome` (`crates/client/src/attire/tome/`) into a tactile two-page ringed Field Folio built from Pure-OOP Elegant Objects decorator chains (`<= 270` lines per file, `<= 4` private fields per struct):
+  - `RecipeShelf` domain decorator chain (`ReadyStockShelf(TabbedShelf(CanonicalShelf))` in `crates/client/src/attire/tome/shelf.rs`) and `TomeBookmark` / `FolioTab` / `StockScope` / `FolioSelection` (`bookmark.rs` & `domain.rs`): partitions all `25` canonical multiplayer recipes across four zero-scroll `3 × 4` index sections (`1 TOOLS`, `2 BLOCK`, `3 ROVER`, `4 ORBIT` switched via `Tab` or `1`–`4`), navigates the 2D compartment grid via `WASD` and mouse wheel, and toggles `[X] READY TO CRAFT` (`F`) with automatic jump to stocked tabs and Null-Object `VacantScopePlaque` protection.
+  - `FolioSpread` 3D layout decorator chain (`RightPolaroidFolio(LeftGridFolio(IndexTabbedFolio(RingSpineFolio(SlateFolioCovers))))` in `spread.rs` & `pages.rs`) and `SlotPlaque` decorators (`ReadinessPipCompartment`, `PinnedPolaroid(PolaroidCard)`, `IngredientFormula`, and `SlotBurden::emit_grade_badge` in `polaroid.rs` & `burden/slot.rs`, plus `LimbFrame::rolled` in `limb.rs` and `HeldRelic::short_title` in `relic/`): sculpts four metallic spine rings, protruding color-coded side index tabs, emerald readiness corner pips, a tilted thumbtack-pinned Polaroid showcase on the right page, 3D visual ingredient equations (`[Ing 1] + [Ing 2] -> [Yield]`), and weight-grade badges (`crates/client/src/attire/tests/tome.rs`).
+- Added crafting UI concept board (`crafting_book_variants.jpg`) in the repository root.
+
 ## [0.122.0] - 2026-11-25
 
 ### Added

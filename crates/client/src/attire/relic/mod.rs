@@ -148,6 +148,10 @@ impl HeldRelic {
         RelicLexicon::new(self).title()
     }
 
+    pub const fn short_title(self) -> &'static str {
+        RelicLexicon::new(self).short_title()
+    }
+
     pub fn parse_token(&self, token: &str) -> Option<Self> {
         RelicLexicon::new(*self).parse(token)
     }

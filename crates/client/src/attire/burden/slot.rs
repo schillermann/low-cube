@@ -1,6 +1,7 @@
 use std::fmt;
 use glam::Vec3;
 use world::{MeshTarget, Quad};
+use crate::menu::PixelStamp;
 use super::super::limb::LimbFrame;
 use super::super::relic::HeldRelic;
 use super::{CarryLoad, SatchelBurden};
@@ -159,6 +160,15 @@ impl SlotBurden {
             normal,
             self.corner_pigment(),
         ));
+    }
+
+    pub fn emit_grade_badge(&self, badge_frame: &LimbFrame, target: &mut dyn MeshTarget) {
+        let pigment = self.corner_pigment();
+        let rim = (pigment * 0.58).clamp(Vec3::splat(0.20), Vec3::splat(1.05));
+        badge_frame.emit_framed_plaque(0.052, 0.015, 0.0020, Vec3::new(0.11, 0.13, 0.19), rim, target);
+        let label = format!("{}", self.summed_grade());
+        PixelStamp::new(0.0019, 0.0021, pigment)
+            .emit_on_frame(&label, 0.0, 0.0, 0.016, badge_frame, target);
     }
 }
 

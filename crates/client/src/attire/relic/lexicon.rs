@@ -142,6 +142,22 @@ impl RelicLexicon {
         }
     }
 
+    pub const fn short_title(&self) -> &'static str {
+        match self.relic {
+            HeldRelic::TimberBlock => "TIMBER",
+            HeldRelic::PlankBlock => "PLANKS",
+            HeldRelic::DeadwoodBough => "BOUGH",
+            HeldRelic::FlintStone => "FLINT",
+            HeldRelic::QuarriedStone => "STONE",
+            HeldRelic::CrustBlock => "CRUST",
+            HeldRelic::CopperOre => "COPPER",
+            HeldRelic::IronOre => "IRON",
+            HeldRelic::GoldOre => "GOLD",
+            HeldRelic::ExcavatedEarth => "EARTH",
+            _ => self.title(),
+        }
+    }
+
     pub const fn block_medium(&self) -> BlockMedium {
         match self.relic {
             HeldRelic::CrustBlock => BlockMedium::CrustRock,

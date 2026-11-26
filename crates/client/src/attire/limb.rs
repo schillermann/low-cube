@@ -58,6 +58,14 @@ impl LimbFrame {
         Self::new(self.origin, next_right, self.up, next_fwd)
     }
 
+    /// Rolls the local right and up axes around the forward axis by radians.
+    pub fn rolled(&self, angle: f32) -> Self {
+        let (s, c) = angle.sin_cos();
+        let next_right = (self.right * c + self.up * s).normalize();
+        let next_up = (self.up * c - self.right * s).normalize();
+        Self::new(self.origin, next_right, next_up, self.forward)
+    }
+
     /// Constructs a local coordinate frame resting atop the upturned hollow of the palm (`up` pointing out of the palm).
     pub fn palm_cradle(&self, side: f32, local_origin: Vec3) -> Self {
         let center = self.point(local_origin.x, local_origin.y, local_origin.z);
