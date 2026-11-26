@@ -8,7 +8,9 @@ use crate::frame::SurfaceFrame;
 use super::cantilever_rig::{RigPlacement, RigRegistry};
 use super::craft_cluster::ParkedFleet;
 use super::craft_entity::{CraftBlueprint, VesselSink};
-use super::molded_structure::{MoldedStructure, ParkedStructure, RiggedStructure, WorldBlocks};
+use super::molded_structure::{
+    MoldedStructure, ParkedStructure, RiggedStructure, SanctuaryStructure, WorldBlocks,
+};
 use super::natural_strata::NaturalStrata;
 use super::planned_mount::MountDomain;
 use super::shaft_excavation::ShaftExcavation;
@@ -19,7 +21,6 @@ use self::blueprints::{BlueprintCommission, BlueprintSite, VehicleEmbarkation};
 use self::snapshot::{SectorMoldsTarget, SectorMoldsView};
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
-const HALF_BLOCK_STEP: f32 = 0.25;
 const NICHE_WALL_MARGIN: f32 = 0.10;
 pub(super) const MAX_STACK_ELEVATION: f32 = 16.0;
 
@@ -41,8 +42,11 @@ impl OverhangMolds {
         Self::new(WorldBlocks::untouched(), ParkedFleet::untouched(), RigRegistry::untouched(), TurfScars::untouched())
     }
 
-    const fn decorated(&self) -> RiggedStructure<'_, ParkedStructure<'_, &WorldBlocks>> {
-        RiggedStructure::new(ParkedStructure::new(&self.world_blocks, &self.fleet), &self.rigs)
+    const fn decorated(&self) -> RiggedStructure<'_, ParkedStructure<'_, SanctuaryStructure<'_>>> {
+        RiggedStructure::new(
+            ParkedStructure::new(SanctuaryStructure::new(&self.world_blocks), &self.fleet),
+            &self.rigs,
+        )
     }
 
     pub fn empty(&self) -> bool { self.decorated().vacant() }
@@ -98,15 +102,6 @@ impl OverhangMolds {
             }
             RigPlacement::WorldCube => Some((u, v, raw_floor)),
         }
-    }
-
-    fn resolve_world_floor(&self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32) -> Option<f32> {
-        let mut next_floor = if sub { raw_floor } else { raw_floor.max(ground_top) };
-        while self.world_blocks.layer_occupied_at(u, v, next_floor + HALF_BLOCK_STEP) {
-            next_floor += if sub { -BLOCK_STEP } else { BLOCK_STEP };
-        }
-        (next_floor < MAX_STACK_ELEVATION && !self.fleet.blocks_placement_at(u, v, next_floor))
-            .then_some(next_floor)
     }
 
     pub fn resolve_planned_site(
@@ -201,7 +196,12 @@ impl OverhangMolds {
                 true
             }
             RigPlacement::WorldCube => {
-                let Some(next_floor) = self.resolve_world_floor(u, v, ground_top, sub, raw_floor) else {
+                let Some(next_floor) = BlueprintSite::new(&self.rigs, &self.fleet).resolve_world_floor(
+                    &self.world_blocks,
+                    (u, v),
+                    (ground_top, raw_floor),
+                    sub,
+                ) else {
                     return false;
                 };
                 self.world_blocks.stack_bare(u, v, next_floor, ground_top, sub, shape, &mut self.scars);

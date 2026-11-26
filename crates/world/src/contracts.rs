@@ -152,9 +152,10 @@ pub trait PlanetaryWorld:
         self.collect_medium_sites(BlockMedium::LaserBeacon, out);
     }
     fn assigned_spawn_point(&self) -> Option<Vec3> {
-        let mut pts = Vec::new();
-        self.collect_spawn_points(&mut pts);
-        pts.into_iter().next().map(|p| p + self.surface_up_at(p))
+        use crate::arrival_sites::{ArrivalSites, PrioritizedArrivalSites};
+        let mut sites = Vec::new();
+        PrioritizedArrivalSites::sanctuary().collect_sites(self, &mut sites);
+        sites.into_iter().next().map(|(p, n)| p + n)
     }
     fn assigned_survivor(&self) -> Option<crate::SurvivorWelcome> { None }
     fn anchor_to_frame(&mut self, _frame: crate::CosmicFrame, _local_pos: Vec3) {}

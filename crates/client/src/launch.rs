@@ -1,4 +1,3 @@
-use glam::Vec3;
 use winit::event_loop::ActiveEventLoop;
 
 use engine::{CpuMeshBatch, PlanetaryMesh, VoxelShaderSource};
@@ -90,14 +89,7 @@ impl SessionAssembly for SessionLaunch {
             planet.portal_ticket().unwrap_or_default(),
         );
 
-        let half = (world_blocks as f32) * 0.5;
-        let spawn_position = planet
-            .assigned_survivor()
-            .and_then(|w| w.restored_record())
-            .map_or_else(
-                || planet.constrain_to_surface(Vec3::new(0.25, half + 1.0, 0.25), 1.0),
-                |rec| planet.constrain_to_surface(rec.position(), 1.0),
-            );
+        let spawn_position = crate::avatar::BodySpan::landed_on(planet.as_ref()).current();
         let flight = self.cosmos.physics.surface_flight(1.0);
         let attire = FileAttire::profile()
             .load_or_squire()

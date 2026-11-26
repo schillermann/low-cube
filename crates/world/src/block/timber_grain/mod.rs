@@ -43,6 +43,7 @@ pub enum BlockMedium {
     BakingOven,
     BloomeryForge,
     SmithyAnvil,
+    OriginStone,
 }
 
 impl BlockMedium {
@@ -79,6 +80,7 @@ impl BlockMedium {
             Self::BakingOven => 27,
             Self::BloomeryForge => 28,
             Self::SmithyAnvil => 29,
+            Self::OriginStone => 30,
         }
     }
 
@@ -114,13 +116,19 @@ impl BlockMedium {
             27 => Self::BakingOven,
             28 => Self::BloomeryForge,
             29 => Self::SmithyAnvil,
+            30 => Self::OriginStone,
             _ => Self::TurfEarth,
         }
     }
 
     /// Indicates whether placement and removal of this block medium are restricted to the server admin.
     pub const fn admin_restricted(self) -> bool {
-        matches!(self, Self::SpawnStone)
+        matches!(self, Self::SpawnStone | Self::OriginStone)
+    }
+
+    /// Indicates whether this medium is a permanent, unmineable world sanctuary landmark.
+    pub const fn indestructible(self) -> bool {
+        matches!(self, Self::OriginStone)
     }
 
     /// Indicates whether this medium is an Expanse-grade aerospace hull alloy or composite armor plate.
@@ -178,6 +186,7 @@ impl BlockMedium {
     /// Indicates whether this medium yields to the given `MiningEdge` during excavation.
     pub const fn yields_to(self, edge: MiningEdge) -> bool {
         match self {
+            Self::OriginStone => false,
             Self::QuarriedStone
             | Self::VitrifiedBasalt
             | Self::CopperOre

@@ -8,6 +8,7 @@ mod gear;
 mod helm_optics;
 #[cfg(test)]
 mod gesture;
+mod mortal_motor;
 mod planetary;
 mod rain_ear;
 mod satchel_guard;
@@ -27,6 +28,7 @@ use crate::menu::ScreenPoint;
 #[cfg(test)]
 pub use self::gesture::HandGesture;
 pub use self::planetary::PlanetaryAvatar;
+pub use self::span::BodySpan;
 
 /// Focused camera optics and sight-cone projection contract.
 pub trait AvatarOptics {

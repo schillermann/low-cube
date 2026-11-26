@@ -75,6 +75,7 @@ impl RelicWorldBridge {
             BlockMedium::BakingOven => HeldRelic::BakingOven,
             BlockMedium::BloomeryForge => HeldRelic::BloomeryForge,
             BlockMedium::SmithyAnvil => HeldRelic::SmithyAnvil,
+            BlockMedium::OriginStone => HeldRelic::EmptyPalm,
         }
     }
 

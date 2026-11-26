@@ -75,3 +75,85 @@ fn test_multiplayer_lava_death_while_digging_aborts_cracks_attire_and_respawn_re
     let after_top = host_planet.constrain_to_surface(Vec3::new(ledge.x, 15.0, ledge.z), 0.0).y;
     assert!(after_top < before_top - 0.4, "Immediate post-respawn dig must flush surface presence and enact on SanctuaryHost");
 }
+
+#[test]
+fn test_heliosphere_origin_stone_anchors_spawn_blocks_destruction_and_prevents_space_respawn() {
+    use world::{BlockMedium, BlockMold, BodyId, CelestialSystem, CosmicFrame, SolarProportions};
+    use crate::avatar::BodySpan;
+    use crate::black_box::PresenceProbe;
+
+    let props = SolarProportions::true_scale(128);
+    let mut world = CelestialSystem::barren_heliosphere(props, 1.0);
+    let half = props.earth_half();
+
+    let mut origins = Vec::new();
+    world.collect_medium_sites(BlockMedium::OriginStone, &mut origins);
+    assert_eq!(origins.len(), 1, "Earth must seed a dedicated OriginStone arrival plinth");
+    let (origin_top, origin_up) = origins[0];
+    assert!(
+        (origin_top.x + 0.25).abs() < 1e-3
+            && (origin_top.z + 0.25).abs() < 1e-3
+            && origin_top.y > half
+            && origin_top.y < half + 8.0,
+        "OriginStone must rest on Earth's temperate surface, got {origin_top:?}"
+    );
+
+    // OriginStone must be indestructible and forbid stacking blocks on top of it
+    let eye_above = origin_top + origin_up * 1.4;
+    assert!(world.loosen_surface(eye_above, -origin_up, 1).is_none(), "OriginStone must reject loosening");
+    assert!(world.harvest_surface(eye_above, -origin_up).is_none(), "OriginStone must reject harvesting");
+    assert!(
+        !world.place_molded_surface_block(
+            eye_above,
+            -origin_up,
+            origin_top + Vec3::X * 1.5,
+            BlockMold::cube().in_medium(BlockMedium::QuarriedStone),
+        ),
+        "OriginStone column must forbid stacking blocks that would entomb the spawn plinth"
+    );
+
+    // Initial landing places the player directly on OriginStone
+    let initial = BodySpan::landed_on(world.as_ref()).current();
+    assert!((initial - (origin_top + origin_up)).length() < 1e-3, "Initial spawn must stand on OriginStone");
+
+    // Excavate nearby column (0.25, 0.25) down to lethal core floor and die on Earth
+    for _ in 0..48 {
+        let fy = world.constrain_to_surface(Vec3::new(0.25, half + 6.0, 0.25), 0.0).y;
+        if !world.excavate_surface(Vec3::new(0.25, fy + 1.0, 0.25), Vec3::NEG_Y) {
+            break;
+        }
+    }
+    let core_y = world.constrain_to_surface(Vec3::new(0.25, half + 6.0, 0.25), 0.0).y;
+    assert!(world.lethal_at(Vec3::new(0.25, core_y + 1.0, 0.25)));
+
+    let mut explorer = PlanetaryAvatar::at(Vec3::new(0.25, core_y + 1.0, 0.25));
+    for _ in 0..180 {
+        explorer.step_motion(1.0 / 60.0, &KeyMotion::idle(), world.as_ref());
+    }
+    let _ = explorer.reconcile_cosmic_frame(world.as_mut());
+    let mut probe = PresenceProbe::at_origin();
+    explorer.report_presence(&mut probe);
+    let earth_respawn_pos = probe.position();
+    assert!(
+        (earth_respawn_pos - (origin_top + origin_up)).length() < 0.05,
+        "Dying on Earth in HeliosphereWorld must respawn on OriginStone (not in outer space), got pos={earth_respawn_pos:?} vs expected={:?}",
+        origin_top + origin_up
+    );
+
+    // Dying offworld (e.g. in SolarStar while anchored on Luna) must re-anchor to CosmicFrame::Earth on OriginStone
+    world.anchor_to_frame(CosmicFrame::Body(BodyId::LUNA), Vec3::new(0.25, 8.0, 0.25));
+    let sun_center = world.body_center(BodyId::SOL).expect("Sun center");
+    let mut offworld_doomed = PlanetaryAvatar::at(sun_center);
+    assert!(world.lethal_at(sun_center), "Solar interior must be lethal");
+    for _ in 0..180 {
+        offworld_doomed.step_motion(1.0 / 60.0, &KeyMotion::idle(), world.as_ref());
+    }
+    assert!(offworld_doomed.reconcile_cosmic_frame(world.as_mut()), "Offworld respawn must re-anchor CosmicFrame to Earth");
+    assert!(world.cosmic_frame().earth_centered(), "World frame must return to Earth after offworld death");
+    offworld_doomed.report_presence(&mut probe);
+    assert!(
+        (probe.position() - (origin_top + origin_up)).length() < 0.05,
+        "Offworld death must respawn cleanly on Earth's OriginStone, got {:?}",
+        probe.position()
+    );
+}

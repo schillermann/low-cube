@@ -6,104 +6,11 @@ use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use crate::flight::GravitationalFlight;
 #[cfg(test)]
 use crate::flight::SurfaceFlight;
-use super::condition::AvatarCondition;
 use super::embodied::EmbodiedAvatar;
+use super::mortal_motor::MortalMotor;
 use super::rain_ear::RainEarMotor;
 use super::satchel_guard::SatchelAvatar;
 use super::{Avatar, AvatarMotor, AvatarOptics, AvatarPresence, BlackBoxDeck, PhotoPort};
-
-/// Focused `AvatarMotor` decorator gating motor and hand actions during lethal core contact and cardiac blackout.
-struct MortalMotor<M> {
-    origin: M,
-}
-
-impl<M> MortalMotor<M> {
-    const fn new(origin: M) -> Self {
-        Self { origin }
-    }
-
-    const fn inner(&self) -> &M {
-        &self.origin
-    }
-
-    fn inner_mut(&mut self) -> &mut M {
-        &mut self.origin
-    }
-}
-
-impl<M: AvatarCondition> MortalMotor<M> {
-    fn incapacitated(&self, world: &dyn PlanetaryWorld) -> bool {
-        self.origin.perished() || self.origin.lethal_contact(world)
-    }
-}
-
-impl<M: AvatarCondition> AvatarCondition for MortalMotor<M> {
-    fn perished(&self) -> bool { self.origin.perished() }
-    fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool { self.origin.lethal_contact(world) }
-    fn satchel_open(&self) -> bool { self.origin.satchel_open() }
-    fn driving(&self) -> bool { self.origin.driving() }
-    fn sheltered_berth(&self) -> bool { self.origin.sheltered_berth() }
-    fn ear_locus(&self) -> Vec3 { self.origin.ear_locus() }
-    fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.abort_hands(world) }
-    fn step_satchel_idle(&mut self, dt: f32) { self.origin.step_satchel_idle(dt); }
-    fn step_blackout(&mut self, dt: f32, world: &dyn PlanetaryWorld) { self.origin.step_blackout(dt, world); }
-}
-
-impl<M: AvatarMotor + AvatarCondition> AvatarMotor for MortalMotor<M> {
-    fn rotate_view(&mut self, dx: f32, dy: f32) {
-        if !self.origin.perished() {
-            self.origin.rotate_view(dx, dy);
-        }
-    }
-
-    fn act_hand(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> bool {
-        !self.incapacitated(world) && self.origin.act_hand(side, world)
-    }
-
-    fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.incapacitated(world) {
-            self.origin.abort_hands(world)
-        } else {
-            self.origin.release_hand(world)
-        }
-    }
-
-    fn step_digging(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        if self.incapacitated(world) {
-            self.origin.abort_hands(world)
-        } else {
-            self.origin.step_digging(world)
-        }
-    }
-
-    fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
-        !self.incapacitated(world) && self.origin.adjust_aimed_rig(trigger, world)
-    }
-
-    fn cast_triggered_relic(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool {
-        !self.incapacitated(world) && self.origin.cast_triggered_relic(trigger, world)
-    }
-
-    fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) {
-        if self.incapacitated(world) {
-            self.origin.step_blackout(dt, world);
-        } else {
-            self.origin.step_motion(dt, controls, world);
-        }
-    }
-
-    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        if self.incapacitated(world) {
-            (false, false)
-        } else {
-            self.origin.hunt_fauna(side, world)
-        }
-    }
-
-    fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
-        self.origin.emit_reticle_for_aspect(aspect, target);
-    }
-}
 
 /// Player avatar composing rain-acoustic, mortality-, and satchel-guarded `AvatarMotor` layers over `EmbodiedAvatar`.
 pub struct PlanetaryAvatar {
@@ -220,7 +127,7 @@ impl Avatar for PlanetaryAvatar {
     fn blend_subtick(&mut self, alpha: f32) { self.core_mut().blend_subtick(alpha); }
     fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) { self.core_mut().step_fauna(dt, world); }
     fn reconcile_cosmic_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
-        self.core_mut().reconcile_cosmic_frame(world)
+        self.motor.inner_mut().reconcile_cosmic_frame(world)
     }
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.core_mut().land_on_world(world); }
     fn flush_world_notes(&mut self, world: &mut dyn PlanetaryWorld) { self.core_mut().flush_world_notes(world); }

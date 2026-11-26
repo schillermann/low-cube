@@ -35,12 +35,11 @@ impl SpawnBeacons {
     }
 
     pub fn refresh_from(&mut self, world: &dyn PlanetaryWorld) {
-        let mut raw = Vec::new();
-        world.collect_spawn_points(&mut raw);
+        use world::{ArrivalSites, PrioritizedArrivalSites};
         self.points.clear();
-        for pos in raw {
-            let up = world.surface_up_at(pos).normalize_or(Vec3::Y);
-            self.points.push((pos, up));
+        PrioritizedArrivalSites::sanctuary().collect_sites(world, &mut self.points);
+        for (_, up) in &mut self.points {
+            *up = up.normalize_or(Vec3::Y);
         }
         self.lasers.clear();
         let mut earth_lasers = Vec::new();

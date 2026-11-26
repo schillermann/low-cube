@@ -57,7 +57,7 @@ pub use space_parts::{
     AttitudeNozzleMesh, ConsoleOrrery, FlightConsoleMesh, FusionTorchMesh, NozzleAxis, RcsManifold,
     RocketNozzleMesh, SensorPodAxis,
 };
-pub use spawn_plinth::SpawnPlinthMesh;
+pub use spawn_plinth::{OriginPlinthMesh, SpawnPlinthMesh};
 pub use stair::StairFlight;
 pub use stair_corner::StairCorner;
 pub use timber_grain::{BlockMedium, MediumShape, MiningEdge};

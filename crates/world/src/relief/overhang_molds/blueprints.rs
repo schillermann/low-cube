@@ -3,7 +3,7 @@ use crate::frame::SurfaceFrame;
 use super::super::cantilever_rig::{RigPlacement, RigRegistry};
 use super::super::craft_cluster::ParkedFleet;
 use super::super::craft_entity::CraftBlueprint;
-use super::super::molded_structure::MoldedStructure;
+use super::super::molded_structure::{MoldedStructure, SanctuaryStructure};
 use super::super::natural_strata::NaturalStrata;
 use super::super::planned_mount::MountDomain;
 use super::super::shaft_excavation::ShaftExcavation;
@@ -24,6 +24,23 @@ impl<'a> BlueprintSite<'a> {
         Self { rigs, fleet }
     }
 
+    pub(super) fn resolve_world_floor(
+        &self,
+        world_blocks: &super::super::molded_structure::WorldBlocks,
+        (u, v): (i32, i32),
+        (ground_top, raw_floor): (f32, f32),
+        sub: bool,
+    ) -> Option<f32> {
+        if SanctuaryStructure::new(world_blocks).locked_at(u, v, ground_top) {
+            return None;
+        }
+        let mut z = if sub { raw_floor } else { raw_floor.max(ground_top) };
+        while world_blocks.layer_occupied_at(u, v, z + 0.25) {
+            z += if sub { -GridCell::SPAN } else { GridCell::SPAN };
+        }
+        (z < MAX_STACK_ELEVATION && !self.fleet.blocks_placement_at(u, v, z)).then_some(z)
+    }
+
     pub(super) fn resolve_any_site(
         &self,
         world_blocks: &super::super::molded_structure::WorldBlocks,
@@ -32,6 +49,9 @@ impl<'a> BlueprintSite<'a> {
         sub: bool,
         medium: crate::block::BlockMedium,
     ) -> Option<(GridCell, f32, MountDomain)> {
+        if SanctuaryStructure::new(world_blocks).locked_at(u, v, ground_top) {
+            return None;
+        }
         if medium == crate::block::BlockMedium::CantileverRig {
             return Some((GridCell::new(u, v), ground_top, MountDomain::WorldCube));
         }
@@ -45,14 +65,9 @@ impl<'a> BlueprintSite<'a> {
             }
             RigPlacement::AttachCraft { cell, floor_elev, .. } => (floor_elev < MAX_STACK_ELEVATION)
                 .then_some((GridCell::new(cell.0, cell.1), floor_elev, MountDomain::CraftRig)),
-            RigPlacement::WorldCube => {
-                let mut z = if sub { raw_floor } else { raw_floor.max(ground_top) };
-                while world_blocks.layer_occupied_at(u, v, z + 0.25) {
-                    z += if sub { -GridCell::SPAN } else { GridCell::SPAN };
-                }
-                (z < MAX_STACK_ELEVATION && !self.fleet.blocks_placement_at(u, v, z))
-                    .then_some((GridCell::new(u, v), z, MountDomain::WorldCube))
-            }
+            RigPlacement::WorldCube => self
+                .resolve_world_floor(world_blocks, (u, v), (ground_top, raw_floor), sub)
+                .map(|z| (GridCell::new(u, v), z, MountDomain::WorldCube)),
         }
     }
 

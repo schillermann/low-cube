@@ -145,12 +145,21 @@ impl VoxelCells {
     }
 
     pub fn clear_in(&mut self, (u0, u1): (i32, i32), (v0, v1): (i32, i32)) {
-        self.cells.retain(|&(u, v), _| u < u0 || u >= u1 || v < v0 || v >= v1);
+        self.cells.retain(|&(u, v), list| {
+            if u >= u0 && u < u1 && v >= v0 && v < v1 {
+                list.retain(|b| b.block_medium().indestructible());
+                !list.is_empty()
+            } else {
+                true
+            }
+        });
     }
 
     pub fn collect_sectors(&self, out: &mut Vec<(i32, i32)>) {
-        for &(u, v) in self.cells.keys() {
-            out.push((u.div_euclid(8), v.div_euclid(8)));
+        for (&(u, v), list) in &self.cells {
+            if list.iter().any(|b| !b.block_medium().indestructible()) {
+                out.push((u.div_euclid(8), v.div_euclid(8)));
+            }
         }
     }
 

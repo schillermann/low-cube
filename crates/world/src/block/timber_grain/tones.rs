@@ -59,6 +59,7 @@ impl MediumPalette {
             BlockMedium::BakingOven => (Vec3::new(0.74, 0.44, 0.28), Vec3::new(0.96, 0.46, 0.12)),
             BlockMedium::BloomeryForge => (Vec3::new(0.38, 0.36, 0.35), Vec3::new(1.00, 0.74, 0.26)),
             BlockMedium::SmithyAnvil => (Vec3::new(0.56, 0.60, 0.66), Vec3::new(0.34, 0.22, 0.12)),
+            BlockMedium::OriginStone => (Vec3::new(0.32, 0.96, 0.68), Vec3::new(0.95, 0.80, 0.32)),
         }
     }
 }

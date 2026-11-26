@@ -64,14 +64,9 @@ impl BodySpan {
             let probe_y = world
                 .celestial_atlas()
                 .ephemeris()
-                .map_or(1_024.0, |e| (e.proportions().earth_half() * 2.0).max(1_024.0))
-                + 64.0;
-            [(0.25, 0.25), (2.25, 0.25), (-2.25, 0.25), (0.25, 2.25), (0.25, -2.25)]
-                .into_iter()
-                .map(|(x, z)| world.constrain_to_surface(Vec3::new(x, probe_y, z), 1.0))
-                .fold(world.constrain_to_surface(Vec3::new(0.25, probe_y, 0.25), 1.0), |acc, c| {
-                    if c.y > acc.y + 1.5 { c } else { acc }
-                })
+                .map_or(16.0, |e| e.proportions().earth_half())
+                + 8.0;
+            world.constrain_to_surface(Vec3::new(-0.25, probe_y, -0.25), 1.0)
         };
         Self::anchored(spawn)
     }

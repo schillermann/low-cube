@@ -116,6 +116,7 @@ impl RelicCatalog {
             BlockMedium::BakingOven => 42,
             BlockMedium::BloomeryForge => 43,
             BlockMedium::SmithyAnvil => 44,
+            BlockMedium::OriginStone => 0,
         }
     }
 

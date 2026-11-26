@@ -1,5 +1,6 @@
 use glam::Vec3;
 
+mod arrival_sites;
 mod beveled_world;
 mod biome;
 mod block;
@@ -35,8 +36,12 @@ mod mesh_target_tests;
 #[cfg(test)]
 mod offworld_eviction_tests;
 
+pub use arrival_sites::{ArrivalSites, MediumArrivalSites, PrioritizedArrivalSites};
 pub use beveled_world::BeveledGravity;
-pub use biome::BiomedCubeWorld;
+pub use biome::{
+    BarrenZone, BiomedCubeWorld, ForestedZone, HollowRelief, LivingRelief, OriginPlinthRelief,
+    ReliefMold, ZoneSurface,
+};
 pub use celestial::{
     ActiveVicinity, AlienWorld, ApexSpin, AsteroidBelt, AtlasMode, AwakenedBody, BeltAndReach,
     BeltRock, BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique,
@@ -52,10 +57,10 @@ pub use block::{
     BlueprintBlockMesh, CabinSeatMesh, CardinalTurn, ConsoleOrrery, CornerHeading, CuboidShape,
     DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh, FootwellPlinth,
     FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, LaserBeaconMesh, MediumShape,
-    MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, PalmMolds, PedalClusterMesh, PyramidPeak,
-    RampWedge, RidgeCorner, RocketNozzleMesh, SmithyAnvilMesh, SpawnPlinthMesh, StairCorner,
-    StairFlight, ValleyCorner, VitrifiedBasaltMesh, VoxelShape, WalnutFloorPan, WedgeHeading,
-    WheelProfile,
+    MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, OriginPlinthMesh, PalmMolds,
+    PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, RocketNozzleMesh, SmithyAnvilMesh,
+    SpawnPlinthMesh, StairCorner, StairFlight, ValleyCorner, VitrifiedBasaltMesh, VoxelShape,
+    WalnutFloorPan, WedgeHeading, WheelProfile,
 };
 pub use chronicle::{
     RigSnapshot, SectorColumnState, SectorSnapshot, SnapshotBlock, WorldFact,

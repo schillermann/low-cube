@@ -8,6 +8,19 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.129.0] - 2026-11-26
+
+### Added
+- Added indestructible planetary `OriginStone` arrival plinth and Pure-OOP spawn/ward decorators (`crates/world/src/block/spawn_plinth.rs`, `crates/world/src/arrival_sites.rs`, `crates/world/src/biome.rs`, `crates/world/src/relief/molded_structure/layers.rs` & `crates/client/src/avatar/mortal_motor.rs`):
+  - `BlockMedium::OriginStone` (`code 30`) and `OriginPlinthMesh` (`CrownedPlinth<PlinthSlab, ...>` `PlinthSculpture` decorator chain in `crates/world/src/block/spawn_plinth.rs`), automatically seeded onto the temperate `+Y` sanctuary clearing via `ForestedZone(OriginPlinthRelief(LivingRelief / HollowRelief))` and `BarrenZone(OriginPlinthRelief(LivingRelief))` (`crates/world/src/biome.rs`).
+  - `SanctuaryStructure` `MoldedStructure` decorator (`RiggedStructure(ParkedStructure(SanctuaryStructure(&WorldBlocks)))` in `crates/world/src/relief/molded_structure/layers.rs` & `world_blocks.rs`) locking indestructible sanctuary columns against loosening, excavation, undermining, overhead block stacking, and forged `SectorSnapshot` overwrites.
+  - `ArrivalSites`, `MediumArrivalSites`, and `PrioritizedArrivalSites::sanctuary()` (`crates/world/src/arrival_sites.rs`) unifying `PlanetaryWorld::assigned_spawn_point` and multiplayer `SpawnBeacons::refresh_from` so admin `SpawnStone` plinths take priority while falling back to the world's `OriginStone`.
+
+### Fixed
+- Fixed post-death outer-space respawn in `HeliosphereWorld` (`crates/client/src/avatar/span.rs`, `crates/client/src/avatar/mortal_motor.rs`, `crates/client/src/launch.rs` & `crates/client/src/mortality_tests.rs`):
+  - Replaced out-of-band `1,088 m..4,160 m` sky probe heights in `BodySpan::spawned_on` (which exceeded `HeliosphereWorld::near_earth` and stranded revived players in zero-g space) with `OriginStone` / `SpawnStone` surface anchoring and a near-crust fallback (`earth_half + 8 m`).
+  - Added polymorphic `RevivalLocus` (`Grounded` / `Earthbound`) inside `MortalMotor` (`crates/client/src/avatar/mortal_motor.rs`) so dying offworld re-anchors `HeliosphereWorld` to `CosmicFrame::Earth` on the `OriginStone` without boolean flags in `BodySpan`.
+
 ## [0.128.0] - 2026-11-26
 
 ### Added

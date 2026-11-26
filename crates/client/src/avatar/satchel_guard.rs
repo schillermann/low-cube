@@ -33,6 +33,8 @@ impl<M: AvatarCondition> AvatarCondition for SatchelAvatar<M> {
     fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.abort_hands(world) }
     fn step_satchel_idle(&mut self, dt: f32) { self.origin.step_satchel_idle(dt); }
     fn step_blackout(&mut self, dt: f32, world: &dyn PlanetaryWorld) { self.origin.step_blackout(dt, world); }
+    fn revive_on_earth(&mut self, world: &dyn PlanetaryWorld) { self.origin.revive_on_earth(world); }
+    fn reconcile_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.reconcile_frame(world) }
 }
 
 impl<M: AvatarMotor + AvatarCondition> AvatarMotor for SatchelAvatar<M> {

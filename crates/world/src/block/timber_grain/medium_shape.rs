@@ -14,7 +14,7 @@ use super::super::mold::MoldArchetype;
 use super::super::pedal_cluster::{FootwellPlinth, PedalClusterMesh};
 use super::super::shape::VoxelShape;
 use super::super::space_parts::SpaceBlockMesh;
-use super::super::spawn_plinth::SpawnPlinthMesh;
+use super::super::spawn_plinth::{OriginPlinthMesh, SpawnPlinthMesh};
 use super::super::vehicle_parts::{VehicleBlockMesh, WheelProfile};
 use super::super::wedge::WedgeHeading;
 use super::BlockMedium;
@@ -68,6 +68,7 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
                     | BlockMedium::FieldCamera
                     | BlockMedium::VehicleBlueprint
                     | BlockMedium::SpawnStone
+                    | BlockMedium::OriginStone
                     | BlockMedium::BlackBoxPod
                     | BlockMedium::LaserBeacon
             )
@@ -154,6 +155,7 @@ impl<S: VoxelShape> VoxelShape for MediumShape<S> {
             (BlockMedium::PedalCluster, _) => PedalClusterMesh::mounted(self.heading).emit(cell, floor_elevation, frame, target),
             (BlockMedium::FieldCamera, _) => FieldCameraTripod::new(self.heading, self.archetype).emit(cell, floor_elevation, frame, target),
             (BlockMedium::SpawnStone, _) => SpawnPlinthMesh::new(cell, floor_elevation).emit(frame, target),
+            (BlockMedium::OriginStone, _) => OriginPlinthMesh::new(cell, floor_elevation).emit(frame, target),
             (BlockMedium::BlackBoxPod, _) => BlackBoxPodMesh::new(cell, floor_elevation).emit(frame, target),
             (BlockMedium::LaserBeacon, _) => LaserBeaconMesh::new(cell, floor_elevation).emit(frame, target),
             (BlockMedium::BakingOven, _) => BakingOvenMesh::new(cell, floor_elevation, self.heading).emit(frame, target),

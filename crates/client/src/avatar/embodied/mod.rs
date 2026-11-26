@@ -155,6 +155,14 @@ impl AvatarCondition for EmbodiedAvatar {
         self.body.settle_span();
         self.advance_blackout(dt, world);
     }
+
+    fn revive_on_earth(&mut self, world: &dyn PlanetaryWorld) {
+        self.reset_to_world(world);
+    }
+
+    fn reconcile_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
+        self.body.reconcile_cosmic_frame(world)
+    }
 }
 
 impl AvatarMotor for EmbodiedAvatar {
