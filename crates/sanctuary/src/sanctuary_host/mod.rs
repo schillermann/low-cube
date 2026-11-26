@@ -87,6 +87,16 @@ impl SanctuaryHost {
         HostSocket::new(bind_addr).bind_cosmos_with_identity(host_keys, callsign, world, proportions, chronicle, survivors)
     }
 
+    pub fn bind_journaled_cosmos(
+        bind_addr: &str,
+        journal_path: impl AsRef<std::path::Path>,
+        callsign: Callsign,
+        proportions: SolarProportions,
+        starter_kit: world::SatchelManifest,
+    ) -> std::io::Result<Self> {
+        HostSocket::new(bind_addr).bind_journaled_cosmos(journal_path.as_ref(), callsign, proportions, starter_kit)
+    }
+
     pub fn bind_with_endpoint(
         bind_addr: &str, advertised: SocketAddr, world: Box<dyn PlanetaryWorld>, blocks_per_edge: u32,
     ) -> std::io::Result<Self> {
@@ -117,6 +127,16 @@ impl SanctuaryHost {
     pub fn ticket(&self) -> PortalTicket { self.read_wire(HostWire::ticket) }
     pub fn punch_nat_peer(&mut self, peer: SocketAddr) { self.write_wire(|w| w.punch_peer(peer)); }
     pub fn sync_host_presence(&mut self, presence: CompanionPresence) { self.write_wire(|w| w.state_mut().occupy_host(presence)); }
+    pub fn commit_host_survivor(&mut self, frame: world::CosmicFrame, position: Vec3, manifest: world::SatchelManifest) {
+        self.write_wire(|w| {
+            let pk = w.identity().keys().public_bytes();
+            let cs = w.identity().callsign();
+            w.state_mut().commit_host_owner(pk, world::SurvivorRecord::with_callsign(frame, position, manifest, cs), false);
+        });
+    }
+    pub fn host_welcome(&self) -> Option<world::SurvivorWelcome> {
+        self.read_wire(|w| w.state().lookup_host_owner(w.identity().keys().public_bytes()))
+    }
     pub fn sync_host_berth_presence(&mut self, presence: CompanionPresence, berth: world::VesselBerth) {
         self.write_wire(|w| w.state_mut().occupy_host_berth(presence, berth));
     }

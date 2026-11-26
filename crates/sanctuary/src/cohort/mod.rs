@@ -95,6 +95,14 @@ impl GuestCohort {
         self.wards.get(&cid).map(|(w, _)| (w.cosmic_frame(), w.anchor_position()))
     }
 
+    pub fn commit_owner_record(&mut self, pubkey: [u8; 32], record: world::SurvivorRecord, final_checkpoint: bool) {
+        self.survivors.commit(pubkey, record, final_checkpoint);
+    }
+
+    pub fn lookup_owner(&self, pubkey: [u8; 32]) -> Option<world::SurvivorWelcome> {
+        self.survivors.lookup(pubkey).map(world::SurvivorWelcome::Restored)
+    }
+
     pub fn ward_world_locus(&self, cid: u32, aura: &HostAura) -> Option<(CosmicFrame, Vec3)> {
         let (ward, _) = self.wards.get(&cid)?;
         let raw = ward.anchor_position();

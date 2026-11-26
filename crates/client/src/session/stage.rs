@@ -5,35 +5,40 @@ use crate::cosmos_scale::{AssembledCosmos, CosmosScale};
 use crate::menu::{ModalDirective, SessionModal};
 use crate::portal_config::LivePortal;
 use crate::surface::PlatformSurface;
+use crate::world_vault::RealmPort;
 use super::display::SessionDisplay;
+use super::mounted_realm::MountedRealm;
 use super::overlay::{OverlayTransition, StageOverlay};
 use super::pulse::PulseBeat;
 
-/// Encapsulated planetary world, player avatar, and modal/control overlay.
+/// Encapsulated planetary world, player avatar, modal/control overlay, and mounted realm (`4` fields).
 pub struct SessionStage {
     world: Box<dyn PlanetaryWorld>,
     avatar: Box<dyn Avatar>,
     overlay: StageOverlay,
+    realm: MountedRealm,
 }
 
 impl SessionStage {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) fn with_overlay(
+    fn from_parts(
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
         overlay: StageOverlay,
+        realm: MountedRealm,
     ) -> Self {
-        Self { world, avatar, overlay }
+        Self { world, avatar, overlay, realm }
     }
 
-    /// Secondary constructor assembling the stage from world, avatar, controls, and modal.
-    pub fn new(
+    /// Secondary constructor assembling the stage with an owned `RealmPort`.
+    pub fn with_port(
         world: Box<dyn PlanetaryWorld>,
         avatar: Box<dyn Avatar>,
         controls: Box<dyn KeyboardControls>,
         modal: Box<dyn SessionModal>,
+        port: Box<dyn RealmPort>,
     ) -> Self {
-        Self::with_overlay(world, avatar, StageOverlay::new(controls, modal))
+        Self::from_parts(world, avatar, StageOverlay::new(controls, modal), MountedRealm::unbound(port))
     }
 
     pub(super) fn modal_open(&self) -> bool { self.overlay.modal_open() }
@@ -61,12 +66,7 @@ impl SessionStage {
     }
 
     pub(super) fn render_onto(&mut self, display: &mut SessionDisplay, sight_scale: f32) {
-        display.render_scene(
-            self.world.as_ref(),
-            self.avatar.as_mut(),
-            self.overlay.modal(),
-            sight_scale,
-        );
+        display.render_scene(self.world.as_ref(), self.avatar.as_mut(), self.overlay.modal(), sight_scale);
     }
 
     pub(super) fn use_left(&mut self) -> bool {
@@ -114,6 +114,7 @@ impl SessionStage {
     pub(super) fn ctrl_active(&self) -> bool { self.overlay.ctrl_active() }
 
     fn activate_remote_world(&mut self, remote: Box<dyn PlanetaryWorld>, display: &mut SessionDisplay) {
+        self.realm.unbind();
         self.world = remote;
         self.avatar.land_on_world(self.world.as_ref());
         self.overlay.complete_join(display.surface());
@@ -123,12 +124,35 @@ impl SessionStage {
     fn apply_transition(&mut self, transition: OverlayTransition, display: &mut SessionDisplay) -> ModalDirective {
         match transition {
             OverlayTransition::Unchanged => ModalDirective::ContinueSession,
+            OverlayTransition::ActivateWorld(spec) => {
+                self.avatar.sync_world_presence(self.world.as_mut());
+                self.world = Box::new(world::BiomedCubeWorld::barren(4));
+                self.world = self.realm.mount_solitary(spec);
+                self.avatar.land_on_world(self.world.as_ref());
+                display.capture_cursor();
+                display.refresh_world_mesh(self.world.as_ref(), self.avatar.as_ref());
+                ModalDirective::ContinueSession
+            }
+            OverlayTransition::EvictWorld(slug) => {
+                self.world = Box::new(world::BiomedCubeWorld::barren_beveled(32, 1.0));
+                self.realm.evict(&slug);
+                display.surface().release_cursor();
+                display.refresh_world_mesh(self.world.as_ref(), self.avatar.as_ref());
+                ModalDirective::ContinueSession
+            }
             OverlayTransition::OpenLivePortal => {
+                self.avatar.sync_world_presence(self.world.as_mut());
                 let current = std::mem::replace(&mut self.world, Box::new(world::BiomedCubeWorld::of_size(4)));
-                let proportions = AssembledCosmos::assembled().proportions();
-                let (hosted, invite) = LivePortal::new(proportions).open(current);
-                self.world = hosted;
-                self.overlay.announce_portal(invite);
+                if let Some((hosted, invite)) = self.realm.mount_hosted_if_local() {
+                    drop(current);
+                    self.world = hosted;
+                    self.overlay.announce_portal(invite);
+                } else {
+                    let proportions = AssembledCosmos::assembled().proportions();
+                    let (hosted, invite) = LivePortal::new(proportions).open(current);
+                    self.world = hosted;
+                    self.overlay.announce_portal(invite);
+                }
                 ModalDirective::ContinueSession
             }
             OverlayTransition::Connected(remote) => {
@@ -163,18 +187,9 @@ impl SessionStage {
         self.apply_transition(transition, display)
     }
 
-    pub(super) fn handle_modal_text(&mut self, text: &str) {
-        self.overlay.handle_text(text);
-    }
-
-    pub(super) fn typing_avatar_text(&self) -> bool {
-        self.avatar.typing_text()
-    }
-
-    pub(super) fn handle_avatar_text(&mut self, text: &str) -> bool {
-        self.avatar.accept_typed_text(text)
-    }
-
+    pub(super) fn handle_modal_text(&mut self, text: &str) { self.overlay.handle_text(text); }
+    pub(super) fn typing_avatar_text(&self) -> bool { self.avatar.typing_text() }
+    pub(super) fn handle_avatar_text(&mut self, text: &str) -> bool { self.avatar.accept_typed_text(text) }
     pub(super) fn release_control_key(&mut self, code: winit::keyboard::KeyCode) {
         self.overlay.register_trigger(InputTrigger::Key(code), false);
     }
@@ -242,5 +257,11 @@ impl SessionStage {
         self.overlay.sync_portal_chat(self.world.as_mut());
         display.stream_meadow_slice(self.world.as_ref(), self.avatar.as_ref(), reopen_meadow);
         self.world.blend_companions(beat.subtick_blend() * beat.tick_seconds());
+    }
+}
+
+impl Drop for SessionStage {
+    fn drop(&mut self) {
+        self.avatar.sync_world_presence(self.world.as_mut());
     }
 }

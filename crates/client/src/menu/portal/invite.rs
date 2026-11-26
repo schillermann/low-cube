@@ -48,7 +48,6 @@ impl PortalInvite {
         Self::new(code, ticket)
     }
 
-    #[cfg(test)]
     pub const fn empty() -> Self {
         Self::new(String::new(), String::new())
     }

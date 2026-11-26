@@ -3,6 +3,7 @@ mod chat_tests;
 mod inspection_tests;
 mod portal_tests;
 mod settings_tests;
+mod world_tests;
 
 use std::cell::Cell;
 use glam::Vec3;

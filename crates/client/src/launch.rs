@@ -11,7 +11,8 @@ use crate::celestial::CelestialCadence;
 use crate::controls::{BindingProfile, FileBindings, SprintControls};
 use crate::host_env::{GlHostEnvironment, HostEnvironment};
 use crate::menu::{
-    AutoPunchModal, EscapeMenu, InspectionModal, PortalInvite, ProximityChatModal, SolarChartModal,
+    AutoPunchModal, EscapeMenu, InspectionModal, LobbyGateModal, PortalInvite, ProximityChatModal,
+    SessionModal, SolarChartModal,
 };
 use crate::physics::PlanetaryPhysics;
 use crate::portal_config::PortalConfig;
@@ -22,6 +23,7 @@ use crate::server_satchel::ServerSatchel;
 use crate::session::{
     GameSession, PolaroidScenePass, Session, SessionDisplay, SessionStage, ShadedScenePass,
 };
+use crate::world_vault::DiskWorldVault;
 
 /// Interface for assembling an active display session.
 pub trait SessionAssembly {
@@ -78,12 +80,22 @@ impl SessionLaunch {
 impl SessionAssembly for SessionLaunch {
     fn assemble(&self, event_loop: &ActiveEventLoop) -> Box<dyn Session> {
         let surface = self.host_env.attach(event_loop);
-        surface.capture_cursor();
+        let portal_cfg = PortalConfig::from_process();
+        let title_launch = matches!(portal_cfg, PortalConfig::Solitary);
+        if title_launch {
+            surface.release_cursor();
+        } else {
+            surface.capture_cursor();
+        }
         surface.request_redraw();
 
+        let vault = DiskWorldVault::live(self.cosmos.proportions);
         let world_blocks = self.cosmos.proportions.earth_blocks();
-        let planet: Box<dyn PlanetaryWorld> =
-            PortalConfig::from_process().assemble_planet(self.cosmos.proportions);
+        let planet: Box<dyn PlanetaryWorld> = if title_launch {
+            world::CelestialSystem::barren_heliosphere(SolarProportions::true_scale(128), 1.0)
+        } else {
+            portal_cfg.assemble_planet(self.cosmos.proportions)
+        };
         let initial_invite = PortalInvite::hosted(
             planet.portal_phrase().unwrap_or_default(),
             planet.portal_ticket().unwrap_or_default(),
@@ -155,18 +167,38 @@ impl SessionAssembly for SessionLaunch {
         );
 
         let controls = Box::new(SprintControls::with_bindings(bindings));
-        let modal = Box::new(ProximityChatModal::wrapping(SolarChartModal::with_bindings(
-            AutoPunchModal::wrapping(
-                InspectionModal::new(EscapeMenu::with_clipboards(
-                    initial_invite.clone(),
-                    surface.attach_clipboard(),
-                    surface.attach_clipboard(),
-                )),
-                initial_invite,
+        let modal: Box<dyn SessionModal> = if title_launch {
+            let escape_menu = EscapeMenu::startup_worlds(
+                vault.clone(),
+                initial_invite.clone(),
                 surface.attach_clipboard(),
-            ),
-            bindings,
-        )));
+                surface.attach_clipboard(),
+            );
+            let guarded = LobbyGateModal::guarding(escape_menu);
+            Box::new(ProximityChatModal::wrapping(SolarChartModal::with_bindings(
+                AutoPunchModal::wrapping(
+                    InspectionModal::new(guarded),
+                    initial_invite,
+                    surface.attach_clipboard(),
+                ),
+                bindings,
+            )))
+        } else {
+            let escape_menu = EscapeMenu::with_vault_and_clipboards(
+                vault.clone(),
+                initial_invite.clone(),
+                surface.attach_clipboard(),
+                surface.attach_clipboard(),
+            );
+            Box::new(ProximityChatModal::wrapping(SolarChartModal::with_bindings(
+                AutoPunchModal::wrapping(
+                    InspectionModal::new(escape_menu),
+                    initial_invite,
+                    surface.attach_clipboard(),
+                ),
+                bindings,
+            )))
+        };
         let shaded_pass = PolaroidScenePass::new(ShadedScenePass::new(
             (primary_pipeline, primary_shader),
             primary_mesh,
@@ -174,7 +206,7 @@ impl SessionAssembly for SessionLaunch {
             initial_ring,
         ));
         let display = SessionDisplay::new(surface, Box::new(shaded_pass));
-        let stage = SessionStage::new(planet, avatar, controls, modal);
+        let stage = SessionStage::with_port(planet, avatar, controls, modal, Box::new(vault));
 
         Box::new(GameSession::new(stage, display))
     }

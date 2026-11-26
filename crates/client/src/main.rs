@@ -56,6 +56,7 @@ mod stride;
 mod surface;
 mod threshold;
 mod toml_document;
+mod world_vault;
 mod zero_g_flight;
 
 #[cfg(test)]

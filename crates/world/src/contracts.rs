@@ -126,6 +126,13 @@ pub trait CompanionPortal {
     fn drain_utterances(&mut self, _out: &mut Vec<ProximityUtterance>) {}
     fn note_crafted_recipe(&mut self, _recipe_index: u8) {}
     fn note_consumed_provision(&mut self, _relic_code: u8) {}
+    fn commit_local_survivor(
+        &mut self,
+        _frame: crate::CosmicFrame,
+        _position: Vec3,
+        _manifest: crate::SatchelManifest,
+    ) {
+    }
 }
 
 /// Composite planetary body interface uniting physical relief with segregated mesh, fauna, vessel, and portal contracts.

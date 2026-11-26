@@ -131,6 +131,7 @@ impl AvatarPresence for EmbodiedAvatar {
         world.sync_sky_watch(sky_watch);
         let (pres, berth) = self.body.berth_presence(self.current_presence(), world);
         world.sync_berth_presence(pres, berth);
+        world.commit_local_survivor(world.cosmic_frame(), self.body.position(), self.gear.survivor_manifest());
     }
 
     fn report_presence(&self, sink: &mut dyn crate::black_box::PresenceSink) {

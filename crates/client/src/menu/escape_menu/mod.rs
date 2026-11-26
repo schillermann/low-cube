@@ -1,4 +1,5 @@
 mod panels;
+mod personal;
 mod phase;
 
 use winit::keyboard::KeyCode;
@@ -7,6 +8,7 @@ use world::MeshTarget;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
 use crate::surface::PlatformSurface;
+use crate::world_vault::DiskWorldVault;
 #[cfg(test)]
 use super::black_box_panel::BlackBoxPanel;
 use super::clipboard::TextClipboard;
@@ -15,16 +17,14 @@ use super::clipboard::{MemoryClipboard, SystemClipboard};
 use super::portal::PortalInvite;
 #[cfg(test)]
 use super::portal::PortalStudio;
-#[cfg(test)]
-use super::settings::ControlStudio;
-#[cfg(test)]
-use super::studio::WardrobeStudio;
 use super::widget::ScreenPoint;
+#[cfg(test)]
+use super::worlds::{WorldPanel, WorldStudio};
 use super::{ModalDirective, SessionModal};
 use panels::StudioPanels;
 use phase::ModalPhase;
 
-/// Encapsulated Escape menu, 3D Character Studio, Settings submenu, Co-op Portal, and Flight Blackbox studio.
+/// Encapsulated Escape menu, World Studio, 3D Character Studio, Settings, Co-op Portal, and Flight Blackbox (`3` fields).
 pub struct EscapeMenu {
     phase: ModalPhase,
     pointer: ScreenPoint,
@@ -44,47 +44,33 @@ impl EscapeMenu {
 
     #[cfg(test)]
     pub fn with_custom_portal(portal: PortalStudio) -> Self {
-        Self::new(
-            ModalPhase::Gameplay,
-            ScreenPoint::center(),
-            StudioPanels::new(
-                Box::new(WardrobeStudio::seeded()),
-                Box::new(ControlStudio::seeded()),
-                portal,
-                BlackBoxPanel::with_clipboard(Box::new(MemoryClipboard::seeded(""))),
-            ),
-        )
+        let bb = BlackBoxPanel::with_clipboard(Box::new(MemoryClipboard::seeded("")));
+        Self::new(ModalPhase::Gameplay, ScreenPoint::center(), StudioPanels::seeded(Box::new(WorldStudio::empty()), portal, bb))
     }
 
     #[cfg(test)]
     pub fn with_custom_black_box(black_box: BlackBoxPanel) -> Self {
-        Self::new(
-            ModalPhase::Gameplay,
-            ScreenPoint::center(),
-            StudioPanels::new(
-                Box::new(WardrobeStudio::seeded()),
-                Box::new(ControlStudio::seeded()),
-                PortalStudio::with_invite(PortalInvite::empty(), Box::new(MemoryClipboard::seeded(""))),
-                black_box,
-            ),
-        )
+        let portal = PortalStudio::with_invite(PortalInvite::empty(), Box::new(MemoryClipboard::seeded("")));
+        Self::new(ModalPhase::Gameplay, ScreenPoint::center(), StudioPanels::seeded(Box::new(WorldStudio::empty()), portal, black_box))
     }
 
     #[cfg(test)]
     pub fn with_clipboard(invite: PortalInvite, clipboard: Box<dyn TextClipboard>) -> Self {
-        Self::new(
-            ModalPhase::Gameplay,
-            ScreenPoint::center(),
-            StudioPanels::new(
-                Box::new(WardrobeStudio::seeded()),
-                Box::new(ControlStudio::seeded()),
-                PortalStudio::with_invite(invite, clipboard),
-                BlackBoxPanel::with_clipboard(SystemClipboard::new().detached()),
-            ),
-        )
+        let portal = PortalStudio::with_invite(invite, clipboard);
+        let bb = BlackBoxPanel::with_clipboard(SystemClipboard::new().detached());
+        Self::new(ModalPhase::Gameplay, ScreenPoint::center(), StudioPanels::seeded(Box::new(WorldStudio::empty()), portal, bb))
     }
 
-    pub fn with_clipboards(
+    #[cfg(test)]
+    pub fn opened_on_worlds(worlds: Box<dyn WorldPanel>) -> Self {
+        let portal = PortalStudio::with_invite(PortalInvite::empty(), Box::new(MemoryClipboard::seeded("")));
+        let bb = BlackBoxPanel::with_clipboard(Box::new(MemoryClipboard::seeded("")));
+        let panels = StudioPanels::seeded(worlds, portal, bb);
+        Self::new(ModalPhase::initial_worlds(panels.empty_worlds()), ScreenPoint::center(), panels)
+    }
+
+    pub fn with_vault_and_clipboards(
+        vault: DiskWorldVault,
         invite: PortalInvite,
         portal_clipboard: Box<dyn TextClipboard>,
         report_clipboard: Box<dyn TextClipboard>,
@@ -92,8 +78,18 @@ impl EscapeMenu {
         Self::new(
             ModalPhase::Gameplay,
             ScreenPoint::center(),
-            StudioPanels::assembled(invite, portal_clipboard, report_clipboard),
+            StudioPanels::assembled(vault, invite, portal_clipboard, report_clipboard),
         )
+    }
+
+    pub fn startup_worlds(
+        vault: DiskWorldVault,
+        invite: PortalInvite,
+        portal_clipboard: Box<dyn TextClipboard>,
+        report_clipboard: Box<dyn TextClipboard>,
+    ) -> Self {
+        let panels = StudioPanels::assembled(vault, invite, portal_clipboard, report_clipboard);
+        Self::new(ModalPhase::initial_worlds(panels.empty_worlds()), ScreenPoint::center(), panels)
     }
 }
 
@@ -118,7 +114,18 @@ impl SessionModal for EscapeMenu {
                 self.phase = ModalPhase::Gameplay;
                 surface.capture_cursor();
             }
-            ModalPhase::CharacterWardrobe | ModalPhase::SettingsHub | ModalPhase::MultiplayerHub => {
+            ModalPhase::WorldCreation => {
+                self.phase = if self.panels.empty_worlds() {
+                    ModalPhase::EscapePause
+                } else {
+                    ModalPhase::WorldRoster
+                };
+                surface.release_cursor();
+            }
+            ModalPhase::WorldRoster
+            | ModalPhase::CharacterWardrobe
+            | ModalPhase::SettingsHub
+            | ModalPhase::MultiplayerHub => {
                 self.phase = ModalPhase::EscapePause;
                 surface.release_cursor();
             }
@@ -176,9 +183,7 @@ impl SessionModal for EscapeMenu {
     }
 
     fn handle_text(&mut self, text: &str) {
-        if matches!(self.phase, ModalPhase::PortalJoin) {
-            self.panels.append_join_text(text);
-        }
+        self.panels.append_text(self.phase, text);
     }
 
     fn handle_trigger(&mut self, trigger: InputTrigger, avatar: &mut dyn Avatar) -> bool {
@@ -204,6 +209,7 @@ impl SessionModal for EscapeMenu {
 
     fn complete_join(&mut self, surface: &dyn PlatformSurface) {
         self.panels.cancel_join_dial();
+        self.panels.clear_active_world();
         self.phase = ModalPhase::Gameplay;
         surface.capture_cursor();
     }

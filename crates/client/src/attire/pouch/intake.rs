@@ -43,6 +43,26 @@ impl SatchelIntake {
         (self.palms, self.tray, self.temper, next_attire)
     }
 
+    pub(super) fn to_manifest(&self, attire: YouthAttire) -> world::SatchelManifest {
+        let (r, l) = attire.held_pair();
+        let mut totals = [0u32; world::RELIC_SLOT_COUNT];
+        for code in 1..(HeldRelic::COUNT as u8) {
+            let relic = HeldRelic::from_code(code);
+            let right_qty = if r == relic {
+                if r.placeable_block() { self.palms.blocks_on(1.0).max(1) } else { 1 }
+            } else {
+                0
+            };
+            let left_qty = if l == relic {
+                if l.placeable_block() { self.palms.blocks_on(-1.0).max(1) } else { 1 }
+            } else {
+                0
+            };
+            totals[code as usize] = right_qty + left_qty + self.tray.count(relic);
+        }
+        world::SatchelManifest::new(totals, (r.code(), l.code())).sanitized()
+    }
+
     pub(super) fn excavated_block(
         mut self,
         side: f32,

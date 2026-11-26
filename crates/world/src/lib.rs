@@ -15,6 +15,7 @@ mod planet;
 mod presence;
 mod quad;
 mod relief;
+mod seed;
 mod sight_cone;
 mod surface_contact;
 mod survivor;
@@ -73,7 +74,7 @@ pub use frame::SurfaceFrame;
 pub use mesh_target::{
     CountedMeshTarget, CrateredMeshTarget, MeadowCrown, NaturalMeadowTarget, TurfMeshTarget,
 };
-pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
+pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SeededFrequency, SpatialFrequency};
 pub use null_face::NullFace;
 pub use planet::{CubePlanet, ModifiedSlices, PatchCoord, ZoneShards};
 pub use presence::{
@@ -81,6 +82,7 @@ pub use presence::{
     PresenceAttire, PresenceKinematics, PresenceRhythm, ProximityUtterance, SounderPresence,
     VesselBerth, WildlifePulse, MAX_CALLSIGN_BYTES, MAX_UTTERANCE_BYTES,
 };
+pub use seed::WorldSeed;
 pub use sight_cone::SightCone;
 pub use surface_contact::SurfaceContact;
 pub use survivor::{
@@ -104,8 +106,8 @@ pub use tree::{
     Arboreal, ArborealFacet, ArcticPine, ClearedPlot, CleaveOutcome, ConicalSkirt,
     DesertSucculent, FloorLitter, ForestedFace, FullCubeGround, HewnTimberTarget,
     JungleEmergent, MeridianGround, PlantingGround, PolyhedralCrown, PrismTrunk, SectorForest,
-    SectorGrove, SolidArboreal, SpawnSanctuaryGround, StandingTree, SteppeAcacia, SurfaceFind,
-    SurfaceGround, TemperateOak, TimberDepository, TimberYield, TreeSpecies,
+    SectorGrove, SeededGround, SolidArboreal, SpawnSanctuaryGround, StandingTree, SteppeAcacia,
+    SurfaceFind, SurfaceGround, TemperateOak, TimberDepository, TimberYield, TreeSpecies,
     VolcanicSpire, WoodlandDepository, WoodlandGround, ZonedForest,
 };
 pub use weather::{

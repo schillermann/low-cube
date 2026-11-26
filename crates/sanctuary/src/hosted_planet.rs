@@ -110,6 +110,9 @@ impl CompanionPortal for HostedPlanet {
     }
     fn utter_nearby(&mut self, text: &str) { self.host.utter_host_nearby(text); }
     fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.host.drain_host_utterances(out); }
+    fn commit_local_survivor(&mut self, frame: world::CosmicFrame, position: Vec3, manifest: world::SatchelManifest) {
+        self.host.commit_host_survivor(frame, position, manifest);
+    }
 }
 
 impl PlanetaryWorld for HostedPlanet {
@@ -123,6 +126,7 @@ impl PlanetaryWorld for HostedPlanet {
     fn collect_offworld_medium_sites(&self, medium: world::BlockMedium, out: &mut Vec<(world::BodyId, Vec3, Vec3)>) {
         self.host.world().collect_offworld_medium_sites(medium, out);
     }
+    fn assigned_survivor(&self) -> Option<world::SurvivorWelcome> { self.host.host_welcome() }
     fn step_surface(&mut self, dt: f32) -> bool {
         let regrown = self.host.step_active_surface(dt);
         let net_changed = self.host.pump_network(dt);

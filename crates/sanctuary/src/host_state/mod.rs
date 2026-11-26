@@ -72,6 +72,12 @@ impl HostState {
         self.aura.occupy_berth(presence, berth);
     }
     pub fn pilot_host(&mut self, craft: PilotCraft) { self.aura.pilot(craft); }
+    pub fn commit_host_owner(&mut self, pubkey: [u8; 32], record: world::SurvivorRecord, final_checkpoint: bool) {
+        self.cohort.commit_owner_record(pubkey, record, final_checkpoint);
+    }
+    pub fn lookup_host_owner(&self, pubkey: [u8; 32]) -> Option<SurvivorWelcome> {
+        self.cohort.lookup_owner(pubkey)
+    }
     pub fn active_craft_count(&self) -> usize { self.cohort.active_craft_count() }
 
     pub fn guest_companions(&self, proportions: SolarProportions, out: &mut Vec<CompanionPresence>) {

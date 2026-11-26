@@ -1,8 +1,9 @@
 use glam::Vec3;
 use crate::block::GridCell;
 use crate::frame::SurfaceFrame;
-use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics, SpatialFrequency};
+use crate::noise::{CoherentNoise, DomainWarp, FractalHarmonics, SeededFrequency, SpatialFrequency};
 use crate::topology::ClimateZone;
+use crate::WorldSeed;
 use super::corner::NaturalCrown;
 use super::elevation::ReliefElevation;
 
@@ -35,6 +36,11 @@ impl ZonedRelief {
 
     /// Secondary constructor calibrating coherent noise harmonics and domain warp for a climate zone.
     pub fn in_climate(zone: ClimateZone, half_size: f32) -> Self {
+        Self::in_climate_seeded(zone, half_size, WorldSeed::origin())
+    }
+
+    /// Secondary constructor calibrating coherent noise harmonics for a climate zone and `WorldSeed`.
+    pub fn in_climate_seeded(zone: ClimateZone, half_size: f32, seed: WorldSeed) -> Self {
         let frame = zone.surface_frame(half_size);
         let (seed_offset, max_large, max_med) = match zone {
             ClimateZone::Volcanic => (202, 16, 12),
@@ -47,12 +53,13 @@ impl ZonedRelief {
         let min_elev = if matches!(zone, ClimateZone::Jungle) { -1 } else { 0 };
         let freq = if half_size >= 48.0 { 0.025 } else { 0.04 };
         let harmonics = Box::new(FractalHarmonics::new(Box::new(CoherentNoise::new(seed_offset, freq)), 3, 0.5, 2.0));
-        let warped = Box::new(DomainWarp::new(
+        let warped = DomainWarp::new(
             harmonics,
             Box::new(CoherentNoise::new(seed_offset + 10, freq * 0.5)),
             Box::new(CoherentNoise::new(seed_offset + 20, freq * 0.5)),
             2.5,
-        ));
+        );
+        let decorated = Box::new(SeededFrequency::seeded(warped, seed));
         let max_elev = if half_size >= 48.0 {
             max_large
         } else if half_size >= 24.0 {
@@ -62,7 +69,7 @@ impl ZonedRelief {
         } else {
             2
         };
-        Self::new(warped, frame.normal(), frame.tangent(), frame.bitangent(), half_size, min_elev, max_elev)
+        Self::new(decorated, frame.normal(), frame.tangent(), frame.bitangent(), half_size, min_elev, max_elev)
     }
 
     fn sample_at(&self, u: f32, v: f32) -> f32 {

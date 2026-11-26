@@ -87,6 +87,10 @@ impl PalmEarthworks {
         (Self::with_dig(next_satchel, ArtisanTome::closed(), DigOperation::idle()), next_attire)
     }
 
+    pub fn survivor_manifest(&self, attire: YouthAttire) -> world::SatchelManifest {
+        self.satchel.survivor_manifest(attire)
+    }
+
     pub fn drain_crafted_notes(mut self, world: &mut dyn PlanetaryWorld) -> Self {
         self.tome = self.tome.drain_crafted_notes(world);
         self

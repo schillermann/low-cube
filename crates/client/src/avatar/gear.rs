@@ -103,6 +103,9 @@ impl AvatarGear {
         (self.earthworks, self.attire) = self.earthworks.apply_survivor_manifest(manifest, self.attire);
         self.folio.close();
     }
+    pub fn survivor_manifest(&self) -> world::SatchelManifest {
+        self.earthworks.survivor_manifest(self.attire)
+    }
     pub fn drain_crafted_notes(&mut self, world: &mut dyn PlanetaryWorld) {
         self.earthworks = self.earthworks.drain_crafted_notes(world);
     }

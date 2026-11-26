@@ -4,11 +4,14 @@ use crate::controls::{InputTrigger, KeyboardControls};
 use crate::menu::{ModalDirective, ScreenPoint, SessionModal};
 use crate::portal_config::{DialOutcome, DialStep, PortalDial};
 use crate::surface::PlatformSurface;
+use crate::world_vault::{WorldSlug, WorldSpec};
 use super::display::SessionDisplay;
 
 /// Outcome of advancing or interacting with `StageOverlay` when world topology changes.
 pub(super) enum OverlayTransition {
     Unchanged,
+    ActivateWorld(WorldSpec),
+    EvictWorld(WorldSlug),
     OpenLivePortal,
     Connected(Box<dyn PlanetaryWorld>),
     PunchPeer(std::net::SocketAddr),
@@ -101,6 +104,14 @@ impl StageOverlay {
     fn translate_directive(&mut self, directive: ModalDirective) -> OverlayTransition {
         match directive {
             ModalDirective::ContinueSession => OverlayTransition::Unchanged,
+            ModalDirective::ActivateWorld(spec) => {
+                self.dial.cancel();
+                OverlayTransition::ActivateWorld(spec)
+            }
+            ModalDirective::EvictWorld(slug) => {
+                self.dial.cancel();
+                OverlayTransition::EvictWorld(slug)
+            }
             ModalDirective::OpenPortal => {
                 self.dial.cancel();
                 OverlayTransition::OpenLivePortal

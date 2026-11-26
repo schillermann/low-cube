@@ -7,6 +7,7 @@ mod patch_grid;
 
 use crate::block::VoxelShape;
 use crate::topology::ClimateZone;
+use crate::WorldSeed;
 use super::elevation::{ReliefElevation, ZonedRelief};
 use super::mineral_vein::{HollowVeins, LivingVeins, SubterraneanVeins};
 use super::palette::ReliefPalette;
@@ -42,12 +43,25 @@ impl FacetedReliefFace {
 
     /// Secondary constructor assembling an authoritative relief face with living mineral veins.
     pub fn in_zone(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
-        Self::in_zone_with_veins(zone, half_size, divisions, Box::new(LivingVeins::ambient(zone.index() as u64 + 1)))
+        Self::seeded_in_zone(zone, half_size, divisions, WorldSeed::origin())
+    }
+
+    /// Secondary constructor assembling a seeded authoritative relief face with living mineral veins.
+    pub fn seeded_in_zone(zone: ClimateZone, half_size: f32, divisions: u32, seed: WorldSeed) -> Self {
+        let zoned = Box::new(ZonedRelief::in_climate_seeded(zone, half_size, seed));
+        let veins = Box::new(LivingVeins::ambient(seed.mix_vein(zone.index() as u64 + 1)));
+        Self::alien_with_palette(zone, half_size, divisions, zoned, ReliefPalette::for_zone(zone), veins)
     }
 
     /// Secondary constructor assembling a zero-knowledge client relief face without unexposed ores.
     pub fn hollow_in_zone(zone: ClimateZone, half_size: f32, divisions: u32) -> Self {
-        Self::in_zone_with_veins(zone, half_size, divisions, Box::new(HollowVeins::untouched()))
+        Self::hollow_seeded_in_zone(zone, half_size, divisions, WorldSeed::origin())
+    }
+
+    /// Secondary constructor assembling a seeded zero-knowledge client relief face without unexposed ores.
+    pub fn hollow_seeded_in_zone(zone: ClimateZone, half_size: f32, divisions: u32, seed: WorldSeed) -> Self {
+        let zoned = Box::new(ZonedRelief::in_climate_seeded(zone, half_size, seed));
+        Self::alien_with_palette(zone, half_size, divisions, zoned, ReliefPalette::for_zone(zone), Box::new(HollowVeins::untouched()))
     }
 
     /// Secondary constructor assembling a cratered lunar regolith face with explicit vein authority.

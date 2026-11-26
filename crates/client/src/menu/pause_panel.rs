@@ -8,13 +8,14 @@ use super::widget::{ScreenBounds, ScreenPoint};
 pub enum PauseSelection {
     Unmatched,
     Resume,
+    OpenWorlds,
     OpenWardrobe,
     OpenSettings,
     OpenMultiplayer,
     Quit,
 }
 
-/// Button content of the Main Pause Menu decorated by `TitledCard`.
+/// Button content of the Main Pause Menu decorated by `TitledCard` (`2` fields).
 pub struct PauseBody {
     pointer: ScreenPoint,
     hosted: bool,
@@ -39,6 +40,7 @@ impl MenuView for PauseBody {
         layout.character_button().emit_button("CHARACTER", self.pointer, Vec3::new(0.20, 0.32, 0.52), false, target);
         layout.settings_button().emit_button("SETTINGS", self.pointer, Vec3::new(0.28, 0.26, 0.48), false, target);
         layout.multiplayer_button().emit_button("MULTIPLAYER", self.pointer, mp_col, self.hosted, target);
+        layout.worlds_button().emit_button("WORLDS", self.pointer, Vec3::new(0.22, 0.38, 0.54), false, target);
         layout.quit_button().emit_button("QUIT", self.pointer, Vec3::new(0.54, 0.18, 0.18), false, target);
     }
 }
@@ -68,8 +70,12 @@ impl PausePanel {
         ScreenBounds::new(-0.28, -0.40, 0.28, -0.28)
     }
 
-    pub fn quit_button(&self) -> ScreenBounds {
+    pub fn worlds_button(&self) -> ScreenBounds {
         ScreenBounds::new(-0.28, -0.58, 0.28, -0.46)
+    }
+
+    pub fn quit_button(&self) -> ScreenBounds {
+        ScreenBounds::new(-0.28, -0.76, 0.28, -0.64)
     }
 
     pub fn select(&self, pointer: ScreenPoint) -> PauseSelection {
@@ -81,6 +87,8 @@ impl PausePanel {
             PauseSelection::OpenSettings
         } else if self.multiplayer_button().contains(pointer) {
             PauseSelection::OpenMultiplayer
+        } else if self.worlds_button().contains(pointer) {
+            PauseSelection::OpenWorlds
         } else if self.quit_button().contains(pointer) {
             PauseSelection::Quit
         } else {
@@ -90,7 +98,7 @@ impl PausePanel {
 
     pub const fn view(&self, pointer: ScreenPoint, hosted: bool) -> TitledCard<'static, PauseBody> {
         TitledCard::new(
-            ScreenBounds::new(-0.36, -0.66, 0.36, 0.44),
+            ScreenBounds::new(-0.36, -0.84, 0.36, 0.44),
             "MAIN MENU",
             0.35,
             PauseBody::new(pointer, hosted),

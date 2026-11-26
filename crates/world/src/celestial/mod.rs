@@ -120,21 +120,21 @@ impl CelestialSystem {
 
     /// Authoritative full Solar System (`HeliosphereWorld`) scaled to `proportions`.
     pub fn heliosphere(proportions: SolarProportions, margin: f32) -> Box<dyn PlanetaryWorld> {
-        let earth = BiomedCubeWorld::beveled(proportions.earth_blocks(), margin);
+        let earth = BiomedCubeWorld::seeded_beveled(proportions.earth_blocks(), margin, proportions.seed());
         let eph = SolarEphemeris::new(proportions, 0.0);
         Box::new(OrbitalFleetWorld::wrapping(HeliosphereWorld::assembled(earth, eph, true)))
     }
 
     /// Flora-free authoritative full Solar System for fast physics, slingshot, and map tests.
     pub fn barren_heliosphere(proportions: SolarProportions, margin: f32) -> Box<dyn PlanetaryWorld> {
-        let earth = BiomedCubeWorld::barren_beveled(proportions.earth_blocks(), margin);
+        let earth = BiomedCubeWorld::barren_seeded_beveled(proportions.earth_blocks(), margin, proportions.seed());
         let eph = SolarEphemeris::new(proportions, 0.0);
         Box::new(OrbitalFleetWorld::wrapping(HeliosphereWorld::assembled(earth, eph, true)))
     }
 
     /// Zero-knowledge client full Solar System without unexposed subterranean ores.
     pub fn hollow_heliosphere(proportions: SolarProportions, margin: f32) -> Box<dyn PlanetaryWorld> {
-        let earth = BiomedCubeWorld::hollow_beveled(proportions.earth_blocks(), margin);
+        let earth = BiomedCubeWorld::hollow_seeded_beveled(proportions.earth_blocks(), margin, proportions.seed());
         let eph = SolarEphemeris::new(proportions, 0.0);
         Box::new(OrbitalFleetWorld::wrapping(HeliosphereWorld::assembled(earth, eph, false)))
     }

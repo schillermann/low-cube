@@ -1,4 +1,4 @@
-use world::SolarProportions;
+use world::{SolarProportions, WorldSeed};
 use crate::command_flags::CommandFlags;
 use crate::server_scale::{PlanetaryScale, ServerScale};
 use crate::toml_document::TomlDocument;
@@ -176,6 +176,25 @@ impl<C: CosmosScale> CosmosScale for EpsteinReachCosmos<C> {
         } else {
             raw
         }
+    }
+}
+
+/// `CosmosScale` decorator binding a deterministic `WorldSeed` onto resolved `SolarProportions` (`2` fields).
+pub struct SeededCosmos<C> {
+    origin: C,
+    seed: WorldSeed,
+}
+
+impl<C> SeededCosmos<C> {
+    /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn new(origin: C, seed: WorldSeed) -> Self {
+        Self { origin, seed }
+    }
+}
+
+impl<C: CosmosScale> CosmosScale for SeededCosmos<C> {
+    fn proportions(&self) -> SolarProportions {
+        self.origin.proportions().with_seed(self.seed)
     }
 }
 

@@ -6,6 +6,7 @@ use world::MeshTarget;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
 use crate::surface::PlatformSurface;
+use crate::world_vault::{WorldSlug, WorldSpec};
 
 mod archetype;
 mod black_box_panel;
@@ -15,6 +16,7 @@ mod controls_slate;
 mod escape_menu;
 mod glyph;
 mod inspection_modal;
+mod lobby_modal;
 mod orrery_hud;
 mod pause_panel;
 mod portal;
@@ -29,6 +31,7 @@ mod version_stamp;
 mod view;
 mod viewfinder;
 mod widget;
+mod worlds;
 
 #[cfg(test)]
 pub use archetype::AvatarArchetype;
@@ -42,6 +45,7 @@ pub use controls_slate::{ControlsSlate, ControlsSlateHud, SlateContext};
 pub use escape_menu::EscapeMenu;
 pub use glyph::PixelStamp;
 pub use inspection_modal::InspectionModal;
+pub use lobby_modal::LobbyGateModal;
 pub use orrery_hud::{ChannelStripOverlay, OpticOverlay, ShipOpticHud};
 #[cfg(test)]
 pub use orrery_hud::{
@@ -73,11 +77,15 @@ pub use version_stamp::VersionStamp;
 pub use view::{MenuView, VersionedView};
 pub use viewfinder::{ActiveChannel, CameraFeed, GuidanceReadout, PreviewStripLayout};
 pub use widget::ScreenPoint;
+#[cfg(test)]
+pub use worlds::{SavedWorldStudio, WorldLayout, WorldStudio};
 
-/// Directive returned when interacting with the Escape menu, Character studio, Settings, or Portal panel.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Directive returned when interacting with the Escape menu, Character studio, Settings, Worlds, or Portal panel.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ModalDirective {
     ContinueSession,
+    ActivateWorld(WorldSpec),
+    EvictWorld(WorldSlug),
     OpenPortal,
     JoinPortal(JoinTarget),
     CancelJoin,

@@ -1,6 +1,9 @@
 use glam::Vec3;
+use crate::WorldSeed;
 use super::bubble::CosmicFrame;
 use super::catalog::SolarCatalog;
+
+const LEGACY_SEED_MASK: u64 = 0x3F80_0000_3F80_0000;
 
 /// Orbital distance multiplier and procedural asteroid belt occupancy density.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -33,6 +36,7 @@ impl BeltAndReach {
 pub struct SolarProportions {
     earth_blocks: u32,
     reach: BeltAndReach,
+    seed: WorldSeed,
 }
 
 impl SolarProportions {
@@ -40,8 +44,13 @@ impl SolarProportions {
     pub const EPSTEIN_HOUR_AU_CAP: f64 = 48_087_040.0;
 
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn with_world_seed(earth_blocks: u32, reach: BeltAndReach, seed: WorldSeed) -> Self {
+        Self { earth_blocks, reach, seed }
+    }
+
+    /// Secondary constructor pairing `earth_blocks` and `reach` with the canonical origin seed.
     pub const fn new(earth_blocks: u32, reach: BeltAndReach) -> Self {
-        Self { earth_blocks, reach }
+        Self::with_world_seed(earth_blocks, reach, WorldSeed::origin())
     }
 
     /// True 1:1 astronomical proportions anchored to `earth_blocks` (`1 AU = 11_740 × Earth`, `Sun = 109.2 × Earth`).
@@ -54,17 +63,27 @@ impl SolarProportions {
         Self::new(earth_blocks, BeltAndReach::new(distance_scale, 1.0))
     }
 
+    pub const fn with_seed(self, seed: WorldSeed) -> Self {
+        Self::with_world_seed(self.earth_blocks, self.reach, seed)
+    }
+
+    pub const fn seed(self) -> WorldSeed {
+        self.seed
+    }
+
     pub const fn with_distance_scale(self, factor: f32) -> Self {
-        Self::new(
+        Self::with_world_seed(
             self.earth_blocks,
             BeltAndReach::new(factor, self.reach.density_factor()),
+            self.seed,
         )
     }
 
     pub const fn with_belt_density(self, density: f32) -> Self {
-        Self::new(
+        Self::with_world_seed(
             self.earth_blocks,
             BeltAndReach::new(self.reach.distance_factor(), density),
+            self.seed,
         )
     }
 
@@ -154,14 +173,10 @@ impl SolarProportions {
         local_pos.abs().max_element() > half + band
     }
 
-    /// Appends the 16-byte handshake tail (`1.0`, `1.0`, `distance`, `belt`) preserving wire alignment at byte `60`.
+    /// Appends the 16-byte handshake tail (`seed_lo`, `seed_hi`, `distance`, `belt`) preserving wire alignment at byte `60`.
     pub fn inscribe_tail(self, out: &mut Vec<u8>) {
-        for val in [
-            1.0f32,
-            1.0f32,
-            self.reach.distance_factor(),
-            self.reach.density_factor(),
-        ] {
+        out.extend_from_slice(&(self.seed.bits() ^ LEGACY_SEED_MASK).to_le_bytes());
+        for val in [self.reach.distance_factor(), self.reach.density_factor()] {
             out.extend_from_slice(&val.to_le_bytes());
         }
     }
@@ -171,6 +186,10 @@ impl SolarProportions {
         if tail.len() < 16 {
             return Self::true_scale(earth_blocks);
         }
+        let seed_bits = tail
+            .get(0..8)
+            .and_then(|s| <[u8; 8]>::try_from(s).ok())
+            .map_or(0, |b| u64::from_le_bytes(b) ^ LEGACY_SEED_MASK);
         let f = |range: std::ops::Range<usize>, fallback: f32| -> f32 {
             tail.get(range)
                 .and_then(|s| <[u8; 4]>::try_from(s).ok())
@@ -180,6 +199,6 @@ impl SolarProportions {
         };
         let dist = f(8..12, 1.0).max(0.0005);
         let belt = f(12..16, 1.0).clamp(0.0, 8.0);
-        Self::new(earth_blocks, BeltAndReach::new(dist, belt))
+        Self::with_world_seed(earth_blocks, BeltAndReach::new(dist, belt), WorldSeed::new(seed_bits))
     }
 }

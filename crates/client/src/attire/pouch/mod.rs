@@ -53,6 +53,10 @@ impl BeltSatchel {
         (Self::new(p, t, base.tripod, tm), next_attire)
     }
 
+    pub fn survivor_manifest(&self, attire: YouthAttire) -> world::SatchelManifest {
+        SatchelIntake::new(self.palms, self.tray, self.temper).to_manifest(attire)
+    }
+
     pub const fn open(&self) -> bool { self.tray.open() }
     pub const fn with_open(self, open: bool) -> Self { Self::new(self.palms, self.tray.with_open(open), self.tripod, self.temper) }
     #[cfg(test)]

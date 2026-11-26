@@ -88,6 +88,10 @@ impl PortalStudio {
         self.status.open_beacon(punch_code, self.clipboard.as_ref());
     }
 
+    pub fn clipboard(&self) -> &dyn TextClipboard {
+        self.clipboard.as_ref()
+    }
+
     pub fn clear_dial_state(&mut self) {
         self.status.silence_beacon();
     }

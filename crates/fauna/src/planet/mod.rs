@@ -179,6 +179,9 @@ impl<R> CompanionPortal for WoodlandPlanet<R> {
     fn drain_utterances(&mut self, out: &mut Vec<world::ProximityUtterance>) { self.origin.drain_utterances(out); }
     fn note_crafted_recipe(&mut self, recipe_index: u8) { self.origin.note_crafted_recipe(recipe_index); }
     fn note_consumed_provision(&mut self, relic_code: u8) { self.origin.note_consumed_provision(relic_code); }
+    fn commit_local_survivor(&mut self, frame: world::CosmicFrame, position: Vec3, manifest: world::SatchelManifest) {
+        self.origin.commit_local_survivor(frame, position, manifest);
+    }
 }
 
 impl<R: FaunaRealm> PlanetaryWorld for WoodlandPlanet<R> {

@@ -37,6 +37,20 @@ impl HeadlessSession {
         avatar: Box<dyn Avatar>,
         modal: Box<dyn SessionModal>,
     ) -> Self {
+        Self::with_port_and_modal(
+            world,
+            avatar,
+            modal,
+            Box::new(crate::world_vault::MemoryRealmPort::new()),
+        )
+    }
+
+    pub fn with_port_and_modal(
+        world: Box<dyn PlanetaryWorld>,
+        avatar: Box<dyn Avatar>,
+        modal: Box<dyn SessionModal>,
+        port: Box<dyn crate::world_vault::RealmPort>,
+    ) -> Self {
         let ui_quads = Rc::new(RefCell::new(Vec::new()));
         let surface = Box::new(HeadlessSurface::hd(Rc::clone(&ui_quads)));
         let slice_count = world.face_count() * 2 + 1;
@@ -60,7 +74,7 @@ impl HeadlessSession {
         ));
         let display = SessionDisplay::new(surface, Box::new(shaded));
         let controls = Box::new(SprintControls::with_bindings(ActionBindings::seeded()));
-        let stage = SessionStage::new(world, avatar, controls, modal);
+        let stage = SessionStage::with_port(world, avatar, controls, modal, port);
         Self::new(stage, display, ui_quads)
     }
 

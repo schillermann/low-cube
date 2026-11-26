@@ -1,5 +1,5 @@
 use glam::Vec3;
-use crate::{ClimateZone, Face, SurfaceFrame};
+use crate::{ClimateZone, Face, SurfaceFrame, WorldSeed};
 use super::arboreal::Arboreal;
 use super::arctic_pine::ArcticPine;
 use super::desert_succulent::DesertSucculent;
@@ -8,6 +8,7 @@ use super::full_cube_ground::FullCubeGround;
 use super::jungle_emergent::JungleEmergent;
 use super::meridian_ground::MeridianGround;
 use super::planting_ground::PlantingGround;
+use super::seeded_ground::SeededGround;
 use super::solid_arboreal::SolidArboreal;
 use super::spawn_ground::SpawnSanctuaryGround;
 use super::species::TreeSpecies;
@@ -22,12 +23,18 @@ use super::woodland_ground::WoodlandGround;
 /// Biome-adapted forest canopy tailored to a specific climate zone.
 pub struct ZonedForest {
     zone: ClimateZone,
+    seed: WorldSeed,
 }
 
 impl ZonedForest {
     /// Primary constructor doing nothing except assigning arguments to fields.
+    pub const fn seeded(zone: ClimateZone, seed: WorldSeed) -> Self {
+        Self { zone, seed }
+    }
+
+    /// Secondary constructor initializing the canonical origin-seeded forest canopy.
     pub const fn new(zone: ClimateZone) -> Self {
-        Self { zone }
+        Self::seeded(zone, WorldSeed::origin())
     }
 
     /// Plants a native standing tree specimen within this climate zone.
@@ -78,7 +85,8 @@ impl ZonedForest {
         let surface_ground = SurfaceGround::new(origin, frame, half_size);
         let full_cube_ground = FullCubeGround::new(surface_ground, origin, frame, half_size);
         let woodland_ground = WoodlandGround::in_zone(full_cube_ground, self.zone);
-        let meridian_ground = MeridianGround::new(woodland_ground, 1.2);
+        let seeded_ground = SeededGround::new(woodland_ground, self.seed);
+        let meridian_ground = MeridianGround::new(seeded_ground, 1.2);
         let ground = SpawnSanctuaryGround::new(meridian_ground, self.zone, 4.5);
 
         let mut cell_u = start_u;
@@ -123,7 +131,8 @@ impl ZonedForest {
         let surface_ground = SurfaceGround::new(origin, frame, half_size);
         let full_cube_ground = FullCubeGround::new(surface_ground, origin, frame, half_size);
         let woodland_ground = WoodlandGround::in_zone(full_cube_ground, self.zone);
-        let meridian_ground = MeridianGround::new(woodland_ground, 1.2);
+        let seeded_ground = SeededGround::new(woodland_ground, self.seed);
+        let meridian_ground = MeridianGround::new(seeded_ground, 1.2);
         let ground = SpawnSanctuaryGround::new(meridian_ground, self.zone, 4.5);
 
         let mut cell_u = start_u;
@@ -132,7 +141,7 @@ impl ZonedForest {
             if (u - tree_u).abs() <= 4.0 {
                 let mut cell_v = start_v;
                 while cell_v <= end_v {
-                    let tree_v = (cell_v as f32) * 0.5 + 0.25;
+                    let tree_v = (cell_v as f32) * 0.5 + 0.5 * 0.5;
                     let dist = (u - tree_u).hypot(v - tree_v);
                     if dist <= 4.0 {
                         let hash = cell_u.wrapping_mul(73856093) ^ cell_v.wrapping_mul(19349663);
@@ -164,18 +173,20 @@ impl ZonedForest {
         let surface_ground = SurfaceGround::new(origin, &frame, half_size);
         let full_cube_ground = FullCubeGround::new(surface_ground, origin, &frame, half_size);
         let woodland_ground = WoodlandGround::in_zone(full_cube_ground, self.zone);
-        let meridian_ground = MeridianGround::new(woodland_ground, 1.2);
+        let seeded_ground = SeededGround::new(woodland_ground, self.seed);
+        let meridian_ground = MeridianGround::new(seeded_ground, 1.2);
         let ground = SpawnSanctuaryGround::new(meridian_ground, self.zone, 4.5);
 
         let mut cell_u = start_u;
         while cell_u <= end_u {
             let mut cell_v = start_v;
             while cell_v <= end_v {
-                let hash = cell_u.wrapping_mul(73856093) ^ cell_v.wrapping_mul(19349663);
+                let raw_hash = cell_u.wrapping_mul(73856093) ^ cell_v.wrapping_mul(19349663);
+                let hash = self.seed.mix_grove(raw_hash);
                 let tree_u = (cell_u as f32) * 0.5 + 0.25;
                 let tree_v = (cell_v as f32) * 0.5 + 0.25;
                 let elevation = ground.ground_elevation(cell_u, cell_v);
-                if ground.receptive(cell_u, cell_v, hash) {
+                if ground.receptive(cell_u, cell_v, raw_hash) {
                     trees.push(self.plant(frame, tree_u, tree_v, elevation));
                     let (du, dv) = match hash.unsigned_abs() & 3 {
                         0 => (2, 0),

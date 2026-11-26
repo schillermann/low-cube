@@ -40,6 +40,37 @@ impl<'a> HostSocket<'a> {
         Ok(Self::assemble(socket, secret, identity, world, chronicle, survivors))
     }
 
+    pub(super) fn bind_journaled_cosmos(
+        self,
+        journal_path: &std::path::Path,
+        callsign: Callsign,
+        proportions: SolarProportions,
+        starter_kit: world::SatchelManifest,
+    ) -> std::io::Result<SanctuaryHost> {
+        if let Some(parent) = journal_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let host_key_path = std::path::PathBuf::from(format!("{}.host.key", journal_path.display()));
+        let surv_path = std::path::PathBuf::from(format!("{}.survivors", journal_path.display()));
+        let keys = HandshakeIdentity::load_or_create(&host_key_path);
+        let bevel = (proportions.earth_half() * 0.125).clamp(0.5, 1.0);
+        let mut world = world::CelestialSystem::heliosphere(proportions, bevel);
+        let disk = crate::chronicle_decorators::DiskVaultChronicle::replay_and_open(
+            journal_path,
+            CompactedChronicle::wrapping(ChronicleLog::empty()),
+            world.as_mut(),
+        )?;
+        let chronicle = Box::new(SnapshottedChronicle::wrapping(disk));
+        let survivors = Box::new(crate::survivor_ledger::DiskVaultSurvivors::replay_and_open(
+            surv_path,
+            MemorySurvivors::with_starter(starter_kit),
+        )?);
+        if let Some(rec) = survivors.lookup(keys.public_bytes()) {
+            world.anchor_to_frame(rec.frame(), rec.position());
+        }
+        self.bind_cosmos_with_identity(keys, callsign, world, proportions, chronicle, survivors)
+    }
+
     pub(super) fn bind_with_endpoint(
         self,
         advertised: SocketAddr,
@@ -68,6 +99,11 @@ impl<'a> HostSocket<'a> {
     ) -> SanctuaryHost {
         let code = PortalCode::from_endpoint(identity.endpoint(), secret);
         let mut aura = HostAura::headless();
+        for idx in 0..(chronicle.total() as usize) {
+            if let Some(world::WorldFact::CraftCommissioned { blueprint }) = chronicle.fact_at(idx) {
+                let _ = aura.fleet_mut().register_blueprint(blueprint.clone());
+            }
+        }
         let initial_epoch = world.celestial_atlas().ephemeris().map_or(0.0, |e| e.epoch_secs());
         aura.sync_epoch(initial_epoch);
         aura.beacons_mut().refresh_from(world.as_ref());

@@ -3,7 +3,7 @@ use glam::Vec3;
 use crate::block::GridCell;
 use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
-use crate::{Face, MeshTarget};
+use crate::{Face, MeshTarget, WorldSeed};
 use super::arboreal::Arboreal;
 use super::depository::WoodlandDepository;
 use super::floor_litter::FloorLitter;
@@ -17,7 +17,7 @@ const RING_KEEP_SECTORS: i32 = 32;
 /// Polymorphic canopy seed mode avoiding nullable `Option<ClimateZone>` state.
 #[derive(Clone, Copy)]
 pub enum CanopySeed {
-    Procedural(ClimateZone, f32),
+    Procedural(ClimateZone, f32, WorldSeed),
     Custom(f32),
 }
 
@@ -28,7 +28,7 @@ impl CanopySeed {
 
     pub const fn half_size(self) -> f32 {
         match self {
-            Self::Procedural(_, h) | Self::Custom(h) => h,
+            Self::Procedural(_, h, _) | Self::Custom(h) => h,
         }
     }
 }
@@ -53,7 +53,11 @@ impl SectorForest {
     }
 
     pub fn lazy_zone(zone: ClimateZone, half_size: f32) -> Self {
-        Self::new(CanopySeed::Procedural(zone, half_size), HashMap::new(), Vec::new(), false)
+        Self::seeded_zone(zone, half_size, WorldSeed::origin())
+    }
+
+    pub fn seeded_zone(zone: ClimateZone, half_size: f32, seed: WorldSeed) -> Self {
+        Self::new(CanopySeed::Procedural(zone, half_size, seed), HashMap::new(), Vec::new(), false)
     }
 
     pub fn with_specimens(half_size: f32, trees: Vec<Box<dyn Arboreal>>) -> Self {
@@ -84,7 +88,7 @@ impl SectorForest {
         if self.groves.contains_key(&key) {
             return;
         }
-        let CanopySeed::Procedural(zone, half) = self.seed else {
+        let CanopySeed::Procedural(zone, half, seed) = self.seed else {
             return;
         };
         if self.groves.len() >= MAX_GROVES {
@@ -92,7 +96,7 @@ impl SectorForest {
                 !g.pristine() || (su - key.0).abs().max((sv - key.1).abs()) <= RING_KEEP_SECTORS
             });
         }
-        let planted = ZonedForest::new(zone).populate_sector(origin, frame, half, key);
+        let planted = ZonedForest::seeded(zone, seed).populate_sector(origin, frame, half, key);
         self.groves.insert(key, SectorGrove::populated(planted));
     }
 
@@ -116,7 +120,7 @@ impl SectorForest {
             return;
         }
         let half_sec = ((self.seed.half_size() * 2.0).ceil() as i32).div_euclid(8) + 1;
-        if let CanopySeed::Procedural(_, _) = self.seed {
+        if let CanopySeed::Procedural(_, _, _) = self.seed {
             for gsu in -half_sec..=half_sec {
                 for gsv in -half_sec..=half_sec {
                     self.ensure_grove((gsu, gsv), origin, frame);
@@ -140,8 +144,8 @@ impl SectorForest {
                 let key = (c.0 + du, c.1 + dv);
                 if let Some(g) = self.groves.get(&key) {
                     cur = g.constrain(cur, u, v, frame, dist);
-                } else if let CanopySeed::Procedural(zone, half) = self.seed {
-                    cur = ZonedForest::new(zone)
+                } else if let CanopySeed::Procedural(zone, half, seed) = self.seed {
+                    cur = ZonedForest::seeded(zone, seed)
                         .constrain_untouched_sector(cur, (u, v, dist), origin, frame, half, key);
                 }
             }
@@ -157,8 +161,8 @@ impl SectorForest {
                 let key = (c.0 + du, c.1 + dv);
                 if let Some(g) = self.groves.get(&key) {
                     peak = g.max_drag(u, v, elev, peak);
-                } else if let CanopySeed::Procedural(zone, half) = self.seed {
-                    peak = ZonedForest::new(zone)
+                } else if let CanopySeed::Procedural(zone, half, seed) = self.seed {
+                    peak = ZonedForest::seeded(zone, seed)
                         .canopy_drag_untouched_sector((u, v, elev), peak, origin, frame, half, key);
                 }
             }

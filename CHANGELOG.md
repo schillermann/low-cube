@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.131.0] - 2026-11-26
+
+### Added
+- Added persistent player-created worlds, startup `CREATE WORLD` / `MY WORLDS` studio, and Pure-OOP Elegant-Objects decorators (`crates/client/src/menu/worlds/`, `crates/client/src/menu/lobby_modal.rs`, `crates/client/src/world_vault/`, `crates/sanctuary/src/saved_planet/` & `crates/world/src/seed.rs`):
+  - `LobbyGateModal` `SessionModal` decorator (`crates/client/src/menu/lobby_modal.rs` & `crates/client/src/launch.rs`): opens normal sessions into `CREATE WORLD` (or `MY WORLDS` when worlds already exist) instead of dropping directly into an uncreated world, guards against premature menu dismissal, opens upon world activation or remote join, and re-engages if the active world is deleted.
+  - `WorldPanel`, `WorldStudio`, `SavedWorldStudio`, and `PersistedWorldSink` (`crates/client/src/menu/worlds/`) paired with domain value objects `WorldTitle`, `WorldSlug`, `ScaleTier`, `SeedPhrase`, `WallEpoch`, and `DiskWorldVault` (`crates/client/src/world_vault/` & `crates/client/src/session/mounted_realm.rs`): lets players configure world name, world scale (`128 m` Moonlet up to `4,096 m` Continental via `SeededCosmos<EpsteinReachCosmos<...>>`), and custom or randomized seeds, and create, load, switch, or delete multiple worlds under `worlds/<slug>/` without shared `Rc<RefCell<...>>` state.
+  - `SavedPlanet` & `LocalRealmLedger` (`crates/sanctuary/src/saved_planet/`), `SanctuaryHost::bind_journaled_cosmos` (`crates/sanctuary/src/sanctuary_host/`), and `BeltSatchel::survivor_manifest` (`crates/client/src/attire/pouch/`): persists blocks, excavations, cranes, commissioned/parked vehicles, offworld mutations, and player Hill-bubble position + satchel inventory across solitary sessions and live Co-op portals (`chronicle.wal` & `chronicle.wal.survivors`).
+  - `WorldSeed` (`SplitMix64` in `crates/world/src/seed.rs`), `SeededFrequency` (`crates/world/src/noise/seeded.rs`), and `SeededGround` (`crates/world/src/tree/seeded_ground.rs`), plus lossless 64-bit seed sync inside `SolarProportions::inscribe_tail` / `decode_tail` (`crates/world/src/celestial/proportions.rs`): drives distinct procedural relief, subterranean mineral veins, and woodland groves across solitary and P2P multiplayer sessions.
+
 ## [0.130.1] - 2026-11-26
 
 ### Fixed

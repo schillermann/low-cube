@@ -1,6 +1,7 @@
 mod display;
 #[cfg(test)]
 mod headless;
+mod mounted_realm;
 mod overlay;
 mod pulse;
 #[cfg(test)]

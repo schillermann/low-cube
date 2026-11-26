@@ -6,7 +6,7 @@ use crate::frame::SurfaceFrame;
 use crate::topology::ClimateZone;
 use crate::{
     BlockMedium, BlockMold, CraftBlueprint, Face, MeshTarget, MiningEdge, PlannedMount, Quad,
-    VehicleAssembly, VesselSink,
+    VehicleAssembly, VesselSink, WorldSeed,
 };
 use super::arboreal::Arboreal;
 use super::sector_forest::SectorForest;
@@ -43,8 +43,13 @@ impl ForestedFace {
 
     /// Secondary constructor initializing a lazy sector-partitioned woodland (`0` eager trees at startup).
     pub fn in_zone(origin: Box<dyn Face>, zone: ClimateZone, half_size: f32) -> Self {
+        Self::seeded_in_zone(origin, zone, half_size, WorldSeed::origin())
+    }
+
+    /// Secondary constructor initializing a seeded lazy sector-partitioned woodland.
+    pub fn seeded_in_zone(origin: Box<dyn Face>, zone: ClimateZone, half_size: f32, seed: WorldSeed) -> Self {
         let frame = zone.surface_frame(half_size);
-        Self::with_forest(origin, frame, RwLock::new(SectorForest::lazy_zone(zone, half_size)))
+        Self::with_forest(origin, frame, RwLock::new(SectorForest::seeded_zone(zone, half_size, seed)))
     }
 
     pub fn materialized_grove_count(&self) -> usize {
