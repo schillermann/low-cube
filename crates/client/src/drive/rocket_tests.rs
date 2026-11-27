@@ -2,7 +2,7 @@ use glam::Vec3;
 use sanctuary::{HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
 use winit::keyboard::KeyCode;
 use world::{BlockMedium, BlockMold, CelestialSystem, LunarWorld, PlanetaryWorld, WorldEarthworks as _};
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, HandGesture, PlanetaryAvatar};
 use crate::black_box::PresenceProbe;
 use crate::controls::{ActionBindings, KeyMotion, KeyboardControls};
@@ -62,7 +62,7 @@ fn test_crane_rocket_launches_without_wheels_coasts_zero_g_and_allows_eva_spacew
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);
@@ -158,7 +158,7 @@ fn test_lunar_pedestrian_leap_exceeds_earth_jump_and_coop_reaches_moon() {
     let mut earth_jumper = PlanetaryAvatar::with_attire_and_bindings(
         earth_start,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     let mut jump = KeyMotion::idle();
@@ -179,7 +179,7 @@ fn test_lunar_pedestrian_leap_exceeds_earth_jump_and_coop_reaches_moon() {
     let mut moon_jumper = PlanetaryAvatar::with_attire_and_bindings(
         moon_start,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     let mut moon_peak = 0.0f32;
@@ -206,14 +206,14 @@ fn test_lunar_pedestrian_leap_exceeds_earth_jump_and_coop_reaches_moon() {
 
 #[test]
 fn test_mouse_look_rotates_gaze_freely_without_steering_rocket() {
-    let run_launch = |look_yaw_deg: f32, look_pitch_deg: f32| -> (Vec3, fauna::SightCone) {
+    let run_launch = |look_yaw_deg: f32, look_pitch_deg: f32| -> (Vec3, world::SightCone) {
         let mut world = CelestialSystem::barren_authoritative(32, 1.0);
         let _ = build_crane_rocket(world.as_mut());
         let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
         let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-            YouthAttire::squire(),
+            EvaAttire::astronaut(),
             ActionBindings::seeded(),
         );
         pilot.rotate_degrees(-90.0, 10.0);
@@ -256,7 +256,7 @@ fn test_clicking_rocket_controls_prefers_nose_camera_over_lower_hull_camera() {
     }
     assert!(world.place_molded_surface_block(Vec3::new(0.75, g0 + 3.90, 0.75), Vec3::NEG_Y, av, BlockMold::cube().in_medium(BlockMedium::RocketCamera)));
     let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
-    let mut pilot = PlanetaryAvatar::with_attire_and_bindings(spawn, Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))), YouthAttire::squire(), ActionBindings::seeded());
+    let mut pilot = PlanetaryAvatar::with_attire_and_bindings(spawn, Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))), EvaAttire::astronaut(), ActionBindings::seeded());
     pilot.rotate_degrees(-90.0, 10.0);
     assert!(HandGesture::RightTap.perform(&mut pilot, world.as_mut()));
     assert!(pilot.use_right_hand(world.as_mut()));

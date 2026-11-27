@@ -59,7 +59,7 @@ fn test_coop_mars_and_europa_earthworks_sync_across_moving_orbits_and_snapshots(
         0,
         PresenceKinematics::new(mars_c1 + local_probe, Quat::IDENTITY, Quat::IDENTITY, (1.4, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     ));
     for _ in 0..8 {
         let _ = guest.step_surface(0.03);
@@ -81,7 +81,7 @@ fn test_coop_mars_and_europa_earthworks_sync_across_moving_orbits_and_snapshots(
         0,
         PresenceKinematics::new(europa_stand, Quat::IDENTITY, Quat::IDENTITY, (1.4, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     ));
     for _ in 0..6 {
         let _ = guest.pump_portal(0.06);

@@ -1,5 +1,4 @@
 use std::time::Duration;
-use fauna::{AmbientWoodland, WoodlandPlanet};
 use sanctuary::{
     DiskPassports, HostedPlanet, JoinTarget, MemoryPassports, PassportVault, RemoteLink,
     RemotePlanet, SanctuaryHost,
@@ -112,8 +111,7 @@ pub enum PortalDial {
 
 impl PortalDial {
     fn wrap_remote(link: RemoteLink, proportions: SolarProportions) -> Box<dyn PlanetaryWorld> {
-        let remote = Box::new(RemotePlanet::from_cosmos_link(link, proportions, 1.0).spawning());
-        Box::new(AmbientWoodland::ambient(remote))
+        Box::new(RemotePlanet::from_cosmos_link(link, proportions, 1.0).spawning())
     }
 
     #[cfg(test)]
@@ -205,8 +203,7 @@ impl LivePortal {
         println!("Portal Code:    {code}");
         println!("Direct Address: {}", host.ticket().direct());
         println!("Invite Ticket:  {ticket}");
-        let hosted = Box::new(HostedPlanet::spawning(host));
-        (Box::new(AmbientWoodland::ambient(hosted)), PortalInvite::hosted(code, ticket))
+        (Box::new(HostedPlanet::spawning(host)), PortalInvite::hosted(code, ticket))
     }
 }
 
@@ -241,7 +238,7 @@ impl PortalConfig {
             CelestialSystem::heliosphere(proportions, 1.0)
         };
         match *self {
-            Self::Solitary => Box::new(WoodlandPlanet::wrapping(local_authoritative())),
+            Self::Solitary => local_authoritative(),
             Self::HostSanctuary { port } => {
                 let bind_spec = format!("0.0.0.0:{port}");
                 let host_name = ClientPassportBook::from_process().host_callsign();
@@ -253,8 +250,7 @@ impl PortalConfig {
                 println!("Portal Code:    {code}");
                 println!("Direct Address: {}", host.ticket().direct());
                 println!("Invite Ticket:  {ticket}");
-                let hosted = Box::new(HostedPlanet::spawning(host));
-                Box::new(AmbientWoodland::ambient(hosted))
+                Box::new(HostedPlanet::spawning(host))
             }
             Self::JoinRemote { target } => {
                 let vault = ClientPassportBook::from_process().open_vault();
@@ -262,7 +258,7 @@ impl PortalConfig {
                     .expect("Failed to connect multiplayer RemotePlanet UDP socket")
                     .spawning();
                 println!("=== CONNECTED TO REMOTE WORLD-CUBE ===");
-                Box::new(AmbientWoodland::ambient(Box::new(remote)))
+                Box::new(remote)
             }
         }
     }

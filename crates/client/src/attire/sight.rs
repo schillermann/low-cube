@@ -2,7 +2,8 @@ use glam::{Mat4, Quat, Vec3};
 use world::{MeshTarget, MoldArchetype};
 use crate::horizon::ViewFrame;
 use crate::posture::AvatarPosture;
-use super::crown::CrownStyle;
+use super::crown::HelmStyle;
+use super::headgear::LampBeam;
 use super::limb::LimbFrame;
 use super::palette::{ComplexionSwatch, PigmentSwatch};
 use super::pose::BodyPose;
@@ -160,16 +161,16 @@ impl SightMode {
         }
     }
 
-    pub fn emit_crown(
+    pub fn emit_helm(
         self,
-        crown: CrownStyle,
+        helm: HelmStyle,
         pose: &BodyPose,
-        complexion: ComplexionSwatch,
-        pigment: PigmentSwatch,
+        swatches: (ComplexionSwatch, PigmentSwatch),
+        lamp: LampBeam,
         target: &mut dyn MeshTarget,
     ) {
         if !matches!(self, Self::FirstPersonSight) {
-            crown.emit(pose, complexion, pigment, target);
+            helm.emit(pose, swatches, lamp, target);
         }
     }
 

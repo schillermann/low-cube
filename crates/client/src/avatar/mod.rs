@@ -18,11 +18,10 @@ mod span;
 use glam::{Mat4, Vec3};
 #[cfg(test)]
 use winit::keyboard::KeyCode;
-use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{PhotoShutter, SightMode, YouthAttire};
+use world::{MeshTarget, PlanetaryWorld, SightCone};
+use crate::attire::{EvaAttire, PhotoShutter, SightMode};
 use crate::black_box::{IncidentMedium, PresenceSink};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
-use fauna::SightCone;
 use crate::menu::ScreenPoint;
 
 #[cfg(test)]
@@ -104,9 +103,6 @@ pub trait AvatarMotor {
     fn adjust_aimed_rig(&mut self, _trigger: InputTrigger, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn cast_triggered_relic(&mut self, _trigger: InputTrigger, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld);
-    fn hunt_fauna(&mut self, _side: f32, _world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        (false, false)
-    }
     fn emit_reticle_for_aspect(&self, _aspect: f32, target: &mut dyn MeshTarget) {
         ScreenPoint::center().emit_crosshair(target);
     }
@@ -124,13 +120,12 @@ pub trait Avatar: AvatarMotor + AvatarOptics + AvatarPresence + PhotoPort + Blac
     fn use_right_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
         self.act_hand(1.0, world)
     }
-    fn apply_attire(&mut self, attire: YouthAttire);
+    fn apply_attire(&mut self, attire: EvaAttire);
     fn apply_bindings(&mut self, _bindings: ActionBindings) {}
     fn dispatch_trigger(&mut self, _trigger: InputTrigger) -> bool { false }
     fn typing_text(&self) -> bool { false }
     fn accept_typed_text(&mut self, _text: &str) -> bool { false }
     fn blend_subtick(&mut self, _alpha: f32) {}
-    fn step_fauna(&mut self, _dt: f32, _world: &mut dyn PlanetaryWorld) {}
     fn reconcile_cosmic_frame(&mut self, _world: &mut dyn PlanetaryWorld) -> bool { false }
     fn land_on_world(&mut self, _world: &dyn PlanetaryWorld) {}
     fn flush_world_notes(&mut self, _world: &mut dyn PlanetaryWorld) {}

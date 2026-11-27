@@ -2,7 +2,7 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
 use world::{BiomedCubeWorld, CompanionPortal as _, PlanetaryWorld, WorldEarthworks};
-use crate::attire::{HeldRelic, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::controls::KeyMotion;
 
@@ -28,10 +28,10 @@ fn test_multiplayer_lava_death_while_digging_aborts_cracks_attire_and_respawn_re
     }
     assert!((guest_planet.constrain_to_surface(Vec3::new(0.50, 15.0, 0.50), 0.0).y - core_y).abs() < 1e-3);
 
-    // Guest holds ExcavatedEarth + IronPickaxe above lava, scars the -Z shaft wall, and bare-hand starts right dig
+    // Guest holds ExcavatedEarth + RigWrench above lava, scars the -Z shaft wall, and bare-hand starts right dig
     let ledge = guest_planet.constrain_to_surface(Vec3::new(2.25, 15.0, 0.25), 0.0);
     let mut lava_avatar = PlanetaryAvatar::at(Vec3::new(0.50, core_y + 1.6, 0.50));
-    lava_avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::IronPickaxe));
+    lava_avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::RigWrench));
     let _ = lava_avatar.use_right_hand(&mut guest_planet);
     lava_avatar.sync_world_presence(&mut guest_planet);
     for _ in 0..3 {

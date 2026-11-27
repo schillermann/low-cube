@@ -140,33 +140,38 @@ impl<S: SurvivorStore> DiskVaultSurvivors<S> {
         RosterSheet::for_vault(&self.vault_path).write(&entries);
     }
 
-    /// Replays existing `[len (4B), pubkey (32B), SurvivorRecord]` frames into `origin` and opens `path` for append.
+    /// Replays Space-Age `LCWAL02` `[len (4B), pubkey (32B), SurvivorRecord]` frames into `origin` and opens `path` for append.
     pub fn replay_and_open(path: impl AsRef<Path>, mut origin: S) -> std::io::Result<Self> {
+        const WAL_MAGIC: &[u8; 8] = b"LCWAL02\n";
         let vault_path = path.as_ref().to_path_buf();
         if let Ok(mut file) = File::open(&vault_path) {
             let mut buf = Vec::new();
             file.read_to_end(&mut buf)?;
-            let mut cursor = 0usize;
-            while cursor + 4 <= buf.len() {
-                let frame_len = u32::from_le_bytes([
-                    buf[cursor],
-                    buf[cursor + 1],
-                    buf[cursor + 2],
-                    buf[cursor + 3],
-                ]) as usize;
-                cursor += 4;
-                if cursor + frame_len > buf.len() {
-                    break;
-                }
-                if frame_len > 32 {
-                    let slice = &buf[cursor..cursor + frame_len];
-                    let mut pubkey = [0u8; 32];
-                    pubkey.copy_from_slice(&slice[..32]);
-                    if let Some((record, _)) = SurvivorRecord::decode(&slice[32..]) {
-                        origin.commit(pubkey, record, false);
+            if buf.starts_with(WAL_MAGIC) {
+                let mut cursor = WAL_MAGIC.len();
+                while cursor + 4 <= buf.len() {
+                    let frame_len = u32::from_le_bytes([
+                        buf[cursor],
+                        buf[cursor + 1],
+                        buf[cursor + 2],
+                        buf[cursor + 3],
+                    ]) as usize;
+                    cursor += 4;
+                    if cursor + frame_len > buf.len() {
+                        break;
                     }
+                    if frame_len > 32 {
+                        let slice = &buf[cursor..cursor + frame_len];
+                        let mut pubkey = [0u8; 32];
+                        pubkey.copy_from_slice(&slice[..32]);
+                        if let Some((record, _)) = SurvivorRecord::decode(&slice[32..]) {
+                            origin.commit(pubkey, record, false);
+                        }
+                    }
+                    cursor += frame_len;
                 }
-                cursor += frame_len;
+            } else if !buf.is_empty() {
+                let _ = std::fs::remove_file(&vault_path);
             }
         }
         let stream = VaultStream::open_append(&vault_path)?;

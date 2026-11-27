@@ -5,7 +5,7 @@ use crate::{BlockMedium, CompanionPresence, CraftBlueprint, SurfaceFind};
 pub use self::catalog::{RelicCatalog, RELIC_SLOT_COUNT};
 pub use self::record::{SurvivorRecord, SurvivorWelcome};
 
-/// Authoritative per-survivor inventory totals (`0..=33`) and equipped `(right, left)` palm codes (`<= 4` fields).
+/// Authoritative per-survivor Space-Age inventory totals (`0..=29`) and equipped `(right, left)` palm codes (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SatchelManifest {
     totals: [u32; RELIC_SLOT_COUNT],
@@ -14,7 +14,7 @@ pub struct SatchelManifest {
 
 impl SatchelManifest {
     const CRANE_REPLENISH: [(u8, u32); 10] = [
-        (19, 1), (27, 1), (16, 1), (25, 6), (26, 4), (15, 1), (14, 1), (18, 8), (17, 2), (20, 2),
+        (14, 1), (21, 1), (11, 1), (19, 6), (20, 4), (10, 1), (9, 1), (13, 8), (12, 2), (15, 2),
     ];
 
     /// Primary constructor doing nothing except assigning arguments to fields.
@@ -26,24 +26,25 @@ impl SatchelManifest {
         Self::new([0; RELIC_SLOT_COUNT], (0, 0))
     }
 
-    /// Server starter kit matching `TestKitSatchel` plus a right-hand `CantileverCrane`.
+    /// Space-Age starter kit equipping `RigWrench` (`2`) and `SuitRadio` (`3`) from second 1 alongside flight modules.
     pub fn starter_kit() -> Self {
         let mut totals = [0u32; RELIC_SLOT_COUNT];
-        totals[13] = 1;
+        totals[2] = 1;
+        totals[3] = 1;
+        totals[8] = 1;
         for (code, qty) in Self::CRANE_REPLENISH {
             totals[code as usize] = qty;
         }
-        Self::new(totals, (13, 0))
+        Self::new(totals, (2, 3))
     }
 
-    /// Parses server `[inventory] items`, stripping admin `SpawnStone`s (`code 29`) from guest starter kits.
+    /// Parses server `[inventory] items`, stripping admin `SpawnStone`s (`code 23`) from guest starter kits.
     pub fn parse_server_kit(raw: &str, source: &str) -> Self {
         let trimmed = raw.trim().trim_start_matches('[').trim_end_matches(']').trim();
         if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("none") || trimmed.eq_ignore_ascii_case("empty") {
             return Self::empty();
         }
         let mut totals = [0u32; RELIC_SLOT_COUNT];
-        totals[13] = 1;
         for entry in trimmed.split(',') {
             let token = entry.trim().trim_matches('"').trim_matches('\'').trim();
             if token.is_empty() {
@@ -73,7 +74,10 @@ impl SatchelManifest {
                 totals[code as usize] = totals[code as usize].saturating_add(count);
             }
         }
-        Self::new(totals, (13, 0)).sanitized()
+        totals[2] = totals[2].max(1);
+        totals[3] = totals[3].max(1);
+        totals[8] = totals[8].max(1);
+        Self::new(totals, (2, 3)).sanitized()
     }
 
     pub const fn count_of(&self, code: u8) -> u32 {
@@ -86,7 +90,7 @@ impl SatchelManifest {
 
     pub fn sanitized(mut self) -> Self {
         self.totals[0] = 0;
-        self.totals[29] = 0;
+        self.totals[23] = 0;
         let r = if RelicCatalog::new(self.hands.0).guest_permitted() && self.totals[self.hands.0 as usize] >= 1 {
             self.hands.0
         } else {
@@ -110,7 +114,7 @@ impl SatchelManifest {
 
     pub fn credit_medium(&mut self, medium: BlockMedium) {
         let code = RelicCatalog::from_medium(medium);
-        if code == 13 {
+        if code == 8 {
             for (part, qty) in Self::CRANE_REPLENISH {
                 if self.totals[part as usize] == 0 {
                     self.totals[part as usize] = qty;
@@ -121,7 +125,7 @@ impl SatchelManifest {
     }
 
     pub fn credit_timber_felled(&mut self) {
-        self.credit_code(10, 3);
+        self.credit_code(5, 3);
     }
 
     pub fn credit_find(&mut self, find: SurfaceFind) {

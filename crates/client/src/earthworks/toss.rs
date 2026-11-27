@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::PlanetaryWorld;
-use crate::attire::{BeltSatchel, HeldRelic, StrideRhythm, YouthAttire};
+use crate::attire::{BeltSatchel, EvaAttire, HeldRelic, StrideRhythm};
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 use super::SurfaceReach;
 
@@ -60,7 +60,7 @@ impl TossCadence {
         satchel: BeltSatchel,
         trigger: InputTrigger,
         bindings: &ActionBindings,
-        attire: YouthAttire,
+        attire: EvaAttire,
         rhythm: StrideRhythm,
         eye: Vec3,
         view_dir: Vec3,

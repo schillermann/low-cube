@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{BlockMedium, MeshTarget, PlanetaryWorld};
-use crate::attire::{FacetedSolid, HeldRelic, LimbFrame, StrideRhythm, TaperedPrism, YouthAttire};
+use crate::attire::{EvaAttire, FacetedSolid, HeldRelic, LimbFrame, StrideRhythm, TaperedPrism};
 use acoustics::{AcousticWave, CadencedWave, KnuckleWince};
 use crate::grip::{DigGrip, DigStroke};
 
@@ -90,7 +90,7 @@ impl DebrisSplash {
     }
 }
 
-/// Polymorphic digging instrument resonance triggered at a progressive stroke cadence.
+/// Polymorphic EVA excavation instrument resonance triggered at a progressive stroke cadence.
 pub trait StrokeResonance {
     fn resonate(&self, cadence: u32);
     fn rebound(&self, cadence: u32);
@@ -99,7 +99,7 @@ pub trait StrokeResonance {
 impl StrokeResonance for HeldRelic {
     fn resonate(&self, cadence: u32) {
         if self.metallic_ring() {
-            CadencedWave::spade(cadence).thump();
+            CadencedWave::rig_tool(cadence).thump();
         } else {
             CadencedWave::palm(cadence).thump();
         }
@@ -112,7 +112,7 @@ impl StrokeResonance for HeldRelic {
     }
 }
 
-/// Encapsulated excavation progress, stroke cadence, dual-hand grip, and debris splash state.
+/// Encapsulated excavation progress, stroke cadence, dual-hand grip, and debris splash state (`4` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DigOperation {
     dig_progress: u32,
@@ -185,7 +185,7 @@ impl DigOperation {
         self.grip
     }
 
-    pub fn bare_hand_attire(self, attire: YouthAttire) -> YouthAttire {
+    pub fn bare_hand_attire(self, attire: EvaAttire) -> EvaAttire {
         let (r, l) = attire.held_pair();
         let (dig_r, dig_l) = self.grip.bare_hand_digging(r.placeable_block(), l.placeable_block(), self.dig_progress);
         attire.with_relics(

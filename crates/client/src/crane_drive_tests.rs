@@ -3,7 +3,7 @@ use winit::keyboard::KeyCode;
 use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, WorldEarthworks as _,
 };
-use crate::attire::{HeldRelic, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, HandGesture,
     PlanetaryAvatar,
@@ -44,7 +44,7 @@ fn test_crane_lowers_built_car_and_clicking_seat_drives_steers_and_brakes() {
     assert!((world.constrain_to_surface(Vec3::new(1.25, 22.0, 0.75), 0.0).y - (g0 + 2.0)).abs() < 1e-4);
 
     let mut crane_hand = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 22.0, 1.25), 1.0)).with_test_engines();
-    crane_hand.apply_attire(YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm));
+    crane_hand.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm));
     crane_hand.rotate_degrees(0.0, 35.0);
     assert!(HandGesture::RightTap.perform(&mut crane_hand, &mut world));
     let g_seat = world.constrain_to_surface(Vec3::new(1.25, 22.0, 0.75), 0.0).y;
@@ -82,7 +82,7 @@ fn test_crane_lowers_built_car_and_clicking_seat_drives_steers_and_brakes() {
     assert!(cam_pos(&pilot).distance(stopped_eye) < 1e-4);
     assert!(HandGesture::RightTap.perform(&mut pilot, &mut world));
 
-    pilot.apply_attire(YouthAttire::squire().with_relics(HeldRelic::CabinSeat, HeldRelic::EmptyPalm));
+    pilot.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::CabinSeat, HeldRelic::EmptyPalm));
     let mut turns = Vec::with_capacity(5);
     for step in 0..5 {
         let mut ledger = VertexLedger::empty();

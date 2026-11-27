@@ -1,7 +1,6 @@
 mod burden;
 mod camera;
 mod encumbrance;
-mod tome;
 
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
@@ -12,10 +11,10 @@ use world::{
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
 };
-use crate::controls::{KeyboardControls, LocomotionTarget};
+use crate::controls::{InputTrigger, KeyboardControls, LocomotionTarget};
 use super::{
-    AttireProfile, BodyPose, FileAttire, HeldRelic, SightMode, StrideRhythm, Wardrobe, YouthAttire,
-    YouthPhysique,
+    AttireProfile, BodyPose, CrewPhysique, EvaAttire, FileAttire, HeldRelic, SightMode,
+    StrideRhythm, Wardrobe,
 };
 
 pub(super) struct QuadLedger {
@@ -90,18 +89,30 @@ fn test_body_envelope_prevents_camera_from_clipping_into_block_wall() {
 }
 
 #[test]
-fn test_first_person_omits_head_while_multiplayer_and_mirror_include_crown() {
+fn test_first_person_omits_head_while_multiplayer_and_mirror_include_eva_helm_and_lamp() {
     let pose = BodyPose::new(
         Vec3::new(0.0, 9.0, 0.0), Quat::IDENTITY, Quat::IDENTITY, 0.8,
-        StrideRhythm::new(0.0, 1.0), YouthPhysique::SlenderSquire,
+        StrideRhythm::new(0.0, 1.0), CrewPhysique::OrbitalCadet,
     );
-    let attire = YouthAttire::squire();
+    let attire = EvaAttire::astronaut();
+    assert!(attire.lamp_illuminated(), "EVA suit helmet lamp must be illuminated from second 1");
     let mut fp_ledger = QuadLedger::empty();
     attire.emit(&pose, SightMode::FirstPersonSight, &mut fp_ledger);
     let mut mp_ledger = QuadLedger::empty();
     attire.emit(&pose, SightMode::LookingGlassSight, &mut mp_ledger);
-    assert!(fp_ledger.populated(), "First-person view must emit torso, legs, boots, and hands");
-    assert!(mp_ledger.exceeds(&fp_ledger), "Multiplayer and Looking-Glass view must emit additional crown quads");
+    assert!(fp_ledger.populated(), "First-person view must emit suit shell, legs, mag-boots, and gauntlets");
+    assert!(mp_ledger.exceeds(&fp_ledger), "Multiplayer and Looking-Glass view must emit EVA helmet, visor, radio mast, and lamp");
+
+    // Verify glowing helmet lamp quad (`glow > 1.5`) turns dark when toggled off and round-trips over 9 wire bytes:
+    let max_glow = |l: &QuadLedger| l.quads.iter().map(|q| q.radiate(|g| g)).fold(0.0_f32, f32::max);
+    assert!(max_glow(&mp_ledger) > 1.5, "Illuminated HelmetLampHead decorator must emit radiant LED lens quad");
+
+    let dark_attire = attire.with_toggled_lamp();
+    assert!(!dark_attire.lamp_illuminated());
+    let mut dark_ledger = QuadLedger::empty();
+    dark_attire.emit(&pose, SightMode::LookingGlassSight, &mut dark_ledger);
+    assert!(max_glow(&dark_ledger) < 0.5, "Extinguished HelmetLampHead decorator must extinguish LED glow");
+    assert_eq!(EvaAttire::from_multiplayer_bytes(dark_attire.multiplayer_bytes()), dark_attire);
 }
 
 #[test]
@@ -114,116 +125,86 @@ fn test_hands_raised_only_when_holding_item_and_body_visible_when_looking_down()
     let visible_empty_level = empty_ledger.visible_in_frustum(vp_level);
     assert_eq!(visible_empty_level, 0, "Empty hands must hang at the sides and not obstruct level forward view");
 
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::EmptyPalm));
+    avatar.apply_attire(EvaAttire::eva_equipped());
     let mut held_ledger = QuadLedger::empty();
     avatar.emit_appearance(&mut held_ledger);
     let visible_held_level = held_ledger.visible_in_frustum(vp_level);
-    assert!(visible_held_level > 0, "Holding an item must raise the hand into first-person level view");
+    assert!(visible_held_level > 0, "Holding RigWrench + SuitRadio must raise EVA gauntlets into first-person view");
+    assert!(avatar.dispatch_trigger(InputTrigger::Key(KeyCode::KeyL)), "KeyL must toggle integrated EVA helmet lamp");
 
     avatar.rotate_view(0.0, 350.0);
     let vp_down = avatar.view_projection_matrix(16.0 / 9.0);
     let mut down_ledger = QuadLedger::empty();
     avatar.emit_appearance(&mut down_ledger);
     let visible_down = down_ledger.visible_in_frustum(vp_down);
-    assert!(visible_down > visible_held_level, "Looking down must bring torso, belt, legs, and boots into the camera view frustum");
+    assert!(visible_down > visible_held_level, "Looking down must bring pressure suit, PLSS belt, legs, and mag-boots into frustum");
 }
 
 #[test]
 fn test_wardrobe_customization_keys_and_file_persistence() {
-    let temp_path = std::env::temp_dir().join("test_medieval_character_profile.toml");
+    let temp_path = std::env::temp_dir().join("test_eva_crew_profile.toml");
     let store = FileAttire::new(temp_path.to_str().unwrap().to_string());
-    let squire = YouthAttire::squire();
-    let initial_bytes = squire.multiplayer_bytes();
-    let customized = squire
-        .with_next_tunic().with_next_vambrace().with_next_girdle().with_next_footwear()
-        .with_next_crown().with_next_relic().with_next_pigment().with_next_complexion();
+    let cadet = EvaAttire::astronaut();
+    let initial_bytes = cadet.multiplayer_bytes();
+    let customized = cadet
+        .with_next_shell().with_next_gauntlet().with_next_harness().with_next_boots()
+        .with_next_helm().with_next_relic().with_next_pigment().with_next_complexion();
     store.save(&customized);
-    let loaded = store.load_or_squire();
+    let loaded = store.load_or_astronaut();
     std::fs::remove_file(&temp_path).expect("Failed to clean up temporary profile");
     assert_eq!(customized, loaded);
     assert_ne!(initial_bytes, loaded.multiplayer_bytes());
 }
 
 #[test]
-fn test_foraging_deadwood_and_flint_into_hand_or_satchel_crafts_axe_in_crafting_book() {
+fn test_rig_wrench_fells_timber_and_salvages_placed_planks() {
     let mut world = world::BiomedCubeWorld::beveled(32, 1.0);
-    let mut probe_world = world::BiomedCubeWorld::beveled(32, 1.0);
-    assert_eq!(probe_world.forage_surface(Vec3::new(-1.25, 17.0, -0.55), Vec3::new(0.0, -0.8, -0.6)), world::SurfaceFind::EmptyHanded);
-    let (mut bough_spot, mut flint_spot) = (Vec3::ZERO, Vec3::ZERO);
-    for cu in (-24..=24).step_by(6) {
-        for cv in (-24..=24).step_by(6) {
-            for (du, dv) in [(0, 0), (2, 0), (-2, 0), (0, 2), (0, -2)] {
-                let (u, v) = (((cu + du) as f32) * 0.5 + 0.25, ((cv + dv) as f32) * 0.5 + 0.25);
-                let g = probe_world.constrain_to_surface(Vec3::new(u, 22.0, v), 0.0);
-                let find = probe_world.forage_surface(g + Vec3::new(0.0, 1.2, 0.7), Vec3::new(0.0, -1.15, -0.70).normalize());
-                if find == world::SurfaceFind::DeadwoodBough && bough_spot == Vec3::ZERO { bough_spot = Vec3::new(u, 22.0, v + 0.70); }
-                if find == world::SurfaceFind::FlintStone && flint_spot == Vec3::ZERO { flint_spot = Vec3::new(u, 22.0, v + 0.70); }
-            }
-        }
-    }
-    assert!(bough_spot.length() > 4.0 && flint_spot.length() > 2.5, "Deadwood must spawn near trees and Flint near rocky slopes");
-    let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(bough_spot, 1.0));
-    avatar.rotate_view(0.0, 410.0);
-    let (mut empty_mesh, mut deadwood_mesh, mut stowed_mesh, mut book_mesh, mut axe_mesh) = (
-        QuadLedger::empty(), QuadLedger::empty(), QuadLedger::empty(), QuadLedger::empty(), QuadLedger::empty(),
-    );
-    avatar.emit_appearance(&mut empty_mesh);
-    assert!(avatar.use_right_hand(&mut world) && { avatar.emit_appearance(&mut deadwood_mesh); deadwood_mesh.exceeds(&empty_mesh) });
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyE) && { avatar.emit_appearance(&mut stowed_mesh); !stowed_mesh.exceeds(&empty_mesh) });
-    let mut avatar_flint = PlanetaryAvatar::at(world.constrain_to_surface(flint_spot, 1.0));
-    avatar_flint.rotate_view(0.0, 410.0);
-    assert!(avatar_flint.use_left_hand(&mut world));
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::FlintStone));
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyC) && { avatar.emit_inspection(&mut book_mesh); book_mesh.populated() });
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyF));
-    assert!(!avatar.use_right_hand(&mut world));
-    let mut closed_book = QuadLedger::empty();
-    avatar.emit_inspection(&mut closed_book);
-    assert!(!closed_book.populated(), "Crafting an item must auto-close the Crafting Book");
-    avatar.emit_appearance(&mut axe_mesh);
-    assert!(
-        axe_mesh.exceeds(&empty_mesh) && axe_mesh.quads.len() != deadwood_mesh.quads.len(),
-        "Crafting TimberTorch from stowed Deadwood + held Flint must equip the torch in hand"
-    );
-    let (satchel, attire) = super::BeltSatchel::empty().collect_felled_timber(1.0, YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::EmptyPalm));
-    assert_eq!(attire.held_pair(), (HeldRelic::WoodmanAxe, HeldRelic::TimberBlock));
+    let (satchel, attire) = super::BeltSatchel::empty()
+        .collect_felled_timber(1.0, EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
+    assert_eq!(attire.held_pair(), (HeldRelic::RigWrench, HeldRelic::TimberBlock));
     assert_eq!(satchel.resource_tally(HeldRelic::TimberBlock, attire), 3, "Felling a tree must yield 3 WOOD BLOCKs into hand + satchel");
-    let (_, satchel_planks, attire_planks, crafted) = super::ArtisanTome::new(1, true).craft_selected(-1.0, satchel, attire);
-    assert!(crafted && attire_planks.held_pair() == (HeldRelic::WoodmanAxe, HeldRelic::PlankBlock));
+    let (satchel_planks, attire_planks) = satchel.consume_and_equip(
+        [(HeldRelic::TimberBlock, 1), (HeldRelic::EmptyPalm, 0)],
+        HeldRelic::PlankBlock,
+        4,
+        -1.0,
+        attire,
+    );
+    assert_eq!(attire_planks.held_pair(), (HeldRelic::RigWrench, HeldRelic::PlankBlock));
     assert_eq!(satchel_planks.resource_tally(HeldRelic::TimberBlock, attire_planks), 2);
-    assert_eq!(satchel_planks.resource_tally(HeldRelic::PlankBlock, attire_planks), 4, "Crafting WOOD PLANKS from 1 WOOD BLOCK must yield 4 planks");
+    assert_eq!(satchel_planks.resource_tally(HeldRelic::PlankBlock, attire_planks), 4);
     let (aim_eye, aim_dir) = (Vec3::new(0.25, 16.92, 0.25), Vec3::new(0.0, -0.75, -0.75).normalize());
     assert!(world.place_molded_surface_block(aim_eye, aim_dir, Vec3::new(0.25, 16.0, 0.25), world::BlockMold::cube().in_medium(world::BlockMedium::PlanedPlanks)));
-    assert_eq!(world.harvest_surface(aim_eye, aim_dir).map(HeldRelic::from_medium), Some(HeldRelic::PlankBlock), "Excavating a placed WOOD PLANKS block must yield WOOD PLANKS back into the hand");
+    assert_eq!(world.harvest_surface(aim_eye, aim_dir).map(HeldRelic::from_medium), Some(HeldRelic::PlankBlock));
 }
 
 #[test]
-fn test_spade_and_dirt_block_replaces_held_block_when_excavating_different_medium() {
-    let dual_tools = YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::WoodmanAxe);
+fn test_rig_tool_and_dirt_block_replaces_held_block_when_excavating_different_medium() {
+    let dual_tools = EvaAttire::eva_equipped();
     let (satchel, next_attire) = super::BeltSatchel::empty().collect_excavated_block(1.0, HeldRelic::ExcavatedEarth, dual_tools);
-    assert_eq!(next_attire.held_pair(), (HeldRelic::IronSpade, HeldRelic::WoodmanAxe));
+    assert_eq!(next_attire.held_pair(), (HeldRelic::RigWrench, HeldRelic::SuitRadio));
     assert_eq!(satchel.resource_tally(HeldRelic::ExcavatedEarth, next_attire), 1);
 
-    let spade_and_dirt = YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::ExcavatedEarth);
-    let satchel = super::BeltSatchel::empty().reconcile_attire(spade_and_dirt);
+    let wrench_and_dirt = EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::ExcavatedEarth);
+    let satchel = super::BeltSatchel::empty().reconcile_attire(wrench_and_dirt);
     let crust_harvested = HeldRelic::from_medium(world::BlockMedium::CrustRock);
-    assert_eq!(crust_harvested, HeldRelic::CrustBlock, "Excavating planetary crust rock must yield CrustBlock");
-    let (satchel_after_crust, attire_after_crust) = satchel.collect_excavated_block(-1.0, crust_harvested, spade_and_dirt);
-    assert_eq!(attire_after_crust.held_pair(), (HeldRelic::IronSpade, HeldRelic::CrustBlock));
+    assert_eq!(crust_harvested, HeldRelic::CrustBlock);
+    let (satchel_after_crust, attire_after_crust) = satchel.collect_excavated_block(-1.0, crust_harvested, wrench_and_dirt);
+    assert_eq!(attire_after_crust.held_pair(), (HeldRelic::RigWrench, HeldRelic::CrustBlock));
     assert_eq!(satchel_after_crust.resource_tally(HeldRelic::ExcavatedEarth, attire_after_crust), 1);
     assert_eq!(satchel_after_crust.resource_tally(HeldRelic::CrustBlock, attire_after_crust), 1);
     let (satchel_same, attire_same) = satchel_after_crust.collect_excavated_block(-1.0, HeldRelic::CrustBlock, attire_after_crust);
-    assert_eq!(attire_same.held_pair(), (HeldRelic::IronSpade, HeldRelic::CrustBlock));
+    assert_eq!(attire_same.held_pair(), (HeldRelic::RigWrench, HeldRelic::CrustBlock));
     assert_eq!(satchel_same.resource_tally(HeldRelic::CrustBlock, attire_same), 2);
 
-    let wheel_in_right = YouthAttire::squire().with_relics(HeldRelic::CarWheel, HeldRelic::EmptyPalm);
+    let wheel_in_right = EvaAttire::astronaut().with_relics(HeldRelic::CarWheel, HeldRelic::EmptyPalm);
     let wheel_satchel = super::BeltSatchel::empty().reconcile_attire(wheel_in_right);
     let (satchel_after_wheel, attire_after_wheel) = wheel_satchel.collect_excavated_block(1.0, HeldRelic::CarWheel, wheel_in_right);
     assert_eq!(attire_after_wheel.held_pair(), (HeldRelic::CarWheel, HeldRelic::EmptyPalm));
     assert_eq!(satchel_after_wheel.resource_tally(HeldRelic::CarWheel, attire_after_wheel), 2);
     let pose = BodyPose::new(
         Vec3::new(0.0, 9.0, 0.0), Quat::IDENTITY, Quat::IDENTITY, 0.8,
-        StrideRhythm::new(0.0, 1.0), YouthPhysique::SlenderSquire,
+        StrideRhythm::new(0.0, 1.0), CrewPhysique::OrbitalCadet,
     );
     let (mut tray_one, mut tray_eight) = (QuadLedger::empty(), QuadLedger::empty());
     satchel_after_wheel.with_open(true).emit_for_attire(&pose, attire_after_wheel, &mut tray_one);
@@ -232,22 +213,22 @@ fn test_spade_and_dirt_block_replaces_held_block_when_excavating_different_mediu
 }
 
 #[test]
-fn test_sculpted_visage_voyager_crest_and_three_quarter_intercom_portrait() {
-    let mut voyager = YouthAttire::squire();
+fn test_sculpted_eva_helm_command_crest_and_three_quarter_intercom_portrait() {
+    let mut commander = EvaAttire::astronaut();
     for _ in 0..7 {
-        voyager = voyager.with_next_crown();
+        commander = commander.with_next_helm();
     }
-    let roundtrip = YouthAttire::from_multiplayer_bytes(voyager.multiplayer_bytes());
-    assert_eq!(roundtrip.multiplayer_bytes(), voyager.multiplayer_bytes());
+    let roundtrip = EvaAttire::from_multiplayer_bytes(commander.multiplayer_bytes());
+    assert_eq!(roundtrip.multiplayer_bytes(), commander.multiplayer_bytes());
 
     let mut clean_bust = QuadLedger::empty();
     let mut bearded_bust = QuadLedger::empty();
-    let vp = super::IntercomBust::new(voyager, (0.0, 0.0)).emit(1.62, &mut bearded_bust);
-    let _ = super::IntercomBust::new(YouthAttire::squire(), (0.0, 0.0)).emit(1.62, &mut clean_bust);
+    let vp = super::IntercomBust::new(commander, (0.0, 0.0)).emit(1.62, &mut bearded_bust);
+    let _ = super::IntercomBust::new(EvaAttire::astronaut(), (0.0, 0.0)).emit(1.62, &mut clean_bust);
 
     assert!(
-        bearded_bust.quads.len() > clean_bust.quads.len() + 30,
-        "VoyagerCrest must layer sculpted jawline beard, sideburns, and mustache over parted hair"
+        bearded_bust.quads.len() > clean_bust.quads.len() + 20,
+        "CommandCrest must layer sculpted beard and visor over neck-ring EVA helm"
     );
     let cam_eye = vp.inverse().project_point3(Vec3::ZERO);
     assert!(
@@ -256,12 +237,12 @@ fn test_sculpted_visage_voyager_crest_and_three_quarter_intercom_portrait() {
     );
 
     for fem in [false, true] {
-        let mut cur = YouthAttire::squire().with_feminine(fem);
+        let mut cur = EvaAttire::astronaut().with_feminine(fem);
         for _ in 0..8 {
             let mut quads = QuadLedger::empty();
             let _ = super::IntercomBust::new(cur, (0.1, -0.05)).emit(1.62, &mut quads);
-            assert!(quads.quads.len() > 120, "Every male and female CrownStyle decorator chain must emit sculpted geometry");
-            cur = cur.with_next_crown();
+            assert!(quads.quads.len() > 120, "Every male and female HelmStyle decorator chain must emit sculpted geometry");
+            cur = cur.with_next_helm();
         }
     }
 }

@@ -1,7 +1,7 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{BlockMedium, BlockMold, CelestialSystem, MeshTarget, Quad};
-use crate::attire::{BeltSatchel, HeldRelic, LimbFrame, YouthAttire};
+use crate::attire::{BeltSatchel, EvaAttire, HeldRelic, LimbFrame};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarPresence as _, HandGesture, PlanetaryAvatar,
 };
@@ -50,8 +50,8 @@ fn right_mold_code(avatar: &PlanetaryAvatar) -> u8 {
 
 #[test]
 fn test_nozzle_in_palm_starts_downward_and_mouse_wheel_toggles_steuerduese() {
-    let squire = YouthAttire::squire();
-    let planks = squire.with_relics(HeldRelic::PlankBlock, HeldRelic::PlankBlock);
+    let astronaut = EvaAttire::astronaut();
+    let planks = astronaut.with_relics(HeldRelic::PlankBlock, HeldRelic::PlankBlock);
     let mut satchel = BeltSatchel::empty()
         .with_stowed_relic(HeldRelic::RocketNozzle, 2)
         .reconcile_attire(planks);
@@ -67,7 +67,7 @@ fn test_nozzle_in_palm_starts_downward_and_mouse_wheel_toggles_steuerduese() {
     assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
     assert_eq!(right_mold_code(&avatar), 1);
 
-    avatar.apply_attire(squire.with_relics(HeldRelic::RocketNozzle, HeldRelic::PlankBlock));
+    avatar.apply_attire(astronaut.with_relics(HeldRelic::RocketNozzle, HeldRelic::PlankBlock));
     assert_eq!(right_mold_code(&avatar), 0, "Equipping RocketNozzle must always reset to downward Main Nozzle");
     assert!(avatar.dispatch_trigger(InputTrigger::WheelDown));
     assert_eq!(right_mold_code(&avatar), 1, "Wheel scroll must switch to Steuerdüse");
@@ -138,7 +138,7 @@ fn test_spacecraft_with_steuerduese_pitches_into_lateral_trajectory() {
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);
@@ -181,11 +181,11 @@ fn test_flight_console_mounts_from_one_block_in_front_of_crane_arm_without_stepp
             BlockMold::cube().in_medium(BlockMedium::CantileverRig),
         ));
         let spawn = world.constrain_to_surface(Vec3::new(u, 22.0, v), 1.0);
-        let squire = YouthAttire::squire().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm);
+        let astronaut = EvaAttire::astronaut().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm);
         let mut avatar = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(SurfaceFlight::calibrated(0.522, 9.81, 1.0)),
-            squire,
+            astronaut,
             ActionBindings::seeded(),
         );
         avatar.rotate_degrees(yaw_deg, 0.0);
@@ -216,11 +216,11 @@ fn test_flight_console_mounts_from_one_block_in_front_of_crane_arm_without_stepp
             ));
         }
         let spawn = world.constrain_to_surface(Vec3::new(u, 22.0, v), 1.0);
-        let squire = YouthAttire::squire().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm);
+        let astronaut = EvaAttire::astronaut().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm);
         let mut avatar = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(SurfaceFlight::calibrated(0.522, 9.81, 1.0)),
-            squire,
+            astronaut,
             ActionBindings::seeded(),
         );
         avatar.rotate_degrees(yaw_deg, 0.0);

@@ -14,7 +14,6 @@ use crate::chronicle_log::{ChronicleLog, ChronicleStore};
 use crate::cohort::{CohortAdmission, CohortGate, GuestCohort};
 use crate::envelope::SanctuaryEnvelope;
 use crate::fleet_ledger::FleetLedger;
-use crate::host_sounder::HostSounder;
 use crate::inbox_batch::{ParallelInbox, SequentialInbox};
 use crate::passport::KnockFrame;
 use crate::snapshot_chronicle::SnapshottedChronicle;
@@ -100,8 +99,6 @@ impl HostState {
 
     pub const fn fleet(&self) -> &FleetLedger { self.aura.fleet() }
     pub(crate) fn fleet_mut(&mut self) -> &mut FleetLedger { self.aura.fleet_mut() }
-    pub const fn wildlife(&self) -> &HostSounder { self.aura.wildlife() }
-    pub fn wildlife_mut(&mut self) -> &mut HostSounder { self.aura.wildlife_mut() }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.cohort.blend_subtick(subtick_secs); }
     pub fn refresh_beacons(&mut self, world: &dyn PlanetaryWorld) { self.aura.beacons_mut().refresh_from(world); }
     pub fn drain_host_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { self.aura.drain_utterances(out); }
@@ -124,15 +121,6 @@ impl HostState {
         let mut crafts = Vec::new();
         self.guest_crafts(proportions, &mut crafts);
         self.aura.fleet().emit_crafts(&crafts, target);
-    }
-
-    pub fn admit_guest(
-        &mut self,
-        identity: &HostIdentity,
-        peer: SocketAddr,
-        guest_pub: [u8; 32],
-    ) -> (u32, Option<Vec3>, SurvivorWelcome) {
-        self.cohort.admit_guest(identity, &mut self.aura, peer, guest_pub)
     }
 
     pub fn admit_knock(
@@ -215,16 +203,6 @@ impl HostState {
 
     pub fn step_clocks(&mut self, socket: &UdpSocket, dt: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
         self.wormhole.step(socket, dt);
-        let mut observers = Vec::with_capacity(8);
-        if let Some((pos, crouching)) = self.aura.pedestrian_observer(world) {
-            observers.push((1, pos, crouching));
-        }
-        self.cohort.push_pedestrian_observers(world, &mut observers);
-        if !observers.is_empty() {
-            if let Some((cid, shove)) = self.aura.wildlife_mut().step_authoritative(dt, &observers, world) {
-                self.cohort.record_guest_gore(cid, shove);
-            }
-        }
         let mut abandoned = Vec::new();
         let pulse_ready = self.cohort.advance_wards(dt, &self.aura, &mut abandoned);
         let parked_any = AbandonedDock::new(self.chronicle.as_mut(), &mut self.aura).dock_expired(abandoned, world);

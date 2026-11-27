@@ -92,8 +92,6 @@ mod crust_ceiling_tests;
 #[cfg(test)]
 mod flight_tests;
 #[cfg(test)]
-mod hearth_smithy_tests;
-#[cfg(test)]
 mod heliosphere_tests;
 #[cfg(test)]
 mod mortality_tests;
@@ -123,8 +121,6 @@ mod traversal_tests;
 mod troupe_tests;
 #[cfg(test)]
 mod visual_tests;
-#[cfg(test)]
-mod wild_boar_tests;
 
 use winit::event_loop::EventLoop;
 use app::LowCubeApp;

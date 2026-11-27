@@ -45,11 +45,11 @@ impl BodyEnvelope {
     }
 
     pub fn youth() -> Self {
-        Self::for_physique(crate::attire::YouthPhysique::SlenderSquire)
+        Self::for_physique(crate::attire::CrewPhysique::OrbitalCadet)
     }
 
-    /// Secondary constructor deriving width (Breite), depth (Tiefe), and height (Höhe) from the character's YouthPhysique.
-    pub fn for_physique(physique: crate::attire::YouthPhysique) -> Self {
+    /// Secondary constructor deriving width, depth, and height from the crew avatar's `CrewPhysique`.
+    pub fn for_physique(physique: crate::attire::CrewPhysique) -> Self {
         Self::with_dimensions(
             (physique.upper_body_span() * 0.5).clamp(0.18, 0.55),
             (physique.body_depth() * 0.5).clamp(0.12, 0.34),

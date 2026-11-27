@@ -27,7 +27,6 @@ impl<M: AvatarCondition> AvatarCondition for SatchelAvatar<M> {
     fn perished(&self) -> bool { self.origin.perished() }
     fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool { self.origin.lethal_contact(world) }
     fn satchel_open(&self) -> bool { self.origin.satchel_open() }
-    fn driving(&self) -> bool { self.origin.driving() }
     fn sheltered_berth(&self) -> bool { self.origin.sheltered_berth() }
     fn ear_locus(&self) -> glam::Vec3 { self.origin.ear_locus() }
     fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool { self.origin.abort_hands(world) }
@@ -73,14 +72,6 @@ impl<M: AvatarMotor + AvatarCondition> AvatarMotor for SatchelAvatar<M> {
             self.origin.step_satchel_idle(dt);
         } else {
             self.origin.step_motion(dt, controls, world);
-        }
-    }
-
-    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        if self.origin.satchel_open() || self.origin.driving() {
-            (false, false)
-        } else {
-            self.origin.hunt_fauna(side, world)
         }
     }
 

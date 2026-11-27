@@ -1,7 +1,7 @@
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{BlockMedium, BlockMold, CelestialSystem, MeshTarget, Quad};
-use crate::attire::{BodyPose, HeldRelic, MartialStyle, RocketControls, StrideRhythm, YouthAttire, YouthPhysique};
+use crate::attire::{BodyPose, CrewPhysique, EvaAttire, HeldRelic, MartialStyle, RocketControls, StrideRhythm};
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, HandGesture, PlanetaryAvatar};
 use crate::black_box::PresenceProbe;
 use crate::controls::{ActionBindings, InputTrigger, KeyMotion, KeyboardControls};
@@ -24,7 +24,7 @@ fn test_rocket_pilot_arms_drive_four_way_stick_and_fore_aft_throttle_grip() {
         Quat::IDENTITY,
         0.46,
         StrideRhythm::idle(),
-        YouthPhysique::SlenderSquire,
+        CrewPhysique::OrbitalCadet,
     );
     let sample_arm = |ctrl: RocketControls, side: f32| {
         let pose = base.with_rocket_controls(ctrl);
@@ -94,7 +94,7 @@ fn test_live_rocket_cockpit_and_character_studio_animate_stick_and_throttle() {
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);
@@ -112,7 +112,7 @@ fn test_live_rocket_cockpit_and_character_studio_animate_stick_and_throttle() {
     pilot.emit_appearance(&mut stick_mesh);
     assert_ne!(idle_mesh.0, stick_mesh.0, "Deflecting 4-way stick without thrust must animate pilot arm");
 
-    let attire = YouthAttire::squire();
+    let attire = EvaAttire::astronaut();
     let vp = TurntableStage::front_showcase().view_projection(16.0 / 9.0);
     let mut phases = Vec::new();
     for step in 0..4 {
@@ -157,7 +157,7 @@ fn test_hoisted_crane_dual_steuerduesen_preserve_thruster_and_never_perch_off_se
         BlockMold::cube().in_medium(BlockMedium::CabinSeat),
     ));
 
-    let attire = YouthAttire::squire().with_relics(HeldRelic::RocketNozzle, HeldRelic::EmptyPalm);
+    let attire = EvaAttire::astronaut().with_relics(HeldRelic::RocketNozzle, HeldRelic::EmptyPalm);
     // 1. Place first Steuerduese on North side of dirt block (2, -1, g + 3.0)
     let mut north_builder = PlanetaryAvatar::with_attire_and_bindings(
         Vec3::new(1.25, g + 1.0, -0.75),
@@ -183,7 +183,7 @@ fn test_hoisted_crane_dual_steuerduesen_preserve_thruster_and_never_perch_off_se
     let mut probe = PresenceProbe::at_origin();
     under_seat.report_presence(&mut probe);
     let held_after = probe.presence().transfer(|_, _, _, pa| {
-        pa.transfer(|b, _, _| YouthAttire::from_multiplayer_bytes(b).held_pair().0)
+        pa.transfer(|b, _, _| EvaAttire::from_multiplayer_bytes(b).held_pair().0)
     });
     assert_eq!(held_after, HeldRelic::RocketNozzle, "Underside bell graze must never swallow Steuerduese");
     assert!((probe.position().y - (g + 1.0)).abs() < 0.05, "Builder must remain standing on ground");

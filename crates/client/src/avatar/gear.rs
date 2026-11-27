@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{MeshTarget, PlanetaryWorld, PresenceAttire};
-use crate::attire::{BodyPose, CameraMount, HeldRelic, SightMode, StrideRhythm, YouthAttire};
+use crate::attire::{BodyPose, CameraMount, EvaAttire, HeldRelic, SightMode, StrideRhythm};
 use crate::blueprint::BlueprintFolio;
 use crate::controls::{ActionBindings, InputTrigger};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
@@ -11,9 +11,9 @@ use super::bearing::AvatarBearing;
 use super::body::AvatarBody;
 use super::sight::AvatarSight;
 
-/// Encapsulated wardrobe attire, dual-hand earthworks, blueprint folio, and input bindings.
+/// Encapsulated EVA wardrobe attire, dual-hand earthworks, CAD blueprint folio, and input bindings (`4` fields).
 pub struct AvatarGear {
-    attire: YouthAttire,
+    attire: EvaAttire,
     earthworks: PalmEarthworks,
     folio: BlueprintFolio,
     bindings: ActionBindings,
@@ -22,7 +22,7 @@ pub struct AvatarGear {
 impl AvatarGear {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn with_folio(
-        attire: YouthAttire,
+        attire: EvaAttire,
         earthworks: PalmEarthworks,
         folio: BlueprintFolio,
         bindings: ActionBindings,
@@ -30,7 +30,7 @@ impl AvatarGear {
         Self { attire, earthworks, folio, bindings }
     }
 
-    pub fn new(attire: YouthAttire, earthworks: PalmEarthworks, bindings: ActionBindings) -> Self {
+    pub fn new(attire: EvaAttire, earthworks: PalmEarthworks, bindings: ActionBindings) -> Self {
         Self::with_folio(attire, earthworks, BlueprintFolio::profile(), bindings)
     }
 
@@ -89,7 +89,7 @@ impl AvatarGear {
         self.earthworks.presence_attire(self.attire)
     }
 
-    pub fn apply_attire(&mut self, attire: YouthAttire) {
+    pub fn apply_attire(&mut self, attire: EvaAttire) {
         let (r, l) = self.attire.held_pair();
         let merged = if !attire.armed() && self.attire.armed() { attire.with_relics(r, l) } else { attire };
         (self.attire, self.earthworks) = (merged, self.earthworks.transition_attire(self.attire, merged));
@@ -105,9 +105,6 @@ impl AvatarGear {
     }
     pub fn survivor_manifest(&self) -> world::SatchelManifest {
         self.earthworks.survivor_manifest(self.attire)
-    }
-    pub fn drain_crafted_notes(&mut self, world: &mut dyn PlanetaryWorld) {
-        self.earthworks = self.earthworks.drain_crafted_notes(world);
     }
     pub fn step_timers(&mut self, dt: f32) { self.earthworks = self.earthworks.step_toss(dt); }
 
@@ -197,7 +194,6 @@ impl AvatarGear {
         &mut self,
         side: f32,
         reach: SurfaceReach,
-        body: &mut AvatarBody,
         bearing: &mut AvatarBearing,
         world: &mut dyn PlanetaryWorld,
     ) -> bool {
@@ -226,30 +222,16 @@ impl AvatarGear {
                 return false;
             }
         }
-        let (next_ew, next_attire, next_rhythm, changed, meal) =
+        let (next_ew, next_attire, next_rhythm, changed) =
             self.earthworks.act_with_hand(side, reach, self.attire, bearing.rhythm(), world);
         (self.earthworks, self.attire) = (next_ew, next_attire);
-        let nourished = meal.savor(body);
         bearing.apply_rhythm(next_rhythm);
         bearing.reconcile_mount(self.active_camera_mount());
-        if !changed && !nourished && self.attire.hand_pair(side).0 == HeldRelic::BlackBoxPod {
+        if !changed && self.attire.hand_pair(side).0 == HeldRelic::BlackBoxPod {
             bearing.trigger_log_sheet(1800, 1);
             return true;
         }
-        changed || nourished
-    }
-
-    pub fn strike_fauna(
-        &mut self, side: f32, reach: SurfaceReach, bearing: &mut AvatarBearing, world: &mut dyn PlanetaryWorld,
-    ) -> (bool, bool) {
-        let (weapon, swing_side) = self.attire.hunting_hand(side);
-        let (struck, dropped) =
-            world.strike_boar(reach.eye(), reach.view_dir(), weapon.hunting_power(), weapon.hunting_reach());
-        if struck {
-            bearing.apply_rhythm(SurfaceReach::swing_rhythm(self.attire, bearing.rhythm(), swing_side));
-            (self.earthworks, self.attire) = self.earthworks.wear_hand(swing_side, 1, self.attire, world);
-        }
-        (struck, dropped)
+        changed
     }
 
     pub fn release_hand(

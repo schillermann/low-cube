@@ -109,7 +109,7 @@ fn test_excavating_beneath_tree_and_floor_litter_settles_them_onto_new_ground() 
         0.65,
         3.0,
     ));
-    let litter = Box::new(FloorLitter::new(frame, 0.75, 0.25, 0.0, SurfaceFind::FlintStone, 0.0));
+    let litter = Box::new(FloorLitter::new(frame, 0.75, 0.25, 0.0, SurfaceFind::RigWrench, 0.0));
     let mut forested = ForestedFace::new(relief, frame, vec![tree, litter], std::sync::RwLock::new(Vec::new()));
     assert!(
         forested.canopy_drag(frame.point_at(0.5, 0.5, 3.0)) > 0.8,
@@ -122,13 +122,13 @@ fn test_excavating_beneath_tree_and_floor_litter_settles_them_onto_new_ground() 
     assert!(forested.excavate(eye, dir), "Must excavate block beneath tree");
     assert!(forested.step_flora(1.0 / 60.0), "Settled tree must signal flora slice update");
 
-    // Excavate cell (1, 0) under the flint stone at (0.75, 0.25) and forage it at its new -0.5m elevation
+    // Excavate cell (1, 0) under the rig tool at (0.75, 0.25) and forage it at its new -0.5m elevation
     let dir_litter = (frame.point_at(0.75, 0.25, -0.10) - eye).normalize();
-    assert!(forested.excavate(eye, dir_litter), "Must excavate block beneath flint stone");
+    assert!(forested.excavate(eye, dir_litter), "Must excavate block beneath cast rig tool");
     let settled_aim = (frame.point_at(0.75, 0.25, -0.45) - eye).normalize();
     assert_eq!(
         forested.forage_timber(eye, settled_aim),
-        SurfaceFind::FlintStone,
-        "Flint stone must settle down to -0.5m when the block underneath it is excavated"
+        SurfaceFind::RigWrench,
+        "Cast rig tool must settle down to -0.5m when the block underneath it is excavated"
     );
 }

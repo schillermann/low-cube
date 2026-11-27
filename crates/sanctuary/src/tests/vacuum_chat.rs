@@ -9,12 +9,12 @@ use crate::{
     SuitTransceiverMedium, HELMET_TOUCH_METERS, SUIT_RADIO_METERS,
 };
 
-fn squire_at(pos: Vec3) -> CompanionPresence {
+fn astronaut_at(pos: Vec3) -> CompanionPresence {
     CompanionPresence::new(
         0,
         PresenceKinematics::new(pos, Quat::IDENTITY, Quat::IDENTITY, (1.45, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     )
 }
 
@@ -77,9 +77,9 @@ fn test_live_udp_lunar_vacuum_chat_drops_beyond_radio_and_carries_helmet_contact
     assert_eq!(speaker.cosmic_frame(), CosmicFrame::Body(BodyId::LUNA));
 
     // Place speaker at (0, 8, 0), close_eva at 12 m (inside 32 m EVA radio), far_crater at 55 m (audible on Earth, silent on Luna!)
-    speaker.sync_presence(squire_at(Vec3::new(0.0, 8.0, 0.0)));
-    close_eva.sync_presence(squire_at(Vec3::new(12.0, 8.0, 0.0)));
-    far_crater.sync_presence(squire_at(Vec3::new(55.0, 8.0, 0.0)));
+    speaker.sync_presence(astronaut_at(Vec3::new(0.0, 8.0, 0.0)));
+    close_eva.sync_presence(astronaut_at(Vec3::new(12.0, 8.0, 0.0)));
+    far_crater.sync_presence(astronaut_at(Vec3::new(55.0, 8.0, 0.0)));
     for _ in 0..8 {
         let _ = speaker.step_surface(0.02);
         let _ = close_eva.step_surface(0.02);
@@ -111,7 +111,7 @@ fn test_live_udp_lunar_vacuum_chat_drops_beyond_radio_and_carries_helmet_contact
     close_eva.drain_utterances(&mut close_inbox);
     assert!(close_inbox.is_empty(), "Radio-silent `~` message must not broadcast over 12 m EVA radio");
 
-    close_eva.sync_presence(squire_at(Vec3::new(1.2, 8.0, 0.0)));
+    close_eva.sync_presence(astronaut_at(Vec3::new(1.2, 8.0, 0.0)));
     for _ in 0..6 {
         let _ = close_eva.step_surface(0.02);
         let _ = host.step_surface(0.02);

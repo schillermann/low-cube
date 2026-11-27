@@ -27,10 +27,6 @@ impl WorldEarthworks for SavedPlanet {
         self.with_chronicled(|w| w.strike_timber(eye, direction))
     }
 
-    fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
-        self.with_chronicled(|w| w.strike_boar(eye, direction, power, max_reach))
-    }
-
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
         self.with_chronicled(|w| w.forage_surface(eye, direction))
     }

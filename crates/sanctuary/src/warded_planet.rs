@@ -64,13 +64,6 @@ impl WorldEarthworks for WardedPlanet<'_> {
         outcome
     }
 
-    fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
-        if !self.ward.eye_within_reach(eye, direction) {
-            return (false, false);
-        }
-        self.origin.strike_boar(eye, direction, power.clamp(1, 4), max_reach.clamp(0.5, 2.75))
-    }
-
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
         if !self.ward.eye_within_reach(eye, direction) {
             return SurfaceFind::EmptyHanded;

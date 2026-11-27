@@ -71,9 +71,6 @@ impl<W: PlanetaryWorld> WorldEarthworks for OrbitalFleetWorld<W> {
     fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool { self.origin.surface_yields_to(eye, direction, edge) }
     fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.origin.aimed_surface_medium(eye, direction) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.origin.strike_timber(eye, direction) }
-    fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
-        self.origin.strike_boar(eye, direction, power, max_reach)
-    }
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind { self.origin.forage_surface(eye, direction) }
     fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool { self.origin.cast_surface_find(eye, direction, find) }
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {

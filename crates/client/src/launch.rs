@@ -104,8 +104,8 @@ impl SessionAssembly for SessionLaunch {
         let spawn_position = crate::avatar::BodySpan::landed_on(planet.as_ref()).current();
         let flight = self.cosmos.physics.surface_flight(1.0);
         let attire = FileAttire::profile()
-            .load_or_squire()
-            .with_hand_relic(1.0, HeldRelic::CantileverCrane);
+            .load_or_astronaut()
+            .with_relics(HeldRelic::RigWrench, HeldRelic::SuitRadio);
         let bindings = FileBindings::profile().load_or_seeded();
         let mut embodied = PlanetaryAvatar::with_attire_and_bindings(
             spawn_position,

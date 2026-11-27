@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use glam::{Quat, Vec3};
+use glam::Quat;
 use world::{
     Callsign, CompanionPresence, CosmicFrame, PresenceAttire, PresenceKinematics, SurvivorRecord,
     SurvivorWelcome,
@@ -11,7 +11,7 @@ use crate::host_wire::STRUCTURED_WELCOME_TAG;
 use crate::link_state::WelcomeSpawn;
 #[cfg(not(test))]
 use crate::passport::HexKey;
-use crate::passport::{KnockFrame, KnockIntent};
+use crate::passport::KnockFrame;
 use crate::seal::HandshakeIdentity;
 use crate::spatial_chronicle::HorizonStream;
 use crate::survivor_ledger::SurvivorStore;
@@ -72,10 +72,6 @@ impl CohortAdmission {
         grant: IdentityGrant,
     ) -> Self {
         Self { slot, spawn, welcome, grant }
-    }
-
-    pub fn into_legacy_tuple(self) -> (u32, Option<Vec3>, SurvivorWelcome) {
-        (self.slot, self.spawn.assigned_point(), self.welcome)
     }
 
     /// Inscribes a complete structured `LWEL` datagram without exposing internal admission fields.
@@ -184,16 +180,8 @@ impl SlotLedger {
     }
 }
 
-/// Focused admission contract admitting pinned or passport-knocking companions into a `GuestCohort`.
+/// Focused admission contract admitting passport-knocking companions into a `GuestCohort`.
 pub trait CohortGate {
-    fn admit_guest(
-        &mut self,
-        identity: &HostIdentity,
-        aura: &mut HostAura,
-        peer: SocketAddr,
-        guest_pub: [u8; 32],
-    ) -> (u32, Option<Vec3>, SurvivorWelcome);
-
     fn admit_knock(
         &mut self,
         identity: &HostIdentity,
@@ -204,17 +192,6 @@ pub trait CohortGate {
 }
 
 impl CohortGate for GuestCohort {
-    fn admit_guest(
-        &mut self,
-        identity: &HostIdentity,
-        aura: &mut HostAura,
-        peer: SocketAddr,
-        guest_pub: [u8; 32],
-    ) -> (u32, Option<Vec3>, SurvivorWelcome) {
-        let knock = KnockFrame::new(guest_pub, KnockIntent::PinnedKey, Callsign::unnamed());
-        self.admit_knock(identity, aura, peer, knock).into_legacy_tuple()
-    }
-
     fn admit_knock(
         &mut self,
         identity: &HostIdentity,
@@ -241,15 +218,8 @@ impl CohortGate for GuestCohort {
         let callsign = self.survivors.resolve_callsign(survivor_pub, desired_callsign, &active);
         let half = (identity.blocks_per_edge() as f32) * 0.5;
         let (kin, beacon_stand) = match welcome.restored_record() {
-            Some(rec)
-                if !(rec.frame().earth_centered()
-                    && rec.position().x == 0.0
-                    && rec.position().z == 0.0
-                    && (rec.position().y - half).abs() < 0.05) =>
-            {
-                (PresenceKinematics::new(rec.position(), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)), None)
-            }
-            _ => aura.beacons_mut().allocate_kinematics(half),
+            Some(rec) => (PresenceKinematics::new(rec.position(), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)), None),
+            None => aura.beacons_mut().allocate_kinematics(half),
         };
         if minted_secret.is_some() && !knock_retry {
             let spawn_pos = kin.transfer(|p, _, _, _, _| p);
@@ -266,7 +236,7 @@ impl CohortGate for GuestCohort {
         }
         if !self.wards.contains_key(&cid) {
             let seal = identity.keys().establish(survivor_pub, false);
-            let pres = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
+            let pres = CompanionPresence::new(cid, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::astronaut());
             let frame = welcome.restored_record().map_or(CosmicFrame::earth(), |r| r.frame());
             let vitals = WardVitals::named_survivor(survivor_pub, callsign, welcome.manifest());
             let ward = GuestWard::with_locus(seal, (peer, frame), CompanionGlide::awaiting_first(pres), vitals);

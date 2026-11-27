@@ -29,7 +29,6 @@ pub enum WorldFact {
     HelmClaimed { craft: CraftIdentity, pilot_slot: u32, eye: Vec3, direction: Vec3 },
     HelmReleased { craft: CraftIdentity, pose: CraftPose },
     RigBlueprintBuilt { eye: Vec3, direction: Vec3, blueprint: CraftBlueprint },
-    BoarStruck { eye: Vec3, direction: Vec3, power: u8, reach_cm: u16 },
     OffWorld { body: BodyId, fact: Box<WorldFact> },
     SectorSnapshot { snapshot: SectorSnapshot },
 }
@@ -60,9 +59,6 @@ impl WorldFact {
             }
             Self::RigBlueprintBuilt { eye, direction, ref blueprint } => {
                 Self::RigBlueprintBuilt { eye: eye + shift, direction, blueprint: blueprint.clone() }
-            }
-            Self::BoarStruck { eye, direction, power, reach_cm } => {
-                Self::BoarStruck { eye: eye + shift, direction, power, reach_cm }
             }
             Self::OffWorld { body, ref fact } => Self::OffWorld { body, fact: fact.clone() },
             Self::SectorSnapshot { ref snapshot } => Self::SectorSnapshot { snapshot: snapshot.clone() },
@@ -104,9 +100,6 @@ impl WorldFact {
             Self::RigBlueprintBuilt { eye, direction, ref blueprint } => {
                 world.build_rig_blueprint(eye, direction, blueprint)
             }
-            Self::BoarStruck { eye, direction, power, reach_cm } => {
-                world.strike_boar(eye, direction, power, f32::from(reach_cm) * 0.01).0
-            }
             Self::OffWorld { body, ref fact } => world.enact_offworld(body, fact),
             Self::SectorSnapshot { ref snapshot } => world.apply_sector_snapshot(snapshot),
         }
@@ -130,7 +123,7 @@ impl WorldFact {
     pub fn durable(&self) -> bool {
         match self {
             Self::OffWorld { fact, .. } => fact.durable(),
-            Self::Loosened { .. } | Self::BoarStruck { .. } => false,
+            Self::Loosened { .. } => false,
             _ => true,
         }
     }

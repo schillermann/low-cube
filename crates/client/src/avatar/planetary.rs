@@ -1,7 +1,6 @@
 use glam::{Mat4, Vec3};
-use fauna::SightCone;
-use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{PhotoShutter, SightMode, YouthAttire};
+use world::{MeshTarget, PlanetaryWorld, SightCone};
+use crate::attire::{EvaAttire, PhotoShutter, SightMode};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use crate::flight::GravitationalFlight;
 #[cfg(test)]
@@ -24,7 +23,7 @@ impl PlanetaryAvatar {
     }
 
     pub fn with_attire_and_bindings(
-        initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: YouthAttire, bindings: ActionBindings,
+        initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: EvaAttire, bindings: ActionBindings,
     ) -> Self {
         Self::from_motor(RainEarMotor::new(MortalMotor::new(SatchelAvatar::new(
             EmbodiedAvatar::with_attire_and_bindings(initial_position, flight, attire, bindings),
@@ -38,15 +37,15 @@ impl PlanetaryAvatar {
 
     #[cfg(test)]
     pub fn with_test_engines(self) -> Self {
-        self.with_starting_satchel(&crate::server_satchel::TestKitSatchel::new())
+        self.with_starting_satchel(&crate::server_satchel::EvaKitSatchel::new())
     }
     #[cfg(test)]
-    pub fn with_attire(initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: YouthAttire) -> Self {
+    pub fn with_attire(initial_position: Vec3, flight: Box<dyn GravitationalFlight>, attire: EvaAttire) -> Self {
         Self::with_attire_and_bindings(initial_position, flight, attire, ActionBindings::seeded())
     }
     #[cfg(test)]
     pub fn with_flight(initial_position: Vec3, flight: Box<dyn GravitationalFlight>) -> Self {
-        Self::with_attire(initial_position, flight, YouthAttire::squire())
+        Self::with_attire(initial_position, flight, EvaAttire::astronaut())
     }
     #[cfg(test)]
     pub fn at(initial_position: Vec3) -> Self {
@@ -112,20 +111,18 @@ impl AvatarMotor for PlanetaryAvatar {
     fn adjust_aimed_rig(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool { self.motor.adjust_aimed_rig(trigger, world) }
     fn cast_triggered_relic(&mut self, trigger: InputTrigger, world: &mut dyn PlanetaryWorld) -> bool { self.motor.cast_triggered_relic(trigger, world) }
     fn step_motion(&mut self, dt: f32, controls: &dyn KeyboardControls, world: &dyn PlanetaryWorld) { self.motor.step_motion(dt, controls, world); }
-    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) { self.motor.hunt_fauna(side, world) }
     fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
         self.motor.emit_reticle_for_aspect(aspect, target);
     }
 }
 
 impl Avatar for PlanetaryAvatar {
-    fn apply_attire(&mut self, attire: YouthAttire) { self.core_mut().apply_attire(attire); }
+    fn apply_attire(&mut self, attire: EvaAttire) { self.core_mut().apply_attire(attire); }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.core_mut().apply_bindings(bindings); }
     fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool { self.core_mut().dispatch_trigger(trigger) }
     fn typing_text(&self) -> bool { self.core().typing_text() }
     fn accept_typed_text(&mut self, text: &str) -> bool { self.core_mut().accept_typed_text(text) }
     fn blend_subtick(&mut self, alpha: f32) { self.core_mut().blend_subtick(alpha); }
-    fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) { self.core_mut().step_fauna(dt, world); }
     fn reconcile_cosmic_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
         self.motor.inner_mut().reconcile_cosmic_frame(world)
     }

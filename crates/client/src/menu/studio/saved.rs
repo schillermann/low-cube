@@ -1,7 +1,7 @@
 use glam::Mat4;
 use winit::keyboard::KeyCode;
 use world::MeshTarget;
-use crate::attire::{AttireProfile, FileAttire, YouthAttire};
+use crate::attire::{AttireProfile, EvaAttire, FileAttire};
 use crate::menu::widget::ScreenPoint;
 use super::{AttireSink, StudioDirective, WardrobePanel, WardrobeStudio};
 
@@ -19,7 +19,7 @@ impl<'a> PersistedAttireSink<'a> {
 }
 
 impl AttireSink for PersistedAttireSink<'_> {
-    fn apply_attire(&mut self, attire: YouthAttire) {
+    fn apply_attire(&mut self, attire: EvaAttire) {
         self.profile.save(&attire);
         self.inner.apply_attire(attire);
     }

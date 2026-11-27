@@ -128,8 +128,6 @@ impl LinkSync {
     pub fn copy_crafts(&self, out: &mut Vec<DrivenCraft>) { self.roster.copy_crafts(out); }
     pub fn drain_utterances(&mut self, out: &mut Vec<ProximityUtterance>) { self.roster.drain_utterances(out); }
     pub fn blend_subtick(&mut self, subtick_secs: f32) { self.roster.blend_subtick(subtick_secs); }
-    pub const fn wildlife(&self) -> &crate::remote_wildlife::RemoteWildlife { self.roster.wildlife() }
-    pub fn wildlife_mut(&mut self) -> &mut crate::remote_wildlife::RemoteWildlife { self.roster.wildlife_mut() }
 
     pub fn flush_pulse(&mut self, cid: u32, seal: &mut SessionSeal, peer: SocketAddr, socket: &UdpSocket) {
         self.cursors.1 = 0.0;
@@ -219,10 +217,9 @@ impl LinkSync {
 
     pub fn absorb_standby_envelope(&mut self, env: SanctuaryEnvelope, deferred: &mut VecDeque<SanctuaryEnvelope>) {
         match env {
-            SanctuaryEnvelope::HostPulse { total_facts, cracks, companions, crafts, berths, signals, wildlife } => {
+            SanctuaryEnvelope::HostPulse { total_facts, cracks, companions, crafts, berths, signals } => {
                 self.roster.reconcile_snapshot_with_berths(&companions, &crafts, &berths);
                 self.roster.reconcile_signals(&signals);
-                self.roster.reconcile_wildlife(wildlife);
                 if !cracks.is_empty() && deferred.len() < 64 {
                     deferred.push_back(SanctuaryEnvelope::HostPulse {
                         total_facts,
@@ -231,7 +228,6 @@ impl LinkSync {
                         crafts: Vec::new(),
                         berths: Vec::new(),
                         signals: Vec::new(),
-                        wildlife: world::WildlifePulse::calm(),
                     });
                 }
             }
@@ -269,10 +265,9 @@ impl LinkSync {
                 }
                 changed
             }
-            SanctuaryEnvelope::HostPulse { cracks, companions, crafts, berths, signals, wildlife, .. } => {
+            SanctuaryEnvelope::HostPulse { cracks, companions, crafts, berths, signals, .. } => {
                 self.roster.reconcile_snapshot_with_berths(&companions, &crafts, &berths);
                 self.roster.reconcile_signals(&signals);
-                self.roster.reconcile_wildlife(wildlife);
                 let mut changed = false;
                 for crack in cracks {
                     if crack.enact_on(world) {

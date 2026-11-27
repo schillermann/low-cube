@@ -73,6 +73,10 @@ impl SourceFileAudit {
                     "Scheduler",
                     "Accumulator",
                     "Interpolator",
+                    "Mesher",
+                    "Solver",
+                    "Fabricator",
+                    "Radiator",
                 ] {
                     assert!(
                         !ident.ends_with(suffix),
@@ -172,7 +176,6 @@ fn test_workspace_architecture_guard_enforces_line_and_field_limits() {
         "engine/src",
         "sanctuary/src",
         "acoustics/src",
-        "fauna/src",
         "client/src",
     ] {
         SourceTreeAudit::new(crates_dir.join(subdir)).verify();

@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
     BlockMold, CompanionPortal, CraftBlueprint, ExposedStratum, GravityField as _, MeadowRing,
-    MeshTarget, PlannedMount, TerrainMesh, VesselDeck, VesselSink, WoodlandLife,
+    MeshTarget, PlannedMount, TerrainMesh, VesselDeck, VesselSink,
 };
 use super::{CubePlanet, MeadowScan, ModifiedSlices};
 
@@ -81,12 +81,6 @@ impl TerrainMesh for CubePlanet {
                 out.push((idx as u8, stratum));
             }
         }
-    }
-}
-
-impl WoodlandLife for CubePlanet {
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
-        self.active_face(center).arboreal_perch_near(center, selector)
     }
 }
 

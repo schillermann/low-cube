@@ -34,7 +34,7 @@ fn make_pres(pos: Vec3) -> CompanionPresence {
         0,
         PresenceKinematics::new(pos, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     )
 }
 

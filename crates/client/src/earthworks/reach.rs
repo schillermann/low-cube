@@ -1,12 +1,12 @@
 use glam::Vec3;
 use world::{CleaveOutcome, PlanetaryWorld};
-use crate::attire::{BeltSatchel, HeldRelic, StrideRhythm, YouthAttire};
+use crate::attire::{BeltSatchel, EvaAttire, HeldRelic, StrideRhythm};
 use crate::grip::{DigGrip, DigStroke};
 use super::debris::{DebrisSplash, DigOperation};
 
 const EXCAVATION_THRESHOLD: u32 = 8;
 
-/// Encapsulated 3D eye-to-surface sightline and stance eligibility for hand contact operations.
+/// Encapsulated 3D eye-to-surface sightline and stance eligibility for EVA hand contact operations (`4` fields).
 #[derive(Clone, Copy, Debug)]
 pub struct SurfaceReach {
     eye: Vec3,
@@ -25,7 +25,7 @@ impl SurfaceReach {
     pub const fn view_dir(self) -> Vec3 { self.view_dir }
     pub const fn stance_origin(self) -> Vec3 { self.stance_origin }
 
-    pub fn swing_rhythm(attire: YouthAttire, rhythm: StrideRhythm, side: f32) -> StrideRhythm {
+    pub fn swing_rhythm(attire: EvaAttire, rhythm: StrideRhythm, side: f32) -> StrideRhythm {
         let (right, left) = attire.held_pair();
         if right.free_palm() && left.free_palm() {
             return rhythm.trigger_right_strike().trigger_left_strike();
@@ -41,8 +41,8 @@ impl SurfaceReach {
     }
 
     pub fn release(
-        self, satchel: BeltSatchel, attire: YouthAttire, dig: DigOperation, world: &mut dyn PlanetaryWorld,
-    ) -> (BeltSatchel, YouthAttire, DigOperation, bool, bool) {
+        self, satchel: BeltSatchel, attire: EvaAttire, dig: DigOperation, world: &mut dyn PlanetaryWorld,
+    ) -> (BeltSatchel, EvaAttire, DigOperation, bool, bool) {
         if dig.ready_to_perch() {
             dig.clear_cracks(self.eye, self.view_dir, world);
             return (satchel, attire, dig.with_grip(DigGrip::idle()), true, false);
@@ -57,8 +57,8 @@ impl SurfaceReach {
     }
 
     pub fn sustain(
-        self, satchel: BeltSatchel, attire: YouthAttire, rhythm: StrideRhythm, dig: DigOperation, world: &mut dyn PlanetaryWorld,
-    ) -> (BeltSatchel, YouthAttire, DigOperation, StrideRhythm, bool) {
+        self, satchel: BeltSatchel, attire: EvaAttire, rhythm: StrideRhythm, dig: DigOperation, world: &mut dyn PlanetaryWorld,
+    ) -> (BeltSatchel, EvaAttire, DigOperation, StrideRhythm, bool) {
         if !dig.grip().any_held() {
             return (satchel, attire, dig, rhythm, false);
         }
@@ -99,8 +99,8 @@ impl SurfaceReach {
     }
 
     pub fn strike(
-        self, side: f32, satchel: BeltSatchel, attire: YouthAttire, rhythm: StrideRhythm, dig: DigOperation, world: &mut dyn PlanetaryWorld,
-    ) -> (BeltSatchel, YouthAttire, DigOperation, StrideRhythm, bool) {
+        self, side: f32, satchel: BeltSatchel, attire: EvaAttire, rhythm: StrideRhythm, dig: DigOperation, world: &mut dyn PlanetaryWorld,
+    ) -> (BeltSatchel, EvaAttire, DigOperation, StrideRhythm, bool) {
         let (reconciled, find) = (satchel.reconcile_attire(attire), world.forage_surface(self.eye, self.view_dir));
         if find.gathered() {
             let (ns, na) = reconciled.collect_foraged(side, HeldRelic::from_surface_find(find), attire);
@@ -117,13 +117,8 @@ impl SurfaceReach {
                 world.loosen_surface(self.eye, self.view_dir, 0);
             }
         }
-        if dig.untouched() && !dig.grip().any_held() && active == HeldRelic::WoodenMallet && world.adjust_rig(self.eye, self.view_dir, 1, false) {
-            let (ns, na) = reconciled.strain_hand(side, 1, attire, world);
-            return (ns, na, dig.with_grip(DigGrip::idle()), Self::swing_rhythm(attire, rhythm, side), true);
-        }
         if dig.untouched()
             && !dig.grip().any_held()
-            && active != HeldRelic::WoodenMallet
             && !active.placeable_block()
             && world.lower_rig(self.eye, self.view_dir)
         {
@@ -148,26 +143,23 @@ impl SurfaceReach {
         let deferred = u32::from(dig.grip().pending_click_on(side));
         let w_place = weightless && active.placeable_block() && !dig.grip().held_on(side) && dig.untouched();
         let both_dig = (right.free_palm() || right.placeable_block()) && (left.free_palm() || left.placeable_block());
-        let stroke = if active.spade_blade() || active.pickaxe_head() {
+        let stroke = if active.rig_tool() {
+            let outcome = world.strike_timber(self.eye, self.view_dir);
+            if outcome.struck() {
+                let (ns, na) = if outcome.felled() { reconciled.collect_felled_timber(-side, attire) } else { (reconciled, attire) };
+                return (ns, na, dig.with_grip(DigGrip::with_dig_on(side, false)), Self::swing_rhythm(attire, rhythm, side), true);
+            }
             DigStroke::blade(active.excavation_effort(), side, other.free_palm() || other.placeable_block(), rhythm)
         } else if both_dig && dig.grip().combined_both_held(side) {
             DigStroke::dual_palm(side, dig.grip(), active.free_palm() || !other.free_palm(), weightless, w_place, rhythm)
         } else if active.free_palm() || active.placeable_block() {
-            let outcome = if other.axe_blade() { world.strike_timber(self.eye, self.view_dir) } else { CleaveOutcome::Missed };
+            let outcome = if other.timber_cutter() { world.strike_timber(self.eye, self.view_dir) } else { CleaveOutcome::Missed };
             if outcome.struck() {
                 let (ns, na) = if outcome.felled() { reconciled.collect_felled_timber(side, attire) } else { (reconciled, attire) };
-                let (ns, na) = ns.strain_hand(-side, 1, na, world);
                 return (ns, na, dig.with_grip(DigGrip::with_dig_on(side, false)), Self::swing_rhythm(attire, rhythm, -side), true);
             }
             DigStroke::single_palm(side, deferred, weightless, w_place, rhythm)
         } else {
-            let outcome = if active.axe_blade() { world.strike_timber(self.eye, self.view_dir) } else { CleaveOutcome::Missed };
-            if outcome.struck() {
-                let (ns, na) = if outcome.felled() { reconciled.collect_felled_timber(-side, attire) } else { (reconciled, attire) };
-                let (ns, na) = ns.strain_hand(side, 1, na, world);
-                let grip = if active.axe_blade() { DigGrip::with_dig_on(side, false) } else { DigGrip::idle() };
-                return (ns, na, dig.with_grip(grip), Self::swing_rhythm(attire, rhythm, side), true);
-            }
             DigStroke::single_palm(side, deferred, weightless, w_place, rhythm)
         };
         let (next_grip, next_rhythm) = (stroke.next_grip(), stroke.next_rhythm());

@@ -102,18 +102,6 @@ impl GuestJournal {
         self.write_link(|l| l.blend_subtick(blend));
     }
 
-    pub fn step_wildlife(&mut self, dt: f32, listener: glam::Vec3, view_dir: glam::Vec3, world: &dyn PlanetaryWorld) -> Option<glam::Vec3> {
-        self.write_link(|l| l.step_wildlife(dt, listener, view_dir, world))
-    }
-
-    pub fn intercept_boar_strike(&mut self, eye: glam::Vec3, view_dir: glam::Vec3, max_reach: f32, world: &dyn PlanetaryWorld) -> bool {
-        self.write_link(|l| l.intercept_boar_strike(eye, view_dir, max_reach, world))
-    }
-
-    pub fn emit_wildlife(&self, cone: world::SightCone, world: &dyn PlanetaryWorld, target: &mut dyn world::MeshTarget) {
-        self.read_link(|l| l.emit_wildlife(cone, world, target));
-    }
-
     pub fn emit_sky_signals(&self, cone: world::SightCone, target: &mut dyn world::MeshTarget) {
         self.read_link(|l| l.emit_sky_signals(cone, target));
     }

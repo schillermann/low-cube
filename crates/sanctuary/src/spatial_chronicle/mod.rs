@@ -122,7 +122,7 @@ impl SpatialFactIndex {
                 let key = earth_face_and_sector(*eye, earth_half);
                 self.earth_sectors.entry(key).or_default().push(idx);
             }
-            WorldFact::Loosened { .. } | WorldFact::BoarStruck { .. } => {}
+            WorldFact::Loosened { .. } => {}
         }
     }
 }

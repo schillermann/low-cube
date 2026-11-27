@@ -16,7 +16,7 @@ use crate::{
 
 fn companion_at(slot: u32, pos: Vec3) -> CompanionPresence {
     let kin = PresenceKinematics::new(pos, Quat::IDENTITY, Quat::IDENTITY, (1.6, 0.0));
-    CompanionPresence::new(slot, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire())
+    CompanionPresence::new(slot, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::astronaut())
 }
 
 #[test]

@@ -2,7 +2,7 @@ use glam::Vec3;
 use world::{
     BlockMedium, BlockMold, CompanionPortal, CompanionPresence, CraftBlueprint, CraftIdentity,
     CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing, MeshTarget,
-    PilotCraft, PlanetaryWorld, SatchelManifest, SightCone, TerrainMesh, VesselDeck, WoodlandLife,
+    PilotCraft, PlanetaryWorld, SatchelManifest, SightCone, TerrainMesh, VesselDeck,
 };
 use super::SavedPlanet;
 
@@ -80,24 +80,6 @@ impl TerrainMesh for SavedPlanet {
 
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) {
         self.world.drain_disclosures(out);
-    }
-}
-
-impl WoodlandLife for SavedPlanet {
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
-        self.world.arboreal_perch_near(center, selector)
-    }
-
-    fn woodland_habitat(&self, position: Vec3) -> bool {
-        self.world.woodland_habitat(position)
-    }
-
-    fn step_wildlife(&mut self, dt: f32, listener: Vec3, view_dir: Vec3, crouching: bool) -> Option<Vec3> {
-        self.world.step_wildlife(dt, listener, view_dir, crouching)
-    }
-
-    fn emit_wildlife(&self, cone: SightCone, target: &mut dyn MeshTarget) {
-        self.world.emit_wildlife(cone, target);
     }
 }
 

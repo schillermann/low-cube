@@ -1,7 +1,7 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{BlockMedium, BlockMold, CelestialSystem, LunarWorld};
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, HandGesture, PlanetaryAvatar};
 use crate::black_box::PresenceProbe;
 use crate::controls::{ActionBindings, KeyMotion, KeyboardControls};
@@ -42,7 +42,7 @@ fn test_nose_first_moon_impact_keeps_rocket_and_pilot_outside_moon_and_settles_u
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);
@@ -88,7 +88,7 @@ fn test_rocket_camera_cycles_three_aerospace_modes_and_rejects_compact_field_cam
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);

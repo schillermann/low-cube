@@ -3,7 +3,6 @@ use crate::{ClimateZone, Face, SurfaceFrame, WorldSeed};
 use super::arboreal::Arboreal;
 use super::arctic_pine::ArcticPine;
 use super::desert_succulent::DesertSucculent;
-use super::floor_litter::FloorLitter;
 use super::full_cube_ground::FullCubeGround;
 use super::jungle_emergent::JungleEmergent;
 use super::meridian_ground::MeridianGround;
@@ -16,7 +15,6 @@ use super::standing::StandingTree;
 use super::steppe_acacia::SteppeAcacia;
 use super::surface_ground::SurfaceGround;
 use super::temperate_oak::TemperateOak;
-use super::timber_yield::SurfaceFind;
 use super::volcanic_spire::VolcanicSpire;
 use super::woodland_ground::WoodlandGround;
 
@@ -158,7 +156,7 @@ impl ZonedForest {
         peak
     }
 
-    /// Populates native trees and gatherable deadwood/flint litter within a single `8×8`-cell sector `(gsu, gsv)`.
+    /// Populates native standing trees within a single `8×8`-cell sector `(gsu, gsv)`.
     pub fn populate_sector(
         &self,
         origin: &dyn Face,
@@ -182,39 +180,11 @@ impl ZonedForest {
             let mut cell_v = start_v;
             while cell_v <= end_v {
                 let raw_hash = cell_u.wrapping_mul(73856093) ^ cell_v.wrapping_mul(19349663);
-                let hash = self.seed.mix_grove(raw_hash);
-                let tree_u = (cell_u as f32) * 0.5 + 0.25;
-                let tree_v = (cell_v as f32) * 0.5 + 0.25;
-                let elevation = ground.ground_elevation(cell_u, cell_v);
                 if ground.receptive(cell_u, cell_v, raw_hash) {
+                    let tree_u = (cell_u as f32) * 0.5 + 0.25;
+                    let tree_v = (cell_v as f32) * 0.5 + 0.25;
+                    let elevation = ground.ground_elevation(cell_u, cell_v);
                     trees.push(self.plant(frame, tree_u, tree_v, elevation));
-                    let (du, dv) = match hash.unsigned_abs() & 3 {
-                        0 => (2, 0),
-                        1 => (-2, 0),
-                        2 => (0, 2),
-                        _ => (0, -2),
-                    };
-                    let (bu, bv) = (cell_u + du, cell_v + dv);
-                    let bough_elev = ground.ground_elevation(bu, bv);
-                    let yaw = ((hash.unsigned_abs() % 628) as f32) * 0.01;
-                    trees.push(Box::new(FloorLitter::new(
-                        frame,
-                        (bu as f32) * 0.5 + 0.25,
-                        (bv as f32) * 0.5 + 0.25,
-                        bough_elev,
-                        SurfaceFind::DeadwoodBough,
-                        yaw,
-                    )));
-                } else if tree_u.hypot(tree_v) >= 2.5 {
-                    let near_rock = elevation >= 0.40
-                        || (ground.ground_elevation(cell_u, cell_v + 2) - elevation).abs() >= 0.20
-                        || (ground.ground_elevation(cell_u, cell_v - 2) - elevation).abs() >= 0.20
-                        || (ground.ground_elevation(cell_u + 2, cell_v) - elevation).abs() >= 0.20
-                        || (ground.ground_elevation(cell_u - 2, cell_v) - elevation).abs() >= 0.20;
-                    if near_rock && (hash.unsigned_abs() % 100) < 48 {
-                        let yaw = ((hash.unsigned_abs() % 628) as f32) * 0.01;
-                        trees.push(Box::new(FloorLitter::new(frame, tree_u, tree_v, elevation, SurfaceFind::FlintStone, yaw)));
-                    }
                 }
                 cell_v += step;
             }

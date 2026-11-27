@@ -190,14 +190,14 @@ fn test_unseated_deck_crew_stays_aboard_heliosphere_ship_across_liftoff_and_orbi
         1,
         world::PresenceKinematics::new(pad_origin + Vec3::Y, glam::Quat::IDENTITY, glam::Quat::IDENTITY, (1.5, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        world::PresenceAttire::squire(),
+        world::PresenceAttire::astronaut(),
     ));
     host_world.sync_pilot_craft(PilotCraft::Driving(DrivenCraft::new(1, ship_id, pad_pose)));
     crew_world.sync_presence(world::CompanionPresence::new(
         0,
         world::PresenceKinematics::new(pad_origin + Vec3::Y * 1.55, glam::Quat::IDENTITY, glam::Quat::IDENTITY, (1.5, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        world::PresenceAttire::squire(),
+        world::PresenceAttire::astronaut(),
     ));
     for _ in 0..8 {
         let _ = host_world.step_surface(0.02);
@@ -230,7 +230,7 @@ fn test_unseated_deck_crew_stays_aboard_heliosphere_ship_across_liftoff_and_orbi
                     (1.5, 0.0),
                 ),
                 (0.0, 0.0, 0.0, 0.0),
-                world::PresenceAttire::squire(),
+                world::PresenceAttire::astronaut(),
             )
             .localized_to_hull(next_pose),
             world::VesselBerth::aboard(ship_id),

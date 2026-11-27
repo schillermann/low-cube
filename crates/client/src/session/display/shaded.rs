@@ -70,7 +70,6 @@ impl ShadedScenePass {
             avatar.emit_figure(figures);
             avatar.emit_placement_preview(world, figures);
             CompanionFigure::emit_figures(world, figures);
-            world.emit_wildlife(cone, figures);
             world.emit_cosmic_field(cone, figures);
         });
     }
@@ -93,7 +92,6 @@ impl ShadedScenePass {
         self.actors.emit_actors(|figures| {
             avatar.emit_figure_for_sight(sight, figures);
             CompanionFigure::emit_figures(world, figures);
-            world.emit_wildlife(cone, figures);
             world.emit_cosmic_field(cone, figures);
         });
     }

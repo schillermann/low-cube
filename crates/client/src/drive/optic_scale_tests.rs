@@ -1,6 +1,6 @@
 use glam::{Mat4, Quat, Vec2, Vec3};
 use world::{BlockMedium, BlockMold, CelestialSystem, MeshTarget, PlanetaryWorld, Quad};
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::{Avatar, AvatarMotor, AvatarOptics, HandGesture, PlanetaryAvatar};
 use crate::controls::{ActionBindings, ControlAction};
 use crate::flight::SurfaceFlight;
@@ -98,7 +98,7 @@ impl LaunchpadRocket {
         let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-            YouthAttire::squire(),
+            EvaAttire::astronaut(),
             ActionBindings::seeded(),
         );
         pilot.rotate_degrees(-90.0, 10.0);

@@ -4,7 +4,7 @@ use super::crown::HeadSculpture;
 use super::limb::{FacetedSolid, TaperedPrism};
 use super::pose::BodyPose;
 use super::rhythm::StrideRhythm;
-use super::YouthAttire;
+use super::EvaAttire;
 
 /// `HeadSculpture` decorator mounting a hexagonal flight-comms earcup and boom microphone onto any head.
 #[derive(Clone, Copy, Debug)]
@@ -62,16 +62,16 @@ impl<S: HeadSculpture> HeadSculpture for HeadsetHead<S> {
     }
 }
 
-/// 3D Intercom flight-comms bust composing `YouthAttire` upper-body garments and `HeadsetHead` decorator.
+/// 3D Intercom flight-comms bust composing `EvaAttire` upper-body pressure shell and `HeadsetHead` decorator.
 #[derive(Clone, Copy, Debug)]
 pub struct IntercomBust {
-    attire: YouthAttire,
+    attire: EvaAttire,
     head_angles: (f32, f32),
 }
 
 impl IntercomBust {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(attire: YouthAttire, head_angles: (f32, f32)) -> Self {
+    pub const fn new(attire: EvaAttire, head_angles: (f32, f32)) -> Self {
         Self { attire, head_angles }
     }
 
@@ -85,7 +85,7 @@ impl IntercomBust {
             view_rot,
             0.80,
             StrideRhythm::idle(),
-            super::YouthPhysique::SlenderSquire,
+            super::CrewPhysique::OrbitalCadet,
         )
         .with_seated(1.0);
         let scaled = self.attire.emit_bust_with_headset(&raw_pose, target);

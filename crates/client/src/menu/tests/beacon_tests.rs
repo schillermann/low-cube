@@ -4,7 +4,7 @@ use std::rc::Rc;
 use glam::Vec3;
 use sanctuary::{HostedPlanet, JoinTarget, PortalCode, RemoteLink, SanctuaryHost};
 use world::{BiomedCubeWorld, PlanetaryWorld};
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::PlanetaryAvatar;
 use crate::black_box::{BlackBoxAvatar, LiveTape};
 use crate::controls::ActionBindings;
@@ -118,7 +118,7 @@ fn test_headless_guest_closing_menu_connects_in_background_when_host_auto_punch_
             PlanetaryAvatar::with_attire_and_bindings(
                 spawn,
                 Box::new(crate::flight::SurfaceFlight::calibrated(0.522, 10.0, 1.0)),
-                YouthAttire::squire(),
+                EvaAttire::astronaut(),
                 ActionBindings::seeded(),
             )
             .with_starting_satchel(&ServerSatchel::assembled()),

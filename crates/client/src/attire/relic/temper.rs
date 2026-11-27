@@ -2,7 +2,7 @@ use glam::Vec3;
 use world::{BlockMedium, BlockMold, CardinalTurn, MiningEdge, MoldArchetype};
 use super::{HeldRelic, MartialStyle};
 
-/// Visible physical wear state of a handheld tool sculpted directly onto its 3D blade, head, and haft.
+/// Physical surface finish state of a handheld EVA tool sculpted onto its 3D chassis.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ToolCondition {
     Pristine,
@@ -75,7 +75,7 @@ impl ToolCondition {
     }
 }
 
-/// Material hardness, excavation speed, combat reach, and endurance catalog for a `HeldRelic` (`1` field).
+/// Material grade, crust-piercing torque, and excavation speed catalog for `HeldRelic` (`1` field).
 #[derive(Clone, Copy, Debug)]
 pub(super) struct ToolTemper {
     relic: HeldRelic,
@@ -88,105 +88,33 @@ impl ToolTemper {
     }
 
     pub(super) const fn endurance_span(self) -> u16 {
-        match self.relic {
-            HeldRelic::WoodenSpade | HeldRelic::FlintPickaxe => 24,
-            HeldRelic::WoodenMallet => 36,
-            HeldRelic::CopperSpade | HeldRelic::CopperPickaxe => 64,
-            HeldRelic::IronSpade
-            | HeldRelic::IronPickaxe
-            | HeldRelic::WoodmanAxe
-            | HeldRelic::KnightlySword => 160,
-            HeldRelic::TitaniumSpade | HeldRelic::TitaniumPickaxe => 420,
-            _ => 0,
-        }
+        let _ = self;
+        0
     }
 
     pub(super) const fn wearable(self) -> bool {
         self.endurance_span() > 0
     }
 
-    pub(super) const fn spade_blade(self) -> bool {
-        matches!(
-            self.relic,
-            HeldRelic::WoodenSpade
-                | HeldRelic::CopperSpade
-                | HeldRelic::IronSpade
-                | HeldRelic::TitaniumSpade
-        )
-    }
-
-    pub(super) const fn pickaxe_head(self) -> bool {
-        matches!(
-            self.relic,
-            HeldRelic::FlintPickaxe
-                | HeldRelic::CopperPickaxe
-                | HeldRelic::IronPickaxe
-                | HeldRelic::TitaniumPickaxe
-        )
+    pub(super) const fn rig_tool(self) -> bool {
+        matches!(self.relic, HeldRelic::RigWrench)
     }
 
     pub(super) const fn metallic_ring(self) -> bool {
-        matches!(
-            self.relic,
-            HeldRelic::CopperSpade
-                | HeldRelic::IronSpade
-                | HeldRelic::TitaniumSpade
-                | HeldRelic::FlintPickaxe
-                | HeldRelic::CopperPickaxe
-                | HeldRelic::IronPickaxe
-                | HeldRelic::TitaniumPickaxe
-        )
+        matches!(self.relic, HeldRelic::RigWrench)
     }
 
     pub(super) const fn mining_edge(self) -> MiningEdge {
         match self.relic {
-            HeldRelic::TitaniumPickaxe => MiningEdge::TitaniumPick,
-            HeldRelic::IronPickaxe => MiningEdge::IronPick,
-            HeldRelic::CopperPickaxe => MiningEdge::CopperPick,
-            HeldRelic::FlintPickaxe => MiningEdge::FlintPick,
+            HeldRelic::RigWrench => MiningEdge::TitaniumPick,
             _ => MiningEdge::BarePalm,
         }
     }
 
     pub(super) const fn excavation_effort(self) -> u32 {
         match self.relic {
-            HeldRelic::TitaniumSpade | HeldRelic::TitaniumPickaxe => 8,
-            HeldRelic::IronSpade | HeldRelic::IronPickaxe => 4,
-            HeldRelic::CopperSpade | HeldRelic::CopperPickaxe | HeldRelic::FlintPickaxe => 3,
-            HeldRelic::WoodenSpade => 2,
+            HeldRelic::RigWrench => 4,
             _ => 1,
-        }
-    }
-
-    pub(super) const fn hunting_power(self) -> u8 {
-        match self.relic {
-            HeldRelic::KnightlySword | HeldRelic::TitaniumPickaxe => 4,
-            HeldRelic::WoodmanAxe | HeldRelic::IronPickaxe | HeldRelic::TitaniumSpade => 3,
-            HeldRelic::WoodenSpade
-            | HeldRelic::CopperSpade
-            | HeldRelic::IronSpade
-            | HeldRelic::WoodenMallet
-            | HeldRelic::FlintPickaxe
-            | HeldRelic::CopperPickaxe => 2,
-            _ => 1,
-        }
-    }
-
-    pub(super) const fn hunting_reach(self) -> f32 {
-        match self.relic {
-            HeldRelic::KnightlySword => 2.55,
-            HeldRelic::WoodmanAxe
-            | HeldRelic::WoodenSpade
-            | HeldRelic::CopperSpade
-            | HeldRelic::IronSpade
-            | HeldRelic::TitaniumSpade
-            | HeldRelic::WoodenMallet
-            | HeldRelic::FlintPickaxe
-            | HeldRelic::CopperPickaxe
-            | HeldRelic::IronPickaxe
-            | HeldRelic::TitaniumPickaxe => 2.25,
-            HeldRelic::TimberTorch | HeldRelic::DeadwoodBough => 2.00,
-            _ => 1.75,
         }
     }
 
@@ -199,10 +127,7 @@ impl ToolTemper {
             BlockMedium::QuarriedStone
             | BlockMedium::CopperOre
             | BlockMedium::IronOre
-            | BlockMedium::CarbonSilicate
-            | BlockMedium::BakingOven
-            | BlockMedium::BloomeryForge
-            | BlockMedium::SmithyAnvil => 2,
+            | BlockMedium::CarbonSilicate => 2,
             _ => 1,
         }
     }
@@ -210,17 +135,8 @@ impl ToolTemper {
     pub(super) const fn martial_style(self) -> MartialStyle {
         match self.relic {
             HeldRelic::EmptyPalm => MartialStyle::Unarmed,
-            HeldRelic::WoodenSpade
-            | HeldRelic::CopperSpade
-            | HeldRelic::IronSpade
-            | HeldRelic::TitaniumSpade => MartialStyle::SpadeDig,
-            HeldRelic::WoodenMallet
-            | HeldRelic::WoodmanAxe
-            | HeldRelic::FlintPickaxe
-            | HeldRelic::CopperPickaxe
-            | HeldRelic::IronPickaxe
-            | HeldRelic::TitaniumPickaxe => MartialStyle::LumberjackCleave,
-            HeldRelic::TimberTorch | HeldRelic::KnightlySword => MartialStyle::SwordplaySlash,
+            HeldRelic::RigWrench => MartialStyle::RigTorque,
+            HeldRelic::SuitRadio => MartialStyle::RadioSignal,
             _ => MartialStyle::PalmCradle,
         }
     }

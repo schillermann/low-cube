@@ -1,5 +1,5 @@
 use world::CraftBlueprint;
-use crate::attire::{BeltSatchel, HeldRelic, YouthAttire};
+use crate::attire::{BeltSatchel, EvaAttire, HeldRelic};
 
 /// Named, serializable vehicle blueprint pairing player-assigned title and canonical `CraftBlueprint`.
 #[derive(Clone, Debug, PartialEq)]
@@ -38,7 +38,7 @@ impl SavedBlueprint {
         list
     }
 
-    pub fn buildable(&self, satchel: &BeltSatchel, attire: YouthAttire) -> bool {
+    pub fn buildable(&self, satchel: &BeltSatchel, attire: EvaAttire) -> bool {
         self.blueprint.drivable()
             && self
                 .manifest()
@@ -59,7 +59,7 @@ impl SavedBlueprint {
         items.join("   ")
     }
 
-    pub fn requirement_summary(&self, satchel: &BeltSatchel, attire: YouthAttire) -> String {
+    pub fn requirement_summary(&self, satchel: &BeltSatchel, attire: EvaAttire) -> String {
         let mut items = self.manifest();
         items.sort_by_key(|&(relic, needed)| u8::from(satchel.resource_tally(relic, attire) >= needed));
         let mut labels: Vec<String> = items

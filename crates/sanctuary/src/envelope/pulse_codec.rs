@@ -1,6 +1,5 @@
 use world::{
     CompanionPresence, CosmicFrame, CraftIdentity, DrivenCraft, PilotCraft, SkySignal, VesselBerth,
-    WildlifePulse,
 };
 use super::{CrackNotice, SanctuaryEnvelope};
 
@@ -75,7 +74,6 @@ impl PulseCodec {
         crafts: &[DrivenCraft],
         berths: &[(u32, CraftIdentity)],
         signals: &[SkySignal],
-        wildlife: WildlifePulse,
         out: &mut Vec<u8>,
     ) {
         out.push(4);
@@ -118,9 +116,6 @@ impl PulseCodec {
             for sig in signals.iter().take(scount) {
                 sig.inscribe(out);
             }
-        }
-        if wildlife != WildlifePulse::calm() {
-            wildlife.inscribe(out);
         }
     }
 
@@ -189,15 +184,9 @@ impl PulseCodec {
                 }
                 if ok {
                     signals = parsed;
-                    cursor = probe;
                 }
             }
         }
-        let wildlife = if cursor < bytes.len() {
-            WildlifePulse::decode(&bytes[cursor..])?.0
-        } else {
-            WildlifePulse::calm()
-        };
-        Some(SanctuaryEnvelope::HostPulse { total_facts, cracks, companions, crafts, berths, signals, wildlife })
+        Some(SanctuaryEnvelope::HostPulse { total_facts, cracks, companions, crafts, berths, signals })
     }
 }

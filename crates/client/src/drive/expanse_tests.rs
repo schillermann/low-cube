@@ -2,7 +2,7 @@ use glam::Vec3;
 use sanctuary::{HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
 use winit::keyboard::KeyCode;
 use world::{BlockMedium, BlockMold, CelestialSystem, GravityField as _, MeshTarget, PlanetaryWorld, Quad};
-use crate::attire::{PhotoShutter, YouthAttire};
+use crate::attire::{EvaAttire, PhotoShutter};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, HandGesture,
     PhotoPort as _, PlanetaryAvatar,
@@ -77,7 +77,7 @@ fn test_rocket_speed_converges_to_cosmic_cap_and_never_grows_unbounded() {
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);
@@ -118,7 +118,7 @@ fn test_outboard_cameras_orrery_and_flip_and_burn_maneuver() {
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);
@@ -198,7 +198,7 @@ fn test_coop_thrust_gravity_grounds_crew_under_burn_and_floats_when_cut() {
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         host_spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);
@@ -222,7 +222,7 @@ fn test_coop_thrust_gravity_grounds_crew_under_burn_and_floats_when_cut() {
     let mut crew = PlanetaryAvatar::with_attire_and_bindings(
         deck_spot,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
 
@@ -283,7 +283,7 @@ fn test_camera_less_rocket_keeps_cockpit_gaze_without_fallback() {
         let eye = inv.project_point3(Vec3::ZERO);
         (eye, (inv.project_point3(Vec3::new(0.0, 0.0, 0.5)) - eye).normalize())
     };
-    let mut pilot = PlanetaryAvatar::with_attire_and_bindings(spawn, Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))), YouthAttire::squire(), ActionBindings::seeded());
+    let mut pilot = PlanetaryAvatar::with_attire_and_bindings(spawn, Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))), EvaAttire::astronaut(), ActionBindings::seeded());
     pilot.rotate_degrees(-90.0, 10.0);
     assert!(HandGesture::RightTap.perform(&mut pilot, world.as_mut()));
     assert!(pilot.use_right_hand(world.as_mut()));

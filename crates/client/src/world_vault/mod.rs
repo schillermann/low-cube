@@ -6,10 +6,9 @@ mod seed_scale;
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use fauna::{AmbientWoodland, WoodlandPlanet};
 use sanctuary::{HostedPlanet, SanctuaryHost, SavedPlanet};
 use world::{PlanetaryWorld, SatchelManifest, SolarProportions};
-use crate::attire::{BeltSatchel, HeldRelic, YouthAttire};
+use crate::attire::{BeltSatchel, EvaAttire};
 use crate::command_flags::CommandFlags;
 use crate::menu::PortalInvite;
 use crate::portal_config::ClientPassportBook;
@@ -75,7 +74,7 @@ impl DiskWorldVault {
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| "worlds".to_string());
-        let attire = YouthAttire::squire().with_hand_relic(1.0, HeldRelic::CantileverCrane);
+        let attire = EvaAttire::eva_equipped();
         let starter_kit = ServerSatchel::assembled()
             .provision(BeltSatchel::empty())
             .survivor_manifest(attire);
@@ -154,7 +153,7 @@ impl RealmPort for DiskWorldVault {
             self.starter_kit,
         )
         .expect("Failed to open saved player world");
-        Box::new(WoodlandPlanet::wrapping(Box::new(saved)))
+        Box::new(saved)
     }
 
     fn mount_hosted(&self, spec: &WorldSpec) -> (Box<dyn PlanetaryWorld>, PortalInvite) {
@@ -174,8 +173,7 @@ impl RealmPort for DiskWorldVault {
         println!("Portal Code:    {code}");
         println!("Direct Address: {}", host.ticket().direct());
         println!("Invite Ticket:  {ticket}");
-        let hosted = Box::new(HostedPlanet::spawning(host));
-        (Box::new(AmbientWoodland::ambient(hosted)), PortalInvite::hosted(code, ticket))
+        (Box::new(HostedPlanet::spawning(host)), PortalInvite::hosted(code, ticket))
     }
 
     fn purge_evicted(&mut self, slug: &WorldSlug) {

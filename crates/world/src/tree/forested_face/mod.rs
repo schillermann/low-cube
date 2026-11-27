@@ -104,13 +104,6 @@ impl Face for ForestedFace {
         }
     }
 
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
-        self.forest
-            .write()
-            .expect("SectorForest lock poisoned")
-            .perch_near(center, selector, self.origin.as_ref(), &self.frame)
-    }
-
     fn emit_flora(&self, target: &mut dyn MeshTarget) {
         self.forest
             .write()

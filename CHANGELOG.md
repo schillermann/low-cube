@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.133.0] - 2026-11-27
+
+### Changed
+- Completed **Stufe 1 (Tabula Rasa)** of the Zero-Legacy Space-Age Engine rebuild (`REBUILD_PLAN.md`), removing all fauna, Stone-Age, and medieval remnants in favor of a pure Space-Age EVA foundation (`crates/acoustics`, `crates/world`, `crates/sanctuary` & `crates/client`):
+  - Deleted `crates/fauna` across the workspace along with `host_sounder.rs`, `remote_wildlife.rs`, `WoodlandLife`, `WorldFact::BoarStruck`, `hearth_works.rs` (`BakingOven`, `BloomeryForge`, `SmithyAnvil`), `earthworks/hearth/`, `attire/tome/` (`ArtisanTome`), medieval melee/smithing items (`KnightlySword`, `WoodenMallet`, `IronSpade`, `WoodmanAxe`, `TimberTorch`), and animal/eating audio waves.
+  - Rebuilt crew wardrobe and gear around **100 % Space-Age EVA Pressure Suits** (`EvaAttire`, `SuitEnsemble`, `CrewIdentity`, `HeldHands`, `LampBeam` toggled via `KeyL` and replicated in `PresenceAttire` with zero extra wire bytes) composed through Elegant-Objects `TorsoSculpture` (`ChestDcuTorso`, `PlssPackTorso`) and `HeadSculpture` (`HelmetLampHead<RadioMastHead<PressureHelmHead<NeckRingHead<...>>>>`) decorator chains.
+  - Provisioned Space-Age starter equipment from second 1 (`RigWrench`, `SuitRadio`, illuminated `HelmetLamp`, `RigStrike` acoustics, `EvaKitSatchel`, and `RelicCatalog` `0..=29`) and removed legacy `< 16`-byte seed tails, 36-byte `LKNK` handshakes, unstructured `LWEL` welcomes, and headerless WAL/survivor streams (`LCWAL02` magic header).
+
 ## [0.132.0] - 2026-11-26
 
 ### Added

@@ -64,10 +64,6 @@ impl<M: AvatarMotor + AvatarCondition> AvatarMotor for RainEarMotor<M> {
         }
     }
 
-    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        self.origin.hunt_fauna(side, world)
-    }
-
     fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
         self.origin.emit_reticle_for_aspect(aspect, target);
     }

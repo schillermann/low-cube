@@ -2,11 +2,11 @@ use std::f32::consts::TAU;
 use glam::{Mat4, Quat, Vec3};
 use world::MeshTarget;
 use crate::attire::{
-    BodyPose, FacetedSolid, HeldRelic, LimbFrame, RocketControls, SightMode, StrideRhythm,
-    TaperedPrism, Wardrobe, YouthAttire, YouthPhysique,
+    BodyPose, CrewPhysique, EvaAttire, FacetedSolid, HeldRelic, LimbFrame, RocketControls,
+    SightMode, StrideRhythm, TaperedPrism, Wardrobe,
 };
 
-/// Available character animations automatically demonstrated in sequence by the center studio figure.
+/// Available crew EVA animations automatically demonstrated in sequence by the center studio figure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StudioAnimation {
     StandingIdle,
@@ -16,14 +16,13 @@ pub enum StudioAnimation {
     SeatedDrive,
     RocketPilot,
     JumpingLeap,
-    AxeCleave,
-    SwordSlash,
-    SpadeDig,
+    RigTorque,
+    RadioCall,
     PalmDig,
 }
 
 impl StudioAnimation {
-    pub fn sequence() -> [Self; 11] {
+    pub fn sequence() -> [Self; 10] {
         [
             Self::StandingIdle,
             Self::WalkingStride,
@@ -32,9 +31,8 @@ impl StudioAnimation {
             Self::SeatedDrive,
             Self::RocketPilot,
             Self::JumpingLeap,
-            Self::AxeCleave,
-            Self::SwordSlash,
-            Self::SpadeDig,
+            Self::RigTorque,
+            Self::RadioCall,
             Self::PalmDig,
         ]
     }
@@ -48,10 +46,9 @@ impl StudioAnimation {
             Self::SeatedDrive => "SEATED DRIVE",
             Self::RocketPilot => "ROCKET PILOT",
             Self::JumpingLeap => "JUMP LEAP",
-            Self::AxeCleave => "AXE CLEAVE",
-            Self::SwordSlash => "SWORD SLASH",
-            Self::SpadeDig => "SPADE DIG",
-            Self::PalmDig => "PALM DIG",
+            Self::RigTorque => "RIG WRENCH",
+            Self::RadioCall => "SUIT RADIO",
+            Self::PalmDig => "GLOVE DIG",
         }
     }
 
@@ -66,7 +63,7 @@ impl StudioAnimation {
         position: Vec3,
         yaw_radians: f32,
         elapsed: f32,
-        attire: &YouthAttire,
+        attire: &EvaAttire,
         target: &mut dyn MeshTarget,
     ) {
         let (lift, eye_height, seated, rhythm, staged_attire) = match self {
@@ -98,20 +95,15 @@ impl StudioAnimation {
                 };
                 (jump_lift, eye, 0.0, StrideRhythm::idle(), *attire)
             }
-            Self::AxeCleave => {
+            Self::RigTorque => {
                 let cleave = (elapsed * 1.15).fract();
-                let armed = if attire.armed() { *attire } else { attire.with_relics(HeldRelic::WoodmanAxe, HeldRelic::EmptyPalm) };
+                let armed = if attire.armed() { *attire } else { attire.with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm) };
                 (0.0, 0.80, 0.0, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.25, cleave), armed)
             }
-            Self::SwordSlash => {
+            Self::RadioCall => {
                 let cleave = (elapsed * 1.15).fract();
-                let armed = if attire.armed() { *attire } else { attire.with_relics(HeldRelic::KnightlySword, HeldRelic::EmptyPalm) };
+                let armed = if attire.armed() { *attire } else { attire.with_relics(HeldRelic::SuitRadio, HeldRelic::EmptyPalm) };
                 (0.0, 0.80, 0.0, StrideRhythm::with_cleave((elapsed * 3.2) % TAU, 0.25, cleave), armed)
-            }
-            Self::SpadeDig => {
-                let cleave = (elapsed * 1.15).fract();
-                let armed = if attire.armed() { *attire } else { attire.with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm) };
-                (0.0, 0.68, 0.0, StrideRhythm::with_dual_cleave((elapsed * 3.2) % TAU, 0.15, cleave, 0.0), armed)
             }
             Self::PalmDig => {
                 let cleave = (elapsed * 1.15).fract();
@@ -121,26 +113,26 @@ impl StudioAnimation {
         };
 
         let view_rot = Quat::from_rotation_y(std::f32::consts::PI + yaw_radians);
-        let base_pose = BodyPose::new(
+        let raw_pose = BodyPose::new(
             position + Vec3::Y * lift,
             view_rot,
             view_rot,
             eye_height,
             rhythm,
-            YouthPhysique::SlenderSquire,
+            CrewPhysique::OrbitalCadet,
         );
         let pose = if matches!(self, Self::RocketPilot) {
-            base_pose.with_rocket_controls(RocketControls::studio_showcase((elapsed % 2.2) / 2.2))
+            raw_pose.with_rocket_controls(RocketControls::studio_showcase((elapsed % 2.2) / 2.2))
         } else if seated > 0.0 {
-            base_pose.with_seated(seated)
+            raw_pose.with_seated(seated)
         } else {
-            base_pose
+            raw_pose
         };
         staged_attire.emit(&pose, SightMode::LookingGlassSight, target);
     }
 }
 
-/// Interactive 3D turntable stage displaying a single centered character cycling through all animations.
+/// Interactive 3D turntable stage displaying a single centered crew figure cycling through all animations.
 #[derive(Clone, Copy, Debug)]
 pub struct TurntableStage {
     yaw_radians: f32,
@@ -188,13 +180,13 @@ impl TurntableStage {
         proj * view
     }
 
-    /// Emits only the single rotatable character on the central turntable pedestal cycling through all animations.
-    pub fn emit_stage(&self, attire: &YouthAttire, target: &mut dyn MeshTarget) {
+    /// Emits only the single rotatable crew figure on the central turntable pedestal.
+    pub fn emit_stage(&self, attire: &EvaAttire, target: &mut dyn MeshTarget) {
         let world_frame = LimbFrame::new(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::Z);
-        let stone = Vec3::new(0.30, 0.33, 0.38);
-        let rim = Vec3::new(0.54, 0.48, 0.34);
+        let alloy = Vec3::new(0.28, 0.32, 0.38);
+        let rim = Vec3::new(0.28, 0.72, 0.88);
 
-        TaperedPrism::new(8, Vec3::new(0.0, -0.09, 0.0), Vec3::new(0.0, 0.015, 0.0), 0.56, 0.56, 0.50, 0.50, stone)
+        TaperedPrism::new(8, Vec3::new(0.0, -0.09, 0.0), Vec3::new(0.0, 0.015, 0.0), 0.56, 0.56, 0.50, 0.50, alloy)
             .emit(&world_frame, true, target);
         TaperedPrism::new(8, Vec3::new(0.0, -0.02, 0.0), Vec3::new(0.0, 0.022, 0.0), 0.52, 0.52, 0.47, 0.47, rim)
             .emit(&world_frame, true, target);

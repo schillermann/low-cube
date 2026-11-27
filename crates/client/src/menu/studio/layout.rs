@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::MeshTarget;
-use crate::attire::{BodyRegion, ComplexionSwatch, YouthAttire};
+use crate::attire::{BodyRegion, ComplexionSwatch, EvaAttire};
 use super::super::archetype::AvatarArchetype;
 use super::super::glyph::PixelStamp;
 use super::super::view::MenuView;
@@ -52,7 +52,7 @@ impl StudioBounds {
 /// 2D overlay view for the 3D Character Studio implementing `MenuView` without getters.
 #[derive(Clone, Copy)]
 pub struct StudioLayout<'a> {
-    attire: &'a YouthAttire,
+    attire: &'a EvaAttire,
     archetype: AvatarArchetype,
     animation_title: &'static str,
     pointer: ScreenPoint,
@@ -61,7 +61,7 @@ pub struct StudioLayout<'a> {
 impl<'a> StudioLayout<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(
-        attire: &'a YouthAttire,
+        attire: &'a EvaAttire,
         archetype: AvatarArchetype,
         animation_title: &'static str,
         pointer: ScreenPoint,
@@ -109,8 +109,8 @@ impl MenuView for StudioLayout<'_> {
                 target,
             );
         }
-        PixelStamp::caption(gold).emit_centered("CLOTHING", -0.71, -0.18, target);
-        let clothing_labels = ["TUNIC", "SLEEVES", "BELT", "BOOTS", "HEADGEAR", "DYE COLOR"];
+        PixelStamp::caption(gold).emit_centered("PRESSURE SUIT", -0.71, -0.18, target);
+        let clothing_labels = ["SUIT SHELL", "GAUNTLETS", "PLSS PACK", "MAG BOOTS", "EVA HELM", "SUIT TINT"];
         for (i, lbl) in clothing_labels.iter().enumerate() {
             bounds.clothing_slot(i).emit_button(lbl, pt, btn_col, false, target);
         }

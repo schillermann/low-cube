@@ -1,7 +1,7 @@
 use glam::Vec3;
 use world::{
     CompanionPortal, GravityField, MeshTarget, PlanetaryWorld, TerrainMesh, VesselDeck,
-    WoodlandLife, WorldEarthworks as _,
+    WorldEarthworks as _,
 };
 use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::gait::WalkGait;
@@ -19,7 +19,6 @@ impl GravityField for FlatWorld {
 
 impl world::WorldEarthworks for FlatWorld {}
 impl TerrainMesh for FlatWorld { fn emit_surface(&self, _target: &mut dyn MeshTarget) {} }
-impl WoodlandLife for FlatWorld {}
 impl VesselDeck for FlatWorld {}
 impl CompanionPortal for FlatWorld {}
 
@@ -56,7 +55,6 @@ impl GravityField for CliffWorld {
 
 impl world::WorldEarthworks for CliffWorld {}
 impl TerrainMesh for CliffWorld { fn emit_surface(&self, _target: &mut dyn MeshTarget) {} }
-impl WoodlandLife for CliffWorld {}
 impl VesselDeck for CliffWorld {}
 impl CompanionPortal for CliffWorld {}
 

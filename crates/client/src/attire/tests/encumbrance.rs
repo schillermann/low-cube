@@ -2,7 +2,7 @@ use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{ClimateZone, CubePlanet, FacetedReliefFace, NullFace, PlanetaryWorld};
 use crate::attire::{
-    BeltSatchel, BodyPose, HeldRelic, StrideRhythm, YouthAttire, YouthPhysique,
+    BeltSatchel, BodyPose, CrewPhysique, EvaAttire, HeldRelic, StrideRhythm,
 };
 use crate::avatar::{AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
@@ -83,7 +83,7 @@ fn test_hanging_sack_at_top_right_slot_tip_bulges_right_and_hangs_lower_with_wei
         Quat::IDENTITY,
         0.8,
         StrideRhythm::new(0.0, 1.0),
-        YouthPhysique::SlenderSquire,
+        CrewPhysique::OrbitalCadet,
     );
     let jute_bot = Vec3::new(0.45, 0.33, 0.19);
     let hemp_cord = Vec3::new(0.84, 0.70, 0.46);
@@ -93,7 +93,7 @@ fn test_hanging_sack_at_top_right_slot_tip_bulges_right_and_hangs_lower_with_wei
         BeltSatchel::empty()
             .with_stowed_relic(HeldRelic::ExcavatedEarth, count)
             .with_open(true)
-            .emit_for_attire(&pose, YouthAttire::squire(), &mut ledger);
+            .emit_for_attire(&pose, EvaAttire::astronaut(), &mut ledger);
         let (mut min_x, mut max_x, mut min_y, mut tip_x) = (f32::INFINITY, f32::NEG_INFINITY, f32::INFINITY, f32::INFINITY);
         let (mut cord_min_y, mut cord_max_y) = (f32::INFINITY, f32::NEG_INFINITY);
         for q in &ledger.quads {
@@ -163,7 +163,7 @@ fn test_inventory_weight_reduces_player_speed_and_jump_height() {
     );
 
     let held_burden = BeltSatchel::empty()
-        .carried_burden(YouthAttire::squire().with_relics(HeldRelic::QuarriedStone, HeldRelic::WoodmanAxe));
+        .carried_burden(EvaAttire::astronaut().with_relics(HeldRelic::QuarriedStone, HeldRelic::RigWrench));
     assert!(
         held_burden.scale_pace(6.0) < 6.0 && held_burden.scale_leap(1.0) < 1.0,
         "Items carried in hands must also contribute to total encumbrance"

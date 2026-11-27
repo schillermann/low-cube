@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 use std::net::{SocketAddr, UdpSocket};
-use glam::Vec3;
 use world::{
     CosmicFrame, DrivenCraft, GravityBubble, PilotCraft, PlanetaryWorld, ProximityUtterance,
     SolarProportions, WorldFact,
@@ -71,10 +70,6 @@ impl<'a> AbandonedDock<'a> {
             Some(b) if !frame.earth_centered() => WorldFact::OffWorld { body: b, fact: Box::new(release) },
             _ => release,
         }
-    }
-
-    pub fn valid_boar_reach(frame: CosmicFrame, eye: Vec3, direction: Vec3, ward: &crate::ward::GuestWard) -> bool {
-        frame.earth_centered() && ward.eye_within_reach(eye, direction)
     }
 
     pub fn occupied_zones_and_bodies(cohort: &GuestCohort, aura: &HostAura) -> (u8, Vec<world::BodyId>) {

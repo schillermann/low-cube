@@ -13,19 +13,14 @@ use lexicon::RelicLexicon;
 use temper::ToolTemper;
 use tokens::RelicTokenLexicon;
 
-/// Object held in the avatar's right or left hand visible in first-person and multiplayer.
+/// Space-Age EVA tool, transceiver, billet, or structural/flight block held in the crew avatar's hands (`0..=29`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HeldRelic {
     EmptyPalm,
     QuarriedStone,
-    TimberTorch,
-    WoodenMallet,
-    WoodmanAxe,
-    KnightlySword,
-    IronSpade,
+    RigWrench,
+    SuitRadio,
     ExcavatedEarth,
-    DeadwoodBough,
-    FlintStone,
     TimberBlock,
     PlankBlock,
     CrustBlock,
@@ -40,35 +35,21 @@ pub enum HeldRelic {
     CopperOre,
     IronOre,
     GoldOre,
-    BoarMeat,
     RocketNozzle,
     RocketCamera,
     VehicleBlueprint,
     FusionTorch,
     SpawnStone,
-    FlintPickaxe,
-    IronPickaxe,
     TitaniumHull,
     CarbonSilicate,
     VitrifiedBasalt,
     BlackBoxPod,
     LaserBeacon,
-    WoodenSpade,
-    CopperSpade,
-    TitaniumSpade,
-    CopperPickaxe,
-    TitaniumPickaxe,
-    BakingOven,
-    BloomeryForge,
-    SmithyAnvil,
-    RoastedBoar,
-    CopperBloom,
-    IronBloom,
     TitaniumBillet,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 49;
+    pub const COUNT: usize = 30;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -80,52 +61,33 @@ impl HeldRelic {
         match code % (Self::COUNT as u8) {
             0 => Self::EmptyPalm,
             1 => Self::QuarriedStone,
-            2 => Self::TimberTorch,
-            3 => Self::WoodenMallet,
-            4 => Self::WoodmanAxe,
-            5 => Self::KnightlySword,
-            6 => Self::IronSpade,
-            7 => Self::ExcavatedEarth,
-            8 => Self::DeadwoodBough,
-            9 => Self::FlintStone,
-            10 => Self::TimberBlock,
-            11 => Self::PlankBlock,
-            12 => Self::CrustBlock,
-            13 => Self::CantileverCrane,
-            14 => Self::SteeringWheel,
-            15 => Self::AircraftEngine,
-            16 => Self::FlightConsole,
-            17 => Self::CabinSeat,
-            18 => Self::CarWheel,
-            19 => Self::FieldCamera,
-            20 => Self::PedalCluster,
-            21 => Self::CopperOre,
-            22 => Self::IronOre,
-            23 => Self::GoldOre,
-            24 => Self::BoarMeat,
-            25 => Self::RocketNozzle,
-            26 => Self::RocketCamera,
-            27 => Self::VehicleBlueprint,
-            28 => Self::FusionTorch,
-            29 => Self::SpawnStone,
-            30 => Self::FlintPickaxe,
-            31 => Self::IronPickaxe,
-            32 => Self::TitaniumHull,
-            33 => Self::CarbonSilicate,
-            34 => Self::VitrifiedBasalt,
-            35 => Self::BlackBoxPod,
-            36 => Self::LaserBeacon,
-            37 => Self::WoodenSpade,
-            38 => Self::CopperSpade,
-            39 => Self::TitaniumSpade,
-            40 => Self::CopperPickaxe,
-            41 => Self::TitaniumPickaxe,
-            42 => Self::BakingOven,
-            43 => Self::BloomeryForge,
-            44 => Self::SmithyAnvil,
-            45 => Self::RoastedBoar,
-            46 => Self::CopperBloom,
-            47 => Self::IronBloom,
+            2 => Self::RigWrench,
+            3 => Self::SuitRadio,
+            4 => Self::ExcavatedEarth,
+            5 => Self::TimberBlock,
+            6 => Self::PlankBlock,
+            7 => Self::CrustBlock,
+            8 => Self::CantileverCrane,
+            9 => Self::SteeringWheel,
+            10 => Self::AircraftEngine,
+            11 => Self::FlightConsole,
+            12 => Self::CabinSeat,
+            13 => Self::CarWheel,
+            14 => Self::FieldCamera,
+            15 => Self::PedalCluster,
+            16 => Self::CopperOre,
+            17 => Self::IronOre,
+            18 => Self::GoldOre,
+            19 => Self::RocketNozzle,
+            20 => Self::RocketCamera,
+            21 => Self::VehicleBlueprint,
+            22 => Self::FusionTorch,
+            23 => Self::SpawnStone,
+            24 => Self::TitaniumHull,
+            25 => Self::CarbonSilicate,
+            26 => Self::VitrifiedBasalt,
+            27 => Self::BlackBoxPod,
+            28 => Self::LaserBeacon,
             _ => Self::TitaniumBillet,
         }
     }
@@ -134,58 +96,38 @@ impl HeldRelic {
         match self {
             Self::EmptyPalm => 0,
             Self::QuarriedStone => 1,
-            Self::TimberTorch => 2,
-            Self::WoodenMallet => 3,
-            Self::WoodmanAxe => 4,
-            Self::KnightlySword => 5,
-            Self::IronSpade => 6,
-            Self::ExcavatedEarth => 7,
-            Self::DeadwoodBough => 8,
-            Self::FlintStone => 9,
-            Self::TimberBlock => 10,
-            Self::PlankBlock => 11,
-            Self::CrustBlock => 12,
-            Self::CantileverCrane => 13,
-            Self::SteeringWheel => 14,
-            Self::AircraftEngine => 15,
-            Self::FlightConsole => 16,
-            Self::CabinSeat => 17,
-            Self::CarWheel => 18,
-            Self::FieldCamera => 19,
-            Self::PedalCluster => 20,
-            Self::CopperOre => 21,
-            Self::IronOre => 22,
-            Self::GoldOre => 23,
-            Self::BoarMeat => 24,
-            Self::RocketNozzle => 25,
-            Self::RocketCamera => 26,
-            Self::VehicleBlueprint => 27,
-            Self::FusionTorch => 28,
-            Self::SpawnStone => 29,
-            Self::FlintPickaxe => 30,
-            Self::IronPickaxe => 31,
-            Self::TitaniumHull => 32,
-            Self::CarbonSilicate => 33,
-            Self::VitrifiedBasalt => 34,
-            Self::BlackBoxPod => 35,
-            Self::LaserBeacon => 36,
-            Self::WoodenSpade => 37,
-            Self::CopperSpade => 38,
-            Self::TitaniumSpade => 39,
-            Self::CopperPickaxe => 40,
-            Self::TitaniumPickaxe => 41,
-            Self::BakingOven => 42,
-            Self::BloomeryForge => 43,
-            Self::SmithyAnvil => 44,
-            Self::RoastedBoar => 45,
-            Self::CopperBloom => 46,
-            Self::IronBloom => 47,
-            Self::TitaniumBillet => 48,
+            Self::RigWrench => 2,
+            Self::SuitRadio => 3,
+            Self::ExcavatedEarth => 4,
+            Self::TimberBlock => 5,
+            Self::PlankBlock => 6,
+            Self::CrustBlock => 7,
+            Self::CantileverCrane => 8,
+            Self::SteeringWheel => 9,
+            Self::AircraftEngine => 10,
+            Self::FlightConsole => 11,
+            Self::CabinSeat => 12,
+            Self::CarWheel => 13,
+            Self::FieldCamera => 14,
+            Self::PedalCluster => 15,
+            Self::CopperOre => 16,
+            Self::IronOre => 17,
+            Self::GoldOre => 18,
+            Self::RocketNozzle => 19,
+            Self::RocketCamera => 20,
+            Self::VehicleBlueprint => 21,
+            Self::FusionTorch => 22,
+            Self::SpawnStone => 23,
+            Self::TitaniumHull => 24,
+            Self::CarbonSilicate => 25,
+            Self::VitrifiedBasalt => 26,
+            Self::BlackBoxPod => 27,
+            Self::LaserBeacon => 28,
+            Self::TitaniumBillet => 29,
         }
     }
 
     pub const fn title(self) -> &'static str { RelicLexicon::new(self).title() }
-    pub const fn short_title(self) -> &'static str { RelicLexicon::new(self).short_title() }
     pub fn parse_token(&self, token: &str) -> Option<Self> { RelicLexicon::new(*self).parse(token) }
     pub const fn gripped(self) -> bool { !matches!(self, Self::EmptyPalm) }
     pub const fn free_palm(self) -> bool { matches!(self, Self::EmptyPalm) }
@@ -193,21 +135,16 @@ impl HeldRelic {
     pub const fn independent_palm_mold(self) -> bool {
         matches!(self, Self::FieldCamera | Self::RocketNozzle | Self::RocketCamera)
     }
-    pub const fn edible_provision(self) -> bool { matches!(self, Self::BoarMeat | Self::RoastedBoar) }
-    pub const fn hearty_roast(self) -> bool { matches!(self, Self::RoastedBoar) }
     pub const fn wearable(self) -> bool { ToolTemper::new(self).wearable() }
     pub const fn endurance_span(self) -> u16 { ToolTemper::new(self).endurance_span() }
     pub const fn harvest_strain(medium: BlockMedium) -> u16 { ToolTemper::harvest_strain(medium) }
-    pub const fn hunting_power(self) -> u8 { ToolTemper::new(self).hunting_power() }
-    pub const fn hunting_reach(self) -> f32 { ToolTemper::new(self).hunting_reach() }
     pub const fn rotatable_in_palm(self) -> bool {
         (self.placeable_block()
             && !matches!(self, Self::VehicleBlueprint | Self::BlackBoxPod | Self::LaserBeacon))
             || self.field_camera()
     }
     pub const fn turnable_in_palm(self) -> bool {
-        self.placeable_block()
-            && (self.block_medium().mechanical_part() || self.block_medium().artisan_hearth())
+        self.placeable_block() && self.block_medium().mechanical_part()
     }
     pub const fn blocks_perch(self) -> bool { self.placeable_block() && !self.field_camera() }
     pub const fn stowed_block(self) -> bool {
@@ -218,12 +155,11 @@ impl HeldRelic {
             )
     }
     pub const fn stackable_in_tray(self) -> bool { RelicLexicon::new(self).stackable_in_tray() }
-    pub const fn spade_blade(self) -> bool { ToolTemper::new(self).spade_blade() }
-    pub const fn pickaxe_head(self) -> bool { ToolTemper::new(self).pickaxe_head() }
+    pub const fn rig_tool(self) -> bool { ToolTemper::new(self).rig_tool() }
     pub const fn metallic_ring(self) -> bool { ToolTemper::new(self).metallic_ring() }
     pub const fn mining_edge(self) -> MiningEdge { ToolTemper::new(self).mining_edge() }
     pub const fn excavation_effort(self) -> u32 { ToolTemper::new(self).excavation_effort() }
-    pub const fn axe_blade(self) -> bool { matches!(self, Self::WoodmanAxe | Self::WoodenMallet) }
+    pub const fn timber_cutter(self) -> bool { matches!(self, Self::RigWrench) }
     pub const fn placeable_block(self) -> bool { RelicLexicon::new(self).placeable_block() }
     pub const fn block_medium(self) -> BlockMedium { RelicLexicon::new(self).block_medium() }
     pub const fn from_medium(medium: BlockMedium) -> Self { RelicLexicon::from_medium(medium) }

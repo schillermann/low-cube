@@ -6,7 +6,7 @@ mod sheet;
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{CraftBlueprint, MeshTarget, PlanetaryWorld};
-use crate::attire::{BeltSatchel, BodyPose, YouthAttire};
+use crate::attire::{BeltSatchel, BodyPose, EvaAttire};
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 pub use self::archive::{BlueprintArchive, DirectoryBlueprints};
 #[cfg(test)]
@@ -146,9 +146,7 @@ impl BlueprintFolio {
                     self.close();
                     return true;
                 }
-                if bindings.matches(ControlAction::CraftingBook, trigger)
-                    || bindings.matches(ControlAction::Satchel, trigger)
-                {
+                if bindings.matches(ControlAction::Satchel, trigger) {
                     self.close();
                     return false;
                 }
@@ -193,9 +191,9 @@ impl BlueprintFolio {
         trigger: InputTrigger,
         bindings: &ActionBindings,
         satchel: BeltSatchel,
-        attire: YouthAttire,
+        attire: EvaAttire,
         world: &mut dyn PlanetaryWorld,
-    ) -> (BeltSatchel, YouthAttire, bool) {
+    ) -> (BeltSatchel, EvaAttire, bool) {
         if !matches!(self.view, FolioView::RigCatalog { .. }) {
             return (satchel, attire, false);
         }
@@ -213,9 +211,9 @@ impl BlueprintFolio {
     pub fn act_open(
         &mut self,
         satchel: BeltSatchel,
-        attire: YouthAttire,
+        attire: EvaAttire,
         world: &mut dyn PlanetaryWorld,
-    ) -> (BeltSatchel, YouthAttire, bool, bool) {
+    ) -> (BeltSatchel, EvaAttire, bool, bool) {
         match &self.view {
             FolioView::Closed => (satchel, attire, false, false),
             FolioView::NamingDraft { .. } => {
@@ -236,15 +234,15 @@ impl BlueprintFolio {
     fn enact_rig_build(
         &mut self,
         satchel: BeltSatchel,
-        attire: YouthAttire,
+        attire: EvaAttire,
         world: &mut dyn PlanetaryWorld,
-    ) -> (BeltSatchel, YouthAttire, bool) {
+    ) -> (BeltSatchel, EvaAttire, bool) {
         let FolioView::RigCatalog { entries, cursor, aim } = &self.view else {
             return (satchel, attire, false);
         };
         if entries.is_empty() {
             return (satchel, attire, false);
-        }
+        };
         let selected = &entries[*cursor % entries.len()];
         if !selected.buildable(&satchel, attire) {
             return (satchel, attire, false);
@@ -260,7 +258,7 @@ impl BlueprintFolio {
         (ns, na, true)
     }
 
-    pub fn emit(&self, satchel: &BeltSatchel, attire: YouthAttire, pose: &BodyPose, target: &mut dyn MeshTarget) {
+    pub fn emit(&self, satchel: &BeltSatchel, attire: EvaAttire, pose: &BodyPose, target: &mut dyn MeshTarget) {
         FolioPlaque::new(&self.view, (satchel, attire)).emit(pose, target);
     }
 }

@@ -96,7 +96,6 @@ impl AvatarBody {
     pub fn handle_cockpit_trigger(&mut self, trigger: InputTrigger, bindings: &ActionBindings) -> bool {
         self.berth.handle_cockpit_trigger(trigger, bindings)
     }
-    pub fn pace_boost(&self) -> f32 { self.posture.pace_boost() }
 
     pub fn visual_position(&self) -> Vec3 {
         if self.berth.standing() || self.berth.riding() {
@@ -125,20 +124,6 @@ impl AvatarBody {
 
     pub fn drain_meadow(&self, world: &dyn PlanetaryWorld, ring: &mut world::MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
         world.drain_stale_meadow_patch(self.span.current(), ring, target)
-    }
-
-    pub fn gore(&mut self, impulse: Vec3, world: &dyn PlanetaryWorld) {
-        if self.perished() || self.driving() {
-            return;
-        }
-        let pos = self.span.current();
-        let up = world.surface_up_at(pos);
-        self.span = BodySpan::anchored(world.constrain_to_surface(pos + impulse + up * 0.35, EYE_SUPPORT_HEIGHT));
-        self.posture = self.posture.gore(0.36);
-        if !self.perished() {
-            use acoustics::{AcousticWave, CardiacPulse};
-            CardiacPulse::studio().thump();
-        }
     }
 
     pub fn land(&mut self, world: &dyn PlanetaryWorld) {
@@ -237,12 +222,7 @@ impl AvatarBody {
 
     pub fn advance_leap(&mut self, next_pos: Vec3, terrain_up: Vec3, dt: f32) {
         let leaped = self.posture.advance_leap(self.span.current(), next_pos, terrain_up, dt);
-        let (recovered, beat) = leaped.step_vital_recovery(dt);
-        self.posture = recovered;
-        if beat {
-            use acoustics::{AcousticWave, CardiacPulse};
-            CardiacPulse::studio().thump();
-        }
+        self.posture = leaped.step_vital_recovery(dt);
     }
 
     pub fn step_ship_deck(
@@ -254,7 +234,7 @@ impl AvatarBody {
         let (final_pos, deck_up) = self.berth.step_aboard(
             self.span.current(),
             order,
-            6.0 * self.pace_boost(),
+            6.0,
             EYE_SUPPORT_HEIGHT,
             dt,
             world,
@@ -277,8 +257,7 @@ impl AvatarBody {
         let _ = self.prepare_stride(order, standing_env, terrain_up, dt, world);
         let active_env = standing_env.with_crouch_and_facing(self.posture.crouch_drop(), facing);
         let active_crust = active_env.crust(world);
-        let pace = 6.0 * self.pace_boost();
-        let raw_next = self.apply_flight(active_env, order, dt, terrain_up, pace, world);
+        let raw_next = self.apply_flight(active_env, order, dt, terrain_up, 6.0, world);
         if world.lethal_at(raw_next) {
             self.span = BodySpan::anchored(raw_next);
             return (raw_next, false, true);
@@ -292,9 +271,4 @@ impl AvatarBody {
         let wedged = active_env.wedged_in_shaft(final_pos, terrain_up, EYE_SUPPORT_HEIGHT, world);
         (final_pos, wedged, false)
     }
-}
-
-impl crate::earthworks::NourishedBody for AvatarBody {
-    fn nourish_venison(&mut self) { self.posture = self.posture.nourish(); }
-    fn nourish_oven_roast(&mut self) { self.posture = self.posture.nourish_roast(); }
 }

@@ -1,7 +1,6 @@
 use glam::{Mat4, Quat, Vec3};
-use fauna::SightCone;
-use world::{CompanionPresence, MeshTarget, PlanetaryWorld, PresenceAttire, PresenceKinematics};
-use crate::attire::{PhotoShutter, SightMode, YouthAttire};
+use world::{CompanionPresence, MeshTarget, PlanetaryWorld, PresenceAttire, PresenceKinematics, SightCone};
+use crate::attire::{EvaAttire, PhotoShutter, SightMode};
 use crate::avatar::{Avatar, AvatarMotor, AvatarOptics, AvatarPresence, BlackBoxDeck, PhotoPort};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls, LocomotionTarget};
 use super::{AnomalyKind, FlightEvent, FlightTape, IncidentMedium, PresenceSink, TickTrace};
@@ -20,7 +19,7 @@ impl PresenceProbe {
 
     pub const fn at_origin() -> Self {
         let kin = PresenceKinematics::new(Vec3::ZERO, Quat::IDENTITY, Quat::IDENTITY, (0.8, 0.0));
-        Self::new(CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire()))
+        Self::new(CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::astronaut()))
     }
 
     pub fn position(&self) -> Vec3 {
@@ -231,17 +230,13 @@ impl AvatarMotor for BlackBoxAvatar {
         self.tape.record_tick(blocks, trace);
     }
 
-    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        self.origin.hunt_fauna(side, world)
-    }
-
     fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {
         self.origin.emit_reticle_for_aspect(aspect, target);
     }
 }
 
 impl Avatar for BlackBoxAvatar {
-    fn apply_attire(&mut self, attire: YouthAttire) { self.origin.apply_attire(attire); }
+    fn apply_attire(&mut self, attire: EvaAttire) { self.origin.apply_attire(attire); }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.origin.apply_bindings(bindings); }
     fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
         let handled = self.origin.dispatch_trigger(trigger);
@@ -254,7 +249,6 @@ impl Avatar for BlackBoxAvatar {
     fn typing_text(&self) -> bool { self.origin.typing_text() }
     fn accept_typed_text(&mut self, text: &str) -> bool { self.origin.accept_typed_text(text) }
     fn blend_subtick(&mut self, alpha: f32) { self.origin.blend_subtick(alpha); }
-    fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) { self.origin.step_fauna(dt, world); }
     fn reconcile_cosmic_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
         self.origin.reconcile_cosmic_frame(world)
     }

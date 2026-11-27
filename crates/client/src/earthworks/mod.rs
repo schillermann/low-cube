@@ -1,14 +1,13 @@
 mod actions;
 mod debris;
-mod hearth;
 mod reach;
 mod toss;
 
 use glam::Vec3;
 use world::{BlockMold, MeshTarget, PlanetaryWorld, PresenceAttire};
 use crate::attire::{
-    ArtisanTome, BeltSatchel, BodyPose, CameraMount, MoldedWardrobe, SightMode,
-    StrideRhythm, Wardrobe, YouthAttire,
+    BeltSatchel, BodyPose, CameraMount, EvaAttire, MoldedWardrobe, SightMode,
+    StrideRhythm, Wardrobe,
 };
 use crate::blueprint::BlueprintFolio;
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
@@ -16,21 +15,13 @@ pub use crate::grip::DigGrip;
 use crate::order::LocomotionOrder;
 use self::actions::PalmContact;
 use self::debris::DigOperation;
-pub use self::hearth::NourishedBody;
-pub(crate) use self::hearth::{MealOutcome, WorkstationStation};
-#[cfg(test)]
-pub use self::hearth::{
-    AtmosphericBloomery, ColdStone, CulinaryOven, HearthMedium, ThermalHearth,
-    VacuumForge,
-};
 pub use self::reach::SurfaceReach;
 use self::toss::TossCadence;
 
-/// Immutable dual-hand block inventory, satchel inspection state, crafting tome, per-hand block molds, and excavation progress.
+/// Immutable dual-hand EVA inventory, satchel inspection state, per-hand block molds, and excavation progress (`3` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PalmEarthworks {
     satchel: BeltSatchel,
-    tome: ArtisanTome,
     dig: DigOperation,
     toss: TossCadence,
 }
@@ -39,39 +30,38 @@ impl PalmEarthworks {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn with_state(
         satchel: BeltSatchel,
-        tome: ArtisanTome,
         dig: DigOperation,
         toss: TossCadence,
     ) -> Self {
-        Self { satchel, tome, dig, toss }
+        Self { satchel, dig, toss }
     }
 
-    pub const fn with_dig(satchel: BeltSatchel, tome: ArtisanTome, dig: DigOperation) -> Self {
-        Self::with_state(satchel, tome, dig, TossCadence::Quiet)
+    pub const fn with_dig(satchel: BeltSatchel, dig: DigOperation) -> Self {
+        Self::with_state(satchel, dig, TossCadence::Quiet)
     }
 
     pub const fn empty() -> Self {
-        Self::with_dig(BeltSatchel::empty(), ArtisanTome::closed(), DigOperation::idle())
+        Self::with_dig(BeltSatchel::empty(), DigOperation::idle())
     }
-    pub const fn satchel_open(&self) -> bool { self.satchel.open() || self.tome.open() }
-    pub const fn camera_mount(&self, attire: YouthAttire) -> CameraMount {
-        if self.tome.open() { CameraMount::Unmounted } else { self.satchel.camera_mount(attire) }
+    pub const fn satchel_open(&self) -> bool { self.satchel.open() }
+    pub const fn camera_mount(&self, attire: EvaAttire) -> CameraMount {
+        self.satchel.camera_mount(attire)
     }
-    pub fn placed_camera_lens(&self, attire: YouthAttire) -> Option<(Vec3, Vec3, Vec3)> {
+    pub fn placed_camera_lens(&self, attire: EvaAttire) -> Option<(Vec3, Vec3, Vec3)> {
         self.satchel.placed_camera_lens(attire)
     }
-    pub fn encumber_order(&self, attire: YouthAttire, order: LocomotionOrder) -> LocomotionOrder {
+    pub fn encumber_order(&self, attire: EvaAttire, order: LocomotionOrder) -> LocomotionOrder {
         order.with_burden(self.satchel.carried_burden(attire))
     }
-    pub fn cargo_ballast(&self, attire: YouthAttire) -> f32 {
+    pub fn cargo_ballast(&self, attire: EvaAttire) -> f32 {
         self.satchel.carried_burden(attire).ballast_tonnage()
     }
     pub fn step_toss(self, dt: f32) -> Self { Self { toss: self.toss.advance(dt), ..self } }
     fn with_satchel(self, satchel: BeltSatchel) -> Self { Self { satchel, ..self } }
-    pub fn mold_next_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }
-    pub fn mold_prev_form(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::prev_form)) }
-    pub fn reconcile_attire(self, attire: YouthAttire) -> Self { self.with_satchel(self.satchel.reconcile_attire(attire)) }
-    pub fn transition_attire(self, prev: YouthAttire, next: YouthAttire) -> Self {
+    pub fn mold_next_form(self, attire: EvaAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::next_form)) }
+    pub fn mold_prev_form(self, attire: EvaAttire) -> Self { self.with_satchel(self.satchel.map_mold(attire, BlockMold::prev_form)) }
+    pub fn reconcile_attire(self, attire: EvaAttire) -> Self { self.with_satchel(self.satchel.reconcile_attire(attire)) }
+    pub fn transition_attire(self, prev: EvaAttire, next: EvaAttire) -> Self {
         self.with_satchel(self.satchel.transition_attire(prev, next))
     }
     pub fn with_provisioned_satchel(self, provider: &dyn crate::server_satchel::StartingSatchel) -> Self {
@@ -81,33 +71,21 @@ impl PalmEarthworks {
     pub fn apply_survivor_manifest(
         self,
         manifest: world::SatchelManifest,
-        attire: YouthAttire,
-    ) -> (Self, YouthAttire) {
+        attire: EvaAttire,
+    ) -> (Self, EvaAttire) {
         let (next_satchel, next_attire) = BeltSatchel::from_survivor_manifest(manifest, attire);
-        (Self::with_dig(next_satchel, ArtisanTome::closed(), DigOperation::idle()), next_attire)
+        (Self::with_dig(next_satchel, DigOperation::idle()), next_attire)
     }
 
-    pub fn survivor_manifest(&self, attire: YouthAttire) -> world::SatchelManifest {
+    pub fn survivor_manifest(&self, attire: EvaAttire) -> world::SatchelManifest {
         self.satchel.survivor_manifest(attire)
     }
 
-    pub fn drain_crafted_notes(mut self, world: &mut dyn PlanetaryWorld) -> Self {
-        self.tome = self.tome.drain_crafted_notes(world);
-        self
-    }
-
     pub fn handle_trigger(
-        self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire,
-    ) -> (Self, YouthAttire, bool) {
-        if bindings.matches(ControlAction::CraftingBook, trigger)
-            || (self.tome.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape))
-        {
-            let next_satchel = self.satchel.reconcile_attire(attire).with_open(false);
-            return (Self::with_dig(next_satchel, self.tome.toggle(), self.dig.with_grip(DigGrip::idle())), attire, true);
-        }
-        if self.tome.open() {
-            let (next_tome, next_satchel, next_attire, ok) = self.tome.dispatch_trigger(trigger, bindings, self.satchel, attire);
-            return (Self::with_dig(next_satchel, next_tome, self.dig.with_grip(DigGrip::idle())), next_attire, ok);
+        self, trigger: InputTrigger, bindings: &ActionBindings, attire: EvaAttire,
+    ) -> (Self, EvaAttire, bool) {
+        if !self.satchel.open() && bindings.matches(ControlAction::HelmetLamp, trigger) {
+            return (self, attire.with_toggled_lamp(), true);
         }
         if !self.satchel.open() && bindings.matches(ControlAction::MoldForm, trigger) {
             let (r, l) = attire.held_pair();
@@ -125,7 +103,7 @@ impl PalmEarthworks {
             || (self.satchel.open() && trigger == InputTrigger::Key(winit::keyboard::KeyCode::Escape))
         {
             let (next_satchel, ok) = self.satchel.reconcile_attire(attire).toggle_open();
-            return (Self::with_dig(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle())), attire, ok);
+            return (Self::with_dig(next_satchel, self.dig.with_grip(DigGrip::idle())), attire, ok);
         }
         if bindings.matches(ControlAction::SatchelRight, trigger) || bindings.matches(ControlAction::SatchelLeft, trigger) {
             let side = if bindings.matches(ControlAction::SatchelRight, trigger) { 1.0 } else { -1.0 };
@@ -136,7 +114,7 @@ impl PalmEarthworks {
                 TossCadence::Quiet
             };
             let (next_satchel, next_attire, ok) = self.satchel.transfer_hand(side, attire);
-            return (Self::with_state(next_satchel, self.tome, self.dig.with_grip(DigGrip::idle()), next_toss), next_attire, ok);
+            return (Self::with_state(next_satchel, self.dig.with_grip(DigGrip::idle()), next_toss), next_attire, ok);
         }
         let dx = if bindings.matches(ControlAction::MoveLeft, trigger) || bindings.matches(ControlAction::MoldLeft, trigger) { -1 } else if bindings.matches(ControlAction::MoveRight, trigger) || bindings.matches(ControlAction::MoldRight, trigger) { 1 } else { 0 };
         let dy = if bindings.matches(ControlAction::MoveForward, trigger) { -1 } else if bindings.matches(ControlAction::MoveBackward, trigger) { 1 } else { 0 };
@@ -148,30 +126,22 @@ impl PalmEarthworks {
     }
 
     pub fn try_cast_relic(
-        self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire,
+        self, trigger: InputTrigger, bindings: &ActionBindings, attire: EvaAttire,
         rhythm: StrideRhythm, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> (Self, StrideRhythm, bool) {
-        if self.satchel.open() || self.tome.open() {
+        if self.satchel.open() {
             return (self, rhythm, false);
         }
         let (ns, nt, nr, ok) = self.toss.try_cast(self.satchel, trigger, bindings, attire, rhythm, eye, view_dir, world);
         let next_dig = if ok { self.dig.with_grip(DigGrip::idle()) } else { self.dig };
-        (Self::with_state(ns, self.tome, next_dig, nt), nr, ok)
-    }
-
-    pub fn wear_hand(
-        self, side: f32, strain: u16, attire: YouthAttire, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire) {
-        let (ns, na) = self.satchel.reconcile_attire(attire).strain_hand(side, strain, attire, world);
-        (self.with_satchel(ns), na)
+        (Self::with_state(ns, next_dig, nt), nr, ok)
     }
 
     pub fn try_adjust_rig(
-        &self, trigger: InputTrigger, bindings: &ActionBindings, attire: YouthAttire, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
+        &self, trigger: InputTrigger, bindings: &ActionBindings, attire: EvaAttire, eye: Vec3, view_dir: Vec3, world: &mut dyn PlanetaryWorld,
     ) -> bool {
         let (r, l) = attire.held_pair();
         if self.satchel.open()
-            || self.tome.open()
             || r.rotatable_in_palm()
             || l.rotatable_in_palm()
             || matches!(self.camera_mount(attire), CameraMount::Handheld(_))
@@ -191,20 +161,19 @@ impl PalmEarthworks {
     }
 
     pub fn emit_attire(
-        &self, attire: &YouthAttire, pose: &BodyPose, sight: SightMode,
+        &self, attire: &EvaAttire, pose: &BodyPose, sight: SightMode,
         inspection_open: bool, target: &mut dyn MeshTarget,
     ) {
         let active = self.dig.bare_hand_attire(*attire);
         MoldedWardrobe::new(active, self.satchel.wardrobe_molds(active), inspection_open).emit(pose, sight, target);
     }
 
-    pub fn emit_inspection(&self, folio: &BlueprintFolio, attire: YouthAttire, pose: &BodyPose, target: &mut dyn MeshTarget) {
+    pub fn emit_inspection(&self, folio: &BlueprintFolio, attire: EvaAttire, pose: &BodyPose, target: &mut dyn MeshTarget) {
         self.satchel.emit_for_attire(pose, attire, target);
-        self.tome.emit_book(&self.satchel, attire, pose, target);
         folio.emit(&self.satchel, attire, pose, target);
     }
 
-    pub fn presence_attire(&self, attire: YouthAttire) -> PresenceAttire {
+    pub fn presence_attire(&self, attire: EvaAttire) -> PresenceAttire {
         let active = self.dig.bare_hand_attire(attire);
         PresenceAttire::new(active.multiplayer_bytes(), active.region_bytes(), self.satchel.wardrobe_molds(active))
     }
@@ -213,65 +182,59 @@ impl PalmEarthworks {
         self.dig.emit_debris(view_dir, surface_up, rhythm, target);
     }
 
-    pub fn planned_mount(&self, reach: SurfaceReach, attire: YouthAttire, world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> {
-        if self.satchel.open() || self.tome.open() || !self.dig.untouched() {
+    pub fn planned_mount(&self, reach: SurfaceReach, attire: EvaAttire, world: &dyn PlanetaryWorld) -> Option<world::PlannedMount> {
+        if self.satchel.open() || !self.dig.untouched() {
             return None;
         }
-        let (side, mold) = self.satchel.active_preview_mold(attire, self.dig.grip().pending_place_side())?;
-        if let Some(aimed) = world.aimed_surface_medium(reach.eye(), reach.view_dir()) {
-            if WorkstationStation::claims_hand(aimed, attire.hand_pair(side).0) {
-                return None;
-            }
-        }
+        let (_side, mold) = self.satchel.active_preview_mold(attire, self.dig.grip().pending_place_side())?;
         world.plan_molded_block(reach.eye(), reach.view_dir(), reach.stance_origin(), mold)
     }
 
     pub const fn halt_dig(self) -> Self {
-        Self::with_state(self.satchel.with_open(false), ArtisanTome::closed(), self.dig.halted(), TossCadence::Quiet)
+        Self::with_state(self.satchel.with_open(false), self.dig.halted(), TossCadence::Quiet)
     }
 
     pub const fn relinquish_perished(self) -> Self {
         let next_dig = if self.dig.untouched() { self.dig.halted() } else { self.dig };
-        Self::with_state(self.satchel.with_open(false), ArtisanTome::closed(), next_dig, TossCadence::Quiet)
+        Self::with_state(self.satchel.with_open(false), next_dig, TossCadence::Quiet)
     }
 
     pub fn act_folio(
-        self, folio: &mut BlueprintFolio, attire: YouthAttire, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, bool, bool) {
+        self, folio: &mut BlueprintFolio, attire: EvaAttire, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, EvaAttire, bool, bool) {
         PalmContact::new(self).act_folio(folio, attire, world)
     }
 
     pub fn try_build_folio(
         self, folio: &mut BlueprintFolio, trigger: InputTrigger, bindings: &ActionBindings,
-        attire: YouthAttire, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, bool) {
+        attire: EvaAttire, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, EvaAttire, bool) {
         PalmContact::new(self).try_build_folio(folio, trigger, bindings, attire, world)
     }
 
     pub fn abort_hand(self, reach: SurfaceReach, world: &mut dyn PlanetaryWorld) -> (Self, bool) {
         let cleared = self.dig.clear_cracks(reach.eye(), reach.view_dir(), world);
-        (Self::with_state(self.satchel, self.tome, self.dig.halted(), TossCadence::Quiet), cleared)
+        (Self::with_state(self.satchel, self.dig.halted(), TossCadence::Quiet), cleared)
     }
 
     pub fn release_hand(
-        self, reach: SurfaceReach, attire: YouthAttire, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, bool, bool) {
+        self, reach: SurfaceReach, attire: EvaAttire, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, EvaAttire, bool, bool) {
         let state = self.reconcile_attire(attire);
         let (ns, na, nd, perch_ready, changed) = reach.release(state.satchel, attire, state.dig, world);
-        (Self::with_state(ns, state.tome, nd, state.toss), na, perch_ready, changed)
+        (Self::with_state(ns, nd, state.toss), na, perch_ready, changed)
     }
 
     pub fn continue_digging(
-        mut self, reach: SurfaceReach, attire: YouthAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, StrideRhythm, bool) {
-        self.tome = self.tome.drain_crafted_notes(world);
+        self, reach: SurfaceReach, attire: EvaAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, EvaAttire, StrideRhythm, bool) {
         let (ns, na, nd, nr, changed) = reach.sustain(self.satchel, attire, rhythm, self.dig, world);
-        (Self::with_state(ns, self.tome, nd, self.toss), na, nr, changed)
+        (Self::with_state(ns, nd, self.toss), na, nr, changed)
     }
 
     pub fn act_with_hand(
-        self, side: f32, reach: SurfaceReach, attire: YouthAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
-    ) -> (Self, YouthAttire, StrideRhythm, bool, MealOutcome) {
+        self, side: f32, reach: SurfaceReach, attire: EvaAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, EvaAttire, StrideRhythm, bool) {
         PalmContact::new(self).act_with_hand(side, reach, attire, rhythm, world)
     }
 }

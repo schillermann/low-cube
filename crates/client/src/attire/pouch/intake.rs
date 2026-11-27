@@ -1,10 +1,10 @@
 use super::super::relic::HeldRelic;
 use super::super::tray::SatchelTray;
-use super::super::YouthAttire;
+use super::super::EvaAttire;
 use super::palms::PalmStack;
 use super::temper::SatchelTemper;
 
-/// Encapsulated harvest, foraging, timber-felling, and crafting intake across palms, tray, and tool temper (`3` fields).
+/// Encapsulated harvest, salvage, timber-cutting, and blueprint intake across palms, tray, and tool state (`3` fields).
 pub(super) struct SatchelIntake {
     palms: PalmStack,
     tray: SatchelTray,
@@ -17,7 +17,7 @@ impl SatchelIntake {
         Self { palms, tray, temper }
     }
 
-    fn resource_tally(&self, relic: HeldRelic, attire: YouthAttire) -> u32 {
+    fn resource_tally(&self, relic: HeldRelic, attire: EvaAttire) -> u32 {
         let (r, l) = attire.held_pair();
         u32::from(r == relic) + u32::from(l == relic) + self.tray.count(relic)
     }
@@ -25,8 +25,8 @@ impl SatchelIntake {
     pub(super) fn from_manifest(
         mut self,
         manifest: world::SatchelManifest,
-        attire: YouthAttire,
-    ) -> (PalmStack, SatchelTray, SatchelTemper, YouthAttire) {
+        attire: EvaAttire,
+    ) -> (PalmStack, SatchelTray, SatchelTemper, EvaAttire) {
         let clean = manifest.sanitized();
         let (rc, lc) = clean.held_codes();
         let (right, left) = (HeldRelic::from_code(rc), HeldRelic::from_code(lc));
@@ -43,7 +43,7 @@ impl SatchelIntake {
         (self.palms, self.tray, self.temper, next_attire)
     }
 
-    pub(super) fn to_manifest(&self, attire: YouthAttire) -> world::SatchelManifest {
+    pub(super) fn to_manifest(&self, attire: EvaAttire) -> world::SatchelManifest {
         let (r, l) = attire.held_pair();
         let mut totals = [0u32; world::RELIC_SLOT_COUNT];
         for code in 1..(HeldRelic::COUNT as u8) {
@@ -67,8 +67,8 @@ impl SatchelIntake {
         mut self,
         side: f32,
         relic: HeldRelic,
-        attire: YouthAttire,
-    ) -> (PalmStack, SatchelTray, SatchelTemper, YouthAttire) {
+        attire: EvaAttire,
+    ) -> (PalmStack, SatchelTray, SatchelTemper, EvaAttire) {
         if relic == HeldRelic::CantileverCrane {
             for (part, qty) in [
                 (HeldRelic::FieldCamera, 1),
@@ -116,8 +116,8 @@ impl SatchelIntake {
         mut self,
         side: f32,
         relic: HeldRelic,
-        attire: YouthAttire,
-    ) -> (PalmStack, SatchelTray, SatchelTemper, YouthAttire) {
+        attire: EvaAttire,
+    ) -> (PalmStack, SatchelTray, SatchelTemper, EvaAttire) {
         let (r, l) = attire.held_pair();
         self.tray = self.tray.focused_on(side);
         let next_attire = if (side > 0.0 && r.free_palm()) || (r.free_palm() && !l.free_palm()) {
@@ -143,8 +143,8 @@ impl SatchelIntake {
     pub(super) fn felled_timber(
         mut self,
         side: f32,
-        attire: YouthAttire,
-    ) -> (PalmStack, SatchelTray, SatchelTemper, YouthAttire) {
+        attire: EvaAttire,
+    ) -> (PalmStack, SatchelTray, SatchelTemper, EvaAttire) {
         let (r, l) = attire.held_pair();
         let next_attire = if r.free_palm() {
             self.palms.assign_blocks(1.0, 1);
@@ -164,14 +164,15 @@ impl SatchelIntake {
         (self.palms, self.tray.focused_on(side), self.temper, next_attire)
     }
 
+    #[cfg(test)]
     pub(super) fn crafted_batch(
         mut self,
         ingredients: [(HeldRelic, u32); 2],
         product: HeldRelic,
         batch_yield: u32,
         side: f32,
-        mut attire: YouthAttire,
-    ) -> (PalmStack, SatchelTray, SatchelTemper, YouthAttire) {
+        mut attire: EvaAttire,
+    ) -> (PalmStack, SatchelTray, SatchelTemper, EvaAttire) {
         for (ing, mut rem) in ingredients {
             while rem > 0 {
                 let (r, l) = attire.held_pair();
@@ -210,8 +211,8 @@ impl SatchelIntake {
     pub(super) fn consume_manifest(
         mut self,
         manifest: &[(HeldRelic, u32)],
-        mut attire: YouthAttire,
-    ) -> Option<(PalmStack, SatchelTray, SatchelTemper, YouthAttire)> {
+        mut attire: EvaAttire,
+    ) -> Option<(PalmStack, SatchelTray, SatchelTemper, EvaAttire)> {
         if !manifest.iter().all(|&(relic, needed)| needed == 0 || self.resource_tally(relic, attire) >= needed) {
             return None;
         }

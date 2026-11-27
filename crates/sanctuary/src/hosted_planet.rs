@@ -4,7 +4,7 @@ use world::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPortal, CompanionPresence, CraftBlueprint,
     CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum, GravityField, MeadowRing,
     MeshTarget, MiningEdge, PilotCraft, PlanetaryWorld, SightCone, SurfaceFind, TerrainMesh,
-    VehicleAssembly, VesselDeck, WorldEarthworks, WoodlandLife,
+    VehicleAssembly, VesselDeck, WorldEarthworks,
 };
 use crate::sanctuary_host::SanctuaryHost;
 
@@ -52,17 +52,6 @@ impl TerrainMesh for HostedPlanet {
     fn emit_cosmic_field(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.host.world().emit_cosmic_field(cone, target); }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.host.world().visible_slice_mask(position) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.host.world_mut().drain_disclosures(out); }
-}
-
-impl WoodlandLife for HostedPlanet {
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.host.world().arboreal_perch_near(center, selector) }
-    fn woodland_habitat(&self, position: Vec3) -> bool { self.host.world().woodland_habitat(position) }
-    fn step_wildlife(&mut self, _dt: f32, listener: Vec3, view_dir: Vec3, _crouching: bool) -> Option<Vec3> {
-        self.host.step_host_wildlife(listener, view_dir)
-    }
-    fn emit_wildlife(&self, cone: SightCone, target: &mut dyn MeshTarget) {
-        self.host.emit_wildlife(cone, target);
-    }
 }
 
 impl VesselDeck for HostedPlanet {
@@ -156,9 +145,6 @@ impl WorldEarthworks for HostedPlanet {
     fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool { self.host.world().surface_yields_to(eye, direction, edge) }
     fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.host.world().aimed_surface_medium(eye, direction) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.host.with_chronicled(|w| w.strike_timber(eye, direction)) }
-    fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
-        self.host.strike_host_boar(eye, direction, power, max_reach)
-    }
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind { self.host.with_chronicled(|w| w.forage_surface(eye, direction)) }
     fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool { self.host.with_chronicled(|w| w.cast_surface_find(eye, direction, find)) }
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {

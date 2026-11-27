@@ -3,7 +3,7 @@ use crate::{
     BlockMedium, BlockMold, CleaveOutcome, CompanionPortal, CraftBlueprint, CraftIdentity,
     CraftPose, ExposedStratum, GravityField, MeadowRing, MeshTarget, MiningEdge, PlanetaryWorld,
     PlannedMount, Quad, SurfaceFind, TerrainMesh, VehicleAssembly, VesselDeck, VesselSink,
-    WoodlandLife, WorldEarthworks,
+    WorldEarthworks,
 };
 
 struct TranslatedVesselSink<'a> {
@@ -169,10 +169,6 @@ impl<W: TerrainMesh> TerrainMesh for TranslatedWorld<W> {
         self.origin.emit_meadow_around(center - self.center, view_dir, &mut shifted);
     }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.origin.drain_disclosures(out); }
-}
-
-impl<W> WoodlandLife for TranslatedWorld<W> {
-    fn woodland_habitat(&self, _position: Vec3) -> bool { false }
 }
 
 impl<W: VesselDeck> VesselDeck for TranslatedWorld<W> {

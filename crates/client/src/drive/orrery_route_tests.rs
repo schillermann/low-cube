@@ -1,10 +1,10 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{
-    BlockMedium, BlockMold, CelestialAtlas, CelestialSystem, GravityField, MeshTarget,
-    PlanetaryWorld, Quad, TerrainMesh, VesselDeck, WoodlandLife, WorldEarthworks, CompanionPortal,
+    BlockMedium, BlockMold, CelestialAtlas, CelestialSystem, CompanionPortal, GravityField,
+    MeshTarget, PlanetaryWorld, Quad, TerrainMesh, VesselDeck, WorldEarthworks,
 };
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::{Avatar, AvatarMotor, AvatarOptics, HandGesture, PlanetaryAvatar};
 use crate::controls::{ActionBindings, KeyMotion, KeyboardControls};
 use crate::flight::SurfaceFlight;
@@ -22,7 +22,6 @@ impl WorldEarthworks for ZeroGravityWorld {}
 impl TerrainMesh for ZeroGravityWorld {
     fn emit_surface(&self, _target: &mut dyn MeshTarget) {}
 }
-impl WoodlandLife for ZeroGravityWorld {}
 impl VesselDeck for ZeroGravityWorld {}
 impl CompanionPortal for ZeroGravityWorld {}
 impl PlanetaryWorld for ZeroGravityWorld {
@@ -72,7 +71,7 @@ fn assemble_nose_rocket(world: &mut dyn PlanetaryWorld) -> PlanetaryAvatar {
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);

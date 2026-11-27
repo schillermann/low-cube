@@ -2,222 +2,203 @@ use glam::Vec3;
 use world::MeshTarget;
 use super::beard::{BeardCut, BeardedHead};
 use super::coiffure::{HairCoiffure, TressedHead};
-use super::headgear::{BrowAdornment, CrownedHead};
+use super::headgear::{HelmVisor, HelmetLampHead, LampBeam, PressureHelmHead, RadioMastHead};
 use super::limb::{AxialLimb, FacetedSolid, TaperedPrism};
 use super::palette::{ComplexionSwatch, PigmentSwatch};
 use super::pose::BodyPose;
 use super::visage::BareVisage;
 
-/// Focused 1-method contract for composable anatomical head, hair, beard, collar, and headwear decorators.
+/// Focused 1-method contract for composable crew head, neck-ring, visor, comms, and helmet-lamp decorators.
 pub trait HeadSculpture {
     fn emit(&self, pose: &BodyPose, target: &mut dyn MeshTarget);
 }
 
-/// `HeadSculpture` decorator framing the neck with a tailored stand-collar and contrasting V-lapel.
+/// `HeadSculpture` decorator framing the neck with an anodized titanium EVA pressure-disconnect ring (`3` fields).
 #[derive(Clone, Copy, Debug)]
-pub struct CollaredHead<S> {
+pub struct NeckRingHead<S> {
     origin: S,
-    trim: Vec3,
-    lapel: Vec3,
+    ring_alloy: Vec3,
+    latch_trim: Vec3,
 }
 
-impl<S> CollaredHead<S> {
+impl<S> NeckRingHead<S> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(origin: S, trim: Vec3, lapel: Vec3) -> Self {
-        Self { origin, trim, lapel }
+    pub const fn new(origin: S, ring_alloy: Vec3, latch_trim: Vec3) -> Self {
+        Self { origin, ring_alloy, latch_trim }
     }
 }
 
-impl<S: HeadSculpture> HeadSculpture for CollaredHead<S> {
+impl<S: HeadSculpture> HeadSculpture for NeckRingHead<S> {
     fn emit(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
         self.origin.emit(pose, target);
         let torso = pose.torso_frame();
         let collar_y = pose.torso_span(0.72);
         TaperedPrism::new(
             8,
-            Vec3::new(0.0, collar_y - 0.02, -0.072),
-            Vec3::new(0.0, collar_y + 0.045, -0.062),
-            pose.scale(0.098),
-            pose.torso_depth(0.082),
-            pose.scale(0.076),
-            pose.torso_depth(0.070),
-            self.trim,
+            Vec3::new(0.0, collar_y - 0.020, -0.070),
+            Vec3::new(0.0, collar_y + 0.042, -0.060),
+            pose.scale(0.106),
+            pose.torso_depth(0.090),
+            pose.scale(0.096),
+            pose.torso_depth(0.084),
+            self.ring_alloy,
         )
         .emit(&torso, true, target);
         for side in [-1.0_f32, 1.0_f32] {
             AxialLimb::new(
-                Vec3::new(side * pose.scale(0.018), collar_y - 0.015, pose.torso_depth(0.016)),
-                Vec3::new(side * pose.scale(0.058), collar_y + 0.052, pose.torso_depth(-0.022)),
+                Vec3::new(side * pose.scale(0.084), collar_y - 0.008, pose.torso_depth(-0.048)),
+                Vec3::new(side * pose.scale(0.092), collar_y + 0.038, pose.torso_depth(-0.048)),
                 pose.scale(0.016),
-                pose.scale(0.021),
-                self.lapel,
+                pose.scale(0.018),
+                self.latch_trim,
             )
             .emit(&torso, true, target);
         }
     }
 }
 
-/// Head, hair, beard, helmet, and hat style visible to multiplayer peers and in Looking-Glass / Studio view.
+/// Space-Age EVA pressure helmet configuration visible to multiplayer peers and in Studio / Looking-Glass view.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CrownStyle {
-    TousledMop,
-    SquireCrop,
-    MedievalGugel,
-    MerchantCap,
-    VisoredHelm,
-    SmithGoggles,
-    KettleHelm,
-    VoyagerCrest,
+pub enum HelmStyle {
+    ClearBubble,
+    SolarVisor,
+    SurveyDome,
+    TacticalShell,
+    CommsCanopy,
+    OpticGoggles,
+    ArmoredCowl,
+    CommandCrest,
 }
 
-impl CrownStyle {
+impl HelmStyle {
     pub fn next(self) -> Self {
         Self::from_code(self.code() + 1)
     }
 
     pub fn from_code(code: u8) -> Self {
         match code % 8 {
-            0 => Self::TousledMop,
-            1 => Self::SquireCrop,
-            2 => Self::MedievalGugel,
-            3 => Self::MerchantCap,
-            4 => Self::VisoredHelm,
-            5 => Self::SmithGoggles,
-            6 => Self::KettleHelm,
-            _ => Self::VoyagerCrest,
+            0 => Self::ClearBubble,
+            1 => Self::SolarVisor,
+            2 => Self::SurveyDome,
+            3 => Self::TacticalShell,
+            4 => Self::CommsCanopy,
+            5 => Self::OpticGoggles,
+            6 => Self::ArmoredCowl,
+            _ => Self::CommandCrest,
         }
     }
 
     pub fn code(self) -> u8 {
         match self {
-            Self::TousledMop => 0,
-            Self::SquireCrop => 1,
-            Self::MedievalGugel => 2,
-            Self::MerchantCap => 3,
-            Self::VisoredHelm => 4,
-            Self::SmithGoggles => 5,
-            Self::KettleHelm => 6,
-            Self::VoyagerCrest => 7,
+            Self::ClearBubble => 0,
+            Self::SolarVisor => 1,
+            Self::SurveyDome => 2,
+            Self::TacticalShell => 3,
+            Self::CommsCanopy => 4,
+            Self::OpticGoggles => 5,
+            Self::ArmoredCowl => 6,
+            Self::CommandCrest => 7,
         }
     }
 
-    pub const fn sculpture(self, complexion: ComplexionSwatch, pigment: PigmentSwatch) -> StyledCrown {
-        StyledCrown::new(self, complexion, pigment)
+    pub const fn sculpture(
+        self,
+        complexion: ComplexionSwatch,
+        pigment: PigmentSwatch,
+        lamp: LampBeam,
+    ) -> StyledHelm {
+        StyledHelm::new(self, (complexion, pigment), lamp)
     }
 
     pub fn emit(
         self,
         pose: &BodyPose,
-        complexion: ComplexionSwatch,
-        pigment: PigmentSwatch,
+        (complexion, pigment): (ComplexionSwatch, PigmentSwatch),
+        lamp: LampBeam,
         target: &mut dyn MeshTarget,
     ) {
-        self.sculpture(complexion, pigment).emit(pose, target);
+        self.sculpture(complexion, pigment, lamp).emit(pose, target);
     }
 }
 
-/// Stack-allocated `HeadSculpture` assembling the full Decorator chain for any `CrownStyle`.
+/// Stack-allocated `HeadSculpture` composing `HelmetLampHead<RadioMastHead<PressureHelmHead<NeckRingHead<...>>>>` (`3` fields).
 #[derive(Clone, Copy, Debug)]
-pub struct StyledCrown {
-    style: CrownStyle,
-    complexion: ComplexionSwatch,
-    pigment: PigmentSwatch,
+pub struct StyledHelm {
+    style: HelmStyle,
+    swatches: (ComplexionSwatch, PigmentSwatch),
+    lamp: LampBeam,
 }
 
-impl StyledCrown {
+impl StyledHelm {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(style: CrownStyle, complexion: ComplexionSwatch, pigment: PigmentSwatch) -> Self {
-        Self { style, complexion, pigment }
+    pub const fn new(
+        style: HelmStyle,
+        swatches: (ComplexionSwatch, PigmentSwatch),
+        lamp: LampBeam,
+    ) -> Self {
+        Self { style, swatches, lamp }
+    }
+
+    fn visor_kind(self) -> HelmVisor {
+        match self.style {
+            HelmStyle::ClearBubble | HelmStyle::CommsCanopy => HelmVisor::ClearBubble,
+            HelmStyle::SolarVisor | HelmStyle::CommandCrest => HelmVisor::SolarGold,
+            HelmStyle::SurveyDome => HelmVisor::SurveyCyan,
+            HelmStyle::TacticalShell => HelmVisor::TacticalSlit,
+            HelmStyle::OpticGoggles => HelmVisor::OpticArray,
+            HelmStyle::ArmoredCowl => HelmVisor::ArmoredCowl,
+        }
     }
 }
 
-impl HeadSculpture for StyledCrown {
+impl HeadSculpture for StyledHelm {
     fn emit(&self, pose: &BodyPose, target: &mut dyn MeshTarget) {
-        let skin = self.complexion.skin();
-        let cloth = self.pigment.cloth();
-        let trim = self.pigment.trim();
-        let lapel = (trim * 0.45 + Vec3::new(0.42, 0.56, 0.64)).min(Vec3::ONE);
+        let (complexion, pigment) = self.swatches;
+        let skin = complexion.skin();
+        let shell = pigment.cloth();
+        let trim = pigment.trim();
+        let ring_alloy = Vec3::new(0.58, 0.63, 0.70);
         let espresso = (Vec3::new(0.23, 0.14, 0.09), Vec3::new(0.32, 0.20, 0.12));
         let auburn = (Vec3::new(0.36, 0.19, 0.10), Vec3::new(0.45, 0.25, 0.13));
-        let golden = (Vec3::new(0.84, 0.66, 0.28), Vec3::new(0.92, 0.76, 0.36));
-
         let fem = pose.feminine();
-        let brow_col = if fem && matches!(self.style, CrownStyle::VisoredHelm) {
-            Vec3::new(0.56, 0.42, 0.18)
-        } else {
-            espresso.0
-        };
-        let collared = CollaredHead::new(BareVisage::new(skin, brow_col, fem), trim, lapel);
-        let sw = (cloth, trim);
+        let neck_sealed = NeckRingHead::new(BareVisage::new(skin, espresso.0, fem), ring_alloy, trim);
+        let visor = self.visor_kind();
+        let mast_accent = Vec3::new(0.86, 0.90, 0.96);
 
         if fem {
-            match self.style {
-                CrownStyle::VisoredHelm => {
-                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, golden), BrowAdornment::WingedDiadem, sw)
-                        .emit(pose, target);
-                }
-                CrownStyle::MedievalGugel => {
-                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, espresso), BrowAdornment::RangerHood, sw)
-                        .emit(pose, target);
-                }
-                CrownStyle::MerchantCap => {
-                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, auburn), BrowAdornment::FloralWreath, sw)
-                        .emit(pose, target);
-                }
-                CrownStyle::SmithGoggles => {
-                    TressedHead::new(collared, HairCoiffure::SilkTopknot, espresso).emit(pose, target);
-                }
-                CrownStyle::KettleHelm => {
-                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, espresso), BrowAdornment::BattleCirclet, sw)
-                        .emit(pose, target);
-                }
-                CrownStyle::TousledMop => {
-                    TressedHead::new(collared, HairCoiffure::FlowingBraids, espresso).emit(pose, target);
-                }
-                CrownStyle::SquireCrop | CrownStyle::VoyagerCrest => {
-                    CrownedHead::new(TressedHead::new(collared, HairCoiffure::FlowingBraids, auburn), BrowAdornment::RoyalTiara, sw)
-                        .emit(pose, target);
-                }
-            }
+            let coiffure = if matches!(self.style, HelmStyle::OpticGoggles | HelmStyle::TacticalShell) {
+                HairCoiffure::SilkTopknot
+            } else {
+                HairCoiffure::FlowingBraids
+            };
+            let hair = if matches!(self.style, HelmStyle::CommandCrest | HelmStyle::SurveyDome) {
+                auburn
+            } else {
+                espresso
+            };
+            let tressed = TressedHead::new(neck_sealed, coiffure, hair);
+            let helmed = PressureHelmHead::new(tressed, visor, (shell, trim));
+            HelmetLampHead::new(RadioMastHead::new(helmed, mast_accent), self.lamp).emit(pose, target);
             return;
         }
 
         match self.style {
-            CrownStyle::TousledMop => {
-                TressedHead::new(collared, HairCoiffure::PartedWave, espresso).emit(pose, target);
+            HelmStyle::ClearBubble | HelmStyle::SolarVisor | HelmStyle::TacticalShell => {
+                let tressed = TressedHead::new(neck_sealed, HairCoiffure::CroppedTemples, espresso);
+                let helmed = PressureHelmHead::new(tressed, visor, (shell, trim));
+                HelmetLampHead::new(RadioMastHead::new(helmed, mast_accent), self.lamp).emit(pose, target);
             }
-            CrownStyle::VoyagerCrest => {
-                let bearded = BeardedHead::new(collared, BeardCut::FullJawline, (auburn.0, espresso.0));
-                TressedHead::new(bearded, HairCoiffure::PartedWave, espresso).emit(pose, target);
-            }
-            CrownStyle::SquireCrop => {
-                let bearded = BeardedHead::new(collared, BeardCut::PointedGoatee, auburn);
-                let tressed = TressedHead::new(bearded, HairCoiffure::CroppedTemples, auburn);
-                CrownedHead::new(tressed, BrowAdornment::SquireBeret, sw).emit(pose, target);
-            }
-            CrownStyle::MedievalGugel => {
-                let bearded = BeardedHead::new(collared, BeardCut::RangerStubble, espresso);
+            HelmStyle::SurveyDome | HelmStyle::CommsCanopy => {
+                let bearded = BeardedHead::new(neck_sealed, BeardCut::CrewStubble, espresso);
                 let tressed = TressedHead::new(bearded, HairCoiffure::CroppedTemples, espresso);
-                CrownedHead::new(tressed, BrowAdornment::RangerHood, sw).emit(pose, target);
+                let helmed = PressureHelmHead::new(tressed, visor, (shell, trim));
+                HelmetLampHead::new(RadioMastHead::new(helmed, mast_accent), self.lamp).emit(pose, target);
             }
-            CrownStyle::MerchantCap => {
-                let bearded = BeardedHead::new(collared, BeardCut::FullJawline, (auburn.0, espresso.0));
-                let tressed = TressedHead::new(bearded, HairCoiffure::CroppedTemples, auburn);
-                CrownedHead::new(tressed, BrowAdornment::VelvetCap, sw).emit(pose, target);
-            }
-            CrownStyle::VisoredHelm => {
-                let tressed = TressedHead::new(collared, HairCoiffure::CroppedTemples, espresso);
-                CrownedHead::new(tressed, BrowAdornment::RaisedSallet, sw).emit(pose, target);
-            }
-            CrownStyle::SmithGoggles => {
-                let bearded = BeardedHead::new(collared, BeardCut::BraidedFork, espresso);
-                let tressed = TressedHead::new(bearded, HairCoiffure::PartedWave, espresso);
-                CrownedHead::new(tressed, BrowAdornment::BrowGoggles, sw).emit(pose, target);
-            }
-            CrownStyle::KettleHelm => {
-                let bearded = BeardedHead::new(collared, BeardCut::GarrisonMustache, espresso);
-                let tressed = TressedHead::new(bearded, HairCoiffure::CroppedTemples, espresso);
-                CrownedHead::new(tressed, BrowAdornment::KettleBrim, sw).emit(pose, target);
+            HelmStyle::OpticGoggles | HelmStyle::ArmoredCowl | HelmStyle::CommandCrest => {
+                let bearded = BeardedHead::new(neck_sealed, BeardCut::FullJawline, (auburn.0, espresso.0));
+                let tressed = TressedHead::new(bearded, HairCoiffure::PartedWave, auburn);
+                let helmed = PressureHelmHead::new(tressed, visor, (shell, trim));
+                HelmetLampHead::new(RadioMastHead::new(helmed, mast_accent), self.lamp).emit(pose, target);
             }
         }
     }

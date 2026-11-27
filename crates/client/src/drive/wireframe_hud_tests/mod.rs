@@ -4,7 +4,7 @@ use glam::{Mat4, Vec3};
 use world::{
     AttitudeGuidance, BlockMedium, BlockMold, CelestialSystem, CellRole, JetTone, PilotOrder,
 };
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::{Avatar as _, AvatarMotor as _, HandGesture, PlanetaryAvatar};
 use crate::controls::{ActionBindings, ControlAction};
 use crate::flight::SurfaceFlight;
@@ -138,7 +138,7 @@ fn test_rocket_cameras_render_wireframe_hud_and_clear_cockpit() {
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);

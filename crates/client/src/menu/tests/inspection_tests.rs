@@ -1,14 +1,14 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{BiomedCubeWorld, BlockMedium, BlockMold, PlanetaryWorld, WorldEarthworks as _};
-use crate::attire::{HeldRelic, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{Avatar as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::menu::{EscapeMenu, InspectionModal, SessionModal};
 use crate::session::HeadlessSession;
 use super::{MockSurface, QuadCapture};
 
 #[test]
-fn test_inspection_modal_isolates_satchel_and_tome_from_close_rocket_blocks() {
+fn test_inspection_modal_isolates_satchel_from_close_rocket_blocks() {
     let mut world = BiomedCubeWorld::barren_beveled(16, 1.0);
     let g0 = world.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 0.0).y;
     let rig = BlockMold::cube().in_medium(BlockMedium::CantileverRig);
@@ -21,7 +21,7 @@ fn test_inspection_modal_isolates_satchel_and_tome_from_close_rocket_blocks() {
     // Stand right against the rocket nozzle block (< 0.30 units away, inside the 0.60m satchel reach)
     let close_pos = Vec3::new(1.25, g0 + 1.75, 0.52);
     let mut avatar = PlanetaryAvatar::at(close_pos);
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::RocketNozzle, HeldRelic::FlightConsole));
+    avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RocketNozzle, HeldRelic::FlightConsole));
     assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyE) && avatar.dispatch_wardrobe_key(KeyCode::KeyQ));
 
     let mut closed_figure = QuadCapture::empty();
@@ -55,13 +55,11 @@ fn test_inspection_modal_isolates_satchel_and_tome_from_close_rocket_blocks() {
     assert_eq!(decorated_pause.count(), raw_pause.count());
     modal.toggle_escape(&surface);
 
-    // Crafting Book (KeyC) also renders exclusively in InspectionModal foreground stage
-    assert!(avatar.dispatch_wardrobe_key(KeyCode::KeyC));
-    let (mut tome_figure, mut tome_ui) = (QuadCapture::empty(), QuadCapture::empty());
-    avatar.emit_figure(&mut tome_figure);
-    modal.emit_ui(&avatar, &mut tome_ui);
-    assert_eq!(tome_figure.count(), closed_figure.count());
-    assert!(tome_ui.count() > 100);
+    // Closing satchel restores the 10-quad gameplay crosshair cleanly
+    assert!(avatar.dispatch_wardrobe_key(KeyCode::Tab));
+    let mut closed_ui = QuadCapture::empty();
+    modal.emit_ui(&avatar, &mut closed_ui);
+    assert_eq!(closed_ui.count(), 10);
 
     // End-to-end HeadlessSession check with default InspectionModal wrapper
     let mut session = HeadlessSession::with_world_and_modal(

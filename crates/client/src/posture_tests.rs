@@ -2,7 +2,6 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{
     CompanionPortal, GravityField, MeshTarget, PlanetaryWorld, TerrainMesh, VesselDeck,
-    WoodlandLife,
 };
 use crate::avatar::{AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::horizon::CameraHorizon;
@@ -20,7 +19,6 @@ impl GravityField for FlatGroundWorld {
 
 impl world::WorldEarthworks for FlatGroundWorld {}
 impl TerrainMesh for FlatGroundWorld { fn emit_surface(&self, _target: &mut dyn MeshTarget) {} }
-impl WoodlandLife for FlatGroundWorld {}
 impl VesselDeck for FlatGroundWorld {}
 impl CompanionPortal for FlatGroundWorld {}
 
@@ -136,7 +134,7 @@ fn test_player_avatar_leap_posture_crouches_extends_and_lands() {
 
 #[test]
 fn test_doorframe_passage_respects_character_height_width_and_depth() {
-    use crate::attire::{BodyRegion, YouthAttire};
+    use crate::attire::{BodyRegion, EvaAttire};
     use world::{CuboidShape, ReliefElevation, TerracedRelief};
     struct FlatRelief;
     impl ReliefElevation for FlatRelief { fn elevation_at(&self, _: i32, _: i32) -> i32 { 0 } fn surface_height_at(&self, _: f32, _: f32) -> f32 { 0.0 } }
@@ -144,7 +142,6 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
     impl GravityField for DoorframeWorld { fn pull_direction_at(&self, _: Vec3) -> Vec3 { Vec3::NEG_Y } fn surface_up_at(&self, _: Vec3) -> Vec3 { Vec3::Y } }
     impl world::WorldEarthworks for DoorframeWorld {}
     impl TerrainMesh for DoorframeWorld { fn emit_surface(&self, _: &mut dyn MeshTarget) {} }
-    impl WoodlandLife for DoorframeWorld {}
     impl VesselDeck for DoorframeWorld {}
     impl CompanionPortal for DoorframeWorld {}
     impl PlanetaryWorld for DoorframeWorld {
@@ -163,7 +160,7 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
         if wide_two { t.stack_molded_cell(1, 0, lintel_base, Box::new(CuboidShape::new(0.5))); }
         DoorframeWorld(t)
     };
-    let walk_through = |world: &DoorframeWorld, attire: YouthAttire, x: f32, sneak: bool, sideways: bool| -> f32 {
+    let walk_through = |world: &DoorframeWorld, attire: EvaAttire, x: f32, sneak: bool, sideways: bool| -> f32 {
         let mut av = PlanetaryAvatar::with_attire(Vec3::new(x, 1.0, 0.90), Box::new(crate::flight::SurfaceFlight::terrestrial(1.0)), attire);
         if sideways { av.rotate_view(std::f32::consts::FRAC_PI_2 / 0.003, 0.0); }
         let mut ctrl = KeyMotion::idle();
@@ -174,13 +171,13 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
         av.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO).z
     };
     let (norm, short, tall) = (
-        YouthAttire::squire(),
-        YouthAttire::squire().with_adjusted_region(BodyRegion::Crown, -4, 0).with_adjusted_region(BodyRegion::Torso, -4, 0).with_adjusted_region(BodyRegion::Legs, -4, 0),
-        YouthAttire::squire().with_adjusted_region(BodyRegion::Crown, 4, 0).with_adjusted_region(BodyRegion::Torso, 4, 0).with_adjusted_region(BodyRegion::Legs, 4, 0),
+        EvaAttire::astronaut(),
+        EvaAttire::astronaut().with_adjusted_region(BodyRegion::Crown, -4, 0).with_adjusted_region(BodyRegion::Torso, -4, 0).with_adjusted_region(BodyRegion::Legs, -4, 0),
+        EvaAttire::astronaut().with_adjusted_region(BodyRegion::Crown, 4, 0).with_adjusted_region(BodyRegion::Torso, 4, 0).with_adjusted_region(BodyRegion::Legs, 4, 0),
     );
     let (slender, deep) = (
-        YouthAttire::squire().with_adjusted_region(BodyRegion::Torso, -4, -4).with_adjusted_region(BodyRegion::Arms, -4, -4),
-        YouthAttire::squire().with_adjusted_region(BodyRegion::Torso, 4, 4).with_adjusted_region(BodyRegion::Crown, 4, 4),
+        EvaAttire::astronaut().with_adjusted_region(BodyRegion::Torso, -4, -4).with_adjusted_region(BodyRegion::Arms, -4, -4),
+        EvaAttire::astronaut().with_adjusted_region(BodyRegion::Torso, 4, 4).with_adjusted_region(BodyRegion::Crown, 4, 4),
     );
     let (door_2x3, door_2x4, door_1x4) = (build_world(true, 1.5), build_world(true, 2.0), build_world(false, 2.0));
     assert!(walk_through(&door_2x3, norm, 0.50, false, false) > 0.45, "Default height (1.80m) must be blocked upright by 3-block (1.5m) lintel");
@@ -201,7 +198,7 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
         for layer in [-2.75, -2.25, -1.75] { tunnel.excavate_layer(u, v, layer); }
     }
     let tunnel_world = DoorframeWorld(tunnel);
-    let valkyrie = crate::menu::AvatarArchetype::Knight.female_attire();
+    let valkyrie = crate::menu::AvatarArchetype::Pilot.female_attire();
     let mut valk = PlanetaryAvatar::with_attire(Vec3::new(0.50, -2.0, 0.25), Box::new(crate::flight::SurfaceFlight::terrestrial(1.0)), valkyrie);
     let mut ctrl = KeyMotion::idle();
     ctrl.register_key(KeyCode::ShiftLeft, true);

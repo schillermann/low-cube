@@ -56,9 +56,6 @@ impl MediumPalette {
             BlockMedium::VitrifiedBasalt => (Vec3::new(0.14, 0.16, 0.22), Vec3::new(0.96, 0.34, 0.08)),
             BlockMedium::BlackBoxPod => (Vec3::new(0.98, 0.36, 0.05), Vec3::new(0.20, 0.23, 0.28)),
             BlockMedium::LaserBeacon => (Vec3::new(0.18, 1.00, 0.62), Vec3::new(0.92, 0.74, 0.24)),
-            BlockMedium::BakingOven => (Vec3::new(0.74, 0.44, 0.28), Vec3::new(0.96, 0.46, 0.12)),
-            BlockMedium::BloomeryForge => (Vec3::new(0.38, 0.36, 0.35), Vec3::new(1.00, 0.74, 0.26)),
-            BlockMedium::SmithyAnvil => (Vec3::new(0.56, 0.60, 0.66), Vec3::new(0.34, 0.22, 0.12)),
             BlockMedium::OriginStone => (Vec3::new(0.32, 0.96, 0.68), Vec3::new(0.95, 0.80, 0.32)),
         }
     }

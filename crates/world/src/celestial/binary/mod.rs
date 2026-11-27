@@ -4,7 +4,7 @@ use glam::Vec3;
 use crate::{
     BlockMold, ClimateZone, CompanionPortal, CraftBlueprint, CubePlanet, ExposedStratum,
     GravityField, MeadowRing, MeshTarget, PlanetaryWorld, PlannedMount, TerrainMesh, VesselDeck,
-    VesselSink, WoodlandLife,
+    VesselSink,
 };
 use super::lunar::LunarWorld;
 use super::translated::TranslatedWorld;
@@ -30,6 +30,10 @@ impl<G> BinaryPlanet<G> {
 
     pub(super) fn near_moon(&self, pos: Vec3) -> bool {
         self.moon.in_vicinity(pos, LunarWorld::HALF_SIZE + 36.0)
+    }
+
+    fn near_home(&self, pos: Vec3) -> bool {
+        pos.abs().max_element() <= self.home_half + 48.0
     }
 
     fn map_home_slice(idx: usize) -> usize {
@@ -107,7 +111,7 @@ impl<G> TerrainMesh for BinaryPlanet<G> {
     }
 
     fn drain_stale_meadow_patch(&self, center: Vec3, ring: &mut MeadowRing, target: &mut dyn MeshTarget) -> Option<usize> {
-        if position_near_home(center, self.home_half) {
+        if self.near_home(center) {
             self.home.drain_stale_meadow_patch(center, ring, target)
         } else {
             None
@@ -115,7 +119,7 @@ impl<G> TerrainMesh for BinaryPlanet<G> {
     }
 
     fn emit_meadow_around(&self, center: Vec3, view_dir: Vec3, target: &mut dyn MeshTarget) {
-        if position_near_home(center, self.home_half) {
+        if self.near_home(center) {
             self.home.emit_meadow_around(center, view_dir, target);
         }
     }
@@ -133,7 +137,7 @@ impl<G> TerrainMesh for BinaryPlanet<G> {
                 }
             }
         }
-        if position_near_home(position, self.home_half) {
+        if self.near_home(position) {
             mask |= 1u32 << 24;
         }
         mask
@@ -146,16 +150,6 @@ impl<G> TerrainMesh for BinaryPlanet<G> {
         for (face, stratum) in moon_buf {
             out.push((face + 6, stratum));
         }
-    }
-}
-
-impl<G> WoodlandLife for BinaryPlanet<G> {
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
-        if self.near_moon(center) { None } else { self.home.arboreal_perch_near(center, selector) }
-    }
-
-    fn woodland_habitat(&self, position: Vec3) -> bool {
-        !self.near_moon(position) && position_near_home(position, self.home_half)
     }
 }
 
@@ -261,8 +255,4 @@ impl<G: GravityField + Send> PlanetaryWorld for BinaryPlanet<G> {
     fn celestial_atlas(&self) -> crate::CelestialAtlas {
         self.moon.compose_atlas(self.home_half, LunarWorld::HALF_SIZE)
     }
-}
-
-fn position_near_home(pos: Vec3, home_half: f32) -> bool {
-    pos.abs().max_element() <= home_half + 48.0
 }

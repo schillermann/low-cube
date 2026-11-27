@@ -3,10 +3,10 @@ mod recipes;
 use crate::{BlockMedium, SurfaceFind};
 use self::recipes::RecipeLedger;
 
-/// Total number of held/stowed item codes (`0..=48`, fitting inside the 6-bit `0..=63` palm wire span).
-pub const RELIC_SLOT_COUNT: usize = 49;
+/// Total number of Space-Age held/stowed item codes (`0..=29`, fitting inside the 6-bit `0..=63` palm wire span).
+pub const RELIC_SLOT_COUNT: usize = 30;
 
-/// Domain catalog mapping `BlockMedium`, `SurfaceFind`, config tokens, and crafting recipes to item codes (`<= 4` fields).
+/// Domain catalog mapping `BlockMedium`, `SurfaceFind`, config tokens, and Space-Age fabrication recipes to item codes (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RelicCatalog {
     code: u8,
@@ -23,99 +23,77 @@ impl RelicCatalog {
     }
 
     pub const fn guest_permitted(self) -> bool {
-        self.code > 0 && (self.code as usize) < RELIC_SLOT_COUNT && self.code != 29
+        self.code > 0 && (self.code as usize) < RELIC_SLOT_COUNT && self.code != 23
     }
 
-    /// Indicates whether a survivor may expend this item through nourishment or tool fracture.
+    /// Indicates whether a survivor may expend this item through wear or consumption.
     pub const fn expendable(self) -> bool {
-        matches!(self.code, 3..=6 | 24 | 30 | 31 | 37..=41 | 45)
+        false
     }
 
     pub const fn slug(self) -> &'static str {
         match self.code {
             1 => "quarried_stone",
-            2 => "timber_torch",
-            3 => "wooden_mallet",
-            4 => "woodman_axe",
-            5 => "knightly_sword",
-            6 => "iron_spade",
-            7 => "earth",
-            8 => "deadwood",
-            9 => "flint",
-            10 => "timber",
-            11 => "planks",
-            12 => "crust_rock",
-            13 => "cantilever_crane",
-            14 => "steering_wheel",
-            15 => "aircraft_engine",
-            16 => "flight_console",
-            17 => "cabin_seat",
-            18 => "car_wheel",
-            19 => "field_camera",
-            20 => "pedal_cluster",
-            21 => "copper_ore",
-            22 => "iron_ore",
-            23 => "gold_ore",
-            24 => "boar_meat",
-            25 => "rocket_nozzle",
-            26 => "rocket_camera",
-            27 => "vehicle_blueprint",
-            28 => "fusion_torch",
-            29 => "spawn_stone",
-            30 => "flint_pickaxe",
-            31 => "iron_pickaxe",
-            32 => "titanium_hull",
-            33 => "carbon_silicate",
-            34 => "vitrified_basalt",
-            35 => "black_box_pod",
-            36 => "laser_beacon",
-            37 => "wooden_spade",
-            38 => "copper_spade",
-            39 => "titanium_spade",
-            40 => "copper_pickaxe",
-            41 => "titanium_pickaxe",
-            42 => "baking_oven",
-            43 => "bloomery_forge",
-            44 => "smithy_anvil",
-            45 => "roasted_boar",
-            46 => "copper_bloom",
-            47 => "iron_bloom",
-            48 => "titanium_billet",
+            2 => "rig_wrench",
+            3 => "suit_radio",
+            4 => "earth",
+            5 => "timber",
+            6 => "planks",
+            7 => "crust_rock",
+            8 => "cantilever_crane",
+            9 => "steering_wheel",
+            10 => "aircraft_engine",
+            11 => "flight_console",
+            12 => "cabin_seat",
+            13 => "car_wheel",
+            14 => "field_camera",
+            15 => "pedal_cluster",
+            16 => "copper_ore",
+            17 => "iron_ore",
+            18 => "gold_ore",
+            19 => "rocket_nozzle",
+            20 => "rocket_camera",
+            21 => "vehicle_blueprint",
+            22 => "fusion_torch",
+            23 => "spawn_stone",
+            24 => "titanium_hull",
+            25 => "carbon_silicate",
+            26 => "vitrified_basalt",
+            27 => "black_box_pod",
+            28 => "laser_beacon",
+            29 => "titanium_billet",
             _ => "empty",
         }
     }
 
     pub const fn from_medium(medium: BlockMedium) -> u8 {
         match medium {
-            BlockMedium::TurfEarth | BlockMedium::Sand => 7,
-            BlockMedium::CrustRock => 12,
             BlockMedium::QuarriedStone => 1,
-            BlockMedium::RawTimber => 10,
-            BlockMedium::PlanedPlanks => 11,
-            BlockMedium::CantileverRig => 13,
-            BlockMedium::SteeringWheel => 14,
-            BlockMedium::AircraftEngine => 15,
-            BlockMedium::FlightConsole => 16,
-            BlockMedium::CabinSeat => 17,
-            BlockMedium::CarWheel => 18,
-            BlockMedium::FieldCamera => 19,
-            BlockMedium::PedalCluster => 20,
-            BlockMedium::CopperOre => 21,
-            BlockMedium::IronOre => 22,
-            BlockMedium::GoldOre => 23,
-            BlockMedium::RocketNozzle => 25,
-            BlockMedium::RocketCamera => 26,
-            BlockMedium::VehicleBlueprint => 27,
-            BlockMedium::FusionTorch => 28,
-            BlockMedium::SpawnStone => 29,
-            BlockMedium::TitaniumHull => 32,
-            BlockMedium::CarbonSilicate => 33,
-            BlockMedium::VitrifiedBasalt => 34,
-            BlockMedium::BlackBoxPod => 35,
-            BlockMedium::LaserBeacon => 36,
-            BlockMedium::BakingOven => 42,
-            BlockMedium::BloomeryForge => 43,
-            BlockMedium::SmithyAnvil => 44,
+            BlockMedium::TurfEarth | BlockMedium::Sand => 4,
+            BlockMedium::RawTimber => 5,
+            BlockMedium::PlanedPlanks => 6,
+            BlockMedium::CrustRock => 7,
+            BlockMedium::CantileverRig => 8,
+            BlockMedium::SteeringWheel => 9,
+            BlockMedium::AircraftEngine => 10,
+            BlockMedium::FlightConsole => 11,
+            BlockMedium::CabinSeat => 12,
+            BlockMedium::CarWheel => 13,
+            BlockMedium::FieldCamera => 14,
+            BlockMedium::PedalCluster => 15,
+            BlockMedium::CopperOre => 16,
+            BlockMedium::IronOre => 17,
+            BlockMedium::GoldOre => 18,
+            BlockMedium::RocketNozzle => 19,
+            BlockMedium::RocketCamera => 20,
+            BlockMedium::VehicleBlueprint => 21,
+            BlockMedium::FusionTorch => 22,
+            BlockMedium::SpawnStone => 23,
+            BlockMedium::TitaniumHull => 24,
+            BlockMedium::CarbonSilicate => 25,
+            BlockMedium::VitrifiedBasalt => 26,
+            BlockMedium::BlackBoxPod => 27,
+            BlockMedium::LaserBeacon => 28,
             BlockMedium::OriginStone => 0,
         }
     }
@@ -123,25 +101,9 @@ impl RelicCatalog {
     pub const fn from_find(find: SurfaceFind) -> u8 {
         match find {
             SurfaceFind::EmptyHanded => 0,
-            SurfaceFind::DeadwoodBough => 8,
-            SurfaceFind::FlintStone => 9,
-            SurfaceFind::TimberTorch => 2,
-            SurfaceFind::WoodenMallet => 3,
-            SurfaceFind::WoodmanAxe => 4,
-            SurfaceFind::KnightlySword => 5,
-            SurfaceFind::IronSpade => 6,
-            SurfaceFind::BoarMeat => 24,
-            SurfaceFind::FlintPickaxe => 30,
-            SurfaceFind::IronPickaxe => 31,
-            SurfaceFind::WoodenSpade => 37,
-            SurfaceFind::CopperSpade => 38,
-            SurfaceFind::TitaniumSpade => 39,
-            SurfaceFind::CopperPickaxe => 40,
-            SurfaceFind::TitaniumPickaxe => 41,
-            SurfaceFind::RoastedBoar => 45,
-            SurfaceFind::CopperBloom => 46,
-            SurfaceFind::IronBloom => 47,
-            SurfaceFind::TitaniumBillet => 48,
+            SurfaceFind::RigWrench => 2,
+            SurfaceFind::SuitRadio => 3,
+            SurfaceFind::TitaniumBillet => 29,
             SurfaceFind::LooseBlock(m) => Self::from_medium(m),
         }
     }
@@ -154,11 +116,7 @@ impl RelicCatalog {
         RecipeLedger::new(recipe_idx).spec()
     }
 
-    pub const fn vacuum_hearth_recipe(recipe_idx: u8) -> bool {
-        RecipeLedger::new(recipe_idx).vacuum_hearth()
-    }
-
-    pub const fn air_hearth_recipe(recipe_idx: u8) -> bool {
-        RecipeLedger::new(recipe_idx).air_hearth()
+    pub const fn vacuum_smelt_recipe(recipe_idx: u8) -> bool {
+        RecipeLedger::new(recipe_idx).vacuum_smelt()
     }
 }

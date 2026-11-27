@@ -7,19 +7,20 @@ pub trait StartingSatchel: Send + Sync {
     fn provision(&self, satchel: BeltSatchel) -> BeltSatchel;
 }
 
-/// Baseline test kit starting satchel stowing the field camera and vehicle test parts.
-pub struct TestKitSatchel;
+/// Space-Age EVA mission kit starting satchel stowing crane, field camera, blueprint, and spacecraft/rover parts.
+pub struct EvaKitSatchel;
 
-impl TestKitSatchel {
-    /// Primary constructor initializing the baseline test kit satchel.
+impl EvaKitSatchel {
+    /// Primary constructor initializing the EVA mission kit satchel.
     pub fn new() -> Self {
         Self
     }
 }
 
-impl StartingSatchel for TestKitSatchel {
+impl StartingSatchel for EvaKitSatchel {
     fn provision(&self, satchel: BeltSatchel) -> BeltSatchel {
         satchel
+            .with_stowed_relic(HeldRelic::CantileverCrane, 1)
             .with_stowed_relic(HeldRelic::FieldCamera, 1)
             .with_stowed_relic(HeldRelic::VehicleBlueprint, 1)
             .with_stowed_relic(HeldRelic::FlightConsole, 1)
@@ -213,7 +214,7 @@ impl ServerSatchel {
     /// Secondary constructor assembling the full decorator chain in priority order.
     pub fn assembled() -> Self {
         Self::new(Box::new(ArgumentSatchel::process(Box::new(
-            EnvironmentSatchel::process(Box::new(FileSatchel::server(Box::new(TestKitSatchel::new())))),
+            EnvironmentSatchel::process(Box::new(FileSatchel::server(Box::new(EvaKitSatchel::new())))),
         ))))
     }
 }

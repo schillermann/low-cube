@@ -82,7 +82,7 @@ fn test_avatar_in_two_by_two_shaft_cannot_turn_fully_until_widened() {
     let clamped_left = forward_of(&avatar);
     assert!(clamped_left.dot(initial_fwd) > 0.35, "Avatar in 2x1 shaft must stop against opposite wall when turning the other way, got {clamped_left:?}");
 
-    let broad_attire = crate::attire::YouthAttire::squire()
+    let broad_attire = crate::attire::EvaAttire::astronaut()
         .with_adjusted_region(crate::attire::BodyRegion::Torso, 4, 4)
         .with_adjusted_region(crate::attire::BodyRegion::Arms, 4, 4);
     avatar.apply_attire(broad_attire);
@@ -90,7 +90,7 @@ fn test_avatar_in_two_by_two_shaft_cannot_turn_fully_until_widened() {
     let broad_clamped = forward_of(&avatar);
     assert!(broad_clamped.dot(initial_fwd) > clamped_left.dot(initial_fwd) + 0.15, "Broader customized upper body (Torso/Arms) must have tighter turning play in a 2x1 shaft ({} vs {})", broad_clamped.dot(initial_fwd), clamped_left.dot(initial_fwd));
 
-    avatar.apply_attire(crate::attire::YouthAttire::squire());
+    avatar.apply_attire(crate::attire::EvaAttire::astronaut());
     for u in 0..2 {
         let (x, z) = ((u as f32) * 0.5 + 0.25, 0.75);
         for _ in 0..3 {
@@ -117,7 +117,7 @@ fn test_avatar_in_two_by_two_shaft_cannot_turn_fully_until_widened() {
     }
     let deep_pos = world.constrain_to_surface(Vec3::new(0.45, 20.0, 0.25), 1.0);
     let mut deep_miner = PlanetaryAvatar::at(deep_pos);
-    deep_miner.apply_attire(crate::attire::YouthAttire::squire().with_relics(crate::attire::HeldRelic::IronPickaxe, crate::attire::HeldRelic::EmptyPalm));
+    deep_miner.apply_attire(crate::attire::EvaAttire::astronaut().with_relics(crate::attire::HeldRelic::RigWrench, crate::attire::HeldRelic::EmptyPalm));
     deep_miner.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
     deep_miner.rotate_degrees(90.0, 20.6);
     assert!(forward_of(&deep_miner).x > 0.85, "Deep 2x2 shaft with 2-block internal step must not wedge shoulders");

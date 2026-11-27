@@ -4,7 +4,7 @@ use world::{
     BlockMedium, BlockMold, CelestialSystem, CraftBlueprint, CraftPose, MeshTarget, PlanetaryWorld,
     Quad, VesselSink,
 };
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarPresence as _, HandGesture, PlanetaryAvatar,
 };
@@ -60,7 +60,7 @@ fn build_deep_space_rocket(world: &mut dyn PlanetaryWorld) -> PlanetaryAvatar {
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);

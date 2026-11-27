@@ -2,7 +2,7 @@ mod optics;
 
 use glam::{Mat4, Quat, Vec3};
 use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{BodyPose, SightMode, StrideRhythm, YouthAttire};
+use crate::attire::{BodyPose, EvaAttire, SightMode, StrideRhythm};
 use crate::controls::{ActionBindings, InputTrigger, KeyboardControls};
 use crate::earthworks::{PalmEarthworks, SurfaceReach};
 use crate::flight::GravitationalFlight;
@@ -40,7 +40,7 @@ impl EmbodiedAvatar {
     pub(in crate::avatar) fn with_attire_and_bindings(
         initial_position: Vec3,
         flight: Box<dyn GravitationalFlight>,
-        attire: YouthAttire,
+        attire: EvaAttire,
         bindings: ActionBindings,
     ) -> Self {
         let look_chain = SensitivityLook::calibrated(Box::new(ShaftLook::unobstructed(Box::new(MouseLook::idle()))));
@@ -89,7 +89,6 @@ impl EmbodiedAvatar {
     }
 
     pub(super) fn flush_world_notes(&mut self, world: &mut dyn PlanetaryWorld) {
-        self.gear.drain_crafted_notes(world);
         let _ = self.body.drain_flight_residue(world);
     }
 
@@ -116,7 +115,7 @@ impl EmbodiedAvatar {
         placed: Option<(Vec3, Vec3, Vec3, f32)>,
     ) -> Mat4 {
         let vpos = self.body.visual_position();
-        let tilt = self.bearing.tilt_radians() + self.body.posture().vertigo_sway();
+        let tilt = self.bearing.tilt_radians();
         self.sight_line.project_placed_or_sight(aspect, tilt, sight, self.body.posture(), vpos, &self.pose_at(vpos), placed)
     }
 
@@ -136,7 +135,6 @@ impl AvatarCondition for EmbodiedAvatar {
     fn perished(&self) -> bool { self.body.perished() }
     fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool { world.lethal_at(self.body.position()) }
     fn satchel_open(&self) -> bool { self.gear.satchel_open() }
-    fn driving(&self) -> bool { self.body.driving() }
     fn sheltered_berth(&self) -> bool { !self.body.standing() }
     fn ear_locus(&self) -> Vec3 { self.body.position() }
 
@@ -182,7 +180,7 @@ impl AvatarMotor for EmbodiedAvatar {
                 return outcome;
             }
         }
-        self.gear.act_with_hand(side, self.surface_reach(), &mut self.body, &mut self.bearing, world)
+        self.gear.act_with_hand(side, self.surface_reach(), &mut self.bearing, world)
     }
 
     fn release_hand(&mut self, world: &mut dyn PlanetaryWorld) -> bool {
@@ -253,10 +251,6 @@ impl AvatarMotor for EmbodiedAvatar {
         self.bearing.advance_stride(pos, final_pos, terrain_up, dt);
         self.body.relocate(final_pos);
         self.sight_line.constrain_shoulders(wedged, self.gear.shaft_yaw_play());
-    }
-
-    fn hunt_fauna(&mut self, side: f32, world: &mut dyn PlanetaryWorld) -> (bool, bool) {
-        self.gear.strike_fauna(side, self.surface_reach(), &mut self.bearing, world)
     }
 
     fn emit_reticle_for_aspect(&self, aspect: f32, target: &mut dyn MeshTarget) {

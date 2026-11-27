@@ -148,13 +148,13 @@ fn test_sector_snapshot_compacts_raycasts_into_raycast_free_wal_and_preserves_cl
         0,
         PresenceKinematics::new(Vec3::new(0.5, 16.0, 0.5), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     ));
     volc_guest.sync_presence(CompanionPresence::new(
         0,
         PresenceKinematics::new(Vec3::new(0.5, -16.0, 0.5), Quat::from_rotation_x(std::f32::consts::PI), Quat::IDENTITY, (0.0, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     ));
     for _ in 0..10 {
         let _ = temp_guest.step_surface(0.05);
@@ -179,8 +179,13 @@ fn test_sector_snapshot_compacts_raycasts_into_raycast_free_wal_and_preserves_cl
     let sock = UdpSocket::bind("127.0.0.1:0").expect("rogue");
     sock.set_nonblocking(true).expect("nb");
     let rogue_k = HandshakeIdentity::generate();
-    let mut knock = Vec::from(&b"LKNK"[..]);
-    knock.extend_from_slice(&rogue_k.public_bytes());
+    let mut knock = Vec::new();
+    crate::KnockFrame::new(
+        rogue_k.public_bytes(),
+        crate::KnockIntent::PinnedKey,
+        world::Callsign::unnamed(),
+    )
+    .inscribe(&mut knock);
     sock.send_to(&knock, addr).expect("knock");
     let _ = host.tick(0.05);
     let mut buf = [0u8; 1500];
@@ -253,7 +258,7 @@ fn test_parallel_inbox_authenticates_24_companion_burst_in_deterministic_order()
             cid,
             PresenceKinematics::new(Vec3::new(i as f32, 16.0, 0.0), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
             (0.0, 0.0, 0.0, 0.0),
-            PresenceAttire::squire(),
+            PresenceAttire::astronaut(),
         );
         wards.insert(cid, GuestWard::new(host_seal, peer, pres, WardVitals::fresh()));
 

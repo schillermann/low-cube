@@ -4,45 +4,45 @@ use super::limb::{AxialLimb, FacetedSolid};
 use super::palette::PigmentSwatch;
 use super::pose::BodyPose;
 
-/// Polygon-style footwear, boots, gaiters, and armored greaves.
+/// Space-Age EVA magnetic-sole boots, regolith gaiters, and armored leg greaves.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FootwearStyle {
-    CuffedBoots,
-    LacedBoots,
-    Turnshoes,
-    PlateGreaves,
-    ForgeBoots,
-    GarrisonBoots,
+pub enum MagBootStyle {
+    MagLockBoots,
+    TreadedGaiters,
+    DeckSlipons,
+    ArmoredSabatons,
+    ThermalBoots,
+    ClampBoots,
 }
 
-impl FootwearStyle {
+impl MagBootStyle {
     pub fn next(self) -> Self {
         Self::from_code(self.code() + 1)
     }
 
     pub fn from_code(code: u8) -> Self {
         match code % 6 {
-            0 => Self::CuffedBoots,
-            1 => Self::LacedBoots,
-            2 => Self::Turnshoes,
-            3 => Self::PlateGreaves,
-            4 => Self::ForgeBoots,
-            _ => Self::GarrisonBoots,
+            0 => Self::MagLockBoots,
+            1 => Self::TreadedGaiters,
+            2 => Self::DeckSlipons,
+            3 => Self::ArmoredSabatons,
+            4 => Self::ThermalBoots,
+            _ => Self::ClampBoots,
         }
     }
 
     pub fn code(self) -> u8 {
         match self {
-            Self::CuffedBoots => 0,
-            Self::LacedBoots => 1,
-            Self::Turnshoes => 2,
-            Self::PlateGreaves => 3,
-            Self::ForgeBoots => 4,
-            Self::GarrisonBoots => 5,
+            Self::MagLockBoots => 0,
+            Self::TreadedGaiters => 1,
+            Self::DeckSlipons => 2,
+            Self::ArmoredSabatons => 3,
+            Self::ThermalBoots => 4,
+            Self::ClampBoots => 5,
         }
     }
 
-    /// Emits left and right thighs, knees, calves, and Polygon-style boots or greaves.
+    /// Emits left and right pressurized suit legs, knee bellows, and magnetic-sole boots.
     pub fn emit(
         self,
         pose: &BodyPose,
@@ -50,13 +50,12 @@ impl FootwearStyle {
         target: &mut dyn MeshTarget,
     ) {
         let frame = pose.stance_frame();
-        let hose_col = pigment.chausses();
-        let garter_col = pigment.trim();
-        let vest = Vec3::new(0.46, 0.28, 0.16);
-        let boot_col = Vec3::new(0.30, 0.19, 0.11);
-        let dark_boot = Vec3::new(0.18, 0.12, 0.08);
-        let steel = Vec3::new(0.66, 0.70, 0.76);
-        let brass = Vec3::new(0.84, 0.68, 0.24);
+        let suit_leg = pigment.trousers();
+        let trim_col = pigment.trim();
+        let carbon = Vec3::new(0.22, 0.26, 0.32);
+        let mag_sole = Vec3::new(0.16, 0.19, 0.24);
+        let titanium = Vec3::new(0.68, 0.74, 0.82);
+        let amber = Vec3::new(0.92, 0.70, 0.22);
 
         for side in [-1.0f32, 1.0f32] {
             let (hip_pt, knee_pt, ankle_pt, toe_pt) = pose.leg_joints(side);
@@ -64,29 +63,29 @@ impl FootwearStyle {
             let calf_belly = knee_pt.lerp(ankle_pt, 0.36) + Vec3::new(side * 0.005, 0.0, -0.014);
 
             let thigh_col = match self {
-                Self::GarrisonBoots if side > 0.0 => pigment.cloth(),
-                Self::ForgeBoots => dark_boot,
-                _ => hose_col,
+                Self::ClampBoots if side > 0.0 => pigment.cloth(),
+                Self::ThermalBoots => pigment.cloth(),
+                _ => suit_leg,
             };
             AxialLimb::new(hip_pt, knee_above, pose.leg_girth(0.078), pose.leg_girth(0.066), thigh_col)
                 .emit(&frame, true, target);
 
             let (knee_r0, knee_r1, knee_col) = match self {
-                Self::PlateGreaves => (0.080, 0.074, brass),
-                Self::ForgeBoots => (0.078, 0.074, steel),
-                Self::LacedBoots => (0.076, 0.072, dark_boot),
-                _ => (0.069, 0.066, garter_col),
+                Self::ArmoredSabatons => (0.080, 0.074, titanium),
+                Self::ThermalBoots => (0.078, 0.074, amber),
+                Self::TreadedGaiters => (0.076, 0.072, carbon),
+                _ => (0.069, 0.066, trim_col),
             };
             AxialLimb::new(knee_above, knee_pt, pose.leg_girth(knee_r0), pose.leg_girth(knee_r1), knee_col)
                 .emit(&frame, true, target);
 
             let (calf_col, shaft_col, foot_col) = match self {
-                Self::PlateGreaves => (steel, steel, steel),
-                Self::Turnshoes => (hose_col, vest, boot_col),
-                Self::ForgeBoots => (dark_boot, vest, steel),
-                Self::GarrisonBoots => (steel * 0.85, dark_boot, dark_boot),
-                Self::LacedBoots => (hose_col, dark_boot, dark_boot),
-                Self::CuffedBoots => (hose_col, boot_col, boot_col),
+                Self::ArmoredSabatons => (titanium, titanium, mag_sole),
+                Self::DeckSlipons => (suit_leg, carbon, mag_sole),
+                Self::ThermalBoots => (pigment.cloth(), carbon, titanium),
+                Self::ClampBoots => (titanium * 0.85, carbon, mag_sole),
+                Self::TreadedGaiters => (suit_leg, carbon, mag_sole),
+                Self::MagLockBoots => (suit_leg, titanium * 0.78, mag_sole),
             };
 
             AxialLimb::new(knee_pt, calf_belly, pose.leg_girth(0.066), pose.leg_girth(0.078), calf_col)
@@ -95,21 +94,21 @@ impl FootwearStyle {
                 .emit(&frame, true, target);
 
             match self {
-                Self::CuffedBoots => {
+                Self::MagLockBoots => {
                     let cuff_bottom = knee_pt.lerp(ankle_pt, 0.50);
-                    AxialLimb::new(cuff_bottom, calf_belly, pose.leg_girth(0.078), pose.leg_girth(0.088), brass)
+                    AxialLimb::new(cuff_bottom, calf_belly, pose.leg_girth(0.078), pose.leg_girth(0.086), amber)
                         .emit(&frame, true, target);
                 }
-                Self::LacedBoots | Self::GarrisonBoots => {
+                Self::TreadedGaiters | Self::ClampBoots => {
                     let strap_top = knee_pt.lerp(ankle_pt, 0.56);
-                    AxialLimb::new(strap_top, ankle_pt, pose.leg_girth(0.080), pose.leg_girth(0.066), vest)
+                    AxialLimb::new(strap_top, ankle_pt, pose.leg_girth(0.080), pose.leg_girth(0.066), trim_col)
                         .emit(&frame, true, target);
                 }
-                Self::PlateGreaves | Self::Turnshoes | Self::ForgeBoots => {}
+                Self::ArmoredSabatons | Self::DeckSlipons | Self::ThermalBoots => {}
             }
 
             let heel_pt = ankle_pt + Vec3::new(0.0, -0.018, -0.028);
-            AxialLimb::new(heel_pt, toe_pt, pose.leg_girth(0.072), pose.leg_girth(0.056), foot_col)
+            AxialLimb::new(heel_pt, toe_pt, pose.leg_girth(0.074), pose.leg_girth(0.058), foot_col)
                 .emit(&frame, true, target);
         }
     }

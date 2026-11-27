@@ -16,7 +16,7 @@ fn peer_at(slot: u32, pos: Vec3) -> CompanionPresence {
         slot,
         PresenceKinematics::new(pos, Quat::IDENTITY, Quat::IDENTITY, (1.5, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     )
 }
 
@@ -66,7 +66,7 @@ fn test_sector_grid_audience_and_velocity_scaled_sight_isolate_climate_zones() {
 }
 
 #[test]
-fn test_sector_cracks_and_calm_wildlife_prevent_cross_zone_leakage() {
+fn test_sector_cracks_and_minimal_pulse_prevent_cross_zone_leakage() {
     let mut cracks = SectorCracks::empty();
     cracks.record(2, CrackNotice::new(Vec3::new(2.0, 512.0, 0.0), Vec3::NEG_Y, 2));
     for i in 0..24 {
@@ -87,13 +87,12 @@ fn test_sector_cracks_and_calm_wildlife_prevent_cross_zone_leakage() {
         crafts: Vec::new(),
         berths: Vec::new(),
         signals: Vec::new(),
-        wildlife: world::WildlifePulse::calm(),
     };
     calm_env.inscribe(&mut calm_bytes);
     assert_eq!(
         calm_bytes.len(),
         8,
-        "HostPulse outside wildlife earshot must omit all 93 wildlife bytes (0 extra bytes on wire)"
+        "Empty HostPulse must remain 8 bytes with zero idle trailer overhead"
     );
     assert_eq!(SanctuaryEnvelope::decode(&calm_bytes), Some(calm_env));
 }

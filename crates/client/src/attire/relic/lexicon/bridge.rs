@@ -37,9 +37,6 @@ impl RelicWorldBridge {
             HeldRelic::VitrifiedBasalt => BlockMedium::VitrifiedBasalt,
             HeldRelic::BlackBoxPod => BlockMedium::BlackBoxPod,
             HeldRelic::LaserBeacon => BlockMedium::LaserBeacon,
-            HeldRelic::BakingOven => BlockMedium::BakingOven,
-            HeldRelic::BloomeryForge => BlockMedium::BloomeryForge,
-            HeldRelic::SmithyAnvil => BlockMedium::SmithyAnvil,
             _ => BlockMedium::TurfEarth,
         }
     }
@@ -72,9 +69,6 @@ impl RelicWorldBridge {
             BlockMedium::VitrifiedBasalt => HeldRelic::VitrifiedBasalt,
             BlockMedium::BlackBoxPod => HeldRelic::BlackBoxPod,
             BlockMedium::LaserBeacon => HeldRelic::LaserBeacon,
-            BlockMedium::BakingOven => HeldRelic::BakingOven,
-            BlockMedium::BloomeryForge => HeldRelic::BloomeryForge,
-            BlockMedium::SmithyAnvil => HeldRelic::SmithyAnvil,
             BlockMedium::OriginStone => HeldRelic::EmptyPalm,
         }
     }
@@ -82,24 +76,8 @@ impl RelicWorldBridge {
     pub(super) const fn surface_find(&self) -> SurfaceFind {
         match self.relic {
             HeldRelic::EmptyPalm => SurfaceFind::EmptyHanded,
-            HeldRelic::DeadwoodBough => SurfaceFind::DeadwoodBough,
-            HeldRelic::FlintStone => SurfaceFind::FlintStone,
-            HeldRelic::TimberTorch => SurfaceFind::TimberTorch,
-            HeldRelic::WoodenMallet => SurfaceFind::WoodenMallet,
-            HeldRelic::WoodmanAxe => SurfaceFind::WoodmanAxe,
-            HeldRelic::KnightlySword => SurfaceFind::KnightlySword,
-            HeldRelic::WoodenSpade => SurfaceFind::WoodenSpade,
-            HeldRelic::CopperSpade => SurfaceFind::CopperSpade,
-            HeldRelic::IronSpade => SurfaceFind::IronSpade,
-            HeldRelic::TitaniumSpade => SurfaceFind::TitaniumSpade,
-            HeldRelic::FlintPickaxe => SurfaceFind::FlintPickaxe,
-            HeldRelic::CopperPickaxe => SurfaceFind::CopperPickaxe,
-            HeldRelic::IronPickaxe => SurfaceFind::IronPickaxe,
-            HeldRelic::TitaniumPickaxe => SurfaceFind::TitaniumPickaxe,
-            HeldRelic::BoarMeat => SurfaceFind::BoarMeat,
-            HeldRelic::RoastedBoar => SurfaceFind::RoastedBoar,
-            HeldRelic::CopperBloom => SurfaceFind::CopperBloom,
-            HeldRelic::IronBloom => SurfaceFind::IronBloom,
+            HeldRelic::RigWrench => SurfaceFind::RigWrench,
+            HeldRelic::SuitRadio => SurfaceFind::SuitRadio,
             HeldRelic::TitaniumBillet => SurfaceFind::TitaniumBillet,
             _ => SurfaceFind::LooseBlock(self.block_medium()),
         }
@@ -108,24 +86,8 @@ impl RelicWorldBridge {
     pub(super) const fn from_surface_find(find: SurfaceFind) -> HeldRelic {
         match find {
             SurfaceFind::EmptyHanded => HeldRelic::EmptyPalm,
-            SurfaceFind::DeadwoodBough => HeldRelic::DeadwoodBough,
-            SurfaceFind::FlintStone => HeldRelic::FlintStone,
-            SurfaceFind::TimberTorch => HeldRelic::TimberTorch,
-            SurfaceFind::WoodenMallet => HeldRelic::WoodenMallet,
-            SurfaceFind::WoodmanAxe => HeldRelic::WoodmanAxe,
-            SurfaceFind::KnightlySword => HeldRelic::KnightlySword,
-            SurfaceFind::WoodenSpade => HeldRelic::WoodenSpade,
-            SurfaceFind::CopperSpade => HeldRelic::CopperSpade,
-            SurfaceFind::IronSpade => HeldRelic::IronSpade,
-            SurfaceFind::TitaniumSpade => HeldRelic::TitaniumSpade,
-            SurfaceFind::FlintPickaxe => HeldRelic::FlintPickaxe,
-            SurfaceFind::CopperPickaxe => HeldRelic::CopperPickaxe,
-            SurfaceFind::IronPickaxe => HeldRelic::IronPickaxe,
-            SurfaceFind::TitaniumPickaxe => HeldRelic::TitaniumPickaxe,
-            SurfaceFind::BoarMeat => HeldRelic::BoarMeat,
-            SurfaceFind::RoastedBoar => HeldRelic::RoastedBoar,
-            SurfaceFind::CopperBloom => HeldRelic::CopperBloom,
-            SurfaceFind::IronBloom => HeldRelic::IronBloom,
+            SurfaceFind::RigWrench => HeldRelic::RigWrench,
+            SurfaceFind::SuitRadio => HeldRelic::SuitRadio,
             SurfaceFind::TitaniumBillet => HeldRelic::TitaniumBillet,
             SurfaceFind::LooseBlock(medium) => Self::from_medium(medium),
         }

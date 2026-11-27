@@ -12,7 +12,6 @@ mod envelope;
 mod fleet_ledger;
 mod glide;
 mod guest_journal;
-mod host_sounder;
 mod host_state;
 mod host_wire;
 mod hosted_planet;
@@ -23,7 +22,6 @@ mod nat;
 mod passport;
 mod remote_link;
 mod remote_planet;
-mod remote_wildlife;
 mod sanctuary_host;
 mod saved_planet;
 mod seal;
@@ -72,7 +70,6 @@ pub use glide::{
     TimelineClock, VesselDeckCurve, WaypointCurve,
 };
 pub use guest_journal::GuestJournal;
-pub use host_sounder::{HostSounder, PendingShove, PendingSnort};
 pub use host_state::HostState;
 pub use host_wire::HostWire;
 pub use hosted_planet::HostedPlanet;
@@ -84,7 +81,6 @@ pub use passport::{
 };
 pub use remote_link::RemoteLink;
 pub use remote_planet::RemotePlanet;
-pub use remote_wildlife::RemoteWildlife;
 pub use sanctuary_host::SanctuaryHost;
 pub use saved_planet::SavedPlanet;
 pub use seal::{HandshakeIdentity, SessionSeal};

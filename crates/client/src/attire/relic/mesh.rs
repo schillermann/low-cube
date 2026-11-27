@@ -2,7 +2,7 @@ use glam::Vec3;
 use world::{BlockMold, MeshTarget, Quad};
 use super::super::compartment::{CompartmentBackplate, ShowcasedCompartment, SlotPlaque};
 use super::super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
-use super::plinth::{BoarHaunch, ForgeBillet, SlopedBeam, SquarePlinth};
+use super::plinth::{SlopedBeam, SquarePlinth, TitaniumIngot};
 use super::temper::ToolCondition;
 use super::tools::ToolSculpture;
 use super::HeldRelic;
@@ -40,76 +40,44 @@ impl RelicFigure {
         Self { relic, mold, condition }
     }
 
-    fn emit_deadwood(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
-        let (bark, dark, twig, heart, leaf) = (
-            Vec3::new(0.46, 0.29, 0.16),
-            Vec3::new(0.36, 0.23, 0.12),
-            Vec3::new(0.54, 0.36, 0.20),
-            Vec3::new(0.84, 0.68, 0.40),
-            Vec3::new(0.34, 0.58, 0.22),
-        );
-        AxialLimb::new(Vec3::new(-0.082, 0.015, -0.024), Vec3::new(-0.070, 0.015, -0.019), 0.012, 0.013, heart).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(-0.070, 0.015, -0.019), Vec3::new(-0.006, 0.014, 0.002), 0.014, 0.012, bark).emit(cradle, false, target);
-        AxialLimb::new(Vec3::new(-0.006, 0.014, 0.002), Vec3::new(0.048, 0.019, 0.014), 0.012, 0.010, dark).emit(cradle, false, target);
-        AxialLimb::new(Vec3::new(0.048, 0.019, 0.014), Vec3::new(0.094, 0.032, 0.035), 0.010, 0.005, bark).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(-0.010, 0.015, 0.001), Vec3::new(-0.044, 0.052, 0.044), 0.008, 0.004, twig).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(0.032, 0.018, 0.010), Vec3::new(0.068, 0.056, -0.024), 0.007, 0.003, dark).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(-0.042, 0.050, 0.042), Vec3::new(-0.056, 0.064, 0.056), 0.006, 0.002, leaf).emit(cradle, true, target);
-    }
-
-    fn emit_flint(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
-        let (cortex, core, flake, edge) = (
-            Vec3::new(0.76, 0.70, 0.58),
-            Vec3::new(0.19, 0.22, 0.28),
-            Vec3::new(0.52, 0.60, 0.70),
-            Vec3::new(0.80, 0.86, 0.94),
-        );
-        TaperedPrism::new(7, Vec3::new(0.0, 0.003, 0.0), Vec3::new(0.0, 0.016, 0.0), 0.045, 0.036, 0.042, 0.034, cortex).emit(cradle, false, target);
-        TaperedPrism::new(7, Vec3::new(0.0, 0.014, 0.0), Vec3::new(-0.003, 0.038, 0.003), 0.041, 0.033, 0.025, 0.020, core).emit(cradle, true, target);
-        TaperedPrism::new(5, Vec3::new(-0.008, 0.018, 0.004), Vec3::new(-0.016, 0.054, 0.010), 0.023, 0.017, 0.003, 0.008, flake)
-            .emit(&cradle.pitched(0.24).yawed(0.42), true, target);
-        TaperedPrism::new(5, Vec3::new(0.010, 0.016, -0.004), Vec3::new(0.018, 0.048, -0.008), 0.019, 0.014, 0.002, 0.006, edge)
-            .emit(&cradle.pitched(-0.20).yawed(-0.52), true, target);
-    }
-
     fn emit_cantilever(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
-        let (stone, iron_dark, iron_steel, timber, timber_dark, brass, amber) = (
+        let (stone, iron_dark, iron_steel, beam_alloy, beam_trim, cyan_bolt, amber) = (
             Vec3::new(0.52, 0.54, 0.58),
             Vec3::new(0.24, 0.27, 0.32),
             Vec3::new(0.42, 0.46, 0.52),
-            Vec3::new(0.76, 0.56, 0.32),
-            Vec3::new(0.54, 0.38, 0.20),
-            Vec3::new(0.88, 0.72, 0.28),
+            Vec3::new(0.66, 0.72, 0.80),
+            Vec3::new(0.44, 0.50, 0.58),
+            Vec3::new(0.28, 0.84, 0.96),
             Vec3::new(0.98, 0.68, 0.18),
         );
         SquarePlinth::new((Vec3::new(-0.037, 0.0, -0.027), Vec3::new(0.017, 0.009, 0.027)), (stone, stone)).emit(cradle, true, target);
         SquarePlinth::new((Vec3::new(-0.037, 0.009, -0.015), Vec3::new(-0.007, 0.020, 0.015)), (iron_dark, iron_steel)).emit(cradle, false, target);
-        AxialLimb::new(Vec3::new(-0.022, 0.017, 0.0), Vec3::new(-0.022, 0.165, 0.0), 0.012, 0.011, timber).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(-0.022, 0.017, 0.0), Vec3::new(-0.022, 0.165, 0.0), 0.012, 0.011, beam_alloy).emit(cradle, true, target);
         TaperedPrism::new(6, Vec3::new(-0.022, 0.105, 0.0), Vec3::new(-0.022, 0.136, 0.0), 0.016, 0.016, 0.016, 0.016, iron_dark).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(-0.022, 0.120, -0.020), Vec3::new(-0.022, 0.120, 0.020), 0.007, 0.007, brass).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(-0.026, 0.122, 0.0), Vec3::new(0.056, 0.122, 0.0), 0.010, 0.010, timber).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(-0.022, 0.120, -0.020), Vec3::new(-0.022, 0.120, 0.020), 0.007, 0.007, cyan_bolt).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(-0.026, 0.122, 0.0), Vec3::new(0.056, 0.122, 0.0), 0.010, 0.010, beam_alloy).emit(cradle, true, target);
         SquarePlinth::new((Vec3::new(-0.0355, 0.062, -0.0135), Vec3::new(-0.0085, 0.075, 0.0135)), (iron_dark, iron_steel)).emit(cradle, true, target);
         SquarePlinth::new((Vec3::new(0.015, 0.110, -0.0115), Vec3::new(0.029, 0.134, 0.0115)), (iron_dark, iron_steel)).emit(cradle, true, target);
         let brace_ends = (Vec3::new(-0.020, 0.069, 0.0), Vec3::new(0.022, 0.120, 0.0));
-        SlopedBeam::new(brace_ends, (0.0052, 0.0056), (timber_dark, timber)).emit(cradle, false, target);
+        SlopedBeam::new(brace_ends, (0.0052, 0.0056), (beam_trim, beam_alloy)).emit(cradle, false, target);
         SlopedBeam::new(brace_ends, (0.0025, 0.0066), (iron_dark, iron_steel)).emit(cradle, false, target);
         TaperedPrism::new(6, Vec3::new(0.054, 0.102, 0.0), Vec3::new(0.054, 0.142, 0.0), 0.012, 0.022, 0.012, 0.022, iron_dark).emit(cradle, true, target);
         TaperedPrism::new(6, Vec3::new(0.062, 0.108, 0.0), Vec3::new(0.062, 0.136, 0.0), 0.010, 0.016, 0.010, 0.016, amber).emit(cradle, true, target);
     }
 
     fn emit_camera(cradle: &LimbFrame, target: &mut dyn MeshTarget) {
-        let (leather, mahogany, brass, glass, flash) = (
-            Vec3::new(0.18, 0.19, 0.24),
-            Vec3::new(0.46, 0.25, 0.14),
-            Vec3::new(0.88, 0.72, 0.28),
+        let (chassis, grip, alloy, glass, flash) = (
+            Vec3::new(0.18, 0.21, 0.26),
+            Vec3::new(0.28, 0.33, 0.40),
+            Vec3::new(0.76, 0.82, 0.88),
             Vec3::new(0.32, 0.68, 0.88),
             Vec3::new(0.95, 0.92, 0.82),
         );
-        TaperedPrism::new(4, Vec3::new(0.0, 0.004, 0.0), Vec3::new(0.0, 0.068, 0.0), 0.054, 0.036, 0.054, 0.036, leather).emit(cradle, true, target);
-        TaperedPrism::new(4, Vec3::new(0.0, 0.008, 0.0), Vec3::new(0.0, 0.064, 0.0), 0.058, 0.028, 0.058, 0.028, mahogany).emit(cradle, true, target);
-        AxialLimb::new(Vec3::new(0.0, 0.038, 0.020), Vec3::new(0.0, 0.038, 0.068), 0.026, 0.022, brass).emit(cradle, true, target);
+        TaperedPrism::new(4, Vec3::new(0.0, 0.004, 0.0), Vec3::new(0.0, 0.068, 0.0), 0.054, 0.036, 0.054, 0.036, chassis).emit(cradle, true, target);
+        TaperedPrism::new(4, Vec3::new(0.0, 0.008, 0.0), Vec3::new(0.0, 0.064, 0.0), 0.058, 0.028, 0.058, 0.028, grip).emit(cradle, true, target);
+        AxialLimb::new(Vec3::new(0.0, 0.038, 0.020), Vec3::new(0.0, 0.038, 0.068), 0.026, 0.022, alloy).emit(cradle, true, target);
         AxialLimb::new(Vec3::new(0.0, 0.038, 0.064), Vec3::new(0.0, 0.038, 0.074), 0.017, 0.017, glass).emit(cradle, true, target);
-        TaperedPrism::new(6, Vec3::new(-0.024, 0.066, 0.0), Vec3::new(-0.024, 0.082, 0.0), 0.010, 0.010, 0.008, 0.008, brass).emit(cradle, true, target);
+        TaperedPrism::new(6, Vec3::new(-0.024, 0.066, 0.0), Vec3::new(-0.024, 0.082, 0.0), 0.010, 0.010, 0.008, 0.008, alloy).emit(cradle, true, target);
         TaperedPrism::new(4, Vec3::new(0.016, 0.066, 0.004), Vec3::new(0.016, 0.086, 0.004), 0.014, 0.012, 0.018, 0.014, flash).emit(cradle, true, target);
     }
 
@@ -135,20 +103,8 @@ impl RelicFigure {
                 Vec3::new(0.28, 0.65, 0.25),
                 target,
             );
-        } else if self.relic == HeldRelic::DeadwoodBough {
-            Self::emit_deadwood(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target);
-        } else if self.relic == HeldRelic::FlintStone {
-            Self::emit_flint(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.001, 0.048)), target);
-        } else if self.relic == HeldRelic::BoarMeat {
-            BoarHaunch::raw().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.002, 0.048)), true, target);
-        } else if self.relic == HeldRelic::RoastedBoar {
-            BoarHaunch::oven_roasted().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.016, 0.002, 0.048)), true, target);
-        } else if self.relic == HeldRelic::CopperBloom {
-            ForgeBillet::copper().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), true, target);
-        } else if self.relic == HeldRelic::IronBloom {
-            ForgeBillet::iron().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), true, target);
         } else if self.relic == HeldRelic::TitaniumBillet {
-            ForgeBillet::space_titanium().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), true, target);
+            TitaniumIngot::vacuum_cast().emit(&frame.palm_cradle(side, Vec3::new(-side * 0.015, 0.002, 0.048)), true, target);
         } else {
             ToolSculpture::new(self.relic, self.condition).emit_in_palm(gx, gz, frame, target);
         }
@@ -175,33 +131,13 @@ impl RelicFigure {
                 Vec3::new(0.28, 0.65, 0.25),
                 &mut lit,
             );
-        } else if self.relic == HeldRelic::DeadwoodBough {
-            Self::emit_deadwood(&showcase.shifted(0.0, -0.012, 0.0).scaled(0.38), &mut lit);
-        } else if self.relic == HeldRelic::FlintStone {
-            Self::emit_flint(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.62), &mut lit);
-        } else if self.relic == HeldRelic::BoarMeat {
-            BoarHaunch::raw().emit(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.56), true, &mut lit);
-        } else if self.relic == HeldRelic::RoastedBoar {
-            BoarHaunch::oven_roasted().emit(&showcase.shifted(0.0, -0.016, 0.0).scaled(0.56), true, &mut lit);
-        } else if self.relic == HeldRelic::CopperBloom {
-            ForgeBillet::copper().emit(&showcase.shifted(0.0, -0.018, 0.0).scaled(0.68), true, &mut lit);
-        } else if self.relic == HeldRelic::IronBloom {
-            ForgeBillet::iron().emit(&showcase.shifted(0.0, -0.018, 0.0).scaled(0.68), true, &mut lit);
         } else if self.relic == HeldRelic::TitaniumBillet {
-            ForgeBillet::space_titanium().emit(&showcase.shifted(0.0, -0.018, 0.0).scaled(0.68), true, &mut lit);
+            TitaniumIngot::vacuum_cast().emit(&showcase.shifted(0.0, -0.018, 0.0).scaled(0.68), true, &mut lit);
         } else {
-            let (scale, yaw, mid_y, mid_z) = if self.relic == HeldRelic::KnightlySword {
-                (0.090, 0.45, 0.285, 0.054)
-            } else if self.relic.spade_blade() {
-                (0.125, 0.45, 0.115, 0.062)
-            } else if self.relic == HeldRelic::WoodmanAxe {
-                (0.165, 1.32, 0.052, 0.092)
-            } else if self.relic.pickaxe_head() {
-                (0.148, 1.32, 0.060, 0.056)
-            } else if self.relic == HeldRelic::TimberTorch {
-                (0.185, 0.45, 0.075, 0.058)
+            let (scale, yaw, mid_y, mid_z) = if self.relic == HeldRelic::RigWrench {
+                (0.185, 1.18, 0.068, 0.056)
             } else {
-                (0.205, 0.85, 0.050, 0.054)
+                (0.215, 0.55, 0.056, 0.054)
             };
             let tool_frame = slot_frame
                 .shifted(0.0, 0.0, -0.035)

@@ -4,7 +4,7 @@ use world::{
     BlockMedium, BlockMold, CardinalTurn, CelestialSystem, CraftBlueprint, CraftPose, MeshTarget,
     MoldArchetype, PilotOrder, PlanetaryWorld, Quad, SurfaceFrame, VehicleAxes, VehiclePart,
 };
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, HandGesture, PlanetaryAvatar};
 use crate::black_box::PresenceProbe;
 use crate::controls::{ActionBindings, KeyMotion, KeyboardControls};
@@ -26,7 +26,7 @@ fn board_and_test_yaw_then_liftoff(mut world: Box<dyn PlanetaryWorld>, seat_x: f
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);

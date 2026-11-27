@@ -1,7 +1,7 @@
 use glam::{Quat, Vec3};
 use crate::attire::{
-    BeltSatchel, BodyPose, HeldRelic, LimbFrame, SatchelBurden, StrideRhythm, YouthAttire,
-    YouthPhysique,
+    BeltSatchel, BodyPose, CrewPhysique, EvaAttire, HeldRelic, LimbFrame, SatchelBurden,
+    StrideRhythm,
 };
 use super::super::burden::{CarryLoad, SlotBurden};
 use super::super::compartment::{CompartmentBackplate, SlotPlaque, WeightedCompartment};
@@ -27,11 +27,11 @@ fn test_satchel_renders_all_fifteen_slots_and_navigates_empty_and_occupied_compa
         Quat::IDENTITY,
         0.8,
         StrideRhythm::new(0.0, 1.0),
-        YouthPhysique::SlenderSquire,
+        CrewPhysique::OrbitalCadet,
     );
     let empty_satchel = BeltSatchel::empty().with_open(true);
     let mut empty_ledger = QuadLedger::empty();
-    empty_satchel.emit_for_attire(&pose, YouthAttire::squire(), &mut empty_ledger);
+    empty_satchel.emit_for_attire(&pose, EvaAttire::astronaut(), &mut empty_ledger);
     assert!(
         empty_ledger.quads.len() >= 15 * 73,
         "Empty satchel must still render all 15 available slot frames, got {}",
@@ -42,7 +42,7 @@ fn test_satchel_renders_all_fifteen_slots_and_navigates_empty_and_occupied_compa
     let (moved_down, ok_down) = moved_right.navigate(0, 1);
     assert!(ok_right && ok_down, "WASD must navigate freely across unoccupied slots");
     let mut moved_ledger = QuadLedger::empty();
-    moved_down.emit_for_attire(&pose, YouthAttire::squire(), &mut moved_ledger);
+    moved_down.emit_for_attire(&pose, EvaAttire::astronaut(), &mut moved_ledger);
     let changed_selection = empty_ledger
         .quads
         .iter()
@@ -97,18 +97,18 @@ fn test_english_weight_grades_stack_summation_and_corner_triangle_pigment() {
     assert_ne!(plaque_corner_color(weighty_one), plaque_corner_color(heavy_one));
     assert_ne!(plaque_corner_color(heavy_one), plaque_corner_color(heavy_ten));
 
-    let squire = YouthAttire::squire();
+    let cadet = EvaAttire::astronaut();
     let pose = BodyPose::new(
         Vec3::new(0.0, 9.0, 0.0),
         Quat::IDENTITY,
         Quat::IDENTITY,
         0.8,
         StrideRhythm::new(0.0, 1.0),
-        YouthPhysique::SlenderSquire,
+        CrewPhysique::OrbitalCadet,
     );
     let (mut light_tray, mut heavy_tray) = (QuadLedger::empty(), QuadLedger::empty());
-    BeltSatchel::empty().with_stowed_relic(HeldRelic::PlankBlock, 1).with_open(true).emit_for_attire(&pose, squire, &mut light_tray);
-    BeltSatchel::empty().with_stowed_relic(HeldRelic::PlankBlock, 30).with_open(true).emit_for_attire(&pose, squire, &mut heavy_tray);
+    BeltSatchel::empty().with_stowed_relic(HeldRelic::PlankBlock, 1).with_open(true).emit_for_attire(&pose, cadet, &mut light_tray);
+    BeltSatchel::empty().with_stowed_relic(HeldRelic::PlankBlock, 30).with_open(true).emit_for_attire(&pose, cadet, &mut heavy_tray);
     let color_changed = light_tray
         .quads
         .iter()
@@ -122,7 +122,7 @@ fn test_handheld_crane_baseplate_and_pedestal_ring_emit_orthogonal_square_plinth
     let hand = LimbFrame::new(Vec3::ZERO, Vec3::X, Vec3::Y, Vec3::NEG_Z);
     let mut ledger = QuadLedger::empty();
     HeldRelic::CantileverCrane.figure(world::BlockMold::cube()).emit_in_palm(1.0, &hand, &mut ledger);
-    let (stone, iron_steel, timber_dark) = (Vec3::new(0.52, 0.54, 0.58), Vec3::new(0.42, 0.46, 0.52), Vec3::new(0.54, 0.38, 0.20));
+    let (stone, iron_steel, beam_trim) = (Vec3::new(0.52, 0.54, 0.58), Vec3::new(0.42, 0.46, 0.52), Vec3::new(0.44, 0.50, 0.58));
     let mut stone_normals = Vec::new();
     let (mut stone_span, mut steel_quads, mut brace_flanks) = (0.0_f32, 0_usize, 0_usize);
     let mut ring_square_top = false;
@@ -136,7 +136,7 @@ fn test_handheld_crane_baseplate_and_pedestal_ring_emit_orthogonal_square_plinth
                 let (ea, eb) = (v1 - v0, v3 - v0);
                 steel_quads += 1;
                 ring_square_top |= (ea.length() - 0.030).abs() < 1e-4 && (ea.length() - eb.length()).abs() < 1e-5 && ea.dot(eb).abs() < 1e-5;
-            } else if (col - timber_dark).length_squared() < 1e-6 && (v2 - v3).length_squared() > 1e-5 {
+            } else if (col - beam_trim).length_squared() < 1e-6 && (v2 - v3).length_squared() > 1e-5 {
                 brace_flanks += 1;
             }
         });

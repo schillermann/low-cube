@@ -70,13 +70,11 @@ impl SessionStage {
     }
 
     pub(super) fn use_left(&mut self) -> bool {
-        let (struck, dropped) = self.avatar.hunt_fauna(-1.0, self.world.as_mut());
-        if struck { dropped } else { self.avatar.use_left_hand(self.world.as_mut()) }
+        self.avatar.use_left_hand(self.world.as_mut())
     }
 
     pub(super) fn use_right(&mut self) -> bool {
-        let (struck, dropped) = self.avatar.hunt_fauna(1.0, self.world.as_mut());
-        if struck { dropped } else { self.avatar.use_right_hand(self.world.as_mut()) }
+        self.avatar.use_right_hand(self.world.as_mut())
     }
 
     pub(super) fn release_hand(&mut self) -> bool { self.avatar.release_hand(self.world.as_mut()) }
@@ -237,7 +235,6 @@ impl SessionStage {
             let mut changed = false;
             for _ in 0..ticks {
                 self.avatar.step_motion(step, self.overlay.controls(), self.world.as_ref());
-                self.avatar.step_fauna(step, self.world.as_mut());
                 let dug = self.avatar.step_digging(self.world.as_mut());
                 let stepped = self.world.step_surface(step);
                 let handed_off = self.avatar.reconcile_cosmic_frame(self.world.as_mut());

@@ -4,7 +4,7 @@ mod helm;
 use glam::{Quat, Vec3};
 use world::SurfaceSightRay;
 use super::limb::LimbFrame;
-use super::proportion::YouthPhysique;
+use super::proportion::CrewPhysique;
 use super::rhythm::{MartialStyle, StrideRhythm};
 pub use arms::ArmKinematics;
 use helm::CockpitPosture;
@@ -23,7 +23,7 @@ struct PoseMotion {
     leap: f32,
     helm: CockpitPosture,
     rhythm: StrideRhythm,
-    physique: YouthPhysique,
+    physique: CrewPhysique,
 }
 
 /// Kinematic pose of an avatar body on a planetary surface for first-person and multiplayer display.
@@ -42,7 +42,7 @@ impl BodyPose {
         eye_height: f32,
         leap: f32,
         rhythm: StrideRhythm,
-        physique: YouthPhysique,
+        physique: CrewPhysique,
     ) -> Self {
         Self {
             stance: PoseStance { position, surface_rot, view_rot, eye_height },
@@ -56,7 +56,7 @@ impl BodyPose {
         view_rot: Quat,
         eye_height: f32,
         rhythm: StrideRhythm,
-        physique: YouthPhysique,
+        physique: CrewPhysique,
     ) -> Self {
         Self::with_leap_pose(position, surface_rot, view_rot, eye_height, 0.0, rhythm, physique)
     }
@@ -90,7 +90,7 @@ impl BodyPose {
         Self { stance: PoseStance { surface_rot, ..self.stance }, ..self }
     }
 
-    pub fn with_physique(self, physique: YouthPhysique) -> Self {
+    pub fn with_physique(self, physique: CrewPhysique) -> Self {
         Self { motion: PoseMotion { physique, ..self.motion }, ..self }
     }
 

@@ -33,7 +33,6 @@ impl world::WorldEarthworks for LoopbackChatWorld {}
 impl world::TerrainMesh for LoopbackChatWorld {
     fn emit_surface(&self, t: &mut dyn world::MeshTarget) { self.origin.emit_surface(t); }
 }
-impl world::WoodlandLife for LoopbackChatWorld {}
 impl world::VesselDeck for LoopbackChatWorld {}
 impl CompanionPortal for LoopbackChatWorld {
     fn utter_nearby(&mut self, text: &str) {

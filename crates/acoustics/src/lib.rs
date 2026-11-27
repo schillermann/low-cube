@@ -1,17 +1,12 @@
 mod attitude_hiss;
-mod birdsong;
-mod boar_snort;
 mod deck;
 mod dig_decorators;
 mod fusion_hum;
-mod hearty_bite;
-mod hoofbeats;
 mod hull_chorus;
 mod knuckle_wince;
 mod nozzle_roar;
 mod outbox;
 mod rain_patter;
-mod roe_bark;
 mod shutter;
 mod sink;
 mod spatial;
@@ -23,13 +18,9 @@ use std::f32::consts::PI;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 pub use self::attitude_hiss::AttitudeHiss;
-pub use self::birdsong::SparrowChirp;
-pub use self::boar_snort::BoarSnort;
 pub use self::deck::HullDriveDemand;
 pub use self::dig_decorators::{CadencedWave, CrumbledWave, DigWaveTrace, InflectedWave};
 pub use self::fusion_hum::FusionHum;
-pub use self::hearty_bite::HeartyBite;
-pub use self::hoofbeats::RoeHoofbeats;
 pub use self::hull_chorus::{HullChorus, HullWaveTrace, PropulsionCue};
 pub use self::knuckle_wince::KnuckleWince;
 pub use self::nozzle_roar::NozzleRoar;
@@ -38,11 +29,10 @@ pub use self::rain_patter::{
     CanopyWash, MuffledCanopy, PatterDrops, PrecipitationCue, RainWaveTrace, ShowerDemand,
     WindSwell,
 };
-pub use self::roe_bark::RoeBark;
 pub use self::shutter::ShutterClick;
 pub use self::spatial::{MonoSource, SpatialStage};
 pub use self::tape::TapeSample;
-pub use self::work_waves::{EngineRumble, PalmScrape, SpadeStrike};
+pub use self::work_waves::{EngineRumble, PalmScrape, RigStrike};
 
 static LIVE_AUDIO: AtomicBool = AtomicBool::new(false);
 

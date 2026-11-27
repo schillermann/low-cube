@@ -55,12 +55,4 @@ impl TreeSpecies for VolcanicSpire {
             0.0
         }
     }
-
-    fn perch_offset(&self, variant: u32) -> (f32, f32, f32) {
-        match variant % 3 {
-            0 => (-0.20, 0.15, 2.42),
-            1 => (0.20, -0.15, 2.42),
-            _ => (0.05, -0.05, 3.62),
-        }
-    }
 }

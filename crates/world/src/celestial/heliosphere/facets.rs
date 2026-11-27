@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
     BlockMold, ClimateZone, CraftBlueprint, ExposedStratum, GravityField, MeadowRing, MeshTarget,
-    PlannedMount, SightCone, TerrainMesh, VesselDeck, VesselSink, WoodlandLife,
+    PlannedMount, SightCone, TerrainMesh, VesselDeck, VesselSink,
 };
 use super::super::belt::AsteroidBelt;
 use super::super::catalog::SurfaceNature;
@@ -217,16 +217,6 @@ impl TerrainMesh for HeliosphereWorld {
                 }
             }
         }
-    }
-}
-
-impl WoodlandLife for HeliosphereWorld {
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> {
-        if self.near_earth(center) { self.earth.arboreal_perch_near(center, selector) } else { None }
-    }
-
-    fn woodland_habitat(&self, position: Vec3) -> bool {
-        self.near_earth(position)
     }
 }
 

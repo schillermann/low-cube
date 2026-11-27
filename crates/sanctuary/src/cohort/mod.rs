@@ -7,7 +7,7 @@ use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
     Callsign, CompanionPresence, CosmicFrame, DeckFrame, DrivenCraft, GravityBubble, PilotCraft,
-    PlanetaryWorld, ProximityUtterance, SolarProportions,
+    ProximityUtterance, SolarProportions,
 };
 use crate::aura::HostAura;
 use crate::chronicle_log::ChronicleStore;
@@ -133,10 +133,7 @@ impl GuestCohort {
             .is_some_and(|(wf, wpos)| proportions.vacuum_locus(wf, wpos));
         let applied = self.wards.get_mut(&cid).is_some_and(|(ward, _)| match notice {
             InventoryNotice::Crafted { recipe } => {
-                if world::RelicCatalog::vacuum_hearth_recipe(recipe) && !in_vacuum {
-                    return false;
-                }
-                if world::RelicCatalog::air_hearth_recipe(recipe) && in_vacuum {
+                if world::RelicCatalog::vacuum_smelt_recipe(recipe) && !in_vacuum {
                     return false;
                 }
                 ward.manifest_mut().apply_recipe(recipe)
@@ -152,20 +149,6 @@ impl GuestCohort {
     pub fn ensure_authored_fact(&mut self, cid: u32, fact_id: u32) {
         if let Some((_, stream)) = self.wards.get_mut(&cid) {
             stream.ensure_fact(fact_id);
-        }
-    }
-
-    pub fn record_guest_gore(&mut self, cid: u32, impulse: Vec3) {
-        if let Some((ward, _)) = self.wards.get_mut(&cid) {
-            ward.record_gore(impulse);
-        }
-    }
-
-    pub fn push_pedestrian_observers(&self, world: &dyn PlanetaryWorld, out: &mut Vec<(u32, Vec3, bool)>) {
-        for (&cid, (ward, _)) in &self.wards {
-            if let Some((pos, crouching)) = ward.pedestrian_observer(world) {
-                out.push((cid, pos, crouching));
-            }
         }
     }
 

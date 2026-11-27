@@ -4,7 +4,7 @@ use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, CountedMeshTarget, MeshTarget, MountDomain,
     PlanetaryWorld, Quad, VesselDeck as _, WorldEarthworks as _, WorldFact,
 };
-use crate::attire::{BeltSatchel, HeldRelic, YouthAttire};
+use crate::attire::{BeltSatchel, EvaAttire, HeldRelic};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, HandGesture,
     PlanetaryAvatar,
@@ -68,7 +68,7 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
 
     let mut engineer = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 22.0, 2.25), 1.0));
     engineer.install_blueprint_archive(Box::new(DirectoryBlueprints::new(temp_dir.clone())));
-    engineer.apply_attire(YouthAttire::squire().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
+    engineer.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
     engineer.rotate_degrees(0.0, -10.0);
 
     let preview = engineer.planned_mount(&world);
@@ -87,7 +87,7 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     let mut world_figure = CountedMeshTarget::new(&mut sink);
     engineer.emit_appearance(&mut world_figure);
     let mut closed_probe = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 22.0, 2.25), 1.0));
-    closed_probe.apply_attire(YouthAttire::squire().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
+    closed_probe.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
     closed_probe.rotate_degrees(0.0, -10.0);
     let mut sink_closed = NullMeshSink;
     let mut baseline_figure = CountedMeshTarget::new(&mut sink_closed);
@@ -120,7 +120,7 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     let mut sparse_builder = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 22.0, -1.25), 1.0))
         .with_starting_satchel(&SparseKit);
     sparse_builder.install_blueprint_archive(Box::new(DirectoryBlueprints::new(temp_dir.clone())));
-    sparse_builder.apply_attire(YouthAttire::squire().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
+    sparse_builder.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
     sparse_builder.rotate_degrees(0.0, 35.0);
     let _ = HandGesture::RightTap.perform(&mut sparse_builder, &mut world);
     assert!(!sparse_builder.press_world_key(KeyCode::Enter, &mut world), "Missing parts must prevent crane build");
@@ -130,7 +130,7 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     let mut full_builder = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 22.0, -1.25), 1.0))
         .with_starting_satchel(&CarPartsKit);
     full_builder.install_blueprint_archive(Box::new(DirectoryBlueprints::new(temp_dir.clone())));
-    full_builder.apply_attire(YouthAttire::squire().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
+    full_builder.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
     full_builder.rotate_degrees(0.0, 35.0);
 
     let _ = HandGesture::RightTap.perform(&mut full_builder, &mut world);

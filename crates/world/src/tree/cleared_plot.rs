@@ -47,7 +47,7 @@ impl ClearedPlot {
         }
     }
 
-    /// Secondary constructor for a freshly felled plot emitting final woodchips, canopy leaves, and fallen deadwood.
+    /// Secondary constructor for a freshly felled plot emitting final woodchips, canopy leaves, and harvested raw timber.
     pub fn felled(
         frame: SurfaceFrame,
         u: f32,
@@ -56,7 +56,16 @@ impl ClearedPlot {
         cleave_u: f32,
         cleave_v: f32,
     ) -> Self {
-        Self::with_salvage(frame, u, v, elevation, 0.92, cleave_u, cleave_v, SurfaceFind::DeadwoodBough)
+        Self::with_salvage(
+            frame,
+            u,
+            v,
+            elevation,
+            0.92,
+            cleave_u,
+            cleave_v,
+            SurfaceFind::LooseBlock(crate::BlockMedium::RawTimber),
+        )
     }
 
     /// Secondary constructor for a calm vacant plot with zero residual particles.

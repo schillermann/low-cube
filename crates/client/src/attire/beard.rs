@@ -4,14 +4,11 @@ use super::crown::HeadSculpture;
 use super::limb::{AxialLimb, FacetedSolid, LimbFrame, TaperedPrism};
 use super::pose::BodyPose;
 
-/// Anatomical facial hair cut leaving cheekbones, lips, and facial planes open and expressive.
+/// Anatomical crew facial hair cut leaving cheekbones, lips, and facial planes open inside clear visors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BeardCut {
     FullJawline,
-    PointedGoatee,
-    RangerStubble,
-    BraidedFork,
-    GarrisonMustache,
+    CrewStubble,
 }
 
 impl BeardCut {
@@ -34,7 +31,6 @@ impl BeardCut {
         let hs = |y: f32| pose.crown_size(y);
         let hw = |r: f32| pose.crown_span(r);
         let deep = beard_col * 0.84;
-        let brass = Vec3::new(0.84, 0.68, 0.26);
 
         match self {
             Self::FullJawline => {
@@ -52,30 +48,9 @@ impl BeardCut {
                         .emit(frame, true, target);
                 }
             }
-            Self::PointedGoatee => {
-                Self::emit_winged_mustache(pose, frame, mustache_col, 0.88, target);
-                TaperedPrism::new(6, Vec3::new(0.0, hs(-0.052), hw(0.070)), Vec3::new(0.0, hs(0.016), hw(0.078)), hw(0.014), hw(0.016), hw(0.032), hw(0.022), beard_col)
-                    .emit(frame, true, target);
-                TaperedPrism::new(4, Vec3::new(0.0, hs(0.012), hw(0.086)), Vec3::new(0.0, hs(0.022), hw(0.088)), hw(0.009), hw(0.008), hw(0.008), hw(0.008), mustache_col)
-                    .emit(frame, true, target);
-            }
-            Self::RangerStubble => {
+            Self::CrewStubble => {
                 Self::emit_winged_mustache(pose, frame, mustache_col, 0.90, target);
                 TaperedPrism::new(8, Vec3::new(0.0, hs(-0.034), hw(0.032)), Vec3::new(0.0, hs(0.012), hw(0.022)), hw(0.046), hw(0.056), hw(0.086), hw(0.078), deep)
-                    .emit(frame, true, target);
-            }
-            Self::BraidedFork => {
-                Self::FullJawline.emit(pose, frame, (beard_col, mustache_col), target);
-                for side in [-1.0_f32, 1.0_f32] {
-                    TaperedPrism::new(6, Vec3::new(side * hw(0.030), hs(-0.132), hw(0.052)), Vec3::new(side * hw(0.036), hs(-0.018), hw(0.042)), hw(0.020), hw(0.022), hw(0.034), hw(0.034), beard_col)
-                        .emit(frame, true, target);
-                    TaperedPrism::new(6, Vec3::new(side * hw(0.031), hs(-0.092), hw(0.049)), Vec3::new(side * hw(0.033), hs(-0.072), hw(0.047)), hw(0.025), hw(0.025), hw(0.025), hw(0.025), brass)
-                        .emit(frame, true, target);
-                }
-            }
-            Self::GarrisonMustache => {
-                Self::emit_winged_mustache(pose, frame, mustache_col, 1.15, target);
-                TaperedPrism::new(6, Vec3::new(0.0, hs(-0.032), hw(0.068)), Vec3::new(0.0, hs(0.012), hw(0.074)), hw(0.018), hw(0.016), hw(0.026), hw(0.020), beard_col)
                     .emit(frame, true, target);
             }
         }

@@ -5,7 +5,7 @@ use glam::Mat4;
 use winit::keyboard::KeyCode;
 use world::MeshTarget;
 use crate::attire::{
-    AttireProfile, BodyRegion, ComplexionSwatch, HeldRelic, YouthAttire, YouthPhysique,
+    AttireProfile, BodyRegion, ComplexionSwatch, CrewPhysique, EvaAttire, HeldRelic,
 };
 use crate::avatar::Avatar;
 use super::archetype::AvatarArchetype;
@@ -25,11 +25,11 @@ pub enum StudioDirective {
 
 /// Narrow Tell-Don't-Ask recipient for updated avatar attire.
 pub trait AttireSink {
-    fn apply_attire(&mut self, attire: YouthAttire);
+    fn apply_attire(&mut self, attire: EvaAttire);
 }
 
 impl AttireSink for &mut dyn Avatar {
-    fn apply_attire(&mut self, attire: YouthAttire) {
+    fn apply_attire(&mut self, attire: EvaAttire) {
         Avatar::apply_attire(*self, attire);
     }
 }
@@ -65,10 +65,10 @@ impl StageGrip {
     }
 }
 
-/// Pure in-memory 3D character selection, turntable inspection, skin color, and body-part proportion studio.
+/// Pure in-memory 3D EVA crew selection, turntable inspection, skin color, and body-part proportion studio.
 #[derive(Clone, Copy, Debug)]
 pub struct WardrobeStudio {
-    attire: YouthAttire,
+    attire: EvaAttire,
     archetype: AvatarArchetype,
     stage: TurntableStage,
     grip: StageGrip,
@@ -77,7 +77,7 @@ pub struct WardrobeStudio {
 impl WardrobeStudio {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(
-        attire: YouthAttire,
+        attire: EvaAttire,
         archetype: AvatarArchetype,
         stage: TurntableStage,
         point: ScreenPoint,
@@ -94,8 +94,8 @@ impl WardrobeStudio {
     #[cfg(test)]
     pub fn seeded() -> Self {
         Self::new(
-            YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm),
-            AvatarArchetype::Knight,
+            EvaAttire::astronaut().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm),
+            AvatarArchetype::Pilot,
             TurntableStage::front_showcase(),
             ScreenPoint::center(),
             false,
@@ -103,11 +103,11 @@ impl WardrobeStudio {
     }
 
     pub fn from_profile(profile: &dyn AttireProfile) -> Self {
-        let loaded = profile.load_or_squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm);
-        Self::new(loaded, AvatarArchetype::Knight, TurntableStage::front_showcase(), ScreenPoint::center(), false)
+        let loaded = profile.load_or_astronaut().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm);
+        Self::new(loaded, AvatarArchetype::Pilot, TurntableStage::front_showcase(), ScreenPoint::center(), false)
     }
 
-    fn update_attire(&mut self, updated: YouthAttire, sink: &mut dyn AttireSink) {
+    fn update_attire(&mut self, updated: EvaAttire, sink: &mut dyn AttireSink) {
         self.attire = updated;
         sink.apply_attire(self.attire);
     }
@@ -241,7 +241,7 @@ impl WardrobePanel for WardrobeStudio {
         }
         if bounds.reset_button().contains(pt) {
             self.update_attire(
-                self.attire.with_physique(YouthPhysique::SlenderSquire.as_feminine(self.attire.feminine())),
+                self.attire.with_physique(CrewPhysique::OrbitalCadet.as_feminine(self.attire.feminine())),
                 sink,
             );
             return StudioDirective::StayInStudio;

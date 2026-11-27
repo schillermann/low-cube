@@ -60,10 +60,12 @@ use crate::controls::{KeyboardControls, LocomotionTarget};
 #[cfg(test)]
 pub use self::clearance::{HullClearance, PadClearance};
 pub use self::helm_chart::{BellySnapshot, OpticTelemetry, OrrerySnapshot};
-pub use self::kinematics::{BurnVector, FlightKinematics};
-pub use self::touchdown_trace::{
-    TOUCHDOWN_NODES, TouchdownFootprint, TouchdownTone, TouchdownTrace,
-};
+pub use self::kinematics::FlightKinematics;
+#[cfg(test)]
+pub use self::kinematics::BurnVector;
+pub use self::touchdown_trace::{TOUCHDOWN_NODES, TouchdownFootprint, TouchdownTrace};
+#[cfg(test)]
+pub use self::touchdown_trace::TouchdownTone;
 pub use self::helmed::HelmedCraft;
 pub use self::pilot::VehiclePilot;
 pub use self::transfer_arc::{

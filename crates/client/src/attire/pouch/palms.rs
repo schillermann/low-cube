@@ -1,8 +1,8 @@
 use world::{BlockMold, PalmMolds};
 use super::super::sight::{CameraMount, SightMode};
-use super::super::YouthAttire;
+use super::super::EvaAttire;
 
-/// Dual-hand block count and mold orientation state for the right and left palms.
+/// Dual-hand block count and mold orientation state for the right and left gloved palms (`3` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct PalmStack {
     right_blocks: u32,
@@ -32,7 +32,7 @@ impl PalmStack {
         self.right_blocks == 0 && self.left_blocks == 0
     }
 
-    pub(super) const fn camera_mount(&self, attire: YouthAttire) -> CameraMount {
+    pub(super) const fn camera_mount(&self, attire: EvaAttire) -> CameraMount {
         let (r, l) = attire.held_pair();
         if r.field_camera() {
             CameraMount::Handheld(SightMode::from_camera_turn(self.molds.on_side(1.0).camera_turn()))
@@ -59,7 +59,7 @@ impl PalmStack {
         self.molds = self.molds.synced_from_opposite(side);
     }
 
-    pub(super) fn map_sides(&mut self, attire: YouthAttire, mr: bool, ml: bool, op: fn(BlockMold) -> BlockMold) {
+    pub(super) fn map_sides(&mut self, attire: EvaAttire, mr: bool, ml: bool, op: fn(BlockMold) -> BlockMold) {
         let (r, l) = attire.held_pair();
         if mr {
             let cur = self.molds.on_side(1.0);
@@ -73,7 +73,7 @@ impl PalmStack {
         }
     }
 
-    pub(super) fn reconcile_attire(&mut self, attire: YouthAttire) {
+    pub(super) fn reconcile_attire(&mut self, attire: EvaAttire) {
         let (r, l) = attire.held_pair();
         if r.independent_palm_mold() && self.right_blocks == 0 {
             self.reset_mold(1.0);

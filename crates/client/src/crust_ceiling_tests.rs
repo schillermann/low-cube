@@ -100,7 +100,7 @@ fn test_digging_down_through_crust_stops_at_indestructible_lethal_core_floor() {
 #[test]
 fn test_neck_remains_anchored_to_torso_when_head_tilts_back_and_server_scale_validates() {
     use glam::Quat;
-    use crate::attire::{BodyPose, StrideRhythm, YouthPhysique};
+    use crate::attire::{BodyPose, CrewPhysique, StrideRhythm};
     use crate::server_scale::{ArgumentScale, FileScale, MoonletScale, PlanetaryScale, ScaledCube};
 
     let tilted = BodyPose::new(
@@ -109,7 +109,7 @@ fn test_neck_remains_anchored_to_torso_when_head_tilts_back_and_server_scale_val
         Quat::from_rotation_x(0.45),
         0.8,
         StrideRhythm::idle(),
-        YouthPhysique::SlenderSquire,
+        CrewPhysique::OrbitalCadet,
     );
     assert_eq!(tilted.neck_frame().point(0.0, 0.0, 0.0), tilted.torso_frame().point(0.0, tilted.torso_span(0.88), -0.056), "Neck frame must remain anchored to torso");
     assert_ne!(tilted.crown_frame().point(0.0, 0.15, 0.0), tilted.neck_frame().point(0.0, 0.15, 0.0), "Head must tilt back around the neck top when pitching view");
@@ -173,7 +173,7 @@ fn test_head_contact_beneath_subterranean_dirt_block_never_catapults_to_surface_
 #[test]
 fn test_multiplayer_narrow_shaft_looking_down_clamps_crosshair_and_rejects_underfoot_block() {
     use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
-    use crate::attire::{HeldRelic, YouthAttire};
+    use crate::attire::{EvaAttire, HeldRelic};
 
     let host_inner: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(64, 1.0));
     let host = SanctuaryHost::bind("127.0.0.1:0", host_inner, 64).expect("bind host");
@@ -223,7 +223,7 @@ fn test_multiplayer_narrow_shaft_looking_down_clamps_crosshair_and_rejects_under
     let fwd_down = (inv.project_point3(Vec3::new(0.0, 0.0, 0.5)) - eye_before).normalize();
     assert!(fwd_down.y > -0.84, "Crosshair in narrow shaft must stop before reaching under the player's feet, got dir={fwd_down:?}");
 
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::IronSpade));
+    avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::RigWrench));
     let _ = avatar.use_right_hand(&mut guest_planet);
     assert!(!avatar.release_hand(&mut guest_planet), "Looking down in 1-block shaft must never place a block beneath or inside the player");
     assert!(
@@ -258,7 +258,7 @@ fn test_multiplayer_narrow_shaft_looking_down_clamps_crosshair_and_rejects_under
 
 #[test]
 fn test_releasing_hand_while_perished_halts_digging_and_preserves_full_respawn_pace() {
-    use crate::attire::{HeldRelic, YouthAttire};
+    use crate::attire::{EvaAttire, HeldRelic};
 
     let mut world = BiomedCubeWorld::beveled(64, 1.0);
     for _ in 0..40 {
@@ -269,13 +269,13 @@ fn test_releasing_hand_while_perished_halts_digging_and_preserves_full_respawn_p
     }
     let core_y = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;
     let mut avatar = PlanetaryAvatar::at(Vec3::new(0.25, core_y + 1.5, 0.25));
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
     avatar.rotate_degrees(0.0, 82.0);
     let _ = avatar.use_right_hand(&mut world);
 
     // Touch lethal core while hand is held, then release hand during blackout!
     let mut avatar_core = PlanetaryAvatar::at(Vec3::new(0.25, core_y + 1.0, 0.25));
-    avatar_core.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    avatar_core.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
     avatar_core.rotate_degrees(0.0, 82.0);
     avatar_core.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
     let _ = avatar_core.release_hand(&mut world);

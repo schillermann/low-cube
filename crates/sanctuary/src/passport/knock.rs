@@ -72,17 +72,11 @@ impl KnockFrame {
     }
 
     pub fn decode(pkt: &[u8]) -> Option<Self> {
-        if pkt.len() < 36 || &pkt[0..4] != b"LKNK" {
+        if pkt.len() < 39 || &pkt[0..4] != b"LKNK" || pkt[36] != KNOCK_PASSPORT_TAG {
             return None;
         }
         let mut guest_pub = [0u8; 32];
         guest_pub.copy_from_slice(&pkt[4..36]);
-        if pkt.len() == 36 || pkt[36] != KNOCK_PASSPORT_TAG {
-            return Some(Self::new(guest_pub, KnockIntent::PinnedKey, Callsign::unnamed()));
-        }
-        if pkt.len() < 39 {
-            return None;
-        }
         let intent = KnockIntent::from_wire(pkt[37])?;
         let (raw_callsign, _) = Callsign::decode(&pkt[38..])?;
         Some(Self::new(guest_pub, intent, Callsign::sanitized(raw_callsign.as_str())))

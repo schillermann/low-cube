@@ -1,5 +1,5 @@
 use glam::{Mat4, Quat, Vec3};
-use fauna::SightCone;
+use world::SightCone;
 use crate::attire::{BodyPose, SightMode, StrideRhythm};
 use crate::controls::KeyboardControls;
 use crate::earthworks::SurfaceReach;
@@ -93,8 +93,7 @@ impl AvatarSight {
     pub fn advance_lens(&mut self, order: &LocomotionOrder, posture: AvatarPosture, dt: f32) {
         self.lens = order.advance_lens(self.lens, dt);
         if posture.cardiac_constriction() > 0.0 {
-            let rate = if posture.shock_active() { 18.0 } else { 8.0 };
-            self.lens = self.lens.transition_with_rate(posture.cardiac_fov(), rate, dt);
+            self.lens = self.lens.transition_with_rate(posture.cardiac_fov(), 8.0, dt);
         }
     }
 

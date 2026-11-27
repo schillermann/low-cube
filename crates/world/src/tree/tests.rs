@@ -184,13 +184,13 @@ fn test_axe_cleave_shudder_heartwood_notch_woodchips_and_falling_leaves() {
     }
     let mut cleared = TestMeshTarget::empty();
     felled_plot.emit_surface(&mut cleared);
-    assert!(cleared.count() >= 10, "Cleared plot must retain a fallen DeadwoodBough after final burst settles");
+    assert!(cleared.count() >= 6, "Cleared plot must retain harvested RawTimber salvage after final burst settles");
     let ground_aim = (frame.point_at(0.25, 0.25, 0.08) - eye).normalize();
     let (foraged_plot, find) = felled_plot.forage_at(eye, ground_aim);
-    assert_eq!(find, crate::SurfaceFind::DeadwoodBough, "Foraging a felled plot must yield a DeadwoodBough");
+    assert_eq!(find, crate::SurfaceFind::LooseBlock(crate::BlockMedium::RawTimber), "Foraging a felled plot must yield RawTimber");
     let mut bare_plot = TestMeshTarget::empty();
     foraged_plot.emit_surface(&mut bare_plot);
-    assert_eq!(bare_plot.count(), 0, "Plot must be completely empty after foraging the fallen DeadwoodBough");
+    assert_eq!(bare_plot.count(), 0, "Plot must be completely empty after foraging the harvested RawTimber");
 }
 
 #[test]

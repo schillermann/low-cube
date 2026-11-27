@@ -13,7 +13,7 @@ impl MeshTarget for NullTarget {
 
 fn stand_at(world: &mut dyn PlanetaryWorld, spot: Vec3) {
     let kin = PresenceKinematics::new(spot, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
-    world.sync_presence(CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire()));
+    world.sync_presence(CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::astronaut()));
 }
 
 fn step_trio(host: &mut HostedPlanet, alice: &mut RemotePlanet, bob: &mut RemotePlanet, rounds: usize) {

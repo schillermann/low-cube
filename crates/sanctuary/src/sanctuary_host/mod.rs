@@ -7,10 +7,9 @@ use std::time::Instant;
 use glam::Vec3;
 use world::{
     Callsign, CompanionPresence, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, ExposedStratum,
-    MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SightCone, SolarProportions,
+    MeshTarget, PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions,
     WorldFact,
 };
-use fauna::BoarSounder;
 use crate::aura::HostIdentity;
 use crate::chronicle_decorators::CompactedChronicle;
 use crate::chronicle_log::{ChronicleLog, ChronicleStore};
@@ -163,24 +162,6 @@ impl SanctuaryHost {
     pub fn blend_companions(&mut self, subtick_secs: f32) {
         let blend = if self.mailbox.standby_needed(Instant::now()) { 0.0 } else { subtick_secs };
         self.write_wire(|w| w.state_mut().blend_subtick(blend));
-    }
-
-    pub fn step_host_wildlife(&mut self, listener: Vec3, view_dir: Vec3) -> Option<Vec3> {
-        let world_ref = self.world.as_ref();
-        self.write_wire(|w| w.state_mut().wildlife_mut().step_host_listener(listener, view_dir, world_ref))
-    }
-
-    pub fn emit_wildlife(&self, cone: SightCone, target: &mut dyn MeshTarget) {
-        self.read_wire(|w| w.state().wildlife().emit_visible(cone, target));
-    }
-
-    pub fn strike_host_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
-        let world_ref = self.world.as_ref();
-        let (hit, drops) = self.write_wire(|w| {
-            w.state_mut().wildlife_mut().evaluate_strike(eye, direction, power, max_reach, true, world_ref)
-        });
-        let dropped = drops.is_some_and(|d| self.with_chronicled(|w| BoarSounder::cast_meat_drops(d, w)));
-        (hit, dropped)
     }
 
     pub fn present_guest_vessels(&self, sink: &mut dyn world::VesselSink) {

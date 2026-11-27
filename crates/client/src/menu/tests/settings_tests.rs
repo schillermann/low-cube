@@ -78,7 +78,7 @@ fn test_saved_decorators_persist_profiles_and_view_decorators_compose_quads() {
     );
     saved_wardrobe.move_pointer(ScreenPoint::new(-0.59, -0.70));
     saved_wardrobe.press_pointer(&mut avatar);
-    assert!(FileAttire::new(attire_path).load_or_squire().feminine());
+    assert!(FileAttire::new(attire_path).load_or_astronaut().feminine());
 
     let (mut card_only, mut versioned_card) = (QuadCapture::empty(), QuadCapture::empty());
     SettingsPanel::new().view(ScreenPoint::center(), false).emit(&mut card_only);

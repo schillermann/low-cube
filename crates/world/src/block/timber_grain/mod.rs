@@ -40,9 +40,6 @@ pub enum BlockMedium {
     VitrifiedBasalt,
     BlackBoxPod,
     LaserBeacon,
-    BakingOven,
-    BloomeryForge,
-    SmithyAnvil,
     OriginStone,
 }
 
@@ -77,10 +74,7 @@ impl BlockMedium {
             Self::VitrifiedBasalt => 24,
             Self::BlackBoxPod => 25,
             Self::LaserBeacon => 26,
-            Self::BakingOven => 27,
-            Self::BloomeryForge => 28,
-            Self::SmithyAnvil => 29,
-            Self::OriginStone => 30,
+            Self::OriginStone => 27,
         }
     }
 
@@ -113,10 +107,7 @@ impl BlockMedium {
             24 => Self::VitrifiedBasalt,
             25 => Self::BlackBoxPod,
             26 => Self::LaserBeacon,
-            27 => Self::BakingOven,
-            28 => Self::BloomeryForge,
-            29 => Self::SmithyAnvil,
-            30 => Self::OriginStone,
+            27 => Self::OriginStone,
             _ => Self::TurfEarth,
         }
     }
@@ -178,11 +169,6 @@ impl BlockMedium {
         matches!(self, Self::VitrifiedBasalt | Self::BlackBoxPod)
     }
 
-    /// Indicates whether this medium is a placed culinary or metallurgical workstation (`BakingOven`, `BloomeryForge`, `SmithyAnvil`).
-    pub const fn artisan_hearth(self) -> bool {
-        matches!(self, Self::BakingOven | Self::BloomeryForge | Self::SmithyAnvil)
-    }
-
     /// Indicates whether this medium yields to the given `MiningEdge` during excavation.
     pub const fn yields_to(self, edge: MiningEdge) -> bool {
         match self {
@@ -190,10 +176,7 @@ impl BlockMedium {
             Self::QuarriedStone
             | Self::VitrifiedBasalt
             | Self::CopperOre
-            | Self::IronOre
-            | Self::BakingOven
-            | Self::BloomeryForge
-            | Self::SmithyAnvil => edge.pierces_stone(),
+            | Self::IronOre => edge.pierces_stone(),
             Self::CrustRock | Self::GoldOre => edge.pierces_crust(),
             _ => true,
         }

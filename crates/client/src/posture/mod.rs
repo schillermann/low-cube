@@ -2,7 +2,7 @@ mod high_g;
 mod vital;
 
 use glam::{Mat4, Quat, Vec3};
-use crate::attire::{BodyPose, StrideRhythm, YouthPhysique};
+use crate::attire::{BodyPose, CrewPhysique, StrideRhythm};
 use crate::horizon::ViewFrame;
 pub use self::high_g::HighGStrain;
 pub use self::vital::VitalStrain;
@@ -104,42 +104,8 @@ impl AvatarPosture {
         Self::with_components(self.elevation, LeapSpring::grounded(), self.vital.perish(), HighGStrain::relaxed())
     }
 
-    pub fn gore(self, severity: f32) -> Self {
-        Self::with_components(self.elevation, self.leap, self.vital.gore(severity), self.high_g)
-    }
-
-    pub fn nourish(self) -> Self {
-        Self::with_components(self.elevation, self.leap, self.vital.nourish(), HighGStrain::relaxed())
-    }
-
-    pub fn nourish_roast(self) -> Self {
-        Self::with_components(self.elevation, self.leap, self.vital.nourish_roast(), HighGStrain::relaxed())
-    }
-
     pub fn sustain_high_g(self, proper_g: f32, dt: f32) -> Self {
         Self::with_components(self.elevation, self.leap, self.vital, self.high_g.sustain(proper_g, dt))
-    }
-
-    pub fn pace_boost(&self) -> f32 {
-        self.vital.pace_boost()
-    }
-
-    pub const fn shock_active(&self) -> bool {
-        self.vital.shock_active()
-    }
-
-    pub fn vertigo_sway(&self) -> f32 {
-        self.vital.vertigo_sway()
-    }
-
-    #[cfg(test)]
-    pub const fn bruised(&self) -> bool {
-        self.vital.bruised()
-    }
-
-    #[cfg(test)]
-    pub const fn invigorated(&self) -> bool {
-        self.vital.invigorated()
     }
 
     pub const fn perished(&self) -> bool {
@@ -188,10 +154,9 @@ impl AvatarPosture {
         Self::with_components(self.elevation, self.leap.advance(previous, next, terrain_up, dt), self.vital, self.high_g)
     }
 
-    pub fn step_vital_recovery(self, dt: f32) -> (Self, bool) {
-        let (next_vital, beat) = self.vital.step_recovery(dt);
+    pub fn step_vital_recovery(self, dt: f32) -> Self {
         let next_g = self.high_g.sustain(0.0, dt);
-        (Self::with_components(self.elevation, self.leap, next_vital, next_g), beat)
+        Self::with_components(self.elevation, self.leap, self.vital, next_g)
     }
 
     pub fn view_matrix(&self, frame: &dyn ViewFrame, position: Vec3) -> Mat4 {
@@ -199,7 +164,7 @@ impl AvatarPosture {
     }
 
     pub fn body_pose(&self, position: Vec3, surface_rot: Quat, view_rot: Quat, rhythm: StrideRhythm) -> BodyPose {
-        BodyPose::new(position, surface_rot, view_rot, self.eye_elevation(), rhythm, YouthPhysique::SlenderSquire)
+        BodyPose::new(position, surface_rot, view_rot, self.eye_elevation(), rhythm, CrewPhysique::OrbitalCadet)
             .with_leap(self.leap.flex())
     }
 

@@ -103,7 +103,7 @@ fn test_immutable_companion_glide_maintains_dead_stop_free_stride_under_arrival_
             2,
             PresenceKinematics::new(Vec3::new(x, 8.0, 0.0), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
             ((x * 2.4).rem_euclid(std::f32::consts::TAU), 0.45, 0.0, 0.0),
-            PresenceAttire::squire(),
+            PresenceAttire::astronaut(),
         )
     };
     let mut glide = CompanionGlide::anchored(0.0, make_pres(0.0), PilotCraft::Pedestrian);
@@ -155,7 +155,7 @@ fn test_standby_host_ignores_uncorrelated_sawtooth_subtick_without_time_reversal
             0,
             PresenceKinematics::new(Vec3::new(x, 8.5, 0.25), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
             ((x * 2.4).rem_euclid(std::f32::consts::TAU), 0.45, 0.0, 0.0),
-            PresenceAttire::squire(),
+            PresenceAttire::astronaut(),
         ));
         let _ = walker.step_surface(1.0 / 120.0);
         let uncorrelated_sawtooth = if step_idx % 2 == 0 { 0.0082 } else { 0.0001 };

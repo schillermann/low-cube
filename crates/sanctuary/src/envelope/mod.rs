@@ -3,7 +3,7 @@ mod pulse_codec;
 use glam::Vec3;
 use world::{
     CompanionPresence, CosmicFrame, CraftIdentity, DrivenCraft, PilotCraft, PlanetaryWorld,
-    ProximityUtterance, SkySignal, VesselBerth, WildlifePulse, WorldFact, MAX_UTTERANCE_BYTES,
+    ProximityUtterance, SkySignal, VesselBerth, WorldFact, MAX_UTTERANCE_BYTES,
 };
 use self::pulse_codec::PulseCodec;
 
@@ -83,7 +83,6 @@ pub enum SanctuaryEnvelope {
         crafts: Vec<DrivenCraft>,
         berths: Vec<(u32, CraftIdentity)>,
         signals: Vec<SkySignal>,
-        wildlife: WildlifePulse,
     },
     GuestUtterance {
         text: String,
@@ -115,8 +114,8 @@ impl SanctuaryEnvelope {
                     fact.inscribe(out);
                 }
             }
-            Self::HostPulse { total_facts, cracks, companions, crafts, berths, signals, wildlife } => {
-                PulseCodec::inscribe_host(*total_facts, cracks, companions, crafts, berths, signals, *wildlife, out);
+            Self::HostPulse { total_facts, cracks, companions, crafts, berths, signals } => {
+                PulseCodec::inscribe_host(*total_facts, cracks, companions, crafts, berths, signals, out);
             }
             Self::GuestUtterance { text } => {
                 out.push(5);

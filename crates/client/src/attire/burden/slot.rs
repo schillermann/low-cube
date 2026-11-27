@@ -1,7 +1,6 @@
 use std::fmt;
 use glam::Vec3;
 use world::{MeshTarget, Quad};
-use crate::menu::PixelStamp;
 use super::super::limb::LimbFrame;
 use super::super::relic::HeldRelic;
 use super::{CarryLoad, SatchelBurden};
@@ -61,9 +60,7 @@ impl SlotBurden {
     const fn unit_grade(&self) -> WeightGrade {
         match self.relic {
             HeldRelic::EmptyPalm
-            | HeldRelic::DeadwoodBough
-            | HeldRelic::TimberTorch
-            | HeldRelic::WoodenSpade
+            | HeldRelic::SuitRadio
             | HeldRelic::PlankBlock
             | HeldRelic::SteeringWheel
             | HeldRelic::PedalCluster
@@ -71,36 +68,19 @@ impl SlotBurden {
             | HeldRelic::VehicleBlueprint
             | HeldRelic::TitaniumHull
             | HeldRelic::CarbonSilicate => WeightGrade::Light,
-            HeldRelic::FlintStone
-            | HeldRelic::FlintPickaxe
-            | HeldRelic::TitaniumSpade
-            | HeldRelic::TitaniumPickaxe
+            HeldRelic::RigWrench
             | HeldRelic::ExcavatedEarth
             | HeldRelic::TimberBlock
-            | HeldRelic::WoodenMallet
             | HeldRelic::CabinSeat
             | HeldRelic::RocketCamera
             | HeldRelic::BlackBoxPod
             | HeldRelic::LaserBeacon
-            | HeldRelic::BoarMeat
-            | HeldRelic::RoastedBoar
             | HeldRelic::TitaniumBillet => WeightGrade::Moderate,
             HeldRelic::QuarriedStone
-            | HeldRelic::CopperSpade
-            | HeldRelic::CopperPickaxe
-            | HeldRelic::IronPickaxe
             | HeldRelic::VitrifiedBasalt
-            | HeldRelic::IronSpade
-            | HeldRelic::WoodmanAxe
-            | HeldRelic::KnightlySword
             | HeldRelic::CarWheel
             | HeldRelic::CopperOre
-            | HeldRelic::IronOre
-            | HeldRelic::CopperBloom
-            | HeldRelic::IronBloom
-            | HeldRelic::BakingOven
-            | HeldRelic::BloomeryForge
-            | HeldRelic::SmithyAnvil => WeightGrade::Weighty,
+            | HeldRelic::IronOre => WeightGrade::Weighty,
             HeldRelic::CrustBlock
             | HeldRelic::GoldOre
             | HeldRelic::CantileverCrane
@@ -172,26 +152,6 @@ impl SlotBurden {
             normal,
             self.corner_pigment(),
         ));
-    }
-
-    pub fn emit_polaroid_chin(&self, frame: &LimbFrame, target: &mut dyn MeshTarget) {
-        let caption = if self.count > 1 {
-            format!("{} X{}", self.relic.title(), self.count)
-        } else {
-            self.relic.title().to_string()
-        };
-        PixelStamp::new(0.0017, 0.0019, Vec3::new(0.10, 0.13, 0.20))
-            .emit_on_frame(&caption, 0.0, -0.051, 0.0160, frame, target);
-
-        let ink = match self.escalated_rank() {
-            0 => Vec3::new(0.10, 0.44, 0.22),
-            1 => Vec3::new(0.54, 0.34, 0.06),
-            2 => Vec3::new(0.64, 0.24, 0.08),
-            _ => Vec3::new(0.62, 0.12, 0.14),
-        };
-        let weight_note = format!("WEIGHT: {}", self.summed_grade());
-        PixelStamp::new(0.0014, 0.0016, ink)
-            .emit_on_frame(&weight_note, 0.0, -0.072, 0.0160, frame, target);
     }
 }
 

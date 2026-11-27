@@ -3,7 +3,7 @@ use world::{
     AttitudeGuidance, BlockMedium, BlockMold, CelestialSystem, MoldArchetype, PilotOrder, Quad,
     RelicCatalog, SatchelManifest, SurfaceContact, VehicleAssembly, VehicleAxes, VehiclePart,
 };
-use crate::attire::{ArtisanTome, BeltSatchel, HeldRelic, YouthAttire};
+use crate::attire::{BeltSatchel, EvaAttire, HeldRelic};
 use super::reentry_step::AtmosphericEntryStep;
 use super::space_step::{InertialDrift, SpaceStep};
 
@@ -40,36 +40,45 @@ fn assemble_hull(hull_medium: BlockMedium, block_count: i32) -> VehicleAssembly 
 
 #[test]
 fn test_titanium_and_carbon_silicate_craft_serialize_and_sculpt_3d_laced_meshes() {
-    let squire = YouthAttire::squire();
+    let cadet = EvaAttire::astronaut();
     let stocked = BeltSatchel::empty()
         .with_stowed_relic(HeldRelic::TitaniumBillet, 2)
-        .with_stowed_relic(HeldRelic::IronBloom, 1)
+        .with_stowed_relic(HeldRelic::IronOre, 1)
         .with_stowed_relic(HeldRelic::GoldOre, 1)
-        .with_stowed_relic(HeldRelic::FlintStone, 2);
+        .with_stowed_relic(HeldRelic::QuarriedStone, 2);
 
-    let (_, _, _, rejected_field) = ArtisanTome::new(21, true).craft_selected(1.0, stocked, squire);
-    assert!(!rejected_field, "TitaniumHull forging must require SmithyAnvil");
-    let (_, satchel_ti, attire_ti, ok_ti) = ArtisanTome::at_anvil(21, true).craft_selected(1.0, stocked, squire);
-    assert!(ok_ti && satchel_ti.resource_tally(HeldRelic::TitaniumHull, attire_ti) == 4);
+    let (satchel_ti, attire_ti) = stocked.consume_and_equip(
+        [(HeldRelic::TitaniumBillet, 2), (HeldRelic::IronOre, 1)],
+        HeldRelic::TitaniumHull,
+        4,
+        1.0,
+        cadet,
+    );
+    assert_eq!(satchel_ti.resource_tally(HeldRelic::TitaniumHull, attire_ti), 4);
 
-    let (_, satchel_cs, attire_cs, ok_cs) = ArtisanTome::new(22, true).craft_selected(-1.0, satchel_ti, attire_ti);
-    assert!(ok_cs && satchel_cs.resource_tally(HeldRelic::CarbonSilicate, attire_cs) == 4);
+    let (satchel_cs, attire_cs) = satchel_ti.consume_and_equip(
+        [(HeldRelic::QuarriedStone, 2), (HeldRelic::GoldOre, 1)],
+        HeldRelic::CarbonSilicate,
+        4,
+        -1.0,
+        attire_ti,
+    );
+    assert_eq!(satchel_cs.resource_tally(HeldRelic::CarbonSilicate, attire_cs), 4);
     assert_eq!(attire_cs.held_pair(), (HeldRelic::TitaniumHull, HeldRelic::CarbonSilicate));
 
     let wire = attire_cs.multiplayer_bytes();
-    assert_eq!(YouthAttire::from_multiplayer_bytes(wire).held_pair(), (HeldRelic::TitaniumHull, HeldRelic::CarbonSilicate));
+    assert_eq!(EvaAttire::from_multiplayer_bytes(wire).held_pair(), (HeldRelic::TitaniumHull, HeldRelic::CarbonSilicate));
 
     let mut manifest = SatchelManifest::empty();
     manifest.credit_code(RelicCatalog::from_medium(BlockMedium::IronOre), 2);
     manifest.credit_code(RelicCatalog::from_medium(BlockMedium::CrustRock), 1);
-    manifest.credit_code(HeldRelic::DeadwoodBough.code(), 1);
-    assert!(manifest.apply_recipe(103), "Vacuum BloomeryForge #103 must reduce CrustRock + IronOre into 2 TitaniumBillet");
-    assert!(manifest.apply_recipe(102), "BloomeryForge #102 must reduce IronOre + DeadwoodBough into IronBloom");
-    assert!(manifest.apply_recipe(21) && manifest.count_of(32) == 4);
+    assert!(manifest.apply_recipe(103), "Vacuum smelter #103 must reduce CrustRock + IronOre into 2 TitaniumBillet");
+    let ti_code = RelicCatalog::from_medium(BlockMedium::TitaniumHull);
+    assert!(manifest.apply_recipe(13) && manifest.count_of(ti_code) == 4);
     let mut sparse = Vec::new();
     manifest.inscribe_sparse(&mut sparse);
     let (decoded, _) = SatchelManifest::decode_sparse(&sparse).expect("sparse manifest");
-    assert_eq!(decoded.count_of(32), 4);
+    assert_eq!(decoded.count_of(ti_code), 4);
 
     let ship_ti = assemble_hull(BlockMedium::TitaniumHull, 2);
     let ship_cs = assemble_hull(BlockMedium::CarbonSilicate, 2);
@@ -95,8 +104,8 @@ fn test_aerospace_keel_reduces_dry_mass_and_unlocks_high_g_epstein_burn() {
     let dv_titanium = titanium_ship.sample_impulse(&burn).keel_fusion_velocity_delta(titanium_ship.aerospace_framed(), 1.0).length();
     let dv_lace = lace_ship.sample_impulse(&burn).keel_fusion_velocity_delta(lace_ship.aerospace_framed(), 1.0).length();
 
-    assert!(dv_titanium > dv_timber + 20.0, "Titanium keel must out-accelerate heavy timber hull ({dv_titanium} vs {dv_timber})");
-    assert!(dv_lace >= dv_titanium, "Carbon-silicate lace must be at least as agile as titanium ({dv_lace} vs {dv_titanium})");
+    assert!(dv_titanium > dv_timber + 20.0);
+    assert!(dv_lace >= dv_titanium);
 }
 
 #[test]
@@ -127,8 +136,8 @@ fn test_carbon_silicate_aerobrakes_smoothly_during_steep_reentry_without_buffeti
 
     let (v_tim, w_tim) = s_timber.transfer(|_, v, w, _: Quat| (v, w));
     let (v_lac, w_lac) = s_lace.transfer(|_, v, w, _: Quat| (v, w));
-    assert!(v_lac.length() < v_tim.length(), "Carbon-silicate tiles must aerobrake steeper than bare timber");
-    assert!(w_lac.length() < spin.length(), "Carbon-silicate hull must damp rotational buffeting");
-    assert!(w_tim.length() != w_lac.length(), "Unshielded timber hull must experience distinct atmospheric buffeting");
+    assert!(v_lac.length() < v_tim.length());
+    assert!(w_lac.length() < spin.length());
+    assert!(w_tim.length() != w_lac.length());
     assert_eq!(SurfaceContact::GasEnvelope { drag: 1.5 }.resolve_gas(0.0, |d| d), 1.5);
 }

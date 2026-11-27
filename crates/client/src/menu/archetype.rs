@@ -1,60 +1,54 @@
 use crate::attire::{
-    ComplexionSwatch, CrownStyle, FootwearStyle, GarmentEnsemble, GirdleStyle, HeldHands,
-    IdentityTraits, PartProportion, PigmentSwatch, TunicStyle, VambraceStyle, YouthAttire,
-    YouthPhysique,
+    ComplexionSwatch, CrewIdentity, CrewPhysique, EvaAttire, HeldHands, HelmStyle, MagBootStyle,
+    PartProportion, PigmentSwatch, PlssHarness, SuitEnsemble, SuitGauntlet, SuitShell,
 };
 
-/// Distinct Polygon-style character body archetypes with unique silhouettes, headgear, back gear, and anatomy.
+/// Space-Age crew archetypes with distinct EVA suit silhouettes, helmets, PLSS packs, and stature builds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AvatarArchetype {
-    Knight,
-    Ranger,
-    Woodsman,
-    Blacksmith,
-    Sentinel,
-    Noble,
+    Pilot,
+    Specialist,
+    Geologist,
+    Machinist,
+    Vanguard,
+    Envoy,
 }
 
 impl AvatarArchetype {
     pub fn all() -> [Self; 6] {
         [
-            Self::Knight,
-            Self::Ranger,
-            Self::Woodsman,
-            Self::Blacksmith,
-            Self::Sentinel,
-            Self::Noble,
+            Self::Pilot,
+            Self::Specialist,
+            Self::Geologist,
+            Self::Machinist,
+            Self::Vanguard,
+            Self::Envoy,
         ]
     }
 
     pub fn gender_title(self, feminine: bool) -> &'static str {
-        if feminine {
-            match self {
-                Self::Knight => "VALKYRIE",
-                Self::Ranger => "HUNTRESS",
-                Self::Woodsman => "HERBALIST",
-                Self::Blacksmith => "WEAVER",
-                Self::Sentinel => "SHIELDMAID",
-                Self::Noble => "LADY",
-            }
-        } else {
-            match self {
-                Self::Knight => "KNIGHT",
-                Self::Ranger => "RANGER",
-                Self::Woodsman => "WOODSMAN",
-                Self::Blacksmith => "BLACKSMITH",
-                Self::Sentinel => "SENTINEL",
-                Self::Noble => "NOBLE",
-            }
+        match (self, feminine) {
+            (Self::Pilot, false) => "COMMAND PILOT",
+            (Self::Pilot, true) => "FLIGHT CAPTAIN",
+            (Self::Specialist, false) => "EVA SPECIALIST",
+            (Self::Specialist, true) => "MISSION SPECIALIST",
+            (Self::Geologist, false) => "FIELD GEOLOGIST",
+            (Self::Geologist, true) => "ASTROGEOLOGIST",
+            (Self::Machinist, false) => "RIG MACHINIST",
+            (Self::Machinist, true) => "FLIGHT ENGINEER",
+            (Self::Vanguard, false) => "DECK VANGUARD",
+            (Self::Vanguard, true) => "ORBITAL VANGUARD",
+            (Self::Envoy, false) => "STATION ENVOY",
+            (Self::Envoy, true) => "COMMS ENVOY",
         }
     }
 
-    pub fn attire_for(self, feminine: bool) -> YouthAttire {
+    pub fn attire_for(self, feminine: bool) -> EvaAttire {
         if feminine { self.female_attire() } else { self.attire() }
     }
 
-    fn proportion(c: (u8, u8), t: (u8, u8), a: (u8, u8), l: (u8, u8), feminine: bool) -> YouthPhysique {
-        YouthPhysique::with_feminine(
+    fn proportion(c: (u8, u8), t: (u8, u8), a: (u8, u8), l: (u8, u8), feminine: bool) -> CrewPhysique {
+        CrewPhysique::with_feminine(
             PartProportion::new(c.0, c.1),
             PartProportion::new(t.0, t.1),
             PartProportion::new(a.0, a.1),
@@ -63,63 +57,63 @@ impl AvatarArchetype {
         )
     }
 
-    pub fn female_attire(self) -> YouthAttire {
-        let (garments, identity) = match self {
-            Self::Knight => (
-                GarmentEnsemble::new(TunicStyle::PlateCuirass, VambraceStyle::PlateGauntlets, GirdleStyle::KnightlyBelt, FootwearStyle::PlateGreaves),
-                IdentityTraits::new(CrownStyle::VisoredHelm, PigmentSwatch::OchreGold, ComplexionSwatch::Porcelain, Self::proportion((4, 3), (4, 3), (4, 2), (5, 3), true)),
+    pub fn female_attire(self) -> EvaAttire {
+        let (suit, identity) = match self {
+            Self::Pilot => (
+                SuitEnsemble::new(SuitShell::ArmoredRig, SuitGauntlet::TitaniumGauntlets, PlssHarness::JetpackHarness, MagBootStyle::ArmoredSabatons),
+                CrewIdentity::new(HelmStyle::SolarVisor, PigmentSwatch::SolarGold, ComplexionSwatch::Porcelain, Self::proportion((4, 3), (4, 3), (4, 2), (5, 3), true)),
             ),
-            Self::Ranger => (
-                GarmentEnsemble::new(TunicStyle::PeasantShirt, VambraceStyle::RawhideWraps, GirdleStyle::PouchedGirdle, FootwearStyle::Turnshoes),
-                IdentityTraits::new(CrownStyle::MedievalGugel, PigmentSwatch::ForestMoss, ComplexionSwatch::Meadow, Self::proportion((4, 3), (4, 2), (4, 2), (5, 3), true)),
+            Self::Specialist => (
+                SuitEnsemble::new(SuitShell::ThermalShell, SuitGauntlet::TactileGloves, PlssHarness::SamplePouchRig, MagBootStyle::DeckSlipons),
+                CrewIdentity::new(HelmStyle::SurveyDome, PigmentSwatch::OrbitalOlive, ComplexionSwatch::Meadow, Self::proportion((4, 3), (4, 2), (4, 2), (5, 3), true)),
             ),
-            Self::Woodsman => (
-                GarmentEnsemble::new(TunicStyle::QuiltedJerkin, VambraceStyle::BareForearms, GirdleStyle::UnbeltedWaist, FootwearStyle::LacedBoots),
-                IdentityTraits::new(CrownStyle::MerchantCap, PigmentSwatch::RussetBark, ComplexionSwatch::Birch, Self::proportion((4, 3), (4, 3), (4, 2), (4, 3), true)),
+            Self::Geologist => (
+                SuitEnsemble::new(SuitShell::SurveySuit, SuitGauntlet::SealCuffs, PlssHarness::PlssBackpack, MagBootStyle::TreadedGaiters),
+                CrewIdentity::new(HelmStyle::CommsCanopy, PigmentSwatch::MartianRust, ComplexionSwatch::Birch, Self::proportion((4, 3), (4, 3), (4, 2), (4, 3), true)),
             ),
-            Self::Blacksmith => (
-                GarmentEnsemble::new(TunicStyle::ForgeApron, VambraceStyle::PuffedSleeves, GirdleStyle::KnottedCord, FootwearStyle::Turnshoes),
-                IdentityTraits::new(CrownStyle::SmithGoggles, PigmentSwatch::MadderCrimson, ComplexionSwatch::Amber, Self::proportion((4, 3), (4, 3), (4, 2), (4, 3), true)),
+            Self::Machinist => (
+                SuitEnsemble::new(SuitShell::TechCoverall, SuitGauntlet::TelemetrySleeves, PlssHarness::UmbilicalBelt, MagBootStyle::DeckSlipons),
+                CrewIdentity::new(HelmStyle::OpticGoggles, PigmentSwatch::SignalCrimson, ComplexionSwatch::Amber, Self::proportion((4, 3), (4, 3), (4, 2), (4, 3), true)),
             ),
-            Self::Sentinel => (
-                GarmentEnsemble::new(TunicStyle::HeraldicTabard, VambraceStyle::StuddedVambraces, GirdleStyle::GarrisonBelt, FootwearStyle::GarrisonBoots),
-                IdentityTraits::new(CrownStyle::KettleHelm, PigmentSwatch::WoadIndigo, ComplexionSwatch::Bronze, Self::proportion((4, 3), (5, 3), (4, 3), (5, 3), true)),
+            Self::Vanguard => (
+                SuitEnsemble::new(SuitShell::CommandSuit, SuitGauntlet::InsulatedWraps, PlssHarness::BeaconBelt, MagBootStyle::ClampBoots),
+                CrewIdentity::new(HelmStyle::ArmoredCowl, PigmentSwatch::DeepCobalt, ComplexionSwatch::Bronze, Self::proportion((4, 3), (5, 3), (4, 3), (5, 3), true)),
             ),
-            Self::Noble => (
-                GarmentEnsemble::new(TunicStyle::LinenDoublet, VambraceStyle::PuffedSleeves, GirdleStyle::KnottedCord, FootwearStyle::CuffedBoots),
-                IdentityTraits::new(CrownStyle::SquireCrop, PigmentSwatch::MadderCrimson, ComplexionSwatch::Porcelain, Self::proportion((4, 2), (4, 2), (4, 2), (5, 2), true)),
+            Self::Envoy => (
+                SuitEnsemble::new(SuitShell::FlightSuit, SuitGauntlet::TelemetrySleeves, PlssHarness::UmbilicalBelt, MagBootStyle::MagLockBoots),
+                CrewIdentity::new(HelmStyle::ClearBubble, PigmentSwatch::LunarWhite, ComplexionSwatch::Porcelain, Self::proportion((4, 2), (4, 2), (4, 2), (5, 2), true)),
             ),
         };
-        YouthAttire::new(garments, identity, HeldHands::empty())
+        EvaAttire::new(suit, identity, HeldHands::empty())
     }
 
-    pub fn attire(self) -> YouthAttire {
-        let (garments, identity) = match self {
-            Self::Knight => (
-                GarmentEnsemble::new(TunicStyle::PlateCuirass, VambraceStyle::PlateGauntlets, GirdleStyle::KnightlyBelt, FootwearStyle::PlateGreaves),
-                IdentityTraits::new(CrownStyle::VisoredHelm, PigmentSwatch::MadderCrimson, ComplexionSwatch::Porcelain, Self::proportion((4, 5), (5, 6), (5, 6), (5, 5), false)),
+    pub fn attire(self) -> EvaAttire {
+        let (suit, identity) = match self {
+            Self::Pilot => (
+                SuitEnsemble::new(SuitShell::ArmoredRig, SuitGauntlet::TitaniumGauntlets, PlssHarness::JetpackHarness, MagBootStyle::ArmoredSabatons),
+                CrewIdentity::new(HelmStyle::SolarVisor, PigmentSwatch::SignalCrimson, ComplexionSwatch::Porcelain, Self::proportion((4, 5), (5, 6), (5, 6), (5, 5), false)),
             ),
-            Self::Ranger => (
-                GarmentEnsemble::new(TunicStyle::PeasantShirt, VambraceStyle::RawhideWraps, GirdleStyle::PouchedGirdle, FootwearStyle::Turnshoes),
-                IdentityTraits::new(CrownStyle::MedievalGugel, PigmentSwatch::ForestMoss, ComplexionSwatch::Meadow, Self::proportion((4, 4), (4, 3), (5, 4), (6, 4), false)),
+            Self::Specialist => (
+                SuitEnsemble::new(SuitShell::ThermalShell, SuitGauntlet::TactileGloves, PlssHarness::SamplePouchRig, MagBootStyle::DeckSlipons),
+                CrewIdentity::new(HelmStyle::SurveyDome, PigmentSwatch::OrbitalOlive, ComplexionSwatch::Meadow, Self::proportion((4, 4), (4, 3), (5, 4), (6, 4), false)),
             ),
-            Self::Woodsman => (
-                GarmentEnsemble::new(TunicStyle::QuiltedJerkin, VambraceStyle::BareForearms, GirdleStyle::UnbeltedWaist, FootwearStyle::LacedBoots),
-                IdentityTraits::new(CrownStyle::MerchantCap, PigmentSwatch::RussetBark, ComplexionSwatch::Amber, Self::proportion((4, 6), (5, 7), (5, 7), (4, 6), false)),
+            Self::Geologist => (
+                SuitEnsemble::new(SuitShell::SurveySuit, SuitGauntlet::SealCuffs, PlssHarness::PlssBackpack, MagBootStyle::TreadedGaiters),
+                CrewIdentity::new(HelmStyle::CommsCanopy, PigmentSwatch::MartianRust, ComplexionSwatch::Amber, Self::proportion((4, 6), (5, 7), (5, 7), (4, 6), false)),
             ),
-            Self::Blacksmith => (
-                GarmentEnsemble::new(TunicStyle::ForgeApron, VambraceStyle::ForgeGloves, GirdleStyle::ForgeBelt, FootwearStyle::ForgeBoots),
-                IdentityTraits::new(CrownStyle::SmithGoggles, PigmentSwatch::CharcoalSlate, ComplexionSwatch::Umber, Self::proportion((4, 6), (5, 8), (5, 8), (4, 7), false)),
+            Self::Machinist => (
+                SuitEnsemble::new(SuitShell::TechCoverall, SuitGauntlet::WeldMitts, PlssHarness::ToolRigBelt, MagBootStyle::ThermalBoots),
+                CrewIdentity::new(HelmStyle::OpticGoggles, PigmentSwatch::CarbonSlate, ComplexionSwatch::Umber, Self::proportion((4, 6), (5, 8), (5, 8), (4, 7), false)),
             ),
-            Self::Sentinel => (
-                GarmentEnsemble::new(TunicStyle::HeraldicTabard, VambraceStyle::StuddedVambraces, GirdleStyle::GarrisonBelt, FootwearStyle::GarrisonBoots),
-                IdentityTraits::new(CrownStyle::KettleHelm, PigmentSwatch::OchreGold, ComplexionSwatch::Bronze, Self::proportion((4, 6), (4, 7), (4, 6), (3, 7), false)),
+            Self::Vanguard => (
+                SuitEnsemble::new(SuitShell::CommandSuit, SuitGauntlet::InsulatedWraps, PlssHarness::BeaconBelt, MagBootStyle::ClampBoots),
+                CrewIdentity::new(HelmStyle::ArmoredCowl, PigmentSwatch::SolarGold, ComplexionSwatch::Bronze, Self::proportion((4, 6), (4, 7), (4, 6), (3, 7), false)),
             ),
-            Self::Noble => (
-                GarmentEnsemble::new(TunicStyle::LinenDoublet, VambraceStyle::PuffedSleeves, GirdleStyle::KnottedCord, FootwearStyle::CuffedBoots),
-                IdentityTraits::new(CrownStyle::SquireCrop, PigmentSwatch::WoadIndigo, ComplexionSwatch::Birch, Self::proportion((4, 4), (5, 5), (4, 5), (5, 4), false)),
+            Self::Envoy => (
+                SuitEnsemble::new(SuitShell::FlightSuit, SuitGauntlet::TelemetrySleeves, PlssHarness::UmbilicalBelt, MagBootStyle::MagLockBoots),
+                CrewIdentity::new(HelmStyle::ClearBubble, PigmentSwatch::LunarWhite, ComplexionSwatch::Birch, Self::proportion((4, 4), (5, 5), (4, 5), (5, 4), false)),
             ),
         };
-        YouthAttire::new(garments, identity, HeldHands::empty())
+        EvaAttire::new(suit, identity, HeldHands::empty())
     }
 }

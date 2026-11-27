@@ -4,7 +4,7 @@ use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, CraftBlueprint, CraftPose, MeshTarget, MountDomain,
     PlanetaryWorld, Quad, TerrainMesh as _, VesselDeck as _, VesselSink, WorldEarthworks as _,
 };
-use crate::attire::{HeldRelic, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{Avatar as _, AvatarPresence as _, HandGesture, PlanetaryAvatar};
 use crate::controls::ActionBindings;
 use crate::flight::SurfaceFlight;
@@ -57,7 +57,7 @@ fn test_hologram_preview_distinguishes_craft_rig_and_world_cube_domains_and_matc
     let mut builder = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(SurfaceFlight::calibrated(0.522, 9.81, 1.0)),
-        YouthAttire::squire().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm),
+        EvaAttire::astronaut().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm),
         ActionBindings::seeded(),
     );
     builder.rotate_degrees(-90.0, 0.0);
@@ -81,7 +81,7 @@ fn test_hologram_preview_distinguishes_craft_rig_and_world_cube_domains_and_matc
     assert!(HandGesture::RightTap.perform(&mut builder, &mut world));
     assert!(world.adjust_rig(Vec3::new(0.25, g0 + 1.5, 0.25), Vec3::NEG_Y, 1, false));
 
-    builder.apply_attire(YouthAttire::squire().with_relics(HeldRelic::PlankBlock, HeldRelic::EmptyPalm));
+    builder.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::PlankBlock, HeldRelic::EmptyPalm));
     builder.rotate_degrees(180.0, 48.0);
     let cube_plan = builder.planned_mount(&world).expect("Ground aim must produce a WorldCube PlannedMount");
     assert_eq!(cube_plan.domain(), MountDomain::WorldCube);

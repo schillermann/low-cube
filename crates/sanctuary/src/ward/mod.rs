@@ -3,7 +3,7 @@ mod vitals;
 use std::net::{SocketAddr, UdpSocket};
 use glam::Vec3;
 use world::{
-    Callsign, CompanionPresence, CosmicFrame, CraftPose, DrivenCraft, GoreStamp, GravityBubble,
+    Callsign, CompanionPresence, CosmicFrame, CraftPose, DrivenCraft, GravityBubble,
     PilotCraft, PlanetaryWorld, SatchelManifest, VesselBerth,
 };
 use crate::glide::CompanionGlide;
@@ -73,10 +73,8 @@ impl GuestWard {
         }
     }
     pub const fn ack_seq(&self) -> u32 { self.vitals.ack_seq() }
-    pub const fn gore_stamp(&self) -> GoreStamp { self.vitals.gore_stamp() }
     pub const fn sky_watch(&self) -> bool { self.vitals.sky_watch() }
     pub fn update_sky_watch(&mut self, active: bool) { self.vitals.update_sky_watch(active); }
-    pub fn record_gore(&mut self, impulse: Vec3) { self.vitals.record_gore(impulse); }
     pub fn presence(&self) -> CompanionPresence { self.glide.authoritative_presence() }
     pub fn anchor_position(&self) -> Vec3 { self.presence().transfer(|_, kin, _, _| kin.transfer(|pos, _, _, _, _| pos)) }
     pub fn sight_cursor_mut(&mut self) -> &mut usize { self.vitals.sight_cursor_mut() }
@@ -85,21 +83,6 @@ impl GuestWard {
         self.glide.presence_at_with_hull(render_secs, hull)
     }
     pub fn craft_at(&self, render_secs: f64) -> PilotCraft { self.glide.craft_at(render_secs) }
-
-    pub fn pedestrian_observer(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, bool)> {
-        if !self.locus.1.earth_centered()
-            || self.glide.berth().aboard_any()
-            || !self.glide.live()
-            || matches!(self.glide.authoritative_craft(), PilotCraft::Driving(_))
-        {
-            return None;
-        }
-        self.presence().transfer(|_, kin, _, _| {
-            kin.transfer(|pos, _, _, eye_h, _| {
-                world.woodland_habitat(pos).then_some((pos, eye_h > 0.05 && eye_h < 0.62))
-            })
-        })
-    }
 
     pub fn push_authoritative_craft_with_speed(&self, out: &mut Vec<(CosmicFrame, DrivenCraft, f32)>) {
         let mut raw = Vec::with_capacity(1);

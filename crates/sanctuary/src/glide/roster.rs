@@ -2,18 +2,15 @@ use glam::{Quat, Vec3};
 use world::{
     CompanionPresence, CraftIdentity, CraftPose, DeckFrame, DrivenCraft, MeshTarget, PilotCraft,
     PresenceAttire, PresenceKinematics, ProximityUtterance, SightCone, SkySignal, VesselBerth,
-    WildlifePulse,
 };
 use crate::audience::PACKET_COMPANION_CAP;
 use crate::fleet_ledger::FleetLedger;
-use crate::remote_wildlife::RemoteWildlife;
 use super::{CompanionGlide, GlideClock, SightRole, TimelineClock};
 
-/// Smoothly interpolated remote companion, vehicle, wild-boar, sky-signal, and proximity utterance roster (`<= 4` fields).
+/// Smoothly interpolated remote companion, vehicle, sky-signal, and proximity utterance roster (`<= 4` fields).
 pub struct SmoothRoster {
     timeline: TimelineClock,
     entries: Vec<(u32, CompanionGlide)>,
-    wildlife: RemoteWildlife,
     inbox: (Vec<ProximityUtterance>, Vec<SkySignal>),
 }
 
@@ -22,23 +19,21 @@ impl SmoothRoster {
     pub const fn with_signals(
         timeline: TimelineClock,
         entries: Vec<(u32, CompanionGlide)>,
-        wildlife: RemoteWildlife,
         inbox: (Vec<ProximityUtterance>, Vec<SkySignal>),
     ) -> Self {
-        Self { timeline, entries, wildlife, inbox }
+        Self { timeline, entries, inbox }
     }
 
     pub const fn new(
         timeline: TimelineClock,
         entries: Vec<(u32, CompanionGlide)>,
-        wildlife: RemoteWildlife,
         utterances: Vec<ProximityUtterance>,
     ) -> Self {
-        Self::with_signals(timeline, entries, wildlife, (utterances, Vec::new()))
+        Self::with_signals(timeline, entries, (utterances, Vec::new()))
     }
 
     pub const fn empty() -> Self {
-        Self::new(TimelineClock::origin(), Vec::new(), RemoteWildlife::calm(), Vec::new())
+        Self::new(TimelineClock::origin(), Vec::new(), Vec::new())
     }
 
     pub fn record_utterance(&mut self, utterance: ProximityUtterance) {
@@ -58,17 +53,9 @@ impl SmoothRoster {
             sig.emit(cone, target);
         }
     }
-    pub const fn render_secs(&self) -> f64 { self.timeline.render_secs() }
-    pub const fn wildlife(&self) -> &RemoteWildlife { &self.wildlife }
-    pub fn wildlife_mut(&mut self) -> &mut RemoteWildlife { &mut self.wildlife }
-
     pub fn active_craft_count(&self) -> usize {
         let at = self.timeline.render_secs();
         self.entries.iter().filter(|(_, g)| matches!(g.craft_at(at), PilotCraft::Driving(_))).count()
-    }
-
-    pub fn reconcile_wildlife(&mut self, pulse: WildlifePulse) {
-        self.wildlife.absorb(self.timeline.tick_secs(), pulse);
     }
 
     pub fn reconcile_snapshot(&mut self, companions: &[CompanionPresence], crafts: &[DrivenCraft]) {
@@ -111,7 +98,7 @@ impl SmoothRoster {
                 continue;
             }
             let kin = PresenceKinematics::new(dc.pose().origin(), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
-            let stand_in = CompanionPresence::new(slot, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
+            let stand_in = CompanionPresence::new(slot, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::astronaut());
             let pc = PilotCraft::Driving(dc);
             if let Some((_, glide)) = self.entries.iter_mut().find(|(s, _)| *s == slot) {
                 *glide = glide.absorbed_with_role(now, stand_in, pc, SightRole::DistantVessel);

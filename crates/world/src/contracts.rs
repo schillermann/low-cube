@@ -17,7 +17,6 @@ pub trait WorldEarthworks {
     fn surface_yields_to(&self, _eye: Vec3, _direction: Vec3, _edge: MiningEdge) -> bool { true }
     fn aimed_surface_medium(&self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> { None }
     fn strike_timber(&mut self, _eye: Vec3, _direction: Vec3) -> CleaveOutcome { CleaveOutcome::Missed }
-    fn strike_boar(&mut self, _eye: Vec3, _direction: Vec3, _power: u8, _max_reach: f32) -> (bool, bool) { (false, false) }
     fn forage_surface(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind { SurfaceFind::EmptyHanded }
     fn cast_surface_find(&mut self, _eye: Vec3, _direction: Vec3, _find: SurfaceFind) -> bool { false }
     fn place_molded_surface_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool { false }
@@ -81,14 +80,6 @@ pub trait TerrainMesh {
     fn drain_disclosures(&mut self, _out: &mut Vec<(u8, ExposedStratum)>) {}
 }
 
-/// Focused woodland habitat query and living fauna simulation/emission contract.
-pub trait WoodlandLife {
-    fn arboreal_perch_near(&self, _center: Vec3, _selector: usize) -> Option<Vec3> { None }
-    fn woodland_habitat(&self, _position: Vec3) -> bool { true }
-    fn step_wildlife(&mut self, _dt: f32, _listener: Vec3, _view_dir: Vec3, _crouching: bool) -> Option<Vec3> { None }
-    fn emit_wildlife(&self, _cone: SightCone, _target: &mut dyn MeshTarget) {}
-}
-
 /// Focused active vehicle deck, passenger seating, hull sink, and mount-hologram contract.
 pub trait VesselDeck {
     fn board_passenger_seat(&self, _eye: Vec3, _direction: Vec3) -> Option<(CraftIdentity, Vec3, (Vec3, Vec3, Vec3))> { None }
@@ -135,9 +126,9 @@ pub trait CompanionPortal {
     }
 }
 
-/// Composite planetary body interface uniting physical relief with segregated mesh, fauna, vessel, and portal contracts.
+/// Composite planetary body interface uniting physical relief with segregated mesh, vessel, and portal contracts.
 pub trait PlanetaryWorld:
-    GravityField + WorldEarthworks + TerrainMesh + WoodlandLife + VesselDeck + CompanionPortal + Send
+    GravityField + WorldEarthworks + TerrainMesh + VesselDeck + CompanionPortal + Send
 {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3;
     fn surface_contact(&self, probe: Vec3, clearance: f32) -> SurfaceContact {

@@ -54,12 +54,12 @@ pub use celestial::{
     OFFWORLD_IDLE_TTL_SECS,
 };
 pub use block::{
-    AttitudeNozzleMesh, BakingOvenMesh, BlackBoxPodMesh, BlockMedium, BlockMold, BloomeryForgeMesh,
+    AttitudeNozzleMesh, BlackBoxPodMesh, BlockMedium, BlockMold,
     BlueprintBlockMesh, CabinSeatMesh, CardinalTurn, ConsoleOrrery, CornerHeading, CuboidShape,
     DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh, FootwellPlinth,
     FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, LaserBeaconMesh, MediumShape,
     MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, OriginPlinthMesh, PalmMolds,
-    PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, RocketNozzleMesh, SmithyAnvilMesh,
+    PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, RocketNozzleMesh,
     SpawnPlinthMesh, StairCorner, StairFlight, ValleyCorner, VitrifiedBasaltMesh, VoxelShape,
     WalnutFloorPan, WedgeHeading, WheelProfile,
 };
@@ -68,7 +68,7 @@ pub use chronicle::{
     NATURAL_OVERHANG_STAMP, SNAPSHOT_SECTOR_CELLS,
 };
 pub use contracts::{
-    CompanionPortal, PlanetaryWorld, TerrainMesh, VesselDeck, WoodlandLife, WorldEarthworks,
+    CompanionPortal, PlanetaryWorld, TerrainMesh, VesselDeck, WorldEarthworks,
 };
 pub use frame::SurfaceFrame;
 pub use mesh_target::{
@@ -78,9 +78,9 @@ pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SeededFrequency, Sp
 pub use null_face::NullFace;
 pub use planet::{CubePlanet, ModifiedSlices, PatchCoord, ZoneShards};
 pub use presence::{
-    BoarPresence, BoarStance, Callsign, CompanionPresence, DrivenCraft, GoreStamp, PilotCraft,
-    PresenceAttire, PresenceKinematics, PresenceRhythm, ProximityUtterance, SounderPresence,
-    VesselBerth, WildlifePulse, MAX_CALLSIGN_BYTES, MAX_UTTERANCE_BYTES,
+    Callsign, CompanionPresence, DrivenCraft, PilotCraft,
+    PresenceAttire, PresenceKinematics, PresenceRhythm, ProximityUtterance,
+    VesselBerth, MAX_CALLSIGN_BYTES, MAX_UTTERANCE_BYTES,
 };
 pub use seed::WorldSeed;
 pub use sight_cone::SightCone;
@@ -156,7 +156,6 @@ pub trait Face: Send + Sync {
     fn meadow_center_sector(&self, _center: Vec3) -> (i32, i32) { (0, 0) }
     fn meadow_sector_revision(&self, _gsu: i32, _gsv: i32) -> u32 { 0 }
     fn emit_meadow_sector(&self, _gsu: i32, _gsv: i32, _lod: u8, _target: &mut dyn MeshTarget) {}
-    fn arboreal_perch_near(&self, _center: Vec3, _selector: usize) -> Option<Vec3> { None }
     fn canopy_drag(&self, _point: Vec3) -> f32 { 0.0 }
     fn excavate(&mut self, eye: Vec3, direction: Vec3) -> bool { self.harvest(eye, direction).is_some() }
     fn harvest(&mut self, _eye: Vec3, _direction: Vec3) -> Option<BlockMedium> { None }

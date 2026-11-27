@@ -3,7 +3,7 @@ use glam::Vec3;
 use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, PlanetaryWorld, WorldEarthworks as _,
 };
-use crate::attire::{HeldRelic, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{Avatar as _, AvatarMotor as _, PlanetaryAvatar};
 use crate::controls::KeyMotion;
 
@@ -43,13 +43,13 @@ fn test_bare_hands_on_hard_stone_emit_aua_wince_while_earth_sand_tools_and_sky_d
     ));
     let mut miner = PlanetaryAvatar::at(stand);
     miner.rotate_degrees(0.0, 70.5);
-    miner.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    miner.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::SuitRadio, HeldRelic::EmptyPalm));
 
     let tool_trace = DigWaveTrace::new(0).record_variants(|| {
         assert!(!miner.use_right_hand(&mut world));
         let _ = miner.release_hand(&mut world);
     });
-    assert!(tool_trace.is_empty(), "Tool rebound against stone must not cry Aua");
+    assert!(tool_trace.is_empty(), "Transceiver rebound against stone must not cry Aua");
 
     let bare_trace = DigWaveTrace::new(2).record_variants(|| {
         assert!(!miner.use_left_hand(&mut world));
@@ -61,8 +61,7 @@ fn test_bare_hands_on_hard_stone_emit_aua_wince_while_earth_sand_tools_and_sky_d
     });
     assert!(bare_trace.iter().all(|&tag| (200..204).contains(&tag)) && bare_trace[0] != bare_trace[1]);
 
-    // Holding a block and sustaining click to dig bare-handed on stone also cries Aua:
-    miner.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::EmptyPalm));
+    miner.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::EmptyPalm));
     let promoted_trace = DigWaveTrace::new(1).record_variants(|| {
         assert!(!miner.use_right_hand(&mut world));
         for _ in 0..35 {

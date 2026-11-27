@@ -1,18 +1,18 @@
 use glam::Vec3;
 use world::{BlockMold, CraftBlueprint, MeshTarget};
-use crate::attire::{BeltSatchel, BodyPose, HeldRelic, LimbFrame, YouthAttire};
+use crate::attire::{BeltSatchel, BodyPose, EvaAttire, HeldRelic, LimbFrame};
 use crate::menu::PixelStamp;
 use super::{FolioView, SavedBlueprint};
 
 /// Collaborator rendering the 3D view-space blueprint naming input and crane selection catalog plaques.
 pub(super) struct FolioPlaque<'a> {
     view: &'a FolioView,
-    owner: (&'a BeltSatchel, YouthAttire),
+    owner: (&'a BeltSatchel, EvaAttire),
 }
 
 impl<'a> FolioPlaque<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(view: &'a FolioView, owner: (&'a BeltSatchel, YouthAttire)) -> Self {
+    pub(super) const fn new(view: &'a FolioView, owner: (&'a BeltSatchel, EvaAttire)) -> Self {
         Self { view, owner }
     }
 

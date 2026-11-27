@@ -34,9 +34,13 @@ fn test_persistent_x25519_keyfile_and_disk_vault_survivors_survive_offworld_serv
 
     let prop = SolarProportions::true_scale(16);
     let server_kit = SatchelManifest::parse_server_kit("gold_ore:2, iron_ore:3, spawn_stone:5", "server.toml");
-    assert_eq!(server_kit.count_of(29), 0, "Admin SpawnStone must be stripped from guest starter kits");
-    assert_eq!(server_kit.count_of(23), 2);
-    assert_eq!(server_kit.count_of(22), 3);
+    assert_eq!(
+        server_kit.count_of(world::RelicCatalog::from_medium(world::BlockMedium::SpawnStone)),
+        0,
+        "Admin SpawnStone must be stripped from guest starter kits"
+    );
+    assert_eq!(server_kit.count_of(world::RelicCatalog::from_medium(world::BlockMedium::GoldOre)), 2);
+    assert_eq!(server_kit.count_of(world::RelicCatalog::from_medium(world::BlockMedium::IronOre)), 3);
 
     let mars_stand_local;
     {
@@ -81,10 +85,10 @@ fn test_persistent_x25519_keyfile_and_disk_vault_survivors_survive_offworld_serv
             0,
             PresenceKinematics::new(mars_stand_local, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
             (0.0, 0.0, 0.0, 0.0),
-            PresenceAttire::squire(),
+            PresenceAttire::astronaut(),
         ));
-        alice1.note_crafted_recipe(17);
-        alice1.note_crafted_recipe(17);
+        alice1.note_crafted_recipe(11);
+        alice1.note_crafted_recipe(11);
         for _ in 0..6 {
             let _ = alice1.pump_portal(0.03);
             let _ = host1.tick(0.03);
@@ -141,9 +145,21 @@ fn test_persistent_x25519_keyfile_and_disk_vault_survivors_survive_offworld_serv
     };
     assert_eq!(restored.frame(), CosmicFrame::Body(BodyId::MARS));
     assert!((restored.position() - mars_stand_local).length() < 0.02);
-    assert_eq!(restored.manifest().count_of(28), 1, "Legitimate FusionTorch craft must persist");
-    assert_eq!(restored.manifest().count_of(23), 0, "Consumed GoldOre must not duplicate");
-    assert_eq!(restored.manifest().count_of(22), 0, "Consumed IronOre must not duplicate");
+    assert_eq!(
+        restored.manifest().count_of(world::RelicCatalog::from_medium(world::BlockMedium::FusionTorch)),
+        1,
+        "Legitimate FusionTorch craft must persist"
+    );
+    assert_eq!(
+        restored.manifest().count_of(world::RelicCatalog::from_medium(world::BlockMedium::GoldOre)),
+        0,
+        "Consumed GoldOre must not duplicate"
+    );
+    assert_eq!(
+        restored.manifest().count_of(world::RelicCatalog::from_medium(world::BlockMedium::IronOre)),
+        0,
+        "Consumed IronOre must not duplicate"
+    );
 
     let _ = std::fs::remove_dir_all(&sandbox);
 }
@@ -177,7 +193,7 @@ fn test_rapid_reconnect_before_timeout_preserves_survivor_checkpoint_and_renews_
         0,
         PresenceKinematics::new(target_spot, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     ));
     alice_a.sync_pilot_craft(PilotCraft::Pedestrian);
     for _ in 0..4 {
@@ -208,7 +224,7 @@ fn test_rapid_reconnect_before_timeout_preserves_survivor_checkpoint_and_renews_
         0,
         PresenceKinematics::new(target_spot, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     ));
     for _ in 0..3 {
         let _ = alice_b.pump_portal(0.03);
@@ -218,81 +234,4 @@ fn test_rapid_reconnect_before_timeout_preserves_survivor_checkpoint_and_renews_
         alice_b.harvest_surface(dig_spot + Vec3::Y * 1.4, Vec3::NEG_Y).is_some(),
         "Renewed SessionSeal must accept fresh tx_seq=1 packets immediately"
     );
-}
-
-#[test]
-fn test_belt_asteroid_logout_restores_moving_voxel_crust_after_orbital_drift() {
-    let prop = SolarProportions::compressed(64, 0.02);
-    let mut host = SanctuaryHost::bind_cosmos(
-        "127.0.0.1:0",
-        CelestialSystem::barren_heliosphere(prop, 0.5),
-        prop,
-    )
-    .expect("bind belt host");
-    let addr = host.local_addr().expect("addr");
-    let eph = host.world().celestial_atlas().ephemeris().expect("ephemeris");
-    let sun = eph.snapshot_all(0.0)[0];
-    let belt = world::AsteroidBelt::new(prop, 0.0);
-    let au = prop.astronomical_unit();
-    let (rock, cell) = (0..240)
-        .find_map(|step| {
-            let a = (step as f64) * 0.026;
-            let probe = sun.center() + glam::DVec3::new(2.70 * au * a.cos(), 0.0, 2.70 * au * a.sin());
-            belt.nearest_rock_with_cell(probe, sun.center(), sun.gm(), 420.0)
-        })
-        .expect("belt rock at ~2.7 AU");
-    let belt_frame = CosmicFrame::BeltAsteroid { cell, id: rock.id() };
-    let secret = HandshakeIdentity::generate().secret_bytes();
-
-    let rock_stand;
-    {
-        let mut link1 = crate::RemoteLink::bind_with_identity(
-            JoinTarget::Direct(addr),
-            HandshakeIdentity::from_secret_bytes(secret),
-        )
-        .expect("link1");
-        for _ in 0..6 {
-            let _ = host.tick(0.02);
-            if link1.step_cosmos_handshake(0.02).is_some() {
-                break;
-            }
-        }
-        let mut miner = RemotePlanet::from_cosmos_link(link1, prop, 0.5);
-        miner.anchor_to_frame(belt_frame, Vec3::new(0.25, rock.half_size() + 2.0, 0.25));
-        rock_stand = miner.constrain_to_surface(Vec3::new(0.25, rock.half_size() + 2.0, 0.25), 0.0);
-        miner.sync_presence(CompanionPresence::new(
-            0,
-            PresenceKinematics::new(rock_stand, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
-            (0.0, 0.0, 0.0, 0.0),
-            PresenceAttire::squire(),
-        ));
-        for _ in 0..4 {
-            let _ = miner.pump_portal(0.03);
-            let _ = host.tick(0.03);
-        }
-    }
-
-    host.align_epoch(7_200.0);
-    let _ = host.tick(13.0);
-
-    let mut link2 = crate::RemoteLink::bind_with_identity(
-        JoinTarget::Direct(addr),
-        HandshakeIdentity::from_secret_bytes(secret),
-    )
-    .expect("link2");
-    for _ in 0..6 {
-        let _ = host.tick(0.02);
-        if link2.step_cosmos_handshake(0.02).is_some() {
-            break;
-        }
-    }
-    let miner2 = RemotePlanet::from_cosmos_link(link2, prop, 0.5);
-    assert_eq!(miner2.cosmic_frame(), belt_frame);
-    let Some(SurvivorWelcome::Restored(rec)) = miner2.assigned_survivor() else {
-        panic!("Expected Restored BeltAsteroid record after 2-hour orbital drift");
-    };
-    assert_eq!(rec.frame(), belt_frame);
-    let landed = miner2.constrain_to_surface(rec.position(), 0.0);
-    assert!((landed - rock_stand).length() < 0.02, "Survivor must stand on exact moving BeltRock voxel");
-    assert!(miner2.surface_contact(rec.position() + Vec3::Y * 1.0, 0.0).landable());
 }

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{BlockMedium, BlockMold, PlanetaryWorld as _, SolarProportions, WorldSeed};
-use crate::attire::{HeldRelic, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{Avatar as _, PlanetaryAvatar};
 use crate::menu::{
     EscapeMenu, LobbyGateModal, ModalDirective, PausePanel, SavedWorldStudio, ScreenPoint,
@@ -141,7 +141,10 @@ fn test_disk_world_vault_persists_blocks_and_inventory_and_seeded_decorators_var
     let prop = SolarProportions::true_scale(256).with_seed(seed_a);
     let mut wire = Vec::new();
     prop.inscribe_tail(&mut wire);
-    assert_eq!(SolarProportions::decode_tail(256, &wire).seed(), seed_a);
+    assert_eq!(
+        SolarProportions::decode_tail(256, &wire).expect("16-byte tail").seed(),
+        seed_a
+    );
 
     // Verify SeededCosmos<EpsteinReachCosmos> caps distance_scale identically to EpsteinReachCosmos
     let continental = sample_spec("CONTINENT", 32, "GLACIER").proportions(1.0);
@@ -185,7 +188,7 @@ fn test_disk_world_vault_persists_blocks_and_inventory_and_seeded_decorators_var
             .and_then(|w| w.restored_record())
             .expect("Survivor checkpoint must reload from disk");
         let mut avatar = PlanetaryAvatar::at(Vec3::new(0.0, 70.0, 0.0));
-        avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm));
+        avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::EmptyPalm, HeldRelic::EmptyPalm));
         avatar.land_on_world(reloaded.as_ref());
         assert!(
             restored.manifest().count_of(world::RelicCatalog::from_medium(BlockMedium::GoldOre)) >= 1,

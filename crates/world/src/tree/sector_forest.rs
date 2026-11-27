@@ -170,25 +170,6 @@ impl SectorForest {
         peak
     }
 
-    pub fn perch_near(&mut self, center_pt: Vec3, selector: usize, origin: &dyn Face, frame: &SurfaceFrame) -> Option<Vec3> {
-        let c = Self::sector_at(frame, center_pt);
-        self.ensure_neighborhood(c, 6, origin, *frame);
-        let variant = selector as u32;
-        let mut out = Vec::new();
-        for dv in -6..=6 {
-            for du in -6..=6 {
-                if let Some(g) = self.groves.get(&(c.0 + du, c.1 + dv)) {
-                    for t in g.trees() {
-                        if let Some(p) = t.crown_perch(variant).filter(|&p| (p - center_pt).length_squared() <= 576.0) {
-                            out.push(p);
-                        }
-                    }
-                }
-            }
-        }
-        (!out.is_empty()).then(|| out[selector % out.len()])
-    }
-
     pub fn strike_near(&mut self, eye: Vec3, direction: Vec3, origin: &dyn Face, frame: &SurfaceFrame) -> CleaveOutcome {
         let c = Self::sector_at(frame, eye);
         self.ensure_neighborhood(c, 1, origin, *frame);

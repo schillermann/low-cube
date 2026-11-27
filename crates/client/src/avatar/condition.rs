@@ -6,7 +6,6 @@ pub(super) trait AvatarCondition {
     fn perished(&self) -> bool;
     fn lethal_contact(&self, world: &dyn PlanetaryWorld) -> bool;
     fn satchel_open(&self) -> bool;
-    fn driving(&self) -> bool;
     fn sheltered_berth(&self) -> bool;
     fn ear_locus(&self) -> Vec3;
     fn abort_hands(&mut self, world: &mut dyn PlanetaryWorld) -> bool;

@@ -4,7 +4,7 @@ use world::{
     BlockMedium, BlockMold, CelestialSystem, CraftBlueprint, CraftPose, MeshTarget, PlanetaryWorld,
     Quad, VesselSink,
 };
-use crate::attire::{HeldRelic, SightMode, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic, SightMode};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, HandGesture,
     PlanetaryAvatar,
@@ -92,7 +92,7 @@ fn test_rocket_camera_moves_within_small_radius_on_nose_and_belly_channels_witho
         let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-            YouthAttire::squire(),
+            EvaAttire::astronaut(),
             ActionBindings::seeded(),
         );
         pilot.rotate_degrees(-90.0, 10.0);
@@ -189,7 +189,7 @@ fn test_side_rocket_camera_stays_in_small_radius_while_cockpit_and_handheld_orbi
         let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-            YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::FieldCamera),
+            EvaAttire::astronaut().with_relics(HeldRelic::EmptyPalm, HeldRelic::FieldCamera),
             ActionBindings::seeded(),
         );
         struct BustVerts(Vec<Vec3>);
@@ -274,7 +274,7 @@ fn test_camera_attached_under_crane_rocket_stays_above_world_cube_surface() {
         let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-            YouthAttire::squire(),
+            EvaAttire::astronaut(),
             ActionBindings::seeded(),
         );
         pilot.rotate_degrees(-90.0, 10.0);

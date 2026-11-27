@@ -1,10 +1,10 @@
 use world::PalmMolds;
 use super::super::relic::{HeldRelic, ToolCondition};
-use super::super::YouthAttire;
+use super::super::EvaAttire;
 
 const TRACKED_COPIES: usize = 4;
 
-/// Per-hand and per-slot tool wear memory preserving physical blade condition across stowing (`2` fields).
+/// Per-hand and per-slot tool surface-finish memory across stowing (`2` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct SatchelTemper {
     palms: (u16, u16),
@@ -36,6 +36,7 @@ impl SatchelTemper {
         }
     }
 
+    #[cfg(test)]
     pub(super) const fn palm_condition(self, side: f32, relic: HeldRelic) -> ToolCondition {
         ToolCondition::from_wear(self.palm_wear(side), relic.endurance_span())
     }
@@ -48,15 +49,15 @@ impl SatchelTemper {
         }
     }
 
-    pub(super) fn wardrobe_molds(self, base: PalmMolds, attire: YouthAttire) -> PalmMolds {
+    pub(super) fn wardrobe_molds(self, base: PalmMolds, attire: EvaAttire) -> PalmMolds {
         let (r, l) = attire.held_pair();
         let rm = if r.wearable() {
-            self.palm_condition(1.0, r).into_mold()
+            ToolCondition::from_wear(self.palm_wear(1.0), r.endurance_span()).into_mold()
         } else {
             base.on_side(1.0)
         };
         let lm = if l.wearable() {
-            self.palm_condition(-1.0, l).into_mold()
+            ToolCondition::from_wear(self.palm_wear(-1.0), l.endurance_span()).into_mold()
         } else {
             base.on_side(-1.0)
         };
@@ -89,7 +90,7 @@ impl SatchelTemper {
         wear
     }
 
-    pub(super) fn reconcile_attire(&mut self, attire: YouthAttire) {
+    pub(super) fn reconcile_attire(&mut self, attire: EvaAttire) {
         let (r, l) = attire.held_pair();
         if !r.wearable() {
             self.palms.0 = 0;
@@ -99,7 +100,7 @@ impl SatchelTemper {
         }
     }
 
-    pub(super) fn transition_attire(&mut self, prev: YouthAttire, next: YouthAttire) {
+    pub(super) fn transition_attire(&mut self, prev: EvaAttire, next: EvaAttire) {
         let ((pr, pl), (nr, nl)) = (prev.held_pair(), next.held_pair());
         if nr != pr {
             self.palms.0 = 0;

@@ -4,7 +4,7 @@ use world::{
     BiomedCubeWorld, BlockMedium, MeshTarget, PlanetaryWorld, Quad, SurfaceFind, TerrainMesh as _,
     WorldFact,
 };
-use crate::attire::{HeldRelic, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
 };
@@ -47,9 +47,8 @@ fn test_single_tap_stows_while_double_tap_casts_to_ground_and_retrieves() {
     let mut base_flora = QuadTally::empty();
     world.emit_face(6, &mut base_flora);
 
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::WoodmanAxe, HeldRelic::GoldOre));
+    avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::GoldOre));
 
-    // Single tap E stows WoodmanAxe; waiting > 0.38s expires double-tap so next E opens satchel instead of dropping.
     assert!(avatar.press_world_key(KeyCode::KeyE, &mut world));
     for _ in 0..30 {
         avatar.step_motion(1.0 / 60.0, &controls, &world);
@@ -61,7 +60,6 @@ fn test_single_tap_stows_while_double_tap_casts_to_ground_and_retrieves() {
     assert_eq!(after_slow_e.quad_count(), base_flora.quad_count(), "Expired second tap must open satchel, not drop");
     assert!(avatar.press_world_key(KeyCode::KeyE, &mut world));
 
-    // Double-tap E within 0.15s casts WoodmanAxe onto the ground and removes it from satchel.
     assert!(avatar.press_world_key(KeyCode::KeyE, &mut world));
     for _ in 0..9 {
         avatar.step_motion(1.0 / 60.0, &controls, &world);
@@ -69,16 +67,15 @@ fn test_single_tap_stows_while_double_tap_casts_to_ground_and_retrieves() {
     }
     assert!(avatar.press_world_key(KeyCode::KeyE, &mut world));
 
-    let mut axe_on_ground = QuadTally::empty();
-    world.emit_face(6, &mut axe_on_ground);
-    assert!(axe_on_ground.quad_count() > base_flora.quad_count(), "Dropped axe must appear in flora mesh on ground");
+    let mut wrench_on_ground = QuadTally::empty();
+    world.emit_face(6, &mut wrench_on_ground);
+    assert!(wrench_on_ground.quad_count() > base_flora.quad_count(), "Dropped RigWrench must appear on ground");
 
-    // Double-tap Q immediately casts left-hand GoldOre onto the ground beside it; satchel must now be completely empty.
     assert!(avatar.press_world_key(KeyCode::KeyQ, &mut world));
     assert!(avatar.press_world_key(KeyCode::KeyQ, &mut world));
     let mut both_on_ground = QuadTally::empty();
     world.emit_face(6, &mut both_on_ground);
-    assert!(both_on_ground.quad_count() > axe_on_ground.quad_count(), "Dropped ore block must also lie on ground");
+    assert!(both_on_ground.quad_count() > wrench_on_ground.quad_count(), "Dropped ore block must also lie on ground");
 
     assert!(avatar.dispatch_wardrobe_key(KeyCode::Tab));
     let mut check_satchel = QuadTally::empty();
@@ -86,7 +83,6 @@ fn test_single_tap_stows_while_double_tap_casts_to_ground_and_retrieves() {
     assert_eq!(check_satchel.quad_count(), empty_satchel.quad_count(), "Dropped items must leave satchel empty");
     assert!(avatar.dispatch_wardrobe_key(KeyCode::Tab));
 
-    // Clicking on the ground items retrieves both back into the avatar's hands.
     assert!(avatar.use_left_hand(&mut world) && avatar.use_right_hand(&mut world));
     let mut cleared_flora = QuadTally::empty();
     world.emit_face(6, &mut cleared_flora);
@@ -101,8 +97,9 @@ fn test_cast_litter_world_fact_roundtrips_and_syncs_in_multiplayer() {
     use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
 
     for find in [
-        SurfaceFind::KnightlySword,
-        SurfaceFind::TimberTorch,
+        SurfaceFind::RigWrench,
+        SurfaceFind::SuitRadio,
+        SurfaceFind::TitaniumBillet,
         SurfaceFind::LooseBlock(BlockMedium::CopperOre),
         SurfaceFind::LooseBlock(BlockMedium::FieldCamera),
     ] {
@@ -125,7 +122,7 @@ fn test_cast_litter_world_fact_roundtrips_and_syncs_in_multiplayer() {
     let spawn = host_planet.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 1.0);
     let mut guest_avatar = PlanetaryAvatar::at(spawn);
     guest_avatar.rotate_degrees(0.0, 58.0);
-    guest_avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::KnightlySword, HeldRelic::EmptyPalm));
+    guest_avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::SuitRadio, HeldRelic::EmptyPalm));
 
     for _ in 0..8 {
         guest_avatar.sync_world_presence(&mut guest_planet);
@@ -147,5 +144,5 @@ fn test_cast_litter_world_fact_roundtrips_and_syncs_in_multiplayer() {
 
     let mut host_after = QuadTally::empty();
     host_planet.emit_face(6, &mut host_after);
-    assert!(host_after.quad_count() > host_before.quad_count(), "Guest dropped sword must sync onto host planet");
+    assert!(host_after.quad_count() > host_before.quad_count(), "Guest dropped SuitRadio must sync onto host planet");
 }

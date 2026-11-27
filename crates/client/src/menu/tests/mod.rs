@@ -9,7 +9,7 @@ use std::cell::Cell;
 use glam::Vec3;
 use engine::{CpuMeshBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
 use world::{MeshTarget, Quad};
-use crate::attire::{AttireProfile, BodyRegion, ComplexionSwatch, FileAttire, HeldRelic, SightMode, StrideRhythm, Wardrobe, YouthAttire};
+use crate::attire::{AttireProfile, BodyRegion, ComplexionSwatch, EvaAttire, FileAttire, HeldRelic, SightMode, StrideRhythm, Wardrobe};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::AuroraCanopy;
 use crate::avatar::{Avatar, AvatarPresence as _, PlanetaryAvatar};
@@ -74,7 +74,7 @@ fn test_escape_key_opens_menu_character_stage_and_keybinding_settings() {
     menu.move_cursor(ScreenPoint::new(0.0, -0.01));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
 
-    let (attire, stage) = (YouthAttire::squire(), TurntableStage::front_showcase());
+    let (attire, stage) = (EvaAttire::astronaut(), TurntableStage::front_showcase());
     let (mut single_figure, mut stage_mesh, mut empty_fem, mut held_fem) = (QuadCapture::empty(), QuadCapture::empty(), QuadCapture::empty(), QuadCapture::empty());
     StudioAnimation::StandingIdle.emit_figure(Vec3::new(0.0, 1.0, 0.0), 0.0, 0.0, &attire, &mut single_figure);
     stage.emit_stage(&attire, &mut stage_mesh);
@@ -91,7 +91,7 @@ fn test_escape_key_opens_menu_character_stage_and_keybinding_settings() {
     menu.move_cursor(ScreenPoint::new(-0.59, -0.70));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
     avatar.emit_appearance(&mut empty_fem);
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::EmptyPalm));
+    avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::EmptyPalm));
     assert_eq!(menu.press_mouse(&surface, &mut avatar), ModalDirective::ContinueSession);
     avatar.emit_appearance(&mut held_fem);
     assert!(held_fem.count() > empty_fem.count(), "Switching gender in Character Studio must preserve block held in hand");
@@ -138,7 +138,7 @@ fn test_escape_key_opens_menu_character_stage_and_keybinding_settings() {
 
 #[test]
 fn test_single_character_cycles_all_animations_and_archetypes_differ_fundamentally() {
-    let (attire, stage_front) = (YouthAttire::squire(), TurntableStage::front_showcase());
+    let (attire, stage_front) = (EvaAttire::astronaut(), TurntableStage::front_showcase());
     let (mut front_quads, mut turned_quads) = (QuadCapture::empty(), QuadCapture::empty());
     stage_front.emit_stage(&attire, &mut front_quads);
     stage_front.rotated(1.2).emit_stage(&attire, &mut turned_quads);
@@ -178,7 +178,7 @@ fn test_single_character_cycles_all_animations_and_archetypes_differ_fundamental
 
 #[test]
 fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
-    let base_attire = YouthAttire::squire();
+    let base_attire = EvaAttire::astronaut();
     let pose = AvatarPosture::standing().body_pose(Vec3::ZERO, glam::Quat::IDENTITY, glam::Quat::IDENTITY, StrideRhythm::idle());
 
     let mut base_mesh = QuadCapture::empty();
@@ -201,9 +201,9 @@ fn test_individual_body_part_size_and_thickness_and_skin_color_selection() {
 
     let temp_path = std::env::temp_dir().join("test_studio_body_proportions.toml");
     let store = FileAttire::new(temp_path.to_str().unwrap().to_string());
-    let custom = AvatarArchetype::Blacksmith.female_attire().with_complexion(ComplexionSwatch::Bronze).with_adjusted_region(BodyRegion::Crown, 1, -1).with_adjusted_region(BodyRegion::Arms, 2, 2);
+    let custom = AvatarArchetype::Machinist.female_attire().with_complexion(ComplexionSwatch::Bronze).with_adjusted_region(BodyRegion::Crown, 1, -1).with_adjusted_region(BodyRegion::Arms, 2, 2);
     store.save(&custom);
-    let loaded = store.load_or_squire();
+    let loaded = store.load_or_astronaut();
     let _ = std::fs::remove_file(&temp_path);
     assert_eq!(custom, loaded);
     assert!(loaded.feminine());

@@ -1,10 +1,8 @@
 use world::{CosmicFrame, CraftBlueprint, CraftIdentity, ExposedStratum, PlanetaryWorld, WorldFact};
-use fauna::BoarSounder;
 use crate::admin_ward::{AdminBlockWard, GuestFactStamp};
-use crate::chronicled_planet::{ChronicledPlanet, FactJournal};
+use crate::chronicled_planet::FactJournal;
 use crate::envelope::CrackNotice;
 use crate::warded_planet::WardedPlanet;
-use super::court::AbandonedDock;
 use super::HostState;
 
 impl FactJournal for HostState {
@@ -72,18 +70,6 @@ impl AuthoredChronicle for HostState {
                 if matches!(**fact, WorldFact::StratumDisclosed { .. } | WorldFact::SectorSnapshot { .. }) =>
             {
                 false
-            }
-            WorldFact::BoarStruck { eye, direction, power, reach_cm } => {
-                if !self.cohort.ward_mut(cid).is_some_and(|w| AbandonedDock::valid_boar_reach(w.cosmic_frame(), eye, direction, w)) {
-                    return false;
-                }
-                let (_, drops) = self
-                    .aura
-                    .wildlife_mut()
-                    .evaluate_strike(eye, direction, power.clamp(1, 4), (f32::from(reach_cm) * 0.01).clamp(0.5, 2.75), false, world);
-                let Some(meat_rays) = drops else { return false };
-                let mut decorated = ChronicledPlanet::new(world, self);
-                BoarSounder::cast_meat_drops(meat_rays, &mut decorated)
             }
             other => {
                 let stamped = GuestFactStamp::new(cid, other).stamped();

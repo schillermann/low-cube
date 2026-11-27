@@ -4,12 +4,12 @@ use world::{
     BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, SurfaceFrame,
     WorldEarthworks as _,
 };
-use crate::attire::{HeldRelic, MartialStyle, StrideRhythm, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic, MartialStyle, StrideRhythm};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, HandGesture,
     PlanetaryAvatar,
 };
-use acoustics::{AcousticWave, EngineRumble, PalmScrape, SpadeStrike};
+use acoustics::{AcousticWave, EngineRumble, PalmScrape, RigStrike};
 use crate::controls::{InputTrigger, KeyMotion, KeyboardControls};
 use crate::posture::AvatarPosture;
 
@@ -24,7 +24,7 @@ impl MeshTarget for VertCollector {
 fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     let (palm_wav, spade_wav, engine_wav) = (
         PalmScrape::earthy().riff_wave(),
-        SpadeStrike::forged().riff_wave(),
+        RigStrike::titanium().riff_wave(),
         EngineRumble::combustion().riff_wave(),
     );
     assert!(palm_wav != spade_wav && spade_wav != engine_wav && palm_wav != engine_wav);
@@ -90,7 +90,7 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     );
     assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), Vec3::new(0.0, -0.8, -0.6).normalize(), av_pos, bench_mold));
     let mut world_sitter = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(2.25, 22.0, 1.25), 1.0));
-    world_sitter.apply_attire(YouthAttire::squire().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
+    world_sitter.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
     world_sitter.rotate_degrees(0.0, 58.0);
     assert!(!world_sitter.use_right_hand(&mut world) && world_sitter.release_hand(&mut world));
     let sit_eye = cam_pos(&world_sitter);
@@ -130,7 +130,7 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
         assert!(world.place_molded_surface_block(eye, dir, av_pos, mold));
     }
     let mut miner = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.75, 22.0, 1.25), 1.0));
-    miner.apply_attire(YouthAttire::squire().with_relics(HeldRelic::CarWheel, HeldRelic::EmptyPalm));
+    miner.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::CarWheel, HeldRelic::EmptyPalm));
     assert!(!miner.use_right_hand(&mut world));
     for _ in 0..320 {
         miner.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
@@ -153,9 +153,9 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     let mut driver = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0));
     driver.rotate_degrees(-90.0, 12.0);
     assert!(HandGesture::RightTap.perform(&mut driver, &mut world));
-    driver.apply_attire(YouthAttire::squire().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
+    driver.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
     assert!(driver.dispatch_trigger(InputTrigger::WheelClick));
-    driver.apply_attire(YouthAttire::squire());
+    driver.apply_attire(EvaAttire::astronaut());
     assert!(driver.use_right_hand(&mut world));
     let (mut gas, mut hold_s) = (KeyMotion::idle(), KeyMotion::idle());
     gas.register_key(KeyCode::KeyW, true);
@@ -237,7 +237,7 @@ fn test_holding_mouse_button_dismantles_seat_while_short_click_perches() {
     assert!((world.constrain_to_surface(Vec3::new(2.25, 22.0, 0.25), 0.0).y - g0).abs() < 1e-4, "Held mouse button must dismantle the seat");
 
     assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), aim, av_pos, seat_mold));
-    bare_miner.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    bare_miner.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
     assert!(HandGesture::RightTap.perform(&mut bare_miner, &mut world));
     assert!(cam_pos(&bare_miner).z < 0.6, "Short click must perch on the seat");
     bare_miner.rotate_degrees(0.0, 88.0);

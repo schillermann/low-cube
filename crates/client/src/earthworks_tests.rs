@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, TerrainMesh as _};
-use crate::attire::{HeldRelic, YouthAttire};
+use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
 };
@@ -25,7 +25,7 @@ fn test_digging_speed_one_hand_vs_two_hands_vs_spade_and_abort_on_release() {
     let mut avatar_two = PlanetaryAvatar::at(spawn);
     let mut avatar_spade = PlanetaryAvatar::at(spawn);
     avatar_one.rotate_degrees(0.0, 65.3);
-    avatar_one.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    avatar_one.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
     for _ in 0..7 { assert!(!avatar_one.use_left_hand(&mut world_one_hand)); }
     assert!(avatar_one.use_left_hand(&mut world_one_hand));
 
@@ -39,7 +39,7 @@ fn test_digging_speed_one_hand_vs_two_hands_vs_spade_and_abort_on_release() {
     assert!(avatar_two.use_right_hand(&mut world_two_hands));
 
     avatar_spade.rotate_degrees(0.0, 70.5);
-    avatar_spade.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    avatar_spade.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
     assert!(!avatar_spade.use_right_hand(&mut world_spade));
     assert!(avatar_spade.release_hand(&mut world_spade));
     assert!(!avatar_spade.use_right_hand(&mut world_spade));
@@ -93,7 +93,7 @@ fn test_mouse_wheel_molds_rotates_and_places_sloped_and_slab_blocks() {
     let target_probe = Vec3::new(0.0, 9.0, -0.75);
     let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.0, 16.5, 0.0), 1.0));
     avatar.rotate_degrees(0.0, 70.5);
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world));
     assert!(avatar.dispatch_trigger(InputTrigger::WheelDown) && avatar.dispatch_trigger(InputTrigger::WheelDown));
 
@@ -112,7 +112,7 @@ fn test_mouse_wheel_molds_rotates_and_places_sloped_and_slab_blocks() {
     let slab_initial = slab_world.constrain_to_surface(target_probe, 0.0).y;
     let mut slab_avatar = PlanetaryAvatar::at(slab_world.constrain_to_surface(Vec3::new(0.0, 16.5, 0.0), 1.0));
     slab_avatar.rotate_degrees(0.0, 70.5);
-    slab_avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::QuarriedStone, HeldRelic::EmptyPalm));
+    slab_avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::QuarriedStone, HeldRelic::EmptyPalm));
     assert!(slab_avatar.dispatch_trigger(InputTrigger::WheelDown));
     assert!(!slab_avatar.use_right_hand(&mut slab_world) && slab_avatar.release_hand(&mut slab_world));
     assert!((slab_world.constrain_to_surface(target_probe, 0.0).y - (slab_initial + 0.25)).abs() < 1e-4);
@@ -137,7 +137,7 @@ fn test_satchel_stows_and_retrieves_blocks_and_tools_invisibly_when_closed() {
     avatar.emit_inspection(&mut empty_satchel_mesh);
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::Tab));
 
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::ExcavatedEarth));
+    avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::ExcavatedEarth));
     assert!(avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyQ) && avatar.dispatch_wardrobe_key(winit::keyboard::KeyCode::KeyE));
     avatar.emit_appearance(&mut closed_mesh);
     assert_eq!(closed_mesh.count(), empty_hands_mesh.count());
@@ -200,7 +200,7 @@ fn test_spade_in_left_hand_with_empty_right_hand_excavates_sloped_block_cleanly(
     assert!(slope_mid_y > 0.0);
     let stand_pos = world.constrain_to_surface(Vec3::new(slope_u, 18.0, slope_z + 0.75), 1.0);
     let mut avatar = PlanetaryAvatar::at(stand_pos);
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::EmptyPalm, HeldRelic::IronSpade));
+    avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::EmptyPalm, HeldRelic::RigWrench));
     avatar.rotate_degrees(0.0, 65.3);
     assert!(!avatar.use_left_hand(&mut world) && avatar.use_left_hand(&mut world));
     assert!(world.constrain_to_surface(Vec3::new(slope_u, 18.0, slope_z), 0.0).y - 16.0 < slope_mid_y);
@@ -258,7 +258,7 @@ fn test_sustained_digging_varies_palm_and_spade_sound_via_decorators() {
     assert_ne!(inflected.riff_wave(), crumbled.riff_wave());
 
     let palm_waves: Vec<Vec<u8>> = (0..8).map(|s| CadencedWave::palm(s).riff_wave()).collect();
-    let spade_waves: Vec<Vec<u8>> = (0..8).map(|s| CadencedWave::spade(s).riff_wave()).collect();
+    let spade_waves: Vec<Vec<u8>> = (0..8).map(|s| CadencedWave::rig_tool(s).riff_wave()).collect();
     for i in 0..8 {
         for j in (i + 1)..8 {
             assert_ne!(palm_waves[i], palm_waves[j]);
@@ -270,7 +270,7 @@ fn test_sustained_digging_varies_palm_and_spade_sound_via_decorators() {
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 18.0, 0.0), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn);
     avatar.rotate_degrees(0.0, 70.5);
-    avatar.apply_attire(YouthAttire::squire().with_relics(HeldRelic::IronSpade, HeldRelic::EmptyPalm));
+    avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
 
     let spade_trace = DigWaveTrace::new(2).record_variants(|| {
         let _ = avatar.use_right_hand(&mut world);

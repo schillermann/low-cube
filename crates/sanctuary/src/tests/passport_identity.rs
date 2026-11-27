@@ -90,9 +90,9 @@ fn test_server_issues_identity_to_client_vault_and_restores_inventory_and_roster
             0,
             PresenceKinematics::new(mars_spot, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
             (0.0, 0.0, 0.0, 0.0),
-            PresenceAttire::squire(),
+            PresenceAttire::astronaut(),
         ));
-        tom1.note_crafted_recipe(17);
+        tom1.note_crafted_recipe(11);
         for _ in 0..6 {
             let _ = tom1.pump_portal(0.03);
             let _ = host1.tick(0.03);
@@ -146,7 +146,10 @@ fn test_server_issues_identity_to_client_vault_and_restores_inventory_and_roster
     assert_eq!(restored.callsign().as_str(), "Tom");
     assert_eq!(restored.frame(), CosmicFrame::Body(BodyId::MARS));
     assert!((restored.position() - mars_spot).length() < 0.02);
-    assert_eq!(restored.manifest().count_of(28), 1);
+    assert_eq!(
+        restored.manifest().count_of(world::RelicCatalog::from_medium(world::BlockMedium::FusionTorch)),
+        1
+    );
 
     let _ = std::fs::remove_dir_all(&sandbox);
 }
@@ -168,7 +171,7 @@ fn test_duplicate_callsigns_disambiguate_identities_and_format_proximity_chat() 
         1,
         PresenceKinematics::new(stand, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     ));
 
     let mut link_a = RemoteLink::bind_with_vault(
@@ -203,7 +206,7 @@ fn test_duplicate_callsigns_disambiguate_identities_and_format_proximity_chat() 
         0,
         PresenceKinematics::new(stand, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     );
     tom_a.sync_presence(pres);
     tom_b.sync_presence(pres);

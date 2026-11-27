@@ -8,7 +8,7 @@ use world::{
     CraftPose, ExposedStratum, GravityField, MiningEdge, PlanetaryWorld, SurfaceFind,
     VehicleAssembly, WorldEarthworks, WorldFact,
 };
-use crate::chronicled_planet::{ChronicledPlanet, FactJournal as _};
+use crate::chronicled_planet::ChronicledPlanet;
 use crate::guest_journal::GuestJournal;
 use crate::remote_link::RemoteLink;
 use crate::ticket::JoinTarget;
@@ -150,14 +150,6 @@ impl WorldEarthworks for RemotePlanet {
     fn surface_yields_to(&self, eye: Vec3, direction: Vec3, edge: MiningEdge) -> bool { self.world.surface_yields_to(eye, direction, edge) }
     fn aimed_surface_medium(&self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.world.aimed_surface_medium(eye, direction) }
     fn strike_timber(&mut self, eye: Vec3, direction: Vec3) -> CleaveOutcome { self.with_chronicled(|w| w.strike_timber(eye, direction)) }
-    fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
-        if !self.journal.intercept_boar_strike(eye, direction, max_reach, self.world.as_ref()) {
-            return (false, false);
-        }
-        let reach_cm = (max_reach.clamp(0.0, 10.0) * 100.0).round() as u16;
-        self.journal.inscribe_fact(WorldFact::BoarStruck { eye, direction, power, reach_cm });
-        (true, false)
-    }
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind { self.with_chronicled(|w| w.forage_surface(eye, direction)) }
     fn cast_surface_find(&mut self, eye: Vec3, direction: Vec3, find: SurfaceFind) -> bool { self.with_chronicled(|w| w.cast_surface_find(eye, direction, find)) }
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {

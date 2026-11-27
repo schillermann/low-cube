@@ -1,6 +1,6 @@
 use glam::Vec3;
 
-/// Natural skin tone swatches for the avatar hands, forearms, neck, and face.
+/// Natural skin tone swatches for the crew avatar face and brow visible inside clear EVA visors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ComplexionSwatch {
     Birch,
@@ -84,81 +84,76 @@ impl ComplexionSwatch {
     }
 }
 
-/// Medieval natural dye swatches for tunics, jerkins, hose, and hoods.
+/// Space-Age EVA pressure-suit outer beta-cloth and anodized alloy pigment swatches.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PigmentSwatch {
-    UnbleachedLinen,
-    ForestMoss,
-    MadderCrimson,
-    WoadIndigo,
-    OchreGold,
-    SaddleHide,
-    CharcoalSlate,
-    RussetBark,
+    LunarWhite,
+    OrbitalOlive,
+    SignalCrimson,
+    DeepCobalt,
+    SolarGold,
+    RegolithTan,
+    CarbonSlate,
+    MartianRust,
 }
 
 impl PigmentSwatch {
     pub fn next(self) -> Self {
-        match self {
-            Self::UnbleachedLinen => Self::ForestMoss,
-            Self::ForestMoss => Self::MadderCrimson,
-            Self::MadderCrimson => Self::WoadIndigo,
-            Self::WoadIndigo => Self::OchreGold,
-            Self::OchreGold => Self::SaddleHide,
-            Self::SaddleHide => Self::CharcoalSlate,
-            Self::CharcoalSlate => Self::RussetBark,
-            Self::RussetBark => Self::UnbleachedLinen,
-        }
+        Self::from_code(self.code() + 1)
     }
 
     pub fn from_code(code: u8) -> Self {
         match code % 8 {
-            0 => Self::UnbleachedLinen,
-            1 => Self::ForestMoss,
-            2 => Self::MadderCrimson,
-            3 => Self::WoadIndigo,
-            4 => Self::OchreGold,
-            5 => Self::SaddleHide,
-            6 => Self::CharcoalSlate,
-            _ => Self::RussetBark,
+            0 => Self::LunarWhite,
+            1 => Self::OrbitalOlive,
+            2 => Self::SignalCrimson,
+            3 => Self::DeepCobalt,
+            4 => Self::SolarGold,
+            5 => Self::RegolithTan,
+            6 => Self::CarbonSlate,
+            _ => Self::MartianRust,
         }
     }
 
     pub fn code(self) -> u8 {
         match self {
-            Self::UnbleachedLinen => 0,
-            Self::ForestMoss => 1,
-            Self::MadderCrimson => 2,
-            Self::WoadIndigo => 3,
-            Self::OchreGold => 4,
-            Self::SaddleHide => 5,
-            Self::CharcoalSlate => 6,
-            Self::RussetBark => 7,
+            Self::LunarWhite => 0,
+            Self::OrbitalOlive => 1,
+            Self::SignalCrimson => 2,
+            Self::DeepCobalt => 3,
+            Self::SolarGold => 4,
+            Self::RegolithTan => 5,
+            Self::CarbonSlate => 6,
+            Self::MartianRust => 7,
         }
     }
 
     pub fn cloth(self) -> Vec3 {
         match self {
-            Self::UnbleachedLinen => Vec3::new(0.82, 0.77, 0.68),
-            Self::ForestMoss => Vec3::new(0.24, 0.42, 0.25),
-            Self::MadderCrimson => Vec3::new(0.62, 0.20, 0.18),
-            Self::WoadIndigo => Vec3::new(0.22, 0.34, 0.54),
-            Self::OchreGold => Vec3::new(0.76, 0.58, 0.24),
-            Self::SaddleHide => Vec3::new(0.52, 0.34, 0.20),
-            Self::CharcoalSlate => Vec3::new(0.30, 0.32, 0.35),
-            Self::RussetBark => Vec3::new(0.44, 0.26, 0.18),
+            Self::LunarWhite => Vec3::new(0.86, 0.88, 0.92),
+            Self::OrbitalOlive => Vec3::new(0.32, 0.44, 0.34),
+            Self::SignalCrimson => Vec3::new(0.74, 0.22, 0.18),
+            Self::DeepCobalt => Vec3::new(0.20, 0.38, 0.64),
+            Self::SolarGold => Vec3::new(0.84, 0.64, 0.22),
+            Self::RegolithTan => Vec3::new(0.62, 0.54, 0.44),
+            Self::CarbonSlate => Vec3::new(0.26, 0.30, 0.36),
+            Self::MartianRust => Vec3::new(0.64, 0.30, 0.20),
         }
     }
 
     pub fn trim(self) -> Vec3 {
-        self.cloth() * 0.72
+        match self {
+            Self::LunarWhite => Vec3::new(0.22, 0.56, 0.84),
+            Self::SignalCrimson => Vec3::new(0.88, 0.84, 0.78),
+            _ => self.cloth() * 0.72,
+        }
     }
 
-    pub fn chausses(self) -> Vec3 {
+    pub fn trousers(self) -> Vec3 {
         match self {
-            Self::UnbleachedLinen | Self::OchreGold => Vec3::new(0.62, 0.58, 0.50),
-            Self::ForestMoss | Self::SaddleHide => Vec3::new(0.42, 0.45, 0.38),
-            _ => Vec3::new(0.36, 0.38, 0.42),
+            Self::LunarWhite | Self::SolarGold => Vec3::new(0.68, 0.72, 0.78),
+            Self::OrbitalOlive | Self::RegolithTan => Vec3::new(0.40, 0.44, 0.42),
+            _ => Vec3::new(0.32, 0.36, 0.42),
         }
     }
 }

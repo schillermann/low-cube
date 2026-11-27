@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 use std::sync::{Mutex, OnceLock};
 use super::tape::TapeSample;
-use super::{AcousticWave, PalmScrape, SoundStage, SpadeStrike};
+use super::{AcousticWave, PalmScrape, RigStrike, SoundStage};
 
 const DIG_VARIATIONS: usize = 8;
 
@@ -188,20 +188,20 @@ impl CadencedWave<PalmScrape> {
     }
 }
 
-impl CadencedWave<SpadeStrike> {
-    /// Secondary constructor decorating iron-blade `SpadeStrike::forged()` with progressive cadence variation.
-    pub const fn spade(cadence: u32) -> Self {
-        const SPADE_SLOTS: [&str; DIG_VARIATIONS] = [
-            "low_cube_spade_dig_v3_0.wav",
-            "low_cube_spade_dig_v3_1.wav",
-            "low_cube_spade_dig_v3_2.wav",
-            "low_cube_spade_dig_v3_3.wav",
-            "low_cube_spade_dig_v3_4.wav",
-            "low_cube_spade_dig_v3_5.wav",
-            "low_cube_spade_dig_v3_6.wav",
-            "low_cube_spade_dig_v3_7.wav",
+impl CadencedWave<RigStrike> {
+    /// Secondary constructor decorating titanium `RigStrike::titanium()` with progressive cadence variation.
+    pub const fn rig_tool(cadence: u32) -> Self {
+        const RIG_SLOTS: [&str; DIG_VARIATIONS] = [
+            "low_cube_rig_dig_v1_0.wav",
+            "low_cube_rig_dig_v1_1.wav",
+            "low_cube_rig_dig_v1_2.wav",
+            "low_cube_rig_dig_v1_3.wav",
+            "low_cube_rig_dig_v1_4.wav",
+            "low_cube_rig_dig_v1_5.wav",
+            "low_cube_rig_dig_v1_6.wav",
+            "low_cube_rig_dig_v1_7.wav",
         ];
-        Self::new(SpadeStrike::forged(), cadence, &SPADE_SLOTS)
+        Self::new(RigStrike::titanium(), cadence, &RIG_SLOTS)
     }
 }
 
@@ -216,7 +216,7 @@ impl<W: AcousticWave + Copy> AcousticWave for CadencedWave<W> {
 
     fn thump(&self) {
         let idx = (self.cadence as usize) % DIG_VARIATIONS;
-        let tag_offset = if self.slots[0].contains("spade") { 100u8 } else { 0u8 };
+        let tag_offset = if self.slots[0].contains("rig_dig") { 100u8 } else { 0u8 };
         DigWaveTrace::new(0).note_variant(tag_offset + (idx as u8));
         if SoundStage::active() {
             static WAVE_BANK: OnceLock<Mutex<Vec<(&'static str, &'static [u8])>>> = OnceLock::new();

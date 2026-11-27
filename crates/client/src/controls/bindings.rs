@@ -6,7 +6,7 @@ use winit::keyboard::KeyCode;
 pub enum ControlAction {
     MoveForward, MoveBackward, MoveLeft, MoveRight,
     Jump, Sneak, Sprint,
-    Satchel, CraftingBook, SatchelLeft, SatchelRight,
+    Satchel, HelmetLamp, SatchelLeft, SatchelRight,
     MoldForm, MoldLeft, MoldRight,
     FlightGuidance, RollLeft, RollRight, RcsTranslate, RetroFlip, ControlsLegend, SystemMap,
 }
@@ -16,7 +16,7 @@ impl ControlAction {
         [
             Self::MoveForward, Self::MoveBackward, Self::MoveLeft, Self::MoveRight,
             Self::Jump, Self::Sneak, Self::Sprint,
-            Self::Satchel, Self::CraftingBook, Self::SatchelLeft, Self::SatchelRight,
+            Self::Satchel, Self::HelmetLamp, Self::SatchelLeft, Self::SatchelRight,
             Self::MoldForm, Self::MoldLeft, Self::MoldRight,
             Self::FlightGuidance, Self::RollLeft, Self::RollRight,
             Self::RcsTranslate, Self::RetroFlip, Self::ControlsLegend, Self::SystemMap,
@@ -27,7 +27,7 @@ impl ControlAction {
         match self {
             Self::MoveForward => 0, Self::MoveBackward => 1, Self::MoveLeft => 2, Self::MoveRight => 3,
             Self::Jump => 4, Self::Sneak => 5, Self::Sprint => 6,
-            Self::Satchel => 7, Self::CraftingBook => 8, Self::SatchelLeft => 9, Self::SatchelRight => 10,
+            Self::Satchel => 7, Self::HelmetLamp => 8, Self::SatchelLeft => 9, Self::SatchelRight => 10,
             Self::MoldForm => 11, Self::MoldLeft => 12, Self::MoldRight => 13,
             Self::FlightGuidance => 14, Self::RollLeft => 15, Self::RollRight => 16,
             Self::RcsTranslate => 17, Self::RetroFlip => 18, Self::ControlsLegend => 19,
@@ -44,7 +44,7 @@ impl ControlAction {
             Self::MoveForward => "MOVE FORWARD", Self::MoveBackward => "MOVE BACK",
             Self::MoveLeft => "MOVE LEFT", Self::MoveRight => "MOVE RIGHT",
             Self::Jump => "JUMP", Self::Sneak => "SNEAK", Self::Sprint => "SPRINT",
-            Self::Satchel => "SATCHEL", Self::CraftingBook => "CRAFTING BOOK",
+            Self::Satchel => "SATCHEL", Self::HelmetLamp => "HELMET LAMP",
             Self::SatchelLeft => "EMPTY LEFT", Self::SatchelRight => "EMPTY RIGHT",
             Self::MoldForm => "TURN BLOCK", Self::MoldLeft => "PREV SHAPE", Self::MoldRight => "NEXT SHAPE",
             Self::FlightGuidance => "FLIGHT COMPUTER", Self::RollLeft => "ROLL LEFT",
@@ -59,7 +59,7 @@ impl ControlAction {
             Self::MoveForward => "move_forward", Self::MoveBackward => "move_backward",
             Self::MoveLeft => "move_left", Self::MoveRight => "move_right",
             Self::Jump => "jump", Self::Sneak => "sneak", Self::Sprint => "sprint",
-            Self::Satchel => "satchel", Self::CraftingBook => "crafting_book",
+            Self::Satchel => "satchel", Self::HelmetLamp => "helmet_lamp",
             Self::SatchelLeft => "satchel_left", Self::SatchelRight => "satchel_right",
             Self::MoldForm => "mold_form", Self::MoldLeft => "mold_left", Self::MoldRight => "mold_right",
             Self::FlightGuidance => "flight_guidance", Self::RollLeft => "roll_left",
@@ -133,14 +133,14 @@ impl ActionBindings {
         Self { triggers }
     }
 
-    /// Secondary constructor initializing all 21 actions with their single seeded triggers.
+    /// Secondary constructor initializing all 21 Space-Age EVA & flight actions with seeded triggers.
     pub const fn seeded() -> Self {
         Self::new([
             InputTrigger::Key(KeyCode::KeyW), InputTrigger::Key(KeyCode::KeyS),
             InputTrigger::Key(KeyCode::KeyA), InputTrigger::Key(KeyCode::KeyD),
             InputTrigger::Key(KeyCode::Space), InputTrigger::Key(KeyCode::ShiftLeft),
             InputTrigger::Key(KeyCode::ControlLeft), InputTrigger::Key(KeyCode::Tab),
-            InputTrigger::Key(KeyCode::KeyC), InputTrigger::Key(KeyCode::KeyQ),
+            InputTrigger::Key(KeyCode::KeyL), InputTrigger::Key(KeyCode::KeyQ),
             InputTrigger::Key(KeyCode::KeyE), InputTrigger::WheelClick,
             InputTrigger::WheelUp, InputTrigger::WheelDown,
             InputTrigger::Key(KeyCode::KeyT), InputTrigger::Key(KeyCode::KeyQ),

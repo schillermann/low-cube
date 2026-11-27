@@ -7,7 +7,7 @@ use world::{
     BlockMedium, BlockMold, BodyId, CelestialAtlas, CelestialSystem, MeshTarget, PlanetaryWorld,
     Quad, SolarEphemeris, SolarProportions,
 };
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarPresence as _, HandGesture, PlanetaryAvatar,
 };
@@ -86,7 +86,7 @@ fn test_system_map_key_m_opens_clicks_mars_and_jupiter_and_plots_curved_slingsho
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(-90.0, 10.0);
@@ -209,7 +209,7 @@ fn test_high_g_tunnel_vision_fusion_hum_and_end_to_end_earth_to_mars_brachistoch
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         eva_spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
-        YouthAttire::squire(),
+        EvaAttire::astronaut(),
         ActionBindings::seeded(),
     );
     pilot.rotate_degrees(180.0, 0.0);

@@ -12,7 +12,6 @@ mod forensic_blocks;
 mod gentle_ridge;
 mod gentle_valley;
 mod gentle_wedge;
-mod hearth_works;
 mod mineral_seam;
 mod mold;
 mod pedal_cluster;
@@ -46,7 +45,6 @@ pub use forensic_blocks::{BlackBoxPodMesh, LaserBeaconMesh, VitrifiedBasaltMesh}
 pub use gentle_ridge::GentleRidge;
 pub use gentle_valley::GentleValley;
 pub use gentle_wedge::GentleWedge;
-pub use hearth_works::{BakingOvenMesh, BloomeryForgeMesh, SmithyAnvilMesh};
 pub use mineral_seam::MineralSeam;
 pub use mold::{BlockMold, CardinalTurn, MoldArchetype, PalmMolds};
 pub use pedal_cluster::{FootwellPlinth, PedalClusterMesh, WalnutFloorPan};

@@ -17,28 +17,12 @@ pub enum TimberYield {
     Resin,
 }
 
-/// Gathered or cast surface item resting loose upon the planetary floor.
+/// Gathered or cast Space-Age item resting loose upon the planetary floor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SurfaceFind {
     EmptyHanded,
-    DeadwoodBough,
-    FlintStone,
-    TimberTorch,
-    WoodenMallet,
-    WoodmanAxe,
-    KnightlySword,
-    IronSpade,
-    BoarMeat,
-    FlintPickaxe,
-    IronPickaxe,
-    WoodenSpade,
-    CopperSpade,
-    TitaniumSpade,
-    CopperPickaxe,
-    TitaniumPickaxe,
-    RoastedBoar,
-    CopperBloom,
-    IronBloom,
+    RigWrench,
+    SuitRadio,
     TitaniumBillet,
     LooseBlock(BlockMedium),
 }
@@ -53,58 +37,26 @@ impl SurfaceFind {
     pub const fn code(self) -> u8 {
         match self {
             Self::EmptyHanded => 0,
-            Self::DeadwoodBough => 1,
-            Self::FlintStone => 2,
-            Self::TimberTorch => 3,
-            Self::WoodenMallet => 4,
-            Self::WoodmanAxe => 5,
-            Self::KnightlySword => 6,
-            Self::IronSpade => 7,
-            Self::BoarMeat => 8,
-            Self::FlintPickaxe => 9,
-            Self::IronPickaxe => 10,
-            Self::WoodenSpade => 11,
-            Self::CopperSpade => 12,
-            Self::TitaniumSpade => 13,
-            Self::CopperPickaxe => 14,
-            Self::TitaniumPickaxe => 15,
+            Self::RigWrench => 1,
+            Self::SuitRadio => 2,
+            Self::TitaniumBillet => 3,
             Self::LooseBlock(medium) => 16 + medium.code(),
-            Self::RoastedBoar => 60,
-            Self::CopperBloom => 61,
-            Self::IronBloom => 62,
-            Self::TitaniumBillet => 63,
         }
     }
 
     /// Reconstructs a `SurfaceFind` from its compact 1-byte chronicle identifier.
     pub const fn from_code(code: u8) -> Self {
         match code {
-            1 => Self::DeadwoodBough,
-            2 => Self::FlintStone,
-            3 => Self::TimberTorch,
-            4 => Self::WoodenMallet,
-            5 => Self::WoodmanAxe,
-            6 => Self::KnightlySword,
-            7 => Self::IronSpade,
-            8 => Self::BoarMeat,
-            9 => Self::FlintPickaxe,
-            10 => Self::IronPickaxe,
-            11 => Self::WoodenSpade,
-            12 => Self::CopperSpade,
-            13 => Self::TitaniumSpade,
-            14 => Self::CopperPickaxe,
-            15 => Self::TitaniumPickaxe,
-            16..=45 => Self::LooseBlock(BlockMedium::from_code(code - 16)),
-            60 => Self::RoastedBoar,
-            61 => Self::CopperBloom,
-            62 => Self::IronBloom,
-            63 => Self::TitaniumBillet,
+            1 => Self::RigWrench,
+            2 => Self::SuitRadio,
+            3 => Self::TitaniumBillet,
+            16..=43 => Self::LooseBlock(BlockMedium::from_code(code - 16)),
             _ => Self::EmptyHanded,
         }
     }
 }
 
-/// Outcome of swinging a felling axe or mallet at standing woodland timber.
+/// Outcome of cleaving standing woodland timber with an EVA rig tool.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CleaveOutcome {
     Missed,

@@ -1,4 +1,4 @@
-/// Anatomical body region for independent size (Größe) and thickness (Dicke) customization.
+/// Anatomical body region for independent size and thickness customization.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BodyRegion {
     Crown,
@@ -35,9 +35,9 @@ impl PartProportion {
         Self { size_step, girth_step }
     }
 
-    pub const fn squire() -> Self { Self::new(4, 4) }
-    pub const fn scout() -> Self { Self::new(4, 5) }
-    pub const fn apprentice() -> Self { Self::new(4, 6) }
+    pub const fn cadet() -> Self { Self::new(4, 4) }
+    pub const fn specialist() -> Self { Self::new(4, 5) }
+    pub const fn vanguard() -> Self { Self::new(4, 6) }
 
     pub fn adjusted(self, delta_size: i8, delta_girth: i8) -> Self {
         let next_size = (self.size_step as i8 + delta_size).clamp(0, 8) as u8;
@@ -85,16 +85,16 @@ impl PartProportion {
     }
 }
 
-/// Customizable stature build scaling individual body regions (Kopf, Torso, Arme, Beine) and gender form.
+/// Customizable crew stature build scaling individual body regions and gender form (`4` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct YouthPhysique {
+pub struct CrewPhysique {
     crown: PartProportion,
     torso: PartProportion,
     limbs: (PartProportion, PartProportion),
     feminine: bool,
 }
 
-impl YouthPhysique {
+impl CrewPhysique {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn with_feminine(
         crown: PartProportion,
@@ -127,56 +127,56 @@ impl YouthPhysique {
     pub const fn feminine(self) -> bool { self.feminine }
 
     #[allow(non_upper_case_globals)]
-    pub const SlenderSquire: Self = Self::new(
-        PartProportion::squire(),
-        PartProportion::squire(),
-        PartProportion::squire(),
-        PartProportion::squire(),
+    pub const OrbitalCadet: Self = Self::new(
+        PartProportion::cadet(),
+        PartProportion::cadet(),
+        PartProportion::cadet(),
+        PartProportion::cadet(),
     );
     #[allow(non_upper_case_globals)]
-    pub const AgileScout: Self = Self::new(
-        PartProportion::scout(),
-        PartProportion::scout(),
-        PartProportion::scout(),
-        PartProportion::scout(),
+    pub const EvaSpecialist: Self = Self::new(
+        PartProportion::specialist(),
+        PartProportion::specialist(),
+        PartProportion::specialist(),
+        PartProportion::specialist(),
     );
     #[allow(non_upper_case_globals)]
-    pub const SturdyApprentice: Self = Self::new(
-        PartProportion::apprentice(),
-        PartProportion::apprentice(),
-        PartProportion::apprentice(),
-        PartProportion::apprentice(),
+    pub const DeckVanguard: Self = Self::new(
+        PartProportion::vanguard(),
+        PartProportion::vanguard(),
+        PartProportion::vanguard(),
+        PartProportion::vanguard(),
     );
 
     pub fn next(self) -> Self {
-        let base = if self.torso == PartProportion::squire() {
-            Self::AgileScout
-        } else if self.torso == PartProportion::scout() {
-            Self::SturdyApprentice
+        let next_build = if self.torso == PartProportion::cadet() {
+            Self::EvaSpecialist
+        } else if self.torso == PartProportion::specialist() {
+            Self::DeckVanguard
         } else {
-            Self::SlenderSquire
+            Self::OrbitalCadet
         };
-        base.as_feminine(self.feminine)
+        next_build.as_feminine(self.feminine)
     }
 
     pub fn from_code(code: u8) -> Self {
-        let base = match (code & 7) % 3 {
-            0 => Self::SlenderSquire,
-            1 => Self::AgileScout,
-            _ => Self::SturdyApprentice,
+        let build = match (code & 7) % 3 {
+            0 => Self::OrbitalCadet,
+            1 => Self::EvaSpecialist,
+            _ => Self::DeckVanguard,
         };
-        base.as_feminine((code & 8) != 0)
+        build.as_feminine((code & 8) != 0)
     }
 
     pub fn code(self) -> u8 {
-        let base = if self.torso == PartProportion::squire() {
+        let build = if self.torso == PartProportion::cadet() {
             0
-        } else if self.torso == PartProportion::scout() {
+        } else if self.torso == PartProportion::specialist() {
             1
         } else {
             2
         };
-        base | if self.feminine { 8 } else { 0 }
+        build | if self.feminine { 8 } else { 0 }
     }
 
     pub fn adjusted(self, region: BodyRegion, delta_size: i8, delta_girth: i8) -> Self {

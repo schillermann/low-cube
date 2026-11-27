@@ -1,7 +1,6 @@
 use glam::{Mat4, Vec3};
-use fauna::SightCone;
-use world::{MeshTarget, PlanetaryWorld};
-use crate::attire::{CameraMount, PhotoShutter, SightMode, YouthAttire};
+use world::{MeshTarget, PlanetaryWorld, SightCone};
+use crate::attire::{CameraMount, EvaAttire, PhotoShutter, SightMode};
 use crate::controls::{ActionBindings, ControlAction, InputTrigger};
 use super::super::{Avatar, AvatarOptics, AvatarPresence, BlackBoxDeck, PhotoPort};
 use super::EmbodiedAvatar;
@@ -161,7 +160,7 @@ impl PhotoPort for EmbodiedAvatar {
 impl BlackBoxDeck for EmbodiedAvatar {}
 
 impl Avatar for EmbodiedAvatar {
-    fn apply_attire(&mut self, attire: YouthAttire) { self.gear.apply_attire(attire); }
+    fn apply_attire(&mut self, attire: EvaAttire) { self.gear.apply_attire(attire); }
     fn apply_bindings(&mut self, bindings: ActionBindings) { self.gear.apply_bindings(bindings); }
     fn dispatch_trigger(&mut self, trigger: InputTrigger) -> bool {
         if !self.gear.satchel_open() && !self.body.perished() {
@@ -190,12 +189,6 @@ impl Avatar for EmbodiedAvatar {
         self.gear.install_blueprint_archive(archive);
     }
     fn blend_subtick(&mut self, alpha: f32) { self.body.blend_subtick(alpha); }
-    fn step_fauna(&mut self, dt: f32, world: &mut dyn PlanetaryWorld) {
-        let crouching = self.body.posture().crouch_drop() > 0.18;
-        if let Some(shove) = world.step_wildlife(dt, self.body.position(), self.sight_line.view_direction(), crouching) {
-            self.body.gore(shove, world);
-        }
-    }
     fn land_on_world(&mut self, world: &dyn PlanetaryWorld) { self.land_from_world(world); }
     fn flush_world_notes(&mut self, world: &mut dyn PlanetaryWorld) { self.flush_world_notes(world); }
     fn reconcile_cosmic_frame(&mut self, world: &mut dyn PlanetaryWorld) -> bool {

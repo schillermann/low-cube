@@ -5,7 +5,7 @@ use std::rc::Rc;
 use winit::keyboard::KeyCode;
 use engine::{CpuMeshBatch, PlanetaryMesh, VoxelShaderSource};
 use world::{BiomedCubeWorld, PlanetaryWorld, Quad};
-use crate::attire::YouthAttire;
+use crate::attire::EvaAttire;
 use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::black_box::{BlackBoxAvatar, LiveTape};
 use crate::controls::{ActionBindings, InputTrigger, SprintControls};
@@ -86,7 +86,7 @@ impl HeadlessSession {
             Box::new(crate::zero_g_flight::ZeroGFlight::wrapping(
                 crate::flight::SurfaceFlight::calibrated(0.522, 10.0, 1.0),
             )),
-            YouthAttire::squire(),
+            EvaAttire::astronaut(),
             ActionBindings::seeded(),
         )
         .with_starting_satchel(&ServerSatchel::assembled());

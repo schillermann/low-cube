@@ -65,7 +65,6 @@ impl SectorGrove {
     pub const fn revision(&self) -> u32 { self.revision }
     pub const fn animating(&self) -> bool { self.animating }
     pub const fn pristine(&self) -> bool { self.revision == 0 && !self.animating }
-    pub fn trees(&self) -> &[Box<dyn Arboreal>] { &self.trees }
 
     pub fn constrain(&self, mut pos: Vec3, u: f32, v: f32, frame: &SurfaceFrame, dist: f32) -> Vec3 {
         for tree in &self.trees {

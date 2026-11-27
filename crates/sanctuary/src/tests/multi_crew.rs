@@ -15,7 +15,7 @@ fn make_presence(slot: u32, pos: Vec3, s_rot: Quat, v_rot: Quat) -> CompanionPre
         slot,
         PresenceKinematics::new(pos, s_rot, v_rot, (1.45, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     )
 }
 

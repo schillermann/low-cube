@@ -3,11 +3,11 @@ use crate::MeshTarget;
 use super::SlatePosture;
 
 /// Recessed cobalt-sapphire slate display showing glowing cyan rover and rocket schematics.
-pub(super) struct GuildSchematic {
+pub(super) struct CadSchematic {
     slate: SlatePosture,
 }
 
-impl GuildSchematic {
+impl CadSchematic {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub(super) const fn new(slate: SlatePosture) -> Self {
         Self { slate }
@@ -22,7 +22,7 @@ impl GuildSchematic {
         self.emit_blueprint_grid(grid_cyan, target);
         self.emit_rover_elevation(bright_cyan, target);
         self.emit_rocket_profile(bright_cyan, target);
-        self.emit_guild_cartouche(bright_cyan, target);
+        self.emit_cad_cartouche(bright_cyan, target);
     }
 
     fn emit_line(&self, rect: [f32; 4], col: Vec3, glow: f32, target: &mut dyn MeshTarget) {
@@ -83,7 +83,7 @@ impl GuildSchematic {
         self.emit_line([0.102, 0.126, 0.144, 0.164], cyan, 0.92, target);
     }
 
-    fn emit_guild_cartouche(&self, cyan: Vec3, target: &mut dyn MeshTarget) {
+    fn emit_cad_cartouche(&self, cyan: Vec3, target: &mut dyn MeshTarget) {
         self.emit_hollow_box([0.062, 0.158, 0.080, 0.116], 0.005, cyan, 0.84, target);
         self.emit_line([0.074, 0.146, 0.095, 0.101], cyan, 0.82, target);
 

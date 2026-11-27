@@ -40,7 +40,7 @@ impl LinkSocket {
         let _ = socket.set_nonblocking(true);
         let _ = socket.set_broadcast(true);
         let kin = PresenceKinematics::new(Vec3::new(0.0, 32.0, 0.0), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0));
-        let initial_pres = CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::squire());
+        let initial_pres = CompanionPresence::new(0, kin, (0.0, 0.0, 0.0, 0.0), PresenceAttire::astronaut());
         let passport = KnockPassport::from_vault(self.target, vault);
         let phase = match self.target {
             JoinTarget::Wormhole(code) => {

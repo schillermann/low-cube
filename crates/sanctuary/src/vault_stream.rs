@@ -4,7 +4,9 @@ use std::path::Path;
 use std::sync::Mutex;
 use world::WorldFact;
 
-/// Polymorphic buffered WAL handle avoiding nullable `Option<BufWriter<File>>` state and per-fact `open()` syscalls.
+const WAL_MAGIC: &[u8; 8] = b"LCWAL02\n";
+
+/// Polymorphic buffered WAL handle avoiding nullable `Option<BufWriter<File>>` state and rejecting legacy pre-rebuild streams.
 pub enum VaultStream {
     Dormant,
     Open(Mutex<BufWriter<File>>),
@@ -12,8 +14,14 @@ pub enum VaultStream {
 
 impl VaultStream {
     pub(crate) fn open_append(path: &Path) -> std::io::Result<Self> {
+        let fresh = std::fs::metadata(path).map_or(true, |m| m.len() == 0);
         let file = OpenOptions::new().create(true).append(true).open(path)?;
-        Ok(Self::Open(Mutex::new(BufWriter::with_capacity(16_384, file))))
+        let mut writer = BufWriter::with_capacity(16_384, file);
+        if fresh {
+            writer.write_all(WAL_MAGIC)?;
+            writer.flush()?;
+        }
+        Ok(Self::Open(Mutex::new(writer)))
     }
 
     pub(crate) fn write_frame(&mut self, path: &Path, payload: &[u8]) {
@@ -45,7 +53,10 @@ impl VaultStream {
         };
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;
-        let mut cursor = 0usize;
+        if !buf.starts_with(WAL_MAGIC) {
+            return Ok(None);
+        }
+        let mut cursor = WAL_MAGIC.len();
         let mut out = Vec::new();
         while cursor + 4 <= buf.len() {
             let frame_len = u32::from_le_bytes([
@@ -71,6 +82,7 @@ impl VaultStream {
         {
             let file = OpenOptions::new().create(true).write(true).truncate(true).open(&tmp_path)?;
             let mut writer = BufWriter::with_capacity(16_384, file);
+            writer.write_all(WAL_MAGIC)?;
             let mut payload = Vec::with_capacity(128);
             for fact in facts {
                 payload.clear();

@@ -168,10 +168,6 @@ impl<W: WorldEarthworks> WorldEarthworks for AdminBlockWard<W> {
         self.origin.strike_timber(eye, direction)
     }
 
-    fn strike_boar(&mut self, eye: Vec3, direction: Vec3, power: u8, max_reach: f32) -> (bool, bool) {
-        self.origin.strike_boar(eye, direction, power, max_reach)
-    }
-
     fn forage_surface(&mut self, eye: Vec3, direction: Vec3) -> SurfaceFind {
         self.origin.forage_surface(eye, direction)
     }

@@ -21,7 +21,7 @@ impl MeshTarget for RecordedMesh {
 }
 
 #[test]
-fn medieval_blueprint_tablet_mounts_vertically_without_kickstand() {
+fn blueprint_tablet_mounts_vertically_without_kickstand() {
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 16.0);
     let cell = GridCell::new(2, -3);
     let ((min_u, max_u), (min_v, max_v)) = (cell.u_bounds(), cell.v_bounds());
@@ -79,7 +79,7 @@ fn medieval_blueprint_tablet_mounts_vertically_without_kickstand() {
 }
 
 #[test]
-fn blueprint_mold_miniature_emits_vertical_guild_tablet_for_palm_and_satchel() {
+fn blueprint_mold_miniature_emits_vertical_schematic_tablet_for_palm_and_satchel() {
     let mut mesh = RecordedMesh::new();
     BlockMold::cube()
         .in_medium(BlockMedium::VehicleBlueprint)

@@ -1,7 +1,7 @@
 use glam::Vec3;
 use crate::{
     CompanionPortal, CompanionPresence, DrivenCraft, ExposedStratum, MeadowRing, MeshTarget,
-    PilotCraft, SightCone, TerrainMesh, WoodlandLife,
+    PilotCraft, SightCone, TerrainMesh,
 };
 use super::OrbitalFleetWorld;
 
@@ -22,15 +22,6 @@ impl<W: TerrainMesh> TerrainMesh for OrbitalFleetWorld<W> {
     fn emit_cosmic_field(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.origin.emit_cosmic_field(cone, target); }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.origin.visible_slice_mask(position) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.origin.drain_disclosures(out); }
-}
-
-impl<W: WoodlandLife> WoodlandLife for OrbitalFleetWorld<W> {
-    fn arboreal_perch_near(&self, center: Vec3, selector: usize) -> Option<Vec3> { self.origin.arboreal_perch_near(center, selector) }
-    fn woodland_habitat(&self, position: Vec3) -> bool { self.origin.woodland_habitat(position) }
-    fn step_wildlife(&mut self, dt: f32, listener: Vec3, view_dir: Vec3, crouching: bool) -> Option<Vec3> {
-        self.origin.step_wildlife(dt, listener, view_dir, crouching)
-    }
-    fn emit_wildlife(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.origin.emit_wildlife(cone, target); }
 }
 
 impl<W: CompanionPortal> CompanionPortal for OrbitalFleetWorld<W> {

@@ -8,9 +8,9 @@ use crate::frame::SurfaceFrame;
 use crate::{MeshTarget, Quad};
 use super::cell::GridCell;
 use super::wedge::WedgeHeading;
-use self::schematic::GuildSchematic;
+use self::schematic::CadSchematic;
 
-/// Vertical local coordinate frame of the wall-mounted medieval guildmaster's blueprint tablet.
+/// Vertical local coordinate frame of the wall-mounted aerospace CAD blueprint tablet.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct SlatePosture {
     origin: Vec3,
@@ -83,7 +83,7 @@ impl SlatePosture {
     }
 }
 
-/// Vertically mounted medieval guildmaster's blueprint tablet with oak frame, brass clasps, compass button, and rear wall cleats.
+/// Vertically mounted aerospace CAD blueprint tablet with anodized frame, docking clasps, and rear wall cleats.
 #[derive(Clone, Copy, Debug)]
 pub struct BlueprintBlockMesh {
     heading: WedgeHeading,
@@ -109,7 +109,7 @@ impl BlueprintBlockMesh {
         self.emit_wall_cleats(&slate, target);
         self.emit_brass_hardware(&slate, target);
         self.emit_side_griffel(&slate, target);
-        GuildSchematic::new(slate).emit(target);
+        CadSchematic::new(slate).emit(target);
     }
 
     fn emit_wall_cleats(&self, slate: &SlatePosture, target: &mut dyn MeshTarget) {

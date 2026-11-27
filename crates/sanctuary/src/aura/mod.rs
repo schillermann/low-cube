@@ -4,12 +4,11 @@ use std::net::SocketAddr;
 use glam::Vec3;
 use world::{
     Callsign, CompanionPresence, CosmicFrame, CraftIdentity, CraftPose, DeckFrame, DrivenCraft,
-    FrameHandoff, PilotCraft, PlanetaryWorld, ProximityUtterance, SolarProportions, VesselBerth,
+    FrameHandoff, PilotCraft, ProximityUtterance, SolarProportions, VesselBerth,
 };
 use crate::admin_ward::SpawnBeacons;
 use crate::envelope::CrackNotice;
 use crate::fleet_ledger::FleetLedger;
-use crate::host_sounder::HostSounder;
 use crate::seal::HandshakeIdentity;
 use crate::spatial_chronicle::SpatialFactIndex;
 pub use self::cracks::{PeerCrack, SectorCracks};
@@ -79,12 +78,11 @@ impl AuraEvents {
     }
 }
 
-/// Strictly encapsulated local host seat + berth + orbital clock, `AuraEvents`, `FleetLedger`, and `HostSounder`.
+/// Strictly encapsulated local host seat + berth + orbital clock, `AuraEvents`, and `FleetLedger` (`<= 4` fields).
 pub struct HostAura {
     seat: ((HostPresence, PilotCraft, VesselBerth), (CosmicFrame, f64)),
     events: AuraEvents,
     fleet: FleetLedger,
-    wildlife: HostSounder,
 }
 
 impl HostAura {
@@ -93,25 +91,22 @@ impl HostAura {
         seat: ((HostPresence, PilotCraft, VesselBerth), (CosmicFrame, f64)),
         events: AuraEvents,
         fleet: FleetLedger,
-        wildlife: HostSounder,
     ) -> Self {
-        Self { seat, events, fleet, wildlife }
+        Self { seat, events, fleet }
     }
 
     pub const fn with_events(
         seat: (HostPresence, PilotCraft),
         events: AuraEvents,
         fleet: FleetLedger,
-        wildlife: HostSounder,
     ) -> Self {
-        Self::with_cosmos_seat(((seat.0, seat.1, VesselBerth::planetary()), (CosmicFrame::earth(), 0.0)), events, fleet, wildlife)
+        Self::with_cosmos_seat(((seat.0, seat.1, VesselBerth::planetary()), (CosmicFrame::earth(), 0.0)), events, fleet)
     }
 
     pub fn new(
         seat: (HostPresence, PilotCraft),
         cracks: Vec<PeerCrack>,
         fleet: FleetLedger,
-        wildlife: HostSounder,
     ) -> Self {
         let mut sector_cracks = SectorCracks::empty();
         for c in cracks {
@@ -121,7 +116,6 @@ impl HostAura {
             seat,
             AuraEvents::new(sector_cracks, Vec::new(), SpawnBeacons::empty(), SpatialFactIndex::empty()),
             fleet,
-            wildlife,
         )
     }
 
@@ -130,7 +124,6 @@ impl HostAura {
             (HostPresence::Headless, PilotCraft::Pedestrian),
             AuraEvents::empty(),
             FleetLedger::empty(),
-            HostSounder::seeded(),
         )
     }
 
@@ -191,25 +184,8 @@ impl HostAura {
         Some(raw)
     }
 
-    pub fn pedestrian_observer(&self, world: &dyn PlanetaryWorld) -> Option<(Vec3, bool)> {
-        if !self.host_frame().earth_centered()
-            || (self.seat.0).2.aboard_any()
-            || matches!((self.seat.0).1, PilotCraft::Driving(_))
-        {
-            return None;
-        }
-        let HostPresence::Occupied(p) = (self.seat.0).0 else { return None };
-        p.transfer(|_, kin, _, _| {
-            kin.transfer(|pos, _, _, eye_h, _| {
-                world.woodland_habitat(pos).then_some((pos, eye_h > 0.05 && eye_h < 0.62))
-            })
-        })
-    }
-
     pub const fn fleet(&self) -> &FleetLedger { &self.fleet }
     pub fn fleet_mut(&mut self) -> &mut FleetLedger { &mut self.fleet }
-    pub const fn wildlife(&self) -> &HostSounder { &self.wildlife }
-    pub fn wildlife_mut(&mut self) -> &mut HostSounder { &mut self.wildlife }
     pub const fn beacons(&self) -> &SpawnBeacons { &self.events.beacons }
     pub fn beacons_mut(&mut self) -> &mut SpawnBeacons { &mut self.events.beacons }
     pub const fn fact_index(&self) -> &SpatialFactIndex { &self.events.fact_index }

@@ -16,9 +16,10 @@ impl PresenceAttire {
         Self { garments, regions, molds }
     }
 
-    /// Secondary constructor initializing squire-code garments, neutral proportions, and cube palms.
-    pub const fn squire() -> Self {
-        Self::new([0; 9], [0; 4], PalmMolds::cubes())
+    /// Secondary constructor initializing standard-issue EVA pressure-suit attire (lamp illuminated, rig tools equipped).
+    pub const fn astronaut() -> Self {
+        let (b4, b5) = Self::pack_hands(0, 2, 3);
+        Self::new([0, 0, 0, 0, b4, b5, 0, 0, 0], [0; 4], PalmMolds::cubes())
     }
 
     /// Secondary constructor pairing garment and proportion bytes with unrotated cube palms.

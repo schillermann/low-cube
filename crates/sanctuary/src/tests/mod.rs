@@ -1,3 +1,4 @@
+mod belt_persistence;
 mod conduit;
 mod driving;
 mod horizon_isolation;
@@ -10,8 +11,7 @@ mod simultaneous;
 mod sky_signals;
 mod survivor_persistence;
 mod vacuum_chat;
-mod vacuum_forge;
-mod wildlife;
+mod vacuum_smelting;
 mod wormhole;
 
 use std::net::UdpSocket;
@@ -100,7 +100,7 @@ fn test_encrypted_multiplayer_companions_dig_and_build_together_on_shared_cube()
         0,
         PresenceKinematics::new(Vec3::new(2.25, spawn.y, 0.25), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
-        PresenceAttire::squire(),
+        PresenceAttire::astronaut(),
     ));
     pump_pair(&mut host, &mut alice, &mut bob, 2);
     assert!(alice.place_molded_surface_block(place_eye, Vec3::NEG_Y, Vec3::new(2.25, spawn.y, 0.25), BlockMold::cube().in_medium(BlockMedium::QuarriedStone)));
@@ -139,7 +139,7 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
                 0,
                 PresenceKinematics::new(cur_ground, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
                 (0.0, 0.0, 0.0, 0.0),
-                PresenceAttire::squire(),
+                PresenceAttire::astronaut(),
             ));
             pump_pair(&mut host, &mut guest, &mut observer, 1);
             let _ = guest.harvest_surface(cur_ground + Vec3::Y * 1.2, Vec3::NEG_Y);
@@ -171,8 +171,13 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
     let sock = UdpSocket::bind("127.0.0.1:0").expect("bind cheater");
     sock.set_nonblocking(true).expect("nb");
     let cheater_keys = crate::HandshakeIdentity::generate();
-    let mut knock = Vec::from(&b"LKNK"[..]);
-    knock.extend_from_slice(&cheater_keys.public_bytes());
+    let mut knock = Vec::new();
+    crate::KnockFrame::new(
+        cheater_keys.public_bytes(),
+        crate::KnockIntent::PinnedKey,
+        world::Callsign::unnamed(),
+    )
+    .inscribe(&mut knock);
     sock.send_to(&knock, ticket.direct()).expect("send knock");
     let _ = host.tick(0.05);
 
@@ -189,7 +194,7 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
             cid,
             PresenceKinematics::new(stand, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
             (0.0, 0.0, 0.0, 0.0),
-            PresenceAttire::squire(),
+            PresenceAttire::astronaut(),
         ),
         craft: world::PilotCraft::Pedestrian,
         frame: world::CosmicFrame::earth(),

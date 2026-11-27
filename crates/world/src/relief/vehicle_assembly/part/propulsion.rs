@@ -58,10 +58,7 @@ impl<'a> PartPropulsion<'a> {
             BlockMedium::CopperOre => COPPER_ORE_MASS,
             BlockMedium::QuarriedStone
             | BlockMedium::CrustRock
-            | BlockMedium::VitrifiedBasalt
-            | BlockMedium::BakingOven
-            | BlockMedium::BloomeryForge
-            | BlockMedium::SmithyAnvil => DENSE_HULL_MASS,
+            | BlockMedium::VitrifiedBasalt => DENSE_HULL_MASS,
             BlockMedium::TurfEarth | BlockMedium::Sand | BlockMedium::RawTimber => TIMBER_EARTH_MASS,
             BlockMedium::TitaniumHull => TITANIUM_KEEL_MASS,
             BlockMedium::CarbonSilicate => CARBON_LACE_MASS,

@@ -3,8 +3,6 @@ use crate::WorldSeed;
 use super::bubble::CosmicFrame;
 use super::catalog::SolarCatalog;
 
-const LEGACY_SEED_MASK: u64 = 0x3F80_0000_3F80_0000;
-
 /// Orbital distance multiplier and procedural asteroid belt occupancy density.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BeltAndReach {
@@ -175,30 +173,27 @@ impl SolarProportions {
 
     /// Appends the 16-byte handshake tail (`seed_lo`, `seed_hi`, `distance`, `belt`) preserving wire alignment at byte `60`.
     pub fn inscribe_tail(self, out: &mut Vec<u8>) {
-        out.extend_from_slice(&(self.seed.bits() ^ LEGACY_SEED_MASK).to_le_bytes());
+        out.extend_from_slice(&self.seed.bits().to_le_bytes());
         for val in [self.reach.distance_factor(), self.reach.density_factor()] {
             out.extend_from_slice(&val.to_le_bytes());
         }
     }
 
-    /// Reconstructs `SolarProportions` from `earth_blocks` and an optional 16-byte handshake tail.
-    pub fn decode_tail(earth_blocks: u32, tail: &[u8]) -> Self {
+    /// Reconstructs `SolarProportions` from `earth_blocks` and a mandatory 16-byte handshake tail.
+    pub fn decode_tail(earth_blocks: u32, tail: &[u8]) -> Option<Self> {
         if tail.len() < 16 {
-            return Self::true_scale(earth_blocks);
+            return None;
         }
-        let seed_bits = tail
-            .get(0..8)
-            .and_then(|s| <[u8; 8]>::try_from(s).ok())
-            .map_or(0, |b| u64::from_le_bytes(b) ^ LEGACY_SEED_MASK);
-        let f = |range: std::ops::Range<usize>, fallback: f32| -> f32 {
-            tail.get(range)
-                .and_then(|s| <[u8; 4]>::try_from(s).ok())
-                .map(f32::from_le_bytes)
-                .filter(|v| v.is_finite() && *v >= 0.0)
-                .unwrap_or(fallback)
-        };
-        let dist = f(8..12, 1.0).max(0.0005);
-        let belt = f(12..16, 1.0).clamp(0.0, 8.0);
-        Self::with_world_seed(earth_blocks, BeltAndReach::new(dist, belt), WorldSeed::new(seed_bits))
+        let seed_bits = u64::from_le_bytes(tail[0..8].try_into().ok()?);
+        let dist = f32::from_le_bytes(tail[8..12].try_into().ok()?);
+        let belt = f32::from_le_bytes(tail[12..16].try_into().ok()?);
+        if !dist.is_finite() || dist < 0.0 || !belt.is_finite() || belt < 0.0 {
+            return None;
+        }
+        Some(Self::with_world_seed(
+            earth_blocks,
+            BeltAndReach::new(dist.max(0.0005), belt.clamp(0.0, 8.0)),
+            WorldSeed::new(seed_bits),
+        ))
     }
 }

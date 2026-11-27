@@ -45,20 +45,20 @@ impl AcousticWave for PalmScrape {
     }
 }
 
-/// Metallic iron blade ring and crisp gravel crunch waveform emitted when digging with a spade.
+/// Titanium EVA rig-wrench ring and crisp regolith crunch waveform emitted when excavating with a rig tool.
 #[derive(Clone, Copy, Debug)]
-pub struct SpadeStrike {
+pub struct RigStrike {
     sample_rate: u32,
 }
 
-impl SpadeStrike {
+impl RigStrike {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(sample_rate: u32) -> Self {
         Self { sample_rate }
     }
 
-    /// Secondary constructor calibrated at 22050 Hz mono for metallic iron-spade strikes.
-    pub const fn forged() -> Self {
+    /// Secondary constructor calibrated at 22050 Hz mono for titanium EVA rig-tool strikes.
+    pub const fn titanium() -> Self {
         Self::new(22050)
     }
 
@@ -70,7 +70,7 @@ impl SpadeStrike {
     }
 }
 
-impl AcousticWave for SpadeStrike {
+impl AcousticWave for RigStrike {
     fn sample_rate(&self) -> u32 {
         self.sample_rate
     }
@@ -81,19 +81,19 @@ impl AcousticWave for SpadeStrike {
         }
         let dt = 1.0 / (self.sample_rate as f32);
         let crisp = self.gravel_grit(t) - 0.55 * self.gravel_grit(t - dt);
-        let steel_ring = (-22.0 * t).exp()
+        let alloy_ring = (-22.0 * t).exp()
             * (0.46 * (2.0 * PI * 690.0 * t).sin()
                 + 0.34 * (2.0 * PI * 1460.0 * t).sin()
                 + 0.20 * (2.0 * PI * 2310.0 * t).sin());
         let gravel_bite = (-36.0 * t).exp() * crisp * 0.58;
-        (steel_ring + gravel_bite).clamp(-1.0, 1.0)
+        (alloy_ring + gravel_bite).clamp(-1.0, 1.0)
     }
 
     fn thump(&self) {
         if SoundStage::active() {
-            static SPADE_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
-            let bytes = SPADE_CACHE.get_or_init(|| self.riff_wave());
-            self.play_cached_wav(bytes, "low_cube_spade_dig.wav");
+            static RIG_CACHE: OnceLock<Vec<u8>> = OnceLock::new();
+            let bytes = RIG_CACHE.get_or_init(|| self.riff_wave());
+            self.play_cached_wav(bytes, "low_cube_rig_dig.wav");
         } else {
             let _ = self.amplitude_at(0.02);
         }

@@ -80,7 +80,7 @@ impl<'a> ControlsSlateHud<'a> {
                 ("MOVE", format!("{}{}{}{}", b.label_for(ControlAction::MoveForward), b.label_for(ControlAction::MoveLeft), b.label_for(ControlAction::MoveBackward), b.label_for(ControlAction::MoveRight))),
                 ("JUMP / SNEAK", format!("{} / {}", b.label_for(ControlAction::Jump), b.label_for(ControlAction::Sneak))),
                 ("SPRINT", format!("{} + {}", b.label_for(ControlAction::Sprint), b.label_for(ControlAction::MoveForward))),
-                ("BAG / BOOK", format!("{} / {}", b.label_for(ControlAction::Satchel), b.label_for(ControlAction::CraftingBook))),
+                ("BAG / LAMP", format!("{} / {}", b.label_for(ControlAction::Satchel), b.label_for(ControlAction::HelmetLamp))),
                 ("EMPTY HAND", format!("{} / {}", b.label_for(ControlAction::SatchelLeft), b.label_for(ControlAction::SatchelRight))),
                 ("TURN BLOCK", b.label_for(ControlAction::MoldForm).to_string()),
                 ("CYCLE SHAPE", format!("{} / {}", b.label_for(ControlAction::MoldLeft), b.label_for(ControlAction::MoldRight))),

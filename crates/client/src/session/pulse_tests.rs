@@ -1,33 +1,35 @@
 use std::time::{Duration, Instant};
 use glam::Vec3;
-use fauna::SparrowFlock;
 use world::{BiomedCubeWorld, PlanetaryWorld};
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
+use crate::black_box::PresenceProbe;
 use crate::clock::{ControllableClock, MonotonicTime as _};
 use crate::controls::{ActionBindings, InputTrigger, KeyMotion, KeyboardControls};
 use super::pulse::EpochPulse;
 
 #[test]
-fn test_epoch_pulse_runs_identical_bird_and_world_ticks_at_5000_fps_and_60_fps() {
+fn test_epoch_pulse_runs_identical_avatar_and_world_ticks_at_5000_fps_and_60_fps() {
     let world = BiomedCubeWorld::beveled(32, 1.0);
-    let listener = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
+    let start = world.constrain_to_surface(Vec3::new(0.25, 17.0, 0.25), 1.0);
+    let mut walk = KeyMotion::idle();
+    walk.register_trigger(InputTrigger::Key(winit::keyboard::KeyCode::KeyW), true);
 
     let rig_clock = ControllableClock::starting_at(Instant::now());
     let mut rig_pulse = EpochPulse::anchored_to(Box::new(rig_clock.replica()));
-    let mut rig_flock = SparrowFlock::seeded();
+    let mut rig_avatar = PlanetaryAvatar::at(start);
     let mut rig_ticks = 0_u32;
     for _ in 0..5_000 {
         rig_clock.advance_by(Duration::from_micros(200));
         let (_, beat) = rig_pulse.begin_frame();
         rig_ticks += beat.due_ticks();
         for _ in 0..beat.due_ticks() {
-            let _ = rig_flock.step_spatial(beat.tick_seconds(), listener, Vec3::NEG_Z, &world);
+            rig_avatar.step_motion(beat.tick_seconds(), &walk, &world);
         }
     }
 
     let laptop_clock = ControllableClock::starting_at(Instant::now());
     let mut laptop_pulse = EpochPulse::anchored_to(Box::new(laptop_clock.replica()));
-    let mut laptop_flock = SparrowFlock::seeded();
+    let mut laptop_avatar = PlanetaryAvatar::at(start);
     let mut laptop_ticks = 0_u32;
     for idx in 0..60 {
         let nanos = if idx % 3 == 2 { 16_666_668 } else { 16_666_666 };
@@ -35,32 +37,21 @@ fn test_epoch_pulse_runs_identical_bird_and_world_ticks_at_5000_fps_and_60_fps()
         let (_, beat) = laptop_pulse.begin_frame();
         laptop_ticks += beat.due_ticks();
         for _ in 0..beat.due_ticks() {
-            let _ = laptop_flock.step_spatial(beat.tick_seconds(), listener, Vec3::NEG_Z, &world);
+            laptop_avatar.step_motion(beat.tick_seconds(), &walk, &world);
         }
     }
 
     assert_eq!(rig_ticks, 120, "5000 FPS hardware must execute exact 120 world ticks per second");
-    assert_eq!(laptop_ticks, 120, "60 FPS office laptop must execute exact 120 world ticks per second");
+    assert_eq!(laptop_ticks, 120, "60 FPS ThinkPad laptop must execute exact 120 world ticks per second");
 
-    let mut rig_quads = engine::CpuMeshBatch::empty();
-    let mut laptop_quads = engine::CpuMeshBatch::empty();
-    let cone = fauna::SightCone::omnidirectional(listener);
-    rig_flock.emit_visible(cone, &mut rig_quads);
-    laptop_flock.emit_visible(cone, &mut laptop_quads);
-
-    let mut probe_rig = Vec::new();
-    let mut probe_laptop = Vec::new();
-    struct PosCapture<'a>(&'a mut Vec<Vec3>);
-    impl world::MeshTarget for PosCapture<'_> {
-        fn push_quad(&mut self, quad: world::Quad) {
-            self.0.push(quad.transfer(|v0, _, _, _, _, _| v0));
-        }
-    }
-    rig_flock.emit_visible(cone, &mut PosCapture(&mut probe_rig));
-    laptop_flock.emit_visible(cone, &mut PosCapture(&mut probe_laptop));
+    let (mut probe_rig, mut probe_laptop) = (PresenceProbe::at_origin(), PresenceProbe::at_origin());
+    use crate::avatar::AvatarPresence as _;
+    rig_avatar.report_presence(&mut probe_rig);
+    laptop_avatar.report_presence(&mut probe_laptop);
     assert_eq!(
-        probe_rig, probe_laptop,
-        "Bird flight trajectories on 5000 FPS rig and 60 FPS laptop must be bit-identical"
+        probe_rig.position(),
+        probe_laptop.position(),
+        "Avatar trajectories on 5000 FPS rig and 60 FPS laptop must be bit-identical"
     );
 }
 

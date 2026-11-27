@@ -96,20 +96,13 @@ impl<'a> FactCodec<'a> {
                 WireVector::new(direction).inscribe(out);
                 blueprint.inscribe(out);
             }
-            WorldFact::BoarStruck { eye, direction, power, reach_cm } => {
-                out.push(14);
-                WireVector::new(eye).inscribe(out);
-                WireVector::new(direction).inscribe(out);
-                out.push(power);
-                out.extend_from_slice(&reach_cm.to_le_bytes());
-            }
             WorldFact::OffWorld { body, ref fact } => {
-                out.push(15);
+                out.push(14);
                 out.extend_from_slice(&body.raw_code().to_le_bytes());
                 FactCodec::new(fact).inscribe(out);
             }
             WorldFact::SectorSnapshot { ref snapshot } => {
-                out.push(16);
+                out.push(15);
                 snapshot.inscribe(out);
             }
         }
@@ -226,14 +219,7 @@ impl<'a> FactBytes<'a> {
                 let (blueprint, used) = CraftBlueprint::decode(&bytes[25..])?;
                 Some((WorldFact::RigBlueprintBuilt { eye, direction, blueprint }, 25 + used))
             }
-            14 if bytes.len() >= 28 => {
-                let eye = WireSlice::new(&bytes[1..13]).vec3()?;
-                let direction = WireSlice::new(&bytes[13..25]).vec3()?;
-                let power = bytes[25];
-                let reach_cm = u16::from_le_bytes([bytes[26], bytes[27]]);
-                Some((WorldFact::BoarStruck { eye, direction, power, reach_cm }, 28))
-            }
-            15 if bytes.len() >= 4 => {
+            14 if bytes.len() >= 4 => {
                 let body = BodyId::new(u16::from_le_bytes([bytes[1], bytes[2]]));
                 let (inner, used) = FactBytes::new(&bytes[3..]).decode()?;
                 if matches!(inner, WorldFact::OffWorld { .. }) {
@@ -241,7 +227,7 @@ impl<'a> FactBytes<'a> {
                 }
                 Some((WorldFact::OffWorld { body, fact: Box::new(inner) }, 3 + used))
             }
-            16 if bytes.len() >= 24 => {
+            15 if bytes.len() >= 24 => {
                 let (snapshot, used) = super::SectorSnapshot::decode(&bytes[1..])?;
                 Some((WorldFact::SectorSnapshot { snapshot }, 1 + used))
             }

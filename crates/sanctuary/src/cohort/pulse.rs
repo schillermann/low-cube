@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 use std::net::UdpSocket;
-use glam::Vec3;
 use world::{
     CompanionPresence, CosmicFrame, CraftIdentity, DrivenCraft, GravityBubble, SolarProportions,
-    SounderPresence, VesselBerth, WildlifePulse,
+    VesselBerth,
 };
 use crate::audience::{
     MtuBudgetAudience, PulseAudience, INTIMATE_NEIGHBOR_CAP, NEARBY_SIGHT_METERS,
@@ -18,20 +17,6 @@ use crate::seal_batch::{OutboundFrame, ParallelSeals, PulseDelivery, SequentialD
 use crate::sky_signals::SkyHorizon;
 use crate::spatial_chronicle::HorizonStream;
 use crate::ward::GuestWard;
-
-fn sounder_near_anchor(frame: CosmicFrame, sounder: SounderPresence, anchor: Vec3) -> SounderPresence {
-    if !frame.earth_centered() {
-        return SounderPresence::Unseen;
-    }
-    match sounder {
-        SounderPresence::Sighted(boars)
-            if boars.iter().any(|b| (b.position() - anchor).length_squared() <= NEARBY_SIGHT_METERS * NEARBY_SIGHT_METERS) =>
-        {
-            SounderPresence::Sighted(boars)
-        }
-        _ => SounderPresence::Unseen,
-    }
-}
 
 /// Focused tick-pulse assembler delivering Hill-bubble-culled and hull-anchored `HostPulse` frames (`<= 4` fields).
 pub(super) struct CohortPulse {
@@ -106,7 +91,6 @@ impl CohortPulse {
             INTIMATE_NEIGHBOR_CAP,
             PACKET_COMPANION_CAP,
         );
-        let sounder = aura.wildlife().presence();
         let sector_cracks = aura.drain_cracks();
         let ephemeris = world::SolarEphemeris::new(self.proportions, self.epoch_secs);
         let sky_horizon = SkyHorizon::indexed(
@@ -159,7 +143,6 @@ impl CohortPulse {
                 sky_horizon.select_for_observer(cid, wf, anchor, ward.sky_watch(), &mut signals);
             }
             let cracks = sector_cracks.collect_in_frame(wf, anchor, cid, NEARBY_SIGHT_METERS);
-            let wildlife = WildlifePulse::new(sounder_near_anchor(wf, sounder, anchor), ward.gore_stamp());
             let mut pulse_bytes = Vec::new();
             SanctuaryEnvelope::HostPulse {
                 total_facts: stream.total(),
@@ -168,7 +151,6 @@ impl CohortPulse {
                 crafts: other_crafts,
                 berths,
                 signals,
-                wildlife,
             }
             .inscribe(&mut pulse_bytes);
             payloads.push(pulse_bytes);
