@@ -120,7 +120,8 @@ impl NaturalCrown {
                 let (p0, p1) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h));
                 let (p2, p3) = (frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
                 let glow = if surf_col.y > surf_col.x * 1.15 && surf_col.y > surf_col.z * 1.15 { 0.02 } else { 0.0 };
-                target.push_quad(Quad::glowing(p0, p1, p2, p3, frame.normal(), surf_col, glow));
+                let up_n = frame.up_at((p0 + p1 + p2 + p3) * 0.25);
+                target.push_quad(Quad::glowing(p0, p1, p2, p3, up_n, surf_col, glow));
                 ([top_h, top_h, top_h, top_h], surf_col)
             }
         }
@@ -142,11 +143,14 @@ impl ReliefCorner {
         &self, u0: f32, u1: f32, v0: f32, v1: f32, top_h: f32, mode: usize,
         frame: &SurfaceFrame, surf_col: Vec3, target: &mut dyn MeshTarget,
     ) {
+        let center = frame.point_at((u0 + u1) * 0.5, (v0 + v1) * 0.5, top_h - 0.25);
+        let up_n = frame.up_at(center);
+        let (tang, bitan) = frame.tangent_at(center);
         let (d0, d1, d2, d3, norm) = match mode {
-            0 => (0.0, 0.0, -0.5, -0.5, (frame.normal() - frame.bitangent()).normalize()),
-            1 => (-0.5, -0.5, 0.0, 0.0, (frame.normal() + frame.bitangent()).normalize()),
-            2 => (0.0, -0.5, -0.5, 0.0, (frame.normal() - frame.tangent()).normalize()),
-            _ => (-0.5, 0.0, 0.0, -0.5, (frame.normal() + frame.tangent()).normalize()),
+            0 => (0.0, 0.0, -0.5, -0.5, (up_n - bitan).normalize()),
+            1 => (-0.5, -0.5, 0.0, 0.0, (up_n + bitan).normalize()),
+            2 => (0.0, -0.5, -0.5, 0.0, (up_n - tang).normalize()),
+            _ => (-0.5, 0.0, 0.0, -0.5, (up_n + tang).normalize()),
         };
         let (p0, p1) = (frame.point_at(u0, v0, top_h + d0), frame.point_at(u1, v0, top_h + d1));
         let (p2, p3) = (frame.point_at(u1, v1, top_h + d2), frame.point_at(u0, v1, top_h + d3));
@@ -185,26 +189,27 @@ impl ReliefCorner {
                 frame.point_at(u0, v1, top_h - 0.5),
             ),
         };
+        let flat_up = frame.up_at((p0 + p1 + p2 + p3) * 0.25);
         match mode {
             0 => {
                 let norm = (p3 - p0).cross(p1 - p0).normalize();
                 self.push_tri(p0, p1, p3, norm, surf_col, target);
-                self.push_tri(p1, p2, p3, frame.normal(), surf_col, target);
+                self.push_tri(p1, p2, p3, flat_up, surf_col, target);
             }
             1 => {
                 let norm = (p0 - p1).cross(p2 - p1).normalize();
                 self.push_tri(p1, p2, p0, norm, surf_col, target);
-                self.push_tri(p2, p3, p0, frame.normal(), surf_col, target);
+                self.push_tri(p2, p3, p0, flat_up, surf_col, target);
             }
             2 => {
                 let norm = (p2 - p3).cross(p0 - p3).normalize();
                 self.push_tri(p3, p0, p2, norm, surf_col, target);
-                self.push_tri(p0, p1, p2, frame.normal(), surf_col, target);
+                self.push_tri(p0, p1, p2, flat_up, surf_col, target);
             }
             _ => {
                 let norm = (p1 - p2).cross(p3 - p2).normalize();
                 self.push_tri(p2, p3, p1, norm, surf_col, target);
-                self.push_tri(p3, p0, p1, frame.normal(), surf_col, target);
+                self.push_tri(p3, p0, p1, flat_up, surf_col, target);
             }
         }
     }

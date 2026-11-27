@@ -197,7 +197,7 @@ impl MemoryRealmPort {
 impl RealmPort for MemoryRealmPort {
     fn mount_solitary(&self, spec: &WorldSpec) -> Box<dyn PlanetaryWorld> {
         let prop = spec.proportions(1.0);
-        Box::new(world::BiomedCubeWorld::barren_seeded_beveled(prop.earth_blocks().min(64), 1.0, prop.seed()))
+        Box::new(world::BiomedQuadSphere::barren_seeded(prop.earth_blocks().min(64), prop.seed()))
     }
 
     fn mount_hosted(&self, spec: &WorldSpec) -> (Box<dyn PlanetaryWorld>, PortalInvite) {

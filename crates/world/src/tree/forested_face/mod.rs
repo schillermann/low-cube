@@ -59,7 +59,9 @@ impl ForestedFace {
 
 impl Face for ForestedFace {
     fn matches(&self, point: Vec3) -> bool { self.origin.matches(point) }
+    fn allocated_brick_bytes(&self) -> usize { self.origin.allocated_brick_bytes() }
     fn surface_up(&self) -> Vec3 { self.origin.surface_up() }
+    fn surface_up_at(&self, position: Vec3) -> Vec3 { self.origin.surface_up_at(position) }
     fn pull_direction(&self) -> Vec3 { self.origin.pull_direction() }
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {

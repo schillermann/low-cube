@@ -25,14 +25,18 @@ impl SurfaceStride {
     }
 
     fn axial_decomposition(&self) -> (Vec3, Vec3) {
-        let n = self.surface_up.abs();
-        let (a, b) = if n.y >= n.x && n.y >= n.z {
-            (Vec3::new(self.stride.x, 0.0, 0.0), Vec3::new(0.0, 0.0, self.stride.z))
-        } else if n.x >= n.y && n.x >= n.z {
-            (Vec3::new(0.0, self.stride.y, 0.0), Vec3::new(0.0, 0.0, self.stride.z))
+        let n = self.surface_up;
+        let na = n.abs();
+        let raw_a = if na.y >= na.x && na.y >= na.z {
+            Vec3::X
+        } else if na.x >= na.y && na.x >= na.z {
+            Vec3::Y
         } else {
-            (Vec3::new(self.stride.x, 0.0, 0.0), Vec3::new(0.0, self.stride.y, 0.0))
+            Vec3::Z
         };
+        let axis_a = (raw_a - n * raw_a.dot(n)).normalize_or_zero();
+        let axis_b = n.cross(axis_a).normalize_or_zero();
+        let (a, b) = (axis_a * self.stride.dot(axis_a), axis_b * self.stride.dot(axis_b));
         if a.length_squared() >= b.length_squared() { (a, b) } else { (b, a) }
     }
 

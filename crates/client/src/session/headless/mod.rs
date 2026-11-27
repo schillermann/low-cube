@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use winit::keyboard::KeyCode;
 use engine::{PlanetaryMesh, QuadBatch};
-use world::{BiomedCubeWorld, PlanetaryWorld, Quad};
+use world::{BiomedQuadSphere, PlanetaryWorld, Quad};
 use crate::attire::EvaAttire;
 use crate::avatar::{Avatar, PlanetaryAvatar};
 use crate::black_box::{BlackBoxAvatar, LiveTape};
@@ -78,7 +78,7 @@ impl HeadlessSession {
     }
 
     pub fn solitary(blocks: u32, modal: Box<dyn SessionModal>) -> Self {
-        let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::barren_beveled(blocks, 1.0));
+        let world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::barren(blocks));
         let spawn = crate::avatar::BodySpan::landed_on(world.as_ref()).current();
         let inner = PlanetaryAvatar::with_attire_and_bindings(
             spawn,

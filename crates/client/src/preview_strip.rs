@@ -1,8 +1,10 @@
 use glam::{Mat4, Vec3, Vec4};
 use engine::{
-    FramePass, GraphicPipeline, Mesh, PassDraft, PointLightCluster, QuadBatch, WgpuStage,
-    MONITOR_TILE_H, MONITOR_TILE_W,
+    CameraAnchor, CameraRelativePass, FramePass, GraphicPipeline, Mesh, PassDraft,
+    PointLightCluster, QuadBatch, WgpuStage, MONITOR_TILE_W,
 };
+#[cfg(test)]
+use engine::MONITOR_TILE_H;
 use crate::menu::PreviewStripLayout;
 
 const MONITOR_SLOTS: u8 = 8;
@@ -103,9 +105,14 @@ impl PreviewAtlas {
 
         // Strict `max. 1 Monitor pro Frame` (`240 x 160`, shadow-free):
         if let Some(cam_idx) = self.gate.step_one(cam_count, active_slot) {
+            let anchor = CameraAnchor::from_eye_f32(viewer_up.0);
+            let rel_lights = anchor.recenter_lights(lights);
             self.draft.reset();
-            pipeline.render(&mut self.draft, coarse_mesh, &cam_views[cam_idx as usize]);
-            stage.submit_monitor_tile(u32::from(cam_idx), &mut self.draft, viewer_up, lights);
+            {
+                let mut rel_pass = CameraRelativePass::new(&mut self.draft, anchor);
+                pipeline.render(&mut rel_pass, coarse_mesh, &cam_views[cam_idx as usize]);
+            }
+            stage.submit_monitor_tile(u32::from(cam_idx), &mut self.draft, (Vec3::ZERO, viewer_up.1), &rel_lights);
         }
 
         let inv_slots = 1.0 / (MONITOR_SLOTS as f32);

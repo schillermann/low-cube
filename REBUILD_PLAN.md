@@ -71,10 +71,10 @@ Jede Stufe schließt mit grünem Build und schnellen Headless-Tests auf Linux un
 - [x] Diegetische Phosphor-Bordmonitore (`NoseFlightHud`, `BellyFlightHud`, Docking-Cam) auf die neue `wgpu`-Pipeline umziehen — mit striktem **Round-Robin-Update (`max. 1 Monitor pro Frame` bei `240×160`)**.
 
 ### Stufe 4: Deterministischer `i64`-Kosmos & Runde `Quad-Sphere`-Planeten
-- [ ] Kosmische Koordinaten durchgehend auf **`CosmicPos` (`[i64; 3]` in `0,1 mm`-Schritten)** umstellen; kamera-relative Subtraktion vor der `f32`-Übergabe an `wgpu` verankern.
-- [ ] Kepler-Bahnen und Hill-Sphären (`CosmicFrame`) auf plattformunabhängigen Cross-OS-Determinismus (Linux == Windows Bit-Gleichheit) umstellen.
-- [ ] `CubePlanet`, `BeveledBoundary` und `PerimeterFold` (90°-Würfelkanten) ablösen durch **`Quad-Sphere`-Planeten** (6 sanft auf eine echte Kugel projizierte Gitter-Schalen, am Boden lokal rechtwinklig für nahtlosen Hausbau wie in Minecraft).
-- [ ] **Sparse-Planet-Edits** durchsetzen: Unberührte Planetenoberflächen rendern rein über eine schlanke GPU-Höhen-Clipmap (`0 Bytes` Brick-RAM) und instanziieren `Brick8`-Blöcke erst bei realem Abbau, Hausbau oder Einschlagskratern.
+- [x] Kosmische Koordinaten durchgehend auf **`CosmicPos` (`[i64; 3]` in `0,1 mm`-Schritten)** umstellen; kamera-relative Subtraktion vor der `f32`-Übergabe an `wgpu` verankern.
+- [x] Kepler-Bahnen und Hill-Sphären (`CosmicFrame`) auf plattformunabhängigen Cross-OS-Determinismus (Linux == Windows Bit-Gleichheit) umstellen.
+- [x] `CubePlanet`, `BeveledBoundary` und `PerimeterFold` (90°-Würfelkanten) ablösen durch **`Quad-Sphere`-Planeten** (6 sanft auf eine echte Kugel projizierte Gitter-Schalen, am Boden lokal rechtwinklig für nahtlosen Hausbau wie in Minecraft).
+- [x] **Sparse-Planet-Edits** durchsetzen: Unberührte Planetenoberflächen rendern rein über eine schlanke GPU-Höhen-Clipmap (`0 Bytes` Brick-RAM) und instanziieren `Brick8`-Blöcke erst bei realem Abbau, Hausbau oder Einschlagskratern.
 
 ### Stufe 5: Vereinheitlichung zum `GridBody` — Begehbare Schiffe & Raumstationen
 - [ ] Die vier getrennten Strukturen `WorldBlocks`, `CantileverRig`, `ParkedFleet` und `WorldCraft` zu **einem einzigen universellen Typ `GridBody`** verschmelzen (Haus auf der Erde, Raumstation im Orbit, Asteroid und Raumschiff nutzen 100 % denselben Code).

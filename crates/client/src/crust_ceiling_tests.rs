@@ -1,6 +1,6 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, TerrainMesh as _, WorldEarthworks as _};
+use world::{BiomedQuadSphere, MeshTarget, PlanetaryWorld, Quad, TerrainMesh as _, WorldEarthworks as _};
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
 };
@@ -24,7 +24,7 @@ impl MeshTarget for SpanCapture {
 
 #[test]
 fn test_jumping_beneath_the_round_crust_never_peeks_through_the_vault_ceiling() {
-    let mut world = BiomedCubeWorld::beveled(64, 1.0);
+    let mut world = BiomedQuadSphere::of_size(64);
     let mut flight = SurfaceFlight::terrestrial(1.0);
     assert!(world.excavate_surface(Vec3::new(0.25, 29.0, 0.25), Vec3::new(1.0, 0.2, 0.0).normalize()));
     assert!(world.excavate_surface(Vec3::new(0.25, 29.5, 0.25), Vec3::new(1.0, 0.2, 0.0).normalize()));
@@ -39,7 +39,7 @@ fn test_jumping_beneath_the_round_crust_never_peeks_through_the_vault_ceiling() 
 
 #[test]
 fn test_repeated_head_bumps_against_crust_never_catapult_avatar_to_surface() {
-    let mut world = BiomedCubeWorld::beveled(64, 1.0);
+    let mut world = BiomedQuadSphere::of_size(64);
     for _ in 0..8 {
         let floor_y = world.constrain_to_surface(Vec3::new(1.25, 33.0, 1.25), 0.0).y;
         assert!(world.excavate_surface(Vec3::new(1.25, floor_y + 1.0, 1.25), Vec3::NEG_Y));
@@ -58,26 +58,28 @@ fn test_repeated_head_bumps_against_crust_never_catapult_avatar_to_surface() {
 #[test]
 fn test_digging_down_through_crust_stops_at_indestructible_lethal_core_floor() {
     use acoustics::{AcousticWave, CardiacPulse, MonitoredPulse};
-    let mut world = BiomedCubeWorld::beveled(64, 1.0);
+    let mut world = BiomedQuadSphere::of_size(64);
     for _ in 0..40 {
-        let fy = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;
-        if !world.excavate_surface(Vec3::new(0.25, fy + 1.0, 0.25), Vec3::NEG_Y) {
+        let floor = world.constrain_to_surface(Vec3::new(0.25, 32.0, 0.25), 0.0);
+        if !world.excavate_surface(floor + floor.normalize() * 1.0, -floor.normalize()) {
             break;
         }
     }
-    let core_floor_y = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;
-    assert!((core_floor_y - 24.0).abs() < 1e-3, "Digging through all topsoil and 4 crust layers must stop on the indestructible core floor at y=24.0, got {core_floor_y}");
-    assert!(!world.excavate_surface(Vec3::new(0.25, core_floor_y + 1.0, 0.25), Vec3::NEG_Y), "Indestructible core floor must never be excavated");
-    assert!(world.lethal_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)), "Direct contact with the exposed core floor must be lethal");
+    let core_floor = world.constrain_to_surface(Vec3::new(0.25, 32.0, 0.25), 0.0);
+    let core_floor_r = core_floor.length();
+    assert!((core_floor_r - 24.0).abs() < 1e-3, "Digging through all topsoil and 4 crust layers must stop on the indestructible core floor at r=24.0, got {core_floor_r}");
+    assert!(!world.excavate_surface(core_floor + core_floor.normalize() * 1.0, -core_floor.normalize()), "Indestructible core floor must never be diggable");
+    let contact = core_floor + core_floor.normalize() * 1.0;
+    assert!(world.lethal_at(contact), "Direct contact with the exposed core floor must be lethal");
 
     let mut controls = KeyMotion::idle();
     controls.register_key(KeyCode::Space, true);
-    let mut doomed = PlanetaryAvatar::at(Vec3::new(0.25, core_floor_y + 1.0, 0.25));
+    let mut doomed = PlanetaryAvatar::at(contact);
     let initial_fov_scale = doomed.view_projection_matrix(1.0).y_axis.y;
     for _ in 0..60 { doomed.step_motion(1.0 / 60.0, &controls, &world); }
     let dead_vp = doomed.view_projection_matrix(1.0);
     let dead_eye = dead_vp.inverse().project_point3(Vec3::ZERO);
-    assert!(dead_eye.y < 26.5 && world.lethal_at(Vec3::new(0.25, core_floor_y + 1.0, 0.25)) && dead_vp.y_axis.y > initial_fov_scale * 1.25, "Avatar touching exposed core floor must enter shrinking tunnel-vision blackout, got {dead_eye:?}");
+    assert!(dead_eye.length() < 26.5 && world.lethal_at(contact) && dead_vp.y_axis.y > initial_fov_scale * 1.25, "Avatar touching exposed core floor must enter shrinking tunnel-vision blackout, got {dead_eye:?}");
     let mut hud = SpanCapture::empty();
     doomed.emit_reticle(&mut hud);
     assert!(hud.max_y - hud.min_y > 1.8, "Blackout posture must emit full-screen transparent-gradient vignette");
@@ -133,7 +135,7 @@ fn test_server_scale_rejects_factor_below_one() {
 
 #[test]
 fn test_head_contact_beneath_subterranean_dirt_block_never_catapults_to_surface_or_strips_grass() {
-    let mut world = BiomedCubeWorld::beveled(64, 1.0);
+    let mut world = BiomedQuadSphere::of_size(64);
     for _ in 0..14 {
         let fy = world.constrain_to_surface(Vec3::new(1.25, 35.0, 1.25), 0.0).y;
         assert!(world.excavate_surface(Vec3::new(1.25, fy + 1.0, 1.25), Vec3::NEG_Y));
@@ -175,7 +177,7 @@ fn test_multiplayer_narrow_shaft_looking_down_clamps_crosshair_and_rejects_under
     use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
     use crate::attire::{EvaAttire, HeldRelic};
 
-    let host_inner: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(64, 1.0));
+    let host_inner: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::of_size(64));
     let host = SanctuaryHost::bind("127.0.0.1:0", host_inner, 64).expect("bind host");
     let addr = host.local_addr().expect("addr");
     let mut host_planet = HostedPlanet::new(host);
@@ -260,7 +262,7 @@ fn test_multiplayer_narrow_shaft_looking_down_clamps_crosshair_and_rejects_under
 fn test_releasing_hand_while_perished_halts_digging_and_preserves_full_respawn_pace() {
     use crate::attire::{EvaAttire, HeldRelic};
 
-    let mut world = BiomedCubeWorld::beveled(64, 1.0);
+    let mut world = BiomedQuadSphere::of_size(64);
     for _ in 0..40 {
         let fy = world.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 0.0).y;
         if !world.excavate_surface(Vec3::new(0.25, fy + 1.0, 0.25), Vec3::NEG_Y) {

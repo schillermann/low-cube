@@ -3,7 +3,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::rc::Rc;
 use glam::Vec3;
 use sanctuary::{HostedPlanet, JoinTarget, PortalCode, RemoteLink, SanctuaryHost};
-use world::{BiomedCubeWorld, PlanetaryWorld};
+use world::{BiomedQuadSphere, PlanetaryWorld};
 use crate::attire::EvaAttire;
 use crate::avatar::PlanetaryAvatar;
 use crate::black_box::{BlackBoxAvatar, LiveTape};
@@ -106,7 +106,7 @@ fn test_one_click_hub_paste_and_auto_punch_decorator_deduplicates_clipboard() {
 #[test]
 fn test_headless_guest_closing_menu_connects_in_background_when_host_auto_punch_decorator_fires() {
     let shared_clip = SharedClipboard::empty();
-    let host_world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::barren_beveled(8, 1.0));
+    let host_world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::barren(8));
     let raw_host = SanctuaryHost::bind("127.0.0.1:0", host_world, 8).expect("bind host");
     let live_code = raw_host.code();
     let invite = PortalInvite::hosted(live_code.encode(), raw_host.ticket().encode());

@@ -22,6 +22,7 @@ impl<W: TerrainMesh> TerrainMesh for OrbitalFleetWorld<W> {
     fn emit_cosmic_field(&self, cone: SightCone, target: &mut dyn MeshTarget) { self.origin.emit_cosmic_field(cone, target); }
     fn visible_slice_mask(&self, position: Vec3) -> u32 { self.origin.visible_slice_mask(position) }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.origin.drain_disclosures(out); }
+    fn allocated_brick_bytes(&self) -> usize { self.origin.allocated_brick_bytes() }
 }
 
 impl<W: CompanionPortal> CompanionPortal for OrbitalFleetWorld<W> {

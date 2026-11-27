@@ -3,7 +3,7 @@ mod wince;
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, MiningEdge, PlanetaryWorld, Quad,
+    BiomedQuadSphere, BlockMedium, BlockMold, MeshTarget, MiningEdge, PlanetaryWorld, Quad,
     SatchelManifest, SurfaceFind, TerrainMesh as _, WorldEarthworks as _,
 };
 use crate::attire::{EvaAttire, HeldRelic};
@@ -43,7 +43,7 @@ fn test_bare_gloves_reject_stone_and_ores_while_digging_earth_and_planks() {
         assert!(soft.yields_to(MiningEdge::BarePalm), "{soft:?} must remain diggable with EVA gloves");
     }
 
-    let mut world = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let mut world = BiomedQuadSphere::barren(16);
     let stand = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 1.0);
     let probe = Vec3::new(0.25, 16.0, -0.75);
     let ground_y = world.constrain_to_surface(probe, 0.0).y;
@@ -92,12 +92,12 @@ fn test_rig_wrench_pierces_crust_ores_and_stone_and_syncs_multiplayer_manifest()
     assert_eq!(decoded_manifest.count_of(HeldRelic::RigWrench.code()), 1);
     assert_eq!(decoded_manifest.count_of(HeldRelic::SuitRadio.code()), 1);
 
-    let mut world = BiomedCubeWorld::barren_beveled(16, 1.0);
-    let stand = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 1.0);
-    let probe = Vec3::new(0.25, 16.0, -0.75);
-    let ground_y = world.constrain_to_surface(probe, 0.0).y;
-    let aim_eye = Vec3::new(0.25, stand.y + 0.8, 0.25);
-    let aim_dir = (Vec3::new(0.25, ground_y + 0.1, -0.75) - aim_eye).normalize();
+    let mut world = BiomedQuadSphere::barren(16);
+    let stand = world.constrain_to_surface(Vec3::new(0.25, 8.0, 0.25), 1.0);
+    let probe = Vec3::new(0.25, 8.0, -0.75);
+    let ground_pt = world.constrain_to_surface(probe, 0.0);
+    let aim_eye = stand + stand.normalize() * 0.8;
+    let aim_dir = (ground_pt + ground_pt.normalize() * 0.1 - aim_eye).normalize();
 
     let mut miner = PlanetaryAvatar::at(stand);
     miner.rotate_degrees(0.0, 70.5);
@@ -116,13 +116,13 @@ fn test_rig_wrench_pierces_crust_ores_and_stone_and_syncs_multiplayer_manifest()
             stand,
             BlockMold::cube().in_medium(stratum),
         ));
-        let elevated = world.constrain_to_surface(probe, 0.0).y;
+        let elevated = world.constrain_to_surface(probe, 0.0).length();
         assert!(
             !miner.use_right_hand(&mut world) && miner.use_right_hand(&mut world),
             "Space-Age RigWrench must dismantle {stratum:?} in 2 strokes"
         );
         let _ = miner.release_hand(&mut world);
-        assert!((elevated - world.constrain_to_surface(probe, 0.0).y - 0.5).abs() < 1e-4);
+        assert!((elevated - world.constrain_to_surface(probe, 0.0).length() - 0.5).abs() < 1e-4);
     }
 
     let eva = EvaAttire::eva_equipped();

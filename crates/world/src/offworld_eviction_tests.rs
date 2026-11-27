@@ -1,6 +1,6 @@
 use glam::Vec3;
 use crate::{
-    BiomedCubeWorld, BlockMedium, BlockMold, BodyId, CardinalTurn, HeliosphereWorld, MeshTarget,
+    BiomedQuadSphere, BlockMedium, BlockMold, BodyId, CardinalTurn, HeliosphereWorld, MeshTarget,
     MoldArchetype, PlanetaryWorld, Quad, SightCone, SolarEphemeris, SolarProportions, TerrainMesh,
     WorldEarthworks, WorldFact, OFFWORLD_IDLE_TTL_SECS,
 };
@@ -25,7 +25,7 @@ impl MeshTarget for EmeraldCounter {
 #[test]
 fn test_offworld_vault_evicts_idle_body_into_compact_sector_snapshots_and_rehydrates_cleanly() {
     let prop = SolarProportions::true_scale(128);
-    let earth = BiomedCubeWorld::barren_beveled(prop.earth_blocks(), 1.0);
+    let earth = BiomedQuadSphere::barren(prop.earth_blocks());
     let mut helio = HeliosphereWorld::assembled(earth, SolarEphemeris::new(prop, 0.0), true);
 
     let (mars_probe, mars_half) = crate::AlienWorld::build_body(BodyId::MARS, prop, false);
@@ -52,21 +52,21 @@ fn test_offworld_vault_evicts_idle_body_into_compact_sector_snapshots_and_rehydr
     let _ = helio.step_active_zones(120.0, 0, &[BodyId::MARS]);
     assert_eq!(helio.warm_offworld_count(), 1, "Inhabited off-world body must never be evicted from RAM");
 
-    // Once uninhabited (`active_bodies = &[]`), stepping past OFFWORLD_IDLE_TTL_SECS folds & drops CubePlanet
+    // Once uninhabited (`active_bodies = &[]`), stepping past OFFWORLD_IDLE_TTL_SECS folds & drops QuadSphere
     let _ = helio.step_active_zones(OFFWORLD_IDLE_TTL_SECS + 5.0, 0, &[]);
-    assert_eq!(helio.warm_offworld_count(), 0, "Uninhabited Mars must drop CubePlanet from RAM after Idle-TTL");
+    assert_eq!(helio.warm_offworld_count(), 0, "Uninhabited Mars must drop QuadSphere from RAM after Idle-TTL");
     assert_eq!(
         helio.cold_chronicle_count(BodyId::MARS),
         1,
         "Cold eviction must fold 3 raycast facts in the same sector into 1 raycast-free SectorSnapshot"
     );
 
-    // Cold Mars still reports its placed LaserBeacon directly from the compact SectorSnapshot without waking CubePlanet!
+    // Cold Mars still reports its placed LaserBeacon directly from the compact SectorSnapshot without waking QuadSphere!
     let mut cold_beacons = Vec::new();
     helio.collect_offworld_medium_sites(BlockMedium::LaserBeacon, &mut cold_beacons);
     assert_eq!(cold_beacons.len(), 1);
     assert_eq!(cold_beacons[0].0, BodyId::MARS);
-    assert_eq!(helio.warm_offworld_count(), 0, "Scanning cold SectorSnapshots must not rehydrate CubePlanet");
+    assert_eq!(helio.warm_offworld_count(), 0, "Scanning cold SectorSnapshots must not rehydrate QuadSphere");
 
     // Returning to Mars rehydrates identical sector state (placed LaserBeacon + 2 excavated shafts)
     let temp_face = crate::ClimateZone::Temperate.index() as u8;
@@ -87,7 +87,7 @@ fn test_offworld_vault_evicts_idle_body_into_compact_sector_snapshots_and_rehydr
 fn test_singleplayer_laser_beacon_shines_from_orbit_above_horizon_and_hides_behind_planet() {
     let prop = SolarProportions::true_scale(128);
     let earth_half = prop.earth_half();
-    let earth = BiomedCubeWorld::barren_beveled(prop.earth_blocks(), 1.0);
+    let earth = BiomedQuadSphere::barren(prop.earth_blocks());
     let mut helio = HeliosphereWorld::assembled(earth, SolarEphemeris::new(prop, 0.0), true);
 
     let g = helio.constrain_to_surface(Vec3::new(0.25, earth_half + 4.0, 0.25), 0.0);

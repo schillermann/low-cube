@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
 use std::time::Duration;
-use world::{BiomedCubeWorld, PlanetaryWorld};
+use world::{BiomedQuadSphere, PlanetaryWorld};
 use crate::{
     JoinPreview, JoinTarget, PortalCode, RemoteLink, RemotePlanet, SanctuaryHost, StunProbe,
 };
@@ -92,7 +92,7 @@ fn test_twelve_char_crockford_codes_roundtrip_normalize_confusable_letters_and_r
 
 #[test]
 fn test_twelve_char_portal_code_connects_directly_and_rejects_wrong_secret() {
-    let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
+    let world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::of_size(16));
     let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16).expect("bind host");
     let code = host.code();
     let compact = code.encode().replace('-', "").to_ascii_lowercase();
@@ -165,7 +165,7 @@ fn test_dual_fritzbox_port_restricted_nat_connects_via_mutual_twelve_char_punch_
     // Host advertises `fritz_guest.lan_gateway_addr()` as the simulated Internet path into `fritz_host`?
     // Wait: Guest sends to its own router (`fritz_guest.lan_gateway_addr()`), which forwards to `fritz_host.wan_public_addr()`,
     // and Host sends to its own router (`fritz_host.lan_gateway_addr()`), which forwards to `fritz_guest.wan_public_addr()`!
-    let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
+    let world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::of_size(16));
     let mut host = SanctuaryHost::bind_with_endpoint(
         &host_lan.to_string(),
         fritz_guest.lan_gateway_addr(),

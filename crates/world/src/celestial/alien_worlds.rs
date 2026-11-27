@@ -3,12 +3,12 @@ use crate::relief::{
     FacetedReliefFace, HollowVeins, LivingVeins, ReliefPalette, SubterraneanVeins,
 };
 use crate::topology::ClimateZone;
-use crate::{CubePlanet, Face, NullFace};
+use crate::{Face, NullFace, QuadSphere};
 use super::catalog::{BodyId, SolarCatalog};
 use super::lunar::LunarCraterRelief;
 use super::proportions::SolarProportions;
 
-/// Factory constructing on-demand `CubePlanet` voxel surfaces for rocky/icy planets, moons, and belt asteroids.
+/// Factory constructing on-demand `QuadSphere` surfaces for rocky/icy planets, moons, and belt asteroids (`0 Bytes` untouched `Brick8` RAM).
 pub struct AlienWorld;
 
 impl AlienWorld {
@@ -65,8 +65,8 @@ impl AlienWorld {
         }
     }
 
-    /// Builds a 6-face beveled `CubePlanet` scaled to `proportions` for `id` (`authoritative` controls live mineral veins).
-    pub fn build_body(id: BodyId, proportions: SolarProportions, authoritative: bool) -> (CubePlanet, f32) {
+    /// Builds a 6-shell round `QuadSphere` scaled to `proportions` for `id` (`authoritative` controls live mineral veins).
+    pub fn build_body(id: BodyId, proportions: SolarProportions, authoritative: bool) -> (QuadSphere, f32) {
         let blocks = Self::body_blocks(id, proportions);
         let half_size = (blocks as f32) * 0.5;
         let divs = blocks * 2;
@@ -86,6 +86,6 @@ impl AlienWorld {
                 Box::new(FacetedReliefFace::alien_with_palette(zone, half_size, divs, craters, palette, veins))
             })
             .collect();
-        (CubePlanet::beveled_cubic(faces, Box::new(NullFace), half_size, 1.0), half_size)
+        (QuadSphere::spherical(faces, Box::new(NullFace), half_size), half_size)
     }
 }

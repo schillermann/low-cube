@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 use glam::Vec3;
-use world::{BiomedCubeWorld, PlanetaryWorld};
+use world::{BiomedQuadSphere, PlanetaryWorld};
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::black_box::PresenceProbe;
 use crate::clock::{ControllableClock, MonotonicTime as _};
@@ -9,7 +9,7 @@ use super::pulse::EpochPulse;
 
 #[test]
 fn test_epoch_pulse_runs_identical_avatar_and_world_ticks_at_5000_fps_and_60_fps() {
-    let world = BiomedCubeWorld::beveled(32, 1.0);
+    let world = BiomedQuadSphere::of_size(32);
     let start = world.constrain_to_surface(Vec3::new(0.25, 17.0, 0.25), 1.0);
     let mut walk = KeyMotion::idle();
     walk.register_trigger(InputTrigger::Key(winit::keyboard::KeyCode::KeyW), true);
@@ -100,7 +100,7 @@ fn test_stall_resync_and_subtick_avatar_interpolation_preserve_continuity() {
     assert_eq!(half_step.due_ticks(), 0, "Frame immediately after stall resync must not spiral-of-death");
     assert!((half_step.subtick_blend() - 0.5).abs() < 0.02);
 
-    let world = BiomedCubeWorld::of_size(16);
+    let world = BiomedQuadSphere::of_size(16);
     let spawn = world.constrain_to_surface(Vec3::new(0.25, 9.0, 0.25), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn);
     let mut controls = KeyMotion::with_bindings(ActionBindings::seeded());

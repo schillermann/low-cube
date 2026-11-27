@@ -1,6 +1,6 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use world::{BiomedCubeWorld, BlockMedium, BlockMold, PlanetaryWorld, WorldEarthworks as _};
+use world::{BiomedQuadSphere, BlockMedium, BlockMold, PlanetaryWorld, WorldEarthworks as _};
 use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{Avatar as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::menu::{EscapeMenu, InspectionModal, SessionModal};
@@ -9,7 +9,7 @@ use super::{MockSurface, QuadCapture};
 
 #[test]
 fn test_inspection_modal_isolates_satchel_from_close_rocket_blocks() {
-    let mut world = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let mut world = BiomedQuadSphere::barren(16);
     let g0 = world.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 0.0).y;
     let rig = BlockMold::cube().in_medium(BlockMedium::CantileverRig);
     let nozzle = BlockMold::cube().in_medium(BlockMedium::RocketNozzle);

@@ -123,13 +123,13 @@ impl SectorSnapshot {
     pub fn collect_medium_sites(&self, medium: crate::BlockMedium, half_size: f32, out: &mut Vec<(glam::Vec3, glam::Vec3)>) {
         let Some(&zone) = crate::ClimateZone::all().get(usize::from(self.face)) else { return };
         let frame = zone.surface_frame(half_size);
-        let normal = frame.normal();
         let code = medium.code();
         for b in &self.columns.blocks {
             if b.stamp[0] != NATURAL_OVERHANG_STAMP && b.stamp[2] == code {
                 let (u, v) = Self::unpack_uv(b.local_uv, self.sector.0, self.sector.1);
                 let (cx, cy) = crate::GridCell::new(u, v).center();
-                out.push((frame.point_at(cx, cy, b.floor_elevation() + crate::GridCell::SPAN), normal));
+                let pt = frame.point_at(cx, cy, b.floor_elevation() + crate::GridCell::SPAN);
+                out.push((pt, frame.up_at(pt)));
             }
         }
     }

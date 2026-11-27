@@ -59,13 +59,13 @@ impl PlanetaryWeather for TroposphereDeck {
             return;
         }
         let viewer = cone.observe_from(|eye| eye);
-        let cheb = viewer.abs().max_element();
-        if cheb < self.half_size * 0.85 || cheb > self.half_size * 8.0 {
+        let radial = viewer.length();
+        if radial < self.half_size * 0.85 || radial > self.half_size * 8.0 {
             return;
         }
         let max_reach = (self.half_size * 3.4).clamp(96.0, 280.0);
         let viewer_dir = viewer.normalize_or_zero();
-        let orbital = cheb > self.half_size * 1.55;
+        let orbital = radial > self.half_size * 1.55;
         let face_edge = self.half_size * 0.86;
 
         for zone in ClimateZone::all() {

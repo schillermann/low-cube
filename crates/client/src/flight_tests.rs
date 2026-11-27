@@ -133,44 +133,51 @@ fn test_jump_against_steep_cliff_blocked_mid_air() {
 
 #[test]
 fn test_pyramid_sector_gravity_indestructible_core_floor_and_shaft_width() {
-    use world::BiomedCubeWorld;
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    use world::BiomedQuadSphere;
+    let mut world = BiomedQuadSphere::of_size(32);
     let mut flight = SurfaceFlight::terrestrial(1.0);
 
-    // 1. Pyramid-sector gravity holds deep inside the planet near cube edges
-    assert_eq!(world.surface_up_at(Vec3::new(3.9, 4.1, 0.0)), Vec3::Y);
-    assert_eq!(world.surface_up_at(Vec3::new(4.1, 3.9, 0.0)), Vec3::X);
+    // 1. Spherical radial gravity is smooth and continuous across QuadSphere meridians
+    let p_a = Vec3::new(3.9, 4.1, 0.0);
+    let p_b = Vec3::new(4.1, 3.9, 0.0);
+    assert!((world.surface_up_at(p_a) - p_a.normalize()).length() < 1e-5);
+    assert!((world.surface_up_at(p_b) - p_b.normalize()).length() < 1e-5);
 
-    // 2. Dig a shaft at (0.25, y, 0.25) through the mantle and 4-layer crust until it stops on the solid core floor
+    // 2. Dig a shaft at (0.25, 16.0, 0.25) through the mantle and 4-layer crust until it stops on the solid core floor
+    let probe = Vec3::new(0.25, 16.0, 0.25);
+    let dir = -probe.normalize();
     for step in 0..8 {
-        let floor_y = world.constrain_to_surface(Vec3::new(0.25, 17.0, 0.25), 0.0).y;
+        let floor = world.constrain_to_surface(probe, 0.0);
         if step == 4 {
             assert!(
-                (floor_y - 14.0).abs() < 1e-4 && !world.lethal_at(Vec3::new(0.25, floor_y + 1.0, 0.25)),
+                (floor.length() - 14.0).abs() < 1e-3 && !world.lethal_at(floor - dir * 1.0),
                 "After 4 blocks of digging avatar must still be in solid ground above the core floor"
             );
         }
-        assert!(world.excavate_surface(Vec3::new(0.25, floor_y + 1.0, 0.25), Vec3::NEG_Y), "Layer {step} must excavate");
+        assert!(world.excavate_surface(floor - dir * 1.0, dir), "Layer {step} must excavate");
     }
-    let core_floor_y = world.constrain_to_surface(Vec3::new(0.25, 17.0, 0.25), 0.0).y;
-    assert!((core_floor_y - 12.0).abs() < 1e-4, "Excavated shaft must stop on the solid core floor at y = 12.0, got {core_floor_y}");
-    assert!(!world.excavate_surface(Vec3::new(0.25, 13.0, 0.25), Vec3::NEG_Y), "Solid core floor must not be diggable");
+    let core_floor = world.constrain_to_surface(probe, 0.0);
+    assert!((core_floor.length() - 12.0).abs() < 1e-3, "Excavated shaft must stop on the solid core floor at r = 12.0, got {}", core_floor.length());
+    assert!(!world.excavate_surface(core_floor - dir * 1.0, dir), "Solid core floor must not be diggable");
 
-    // 3. Touching the lethal core floor (y = 13.0, feet = 12.0) kills the avatar in place instead of teleporting to the surface
-    let core_contact = Vec3::new(0.25, 13.0, 0.25);
+    // 3. Touching the lethal core floor (r = 13.0, feet = 12.0) kills the avatar in place instead of teleporting to the surface
+    let core_contact = core_floor - dir * 1.0;
     assert!(world.lethal_at(core_contact));
-    let perished_pos = flight.advance(1.0 / 60.0, core_contact, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, &world);
+    let perished_pos = flight.advance(1.0 / 60.0, core_contact, Vec3::ZERO, &WalkGait::upright(), -dir, &world);
     assert_eq!(perished_pos, core_contact, "Core floor contact must arrest the dead avatar at the floor without teleporting to the surface");
 
-    // 4. Digging only 1 block wide vertically down does NOT let the wider upper body fall in
-    let mut world64 = BiomedCubeWorld::beveled(64, 1.0);
-    let surface_eye_y = world64.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 1.0).y;
+    // 4. Digging only 1 block wide radially down does NOT let the wider upper body fall in
+    let mut world64 = BiomedQuadSphere::of_size(64);
+    let probe64 = Vec3::new(0.25, 32.0, 0.25);
+    let stand64 = probe64.normalize() * 35.0;
+    let dir64 = -probe64.normalize();
+    let surface_eye_r = world64.constrain_to_surface(stand64, 1.0).length();
     for _ in 0..15 {
-        let floor_y = world64.constrain_to_surface(Vec3::new(0.25, 33.0, 0.25), 0.0).y;
-        assert!(world64.excavate_surface(Vec3::new(0.25, floor_y + 1.0, 0.25), Vec3::NEG_Y));
+        let floor = world64.constrain_to_surface(probe64, 0.0);
+        assert!(world64.excavate_surface(floor - dir64 * 1.0, dir64));
     }
     assert!(
-        (world64.constrain_to_surface(Vec3::new(0.25, 35.0, 0.25), 1.0).y - surface_eye_y).abs() < 1e-4,
+        (world64.constrain_to_surface(stand64, 1.0).length() - surface_eye_r).abs() < 1e-3,
         "1-block-wide vertical hole must not let the wider upper body fall in"
     );
 }

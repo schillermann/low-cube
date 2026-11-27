@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(test)]
 use glam::Vec3;
 #[cfg(test)]
-use world::{BiomedCubeWorld, PlanetaryWorld};
+use world::{BiomedQuadSphere, PlanetaryWorld};
 use world::ClimateZone;
 #[cfg(test)]
 use crate::avatar::{AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
@@ -243,7 +243,7 @@ impl IncidentReplay {
     }
 
     pub fn replay_and_verify(&self) -> Vec3 {
-        let world = BiomedCubeWorld::barren_beveled(self.world_blocks, 1.0);
+        let world = BiomedQuadSphere::barren(self.world_blocks);
         self.replay_on(&world)
     }
 

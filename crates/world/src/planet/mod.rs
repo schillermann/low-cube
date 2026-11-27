@@ -6,22 +6,21 @@ mod slices;
 
 use glam::Vec3;
 use crate::{
-    BeveledBoundary, CubicBoundary, Face, GravityField, OpenBoundary, PlanetaryWorld, SeamBoundary,
-    SurfaceContact,
+    Face, GravityField, OpenBoundary, PlanetaryWorld, SeamBoundary, ShellBoundary, SurfaceContact,
 };
 pub use self::patches::{MeadowScan, PatchCoord};
 pub use self::shards::ZoneShards;
 pub use self::slices::ModifiedSlices;
 
-/// Cubic planetary world composed of polymorphic `Face` instances, modified-slice tracking, and seam boundary.
-pub struct CubePlanet {
+/// Round `QuadSphere` planetary world composed of 6 projected `Face` shells, modified-slice tracking, and spherical boundary (`4` fields).
+pub struct QuadSphere {
     faces: Vec<Box<dyn Face>>,
     fallback: Box<dyn Face>,
     slices: ModifiedSlices,
     boundary: Box<dyn SeamBoundary>,
 }
 
-impl CubePlanet {
+impl QuadSphere {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn with_boundary(
         faces: Vec<Box<dyn Face>>,
@@ -37,28 +36,13 @@ impl CubePlanet {
         Self::with_boundary(faces, fallback, ModifiedSlices::clean(), Box::new(OpenBoundary::new()))
     }
 
-    /// Secondary constructor initializing a sharp 6-face cubic boundary.
-    pub fn cubic(faces: Vec<Box<dyn Face>>, fallback: Box<dyn Face>, half_size: f32) -> Self {
+    /// Secondary constructor initializing a round 6-shell `QuadSphere` of `radius`.
+    pub fn spherical(faces: Vec<Box<dyn Face>>, fallback: Box<dyn Face>, radius: f32) -> Self {
         Self::with_boundary(
             faces,
             fallback,
             ModifiedSlices::clean(),
-            Box::new(CubicBoundary::sharp(half_size)),
-        )
-    }
-
-    /// Secondary constructor initializing a beveled 6-face cubic boundary.
-    pub fn beveled_cubic(
-        faces: Vec<Box<dyn Face>>,
-        fallback: Box<dyn Face>,
-        half_size: f32,
-        margin: f32,
-    ) -> Self {
-        Self::with_boundary(
-            faces,
-            fallback,
-            ModifiedSlices::clean(),
-            Box::new(BeveledBoundary::decorating(CubicBoundary::sharp(half_size), half_size, margin)),
+            Box::new(ShellBoundary::new(radius)),
         )
     }
 
@@ -130,9 +114,9 @@ impl CubePlanet {
     }
 }
 
-impl GravityField for CubePlanet {
+impl GravityField for QuadSphere {
     fn surface_up_at(&self, position: Vec3) -> Vec3 {
-        self.boundary.blend_normal(position, self.active_face(position).surface_up())
+        self.boundary.blend_normal(position, self.active_face(position).surface_up_at(position))
     }
 
     fn pull_direction_at(&self, position: Vec3) -> Vec3 {
@@ -140,7 +124,7 @@ impl GravityField for CubePlanet {
     }
 }
 
-impl PlanetaryWorld for CubePlanet {
+impl PlanetaryWorld for QuadSphere {
     fn constrain_to_surface(&self, position: Vec3, player_height: f32) -> Vec3 {
         for (idx, face) in self.faces.iter().enumerate() {
             if face.matches(position) {
@@ -197,7 +181,7 @@ impl PlanetaryWorld for CubePlanet {
     }
 
     fn celestial_atlas(&self) -> crate::CelestialAtlas {
-        let half = self.constrain_to_surface(Vec3::new(0.25, 2048.0, 0.25), 0.0).y.round().max(4.0);
+        let half = self.constrain_to_surface(Vec3::new(0.25, 2048.0, 0.25), 0.0).length().round().max(4.0);
         crate::CelestialAtlas::solitary(half)
     }
 }

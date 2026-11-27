@@ -1,6 +1,6 @@
 use glam::Vec3;
 use world::{
-    BlockMedium, ClimateZone, CubePlanet, FacetedReliefFace, MeshTarget, NullFace, PlanetaryWorld,
+    BlockMedium, ClimateZone, QuadSphere, FacetedReliefFace, MeshTarget, NullFace, PlanetaryWorld,
     Quad, WorldEarthworks,
 };
 use crate::attire::{EvaAttire, HeldRelic};
@@ -46,20 +46,21 @@ impl MeshTarget for HologramBounds {
 #[test]
 fn test_drag_hologram_stretches_scalable_tank_and_proxy_dismantles_atomically() {
     let face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32));
-    let mut world = CubePlanet::new(vec![face], Box::new(NullFace));
+    let mut world = QuadSphere::new(vec![face], Box::new(NullFace));
 
-    let spawn = world.constrain_to_surface(Vec3::new(0.25, 16.0, 2.25), 1.0);
+    let frame = ClimateZone::Temperate.surface_frame(8.0);
+    let spawn = world.constrain_to_surface(frame.point_at(0.25, 2.25, 0.0), 1.0);
     let mut builder = PlanetaryAvatar::at(spawn);
     builder.apply_attire(
         EvaAttire::astronaut().with_relics(HeldRelic::PropellantTank, HeldRelic::EmptyPalm),
     );
 
-    // Aim down-forward onto cell (0, 1) (x in 0.0..0.5, z in 0.5..1.0)
+    // Aim down-forward onto cell (0, 1) (u in 0.0..0.5, v in 0.5..1.0)
     builder.rotate_degrees(0.0, 48.0);
     assert!(!builder.use_right_hand(&mut world), "Mouse press on scalable module begins drag without immediate placement");
 
     // Drag across to cell (2, 1) and scroll MoldRight (WheelDown) +3 steps -> 3 x 1 x 4 cells (1.5m x 0.5m x 2.0m)
-    builder.rotate_degrees(38.0, -6.0);
+    builder.rotate_degrees(50.0, -6.0);
     assert!(builder.dispatch_trigger(InputTrigger::WheelDown));
     assert!(builder.dispatch_trigger(InputTrigger::WheelDown));
     assert!(builder.dispatch_trigger(InputTrigger::WheelDown));
@@ -69,29 +70,29 @@ fn test_drag_hologram_stretches_scalable_tank_and_proxy_dismantles_atomically() 
     let span = holo.span();
     assert!(holo.quads >= 36, "Stretched drag hologram must emit 12 corner brackets, got {}", holo.quads);
     assert!(
-        span.x > 0.90 && span.y > 1.85,
+        span.x > 0.90 && span.y > 1.80,
         "Dragged + scrolled hologram must stretch horizontally and vertically, got span={span:?}"
     );
 
     assert!(builder.release_hand(&mut world), "Releasing drag must commit the scaled PropellantTank module");
 
     // Verify both the anchor corner and a far ModuleProxy corner are solid PropellantTank cells
-    let probe_far = Vec3::new(0.75, 10.2, 0.75);
+    let probe_far = frame.point_at(0.75, 0.75, 2.2);
     assert_eq!(
-        world.aimed_surface_medium(probe_far, Vec3::NEG_Y),
+        world.aimed_surface_medium(probe_far, -frame.up_at(probe_far)),
         Some(BlockMedium::PropellantTank),
         "Far ModuleProxy cell must report PropellantTank medium"
     );
-    let probe_origin = Vec3::new(0.25, 10.2, 0.75);
+    let probe_origin = frame.point_at(0.25, 0.75, 2.2);
     assert_eq!(
-        world.aimed_surface_medium(probe_origin, Vec3::NEG_Y),
+        world.aimed_surface_medium(probe_origin, -frame.up_at(probe_origin)),
         Some(BlockMedium::PropellantTank),
         "Anchor cell must also report PropellantTank medium"
     );
 
     // Dismantling the far ModuleProxy cell must atomically remove the entire multi-cell tank!
     assert_eq!(
-        world.harvest_surface(probe_far, Vec3::NEG_Y),
+        world.harvest_surface(probe_far, -frame.up_at(probe_far)),
         Some(BlockMedium::PropellantTank)
     );
     assert_ne!(

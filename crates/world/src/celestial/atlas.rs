@@ -70,13 +70,13 @@ impl CelestialAtlas {
         } else {
             DVec3::Y
         };
-        let norm_v3 = crate::ClimateZone::dominant(out_dir.as_vec3()).normal();
+        let norm_v3 = out_dir.as_vec3();
         let stand_dist = if snap.nature().landable_crust() {
             snap.half_size()
         } else {
             snap.half_size() * 1.45
         };
-        let target_pt = snap.center() + norm_v3.as_dvec3() * stand_dist;
+        let target_pt = snap.center() + out_dir * stand_dist;
         Some((snap, target_pt, norm_v3))
     }
 
@@ -170,7 +170,7 @@ impl CelestialAtlas {
                 }
             }
             if let Some((t_hit, snap, span)) = nearest {
-                let near_body = (eye_d - snap.center()).abs().max_element() <= snap.half_size() + 384.0;
+                let near_body = (eye_d - snap.center()).length() <= snap.half_size() + 384.0;
                 if near_body && snap.nature().landable_crust() {
                     if let Some(hit) = Self::march_surface(eye, dir, (span.0 as f32, span.1 as f32), world) {
                         return Some(hit);
@@ -179,13 +179,9 @@ impl CelestialAtlas {
                 let exact_t = Self::slab_span_dvec(eye_d, dir_d, snap.center(), snap.half_size(), max_r)
                     .map_or(t_hit, |(t0, _)| t0);
                 let hit_pt = eye_d + dir_d * exact_t;
-                let rel = (hit_pt - snap.center()).as_vec3();
-                let n = crate::ClimateZone::dominant(rel).normal();
-                let clamped = (hit_pt - snap.center()).clamp(
-                    DVec3::splat(-snap.half_size()),
-                    DVec3::splat(snap.half_size()),
-                );
-                return Some(((snap.center() + clamped).as_vec3(), n));
+                let n = (hit_pt - snap.center()).normalize_or_zero().as_vec3();
+                let n_safe = if n.length_squared() > 0.5 { n } else { Vec3::Y };
+                return Some(((snap.center() + n_safe.as_dvec3() * snap.half_size()).as_vec3(), n_safe));
             }
             return None;
         }

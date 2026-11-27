@@ -4,7 +4,7 @@ use crate::relief::{
     FacetedReliefFace, HollowVeins, LivingVeins, NaturalCrown, ReliefElevation, SubterraneanVeins,
 };
 use crate::topology::ClimateZone;
-use crate::{CubePlanet, Face, NullFace};
+use crate::{Face, NullFace, QuadSphere};
 
 /// Deterministic impact-crater and mare-ridge elevation model for airless lunar cube faces.
 pub struct LunarCraterRelief {
@@ -91,7 +91,7 @@ impl LunarWorld {
     pub const BLOCKS: u32 = 32;
     pub const HALF_SIZE: f32 = 16.0;
 
-    fn build(authoritative_veins: bool) -> CubePlanet {
+    fn build(authoritative_veins: bool) -> QuadSphere {
         let divs = Self::BLOCKS * 2;
         let faces: Vec<Box<dyn Face>> = ClimateZone::all()
             .into_iter()
@@ -105,14 +105,14 @@ impl LunarWorld {
                 Box::new(FacetedReliefFace::lunar_with_veins(zone, Self::HALF_SIZE, divs, craters, veins))
             })
             .collect();
-        CubePlanet::beveled_cubic(faces, Box::new(NullFace), Self::HALF_SIZE, 1.0)
+        QuadSphere::spherical(faces, Box::new(NullFace), Self::HALF_SIZE)
     }
 
-    pub fn authoritative() -> CubePlanet {
+    pub fn authoritative() -> QuadSphere {
         Self::build(true)
     }
 
-    pub fn hollow() -> CubePlanet {
+    pub fn hollow() -> QuadSphere {
         Self::build(false)
     }
 }

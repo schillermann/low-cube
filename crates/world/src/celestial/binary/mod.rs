@@ -2,17 +2,17 @@ mod earthworks;
 
 use glam::Vec3;
 use crate::{
-    BlockMold, ClimateZone, CompanionPortal, CraftBlueprint, CubePlanet, ExposedStratum,
-    GravityField, MeadowRing, MeshTarget, PlanetaryWorld, PlannedMount, TerrainMesh, VesselDeck,
+    BlockMold, ClimateZone, CompanionPortal, CraftBlueprint, ExposedStratum, GravityField,
+    MeadowRing, MeshTarget, PlanetaryWorld, PlannedMount, QuadSphere, TerrainMesh, VesselDeck,
     VesselSink,
 };
 use super::lunar::LunarWorld;
 use super::translated::TranslatedWorld;
 
-/// Two-body planetary world uniting the 6-face Homeworld (`0..6`), 6-face Moon (`6..12`), and `BinaryGravity`.
+/// Two-body planetary world uniting the 6-shell Homeworld (`0..6`), 6-shell Moon (`6..12`), and `BinaryGravity`.
 pub struct BinaryPlanet<G> {
-    home: CubePlanet,
-    moon: TranslatedWorld<CubePlanet>,
+    home: QuadSphere,
+    moon: TranslatedWorld<QuadSphere>,
     gravity: G,
     home_half: f32,
 }
@@ -20,8 +20,8 @@ pub struct BinaryPlanet<G> {
 impl<G> BinaryPlanet<G> {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(
-        home: CubePlanet,
-        moon: TranslatedWorld<CubePlanet>,
+        home: QuadSphere,
+        moon: TranslatedWorld<QuadSphere>,
         gravity: G,
         home_half: f32,
     ) -> Self {
@@ -33,7 +33,7 @@ impl<G> BinaryPlanet<G> {
     }
 
     fn near_home(&self, pos: Vec3) -> bool {
-        pos.abs().max_element() <= self.home_half + 48.0
+        pos.length() <= self.home_half + 48.0
     }
 
     fn map_home_slice(idx: usize) -> usize {
@@ -52,6 +52,10 @@ impl<G: GravityField> GravityField for BinaryPlanet<G> {
 }
 
 impl<G> TerrainMesh for BinaryPlanet<G> {
+    fn allocated_brick_bytes(&self) -> usize {
+        self.home.allocated_brick_bytes() + self.moon.allocated_brick_bytes()
+    }
+
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         self.home.emit_surface(target);
         self.moon.emit_surface(target);

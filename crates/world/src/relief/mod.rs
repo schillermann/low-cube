@@ -1,4 +1,5 @@
 mod cantilever_rig;
+mod clipmap;
 mod column_clearance;
 mod corner;
 mod craft_cluster;
@@ -49,6 +50,7 @@ pub use craft_entity::{
     MAX_EXHAUST_JETS, MAX_WIRE_EDGES,
 };
 pub use crust_vault::CrustVault;
+pub use clipmap::{ClipmapLod, PlanetHeightClipmap};
 pub use elevation::ReliefElevation;
 pub use face::{FacetedReliefFace, MeadowRing, MeadowStamp, MEADOW_RING_SLOTS};
 pub use facet::ReliefFacet;

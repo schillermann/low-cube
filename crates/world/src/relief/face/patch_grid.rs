@@ -56,14 +56,12 @@ impl DirtySectors {
         &self.touched
     }
 
-    pub fn record_touched(&mut self, u: i32, v: i32, divisions: u32) {
-        if Self::continental(divisions) {
-            self.touched.insert((u, v));
-        }
+    pub fn record_touched(&mut self, u: i32, v: i32) {
+        self.touched.insert((u, v));
     }
 
     pub fn mark_cell_dirty(&mut self, u: i32, v: i32, half: i32, divisions: u32) {
-        self.record_touched(u, v, divisions);
+        self.record_touched(u, v);
         let gsu = u.div_euclid(SECTOR_SPAN as i32);
         let gsv = v.div_euclid(SECTOR_SPAN as i32);
         let rev = self.revisions.entry((gsu, gsv)).or_insert(1);

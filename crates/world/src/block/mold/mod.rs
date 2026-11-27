@@ -155,7 +155,7 @@ impl BlockMold {
         } else {
             self.archetype
         };
-        let (du, dv) = frame.decompose(self.turn.orient_vector(direction, frame.normal()));
+        let (du, dv) = frame.decompose_vector(self.turn.orient_vector(direction, frame.normal()));
         let wedge = if dv.abs() >= du.abs() {
             if dv >= 0.0 { WedgeHeading::North } else { WedgeHeading::South }
         } else if du >= 0.0 { WedgeHeading::East } else { WedgeHeading::West };

@@ -1,6 +1,6 @@
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CompanionPortal, CompanionPresence, CraftBlueprint,
+    BiomedQuadSphere, BlockMedium, BlockMold, CompanionPortal, CompanionPresence, CraftBlueprint,
     CraftPose, DrivenCraft, MeshTarget, PilotCraft, PlanetaryWorld, PresenceAttire,
     PresenceKinematics, Quad, SurfaceFrame, VehicleAxes, VehiclePart, VesselDeck, WorldEarthworks,
 };
@@ -52,19 +52,19 @@ fn test_large_blueprint_roundtrip_and_80_byte_pose_wire_budget() {
 fn test_multiplayer_vehicle_ownership_lock_passenger_seat_and_smooth_glide() {
     let host = SanctuaryHost::bind(
         "127.0.0.1:0",
-        Box::new(BiomedCubeWorld::barren_beveled(32, 1.0)),
+        Box::new(BiomedQuadSphere::barren(32)),
         32,
     )
     .expect("bind host");
     let addr = host.local_addr().expect("host addr");
     let mut host_world = HostedPlanet::new(host);
     let mut guest_a = RemotePlanet::new(
-        Box::new(BiomedCubeWorld::barren_beveled(32, 1.0)),
+        Box::new(BiomedQuadSphere::barren(32)),
         crate::RemoteLink::bind(JoinTarget::Direct(addr)).expect("bind guest a"),
         std::collections::VecDeque::new(),
     );
     let mut guest_b = RemotePlanet::new(
-        Box::new(BiomedCubeWorld::barren_beveled(32, 1.0)),
+        Box::new(BiomedQuadSphere::barren(32)),
         crate::RemoteLink::bind(JoinTarget::Direct(addr)).expect("bind guest b"),
         std::collections::VecDeque::new(),
     );
@@ -170,12 +170,13 @@ fn test_multiplayer_vehicle_ownership_lock_passenger_seat_and_smooth_glide() {
             let mut active = Vec::new();
             host_world.active_crafts(&mut active);
             let live_origin = active[0].pose().origin();
+            let surf_y = host_world.constrain_to_surface(Vec3::new(live_origin.x, g0 + 5.0, live_origin.z + 3.0), 0.0).y;
             let roof_probe = Vec3::new(live_origin.x, g0 + 5.0, live_origin.z);
             assert!(
-                host_world.constrain_to_surface(roof_probe, 0.0).y > g0 + 0.4,
+                host_world.constrain_to_surface(roof_probe, 0.0).y > surf_y + 0.4,
                 "Moving vehicle must physically support colliding/standing avatars"
             );
-            let pass_aim_eye = Vec3::new(live_origin.x, g0 + 2.4, 0.75);
+            let pass_aim_eye = Vec3::new(live_origin.x, live_origin.y + 1.8, live_origin.z - 0.5);
             assert!(
                 host_world.board_passenger_seat(pass_aim_eye, Vec3::NEG_Y).is_some(),
                 "Second CabinSeat on moving vehicle must be boardable by passengers"
@@ -190,7 +191,8 @@ fn test_multiplayer_vehicle_ownership_lock_passenger_seat_and_smooth_glide() {
     let smooth_steps = samples_x.windows(2).filter(|w| (w[1] - w[0]).abs() > 1e-4 && (w[1] - w[0]).abs() < 0.25).count();
     assert!(smooth_steps >= 15);
 
-    let final_x = assembly_a.origin().x;
+    let final_pos = assembly_a.origin();
+    let probe_above = final_pos * 1.25;
     assert!(guest_a.park_vehicle(assembly_a));
     guest_a.sync_pilot_craft(PilotCraft::Pedestrian);
     for _ in 0..8 {
@@ -198,6 +200,6 @@ fn test_multiplayer_vehicle_ownership_lock_passenger_seat_and_smooth_glide() {
         let _ = host_world.step_surface(0.03);
         let _ = guest_b.step_surface(0.03);
     }
-    assert!(host_world.constrain_to_surface(Vec3::new(final_x, 22.0, 0.75), 0.0).y > g0 + 0.5);
-    assert!(guest_b.constrain_to_surface(Vec3::new(final_x, 22.0, 0.75), 0.0).y > g0 + 0.5);
+    assert!(host_world.constrain_to_surface(probe_above, 0.0).length() > final_pos.length() + 0.5);
+    assert!(guest_b.constrain_to_surface(probe_above, 0.0).length() > final_pos.length() + 0.5);
 }

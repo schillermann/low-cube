@@ -2,7 +2,6 @@ mod blueprints;
 mod cache;
 mod facets;
 mod meadow_ring;
-mod orbital_shell;
 mod patch_grid;
 
 use crate::brick_arena::RawAtom;
@@ -91,6 +90,12 @@ impl FacetedReliefFace {
             palette,
             ReliefCellCache::empty(ReliefStrata::new(), divisions),
         )
+    }
+
+    /// Returns this relief face with a zero-brick `OriginStone` sanctuary plinth at `(-1, -1)`.
+    pub fn with_origin_plinth(mut self) -> Self {
+        self.domain.relief.crown_origin_plinth();
+        self
     }
 
     /// Returns this relief face with an additional unboxed `RawAtom` stacked at `(u, v, base)`.

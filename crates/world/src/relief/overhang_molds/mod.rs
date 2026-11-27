@@ -44,6 +44,14 @@ impl OverhangMolds {
         Self::new(WorldBlocks::untouched(), ParkedFleet::untouched(), RigRegistry::untouched(), TurfScars::untouched())
     }
 
+    pub fn crown_origin_plinth(&mut self) {
+        self.world_blocks.crown_origin_plinth();
+    }
+
+    pub fn allocated_brick_bytes(&self) -> usize {
+        self.world_blocks.allocated_brick_bytes()
+    }
+
     const fn decorated(&self) -> RiggedStructure<'_, ParkedStructure<'_, SanctuaryStructure<'_>>> {
         RiggedStructure::new(
             ParkedStructure::new(SanctuaryStructure::new(&self.world_blocks), &self.fleet),

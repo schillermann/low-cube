@@ -62,7 +62,7 @@ impl AvatarSight {
     fn align_horizon(&mut self, target_up: Vec3, pacing: HorizonPacing, dt: f32) {
         let current_up = self.surface_up();
         let dot = current_up.dot(target_up);
-        if dot <= 0.9999 {
+        if dot <= 0.999_999_5 {
             let rot_to_target = Quat::from_rotation_arc(current_up, target_up);
             let step_rot = if dot < pacing.snap_dot {
                 rot_to_target
@@ -71,7 +71,7 @@ impl AvatarSight {
             };
             self.surface_rot = (step_rot * self.surface_rot).normalize();
         }
-        if self.camera_rot.dot(self.surface_rot).abs() > 0.9999 {
+        if self.camera_rot.dot(self.surface_rot).abs() > 0.999_999_5 {
             self.camera_rot = self.surface_rot;
         } else {
             self.camera_rot = self.camera_rot.slerp(self.surface_rot, 1.0 - (-pacing.camera_rate * dt).exp()).normalize();

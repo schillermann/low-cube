@@ -94,8 +94,8 @@ fn test_scale_64_mountain_elevation_reaches_authentic_height() {
     let mut max_observed_h: f32 = 0.0;
     for u in -15..15 {
         for v in -15..15 {
-            let sample = face.constrain(Vec3::new(u as f32, 33.0, v as f32), 1.0);
-            let elev = (sample.y.abs() - 32.0 - 1.0).max(0.0);
+            let sample = face.constrain(Vec3::new(u as f32, -33.0, v as f32), 1.0);
+            let elev = (sample.length() - 32.0 - 1.0).max(0.0);
             if elev > max_observed_h {
                 max_observed_h = elev;
             }
@@ -169,11 +169,11 @@ fn test_seam_chamfer_emission_at_world_border() {
     let mut counter = CountedMeshTarget::new(&mut collector);
     let palette = ReliefPalette::uniform(Vec3::ONE, Vec3::ZERO, Vec3::ZERO);
 
-    // Border cell touching North seam (v1 = 16)
+    // Border cell on spherical QuadSphere emits 1 flush spherical quad (no 90° cube chamfer)
     let border_cell = crate::block::GridCell::new(0, 15);
     let border_relief = TestRelief(|_, _| 0);
     facet.emit_facet(border_cell, &frame, &border_relief, 16, &palette, &mut counter);
-    assert_eq!(counter.count(), 2);
+    assert_eq!(counter.count(), 1);
 
     // Grass regrowth: scales with adjacent grass count (8 neighbors ~40-95s, 1 neighbor 8x slower, 2-block-high pillar never regrows)
     let mut terraced = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 8);

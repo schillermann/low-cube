@@ -22,7 +22,7 @@ fn pilot_snapshot(avatar: &PlanetaryAvatar) -> (Vec3, f32) {
 }
 
 fn board_and_test_yaw_then_liftoff(mut world: Box<dyn PlanetaryWorld>, seat_x: f32, seat_z: f32, g0: f32) {
-    let spawn = world.constrain_to_surface(Vec3::new(seat_x + 0.5, 22.0, seat_z), 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(seat_x + 0.5, 16.0, seat_z), 1.0);
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -68,7 +68,7 @@ fn board_and_test_yaw_then_liftoff(mut world: Box<dyn PlanetaryWorld>, seat_x: f
 #[test]
 fn test_compact_skeleton_rocket_with_single_nozzle_yaws_on_ad_and_lifts_off_on_space() {
     let mut world = CelestialSystem::barren_authoritative(32, 1.0);
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for med in [BlockMedium::CantileverRig, BlockMedium::RocketNozzle] {
@@ -131,7 +131,7 @@ fn test_compact_skeleton_rocket_with_single_nozzle_yaws_on_ad_and_lifts_off_on_s
 #[test]
 fn test_steuerduese_only_pod_yaws_on_ad_and_lifts_off_on_space() {
     let mut world = CelestialSystem::barren_authoritative(32, 1.0);
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for mold in [

@@ -2,7 +2,7 @@ use glam::Vec3;
 use winit::keyboard::KeyCode;
 use engine::QuadBatch;
 use world::{
-    BiomedCubeWorld, Callsign, CompanionPortal, CountedMeshTarget, CubePlanet, PlanetaryWorld,
+    BiomedQuadSphere, Callsign, CompanionPortal, CountedMeshTarget, QuadSphere, PlanetaryWorld,
     ProximityUtterance,
 };
 use crate::avatar::PlanetaryAvatar;
@@ -14,14 +14,14 @@ use crate::menu::{
 use super::MockSurface;
 
 struct LoopbackChatWorld {
-    origin: CubePlanet,
+    origin: QuadSphere,
     spoken: Vec<String>,
     inbox: Vec<ProximityUtterance>,
 }
 
 impl LoopbackChatWorld {
     fn new(inbox: Vec<ProximityUtterance>) -> Self {
-        Self { origin: BiomedCubeWorld::of_size(16), spoken: Vec::new(), inbox }
+        Self { origin: BiomedQuadSphere::of_size(16), spoken: Vec::new(), inbox }
     }
 }
 

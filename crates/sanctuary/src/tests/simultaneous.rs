@@ -1,6 +1,6 @@
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, CompanionPresence, MeshTarget, PlanetaryWorld, PresenceAttire,
+    BiomedQuadSphere, CompanionPresence, MeshTarget, PlanetaryWorld, PresenceAttire,
     PresenceKinematics, Quad, WorldEarthworks,
 };
 use crate::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
@@ -35,7 +35,7 @@ fn drain_all_slices(world: &mut dyn PlanetaryWorld) -> Vec<usize> {
 
 #[test]
 fn test_host_and_guests_excavate_simultaneously_without_wiping_cracks_or_slices() {
-    let inner: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
+    let inner: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::of_size(16));
     let raw_host = SanctuaryHost::bind("127.0.0.1:0", inner, 16).expect("bind host");
     let addr = raw_host.local_addr().expect("host addr");
     let mut host = HostedPlanet::new(raw_host);

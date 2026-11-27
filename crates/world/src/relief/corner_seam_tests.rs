@@ -100,21 +100,22 @@ fn test_lateral_ridge_corner_attachment_at_highest_pillar_block_without_ground_c
     let avatar_pos = Vec3::new(0.25, 8.0, 0.25);
     let eye = Vec3::new(0.25, 8.92, 0.25);
 
+    let frame = ClimateZone::Temperate.surface_frame(8.0);
     // Stack 4 full cubes on top of each other at cell (0, -2) -> height 2.0m
     for step in 0..4 {
         face = face.with_molded_block(0, -2, (step as f32) * 0.5, crate::RawAtom::turf_cube());
     }
-    let pillar_top = face.constrain(Vec3::new(0.25, 12.0, -0.75), 0.0).y - 8.0;
-    assert!((pillar_top - 2.0).abs() < 1e-4, "Four stacked blocks must reach 2.0m");
+    let pillar_top = frame.elevation_of(face.constrain(frame.point_at(0.25, -0.75, 4.0), 0.0));
+    assert!((pillar_top - 2.0).abs() < 1e-4, "Four stacked blocks must reach 2.0m, got {pillar_top}");
 
     // Aim at the topmost 4th block of the pillar and attach RidgeCorner laterally into (0, -1)
-    let aim_high_side = Vec3::new(0.0, 1.35, -1.0).normalize();
+    let aim_high_side = (frame.point_at(0.25, -0.55, 1.75) - eye).normalize();
     let ridge_mold = BlockMold::new(MoldArchetype::ConvexRidge, CardinalTurn::Forward);
     assert!(face.place_molded_block(eye, aim_high_side, avatar_pos, ridge_mold));
 
     // In cell (0, -1), the attached RidgeCorner is at base 1.5..2.0m on the SouthWest half, while the NorthEast half is open air down to ground 0.0m!
-    let attached_h = face.constrain(Vec3::new(0.05, 12.0, -0.45), 0.0).y - 8.0;
-    let open_ground_h = face.constrain(Vec3::new(0.45, 12.0, -0.05), 0.0).y - 8.0;
+    let attached_h = frame.elevation_of(face.constrain(frame.point_at(0.05, -0.45, 4.0), 0.0));
+    let open_ground_h = frame.elevation_of(face.constrain(frame.point_at(0.45, -0.05, 4.0), 0.0));
     assert!(attached_h > 1.8, "Laterally attached RidgeCorner must sit at 4th block height (1.5..2.0m), got {attached_h}");
     assert!(open_ground_h.abs() < 1e-4, "Uncovered half and space beneath RidgeCorner must have ground at 0.0m without ground contact, got {open_ground_h}");
 
@@ -122,16 +123,16 @@ fn test_lateral_ridge_corner_attachment_at_highest_pillar_block_without_ground_c
     face.emit_surface(&mut sink);
     let has_floating_underside = sink.quads.iter().any(|q| {
         q.transfer(|v0, v1, v2, v3, n, _| {
-            n.y < -0.9 && v2 == v3 && (v0.y - 9.5).abs() < 1e-3 && (v1.y - 9.5).abs() < 1e-3
+            n.y < -0.9 && v2 == v3 && (frame.elevation_of(v0) - 1.5).abs() < 1e-3 && (frame.elevation_of(v1) - 1.5).abs() < 1e-3
         })
     });
     assert!(has_floating_underside, "Floating RidgeCorner must emit its triangular underside at elevation 1.5m above ground");
 
     // Also attach a FullCube laterally at the topmost 4th block on the East side of the pillar
-    let eye_east = Vec3::new(1.25, 8.92, -0.75);
-    let aim_east_side = Vec3::new(-1.0, 1.1, 0.0).normalize();
-    assert!(face.place_molded_block(eye_east, aim_east_side, Vec3::new(1.25, 8.0, -0.75), BlockMold::cube()));
-    let attached_cube_h = face.constrain(Vec3::new(0.75, 12.0, -0.75), 0.0).y - 8.0;
+    let eye_east = frame.point_at(1.25, -0.75, 0.92);
+    let aim_east_side = (frame.point_at(0.48, -0.75, 1.75) - eye_east).normalize();
+    assert!(face.place_molded_block(eye_east, aim_east_side, frame.point_at(1.25, -0.75, 0.0), BlockMold::cube()));
+    let attached_cube_h = frame.elevation_of(face.constrain(frame.point_at(0.75, -0.75, 4.0), 0.0));
     assert!((attached_cube_h - 2.0).abs() < 1e-4, "Laterally attached FullCube at 4th block must reach 2.0m, got {attached_cube_h}");
 }
 
@@ -185,16 +186,19 @@ fn test_underside_block_attachment_and_doorframe_lintel_passage() {
     use super::FacetedReliefFace;
 
     let mut face = FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32);
-    let (avatar_pos, eye) = (Vec3::new(0.25, 8.0, 0.25), Vec3::new(0.25, 8.92, 0.25));
+    let frame = ClimateZone::Temperate.surface_frame(8.0);
+    let (avatar_pos, eye) = (frame.point_at(0.25, 0.25, 0.0), frame.point_at(0.25, 0.25, 0.92));
     for step in 0..5 {
         face = face.with_molded_block(0, -2, (step as f32) * 0.5, crate::RawAtom::turf_cube());
     }
-    assert!(face.place_molded_block(eye, Vec3::new(0.0, 1.85, -1.0).normalize(), avatar_pos, BlockMold::cube()));
-    let under_pos = Vec3::new(0.25, 8.0, -0.25);
-    assert!((face.constrain(Vec3::new(0.25, 9.0, -0.25), 1.0).y - 9.0).abs() < 1e-4, "Avatar must walk freely under lintel at 5th block height (2.0m clearance)");
-    assert!((face.constrain(Vec3::new(0.25, 11.5, -0.25), 1.0).y - 11.5).abs() < 1e-4, "Avatar on roof must stand on top of lintel");
-    assert!(face.place_molded_block(Vec3::new(0.25, 9.80, -0.25), Vec3::Y, under_pos, BlockMold::cube()), "Must attach block directly overhead to lintel underside");
-    assert!(face.constrain(Vec3::new(0.25, 9.0, -0.25), 1.0).y > 10.5, "Lintel lowered to 4th block (1.5m clearance, head height) must block passage");
-    assert!(face.place_molded_block(Vec3::new(0.25, 8.80, -0.25), Vec3::Y, under_pos, BlockMold::cube()), "Must attach 2nd block from below reducing clearance to 1.0m");
-    assert!(face.constrain(Vec3::new(0.25, 9.0, -0.25), 1.0).y > 10.5, "Low block with 1.0m clearance must block passage underneath");
+    let lintel_aim = (frame.point_at(0.25, -0.55, 2.25) - eye).normalize();
+    assert!(face.place_molded_block(eye, lintel_aim, avatar_pos, BlockMold::cube()));
+    let under_pos = frame.point_at(0.25, -0.25, 0.0);
+    assert!((frame.elevation_of(face.constrain(frame.point_at(0.25, -0.25, 1.0), 1.0)) - 1.0).abs() < 1e-4, "Avatar must walk freely under lintel at 5th block height (2.0m clearance)");
+    assert!((frame.elevation_of(face.constrain(frame.point_at(0.25, -0.25, 3.5), 1.0)) - 3.5).abs() < 1e-4, "Avatar on roof must stand on top of lintel");
+    let up_under = frame.up_at(under_pos);
+    assert!(face.place_molded_block(frame.point_at(0.25, -0.25, 1.80), up_under, under_pos, BlockMold::cube()), "Must attach block directly overhead to lintel underside");
+    assert!(frame.elevation_of(face.constrain(frame.point_at(0.25, -0.25, 1.0), 1.0)) > 2.5, "Lintel lowered to 4th block (1.5m clearance, head height) must block passage");
+    assert!(face.place_molded_block(frame.point_at(0.25, -0.25, 0.80), up_under, under_pos, BlockMold::cube()), "Must attach 2nd block from below reducing clearance to 1.0m");
+    assert!(frame.elevation_of(face.constrain(frame.point_at(0.25, -0.25, 1.0), 1.0)) > 2.5, "Low block with 1.0m clearance must block passage underneath");
 }

@@ -74,8 +74,8 @@ fn test_handheld_camera_rotates_through_four_angles_and_snaps_immediately_withou
     let close_peak = (64..85).map(|ms| shutter_sound.amplitude_at((ms as f32) * 0.001).abs()).fold(0.0f32, f32::max);
     assert!(open_peak > 0.25 && close_peak > 0.20 && shutter_sound.riff_wave().starts_with(b"RIFF"));
 
-    let world = world::BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 1.0);
+    let world = world::BiomedQuadSphere::of_size(16);
+    let spawn = world.constrain_to_surface(Vec3::new(0.25, 8.0, 0.25), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn).with_starting_satchel(&ServerSatchel::assembled());
     avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
 
@@ -125,8 +125,8 @@ fn test_handheld_camera_rotates_through_four_angles_and_snaps_immediately_withou
 
 #[test]
 fn test_placed_camera_runs_six_second_white_self_timer_countdown() {
-    let mut world = world::BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 1.0);
+    let mut world = world::BiomedQuadSphere::of_size(16);
+    let spawn = world.constrain_to_surface(Vec3::new(0.25, 8.0, 0.25), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn);
     avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
 
@@ -156,8 +156,8 @@ fn test_placed_camera_runs_six_second_white_self_timer_countdown() {
 
 #[test]
 fn test_selfie_camera_tracks_held_elevation_and_develops_png_plate() {
-    let world = world::BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 1.0);
+    let world = world::BiomedQuadSphere::of_size(16);
+    let spawn = world.constrain_to_surface(Vec3::new(0.25, 8.0, 0.25), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn);
     avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
 
@@ -189,19 +189,19 @@ fn test_selfie_camera_tracks_held_elevation_and_develops_png_plate() {
 
 #[test]
 fn test_camera_on_three_dirt_blocks_photographs_from_tripod_lens_and_picks_up_in_one_click() {
-    let mut world = world::BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 1.0);
+    let mut world = world::BiomedQuadSphere::of_size(32);
+    let spawn = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn)
         .with_starting_satchel(&ParsedSatchel::parse("excavated_earth:3", "test"));
     avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::FieldCamera));
     avatar.rotate_degrees(0.0, 58.0);
-    for pitch_up in [-12.0, -16.0, -19.0] {
+    for pitch_up in [-12.0, -16.0, -18.0] {
         assert!(!avatar.use_right_hand(&mut world) && avatar.release_hand(&mut world));
         avatar.rotate_degrees(0.0, pitch_up);
     }
     assert!(!avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world));
     let (tripod_hub, _, _) = world.placed_camera_tripod().expect("World must report placed camera tripod hub");
-    assert!(tripod_hub.y > spawn.y + 0.7);
+    assert!(tripod_hub.length() > spawn.length() + 0.7);
 
     assert!(!avatar.adjust_aimed_rig(InputTrigger::WheelClick, &mut world));
     assert!(avatar.dispatch_trigger(InputTrigger::WheelClick));
@@ -248,7 +248,7 @@ fn test_multiplayer_companion_handheld_camera_rotation_visible_to_peer() {
         ledger.quads.iter().map(|q| q.transfer(|v0, _, _, _, _, _| v0)).collect()
     };
 
-    let world = world::BiomedCubeWorld::barren_beveled(16, 1.0);
+    let world = world::BiomedQuadSphere::barren(16);
     let spawn = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 1.0);
     let mut companion = PlanetaryAvatar::at(spawn);
 

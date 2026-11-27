@@ -8,16 +8,16 @@ mod vicinity;
 
 use std::cell::RefCell;
 use glam::Vec3;
-use crate::{CompanionPortal, CubePlanet, GravityField, PlanetaryWorld, TerrainMesh};
+use crate::{CompanionPortal, GravityField, PlanetaryWorld, QuadSphere, TerrainMesh};
 use super::catalog::SurfaceNature;
 use super::ephemeris::SolarEphemeris;
 pub use self::awakened::{ActiveVicinity, AwakenedBody};
 pub use self::vault::OFFWORLD_IDLE_TTL_SECS;
 pub use self::vicinity::VicinityCache;
 
-/// Scaled solar-system world uniting Earth (`0..6`), dual-slot `VicinityCache` (`6..12` & `18..24`), `NBodyGravity`, and `AsteroidBelt`.
+/// Scaled solar-system world uniting `QuadSphere` Earth (`0..6`), dual-slot `VicinityCache`, `NBodyGravity`, and `AsteroidBelt`.
 pub struct HeliosphereWorld {
-    pub(super) earth: CubePlanet,
+    pub(super) earth: QuadSphere,
     pub(super) ephemeris: SolarEphemeris,
     pub(super) vicinity: RefCell<VicinityCache>,
 }
@@ -25,14 +25,14 @@ pub struct HeliosphereWorld {
 impl HeliosphereWorld {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub const fn new(
-        earth: CubePlanet,
+        earth: QuadSphere,
         ephemeris: SolarEphemeris,
         vicinity: RefCell<VicinityCache>,
     ) -> Self {
         Self { earth, ephemeris, vicinity }
     }
 
-    pub fn assembled(earth: CubePlanet, ephemeris: SolarEphemeris, authoritative: bool) -> Self {
+    pub fn assembled(earth: QuadSphere, ephemeris: SolarEphemeris, authoritative: bool) -> Self {
         Self::new(earth, ephemeris, RefCell::new(VicinityCache::empty(authoritative)))
     }
 
@@ -50,7 +50,7 @@ impl HeliosphereWorld {
         }
         let half = self.ephemeris.proportions().earth_half();
         let band = (half * 0.45).clamp(64.0, 160.0);
-        pos.abs().max_element() <= half + band
+        pos.length() <= half + band
     }
 
     pub(super) const fn map_earth_slice(idx: usize) -> usize {
@@ -135,10 +135,10 @@ impl PlanetaryWorld for HeliosphereWorld {
         let pd = position.as_dvec3();
         for snap in self.ephemeris.snapshot_all(0.0) {
             if matches!(snap.nature(), SurfaceNature::GasGiant { .. }) {
-                let cheb = (pd - snap.center()).abs().max_element();
+                let dist = (pd - snap.center()).length();
                 let h = snap.half_size();
-                if cheb <= h * 1.15 {
-                    let depth = ((h * 1.15 - cheb) / (h * 0.45)).clamp(0.0, 4.0);
+                if dist <= h * 1.15 {
+                    let depth = ((h * 1.15 - dist) / (h * 0.45)).clamp(0.0, 4.0);
                     return (depth * 1.8) as f32;
                 }
             }
@@ -196,10 +196,10 @@ impl PlanetaryWorld for HeliosphereWorld {
         }
         let pd = position.as_dvec3();
         for snap in self.ephemeris.snapshot_all(0.0) {
-            let cheb = (pd - snap.center()).abs().max_element();
+            let dist = (pd - snap.center()).length();
             match snap.nature() {
-                SurfaceNature::SolarStar if cheb <= snap.half_size() * 1.25 => return true,
-                SurfaceNature::GasGiant { .. } if cheb <= snap.half_size() * 0.55 => return true,
+                SurfaceNature::SolarStar if dist <= snap.half_size() * 1.25 => return true,
+                SurfaceNature::GasGiant { .. } if dist <= snap.half_size() * 0.55 => return true,
                 _ => {}
             }
         }

@@ -103,7 +103,7 @@ impl ReliefFacet {
         let mut suppressed = SuppressedTop;
         let top_out: &mut dyn MeshTarget = if stage == 0 && !inlaid { target } else { &mut suppressed };
 
-        let (corners, top_col) = if h == 0 && (tn || ts || te || tw) {
+        let (corners, top_col) = if !frame.spherical() && h == 0 && (tn || ts || te || tw) {
             let cu0 = if tw { u0 + 0.25 } else { u0 };
             let cu1 = if te { u1 - 0.25 } else { u1 };
             let cv0 = if ts { v0 + 0.25 } else { v0 };
@@ -124,7 +124,8 @@ impl ReliefFacet {
                 let (p0, p1, p2, p3) = (frame.point_at(u0, v0, top_h), frame.point_at(u1, v0, top_h), frame.point_at(u1, v1, top_h), frame.point_at(u0, v1, top_h));
                 let col = if ground_bare { LOAM_CROWN } else { surf_col };
                 let glow = if !ground_bare && col.y > col.x * 1.15 && col.y > col.z * 1.15 { 0.02 } else { 0.0 };
-                top_out.push_quad(Quad::glowing(p0, p1, p2, p3, frame.normal(), col, glow));
+                let up_n = frame.up_at((p0 + p1 + p2 + p3) * 0.25);
+                top_out.push_quad(Quad::glowing(p0, p1, p2, p3, up_n, col, glow));
                 if ground_bare {
                     EarthClods::new(cell, top_h - 0.5).emit_crown(frame, top_out);
                 }
@@ -172,10 +173,12 @@ impl ReliefFacet {
         let m = [pt(r0, r0, 0.0), pt(r1, r0, 0.0), pt(r1, r1, 0.0), pt(r0, r1, 0.0)];
         let b = [pt(f0, f0, depth), pt(f1, f0, depth), pt(f1, f1, depth), pt(f0, f1, depth)];
         let raw_n = (o[3] - o[0]).cross(o[1] - o[0]);
-        let surf_n = if raw_n.dot(frame.normal()) >= 0.0 { raw_n.normalize_or_zero() } else { -raw_n.normalize_or_zero() };
+        let cell_up = frame.up_at((o[0] + o[1] + o[2] + o[3]) * 0.25);
+        let surf_n = if raw_n.dot(cell_up) >= 0.0 { raw_n.normalize_or_zero() } else { -raw_n.normalize_or_zero() };
         let (floor_col, wall_col) = palette.inspect_subterranean(|f, w| (f, w));
-        let (up, tan, bitan) = (frame.normal() * 0.6, frame.tangent(), frame.bitangent());
-        let wall_n = [(up + bitan).normalize(), (up - tan).normalize(), (up - bitan).normalize(), (up + tan).normalize()];
+        let (tang, bitan) = frame.tangent_at(o[0]);
+        let up = cell_up * 0.6;
+        let wall_n = [(up + bitan).normalize(), (up - tang).normalize(), (up - bitan).normalize(), (up + tang).normalize()];
         for i in 0..4 {
             let j = (i + 1) & 3;
             target.push_quad(Quad::new(o[i], o[j], m[j], m[i], surf_n, top_col));

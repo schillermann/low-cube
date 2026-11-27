@@ -40,7 +40,7 @@ fn test_face_perimeter_crossing_evaluation_and_clamping() {
 
 #[test]
 fn test_all_12_undirected_edge_neighborhoods_reciprocity() {
-    let topology = PlanetaryTopology::cubic(HALF_SIZE);
+    let topology = PlanetaryTopology::quad_sphere(HALF_SIZE);
     assert_eq!(topology.fold_count(), 24);
 
     for zone in ClimateZone::all() {
@@ -58,7 +58,7 @@ fn test_all_12_undirected_edge_neighborhoods_reciprocity() {
 
 #[test]
 fn test_seam_boundary_point_continuity_across_all_24_folds() {
-    let topology = PlanetaryTopology::cubic(HALF_SIZE);
+    let topology = PlanetaryTopology::quad_sphere(HALF_SIZE);
 
     for zone in ClimateZone::all() {
         let frame = zone.surface_frame(HALF_SIZE);
@@ -87,7 +87,7 @@ fn test_seam_boundary_point_continuity_across_all_24_folds() {
 
 #[test]
 fn test_normal_vector_90_degree_switch_across_all_24_folds() {
-    let topology = PlanetaryTopology::cubic(HALF_SIZE);
+    let topology = PlanetaryTopology::quad_sphere(HALF_SIZE);
 
     for zone in ClimateZone::all() {
         for edge in PerimeterEdge::all() {
@@ -109,7 +109,7 @@ fn test_normal_vector_90_degree_switch_across_all_24_folds() {
 
 #[test]
 fn test_overshoot_step_folding_onto_adjacent_face() {
-    let topology = PlanetaryTopology::cubic(HALF_SIZE);
+    let topology = PlanetaryTopology::quad_sphere(HALF_SIZE);
     let seam = topology.seam(ClimateZone::Temperate, PerimeterEdge::PositiveU);
 
     let top_frame = ClimateZone::Temperate.surface_frame(HALF_SIZE);
@@ -141,7 +141,7 @@ fn test_overshoot_step_folding_onto_adjacent_face() {
 
 #[test]
 fn test_closed_360_degree_planetary_circuit() {
-    let topology = PlanetaryTopology::cubic(HALF_SIZE);
+    let topology = PlanetaryTopology::quad_sphere(HALF_SIZE);
 
     // Circuit: Temperate (+Y) -> Desert (+X) -> Volcanic (-Y) -> Arctic (-X) -> Temperate (+Y)
     let circuit = [

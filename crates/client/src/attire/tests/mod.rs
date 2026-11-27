@@ -5,7 +5,7 @@ mod encumbrance;
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{
-    ClimateZone, CubePlanet, FacetedReliefFace, MeshTarget, NullFace, PlanetaryWorld,
+    ClimateZone, QuadSphere, FacetedReliefFace, MeshTarget, NullFace, PlanetaryWorld,
     Quad, WorldEarthworks as _,
 };
 use crate::avatar::{
@@ -56,12 +56,12 @@ impl MeshTarget for QuadLedger {
     }
 }
 
-fn world_with_cube_at(u: i32, v: i32) -> CubePlanet {
+fn world_with_cube_at(u: i32, v: i32) -> QuadSphere {
     let face = Box::new(
         FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 16)
             .with_molded_block(u, v, 0.0, world::RawAtom::turf_cube()),
     );
-    CubePlanet::new(vec![face], Box::new(NullFace))
+    QuadSphere::new(vec![face], Box::new(NullFace))
 }
 
 struct WalkEastControls;
@@ -158,7 +158,7 @@ fn test_wardrobe_customization_keys_and_file_persistence() {
 
 #[test]
 fn test_rig_wrench_fells_timber_and_salvages_placed_planks() {
-    let mut world = world::BiomedCubeWorld::beveled(32, 1.0);
+    let mut world = world::BiomedQuadSphere::of_size(32);
     let (satchel, attire) = super::BeltSatchel::empty()
         .collect_felled_timber(1.0, EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
     assert_eq!(attire.held_pair(), (HeldRelic::RigWrench, HeldRelic::TimberBlock));

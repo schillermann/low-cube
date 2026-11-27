@@ -79,6 +79,7 @@ pub trait TerrainMesh {
     fn emit_cosmic_field(&self, _cone: SightCone, _target: &mut dyn MeshTarget) {}
     fn visible_slice_mask(&self, _position: Vec3) -> u32 { u32::MAX }
     fn drain_disclosures(&mut self, _out: &mut Vec<(u8, ExposedStratum)>) {}
+    fn allocated_brick_bytes(&self) -> usize { 0 }
 }
 
 /// Focused active vehicle deck, passenger seating, hull sink, and mount-hologram contract.

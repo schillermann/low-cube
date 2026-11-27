@@ -10,12 +10,15 @@ use super::FacetedReliefFace;
 
 impl Face for FacetedReliefFace {
     fn matches(&self, point: Vec3) -> bool {
-        let height = self.domain.frame.height_of(point);
-        let (u, v) = self.domain.frame.decompose(point);
-        height > 0.0 && height >= u.abs() && height >= v.abs()
+        self.domain.frame.matches_cone(point)
+    }
+
+    fn allocated_brick_bytes(&self) -> usize {
+        self.domain.relief.allocated_brick_bytes()
     }
 
     fn surface_up(&self) -> Vec3 { self.domain.frame.normal() }
+    fn surface_up_at(&self, position: Vec3) -> Vec3 { self.domain.frame.up_at(position) }
     fn pull_direction(&self) -> Vec3 { -self.domain.frame.normal() }
 
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 {

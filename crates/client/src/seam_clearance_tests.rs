@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{BiomedCubeWorld, GravityField, PlanetaryWorld};
+use world::{BiomedQuadSphere, ClimateZone, GravityField, PlanetaryWorld};
 use crate::avatar::{AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 use crate::flight::{GravitationalFlight, SurfaceFlight};
@@ -16,66 +16,56 @@ impl KeyboardControls for ContinuousForwardControls {
 }
 
 #[test]
-fn test_seam_clearance_identifies_90_degree_fold() {
-    let world = BiomedCubeWorld::beveled(32, 0.5);
-    let origin = Vec3::new(15.95, 17.0, 0.0);
-    let step = Vec3::new(0.1, 0.0, 0.0);
-    let candidate = origin + step;
+fn test_quad_sphere_meridian_clearance_is_smooth_planar_ground() {
+    let world = BiomedQuadSphere::of_size(32);
+    let frame = ClimateZone::Temperate.surface_frame(16.0);
+    let origin = frame.point_at(15.95, 0.0, 1.0);
+    let candidate = frame.point_at(16.05, 0.0, 1.0);
     let surface_pos = world.constrain_to_surface(candidate, 1.0);
+    let surface_up = world.surface_up_at(origin);
 
-    let clearance = SurfaceClearance::between(origin, candidate, surface_pos, Vec3::Y, &world);
+    let clearance = SurfaceClearance::between(origin, candidate, surface_pos, surface_up, &world);
     assert!(clearance.passable_with(true));
-    assert!(!clearance.passable_with(false));
+    assert!(clearance.passable_with(false));
     assert!(clearance.floor_contact(StepThreshold::human_stride()));
     assert!(!clearance.cliff_impact(StepThreshold::human_stride()));
 }
 
 #[test]
-fn test_continuous_ground_edge_traversal_without_pushback() {
-    let world = BiomedCubeWorld::beveled(32, 0.5);
+fn test_continuous_ground_meridian_traversal_without_pushback() {
+    let world = BiomedQuadSphere::of_size(32);
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    // Start on Top face (+Y, normal Vec3::Y) near the +X edge (edge is at x = 16.0)
-    let mut pos = Vec3::new(15.9, 17.0, 0.0);
+    let frame = ClimateZone::Temperate.surface_frame(16.0);
+    let mut pos = world.constrain_to_surface(frame.point_at(15.6, 0.0, 1.0), 1.0);
     let gait = WalkGait::upright();
     let dt = 1.0 / 60.0;
-    let speed = 4.3; // m/s
-    let stride_len = speed * dt;
+    let stride_len = 4.3 * dt;
 
-    // Advance 10 steps forward across the edge onto the Right face (+X)
-    for _ in 0..10 {
-        let surface_up = world.surface_up_at(pos);
-        // For the first step across edge, stride is along +X
-        let stride = if pos.x < 16.0 {
-            Vec3::new(stride_len, 0.0, 0.0)
-        } else {
-            // Once on Right face, forward motion is down along -Y
-            Vec3::new(0.0, -stride_len, 0.0)
-        };
-        pos = flight.advance(dt, pos, stride, &gait, surface_up, &world);
+    for _ in 0..25 {
+        let up = world.surface_up_at(pos);
+        let tangent = up.cross(Vec3::Z).normalize();
+        pos = flight.advance(dt, pos, tangent * stride_len, &gait, up, &world);
     }
 
-    // Pos must now be on Right face (x = 17.0, y < 16.0) without being snapped back
-    assert!(pos.x > 16.5);
-    assert!(pos.y < 16.0);
+    assert_eq!(ClimateZone::dominant(pos), ClimateZone::Desert);
+    assert!((pos.length() - 17.0).abs() < 0.05, "Avatar must stay at r=17.0 on QuadSphere, got {}", pos.length());
 }
 
 #[test]
-fn test_avatar_step_motion_continuous_across_seam() {
-    let world = BiomedCubeWorld::beveled(32, 0.5);
-    let start_pos = Vec3::new(15.8, 17.0, 0.0);
+fn test_avatar_step_motion_continuous_across_meridian() {
+    let world = BiomedQuadSphere::of_size(32);
+    let frame = ClimateZone::Temperate.surface_frame(16.0);
+    let start_pos = world.constrain_to_surface(frame.point_at(15.5, 0.0, 1.0), 1.0);
     let mut avatar = PlanetaryAvatar::with_flight(start_pos, Box::new(SurfaceFlight::terrestrial(1.0)));
     let controls = ContinuousForwardControls;
 
-    // Face towards +X (yaw = -90 deg)
-    avatar.rotate_view(-std::f32::consts::FRAC_PI_2, 0.0);
+    avatar.rotate_view(-std::f32::consts::FRAC_PI_2 / 0.003, 0.0);
 
     let dt = 1.0 / 60.0;
-    // Step forward 60 frames (1 second of walking)
     for _ in 0..60 {
         avatar.step_motion(dt, &controls, &world);
     }
 
-    // View matrix must be valid and finite (no NaN, no singularity)
     let view_proj = avatar.view_projection_matrix(16.0 / 9.0);
     for col in 0..4 {
         for row in 0..4 {
@@ -85,46 +75,33 @@ fn test_avatar_step_motion_continuous_across_seam() {
 }
 
 #[test]
-fn test_sneak_at_seam_prevents_edge_crossing() {
-    let world = BiomedCubeWorld::beveled(32, 0.5);
+fn test_sneak_at_voxel_ledge_prevents_drop_while_meridian_remains_walkable() {
+    use world::WorldEarthworks as _;
+    let mut world = BiomedQuadSphere::barren(32);
     let mut flight = SurfaceFlight::terrestrial(1.0);
-    // At x = 15.95 on top face (+Y, normal Vec3::Y), 5cm away from edge at x = 16.0
-    let start_pos = Vec3::new(15.95, 17.0, 0.0);
-    let stride = Vec3::new(0.1, 0.0, 0.0);
+    let frame = ClimateZone::Temperate.surface_frame(16.0);
+    let pillar_eye = frame.point_at(2.25, 0.25, 2.0);
+    let av_far = frame.point_at(0.25, 0.25, 0.0);
+    assert!(world.place_molded_surface_block(pillar_eye, -frame.up_at(pillar_eye), av_far, world::BlockMold::cube()));
+    assert!(world.place_molded_surface_block(frame.point_at(2.25, 0.25, 2.5), -frame.up_at(pillar_eye), av_far, world::BlockMold::cube()));
 
-    // Sneaking gait must stop at the planetary cube edge and prevent crossing onto +X face
-    let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &SneakGait::crouching(), Vec3::Y, &world);
-
-    assert_eq!(next_pos.x, start_pos.x);
-    assert_eq!(next_pos.y, start_pos.y);
-    assert_eq!(next_pos.z, start_pos.z);
+    let start_pos = world.constrain_to_surface(frame.point_at(2.45, 0.25, 3.0), 1.0);
+    let up = world.surface_up_at(start_pos);
+    let east = (Vec3::X - up * Vec3::X.dot(up)).normalize();
+    let next_pos = flight.advance(1.0 / 60.0, start_pos, east * 0.15, &SneakGait::crouching(), up, &world);
+    assert!((next_pos - start_pos).length() < 1e-4, "Sneaking must arrest at a 1.0m voxel ledge on QuadSphere");
 }
 
 #[test]
-fn test_sneak_at_seam_diagonal_slides_along_edge() {
-    let world = BiomedCubeWorld::beveled(32, 0.5);
-    let mut flight = SurfaceFlight::terrestrial(1.0);
-    let start_pos = Vec3::new(15.95, 17.0, 0.0);
-    // Moving diagonally: +X (towards seam) and +Z (along seam)
-    let stride = Vec3::new(0.1, 0.0, 0.1);
-
-    let next_pos = flight.advance(1.0 / 60.0, start_pos, stride, &SneakGait::crouching(), Vec3::Y, &world);
-
-    // X motion over edge is arrested, Z motion parallel to edge proceeds safely
-    assert_eq!(next_pos.x, start_pos.x);
-    assert!(next_pos.z > start_pos.z);
-    assert_eq!(next_pos.y, start_pos.y);
-}
-
-#[test]
-fn test_grazing_sprint_jump_along_climate_seam_never_falls_through_surface() {
+fn test_grazing_sprint_jump_along_climate_meridian_never_falls_through_surface() {
     use winit::keyboard::KeyCode;
     use crate::controls::KeyMotion;
 
-    let world = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let world = BiomedQuadSphere::barren(16);
+    let frame = ClimateZone::Temperate.surface_frame(8.0);
     for yaw_px in [-12.0f32, -35.0, -90.0, -240.0] {
-        for start_x in [7.75f32, 7.80, 7.85, 7.92] {
-            let start_pos = world.constrain_to_surface(Vec3::new(start_x, 10.0, 0.25), 1.0);
+        for start_u in [7.75f32, 7.80, 7.85, 7.92] {
+            let start_pos = world.constrain_to_surface(frame.point_at(start_u, 0.25, 2.0), 1.0);
             let mut avatar = PlanetaryAvatar::at(start_pos);
             avatar.rotate_view(yaw_px, 0.0);
             let mut controls = KeyMotion::idle();
@@ -137,10 +114,10 @@ fn test_grazing_sprint_jump_along_climate_seam_never_falls_through_surface() {
                 }
                 avatar.step_motion(1.0 / 60.0, &controls, &world);
                 let eye = avatar.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
-                let max_c = eye.x.abs().max(eye.y.abs()).max(eye.z.abs());
                 assert!(
-                    max_c >= 8.5,
-                    "Grazing sprint-jump at yaw_px={yaw_px}, start_x={start_x}, tick={tick} must never sink into planet seam, got eye={eye:?} (max_c={max_c})"
+                    eye.length() >= 8.5,
+                    "Grazing sprint-jump at yaw_px={yaw_px}, start_u={start_u}, tick={tick} must never sink into QuadSphere, got eye={eye:?} (r={})",
+                    eye.length()
                 );
             }
         }

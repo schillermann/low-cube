@@ -1,6 +1,7 @@
 use glam::{Mat4, Vec3, Vec4};
 
 mod atmosphere_lut;
+mod camera_relative;
 mod composite_mesh;
 mod greedy_brick;
 mod instanced_module;
@@ -22,6 +23,7 @@ mod tests;
 pub use self::atmosphere_lut::{
     AtmosphereSkyLut, SkyLutMedium, SKY_LUT_HEIGHT, SKY_LUT_INTERVAL_SECS, SKY_LUT_WIDTH,
 };
+pub use self::camera_relative::{CameraAnchor, CameraRelativePass};
 pub use self::composite_mesh::{CoarseMesh, CompositeMesh, PlanetaryMesh};
 pub use self::greedy_brick::{ArenaNeighbors, BrickNeighborhood, GreedyBrickQuads, VacantNeighbors};
 pub use self::instanced_module::{

@@ -1,5 +1,7 @@
 mod layers;
+mod sanctuary_plinth;
 mod world_blocks;
+mod world_snapshots;
 
 use glam::Vec3;
 use crate::MeshTarget;
@@ -8,6 +10,7 @@ use crate::frame::SurfaceFrame;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
 pub use self::layers::{ParkedStructure, RiggedStructure, SanctuaryStructure};
+pub use self::sanctuary_plinth::SanctuaryPlinth;
 pub use self::world_blocks::WorldBlocks;
 
 /// Polymorphic 3D surface structure contract composed across world blocks, parked crafts, and cranes.

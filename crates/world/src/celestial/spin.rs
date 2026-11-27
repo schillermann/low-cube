@@ -1,18 +1,19 @@
 use std::f32::consts::TAU as TAU_F32;
 use std::f64::consts::TAU;
 use glam::{DQuat, DVec3, Quat, Vec3};
+use super::brad64::Brad64;
 use super::ephemeris::SolarEphemeris;
 
 const INV_SQRT_3_F64: f64 = 0.577_350_269_189_625_8;
 const INV_SQRT_3_F32: f32 = 0.577_350_26;
 const DIURNAL_DAY_SECS: f64 = 1_200.0;
 
-/// Focused contract for corner-to-corner planetary spin co-rotation and distant orbital cube posing.
+/// Focused contract for planetary spin co-rotation and distant orbital `QuadSphere` posing.
 pub trait PlanetarySpin {
-    /// Unit spin axis pointing out of the cool northern tri-corner (`Arctic -X`, `Temperate +Y`, `Steppe -Z`).
+    /// Unit spin axis pointing out of the cool northern pole (`Arctic -X`, `Temperate +Y`, `Steppe -Z`).
     fn north_apex(&self) -> Vec3;
 
-    /// Apparent 3D solar center seen from `viewer`, co-rotating near the World-Cube and inertial in deep space.
+    /// Apparent 3D solar center seen from `viewer`, co-rotating near the planet and inertial in deep space.
     fn apparent_sun_center(&self, inertial_sun: DVec3, viewer: DVec3) -> DVec3;
 
     /// Rotates a homeworld-local vector by the live diurnal phase for distant orbital observation of Earth.
@@ -25,7 +26,7 @@ pub trait PlanetarySpin {
     fn epoch_after_turns(&self, turns: f64) -> f64;
 }
 
-/// Corner-to-corner diurnal rotation of the World-Cube around `(-1, +1, -1)` ↔ `(+1, -1, +1)` (`<= 4` fields).
+/// Diurnal rotation of the `QuadSphere` homeworld around `(-1, +1, -1)` ↔ `(+1, -1, +1)` (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ApexSpin {
     epoch_secs: f64,
@@ -44,7 +45,7 @@ impl ApexSpin {
         Self::with_center(epoch_secs, period_secs, earth_half, DVec3::ZERO)
     }
 
-    /// Secondary constructor representing the terrestrial 20-minute corner-axis spin reference.
+    /// Secondary constructor representing the terrestrial 20-minute spin reference.
     pub const fn terrestrial() -> Self {
         Self::new(0.0, DIURNAL_DAY_SECS, 64.0)
     }
@@ -60,22 +61,22 @@ impl ApexSpin {
         let earth_c = if ephemeris.frame().earth_centered() {
             DVec3::ZERO
         } else {
-            let (ep, _, _) = super::bubble::GravityBubble::from_ephemeris(ephemeris)
-                .heliocentric_state(super::bubble::CosmicFrame::earth());
-            let (fp, _, _) = super::bubble::GravityBubble::from_ephemeris(ephemeris)
-                .heliocentric_state(ephemeris.frame());
-            ep - fp
+            let bubble = super::bubble::GravityBubble::from_ephemeris(ephemeris);
+            let ep = bubble.heliocentric_cosmic_pos(super::bubble::CosmicFrame::earth());
+            let fp = bubble.heliocentric_cosmic_pos(ephemeris.frame());
+            ep.relative_dvec3(fp)
         };
         Self::with_center(ephemeris.epoch_secs(), period, f64::from(props.earth_half()), earth_c)
     }
 
     fn spin_angle_rad(self) -> f64 {
         let dur = self.period_secs.max(1.0);
-        (self.epoch_secs.rem_euclid(dur) / dur) * TAU
+        let turns = self.epoch_secs / dur;
+        (turns - turns.floor()) * TAU
     }
 
     fn corotation_weight(self, viewer: DVec3) -> f64 {
-        let alt = (viewer - self.earth_center).abs().max_element() - self.earth_half;
+        let alt = (viewer - self.earth_center).length() - self.earth_half;
         let inner = (self.earth_half * 3.0).max(96.0);
         let outer = (self.earth_half * 24.0).max(768.0);
         if alt <= inner {
@@ -86,6 +87,11 @@ impl ApexSpin {
             let u = (alt - inner) / (outer - inner);
             1.0 - u * u * (3.0 - 2.0 * u)
         }
+    }
+
+    fn axis_quat_deterministic(axis: DVec3, angle: f64) -> DQuat {
+        let (sin_h, cos_h) = Brad64::from_radians(angle * 0.5).sin_cos_f64();
+        DQuat::from_xyzw(axis.x * sin_h, axis.y * sin_h, axis.z * sin_h, cos_h)
     }
 }
 
@@ -101,11 +107,13 @@ impl PlanetarySpin for ApexSpin {
         }
         let axis = DVec3::new(-INV_SQRT_3_F64, INV_SQRT_3_F64, -INV_SQRT_3_F64);
         let angle = -self.spin_angle_rad() * weight;
-        self.earth_center + DQuat::from_axis_angle(axis, angle) * (inertial_sun - self.earth_center)
+        self.earth_center + Self::axis_quat_deterministic(axis, angle) * (inertial_sun - self.earth_center)
     }
 
     fn pose_distant_earth(&self, local_vec: Vec3) -> Vec3 {
-        let rot = Quat::from_axis_angle(self.north_apex(), self.spin_angle_rad() as f32);
+        let (sin_h, cos_h) = Brad64::from_radians(self.spin_angle_rad() * 0.5).sin_cos_f64();
+        let a = self.north_apex();
+        let rot = Quat::from_xyzw(a.x * (sin_h as f32), a.y * (sin_h as f32), a.z * (sin_h as f32), cos_h as f32);
         rot * local_vec
     }
 
@@ -114,7 +122,8 @@ impl PlanetarySpin for ApexSpin {
         let meridian = surface_up - pole * surface_up.dot(pole);
         let east = pole.cross(surface_up);
         let local_prog = if east.length_squared() > 1e-4 {
-            sun_dir.dot(meridian).atan2(sun_dir.dot(east)).rem_euclid(TAU_F32) / TAU_F32
+            let rad = Brad64::atan2_radians(f64::from(sun_dir.dot(meridian)), f64::from(sun_dir.dot(east))) as f32;
+            (rad / TAU_F32).clamp(0.0, 1.0)
         } else {
             fallback_progress
         };

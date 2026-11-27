@@ -1,7 +1,7 @@
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, SurfaceFrame,
+    BiomedQuadSphere, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, SurfaceFrame,
     WorldEarthworks as _,
 };
 use crate::attire::{EvaAttire, HeldRelic, MartialStyle, StrideRhythm};
@@ -46,8 +46,8 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     ];
     assert!(radii[0] != radii[1] && radii[1] != radii[2] && radii[2] != radii[3] && radii[0] != radii[2]);
 
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let mut world = BiomedQuadSphere::of_size(32);
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).length();
     let (rig_mold, eng_mold, seat_mold) = (
         BlockMold::cube().in_medium(BlockMedium::CantileverRig),
         BlockMold::cube().turn_clockwise().in_medium(BlockMedium::SteeringWheel),
@@ -97,7 +97,7 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
         |a: &PlanetaryAvatar| a.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO),
     );
     assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), Vec3::new(0.0, -0.8, -0.6).normalize(), av_pos, bench_mold));
-    let mut world_sitter = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(2.25, 22.0, 1.25), 1.0));
+    let mut world_sitter = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(2.25, 16.0, 1.25), 1.0));
     world_sitter.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
     world_sitter.rotate_degrees(0.0, 58.0);
     assert!(!world_sitter.use_right_hand(&mut world) && world_sitter.release_hand(&mut world));
@@ -109,7 +109,7 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     world_sitter.step_motion(1.0 / 60.0, &step_d, &world);
     let stand_right = cam_pos(&world_sitter);
     assert!(stand_right.x > 2.50 && stand_right.y < g0 + 2.0);
-    world_sitter = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(2.25, 22.0, 1.25), 1.0));
+    world_sitter = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(2.25, 16.0, 1.25), 1.0));
     world_sitter.rotate_degrees(0.0, 58.0);
     assert!(!world_sitter.use_right_hand(&mut world) && world_sitter.release_hand(&mut world));
     world_sitter.step_motion(1.0 / 60.0, &step_a, &world);
@@ -122,7 +122,7 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
         world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.5, 1.25), crane_dir, av_pos, BlockMold::cube().in_medium(BlockMedium::PedalCluster)),
         "Any block medium must mount first onto an empty crane without steering-wheel restriction"
     );
-    let mut seatless = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.25), 1.0));
+    let mut seatless = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.25), 1.0));
     seatless.rotate_degrees(-90.0, 12.0);
     let stand_y = cam_pos(&seatless).y;
     let _ = seatless.use_right_hand(&mut world);
@@ -137,7 +137,7 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     ] {
         assert!(world.place_molded_surface_block(eye, dir, av_pos, mold));
     }
-    let mut miner = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.75, 22.0, 1.25), 1.0));
+    let mut miner = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.75, 16.0, 1.25), 1.0));
     miner.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::CarWheel, HeldRelic::EmptyPalm));
     assert!(!miner.use_right_hand(&mut world));
     for _ in 0..320 {
@@ -155,10 +155,10 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
             )
     );
     assert!(
-        (world.constrain_to_surface(Vec3::new(1.25, 22.0, 1.25), 0.0).y - (g0 + 2.0)).abs() < 1e-4
-            && (world.constrain_to_surface(Vec3::new(1.25, 22.0, 0.75), 0.0).y - (g0 + 2.0)).abs() < 1e-4
+        (world.constrain_to_surface(Vec3::new(1.25, 16.0, 1.25), 0.0).length() - (g0 + 2.0)).abs() < 2e-3
+            && (world.constrain_to_surface(Vec3::new(1.25, 16.0, 0.75), 0.0).length() - (g0 + 2.0)).abs() < 2e-3
     );
-    let mut driver = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0));
+    let mut driver = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0));
     driver.rotate_degrees(-90.0, 12.0);
     assert!(HandGesture::RightTap.perform(&mut driver, &mut world));
     driver.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::FieldCamera, HeldRelic::EmptyPalm));
@@ -198,12 +198,12 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
     assert!(parked_eye.y < g0 + 2.5 && parked_eye.y > g0 + 1.25);
     let mut driven_verts = VertCollector(Vec::new());
     for v in &verts_t1.0 {
-        if v.y < g0 + 0.5 {
+        if v.length() < g0 + 0.5 {
             driven_verts.0.push(*v);
         }
     }
-    assert!(driven_verts.0.iter().map(|v| v.y).fold(f32::MAX, f32::min) >= g0 - 1e-4);
-    let eng_top = world.constrain_to_surface(Vec3::new(parked_eye.x, 22.0, 0.75), 0.0).y;
+    assert!(driven_verts.0.iter().map(|v| v.length()).fold(f32::MAX, f32::min) >= g0 - 1e-3);
+    let eng_top = world.constrain_to_surface(Vec3::new(parked_eye.x, 16.0, 0.75), 0.0).length();
     assert!(eng_top > g0 + 0.65);
     assert!(
         world.harvest_surface(Vec3::new(parked_eye.x, eng_top + 0.5, 0.75), Vec3::NEG_Y).is_none()
@@ -226,23 +226,24 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
 
 #[test]
 fn test_holding_mouse_button_dismantles_seat_while_short_click_perches() {
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
-    let g0 = world.constrain_to_surface(Vec3::new(2.25, 22.0, 0.25), 0.0).y;
+    let mut world = BiomedQuadSphere::of_size(32);
+    let g0 = world.constrain_to_surface(Vec3::new(2.25, 16.0, 0.25), 0.0).length();
     let seat_mold = BlockMold::cube().in_medium(BlockMedium::CabinSeat);
     let aim = Vec3::new(0.0, -0.8, -0.6).normalize();
     let av_pos = Vec3::new(2.25, g0, 1.75);
     assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), aim, av_pos, seat_mold));
-    assert!((world.constrain_to_surface(Vec3::new(2.25, 22.0, 0.25), 0.0).y - (g0 + 0.5)).abs() < 1e-4);
+    assert!((world.constrain_to_surface(Vec3::new(2.25, 16.0, 0.25), 0.0).length() - (g0 + 0.5)).abs() < 2e-3);
 
-    let stand = world.constrain_to_surface(Vec3::new(2.25, 22.0, 1.25), 1.0);
+    let stand = world.constrain_to_surface(Vec3::new(2.25, 16.0, 1.25), 1.0);
     let cam_pos = |a: &PlanetaryAvatar| a.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
 
     let mut bare_miner = PlanetaryAvatar::at(stand);
+    bare_miner.step_motion(1.0, &KeyMotion::idle(), &world);
     bare_miner.rotate_degrees(0.0, 58.0);
     let stand_eye = cam_pos(&bare_miner);
     assert!(HandGesture::RightHold(280).perform(&mut bare_miner, &mut world));
     assert!((cam_pos(&bare_miner) - stand_eye).length() < 0.05, "Avatar must remain standing while dismantling seat");
-    assert!((world.constrain_to_surface(Vec3::new(2.25, 22.0, 0.25), 0.0).y - g0).abs() < 1e-4, "Held mouse button must dismantle the seat");
+    assert!((world.constrain_to_surface(Vec3::new(2.25, 16.0, 0.25), 0.0).length() - g0).abs() < 2e-3, "Held mouse button must dismantle the seat");
 
     assert!(world.place_molded_surface_block(Vec3::new(2.25, g0 + 1.5, 1.25), aim, av_pos, seat_mold));
     bare_miner.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
@@ -251,5 +252,5 @@ fn test_holding_mouse_button_dismantles_seat_while_short_click_perches() {
     bare_miner.rotate_degrees(0.0, 88.0);
     assert!(HandGesture::RightHold(90).perform(&mut bare_miner, &mut world));
     bare_miner.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
-    assert!((world.constrain_to_surface(Vec3::new(2.25, 22.0, 0.25), 0.0).y - g0).abs() < 1e-4, "Holding mouse button while seated must also dismantle the seat");
+    assert!((world.constrain_to_surface(Vec3::new(2.25, 16.0, 0.25), 0.0).length() - g0).abs() < 2e-3, "Holding mouse button while seated must also dismantle the seat");
 }

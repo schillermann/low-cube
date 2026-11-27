@@ -1,7 +1,7 @@
 use glam::Vec3;
 use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
 use winit::keyboard::KeyCode;
-use world::{BiomedCubeWorld, PlanetaryWorld};
+use world::{BiomedQuadSphere, PlanetaryWorld};
 use crate::avatar::{
     AvatarMotor as _, AvatarPresence as _, BlackBoxDeck as _, PlanetaryAvatar,
 };
@@ -17,7 +17,7 @@ use crate::session::{HeadlessSession, HeadlessSurface};
 
 #[test]
 fn test_polymorphic_flight_tape_switches_between_live_ring_and_silent_null_object() {
-    let world = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let world = BiomedQuadSphere::barren(16);
     let spawn = world.constrain_to_surface(Vec3::new(0.25, 10.0, 0.25), 1.0);
     let mut avatar = BlackBoxAvatar::wrapping(
         Box::new(PlanetaryAvatar::at(spawn)),
@@ -156,7 +156,7 @@ fn test_headless_session_menu_creates_log_report_and_displays_tilted_log_sheet_a
 
 #[test]
 fn test_headless_multiplayer_seam_sprint_jump_records_zero_anomalies() {
-    let host_world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::barren_beveled(16, 1.0));
+    let host_world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::barren(16));
     let host = SanctuaryHost::bind("127.0.0.1:0", host_world, 16).expect("bind host");
     let addr = host.local_addr().expect("host addr");
     let mut host_planet = HostedPlanet::new(host);

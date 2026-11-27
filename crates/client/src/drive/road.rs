@@ -3,12 +3,12 @@ use world::{ClimateZone, PlanetaryWorld};
 
 pub(super) const SURFACE_PROBE_LIFT: f32 = 1.15;
 
-/// Focused interface for wheeled ground-step resolution across planar faces, slopes, walls, and 90° cube seams.
+/// Focused interface for wheeled ground-step resolution across spherical `QuadSphere` terrain, slopes, and walls.
 pub(super) trait RoadProbe {
     fn destination(&self, step: Vec3) -> Option<Vec3>;
 }
 
-/// Base `RoadProbe` projecting a tangential step onto its source face and folding 90° cube-seam crossings onto the adjacent face.
+/// Base `RoadProbe` projecting a tangential step radially onto the spherical `QuadSphere` crust.
 pub(super) struct SeamRoad<'a> {
     origin: Vec3,
     world: &'a dyn PlanetaryWorld,
@@ -26,58 +26,38 @@ impl RoadProbe for SeamRoad<'_> {
         if step.length_squared() <= 1e-8 {
             return None;
         }
-        let src_zone = ClimateZone::dominant(self.world.local_body_point(self.origin));
-        let src_normal = src_zone.normal();
         let candidate = self.origin + step;
-        let cand_rel = self.world.local_body_point(candidate);
-        let lift = (cand_rel.abs().max_element() - cand_rel.dot(src_normal)).max(0.0) + SURFACE_PROBE_LIFT;
-        let folded = self.world.constrain_to_surface(candidate + src_normal * lift, 0.0);
-        let delta = folded - candidate;
-        let tan_shift = delta - src_normal * delta.dot(src_normal);
-        let folded_zone = ClimateZone::dominant(self.world.local_body_point(folded));
-        let crossed_seam = tan_shift.length_squared() > 1e-5 || folded_zone != src_zone;
-        if !crossed_seam {
-            return Some(folded);
-        }
-        let dst_zone = if folded_zone != src_zone {
-            folded_zone
-        } else {
-            ClimateZone::dominant(self.world.local_body_point(folded + step.normalize_or_zero()))
-        };
-        let dst_normal = dst_zone.normal();
-        let fold_rel = self.world.local_body_point(folded);
-        let dst_lift = (fold_rel.abs().max_element() - fold_rel.dot(dst_normal)).max(0.0) + SURFACE_PROBE_LIFT;
-        let dst_ground = self.world.constrain_to_surface(folded + dst_normal * dst_lift, 0.0);
-        ((dst_ground - folded).dot(dst_normal) <= 0.62).then_some(dst_ground)
+        let up = self.world.surface_up_at(candidate);
+        Some(self.world.constrain_to_surface(candidate + up * SURFACE_PROBE_LIFT, 0.0))
     }
 }
 
-/// `RoadProbe` decorator rejecting vertical cliff rises above `climb_limit` on the source face while passing 90° seam folds.
-pub(super) struct GradedRoad<P> {
+/// `RoadProbe` decorator rejecting vertical cliff rises above `climb_limit` relative to local radial gravity (`4` fields).
+pub(super) struct GradedRoad<'a, P> {
     origin: P,
-    src_zone: ClimateZone,
+    world: &'a dyn PlanetaryWorld,
     floor: Vec3,
     climb_limit: f32,
 }
 
-impl<P> GradedRoad<P> {
+impl<'a, P> GradedRoad<'a, P> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(origin: P, src_zone: ClimateZone, floor: Vec3, climb_limit: f32) -> Self {
-        Self { origin, src_zone, floor, climb_limit }
+    pub(super) const fn new(origin: P, world: &'a dyn PlanetaryWorld, floor: Vec3, climb_limit: f32) -> Self {
+        Self { origin, world, floor, climb_limit }
     }
 }
 
-impl<P: RoadProbe> RoadProbe for GradedRoad<P> {
+impl<P: RoadProbe> RoadProbe for GradedRoad<'_, P> {
     fn destination(&self, step: Vec3) -> Option<Vec3> {
         let dest = self.origin.destination(step)?;
-        if ClimateZone::dominant(dest) != self.src_zone {
-            return Some(dest);
-        }
-        ((dest - self.floor).dot(self.src_zone.normal()) <= self.climb_limit).then_some(dest)
+        let u0 = self.world.surface_up_at(self.floor);
+        let u1 = self.world.surface_up_at(dest);
+        let rise = (dest - self.floor).dot(u0 + u1) / (1.0 + u0.dot(u1)).max(0.25);
+        (rise <= self.climb_limit).then_some(dest)
     }
 }
 
-/// `RoadProbe` decorator ensuring the vehicle's leading front bumper clears same-face walls before advancing.
+/// `RoadProbe` decorator ensuring the vehicle's leading front bumper clears walls before advancing.
 pub(super) struct BumperRoad<P> {
     origin: P,
     anchor: (Vec3, ClimateZone),
@@ -100,19 +80,18 @@ impl<P: RoadProbe> RoadProbe for BumperRoad<P> {
         }
         let bumper_step = step + step.normalize_or_zero() * self.lead_reach;
         let cand_bumper = start + bumper_step;
-        let frame = src_zone.surface_frame(0.0);
-        let half = start.dot(src_zone.normal()).abs();
+        let radius = start.length().max(4.0);
+        let frame = src_zone.surface_frame(radius);
         let (bu, bv) = frame.decompose(cand_bumper);
-        if bu.abs() >= half - 0.05 || bv.abs() >= half - 0.05 {
+        if bu.abs() >= radius - 0.05 || bv.abs() >= radius - 0.05 {
             return Some(dest);
         }
-        let bumper_dest = self.origin.destination(bumper_step)?;
-        let _ = bumper_dest;
+        let _ = self.origin.destination(bumper_step)?;
         Some(dest)
     }
 }
 
-/// `RoadProbe` decorator sliding tangentially along cardinal axes when an angled wall blocks direct motion.
+/// `RoadProbe` decorator sliding tangentially along local basis axes when an angled wall blocks direct motion.
 pub(super) struct SlidingRoad<P> {
     origin: P,
     face_up: Vec3,
@@ -125,14 +104,11 @@ impl<P> SlidingRoad<P> {
     }
 
     fn axial_pair(&self, step: Vec3) -> (Vec3, Vec3) {
-        let n = self.face_up.abs();
-        let (a, b) = if n.y >= n.x && n.y >= n.z {
-            (Vec3::new(step.x, 0.0, 0.0), Vec3::new(0.0, 0.0, step.z))
-        } else if n.x >= n.y && n.x >= n.z {
-            (Vec3::new(0.0, step.y, 0.0), Vec3::new(0.0, 0.0, step.z))
-        } else {
-            (Vec3::new(step.x, 0.0, 0.0), Vec3::new(0.0, step.y, 0.0))
-        };
+        let ref_ax = if self.face_up.y.abs() > 0.9 { Vec3::X } else { Vec3::Y };
+        let tang = ref_ax.cross(self.face_up).normalize_or_zero();
+        let bitan = self.face_up.cross(tang).normalize_or_zero();
+        let a = tang * step.dot(tang);
+        let b = bitan * step.dot(bitan);
         if a.length_squared() >= b.length_squared() { (a, b) } else { (b, a) }
     }
 }

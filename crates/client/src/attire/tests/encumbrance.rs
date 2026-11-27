@@ -1,6 +1,6 @@
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
-use world::{ClimateZone, CubePlanet, FacetedReliefFace, NullFace, PlanetaryWorld};
+use world::{ClimateZone, QuadSphere, FacetedReliefFace, NullFace, PlanetaryWorld};
 use crate::attire::{
     BeltSatchel, BodyPose, CrewPhysique, EvaAttire, HeldRelic, StrideRhythm,
 };
@@ -42,9 +42,9 @@ impl KeyboardControls for LeapControls {
     }
 }
 
-fn flat_planet() -> CubePlanet {
+fn flat_planet() -> QuadSphere {
     let face = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 16));
-    CubePlanet::new(vec![face], Box::new(NullFace))
+    QuadSphere::new(vec![face], Box::new(NullFace))
 }
 
 fn measure_stride_distance(relic: HeldRelic, stowed_count: u32) -> f32 {

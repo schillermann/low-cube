@@ -283,4 +283,12 @@ impl ReliefElevation for TerracedRelief {
         out.sort_unstable();
         out.dedup();
     }
+
+    fn crown_origin_plinth(&mut self) {
+        self.molds.crown_origin_plinth();
+    }
+
+    fn allocated_brick_bytes(&self) -> usize {
+        self.molds.allocated_brick_bytes()
+    }
 }

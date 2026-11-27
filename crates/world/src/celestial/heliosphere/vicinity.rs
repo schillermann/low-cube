@@ -127,7 +127,7 @@ impl VicinityCache {
     /// Zero-allocation stack scan awakening up to 2 simultaneously nearby bodies (e.g. Mars + Phobos).
     pub fn awaken_visible(&mut self, probe: Vec3, ephemeris: SolarEphemeris) {
         let earth_h = ephemeris.proportions().earth_half();
-        if ephemeris.frame().earth_centered() && probe.abs().max_element() <= earth_h + 64.0 {
+        if ephemeris.frame().earth_centered() && probe.length() <= earth_h + 64.0 {
             return;
         }
         self.prune_distant(probe);
@@ -139,7 +139,7 @@ impl VicinityCache {
     /// Ensures the landable off-world body or belt asteroid nearest `probe` is awakened in an LRU slot.
     pub fn ensure_near(&mut self, probe: Vec3, ephemeris: SolarEphemeris) -> Option<&AwakenedBody> {
         let earth_h = ephemeris.proportions().earth_half();
-        if ephemeris.frame().earth_centered() && probe.abs().max_element() <= earth_h + 64.0 {
+        if ephemeris.frame().earth_centered() && probe.length() <= earth_h + 64.0 {
             return None;
         }
         let mut best_slot: Option<(usize, f32)> = None;

@@ -113,6 +113,11 @@ impl CodebaseAudit for SourceFileAudit {
             concat!("glutin", "::"),
             concat!("CpuMesh", "Batch"),
             concat!("Gl", "Mesh"),
+            concat!("Cube", "Planet"),
+            concat!("BiomedCube", "World"),
+            concat!("Beveled", "Boundary"),
+            concat!("Perimeter", "Fold"),
+            concat!("Beveled", "Gravity"),
         ] {
             assert!(
                 !content.contains(legacy),

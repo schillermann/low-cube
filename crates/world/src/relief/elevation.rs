@@ -200,4 +200,10 @@ pub trait ReliefElevation: Send + Sync {
 
     /// Appends all modified `(gsu, gsv)` `4m × 4m` sector keys on this relief surface.
     fn collect_modified_sectors(&self, _out: &mut Vec<(i32, i32)>) {}
+
+    /// Installs the zero-brick `OriginStone` sanctuary plinth at `(-1, -1)`.
+    fn crown_origin_plinth(&mut self) {}
+
+    /// Total heap bytes allocated in `Brick8` voxel containers (`0` on untouched planets).
+    fn allocated_brick_bytes(&self) -> usize { 0 }
 }

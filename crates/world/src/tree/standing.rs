@@ -128,17 +128,16 @@ impl Arboreal for StandingTree {
         let r = self.root;
         let dir = direction.normalize_or_zero();
         let (eu, ev) = r.frame.decompose(eye);
-        let (du, dv) = r.frame.decompose(dir);
-        let (tu, tv) = (r.u - eu, r.v - ev);
-        let dist = tu.hypot(tv);
-        let len_2d = du.hypot(dv);
-        if dist <= 2.45 && len_2d > 1e-4 {
-            let (ndu, ndv) = (du / len_2d, dv / len_2d);
-            let proj = tu * ndu + tv * ndv;
-            let perp = (tu - proj * ndu).hypot(tv - proj * ndv);
-            let ray_h = r.frame.elevation_of(eye) + dir.dot(r.frame.normal()) * (proj / len_2d) - r.elevation;
-            if (0.05..=2.45).contains(&proj) && perp <= 0.78 && (-0.5..=3.8).contains(&ray_h) {
-                return (self.apply_cleave(1, ndu, ndv, recipient), true);
+        if (r.u - eu).hypot(r.v - ev) <= 2.65 {
+            for step in 1..=65 {
+                let sample = eye + dir * ((step as f32) * 0.04);
+                let (su, sv) = r.frame.decompose(sample);
+                let ray_h = r.frame.elevation_of(sample) - r.elevation;
+                if (su - r.u).hypot(sv - r.v) <= 0.78 && (-0.5..=3.8).contains(&ray_h) {
+                    let (du, dv) = r.frame.decompose_vector(dir);
+                    let len = du.hypot(dv).max(1e-4);
+                    return (self.apply_cleave(1, du / len, dv / len, recipient), true);
+                }
             }
         }
         (self.strike(0, recipient), false)

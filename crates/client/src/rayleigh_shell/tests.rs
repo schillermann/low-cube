@@ -262,7 +262,7 @@ fn test_overcast_canopy_epoch_dims_ground_sunbeam_and_rain_ear_motor_emits_showe
     let mut shower_cues = Vec::new();
     for step_t in 0..48 {
         let helio = world::HeliosphereWorld::assembled(
-            world::BiomedCubeWorld::barren_beveled(32, 1.0),
+            world::BiomedQuadSphere::barren(32),
             world::SolarEphemeris::new(prop, f64::from(step_t) * 24.0),
             true,
         );

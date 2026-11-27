@@ -16,8 +16,8 @@ struct RayProbe {
 }
 
 impl RayProbe {
-    fn from_ray(ray: &SurfaceSightRay, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_size: f32) -> Self {
-        let (dir, up_norm) = (ray.direction.normalize_or_zero(), frame.normal());
+    fn from_ray(ray: &SurfaceSightRay, frame: &SurfaceFrame, relief: &dyn ReliefElevation, _half_size: f32) -> Self {
+        let (dir, up_norm) = (ray.direction.normalize_or_zero(), frame.up_at(ray.eye));
         let (d_up, (eu, ev)) = (dir.dot(up_norm), frame.decompose(ray.eye));
         let flat_dir = (dir - up_norm * d_up).normalize_or_zero();
         let slanted = flat_dir.length_squared() > 1e-4;
@@ -29,7 +29,7 @@ impl RayProbe {
         let stand_steps = relief.elevation_at(scu, scv);
         let stand_top = (stand_steps as f32) * SurfaceSightRay::CELL_SPAN;
         let front_steps = relief.elevation_at(fcu, fcv);
-        let start_elev = frame.height_of(ray.eye) - half_size;
+        let start_elev = frame.elevation_of(ray.eye);
         let front_wall = front_steps > stand_steps
             || relief
                 .hit_top_at(fu, fv, start_elev - SurfaceSightRay::STAND_FLOOR_CLEARANCE)
@@ -106,7 +106,7 @@ impl SurfaceSightRay {
     const STEEP_DOWN_DOT: f32 = -0.96;
     const STEEP_UP_DOT: f32 = 0.75;
     const ZENITH_UP_DOT: f32 = 0.98;
-    const NADIR_DOT: f32 = -0.999;
+    const NADIR_DOT: f32 = -0.96;
     const NADIR_MAX_REACH: f32 = 3.4;
     const STAND_FLOOR_CLEARANCE: f32 = 0.90;
     const WALL_PROBE_LIFT: f32 = 0.15;
@@ -151,7 +151,7 @@ impl SurfaceSightRay {
     fn trace_contact(
         &self, frame: &SurfaceFrame, relief: &dyn ReliefElevation, half_blocks: i32, half_size: f32,
     ) -> Option<SightContact> {
-        let (dir, up_norm) = (self.direction.normalize_or_zero(), frame.normal());
+        let (dir, up_norm) = (self.direction.normalize_or_zero(), frame.up_at(self.eye));
         let (d_up, (eu, ev)) = (dir.dot(up_norm), frame.decompose(self.eye));
         let probe = RayProbe::from_ray(self, frame, relief, half_size);
         let ((ecu, ecv), (scu, scv), (_, start_elev, close_wall)) = (probe.eye_cell, probe.stand_cell, probe.elevations);
@@ -171,7 +171,7 @@ impl SurfaceSightRay {
             if (cu - ecu).abs().max((cv - ecv).abs()) > max_span {
                 break;
             }
-            let ray_elev = frame.height_of(sample) - half_size;
+            let ray_elev = frame.elevation_of(sample);
             if cu >= min_c && cu <= max_c && cv >= min_c && cv <= max_c {
                 if d_up > Self::ZENITH_UP_DOT && (cu, cv) != (ecu, ecv) && relief.crust_floor_at(cu, cv) < eye_crust {
                     continue;
@@ -186,6 +186,7 @@ impl SurfaceSightRay {
                     }
                     if slanted
                         && d_up < 0.0
+                        && d_up > Self::STEEP_DOWN_DOT
                         && (cu, cv) == (scu, scv)
                         && hit_top <= max_stand_top
                         && !relief.layer_occupied_at(cu, cv, hit_top - Self::LAYER_HALF)
@@ -270,7 +271,7 @@ impl SurfaceSightRay {
         if !allow_underside && underside {
             return None;
         }
-        let d_up = self.direction.normalize_or_zero().dot(frame.normal());
+        let d_up = self.direction.normalize_or_zero().dot(frame.up_at(self.eye));
         let target = RigMountTarget::new(contact, rig_eligible);
         let guarded = StanceClearance::around_avatar(
             target, avatar_pos, d_up, frame, relief, (-half_blocks + 1, half_blocks - 2),

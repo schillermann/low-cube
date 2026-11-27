@@ -111,7 +111,7 @@ fn test_aerospace_keel_reduces_dry_mass_and_unlocks_high_g_epstein_burn() {
 #[test]
 fn test_carbon_silicate_aerobrakes_smoothly_during_steep_reentry_without_buffeting() {
     let world = CelestialSystem::barren_authoritative(32, 1.0);
-    let ground = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0);
+    let ground = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0);
     let entry_pos = ground + Vec3::Y * 6.0;
     let plunge_vel = Vec3::new(15.0, -90.0, 0.0);
     let spin = Vec3::new(0.8, 0.0, -0.6);

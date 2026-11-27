@@ -24,7 +24,7 @@ impl StepThreshold {
 
     /// Checks whether an altitude difference corresponds to contact with the ground surface.
     pub fn permits_floor_contact(&self, altitude: f32) -> bool {
-        altitude <= 1e-4 && altitude >= -self.limit
+        altitude <= 2e-4 && altitude >= -self.limit
     }
 
     /// Determines whether an altitude penetration corresponds to a collision with a vertical cliff face.
@@ -38,7 +38,7 @@ impl StepThreshold {
     }
 }
 
-use world::{ClimateZone, PlanetaryWorld};
+use world::PlanetaryWorld;
 
 /// Polymorphic clearance between a 3D spatial position and the planetary surface.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -48,7 +48,7 @@ pub enum SurfaceClearance {
 }
 
 impl SurfaceClearance {
-    /// Evaluates clearance between candidate motion and constrained surface across planetary seams.
+    /// Evaluates clearance between candidate motion and constrained surface across planetary topography.
     pub fn between(
         origin: Vec3,
         candidate: Vec3,
@@ -57,21 +57,27 @@ impl SurfaceClearance {
         world: &dyn PlanetaryWorld,
     ) -> Self {
         let dest_up = world.surface_up_at(surface_pos);
-        let cardinal_src = ClimateZone::dominant(origin).normal();
-        let cardinal_dst = ClimateZone::dominant(surface_pos).normal();
-        if surface_up.dot(dest_up) < 0.7 || cardinal_src.dot(cardinal_dst) < 0.7 {
+        let cos_up = surface_up.dot(dest_up);
+        if cos_up < 0.7 {
             let chord_distance = (surface_pos - origin).length();
             if chord_distance < 6.5 {
                 return Self::FoldedSeam((candidate - surface_pos).dot(dest_up));
             }
         }
-        Self::Planar((candidate - surface_pos).dot(surface_up))
+        let d = candidate - origin;
+        let d_tan = d - surface_up * d.dot(surface_up);
+        let curvature_lift = if cos_up > 0.5 {
+            (d_tan.dot(dest_up - surface_up) / (1.0 + cos_up)).max(0.0)
+        } else {
+            0.0
+        };
+        Self::Planar((candidate - surface_pos).dot(dest_up) - curvature_lift)
     }
 
     /// Checks whether this surface clearance represents passable ground under a given seam traversal policy.
     pub fn passable_with(&self, seam_allowed: bool) -> bool {
         match self {
-            Self::Planar(altitude) => *altitude <= 1e-4,
+            Self::Planar(altitude) => *altitude <= 2e-4,
             Self::FoldedSeam(_) => seam_allowed,
         }
     }
@@ -80,7 +86,7 @@ impl SurfaceClearance {
     pub fn floor_contact(&self, threshold: StepThreshold) -> bool {
         match self {
             Self::Planar(altitude) => threshold.permits_floor_contact(*altitude),
-            Self::FoldedSeam(dest_altitude) => *dest_altitude <= 1e-4,
+            Self::FoldedSeam(dest_altitude) => *dest_altitude <= 2e-4,
         }
     }
 

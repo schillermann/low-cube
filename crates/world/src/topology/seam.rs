@@ -6,62 +6,46 @@ use super::folded_point::FoldedPoint;
 use super::perimeter::PerimeterEdge;
 use super::Topology;
 
-/// Interface for geometric coordinate and vector folding across seam boundaries.
+/// Interface for geometric coordinate and vector folding across `QuadSphere` shell meridians.
 pub trait CoordinateFold: Send + Sync {
     fn fold_point(&self, point: Vec3) -> Vec3;
     fn fold_vector(&self, vector: Vec3) -> Vec3;
     fn fold_step(&self, point: Vec3) -> FoldedPoint;
 }
 
-/// Encapsulated 90° seam fold connecting two adjacent climate zones across a shared perimeter edge.
+/// Directed meridian seam connecting two adjacent `QuadSphere` climate shells (`4` private fields).
 #[derive(Clone, Copy, Debug)]
 pub struct SeamFold {
     source: (ClimateZone, PerimeterEdge),
     destination: (ClimateZone, PerimeterEdge),
     rotation: Quat,
-    seam_center: Vec3,
+    radius: f32,
 }
 
 impl SeamFold {
     /// Primary constructor: assigns transformation fields directly without computation.
-    pub fn new(
-        source: ClimateZone,
-        source_edge: PerimeterEdge,
-        destination: ClimateZone,
-        destination_edge: PerimeterEdge,
+    pub const fn new(
+        source: (ClimateZone, PerimeterEdge),
+        destination: (ClimateZone, PerimeterEdge),
         rotation: Quat,
-        seam_center: Vec3,
+        radius: f32,
     ) -> Self {
-        Self {
-            source: (source, source_edge),
-            destination: (destination, destination_edge),
-            rotation,
-            seam_center,
-        }
+        Self { source, destination, rotation, radius }
     }
 
-    /// Secondary constructor assembling 90° rotation and seam center from adjacent climate zones and half size.
+    /// Secondary constructor assembling meridian chart rotation and radius between adjacent climate shells.
     pub fn between(
         source: ClimateZone,
         source_edge: PerimeterEdge,
         destination: ClimateZone,
         destination_edge: PerimeterEdge,
-        half_size: f32,
+        radius: f32,
     ) -> Self {
         let n_src = source.normal();
         let n_dst = destination.normal();
         let axis = n_src.cross(n_dst).normalize();
         let rotation = Quat::from_axis_angle(axis, FRAC_PI_2);
-        let seam_center = (n_src + n_dst) * half_size;
-
-        Self::new(
-            source,
-            source_edge,
-            destination,
-            destination_edge,
-            rotation,
-            seam_center,
-        )
+        Self::new((source, source_edge), (destination, destination_edge), rotation, radius)
     }
 
     /// Predicate verifying whether this seam fold connects the specified climate zone and outer edge.
@@ -74,32 +58,38 @@ impl SeamFold {
         self.source == other.destination && self.destination == other.source
     }
 
-    /// Derives smooth normal bevel transition geometry across this seam fold.
-    pub fn bevel(&self, half_size: f32, margin: f32) -> super::bevel::SeamBevel {
-        super::bevel::SeamBevel::between(self.source.0, self.destination.0, half_size, margin)
-    }
-
-    /// Destination climate zone onto which motion unfolds across the seam.
+    /// Destination climate zone onto which motion unfolds across the meridian.
     pub fn destination(&self) -> ClimateZone {
         self.destination.0
     }
 
-    /// Resolves the reciprocal return fold across this seam within the planetary topology.
+    /// Resolves the reciprocal return fold across this meridian within the planetary topology.
     pub fn reciprocal_on<'a>(&self, topology: &'a super::PlanetaryTopology) -> &'a SeamFold {
         topology.seam(self.destination.0, self.destination.1)
     }
 
-    /// Folds a 3D position across the seam by rotating 90° around the seam axis.
+    /// Unfolds `(u, v, elevation)` from the source `QuadSphere` shell chart onto the destination shell chart.
     pub fn fold_point(&self, point: Vec3) -> Vec3 {
-        self.seam_center + self.rotation * (point - self.seam_center)
+        let src_sphere = self.source.0.surface_frame(self.radius);
+        let dst_sphere = self.destination.0.surface_frame(self.radius);
+        let (u_src, v_src) = src_sphere.decompose(point);
+        let elev = src_sphere.elevation_of(point);
+
+        let src_planar = SurfaceFrame::new(src_sphere.tangent(), src_sphere.bitangent(), src_sphere.normal(), self.radius);
+        let dst_planar = SurfaceFrame::new(dst_sphere.tangent(), dst_sphere.bitangent(), dst_sphere.normal(), self.radius);
+        let hinge = (self.source.0.normal() + self.destination.0.normal()) * self.radius;
+        let chart_pt = src_planar.point_at(u_src, v_src, 0.0);
+        let folded_chart = hinge + self.rotation * (chart_pt - hinge);
+        let (u_dst, v_dst) = dst_planar.decompose(folded_chart);
+        dst_sphere.point_at(u_dst, v_dst, elev)
     }
 
-    /// Folds a 3D position across the seam, returning a living FoldedPoint entity.
+    /// Folds a 3D position across the meridian, returning a living `FoldedPoint` entity.
     pub fn fold_step(&self, point: Vec3) -> FoldedPoint {
         FoldedPoint::new(self.destination.0, self.fold_point(point))
     }
 
-    /// Folds a 3D direction or velocity vector across the 90° seam rotation.
+    /// Folds a 3D chart direction vector across the 90° shell chart rotation.
     pub fn fold_vector(&self, vector: Vec3) -> Vec3 {
         self.rotation * vector
     }

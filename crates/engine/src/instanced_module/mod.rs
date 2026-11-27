@@ -46,10 +46,12 @@ impl ModuleInstance {
         let v_mid = ((v as f32) + (dv as f32) * 0.5) * step;
         let h_mid = anchor.floor_elev(datum) + (dw as f32) * step * 0.5;
         let center = frame.point_at(u_mid, v_mid, h_mid);
+        let up = frame.up_at(center);
+        let (tang, bitan) = frame.tangent_at(center);
         let basis = Mat4::from_cols(
-            frame.tangent().extend(0.0),
-            frame.normal().extend(0.0),
-            frame.bitangent().extend(0.0),
+            tang.extend(0.0),
+            up.extend(0.0),
+            bitan.extend(0.0),
             center.extend(1.0),
         );
         let yaw = -(spec.turn().code() as f32) * core::f32::consts::FRAC_PI_2;
@@ -70,6 +72,15 @@ impl ModuleInstance {
 
     pub fn model_matrix(&self) -> Mat4 {
         Mat4::from_cols_array_2d(&self.model_cols)
+    }
+
+    pub fn recentered(self, shift: impl FnOnce(Vec3) -> Vec3) -> Self {
+        let mut cols = self.model_cols;
+        let rel = shift(Vec3::new(cols[3][0], cols[3][1], cols[3][2]));
+        cols[3][0] = rel.x;
+        cols[3][1] = rel.y;
+        cols[3][2] = rel.z;
+        Self::new(cols, self.code_tint)
     }
 }
 

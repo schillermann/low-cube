@@ -138,19 +138,20 @@ impl<'a> MediumSiteScan<'a> {
     }
 
     pub(super) fn collect(self, medium: BlockMedium, frame: &SurfaceFrame, out: &mut Vec<(Vec3, Vec3)>) {
-        let normal = frame.normal();
         let datum = self.structure.datum();
         self.structure.bricks().inner().visit_occupied_cells(|coord, cell| match cell {
             BrickCell::RawAtom(atom) if atom.medium() == medium => {
                 let (cx, cy) = coord.grid_cell().center();
                 let crown = atom.at_floor(coord.floor_elev(datum)).crown_elevation();
-                out.push((frame.point_at(cx, cy, crown), normal));
+                let pt = frame.point_at(cx, cy, crown);
+                out.push((pt, frame.up_at(pt)));
             }
             BrickCell::ModuleAnchor(spec) if spec.medium() == medium => {
                 let (cx, cy) = coord.grid_cell().center();
                 let (_, _, dw) = spec.span().dimensions();
                 let top = coord.floor_elev(datum) + (dw as f32) * GridCell::SPAN;
-                out.push((frame.point_at(cx, cy, top), normal));
+                let pt = frame.point_at(cx, cy, top);
+                out.push((pt, frame.up_at(pt)));
             }
             _ => {}
         });

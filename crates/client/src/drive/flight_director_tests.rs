@@ -42,7 +42,7 @@ impl MeshTarget for ColorProbe {
 }
 
 fn build_test_ship(world: &mut dyn PlanetaryWorld) -> world::VehicleAssembly {
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for med in [BlockMedium::CantileverRig, BlockMedium::RocketNozzle] {

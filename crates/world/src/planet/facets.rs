@@ -3,9 +3,12 @@ use crate::{
     BlockMold, CompanionPortal, CraftBlueprint, ExposedStratum, GravityField as _, MeadowRing,
     MeshTarget, PlannedMount, TerrainMesh, VesselDeck, VesselSink,
 };
-use super::{CubePlanet, MeadowScan, ModifiedSlices};
+use super::{MeadowScan, ModifiedSlices, QuadSphere};
 
-impl TerrainMesh for CubePlanet {
+impl TerrainMesh for QuadSphere {
+    fn allocated_brick_bytes(&self) -> usize {
+        self.faces.iter().map(|f| f.allocated_brick_bytes()).sum()
+    }
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         for face in &self.faces {
             face.emit_surface(target);
@@ -84,7 +87,7 @@ impl TerrainMesh for CubePlanet {
     }
 }
 
-impl VesselDeck for CubePlanet {
+impl VesselDeck for QuadSphere {
     fn present_vessels(&self, sink: &mut dyn VesselSink) {
         for face in &self.faces {
             face.present_vessels(sink);
@@ -153,4 +156,4 @@ impl VesselDeck for CubePlanet {
     }
 }
 
-impl CompanionPortal for CubePlanet {}
+impl CompanionPortal for QuadSphere {}

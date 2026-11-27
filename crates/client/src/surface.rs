@@ -4,7 +4,8 @@ use glam::Vec3;
 use winit::window::Window;
 
 use engine::{
-    GraphicPipeline, Mesh, PassDraft, PointLightCluster, QuadBatch, SlotReclamation, WgpuStage,
+    CameraAnchor, CameraRelativePass, GraphicPipeline, Mesh, PassDraft, PointLightCluster,
+    QuadBatch, SlotReclamation, WgpuStage,
 };
 use crate::attire::SightMode;
 use crate::aurora_cadence::AuroraCadence;
@@ -185,10 +186,16 @@ impl PlatformSurface for WgpuPlatformSurface {
         let viewer = avatar.sight_cone().observe_from(|eye| eye);
         let up = PlateauZenith::new().zenith_at(viewer);
 
+        let anchor = CameraAnchor::from_eye_f32(viewer);
+        let rel_lights = anchor.recenter_lights(lights);
+
         draft.reset();
         let view_proj = avatar.view_projection_matrix(aspect);
-        pipeline.render(draft, mesh, &view_proj);
-        swap.stage.submit_main_draft(&target_view, draft, (viewer, up, 1.0), lights);
+        {
+            let mut rel_pass = CameraRelativePass::new(draft, anchor);
+            pipeline.render(&mut rel_pass, mesh, &view_proj);
+        }
+        swap.stage.submit_main_draft(&target_view, draft, (Vec3::ZERO, up, 1.0), &rel_lights);
 
         if !modal.open() {
             let mut views = Vec::new();
@@ -240,11 +247,16 @@ impl PlatformSurface for WgpuPlatformSurface {
         let viewer = avatar.sight_cone_for_mode(sight).observe_from(|eye| eye);
         let up = PlateauZenith::new().zenith_at(viewer);
 
+        let anchor = CameraAnchor::from_eye_f32(viewer);
+        let rel_lights = anchor.recenter_lights(lights);
         let mut guard = self.state.borrow_mut();
         let (ref swap, _, ref mut draft) = *guard;
         draft.reset();
-        pipeline.render(draft, mesh, &view_proj);
-        let raw_rgba = swap.stage.capture_polaroid_rgba((width, height), draft, (viewer, up, 1.0), lights);
+        {
+            let mut rel_pass = CameraRelativePass::new(draft, anchor);
+            pipeline.render(&mut rel_pass, mesh, &view_proj);
+        }
+        let raw_rgba = swap.stage.capture_polaroid_rgba((width, height), draft, (Vec3::ZERO, up, 1.0), &rel_lights);
         let plate = PhotoPlate::new(width, height, raw_rgba);
         let _ = plate.develop_to_disk(angle_label);
         plate.sample_mosaic()

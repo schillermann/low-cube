@@ -99,7 +99,7 @@ fn test_nozzle_in_palm_starts_downward_and_mouse_wheel_toggles_steuerduese() {
 #[test]
 fn test_spacecraft_with_steuerduese_pitches_into_lateral_trajectory() {
     let mut world = CelestialSystem::barren_authoritative(32, 1.0);
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av_pos = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     assert!(world.place_molded_surface_block(
@@ -134,7 +134,7 @@ fn test_spacecraft_with_steuerduese_pitches_into_lateral_trajectory() {
         BlockMold::cube().next_form().in_medium(BlockMedium::RocketNozzle),
     ));
 
-    let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -162,7 +162,7 @@ fn test_spacecraft_with_steuerduese_pitches_into_lateral_trajectory() {
 
 #[test]
 fn test_flight_console_mounts_from_one_block_in_front_of_crane_arm_without_stepping_back() {
-    use world::{BiomedCubeWorld, PlanetaryWorld, WorldEarthworks as _};
+    use world::{BiomedQuadSphere, PlanetaryWorld, WorldEarthworks as _};
 
     for &(u, v, yaw_deg) in &[
         (1.75f32, 0.25f32, -90.0f32),
@@ -171,8 +171,8 @@ fn test_flight_console_mounts_from_one_block_in_front_of_crane_arm_without_stepp
         (1.25, 1.05, 0.0),
         (-0.55, 0.25, 90.0),
     ] {
-        let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
-        let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+        let mut world = BiomedQuadSphere::barren(32);
+        let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
         let far = Vec3::new(5.0, g0 + 1.0, 5.0);
         assert!(world.place_molded_surface_block(
             Vec3::new(0.25, g0 + 1.5, 0.25),
@@ -180,7 +180,7 @@ fn test_flight_console_mounts_from_one_block_in_front_of_crane_arm_without_stepp
             far,
             BlockMold::cube().in_medium(BlockMedium::CantileverRig),
         ));
-        let spawn = world.constrain_to_surface(Vec3::new(u, 22.0, v), 1.0);
+        let spawn = world.constrain_to_surface(Vec3::new(u, 16.0, v), 1.0);
         let astronaut = EvaAttire::astronaut().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm);
         let mut avatar = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
@@ -204,18 +204,19 @@ fn test_flight_console_mounts_from_one_block_in_front_of_crane_arm_without_stepp
         (1.25, 1.05, 0.0, Vec3::new(1.25, 0.0, 0.75)),
         (2.05, 0.25, -90.0, Vec3::new(1.75, 0.0, 0.25)),
     ] {
-        let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
-        let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+        let mut world = BiomedQuadSphere::barren(32);
+        let frame = world::ClimateZone::Temperate.surface_frame(16.0);
+        let g0 = 16.0;
         let far = Vec3::new(5.0, g0 + 1.0, 5.0);
         for medium in [BlockMedium::CantileverRig, BlockMedium::RocketNozzle] {
             assert!(world.place_molded_surface_block(
-                Vec3::new(0.25, g0 + 1.5, 0.25),
+                frame.point_at(0.25, 0.25, 1.5),
                 Vec3::NEG_Y,
                 far,
                 BlockMold::cube().in_medium(medium),
             ));
         }
-        let spawn = world.constrain_to_surface(Vec3::new(u, 22.0, v), 1.0);
+        let spawn = world.constrain_to_surface(frame.point_at(u, v, 0.0), 1.0);
         let astronaut = EvaAttire::astronaut().with_relics(HeldRelic::FlightConsole, HeldRelic::EmptyPalm);
         let mut avatar = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
@@ -228,8 +229,9 @@ fn test_flight_console_mounts_from_one_block_in_front_of_crane_arm_without_stepp
             HandGesture::RightTap.perform(&mut avatar, &mut world),
             "FlightConsole must attach to crane rocket from ({u}, {v}) without stepping back",
         );
+        let harvest_eye = frame.point_at(expected_cell.x, expected_cell.z, 2.4);
         assert_eq!(
-            world.harvest_surface(Vec3::new(expected_cell.x, g0 + 2.4, expected_cell.z), Vec3::NEG_Y),
+            world.harvest_surface(harvest_eye, -frame.up_at(harvest_eye)),
             Some(BlockMedium::FlightConsole),
             "FlightConsole placed from ({u}, {v}) must occupy expected crane cell {expected_cell:?}",
         );

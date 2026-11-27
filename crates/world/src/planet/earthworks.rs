@@ -3,9 +3,9 @@ use crate::{
     BlockMedium, BlockMold, CleaveOutcome, CraftBlueprint, ExposedStratum, MiningEdge, SurfaceFind,
     VehicleAssembly, WorldEarthworks,
 };
-use super::CubePlanet;
+use super::QuadSphere;
 
-impl WorldEarthworks for CubePlanet {
+impl WorldEarthworks for QuadSphere {
     fn harvest_surface(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
         self.try_aimed_faces(eye, direction, false, |f| f.harvest(eye, direction))
     }

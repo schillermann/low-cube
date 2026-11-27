@@ -25,7 +25,7 @@ impl BodyProximity {
                 continue;
             }
             let awaken_d = (snap.half_size() * 22.0).clamp(96.0, 900.0);
-            let surf_d = (probe_d - snap.center()).abs().max_element() - snap.half_size();
+            let surf_d = (probe_d - snap.center()).length() - snap.half_size();
             if surf_d <= awaken_d {
                 let entry = (surf_d, snap.id(), snap.center().as_vec3());
                 if first.map_or(true, |f| surf_d < f.0) {

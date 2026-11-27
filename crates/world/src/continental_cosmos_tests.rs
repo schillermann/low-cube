@@ -84,7 +84,7 @@ fn test_belt_asteroid_awakens_as_landable_crust_cube() {
 #[test]
 fn test_continental_4096_forested_world_isolates_climate_zones_and_lazy_sector_groves() {
     use crate::{
-        BiomedCubeWorld, ClimateZone, FacetedReliefFace, ForestedFace, PlanetaryWorld, TerrainMesh,
+        BiomedQuadSphere, ClimateZone, FacetedReliefFace, ForestedFace, PlanetaryWorld, TerrainMesh,
     };
 
     let relief = Box::new(FacetedReliefFace::in_zone(ClimateZone::Temperate, 2_048.0, 8_192));
@@ -95,7 +95,7 @@ fn test_continental_4096_forested_world_isolates_climate_zones_and_lazy_sector_g
         "4096³ ForestedFace must allocate zero eager tree groves at startup"
     );
 
-    let mut planet = BiomedCubeWorld::beveled(4_096, 1.0);
+    let mut planet = BiomedQuadSphere::of_size(4_096);
     let stand = planet.constrain_to_surface(Vec3::new(0.25, 2_050.0, 0.25), 0.0);
     let mask = planet.visible_slice_mask(stand);
     let terrain_bits = mask & 0b0011_1111;
@@ -158,10 +158,11 @@ fn test_gravity_bubble_submillimeter_precision_at_triton_30_au_and_deep_space_tu
     assert_eq!(handoff_triton.next_frame(), CosmicFrame::Body(BodyId::TRITON));
     assert_eq!(world.body_center(BodyId::TRITON), Some(Vec3::ZERO));
 
-    let stand_a = world.constrain_to_surface(Vec3::new(0.25, triton_half + 4.0, 0.25), 0.0);
-    let stand_b = world.constrain_to_surface(Vec3::new(0.75, triton_half + 4.0, 0.25), 0.0);
+    let triton_frame = crate::ClimateZone::Temperate.surface_frame(triton_half);
+    let stand_a = world.constrain_to_surface(triton_frame.point_at(0.25, 0.25, 4.0), 0.0);
+    let stand_b = world.constrain_to_surface(triton_frame.point_at(0.75, 0.25, 4.0), 0.0);
     assert!(
-        ((stand_b.x - stand_a.x) - 0.5).abs() < 1e-5,
+        ((triton_frame.decompose(stand_b).0 - triton_frame.decompose(stand_a).0) - 0.5).abs() < 1e-4,
         "0.5 m GridCell steps on Triton at 30.07 AU must retain sub-millimeter f32 precision"
     );
     assert!(world.surface_contact(Vec3::new(0.25, triton_half + 1.0, 0.25), 0.0).landable());

@@ -1,5 +1,5 @@
 use glam::{Quat, Vec3};
-use world::{BiomedCubeWorld, PlanetaryWorld, WorldEarthworks as _};
+use world::{BiomedQuadSphere, PlanetaryWorld, WorldEarthworks as _};
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::controls::KeyMotion;
 use super::*;
@@ -36,7 +36,7 @@ fn test_cone_look_confines_mouse_movement_within_small_circular_radius() {
 fn test_avatar_in_two_by_two_shaft_cannot_turn_fully_until_widened() {
     use winit::keyboard::KeyCode;
     use crate::controls::KeyboardControls;
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let mut world = BiomedQuadSphere::of_size(32);
     let rim_y = world.constrain_to_surface(Vec3::new(0.25, 20.0, 0.25), 1.0).y;
     let mut walk_in = KeyMotion::idle();
     walk_in.register_key(KeyCode::KeyW, true);

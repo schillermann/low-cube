@@ -25,6 +25,7 @@ struct CountingFace {
 impl Face for CountingFace {
     fn matches(&self, point: Vec3) -> bool { self.inner.matches(point) }
     fn surface_up(&self) -> Vec3 { self.inner.surface_up() }
+    fn surface_up_at(&self, position: Vec3) -> Vec3 { self.inner.surface_up_at(position) }
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3 { self.inner.constrain(point, distance) }
     fn emit_surface(&self, target: &mut dyn MeshTarget) { self.inner.emit_surface(target); }
     fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> { self.inner.harvest(eye, direction) }

@@ -1,7 +1,7 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{
-    AttitudeGuidance, BiomedCubeWorld, BlockMedium, BlockMold, CardinalTurn, ClimateZone,
+    AttitudeGuidance, BiomedQuadSphere, BlockMedium, BlockMold, CardinalTurn, ClimateZone,
     MeshTarget, MoldArchetype, PilotOrder, PlanetaryWorld, Quad, SatchelManifest, VehicleAxes,
     VehiclePart, WorldEarthworks,
 };
@@ -111,8 +111,8 @@ fn test_cargo_ballast_scales_acceleration_by_ore_density_and_shifts_flip_burn_po
 
 #[test]
 fn test_fusion_torch_vitrifies_launchpad_crash_deposits_blackbox_pod_and_hand_readout_opens_log() {
-    let mut world = BiomedCubeWorld::barren(32);
-    let pad = world.constrain_to_surface(Vec3::new(0.25, 24.0, 0.25), 0.0);
+    let mut world = BiomedQuadSphere::barren(32);
+    let pad = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0);
 
     let mut manifest = SatchelManifest::parse_server_kit("iron_ore:2, copper_ore:1", "test");
     assert!(manifest.apply_recipe(15) && manifest.count_of(HeldRelic::BlackBoxPod.code()) == 1);
@@ -140,7 +140,7 @@ fn test_fusion_torch_vitrifies_launchpad_crash_deposits_blackbox_pod_and_hand_re
         BlockMold::cube().in_medium(BlockMedium::CabinSeat),
     ));
 
-    let stand = world.constrain_to_surface(Vec3::new(1.75, 24.0, 0.75), 1.0);
+    let stand = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
     let inner = PlanetaryAvatar::with_attire_and_bindings(
         stand,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -183,12 +183,12 @@ fn test_fusion_torch_vitrifies_launchpad_crash_deposits_blackbox_pod_and_hand_re
     }
     assert!(crash_altered);
 
-    let mut salvage_world = BiomedCubeWorld::barren(16);
-    let g = salvage_world.constrain_to_surface(Vec3::new(0.25, 16.0, -0.75), 0.0);
+    let mut salvage_world = BiomedQuadSphere::barren(16);
+    let g = salvage_world.constrain_to_surface(Vec3::new(0.25, 8.0, -0.75), 0.0);
     let pod_mold = BlockMold::with_medium(MoldArchetype::FullCube, CardinalTurn::Forward, BlockMedium::BlackBoxPod);
-    assert!(salvage_world.place_molded_surface_block(g + Vec3::Y * 1.2, Vec3::NEG_Y, g + Vec3::Z * 2.5, pod_mold));
+    assert!(salvage_world.place_molded_surface_block(g + g.normalize() * 1.2, -g.normalize(), g + Vec3::Z * 2.5, pod_mold));
 
-    let explorer_pos = salvage_world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 1.0);
+    let explorer_pos = salvage_world.constrain_to_surface(Vec3::new(0.25, 8.0, 0.25), 1.0);
     let exp_inner = PlanetaryAvatar::with_attire_and_bindings(
         explorer_pos,
         Box::new(SurfaceFlight::calibrated(0.522, 9.81, 1.0)),
@@ -225,7 +225,7 @@ fn test_laser_beacon_multiplayer_attire_roundtrip_recipe_and_instant_pickup() {
     let decoded = EvaAttire::from_multiplayer_bytes(wire_bytes);
     assert_eq!(decoded.held_pair(), (HeldRelic::LaserBeacon, HeldRelic::BlackBoxPod));
 
-    let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
+    let mut world = BiomedQuadSphere::barren(32);
     let g = world.constrain_to_surface(Vec3::new(0.25, 16.0, -0.75), 0.0);
     let mold = BlockMold::with_medium(MoldArchetype::FullCube, CardinalTurn::Forward, BlockMedium::LaserBeacon);
     assert!(world.place_molded_surface_block(g + Vec3::Y * 1.2, Vec3::NEG_Y, g + Vec3::Z * 2.5, mold));

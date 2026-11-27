@@ -1,9 +1,7 @@
 use glam::Vec3;
-use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad, TerrainMesh as _};
+use world::{BiomedQuadSphere, MeshTarget, PlanetaryWorld, Quad, TerrainMesh as _};
 use crate::attire::{EvaAttire, HeldRelic};
-use crate::avatar::{
-    Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar,
-};
+use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarOptics as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::controls::{InputTrigger, KeyMotion};
 
 struct SurfaceLedger { quads: Vec<Quad> }
@@ -17,10 +15,10 @@ impl MeshTarget for SurfaceLedger {
 
 #[test]
 fn test_digging_speed_one_hand_vs_two_hands_vs_spade_and_abort_on_release() {
-    let mut world_one_hand = BiomedCubeWorld::beveled(16, 1.0);
-    let mut world_two_hands = BiomedCubeWorld::beveled(16, 1.0);
-    let mut world_spade = BiomedCubeWorld::beveled(16, 1.0);
-    let spawn = world_one_hand.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
+    let mut world_one_hand = BiomedQuadSphere::of_size(32);
+    let mut world_two_hands = BiomedQuadSphere::of_size(32);
+    let mut world_spade = BiomedQuadSphere::of_size(32);
+    let spawn = world_one_hand.constrain_to_surface(Vec3::new(0.0, 16.0, 0.0), 1.0);
     let mut avatar_one = PlanetaryAvatar::at(spawn);
     let mut avatar_two = PlanetaryAvatar::at(spawn);
     let mut avatar_spade = PlanetaryAvatar::at(spawn);
@@ -38,7 +36,7 @@ fn test_digging_speed_one_hand_vs_two_hands_vs_spade_and_abort_on_release() {
     for _ in 0..2 { assert!(!avatar_two.use_right_hand(&mut world_two_hands)); }
     assert!(avatar_two.use_right_hand(&mut world_two_hands));
 
-    avatar_spade.rotate_degrees(0.0, 70.5);
+    avatar_spade.rotate_degrees(0.0, 73.0);
     avatar_spade.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
     assert!(!avatar_spade.use_right_hand(&mut world_spade));
     assert!(avatar_spade.release_hand(&mut world_spade));
@@ -48,25 +46,25 @@ fn test_digging_speed_one_hand_vs_two_hands_vs_spade_and_abort_on_release() {
         let _ = avatar_spade.step_digging(&mut world_spade);
     }
     assert!(!avatar_spade.release_hand(&mut world_spade));
-    let target_probe = Vec3::new(0.0, 9.0, -0.75);
-    let height_after_spade = world_spade.constrain_to_surface(target_probe, 0.0).y;
+    let target_probe = Vec3::new(0.0, 16.0, -0.75);
+    let height_after_spade = world_spade.constrain_to_surface(target_probe, 0.0).length();
     assert!(!avatar_spade.use_left_hand(&mut world_spade));
     for _ in 0..270 {
         avatar_spade.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world_spade);
         let _ = avatar_spade.step_digging(&mut world_spade);
     }
     assert!(!avatar_spade.release_hand(&mut world_spade));
-    assert!((height_after_spade - world_spade.constrain_to_surface(target_probe, 0.0).y - 0.5).abs() < 1e-4);
+    assert!((height_after_spade - world_spade.constrain_to_surface(target_probe, 0.0).length() - 0.5).abs() < 1e-4);
     assert!(!avatar_spade.use_left_hand(&mut world_spade) && avatar_spade.release_hand(&mut world_spade));
 }
 
 #[test]
 fn test_bare_hand_excavates_and_places_only_with_holding_hand() {
-    let mut world = BiomedCubeWorld::beveled(16, 1.0);
-    let target_probe = Vec3::new(0.0, 9.0, -0.75);
-    let initial_height = world.constrain_to_surface(target_probe, 0.0).y;
-    let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.0, 16.5, 0.0), 1.0));
-    avatar.rotate_degrees(0.0, 70.5);
+    let mut world = BiomedQuadSphere::of_size(16);
+    let target_probe = Vec3::new(0.0, 8.0, -0.75);
+    let initial_height = world.constrain_to_surface(target_probe, 0.0).length();
+    let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.0, 8.0, 0.0), 1.0));
+    avatar.rotate_degrees(0.0, 73.0);
     let (mut empty_hands_mesh, mut held_block_mesh, mut digging_with_block_mesh) =
         (SurfaceLedger::empty(), SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut empty_hands_mesh);
@@ -76,7 +74,7 @@ fn test_bare_hand_excavates_and_places_only_with_holding_hand() {
         assert!(!avatar.use_left_hand(&mut world));
     }
     assert!(avatar.use_left_hand(&mut world));
-    assert!((initial_height - world.constrain_to_surface(target_probe, 0.0).y - 0.5).abs() < 1e-4);
+    assert!((initial_height - world.constrain_to_surface(target_probe, 0.0).length() - 0.5).abs() < 1e-4);
     avatar.emit_appearance(&mut held_block_mesh);
     assert!(held_block_mesh.count() > empty_hands_mesh.count() && !avatar.use_right_hand(&mut world));
     let _ = avatar.release_hand(&mut world);
@@ -84,15 +82,15 @@ fn test_bare_hand_excavates_and_places_only_with_holding_hand() {
     avatar.emit_appearance(&mut digging_with_block_mesh);
     assert_eq!(digging_with_block_mesh.count(), empty_hands_mesh.count());
     assert!(avatar.release_hand(&mut world));
-    assert!((world.constrain_to_surface(target_probe, 0.0).y - initial_height).abs() < 1e-4);
+    assert!((world.constrain_to_surface(target_probe, 0.0).length() - initial_height).abs() < 1e-4);
 }
 
 #[test]
 fn test_mouse_wheel_molds_rotates_and_places_sloped_and_slab_blocks() {
-    let mut world = BiomedCubeWorld::beveled(16, 1.0);
-    let target_probe = Vec3::new(0.0, 9.0, -0.75);
-    let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.0, 16.5, 0.0), 1.0));
-    avatar.rotate_degrees(0.0, 70.5);
+    let mut world = BiomedQuadSphere::of_size(16);
+    let target_probe = Vec3::new(0.0, 8.0, -0.75);
+    let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.0, 8.0, 0.0), 1.0));
+    avatar.rotate_degrees(0.0, 73.0);
     avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::RigWrench, HeldRelic::EmptyPalm));
     assert!(!avatar.use_right_hand(&mut world) && avatar.use_right_hand(&mut world));
     assert!(avatar.dispatch_trigger(InputTrigger::WheelDown) && avatar.dispatch_trigger(InputTrigger::WheelDown));
@@ -106,21 +104,21 @@ fn test_mouse_wheel_molds_rotates_and_places_sloped_and_slab_blocks() {
     };
     assert_eq!(vertices(&wedge_fwd_mesh), vertices(&wedge_after_click));
     assert!(!avatar.use_left_hand(&mut world) && avatar.release_hand(&mut world));
-    assert!(world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.95), 0.0).y > world.constrain_to_surface(Vec3::new(0.25, 9.0, -0.55), 0.0).y + 0.3);
+    assert!(world.constrain_to_surface(Vec3::new(0.25, 8.0, -0.95), 0.0).length() > world.constrain_to_surface(Vec3::new(0.25, 8.0, -0.55), 0.0).length() + 0.3);
 
-    let mut slab_world = BiomedCubeWorld::beveled(16, 1.0);
-    let slab_initial = slab_world.constrain_to_surface(target_probe, 0.0).y;
-    let mut slab_avatar = PlanetaryAvatar::at(slab_world.constrain_to_surface(Vec3::new(0.0, 16.5, 0.0), 1.0));
-    slab_avatar.rotate_degrees(0.0, 70.5);
+    let mut slab_world = BiomedQuadSphere::of_size(16);
+    let slab_initial = slab_world.constrain_to_surface(target_probe, 0.0).length();
+    let mut slab_avatar = PlanetaryAvatar::at(slab_world.constrain_to_surface(Vec3::new(0.0, 8.0, 0.0), 1.0));
+    slab_avatar.rotate_degrees(0.0, 73.0);
     slab_avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::QuarriedStone, HeldRelic::EmptyPalm));
     assert!(slab_avatar.dispatch_trigger(InputTrigger::WheelDown));
     assert!(!slab_avatar.use_right_hand(&mut slab_world) && slab_avatar.release_hand(&mut slab_world));
-    assert!((slab_world.constrain_to_surface(target_probe, 0.0).y - (slab_initial + 0.25)).abs() < 1e-4);
+    assert!((slab_world.constrain_to_surface(target_probe, 0.0).length() - (slab_initial + 0.25)).abs() < 1e-4);
 }
 
 #[test]
 fn test_satchel_stows_and_retrieves_blocks_and_tools_invisibly_when_closed() {
-    let mut world = BiomedCubeWorld::beveled(16, 1.0);
+    let mut world = BiomedQuadSphere::of_size(16);
     let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.0, 16.5, 0.0), 1.0));
     avatar.rotate_degrees(0.0, 70.5);
     let (mut empty_hands_mesh, mut open_world_mesh, mut empty_satchel_mesh, mut closed_mesh, mut open_mesh) = (
@@ -156,7 +154,7 @@ fn test_satchel_stows_and_retrieves_blocks_and_tools_invisibly_when_closed() {
 
 #[test]
 fn test_two_free_hands_swing_both_arms_and_troupe_avatar_excavates_and_places() {
-    let mut world = BiomedCubeWorld::beveled(16, 1.0);
+    let mut world = BiomedQuadSphere::of_size(16);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 9.0, 0.0), 1.0);
     let controls = KeyMotion::idle();
     let mut avatar = PlanetaryAvatar::at(spawn);
@@ -182,28 +180,30 @@ fn test_two_free_hands_swing_both_arms_and_troupe_avatar_excavates_and_places() 
 
 #[test]
 fn test_spade_in_left_hand_with_empty_right_hand_excavates_sloped_block_cleanly() {
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let mut world = BiomedQuadSphere::of_size(32);
     let mut initial_batch = engine::QuadBatch::empty();
     world.emit_surface(&mut initial_batch);
 
-    let (mut slope_u, mut slope_z, mut slope_mid_y) = (0.0f32, -4.25f32, 0.0f32);
+    let temp_frame = world::ClimateZone::Temperate.surface_frame(16.0);
+    let (mut slope_u, mut slope_z, mut slope_mid_h) = (0.0f32, -4.25f32, 0.0f32);
     'search: for cu in -12..12 {
         for cv in -12..-5 {
             let (u, v) = ((cu as f32) * 0.5 + 0.25, (cv as f32) * 0.5 + 0.25);
-            let sample_y = world.constrain_to_surface(Vec3::new(u, 18.0, v), 0.0).y - 16.0;
-            if (0.10..0.40).contains(&sample_y.rem_euclid(0.5)) {
-                (slope_u, slope_z, slope_mid_y) = (u, v, sample_y);
+            let sample_h = temp_frame.elevation_of(world.constrain_to_surface(temp_frame.point_at(u, v, 2.0), 0.0));
+            if (0.10..0.40).contains(&sample_h.rem_euclid(0.5)) {
+                (slope_u, slope_z, slope_mid_h) = (u, v, sample_h);
                 break 'search;
             }
         }
     }
-    assert!(slope_mid_y > 0.0);
-    let stand_pos = world.constrain_to_surface(Vec3::new(slope_u, 18.0, slope_z + 0.75), 1.0);
+    assert!(slope_mid_h > 0.0);
+    let stand_pos = world.constrain_to_surface(temp_frame.point_at(slope_u, slope_z + 0.75, 2.0), 1.0);
     let mut avatar = PlanetaryAvatar::at(stand_pos);
+    avatar.step_motion(1.0, &KeyMotion::idle(), &world);
     avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::EmptyPalm, HeldRelic::RigWrench));
     avatar.rotate_degrees(0.0, 65.3);
     assert!(!avatar.use_left_hand(&mut world) && avatar.use_left_hand(&mut world));
-    assert!(world.constrain_to_surface(Vec3::new(slope_u, 18.0, slope_z), 0.0).y - 16.0 < slope_mid_y);
+    assert!(temp_frame.elevation_of(world.constrain_to_surface(temp_frame.point_at(slope_u, slope_z, 2.0), 0.0)) < slope_mid_h);
     assert_eq!(world.face_count(), 6);
     let (mut full_planet_ledger, mut modified_face_ledger) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     world.emit_surface(&mut full_planet_ledger);
@@ -213,23 +213,23 @@ fn test_spade_in_left_hand_with_empty_right_hand_excavates_sloped_block_cleanly(
 
 #[test]
 fn test_crosshair_aim_excavates_within_three_blocks_and_rejects_beyond_three_blocks() {
-    let mut world = BiomedCubeWorld::beveled(16, 1.0);
-    let (spawn, far_probe) = (Vec3::new(0.0, 9.0, 0.0), Vec3::new(0.0, 9.0, -2.25));
+    let mut world = BiomedQuadSphere::of_size(16);
+    let (spawn, far_probe) = (Vec3::new(0.0, 8.0, 0.0), Vec3::new(0.0, 8.0, -2.25));
     let mut avatar = PlanetaryAvatar::at(world.constrain_to_surface(spawn, 1.0));
     let (mut idle_avatar, mut air_swing) = (SurfaceLedger::empty(), SurfaceLedger::empty());
     avatar.emit_appearance(&mut idle_avatar);
 
-    avatar.rotate_view(0.0, 234.0);
-    let initial_far = world.constrain_to_surface(far_probe, 0.0).y;
+    avatar.rotate_view(0.0, 220.0);
+    let initial_far = world.constrain_to_surface(far_probe, 0.0).length();
     assert!(!avatar.use_left_hand(&mut world));
     avatar.step_motion(1.0 / 60.0, &KeyMotion::idle(), &world);
     avatar.emit_appearance(&mut air_swing);
     assert_eq!(air_swing.count(), idle_avatar.count());
-    assert!((world.constrain_to_surface(far_probe, 0.0).y - initial_far).abs() < 1e-4);
+    assert!((world.constrain_to_surface(far_probe, 0.0).length() - initial_far).abs() < 1e-4);
 
-    avatar.rotate_view(0.0, 41.0);
-    let (closer_probe, aimed_probe) = (Vec3::new(0.0, 9.0, -1.25), Vec3::new(0.0, 9.0, -1.75));
-    let (initial_closer, initial_aimed) = (world.constrain_to_surface(closer_probe, 0.0).y, world.constrain_to_surface(aimed_probe, 0.0).y);
+    avatar.rotate_view(0.0, 80.0);
+    let (closer_probe, aimed_probe) = (Vec3::new(0.0, 8.0, -1.25), Vec3::new(0.0, 8.0, -1.75));
+    let (initial_closer, initial_aimed) = (world.constrain_to_surface(closer_probe, 0.0).length(), world.constrain_to_surface(aimed_probe, 0.0).length());
     let (mut untouched_face, mut loosened_face, mut swing_mesh) =
         (SurfaceLedger::empty(), SurfaceLedger::empty(), SurfaceLedger::empty());
     world.emit_modified_face(&mut untouched_face);
@@ -243,8 +243,8 @@ fn test_crosshair_aim_excavates_within_three_blocks_and_rejects_beyond_three_blo
         assert!(!avatar.use_left_hand(&mut world));
     }
     assert!(avatar.use_left_hand(&mut world));
-    assert!((world.constrain_to_surface(closer_probe, 0.0).y - initial_closer).abs() < 1e-4);
-    assert!((initial_aimed - world.constrain_to_surface(aimed_probe, 0.0).y - 0.5).abs() < 1e-4);
+    assert!((world.constrain_to_surface(closer_probe, 0.0).length() - initial_closer).abs() < 1e-4);
+    assert!((initial_aimed - world.constrain_to_surface(aimed_probe, 0.0).length() - 0.5).abs() < 1e-4);
 }
 
 #[test]
@@ -266,7 +266,7 @@ fn test_sustained_digging_varies_palm_and_spade_sound_via_decorators() {
         }
     }
 
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let mut world = BiomedQuadSphere::of_size(32);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 18.0, 0.0), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn);
     avatar.rotate_degrees(0.0, 70.5);
@@ -282,7 +282,7 @@ fn test_sustained_digging_varies_palm_and_spade_sound_via_decorators() {
     });
     assert!(spade_trace.windows(2).all(|w| w[0] != w[1]));
 
-    world = BiomedCubeWorld::beveled(32, 1.0);
+    world = BiomedQuadSphere::of_size(32);
     let palm_trace = DigWaveTrace::new(8).record_variants(|| {
         let _ = avatar.use_left_hand(&mut world);
         for _ in 0..270 {

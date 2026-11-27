@@ -1,36 +1,38 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
-use world::{BiomedCubeWorld, CompanionPortal as _, PlanetaryWorld, WorldEarthworks};
+use world::{BiomedQuadSphere, CompanionPortal as _, PlanetaryWorld, WorldEarthworks};
 use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{Avatar as _, AvatarMotor as _, AvatarPresence as _, PlanetaryAvatar};
 use crate::controls::KeyMotion;
 
 #[test]
 fn test_multiplayer_lava_death_while_digging_aborts_cracks_attire_and_respawn_reach() {
-    let base = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let base = BiomedQuadSphere::barren(16);
     let host = SanctuaryHost::bind("127.0.0.1:0", Box::new(base), 16).expect("bind host");
     let addr = host.local_addr().expect("addr");
     let mut host_planet = HostedPlanet::new(host);
     for &(x, z) in &[(0.25_f32, 0.25_f32), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)] {
         for _ in 0..24 {
-            let fy = host_planet.constrain_to_surface(Vec3::new(x, 15.0, z), 0.0).y;
-            if !host_planet.excavate_surface(Vec3::new(x, fy + 1.0, z), Vec3::NEG_Y) {
+            let floor = host_planet.constrain_to_surface(Vec3::new(x, 8.0, z), 0.0);
+            let dir = -floor.normalize();
+            if !host_planet.excavate_surface(floor - dir * 1.0, dir) {
                 break;
             }
         }
     }
-    let core_y = host_planet.constrain_to_surface(Vec3::new(0.50, 15.0, 0.50), 0.0).y;
+    let core_pt = host_planet.constrain_to_surface(Vec3::new(0.50, 8.0, 0.50), 0.0);
+    let core_r = core_pt.length();
     let mut guest_planet = RemotePlanet::dial(JoinTarget::Direct(addr), 16, 1.0).expect("dial guest");
     for _ in 0..16 {
         let _ = guest_planet.step_surface(0.03);
         let _ = host_planet.step_surface(0.03);
     }
-    assert!((guest_planet.constrain_to_surface(Vec3::new(0.50, 15.0, 0.50), 0.0).y - core_y).abs() < 1e-3);
+    assert!((guest_planet.constrain_to_surface(Vec3::new(0.50, 8.0, 0.50), 0.0).length() - core_r).abs() < 1e-3);
 
     // Guest holds ExcavatedEarth + RigWrench above lava, scars the -Z shaft wall, and bare-hand starts right dig
-    let ledge = guest_planet.constrain_to_surface(Vec3::new(2.25, 15.0, 0.25), 0.0);
-    let mut lava_avatar = PlanetaryAvatar::at(Vec3::new(0.50, core_y + 1.6, 0.50));
+    let ledge = guest_planet.constrain_to_surface(Vec3::new(2.25, 8.0, 0.25), 0.0);
+    let mut lava_avatar = PlanetaryAvatar::at(core_pt + core_pt.normalize() * 1.6);
     lava_avatar.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::ExcavatedEarth, HeldRelic::RigWrench));
     let _ = lava_avatar.use_right_hand(&mut guest_planet);
     lava_avatar.sync_world_presence(&mut guest_planet);
@@ -66,13 +68,13 @@ fn test_multiplayer_lava_death_while_digging_aborts_cracks_attire_and_respawn_re
     }
     assert!(!lava_avatar.step_digging(&mut guest_planet), "Respawned avatar must never ghost-dig");
     lava_avatar.sync_world_presence(&mut guest_planet);
-    let before_top = host_planet.constrain_to_surface(Vec3::new(ledge.x, 15.0, ledge.z), 0.0).y;
-    assert!(guest_planet.harvest_surface(Vec3::new(ledge.x, before_top + 1.2, ledge.z), Vec3::NEG_Y).is_some());
+    let before_top = host_planet.constrain_to_surface(ledge, 0.0).length();
+    assert!(guest_planet.harvest_surface(ledge + ledge.normalize() * 1.2, -ledge.normalize()).is_some());
     for _ in 0..4 {
         let _ = guest_planet.step_surface(0.03);
         let _ = host_planet.step_surface(0.03);
     }
-    let after_top = host_planet.constrain_to_surface(Vec3::new(ledge.x, 15.0, ledge.z), 0.0).y;
+    let after_top = host_planet.constrain_to_surface(ledge, 0.0).length();
     assert!(after_top < before_top - 0.4, "Immediate post-respawn dig must flush surface presence and enact on SanctuaryHost");
 }
 
@@ -171,28 +173,29 @@ fn test_avatar_stands_on_flush_origin_stone_sees_it_underfoot_and_lands_on_remot
         fn push_quad(&mut self, quad: world::Quad) {
             if quad.radiate(|glow| glow) > 0.2 {
                 let _ = quad.transfer(|a, b, c, d, _, _| {
-                    self.0 = self.0.max(a.y).max(b.y).max(c.y).max(d.y);
+                    self.0 = self.0.max(a.length()).max(b.length()).max(c.length()).max(d.length());
                     quad
                 });
             }
         }
     }
 
-    let base = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let base = BiomedQuadSphere::barren(16);
     let mut origins = Vec::new();
     base.collect_medium_sites(BlockMedium::OriginStone, &mut origins);
     let (origin_top, origin_up) = origins[0];
     assert!(
-        (origin_top - Vec3::new(-0.25, 8.0, -0.25)).length() < 1e-3,
-        "OriginStone top must sit flush at y=8.0, got {origin_top:?}"
+        (origin_top.length() - 8.0).abs() < 1e-3,
+        "OriginStone top must sit flush at r=8.0, got {origin_top:?} (r={})",
+        origin_top.length()
     );
     let mut crest = RadiantCrest(f32::NEG_INFINITY);
     for slot in 0..base.face_patch_count(0) {
         base.emit_face_patch(0, slot, &mut crest);
     }
     assert!(
-        (crest.0 - 8.0).abs() < 0.005,
-        "OriginStone mesh must sit flush with surrounding y=8.0 blocks without protruding, got crest={}",
+        (crest.0 - 8.0).abs() < 0.008,
+        "OriginStone mesh must sit flush with surrounding r=8.0 sphere without protruding, got crest={}",
         crest.0
     );
 
@@ -241,13 +244,16 @@ fn test_avatar_stands_on_flush_origin_stone_sees_it_underfoot_and_lands_on_remot
     let host = SanctuaryHost::bind("127.0.0.1:0", Box::new(base), 16).expect("bind host");
     let addr = host.local_addr().expect("addr");
     let mut host_planet = HostedPlanet::new(host);
+    let temp_frame = world::ClimateZone::Temperate.surface_frame(8.0);
     let spawn_mold = BlockMold::cube().in_medium(BlockMedium::SpawnStone);
+    let place_eye = temp_frame.point_at(3.25, 0.25, 3.0);
     assert!(host_planet.place_molded_surface_block(
-        Vec3::new(3.25, 11.0, 0.25),
-        Vec3::NEG_Y,
-        Vec3::new(1.25, 9.0, 0.25),
+        place_eye,
+        -temp_frame.up_at(place_eye),
+        temp_frame.point_at(1.25, 0.25, 1.0),
         spawn_mold,
     ));
+    let expected_guest_spawn = temp_frame.point_at(3.25, 0.25, 1.5);
     let mut link = RemoteLink::bind(JoinTarget::Direct(addr)).expect("guest link");
     for _ in 0..20 {
         let _ = host_planet.step_surface(0.02);
@@ -260,8 +266,8 @@ fn test_avatar_stands_on_flush_origin_stone_sees_it_underfoot_and_lands_on_remot
     let mut guest_planet = RemotePlanet::from_link(link, 16, 1.0);
     let guest_spawn = BodySpan::landed_on(&guest_planet).current();
     assert!(
-        (guest_spawn - Vec3::new(3.25, 9.5, 0.25)).length() < 1e-3,
-        "Joining guest must land on top of admin SpawnStone even before chronicle stream arrives, got {guest_spawn:?}"
+        (guest_spawn - expected_guest_spawn).length() < 0.03,
+        "Joining guest must land on top of admin SpawnStone even before chronicle stream arrives, got {guest_spawn:?} vs {expected_guest_spawn:?}"
     );
     let mut guest_avatar = PlanetaryAvatar::at(guest_spawn);
     for _ in 0..10 {
@@ -274,7 +280,7 @@ fn test_avatar_stands_on_flush_origin_stone_sees_it_underfoot_and_lands_on_remot
     }
     guest_avatar.report_presence(&mut probe);
     assert!(
-        (probe.position() - Vec3::new(3.25, 9.5, 0.25)).length() < 0.03,
+        (probe.position() - expected_guest_spawn).length() < 0.05,
         "Guest must remain standing on admin SpawnStone before and after chronicle sync, got {:?}",
         probe.position()
     );

@@ -1,12 +1,12 @@
 use glam::Vec3;
-use crate::{CubePlanet, TranslatedWorld};
+use crate::{QuadSphere, TranslatedWorld};
 use super::super::catalog::BodyId;
 
 /// Live off-world rocky planet, moon, or landed belt asteroid occupying a 6-slice GPU bank.
 pub struct AwakenedBody {
     id_and_half: (BodyId, f32),
     center: Vec3,
-    planet: TranslatedWorld<CubePlanet>,
+    planet: TranslatedWorld<QuadSphere>,
     dirty_slices: u8,
 }
 
@@ -15,7 +15,7 @@ impl AwakenedBody {
     pub const fn new(
         id_and_half: (BodyId, f32),
         center: Vec3,
-        planet: TranslatedWorld<CubePlanet>,
+        planet: TranslatedWorld<QuadSphere>,
         dirty_slices: u8,
     ) -> Self {
         Self { id_and_half, center, planet, dirty_slices }
@@ -33,15 +33,15 @@ impl AwakenedBody {
         self.center
     }
 
-    pub const fn planet(&self) -> &TranslatedWorld<CubePlanet> {
+    pub const fn planet(&self) -> &TranslatedWorld<QuadSphere> {
         &self.planet
     }
 
-    pub fn planet_mut(&mut self) -> &mut TranslatedWorld<CubePlanet> {
+    pub fn planet_mut(&mut self) -> &mut TranslatedWorld<QuadSphere> {
         &mut self.planet
     }
 
-    pub fn into_parts(self) -> (BodyId, f32, CubePlanet) {
+    pub fn into_parts(self) -> (BodyId, f32, QuadSphere) {
         (self.id_and_half.0, self.id_and_half.1, self.planet.into_inner())
     }
 
@@ -54,7 +54,7 @@ impl AwakenedBody {
     }
 
     pub fn near(&self, pos: Vec3, pad: f32) -> bool {
-        (pos - self.center).abs().max_element() <= self.id_and_half.1 + pad
+        (pos - self.center).length() <= self.id_and_half.1 + pad
     }
 
     pub fn within_vicinity(&self, probe: Vec3) -> bool {
@@ -76,7 +76,7 @@ impl AwakenedBody {
     }
 
     pub fn surface_gap(&self, pos: Vec3) -> f32 {
-        (pos - self.center).abs().max_element() - self.id_and_half.1
+        (pos - self.center).length() - self.id_and_half.1
     }
 
     pub const fn pending_upload(&self) -> bool {

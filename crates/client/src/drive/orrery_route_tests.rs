@@ -32,7 +32,7 @@ impl PlanetaryWorld for ZeroGravityWorld {
 }
 
 fn assemble_nose_rocket(world: &mut dyn PlanetaryWorld) -> PlanetaryAvatar {
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for med in [BlockMedium::CantileverRig, BlockMedium::RocketNozzle] {
@@ -67,7 +67,7 @@ fn assemble_nose_rocket(world: &mut dyn PlanetaryWorld) -> PlanetaryAvatar {
         Vec3::new(1.25, g0, 2.25),
         BlockMold::cube().in_medium(BlockMedium::QuarriedStone),
     ));
-    let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),

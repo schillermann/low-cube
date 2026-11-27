@@ -1,7 +1,7 @@
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, SatchelManifest,
+    BiomedQuadSphere, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, SatchelManifest,
     SurfaceFind, TerrainMesh as _, WorldEarthworks as _,
 };
 use crate::attire::{
@@ -29,7 +29,7 @@ impl MeshTarget for MeshDigest {
 #[test]
 fn test_space_age_rig_wrench_and_suit_radio_sculpt_distinct_conditions_and_cast_cleanly() {
     let cadet = EvaAttire::astronaut();
-    let mut world = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let mut world = BiomedQuadSphere::barren(16);
     let stand = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 1.0);
     let probe = Vec3::new(0.25, 16.0, -0.75);
     let ground_y = world.constrain_to_surface(probe, 0.0).y;

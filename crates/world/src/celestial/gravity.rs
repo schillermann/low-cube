@@ -30,15 +30,15 @@ impl<G> RadialWell<G> {
     }
 
     fn local_accel(&self, rel: Vec3) -> f32 {
-        let cheb = rel.abs().max_element();
+        let dist = rel.length();
         let (r0, r_max) = self.halo_span();
-        if cheb <= r0 {
+        if dist <= r0 {
             self.surface_accel
-        } else if cheb >= r_max {
+        } else if dist >= r_max {
             0.0
         } else {
-            let inv_sq = (r0 / cheb).powi(2);
-            let fade = ((r_max - cheb) / (r_max - r0)).clamp(0.0, 1.0);
+            let inv_sq = (r0 / dist).powi(2);
+            let fade = ((r_max - dist) / (r_max - r0)).clamp(0.0, 1.0);
             self.surface_accel * inv_sq * fade
         }
     }

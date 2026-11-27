@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{BiomedCubeWorld, ClimateZone, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology, Quad, TerrainMesh as _, Topology};
+use world::{BiomedQuadSphere, ClimateZone, GravityField, MeshTarget, PerimeterEdge, PlanetaryTopology, Quad, TerrainMesh as _, Topology};
 
 struct QuadLedger {
     quads: Vec<Quad>,
@@ -25,56 +25,31 @@ fn compute_lighting(normal: Vec3, light_dir: Vec3) -> f32 {
 #[test]
 fn test_directional_lighting_continuity_across_all_12_seam_transitions() {
     let size = 16;
-    let half_size = (size as f32) * 0.5;
-    let margin = 0.5;
-    let world = BiomedCubeWorld::beveled(size, margin);
-    let topology = PlanetaryTopology::cubic(half_size);
+    let radius = (size as f32) * 0.5;
+    let world = BiomedQuadSphere::of_size(size);
+    let topology = PlanetaryTopology::quad_sphere(radius);
     let sun_dir = Vec3::new(0.6, 0.8, 0.4).normalize();
 
-    let all_zones = [
-        ClimateZone::Temperate,
-        ClimateZone::Volcanic,
-        ClimateZone::Desert,
-        ClimateZone::Arctic,
-        ClimateZone::Jungle,
-        ClimateZone::Steppe,
-    ];
-
-    for zone in all_zones {
+    for zone in ClimateZone::all() {
         for edge in PerimeterEdge::all() {
             let seam = topology.seam(zone, edge);
             let n1 = zone.normal();
             let n2 = seam.destination().normal();
-            let seam_center = (n1 + n2) * half_size;
 
-            let mut prev_light = compute_lighting(zone.normal(), sun_dir);
-
-            // Sample across the bevel transition zone in 20 smooth interpolation steps
+            let mut prev_light = compute_lighting(n1, sun_dir);
             for step in 1..=20 {
                 let factor = (step as f32) / 20.0;
-                let test_point = seam_center + (n2 - n1) * ((factor - 0.5) * margin * 2.0);
+                let dir = (n1 * (1.0 - factor) + n2 * factor).normalize();
+                let test_point = dir * radius;
                 let normal = world.surface_up_at(test_point);
                 let light = compute_lighting(normal, sun_dir);
 
-                assert!(
-                    (0.35..=1.0).contains(&light),
-                    "Lighting intensity must stay strictly within ambient and peak bounds: {light}"
-                );
-
-                let light_delta = (light - prev_light).abs();
-                assert!(
-                    light_delta < 0.15,
-                    "Lighting delta across bevel step must be smooth, observed {light_delta}"
-                );
+                assert!((0.35..=1.0).contains(&light));
+                assert!((light - prev_light).abs() < 0.10);
                 prev_light = light;
             }
-
-            let dest_light = compute_lighting(seam.destination().normal(), sun_dir);
-            let final_delta = (prev_light - dest_light).abs();
-            assert!(
-                final_delta < 0.15,
-                "Seam edge lighting must blend continuously into destination face normal lighting"
-            );
+            let dest_light = compute_lighting(n2, sun_dir);
+            assert!((prev_light - dest_light).abs() < 0.10);
         }
     }
 }
@@ -82,20 +57,19 @@ fn test_directional_lighting_continuity_across_all_12_seam_transitions() {
 #[test]
 fn test_biome_transitions_and_quad_alignment_at_all_seams() {
     let size = 16;
-    let world = BiomedCubeWorld::of_size(size);
+    let world = BiomedQuadSphere::of_size(size);
     let mut accumulator = QuadLedger::new();
     world.emit_surface(&mut accumulator);
 
     assert!(
         accumulator.quads.len() >= 6 * (size as usize) * (size as usize),
-        "Total emitted quads must cover the complete 6-faced planetary surface"
+        "Total emitted quads must cover the complete 6-shell QuadSphere surface"
     );
 
     let colors: Vec<Vec3> = accumulator.quads.iter().map(|q| q.transfer(|_, _, _, _, _, color| color)).collect();
     let distinct_colors = colors.iter().any(|c1| colors.iter().any(|c2| (c1 - c2).length() > 0.3));
     assert!(distinct_colors, "Adjacent biomes must exhibit distinct climate zone colors");
 
-    // Verify all quad normals are unit vectors and finite
     for quad in &accumulator.quads {
         quad.transfer(|v0, v1, v2, v3, normal, _color| {
             assert!(normal.is_finite(), "Quad normal must be finite");
@@ -108,13 +82,7 @@ fn test_biome_transitions_and_quad_alignment_at_all_seams() {
 #[test]
 fn test_shadow_continuity_faces_in_umbra_clamp_smoothly_to_ambient() {
     let sun_dir = Vec3::new(0.0, 1.0, 0.0);
-    // Face opposing sunlight completely (-Y)
     let bottom_normal = Vec3::NEG_Y;
-    let light = compute_lighting(bottom_normal, sun_dir);
-    assert_eq!(light, 0.35, "Faces entirely in shadow must clamp cleanly to ambient floor");
-
-    // Face parallel to sunlight
-    let side_normal = Vec3::X;
-    let side_light = compute_lighting(side_normal, sun_dir);
-    assert_eq!(side_light, 0.35, "Faces grazing sunlight must smoothly transition to ambient");
+    assert_eq!(compute_lighting(bottom_normal, sun_dir), 0.35);
+    assert_eq!(compute_lighting(Vec3::X, sun_dir), 0.35);
 }

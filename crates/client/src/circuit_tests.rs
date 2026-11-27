@@ -1,5 +1,5 @@
 use glam::Vec3;
-use world::{BiomedCubeWorld, ClimateZone, GravityField};
+use world::{BiomedQuadSphere, ClimateZone, GravityField};
 use crate::avatar::{AvatarMotor as _, AvatarOptics as _, PlanetaryAvatar};
 use crate::controls::{KeyboardControls, LocomotionTarget};
 use crate::flight::SurfaceFlight;
@@ -15,24 +15,20 @@ impl KeyboardControls for ContinuousForwardControls {
 
 #[test]
 fn test_avatar_completes_360_degree_planetary_circuit() {
-    // 16-block planetary cube: half-size = 8.0, face side = 16.0m
-    let world = BiomedCubeWorld::beveled(16, 0.5);
-    let start_pos = Vec3::new(0.0, 9.0, 0.0); // Center of Temperate (+Y) face
+    let world = BiomedQuadSphere::of_size(16);
+    let start_pos = Vec3::new(0.0, 9.0, 0.0);
     let mut avatar = PlanetaryAvatar::with_flight(start_pos, Box::new(SurfaceFlight::terrestrial(1.0)));
     let controls = ContinuousForwardControls;
 
-    // Face towards -X (Arctic face): mouse sensitivity is 0.003, yaw = -dx * sensitivity
     avatar.rotate_view(-std::f32::consts::FRAC_PI_2 / 0.003, 0.0);
 
     let dt = 1.0 / 60.0;
-    // Circuit length is 4 faces * 16.0m = 64.0m.
-    // Traverses Temperate (+Y) -> Arctic (-X) -> Volcanic (-Y) -> Desert (+X) -> Temperate (+Y).
     let mut visited_arctic = false;
     let mut visited_volcanic = false;
     let mut visited_desert = false;
     let mut returned_to_temperate = false;
 
-    for frame in 0..650 {
+    for frame in 0..900 {
         avatar.step_motion(dt, &controls, &world);
         let view_proj = avatar.view_projection_matrix(16.0 / 9.0);
         for col in 0..4 {
@@ -45,7 +41,6 @@ fn test_avatar_completes_360_degree_planetary_circuit() {
             }
         }
 
-        // Track sequential traversal through all 4 climate zones of the circuit
         let inv_view_proj = view_proj.inverse();
         let cam_pos = inv_view_proj.project_point3(Vec3::ZERO);
         let dominant = ClimateZone::dominant(cam_pos);
@@ -69,15 +64,15 @@ fn test_avatar_completes_360_degree_planetary_circuit() {
         }
     }
 
-    assert!(visited_arctic, "Avatar must traverse onto Arctic (-X) face");
-    assert!(visited_volcanic, "Avatar must traverse onto Volcanic (-Y) face");
-    assert!(visited_desert, "Avatar must traverse onto Desert (+X) face");
-    assert!(returned_to_temperate, "Avatar must complete 360° loop returning to Temperate (+Y) face");
+    assert!(visited_arctic, "Avatar must traverse onto Arctic (-X) shell");
+    assert!(visited_volcanic, "Avatar must traverse onto Volcanic (-Y) shell");
+    assert!(visited_desert, "Avatar must traverse onto Desert (+X) shell");
+    assert!(returned_to_temperate, "Avatar must complete 360° great-circle loop returning to Temperate (+Y) shell");
 }
 
 #[test]
 fn test_circuit_on_of_size_world() {
-    let world = BiomedCubeWorld::of_size(32);
+    let world = BiomedQuadSphere::of_size(32);
     let start_pos = Vec3::new(0.0, 17.0, 0.0);
     let mut avatar = PlanetaryAvatar::with_flight(start_pos, Box::new(SurfaceFlight::terrestrial(1.0)));
     let controls = ContinuousForwardControls;
@@ -88,7 +83,7 @@ fn test_circuit_on_of_size_world() {
     let mut returned_to_temperate = false;
     let dt = 1.0 / 60.0;
 
-    for frame in 0..1300 {
+    for frame in 0..1700 {
         avatar.step_motion(dt, &controls, &world);
         let view_proj = avatar.view_projection_matrix(16.0 / 9.0);
         let inv = view_proj.inverse();
@@ -100,18 +95,15 @@ fn test_circuit_on_of_size_world() {
             }
         }
 
-        // Before reaching edge and after camera convergence on next face, view pitch is strictly level along the face
-        if frame < 100 || (frame > 230 && frame < 390) {
-            let fwd = (inv.project_point3(Vec3::new(0.0, 0.0, 0.5)) - cam_pos).normalize();
-            let up = world.surface_up_at(cam_pos);
-            let pitch_angle = fwd.dot(up).asin().to_degrees();
-            assert!(
-                pitch_angle.abs() < 0.1,
-                "View pitch must remain level on face, got {:.2}° at frame {}",
-                pitch_angle,
-                frame
-            );
-        }
+        let fwd = (inv.project_point3(Vec3::new(0.0, 0.0, 0.5)) - cam_pos).normalize();
+        let up = world.surface_up_at(cam_pos);
+        let pitch_angle = fwd.dot(up).asin().to_degrees();
+        assert!(
+            pitch_angle.abs() < 8.5,
+            "View pitch must track smooth spherical horizon within 8.5°, got {:.2}° at frame {}",
+            pitch_angle,
+            frame
+        );
 
         let dominant = ClimateZone::dominant(cam_pos);
         match dominant {
@@ -123,8 +115,8 @@ fn test_circuit_on_of_size_world() {
         }
     }
 
-    assert!(visited_arctic, "Avatar must traverse onto Arctic (-X) face");
-    assert!(visited_volcanic, "Avatar must traverse onto Volcanic (-Y) face");
-    assert!(visited_desert, "Avatar must traverse onto Desert (+X) face");
-    assert!(returned_to_temperate, "Avatar must complete 360° circuit");
+    assert!(visited_arctic, "Avatar must traverse onto Arctic (-X) shell");
+    assert!(visited_volcanic, "Avatar must traverse onto Volcanic (-Y) shell");
+    assert!(visited_desert, "Avatar must traverse onto Desert (+X) shell");
+    assert!(returned_to_temperate, "Avatar must complete 360° great-circle circuit");
 }

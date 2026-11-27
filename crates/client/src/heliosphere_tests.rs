@@ -177,7 +177,7 @@ fn test_on_demand_mars_and_asteroid_belt_landing_persists_placed_blocks_across_p
     );
     assert!(
         (rock_ground - rock.center().as_vec3()).abs().max_element() <= rock.half_size() + 3.0,
-        "Belt asteroid must materialize on-demand as a landable CubePlanet"
+        "Belt asteroid must materialize on-demand as a landable QuadSphere"
     );
 }
 

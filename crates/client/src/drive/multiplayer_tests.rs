@@ -2,7 +2,7 @@ use glam::Vec3;
 use sanctuary::{HostedPlanet, JoinTarget, RemoteLink, RemotePlanet, SanctuaryHost};
 use winit::keyboard::KeyCode;
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, WorldEarthworks as _,
+    BiomedQuadSphere, BlockMedium, BlockMold, MeshTarget, PlanetaryWorld, Quad, WorldEarthworks as _,
 };
 use crate::avatar::{
     Avatar as _, AvatarMotor as _, AvatarPresence as _, HandGesture, PlanetaryAvatar,
@@ -38,14 +38,14 @@ impl MeshTarget for CentroidProbe {
 fn test_multiplayer_companion_car_renders_and_interpolates_subtick_without_teleporting() {
     let host = SanctuaryHost::bind(
         "127.0.0.1:0",
-        Box::new(BiomedCubeWorld::barren_beveled(32, 1.0)),
+        Box::new(BiomedQuadSphere::barren(32)),
         32,
     )
     .expect("bind host");
     let addr = host.local_addr().expect("addr");
     let mut host_world = HostedPlanet::new(host);
     let mut guest_world = RemotePlanet::new(
-        Box::new(BiomedCubeWorld::barren_beveled(32, 1.0)),
+        Box::new(BiomedQuadSphere::barren(32)),
         RemoteLink::bind(JoinTarget::Direct(addr)).expect("guest link"),
         std::collections::VecDeque::new(),
     );
@@ -54,7 +54,7 @@ fn test_multiplayer_companion_car_renders_and_interpolates_subtick_without_telep
         let _ = host_world.step_surface(0.03);
     }
 
-    let g0 = host_world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = host_world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av_pos = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     assert!(host_world.place_molded_surface_block(
@@ -82,7 +82,7 @@ fn test_multiplayer_companion_car_renders_and_interpolates_subtick_without_telep
         assert!(host_world.place_molded_surface_block(eye, dir, av_pos, mold));
     }
 
-    let mut host_driver = PlanetaryAvatar::at(host_world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0));
+    let mut host_driver = PlanetaryAvatar::at(host_world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0));
     host_driver.rotate_degrees(-90.0, 12.0);
     assert!(HandGesture::RightTap.perform(&mut host_driver, &mut host_world));
     assert!(host_driver.use_right_hand(&mut host_world));
@@ -91,7 +91,7 @@ fn test_multiplayer_companion_car_renders_and_interpolates_subtick_without_telep
         let _ = guest_world.step_surface(0.03);
     }
     assert!(
-        guest_world.constrain_to_surface(Vec3::new(1.25, 22.0, 1.25), 0.0).y < g0 + 0.5,
+        guest_world.constrain_to_surface(Vec3::new(1.25, 16.0, 1.25), 0.0).y < g0 + 0.5,
         "Car must not remain standing at the crane on the other player's screen once boarded"
     );
 
@@ -141,7 +141,7 @@ fn test_multiplayer_companion_car_renders_and_interpolates_subtick_without_telep
     let dest_x = *guest_xs.last().expect("drove forward");
     let guest_parked = (0..8).any(|dx| {
         let probe_x = dest_x - 1.0 + (dx as f32) * 0.5;
-        guest_world.constrain_to_surface(Vec3::new(probe_x, 22.0, 0.75), 0.0).y > g0 + 0.5
+        guest_world.constrain_to_surface(Vec3::new(probe_x, 16.0, 0.75), 0.0).y > g0 + 0.5
     });
     assert!(guest_parked, "Parked car must appear at its driven destination on the other player's world");
 }

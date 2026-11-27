@@ -124,7 +124,7 @@ impl SessionStage {
             OverlayTransition::Unchanged => ModalDirective::ContinueSession,
             OverlayTransition::ActivateWorld(spec) => {
                 self.avatar.sync_world_presence(self.world.as_mut());
-                self.world = Box::new(world::BiomedCubeWorld::barren(4));
+                self.world = Box::new(world::BiomedQuadSphere::barren(4));
                 self.world = self.realm.mount_solitary(spec);
                 self.avatar.land_on_world(self.world.as_ref());
                 display.capture_cursor();
@@ -132,7 +132,7 @@ impl SessionStage {
                 ModalDirective::ContinueSession
             }
             OverlayTransition::EvictWorld(slug) => {
-                self.world = Box::new(world::BiomedCubeWorld::barren_beveled(32, 1.0));
+                self.world = Box::new(world::BiomedQuadSphere::barren(32));
                 self.realm.evict(&slug);
                 display.surface().release_cursor();
                 display.refresh_world_mesh(self.world.as_ref(), self.avatar.as_ref());
@@ -140,7 +140,7 @@ impl SessionStage {
             }
             OverlayTransition::OpenLivePortal => {
                 self.avatar.sync_world_presence(self.world.as_mut());
-                let current = std::mem::replace(&mut self.world, Box::new(world::BiomedCubeWorld::of_size(4)));
+                let current = std::mem::replace(&mut self.world, Box::new(world::BiomedQuadSphere::of_size(4)));
                 if let Some((hosted, invite)) = self.realm.mount_hosted_if_local() {
                     drop(current);
                     self.world = hosted;

@@ -8,6 +8,15 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.136.0] - 2026-11-27
+
+### Changed
+- Completed **Stufe 4 (Deterministic `i64` `CosmicPos` Cosmos, Cross-OS Kepler Determinism & Sparse `QuadSphere` Planets)** of the Zero-Legacy Space-Age Engine rebuild (`REBUILD_PLAN.md`) across `crates/world`, `crates/engine`, `crates/sanctuary`, and `crates/client`:
+  - Introduced `CosmicPos` (`[i64; 3]` in `0.1 mm` steps = `10,000 ticks/m`, `crates/world/src/cosmic_pos.rs`) with exact `i64` `relative_f32(camera)` camera-relative subtraction and `i128` overflow-free `distance_sq_i128` Hill-sphere distance checks, paired with the `CameraRelativePass<'a>` `FramePass` decorator and `CameraAnchor` (`crates/engine/src/camera_relative.rs`) subtracting `i64` camera coordinates before `f32` `wgpu` submission (`0.1 mm` precision even at `30.1 AU` Neptune).
+  - Replaced OS `libm` transcendental calls in Kepler orbits, asteroid-belt dynamics, and planetary spin (`kepler.rs`, `belt.rs`, `spin.rs`, `ephemeris.rs`, `bubble.rs`, `cosmic_frame.rs`) with pure-Rust `Brad64` (`u64` binary radians `[0, 2π)` + `i128` `Q2.60` Horner polynomial `sin_cos_f64` and double half-angle `sqrt` `atan2_radians`), guaranteeing bit-identical `SolarEphemeris` states across Linux, Windows, x86_64, and ARM64.
+  - Deleted `CubePlanet`, `BiomedCubeWorld`, `BeveledBoundary`, `CubicBoundary`, `PerimeterFold`, `BeveledGravity`, and `OrbitalShell`, replacing cubic `90°` bevels with round 6-shell **`QuadSphere` & `BiomedQuadSphere` planets** (`FrameShape::QuadSphere`, `ShellBoundary`, `ZoneGravity`, curvature-compensated `SurfaceClearance`, and radial `WheelTrack` / `GradedRoad`) that remain locally orthogonal (`0.5 m` grid) on the ground while forming seamless $C^\infty$ spheres from orbit.
+  - Enforced **Sparse-Planet-Edits (`0 Bytes` untouched `Brick8` RAM)**: untouched planet shells stream surface heights directly from seed-evaluated `PlanetHeightClipmap` (`clipmap.rs`) and zero-brick `SanctuaryPlinth` crowns (`sanctuary_plinth.rs`), instantiating `Brick8` blocks strictly upon real excavation, building, or impact craters.
+
 ## [0.135.0] - 2026-11-27
 
 ### Changed

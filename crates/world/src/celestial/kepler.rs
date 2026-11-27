@@ -1,5 +1,6 @@
 use std::f64::consts::{PI, TAU};
 use glam::DVec3;
+use super::brad64::Brad64;
 use super::catalog::BodyId;
 
 /// Narrow contract resolving 3D Keplerian focal states and orbital ellipse trajectories.
@@ -17,7 +18,7 @@ pub trait OrbitalLocus {
     );
 }
 
-/// Transcendental Kepler anomaly state (`M = E - e sin E`) solved via Newton-Raphson iteration (`<= 4` fields).
+/// Cross-OS deterministic Kepler anomaly state (`M = E - e sin E`, `0` OS `libm` calls, `<= 4` fields).
 #[derive(Clone, Copy, Debug)]
 pub struct KeplerAnomaly {
     eccentricity: f64,
@@ -30,20 +31,19 @@ impl KeplerAnomaly {
         Self { eccentricity, mean_anomaly }
     }
 
-    /// Resolves eccentric anomaly `E` in `(-π, π]` to double-precision convergence.
+    /// Resolves eccentric anomaly `E` in `(-π, π]` via pure-Rust `Brad64` Newton-Raphson (`Linux == Windows`).
     pub fn eccentric_rad(self) -> f64 {
         let e = self.eccentricity.clamp(0.0, 0.85);
-        let mut m = self.mean_anomaly.rem_euclid(TAU);
-        if m > PI {
-            m -= TAU;
-        }
+        let m = Brad64::wrap_signed_radians(self.mean_anomaly);
+        let (sin_m, _) = Brad64::from_radians(m).sin_cos_f64();
         let mut ecc = if e > 0.6 {
-            m.signum() * (PI * 0.75)
+            let sign = if m < 0.0 { -1.0 } else { 1.0 };
+            sign * (PI * 0.75)
         } else {
-            m + e * m.sin()
+            m + e * sin_m
         };
-        for _ in 0..6 {
-            let (se, ce) = ecc.sin_cos();
+        for _ in 0..7 {
+            let (se, ce) = Brad64::from_radians(ecc).sin_cos_f64();
             let residual = ecc - e * se - m;
             let deriv = (1.0 - e * ce).max(1e-6);
             ecc -= residual / deriv;
@@ -75,7 +75,7 @@ impl EllipticShape {
 
     fn perifocal_point(self, semi_major: f64, eccentric_rad: f64) -> (f64, f64) {
         let e = self.clamped_eccentricity();
-        let (se, ce) = eccentric_rad.sin_cos();
+        let (se, ce) = Brad64::from_radians(eccentric_rad).sin_cos_f64();
         let minor_ratio = (1.0 - e * e).max(0.0).sqrt();
         (semi_major * (ce - e), semi_major * minor_ratio * se)
     }
@@ -89,7 +89,7 @@ impl EllipticShape {
     ) -> ((f64, f64), (f64, f64)) {
         let e = self.clamped_eccentricity();
         let ecc = KeplerAnomaly::new(e, mean_anom).eccentric_rad();
-        let (sin_e, cos_e) = ecc.sin_cos();
+        let (sin_e, cos_e) = Brad64::from_radians(ecc).sin_cos_f64();
         let minor_ratio = (1.0 - e * e).max(0.0).sqrt();
         let xp = semi_major * (cos_e - e);
         let zp = semi_major * minor_ratio * sin_e;
@@ -123,8 +123,8 @@ impl OrbitalPlane {
     }
 
     fn map_perifocal(self, (xp, zp): (f64, f64)) -> DVec3 {
-        let (sin_w, cos_w) = f64::from(self.periapsis_rad).sin_cos();
-        let (sin_i, cos_i) = f64::from(self.inclination_rad.abs()).sin_cos();
+        let (sin_w, cos_w) = Brad64::from_radians(f64::from(self.periapsis_rad)).sin_cos_f64();
+        let (sin_i, cos_i) = Brad64::from_radians(f64::from(self.inclination_rad.abs())).sin_cos_f64();
         let u = xp * cos_w - zp * sin_w;
         let w = xp * sin_w + zp * cos_w;
         DVec3::new(u, w * sin_i, w * cos_i)

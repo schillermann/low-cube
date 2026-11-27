@@ -1,7 +1,7 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CountedMeshTarget, MeshTarget, MountDomain,
+    BiomedQuadSphere, BlockMedium, BlockMold, CountedMeshTarget, MeshTarget, MountDomain,
     PlanetaryWorld, Quad, VesselDeck as _, WorldEarthworks as _, WorldFact,
 };
 use crate::attire::{BeltSatchel, EvaAttire, HeldRelic};
@@ -43,7 +43,7 @@ struct SampleCraneCar;
 
 impl SampleCraneCar {
     fn assemble_on(&self, world: &mut dyn PlanetaryWorld) -> f32 {
-        let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+        let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
         let rig_mold = BlockMold::cube().in_medium(BlockMedium::CantileverRig);
         let eng_mold = BlockMold::cube().turn_clockwise().in_medium(BlockMedium::SteeringWheel);
         let seat_mold = BlockMold::cube().in_medium(BlockMedium::CabinSeat);
@@ -60,13 +60,13 @@ impl SampleCraneCar {
 
 #[test]
 fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty_crane() {
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let mut world = BiomedQuadSphere::of_size(32);
     let g0 = SampleCraneCar.assemble_on(&mut world);
 
     let temp_dir = std::env::temp_dir().join(format!("lowcube_bp_test_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&temp_dir);
 
-    let mut engineer = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 22.0, 2.25), 1.0));
+    let mut engineer = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 16.0, 2.25), 1.0));
     engineer.install_blueprint_archive(Box::new(DirectoryBlueprints::new(temp_dir.clone())));
     engineer.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
     engineer.rotate_degrees(0.0, -10.0);
@@ -86,7 +86,7 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     let mut sink = NullMeshSink;
     let mut world_figure = CountedMeshTarget::new(&mut sink);
     engineer.emit_appearance(&mut world_figure);
-    let mut closed_probe = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 22.0, 2.25), 1.0));
+    let mut closed_probe = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 16.0, 2.25), 1.0));
     closed_probe.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
     closed_probe.rotate_degrees(0.0, -10.0);
     let mut sink_closed = NullMeshSink;
@@ -112,12 +112,13 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     assert_eq!(saved[0].blueprint().part_count(), 3);
 
     // Deploy a fresh empty crane inside flat spawn sanctuary at z = -1.75
+    let frame = world::ClimateZone::Temperate.surface_frame(16.0);
     let rig_mold = BlockMold::cube().in_medium(BlockMedium::CantileverRig);
     let rig2_aim = Vec3::new(0.0, -0.8, -0.6).normalize();
-    let av2_pos = Vec3::new(0.25, g0, -0.75);
-    assert!(world.place_molded_surface_block(Vec3::new(0.25, g0 + 1.5, -1.25), rig2_aim, av2_pos, rig_mold));
+    let av2_pos = frame.point_at(0.25, -0.25, 0.0);
+    assert!(world.place_molded_surface_block(frame.point_at(0.25, -0.75, 1.5), rig2_aim, av2_pos, rig_mold));
 
-    let mut sparse_builder = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 22.0, -1.25), 1.0))
+    let mut sparse_builder = PlanetaryAvatar::at(world.constrain_to_surface(frame.point_at(0.25, -0.75, 0.0), 1.0))
         .with_starting_satchel(&SparseKit);
     sparse_builder.install_blueprint_archive(Box::new(DirectoryBlueprints::new(temp_dir.clone())));
     sparse_builder.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
@@ -127,7 +128,7 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     assert!(sparse_builder.dispatch_trigger(InputTrigger::Key(KeyCode::Escape)));
 
     // Provision full parts kit, select saved blueprint on empty crane arm, and build it
-    let mut full_builder = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 22.0, -1.25), 1.0))
+    let mut full_builder = PlanetaryAvatar::at(world.constrain_to_surface(frame.point_at(0.25, -0.75, 0.0), 1.0))
         .with_starting_satchel(&CarPartsKit);
     full_builder.install_blueprint_archive(Box::new(DirectoryBlueprints::new(temp_dir.clone())));
     full_builder.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::VehicleBlueprint, HeldRelic::EmptyPalm));
@@ -136,14 +137,14 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
     let _ = HandGesture::RightTap.perform(&mut full_builder, &mut world);
     assert!(HandGesture::RightTap.perform(&mut full_builder, &mut world), "Clicking ready blueprint must build craft on crane");
 
-    let hoisted_top = world.constrain_to_surface(Vec3::new(1.25, 22.0, -1.75), 0.0).y;
+    let hoisted_top = world.constrain_to_surface(frame.point_at(1.25, -1.75, 0.0), 0.0).length();
     assert!(hoisted_top > g0 + 1.4, "Built blueprint craft must hang hoisted on crane arm (got {hoisted_top})");
 
     // Stow reusable Blueprint Block back into satchel with E, then tap mast with empty hand to lower craft
     assert!(full_builder.dispatch_trigger(InputTrigger::Key(KeyCode::KeyE)));
     assert!(HandGesture::RightTap.perform(&mut full_builder, &mut world), "Empty hand lowers built blueprint craft");
 
-    let mut pilot = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 22.0, -0.75), 1.0));
+    let mut pilot = PlanetaryAvatar::at(world.constrain_to_surface(frame.point_at(1.25, -0.75, 0.0), 1.0));
     pilot.rotate_degrees(0.0, 58.0);
     let cam_pos = |a: &PlanetaryAvatar| a.view_projection_matrix(1.0).inverse().project_point3(Vec3::ZERO);
     let before = cam_pos(&pilot);
@@ -161,15 +162,15 @@ fn test_blueprint_block_saves_named_vehicle_and_rebuilds_drivable_craft_on_empty
 
 #[test]
 fn test_parked_vehicle_blueprint_capture_world_fact_wire_and_headless_typing() {
-    let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
+    let mut world = BiomedQuadSphere::barren(32);
     let g0 = SampleCraneCar.assemble_on(&mut world);
 
     // Lower crane, board vehicle via avatar, and dismount to park on terrain
-    let mut crane_hand = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 22.0, 1.25), 1.0));
+    let mut crane_hand = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(0.25, 16.0, 1.25), 1.0));
     crane_hand.rotate_degrees(0.0, 35.0);
     assert!(HandGesture::RightTap.perform(&mut crane_hand, &mut world));
 
-    let mut pilot = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 22.0, 1.75), 1.0));
+    let mut pilot = PlanetaryAvatar::at(world.constrain_to_surface(Vec3::new(1.25, 16.0, 1.75), 1.0));
     pilot.rotate_degrees(0.0, 58.0);
     assert!(HandGesture::RightTap.perform(&mut pilot, &mut world));
     assert!(HandGesture::RightTap.perform(&mut pilot, &mut world));

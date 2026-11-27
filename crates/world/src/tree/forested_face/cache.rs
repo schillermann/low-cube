@@ -42,7 +42,7 @@ impl<'a> LitterLanding<'a> {
             return None;
         }
         let (eu, ev) = self.frame.decompose(eye);
-        let (du, dv) = self.frame.decompose(dir);
+        let (du, dv) = self.frame.decompose_vector(dir);
         let plen = du.hypot(dv);
         let (ux, vx) = if plen > 1e-3 { (du / plen, dv / plen) } else { (0.0, 1.0) };
         let (mut bu, mut bv) = self.frame.clamp_interior(eu, ev, 0.22);

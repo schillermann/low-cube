@@ -39,6 +39,11 @@ impl PointLightEntry {
     pub const fn radius(self) -> f32 {
         self.pos_radius[3]
     }
+
+    pub fn recentered(self, shift: impl FnOnce(Vec3) -> Vec3) -> Self {
+        let rel = shift(self.position());
+        Self::new([rel.x, rel.y, rel.z, self.pos_radius[3]], self.color_intensity)
+    }
 }
 
 /// Bounded `<= 16` dynamic point-light cluster ranked by viewer proximity (`3` private fields).

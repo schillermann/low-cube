@@ -1,7 +1,7 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CraftBlueprint, CraftPose, MeshTarget, MountDomain,
+    BiomedQuadSphere, BlockMedium, BlockMold, CraftBlueprint, CraftPose, MeshTarget, MountDomain,
     PlanetaryWorld, Quad, TerrainMesh as _, VesselDeck as _, VesselSink, WorldEarthworks as _,
 };
 use crate::attire::{EvaAttire, HeldRelic};
@@ -43,8 +43,8 @@ impl VesselSink for VesselProbe {
 
 #[test]
 fn test_hologram_preview_distinguishes_craft_rig_and_world_cube_domains_and_matches_placement() {
-    let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let mut world = BiomedQuadSphere::barren(32);
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let far = Vec3::new(6.0, g0 + 1.0, 6.0);
     assert!(world.place_molded_surface_block(
         Vec3::new(0.25, g0 + 1.5, 0.25),
@@ -53,7 +53,7 @@ fn test_hologram_preview_distinguishes_craft_rig_and_world_cube_domains_and_matc
         BlockMold::cube().in_medium(BlockMedium::CantileverRig),
     ));
 
-    let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.25), 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.25), 1.0);
     let mut builder = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(SurfaceFlight::calibrated(0.522, 9.81, 1.0)),
@@ -82,7 +82,7 @@ fn test_hologram_preview_distinguishes_craft_rig_and_world_cube_domains_and_matc
     assert!(world.adjust_rig(Vec3::new(0.25, g0 + 1.5, 0.25), Vec3::NEG_Y, 1, false));
 
     builder.apply_attire(EvaAttire::astronaut().with_relics(HeldRelic::PlankBlock, HeldRelic::EmptyPalm));
-    builder.rotate_degrees(180.0, 48.0);
+    builder.rotate_degrees(180.0, 62.0);
     let cube_plan = builder.planned_mount(&world).expect("Ground aim must produce a WorldCube PlannedMount");
     assert_eq!(cube_plan.domain(), MountDomain::WorldCube);
 
@@ -97,8 +97,8 @@ fn test_hologram_preview_distinguishes_craft_rig_and_world_cube_domains_and_matc
 
 #[test]
 fn test_parked_vehicle_preserves_free_360_yaw_without_terrain_rebuilds_and_transforms_local_hull() {
-    let mut world = BiomedCubeWorld::barren_beveled(32, 1.0);
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let mut world = BiomedQuadSphere::barren(32);
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let far = Vec3::new(6.0, g0 + 1.0, 6.0);
     assert!(world.place_molded_surface_block(
         Vec3::new(0.25, g0 + 1.5, 0.25),
@@ -136,8 +136,9 @@ fn test_parked_vehicle_preserves_free_360_yaw_without_terrain_rebuilds_and_trans
     while world.drain_modified_slice(&mut sink).is_some() {}
     assert!(!world.pending_slices());
 
-    let g_park = world.constrain_to_surface(Vec3::new(4.37, 22.0, 3.63), 0.0).y;
-    car.translate_to(Vec3::new(4.37, g_park, 3.63));
+    let park_pt = world.constrain_to_surface(Vec3::new(4.37, 16.0, 3.63), 0.0);
+    let park_up = park_pt.normalize();
+    car.translate_to(park_pt);
     car.steer(0.645);
     let angled_heading = car.heading();
     assert!(angled_heading.x.abs() > 0.35 && angled_heading.z.abs() > 0.35, "Heading must be non-orthogonal");
@@ -191,11 +192,11 @@ fn test_parked_vehicle_preserves_free_360_yaw_without_terrain_rebuilds_and_trans
     world.present_vessels(&mut vessels);
     assert_eq!(vessels.captured.len(), 1);
     assert!((vessels.captured[0].1.heading() - angled_heading).length() < 1e-4);
-    assert!((vessels.captured[0].1.origin() - Vec3::new(4.37, g_park, 3.63)).length() < 1e-4);
+    assert!((vessels.captured[0].1.origin() - park_pt).length() < 1e-4);
 
-    let helm_eye = Vec3::new(4.37, g_park + 1.15, 3.63) - angled_heading * 0.25;
+    let helm_eye = park_pt + park_up * 1.15 - angled_heading * 0.25;
     let reboarded = world
-        .board_vehicle(helm_eye, (angled_heading - Vec3::Y * 0.45).normalize(), true)
+        .board_vehicle(helm_eye, (angled_heading - park_up * 0.45).normalize(), true)
         .expect("Angled parked car must re-board cleanly along its 3D helm axis");
     assert!(!world.pending_slices(), "Boarding a parked vehicle must rebuild zero terrain sectors");
     assert!(reboarded.heading().dot(angled_heading) > 0.9999, "Re-boarded vehicle must preserve exact 360-degree yaw");

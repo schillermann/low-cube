@@ -152,8 +152,8 @@ fn test_disk_world_vault_persists_blocks_and_inventory_and_seeded_decorators_var
     assert_eq!(continental.seed(), seed_a);
 
     // Verify SeededFrequency + SeededGround produce distinct terrain & forest layouts
-    let world_a = world::BiomedCubeWorld::seeded_beveled(128, 1.0, seed_a);
-    let world_b = world::BiomedCubeWorld::seeded_beveled(128, 1.0, seed_b);
+    let world_a = world::BiomedQuadSphere::seeded(128, seed_a);
+    let world_b = world::BiomedQuadSphere::seeded(128, seed_b);
     let differ = (6..28).any(|i| {
         let x = (i as f32) * 1.5;
         let a = world_a.constrain_to_surface(Vec3::new(x, 80.0, 14.0), 1.0);
@@ -204,7 +204,7 @@ fn test_disk_world_vault_persists_blocks_and_inventory_and_seeded_decorators_var
 #[test]
 fn test_headless_session_mounts_world_through_lobby_gate_without_shared_refcell() {
     let modal = Box::new(LobbyGateModal::guarding(EscapeMenu::opened_on_worlds(Box::new(WorldStudio::empty()))));
-    let world: Box<dyn world::PlanetaryWorld> = Box::new(world::BiomedCubeWorld::barren_beveled(16, 1.0));
+    let world: Box<dyn world::PlanetaryWorld> = Box::new(world::BiomedQuadSphere::barren(16));
     let avatar = Box::new(PlanetaryAvatar::at(Vec3::new(0.0, 10.0, 0.0)));
     let mut session = HeadlessSession::with_world_and_modal(world, avatar, modal);
 

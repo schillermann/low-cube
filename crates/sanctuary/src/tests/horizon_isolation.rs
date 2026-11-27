@@ -1,6 +1,6 @@
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CardinalTurn, CompanionPortal, CompanionPresence,
+    BiomedQuadSphere, BlockMedium, BlockMold, CardinalTurn, CompanionPortal, CompanionPresence,
     CraftIdentity, CraftPose, DrivenCraft, MoldArchetype, PlanetaryWorld, PresenceAttire,
     PresenceKinematics, SolarProportions, VehicleAxes, WorldEarthworks, WorldFact,
 };
@@ -101,7 +101,7 @@ fn test_sector_cracks_and_minimal_pulse_prevent_cross_zone_leakage() {
 fn test_horizon_chronicle_isolates_climate_zones_and_streams_on_arrival() {
     let prop = SolarProportions::true_scale(1_024);
     let half = prop.earth_half();
-    let host_world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::barren_beveled(1_024, 1.0));
+    let host_world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::barren(1_024));
     let raw_host = SanctuaryHost::bind_cosmos("127.0.0.1:0", host_world, prop).expect("bind 1024 host");
     let addr = raw_host.local_addr().expect("addr");
     let mut host = HostedPlanet::spawning(raw_host);

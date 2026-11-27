@@ -15,7 +15,7 @@ use crate::flight::SurfaceFlight;
 use crate::zero_g_flight::ZeroGFlight;
 
 fn build_rocket(world: &mut dyn PlanetaryWorld, with_hull_camera: bool) -> f32 {
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for med in [BlockMedium::CantileverRig, BlockMedium::RocketNozzle] {
@@ -88,7 +88,7 @@ fn test_rocket_camera_moves_within_small_radius_on_nose_and_belly_channels_witho
     let run_flight = |yaw_deg: f32, pitch_deg: f32, belly_channel: bool| -> (Vec3, (Vec3, Vec3), (glam::Vec2, Vec<Vec3>), glam::Mat4, Vec<u8>) {
         let mut world = CelestialSystem::barren_authoritative(32, 1.0);
         build_rocket(world.as_mut(), true);
-        let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+        let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
         let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -185,7 +185,7 @@ fn test_side_rocket_camera_stays_in_small_radius_while_cockpit_and_handheld_orbi
             Vec3::new(1.25, g0, -1.25),
             BlockMold::cube().in_medium(BlockMedium::RocketCamera).next_form().next_form(),
         ));
-        let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+        let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
         let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -256,7 +256,7 @@ fn test_camera_attached_under_crane_rocket_stays_above_world_cube_surface() {
         BlockMold::cube().next_form().in_medium(BlockMedium::RocketCamera),
     ] {
         let mut world = CelestialSystem::barren_authoritative(32, 1.0);
-        let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+        let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
         let av = Vec3::new(0.25, g0, 1.75);
         let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
         for med in [BlockMedium::CantileverRig, BlockMedium::RocketNozzle] {
@@ -270,7 +270,7 @@ fn test_camera_attached_under_crane_rocket_stays_above_world_cube_surface() {
         assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 0.90, 0.75), Vec3::Y, Vec3::new(1.25, g0, 2.25), cam_mold));
         assert!(world.place_molded_surface_block(Vec3::new(1.25, g0 + 0.40, 1.25), Vec3::NEG_Y, Vec3::new(1.25, g0, 2.25), BlockMold::cube().in_medium(BlockMedium::QuarriedStone)));
 
-        let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+        let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
         let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
             spawn,
             Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -283,17 +283,17 @@ fn test_camera_attached_under_crane_rocket_stays_above_world_cube_surface() {
         assert!(pilot.use_right_hand(world.as_mut()));
 
         let (pad_eye, pad_dir) = camera_ray(&pilot);
-        let ground_under_cam = world.constrain_to_surface(Vec3::new(pad_eye.x, 22.0, pad_eye.z), 0.0).y;
+        let ground_under_cam = world.constrain_to_surface(pad_eye, 0.0).length();
         assert!(
-            pad_eye.y >= ground_under_cam + 0.15 && pad_dir.y < -0.99,
-            "Under-rocket camera must look down from ABOVE World-Cube surface (eye={pad_eye:?}, ground={ground_under_cam:.2}, dir={pad_dir:?})"
+            pad_eye.length() >= ground_under_cam + 0.15 && pad_dir.dot(-pad_eye.normalize()) > 0.99,
+            "Under-rocket camera must look down from ABOVE QuadSphere surface (eye={pad_eye:?}, ground={ground_under_cam:.2}, dir={pad_dir:?})"
         );
         let idle = KeyMotion::idle();
         for _ in 0..30 {
             pilot.step_motion(1.0 / 120.0, &idle, world.as_ref());
             let (eye, dir) = camera_ray(&pilot);
-            let ground_y = world.constrain_to_surface(Vec3::new(eye.x, 22.0, eye.z), 0.0).y;
-            assert!(eye.y >= ground_y + 0.15 && dir.y < -0.99, "Ticked pad camera dipped below ground: {eye:?} < {ground_y}");
+            let ground_r = world.constrain_to_surface(eye, 0.0).length();
+            assert!(eye.length() >= ground_r + 0.15 && dir.dot(-eye.normalize()) > 0.99, "Ticked pad camera dipped below ground: {eye:?} < {ground_r}");
         }
     }
 }

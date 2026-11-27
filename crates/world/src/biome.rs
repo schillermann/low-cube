@@ -1,6 +1,5 @@
 use crate::{
-    BlockMedium, BlockMold, ClimateZone, CubePlanet, Face, FacetedReliefFace, ForestedFace,
-    NullFace, WorldSeed,
+    ClimateZone, Face, FacetedReliefFace, ForestedFace, NullFace, QuadSphere, WorldSeed,
 };
 
 /// Focused planetary zone relief contract composed via decorators.
@@ -54,7 +53,7 @@ impl ReliefMold for HollowRelief {
     }
 }
 
-/// `ReliefMold` decorator crowning the temperate sanctuary face with an indestructible `OriginStone` (`1` field).
+/// `ReliefMold` decorator crowning the temperate sanctuary shell with a zero-brick `OriginStone` (`1` field).
 #[derive(Clone, Copy, Debug)]
 pub struct OriginPlinthRelief<R> {
     origin: R,
@@ -71,18 +70,14 @@ impl<R: ReliefMold> ReliefMold for OriginPlinthRelief<R> {
     fn mold_relief(&self, zone: ClimateZone, half: f32, divs: u32) -> FacetedReliefFace {
         let face = self.origin.mold_relief(zone, half, divs);
         if zone == ClimateZone::Temperate {
-            let frame = zone.surface_frame(half);
-            let atom = BlockMold::cube()
-                .in_medium(BlockMedium::OriginStone)
-                .atom_for(frame.bitangent(), &frame);
-            face.with_molded_block(-1, -1, -crate::GridCell::SPAN, atom)
+            face.with_origin_plinth()
         } else {
             face
         }
     }
 }
 
-/// Focused planetary climate-zone face contract.
+/// Focused planetary climate-zone shell contract.
 pub trait ZoneSurface {
     fn assemble_face(&self, zone: ClimateZone, half: f32, divs: u32) -> Box<dyn Face>;
 
@@ -141,62 +136,43 @@ impl<R: ReliefMold> ZoneSurface for BarrenZone<R> {
     }
 }
 
-/// Multi-biome cubic planetary world factory assembling climate zones and seam boundaries.
-pub struct BiomedCubeWorld;
+/// Multi-biome spherical `QuadSphere` world factory assembling 6 projected climate shells (`0 Bytes` untouched `Brick8` RAM).
+pub struct BiomedQuadSphere;
 
-impl BiomedCubeWorld {
-    /// Factory method assembling authoritative multi-biome planetary terrain with living mineral veins.
-    pub fn of_size(size_blocks: u32) -> CubePlanet {
-        let (faces, half) = ForestedZone::new(OriginPlinthRelief::new(LivingRelief::new())).assemble_six(size_blocks);
-        CubePlanet::cubic(faces, Box::new(NullFace), half)
+impl BiomedQuadSphere {
+    /// Factory method assembling authoritative multi-biome `QuadSphere` terrain with living mineral veins.
+    pub fn of_size(size_blocks: u32) -> QuadSphere {
+        Self::seeded(size_blocks, WorldSeed::origin())
     }
 
-    /// Factory method assembling zero-knowledge client planetary terrain without unexposed ores.
-    pub fn hollow_of_size(size_blocks: u32) -> CubePlanet {
-        let (faces, half) = ForestedZone::new(OriginPlinthRelief::new(HollowRelief::new())).assemble_six(size_blocks);
-        CubePlanet::cubic(faces, Box::new(NullFace), half)
-    }
-
-    /// Factory method assembling barren multi-biome planetary terrain without woodland flora for fast simulation.
-    pub fn barren(size_blocks: u32) -> CubePlanet {
-        let (faces, half) = BarrenZone::new(OriginPlinthRelief::new(LivingRelief::new())).assemble_six(size_blocks);
-        CubePlanet::cubic(faces, Box::new(NullFace), half)
-    }
-
-    /// Factory method assembling barren multi-biome terrain with continuous seam normal bevels.
-    pub fn barren_beveled(size_blocks: u32, margin: f32) -> CubePlanet {
-        let (faces, half) = BarrenZone::new(OriginPlinthRelief::new(LivingRelief::new())).assemble_six(size_blocks);
-        CubePlanet::beveled_cubic(faces, Box::new(NullFace), half, margin)
-    }
-
-    /// Factory method assembling multi-biome terrain with continuous seam normal transitions.
-    pub fn beveled(size_blocks: u32, margin: f32) -> CubePlanet {
-        Self::seeded_beveled(size_blocks, margin, WorldSeed::origin())
-    }
-
-    /// Factory method assembling seeded multi-biome terrain with continuous seam normal transitions.
-    pub fn seeded_beveled(size_blocks: u32, margin: f32, seed: WorldSeed) -> CubePlanet {
+    /// Factory method assembling seeded authoritative multi-biome `QuadSphere` terrain.
+    pub fn seeded(size_blocks: u32, seed: WorldSeed) -> QuadSphere {
         let (faces, half) = ForestedZone::seeded(OriginPlinthRelief::new(LivingRelief::seeded(seed)), seed)
             .assemble_six(size_blocks);
-        CubePlanet::beveled_cubic(faces, Box::new(NullFace), half, margin)
+        QuadSphere::spherical(faces, Box::new(NullFace), half)
     }
 
-    /// Factory method assembling zero-knowledge client terrain with continuous seam normal transitions.
-    pub fn hollow_beveled(size_blocks: u32, margin: f32) -> CubePlanet {
-        Self::hollow_seeded_beveled(size_blocks, margin, WorldSeed::origin())
+    /// Factory method assembling zero-knowledge client `QuadSphere` terrain without unexposed ores.
+    pub fn hollow_of_size(size_blocks: u32) -> QuadSphere {
+        Self::hollow_seeded(size_blocks, WorldSeed::origin())
     }
 
-    /// Factory method assembling seeded zero-knowledge client terrain with continuous seam normal transitions.
-    pub fn hollow_seeded_beveled(size_blocks: u32, margin: f32, seed: WorldSeed) -> CubePlanet {
+    /// Factory method assembling seeded zero-knowledge client `QuadSphere` terrain.
+    pub fn hollow_seeded(size_blocks: u32, seed: WorldSeed) -> QuadSphere {
         let (faces, half) = ForestedZone::seeded(OriginPlinthRelief::new(HollowRelief::seeded(seed)), seed)
             .assemble_six(size_blocks);
-        CubePlanet::beveled_cubic(faces, Box::new(NullFace), half, margin)
+        QuadSphere::spherical(faces, Box::new(NullFace), half)
     }
 
-    /// Factory method assembling seeded barren multi-biome terrain with continuous seam normal bevels.
-    pub fn barren_seeded_beveled(size_blocks: u32, margin: f32, seed: WorldSeed) -> CubePlanet {
+    /// Factory method assembling barren multi-biome `QuadSphere` terrain without woodland flora.
+    pub fn barren(size_blocks: u32) -> QuadSphere {
+        Self::barren_seeded(size_blocks, WorldSeed::origin())
+    }
+
+    /// Factory method assembling seeded barren multi-biome `QuadSphere` terrain.
+    pub fn barren_seeded(size_blocks: u32, seed: WorldSeed) -> QuadSphere {
         let (faces, half) = BarrenZone::new(OriginPlinthRelief::new(LivingRelief::seeded(seed)))
             .assemble_six(size_blocks);
-        CubePlanet::beveled_cubic(faces, Box::new(NullFace), half, margin)
+        QuadSphere::spherical(faces, Box::new(NullFace), half)
     }
 }

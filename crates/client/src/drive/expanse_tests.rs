@@ -20,7 +20,7 @@ fn pos_of(avatar: &PlanetaryAvatar) -> Vec3 {
 }
 
 fn build_expanse_ship(world: &mut dyn PlanetaryWorld) -> f32 {
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av_pos = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for mold in [
@@ -73,7 +73,7 @@ fn build_expanse_ship(world: &mut dyn PlanetaryWorld) -> f32 {
 fn test_rocket_speed_converges_to_cosmic_cap_and_never_grows_unbounded() {
     let mut world = CelestialSystem::barren_authoritative(32, 1.0);
     let _ = build_expanse_ship(world.as_mut());
-    let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -114,7 +114,7 @@ fn test_rocket_speed_converges_to_cosmic_cap_and_never_grows_unbounded() {
 fn test_outboard_cameras_orrery_and_flip_and_burn_maneuver() {
     let mut world = CelestialSystem::barren_authoritative(32, 1.0);
     let _ = build_expanse_ship(world.as_mut());
-    let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -194,7 +194,7 @@ fn test_coop_thrust_gravity_grounds_crew_under_burn_and_floats_when_cut() {
         let _ = guest_world.step_surface(0.02);
     }
 
-    let host_spawn = host_world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+    let host_spawn = host_world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         host_spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -261,7 +261,7 @@ fn test_coop_thrust_gravity_grounds_crew_under_burn_and_floats_when_cut() {
 #[test]
 fn test_camera_less_rocket_keeps_cockpit_gaze_without_fallback() {
     let mut world = CelestialSystem::barren_authoritative(32, 1.0);
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for mold in [
@@ -277,7 +277,7 @@ fn test_camera_less_rocket_keeps_cockpit_gaze_without_fallback() {
     for top_y in [2.90, 3.40, 3.90] {
         assert!(world.place_molded_surface_block(Vec3::new(0.75, g0 + top_y, 0.75), Vec3::NEG_Y, av, BlockMold::cube().in_medium(BlockMedium::PlanedPlanks)));
     }
-    let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
     let cam_ray = |a: &PlanetaryAvatar| {
         let inv = a.view_projection_matrix(1.0).inverse();
         let eye = inv.project_point3(Vec3::ZERO);

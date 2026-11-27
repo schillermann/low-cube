@@ -1,16 +1,15 @@
 use glam::{DVec3, Vec3};
-use crate::{BeveledGravity, GravityField};
+use crate::CosmicPos;
 use super::bubble::{CosmicFrame, GravityBubble};
-use super::catalog::{BodyId, OrbitalSpec, SolarCatalog, SurfaceNature, MAJOR_BODY_COUNT};
+use super::catalog::{BodyId, OrbitalSpec, SolarCatalog, MAJOR_BODY_COUNT};
 use super::kepler::OrbitalLocus;
 use super::proportions::SolarProportions;
 use super::spin::{ApexSpin, PlanetarySpin};
-use super::ZoneGravity;
 
-/// Instantaneous position, velocity, and gravitational parameter of an orbiting body in the active `CosmicFrame`.
+/// Instantaneous `CosmicPos` (`0.1 mm` steps), velocity, and gravitational parameter of an orbiting body (`4` fields).
 #[derive(Clone, Copy, Debug)]
 pub struct BodyKinematics {
-    center: DVec3,
+    locus: CosmicPos,
     velocity: DVec3,
     orbit_radius: f64,
     gm: f64,
@@ -18,11 +17,12 @@ pub struct BodyKinematics {
 
 impl BodyKinematics {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(center: DVec3, velocity: DVec3, orbit_radius: f64, gm: f64) -> Self {
-        Self { center, velocity, orbit_radius, gm }
+    pub const fn new(locus: CosmicPos, velocity: DVec3, orbit_radius: f64, gm: f64) -> Self {
+        Self { locus, velocity, orbit_radius, gm }
     }
 
-    pub const fn center(self) -> DVec3 { self.center }
+    pub const fn cosmic_locus(self) -> CosmicPos { self.locus }
+    pub fn center(self) -> DVec3 { self.locus.to_dvec3() }
     pub const fn velocity(self) -> DVec3 { self.velocity }
     pub const fn orbit_radius(self) -> f64 { self.orbit_radius }
     pub const fn gm(self) -> f64 { self.gm }
@@ -45,17 +45,19 @@ impl BodySnapshot {
     pub const fn id(self) -> BodyId { self.spec.id() }
     pub const fn name(self) -> &'static str { self.spec.name() }
     pub const fn parent_id(self) -> BodyId { self.spec.orbit().parent() }
-    pub const fn nature(self) -> SurfaceNature { self.spec.physique().nature() }
+    pub const fn nature(self) -> super::catalog::SurfaceNature { self.spec.physique().nature() }
     pub const fn palette(self) -> (Vec3, Vec3) { self.spec.physique().palette() }
     pub const fn surface_g(self) -> f32 { self.spec.physique().surface_g() }
     pub const fn half_size(self) -> f64 { self.half_size }
-    pub const fn center(self) -> DVec3 { self.kinematics.center() }
+    pub const fn cosmic_locus(self) -> CosmicPos { self.kinematics.cosmic_locus() }
+    pub fn center(self) -> DVec3 { self.kinematics.center() }
+    pub fn camera_relative(self, camera: CosmicPos) -> Vec3 { self.kinematics.cosmic_locus().relative_f32(camera) }
     pub const fn velocity(self) -> DVec3 { self.kinematics.velocity() }
     pub const fn orbit_radius(self) -> f64 { self.kinematics.orbit_radius() }
     pub const fn gm(self) -> f64 { self.kinematics.gm() }
 }
 
-/// Moving Keplerian elliptical ephemeris and `1/r²` N-body field in any `CosmicFrame` (`<= 4` fields).
+/// Cross-OS deterministic Keplerian ephemeris (`i64` `0.1 mm` `CosmicPos`) and `1/r²` N-body field (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SolarEphemeris {
     proportions: SolarProportions,
@@ -109,16 +111,24 @@ impl SolarEphemeris {
         self.body_half_and_gm(entries[0]).1
     }
 
+    #[allow(clippy::type_complexity)]
     fn heliocentric_tables(
         self,
         delta_t: f64,
-    ) -> ([OrbitalSpec; MAJOR_BODY_COUNT], [DVec3; MAJOR_BODY_COUNT], [DVec3; MAJOR_BODY_COUNT], [f64; MAJOR_BODY_COUNT], [f64; MAJOR_BODY_COUNT], [f64; MAJOR_BODY_COUNT]) {
+    ) -> (
+        [OrbitalSpec; MAJOR_BODY_COUNT],
+        [CosmicPos; MAJOR_BODY_COUNT],
+        [DVec3; MAJOR_BODY_COUNT],
+        [f64; MAJOR_BODY_COUNT],
+        [f64; MAJOR_BODY_COUNT],
+        [f64; MAJOR_BODY_COUNT],
+    ) {
         let entries = *SolarCatalog::new().entries();
         let t = self.epoch_secs + delta_t;
         let au = self.proportions.astronomical_unit();
         let (_, sun_gm) = self.body_half_and_gm(entries[0]);
 
-        let mut helio_pos = [DVec3::ZERO; MAJOR_BODY_COUNT];
+        let mut helio_locus = [CosmicPos::origin(); MAJOR_BODY_COUNT];
         let mut helio_vel = [DVec3::ZERO; MAJOR_BODY_COUNT];
         let mut semi_majors = [0.0_f64; MAJOR_BODY_COUNT];
         let mut halves = [0.0_f64; MAJOR_BODY_COUNT];
@@ -132,7 +142,7 @@ impl SolarEphemeris {
                 let a = spec.orbit().semi_major_meters(au);
                 semi_majors[i] = a;
                 let (p, v) = spec.orbit().sample_state(a, sun_gm, t);
-                helio_pos[i] = p;
+                helio_locus[i] = CosmicPos::from_dvec3(p);
                 helio_vel[i] = v;
             }
         }
@@ -146,48 +156,71 @@ impl SolarEphemeris {
                     let a = orbit.semi_major_meters(halves[p_idx] * 2.0 * d_scale).max(min_clear);
                     semi_majors[i] = a;
                     let (lp, lv) = orbit.sample_state(a, gms[p_idx], t);
-                    helio_pos[i] = helio_pos[p_idx] + lp;
+                    helio_locus[i] = helio_locus[p_idx].translated(CosmicPos::from_dvec3(lp));
                     helio_vel[i] = helio_vel[p_idx] + lv;
                 }
             }
         }
-        (entries, helio_pos, helio_vel, semi_majors, halves, gms)
+        (entries, helio_locus, helio_vel, semi_majors, halves, gms)
     }
 
-    pub(super) fn body_heliocentric_state(self, id: BodyId) -> (DVec3, DVec3, DVec3) {
+    pub(super) fn body_heliocentric_cosmic(self, id: BodyId) -> (CosmicPos, DVec3, DVec3) {
         if id == BodyId::SOL {
-            return (DVec3::ZERO, DVec3::ZERO, DVec3::ZERO);
+            return (CosmicPos::origin(), DVec3::ZERO, DVec3::ZERO);
         }
-        let (entries, helio_pos, helio_vel, _, _, gms) = self.heliocentric_tables(0.0);
+        let (entries, helio_locus, helio_vel, _, _, gms) = self.heliocentric_tables(0.0);
         let Some(idx) = entries.iter().position(|s| s.id() == id) else {
-            return (DVec3::ZERO, DVec3::ZERO, DVec3::ZERO);
+            return (CosmicPos::origin(), DVec3::ZERO, DVec3::ZERO);
         };
-        let p = helio_pos[idx];
+        let p = helio_locus[idx].to_dvec3();
         let r_sq = p.length_squared().max(1.0);
         let mut accel = -p * (gms[0] / (r_sq * r_sq.sqrt()));
         let parent = entries[idx].orbit().parent();
         if parent != BodyId::SOL {
             if let Some(p_idx) = entries.iter().position(|s| s.id() == parent) {
-                let rel = p - helio_pos[p_idx];
+                let rel = helio_locus[idx].relative_dvec3(helio_locus[p_idx]);
                 let rp_sq = rel.length_squared().max(1.0);
                 accel -= rel * (gms[p_idx] / (rp_sq * rp_sq.sqrt()));
             }
         }
-        (p, helio_vel[idx], accel)
+        (helio_locus[idx], helio_vel[idx], accel)
     }
 
-    /// Resolves all 21 major bodies at `self.epoch_secs + delta_t` in `self.frame` `DVec3` coordinates.
+    /// Resolves all 21 major bodies at `self.epoch_secs + delta_t` in `self.frame` `CosmicPos` (`0.1 mm`) coordinates.
     pub fn snapshot_all(self, delta_t: f64) -> [BodySnapshot; MAJOR_BODY_COUNT] {
-        let (entries, helio_pos, helio_vel, semi_majors, halves, gms) = self.heliocentric_tables(delta_t);
-        let (frame_p, frame_v, _) = GravityBubble::new(self.proportions, self.epoch_secs + delta_t)
-            .heliocentric_state(self.frame);
+        let (entries, helio_locus, helio_vel, semi_majors, halves, gms) = self.heliocentric_tables(delta_t);
+        let bubble = GravityBubble::new(self.proportions, self.epoch_secs + delta_t);
+        let (frame_locus, frame_v, _) = bubble.heliocentric_cosmic_state(self.frame);
         std::array::from_fn(|i| {
             BodySnapshot::new(
                 entries[i],
                 halves[i],
-                BodyKinematics::new(helio_pos[i] - frame_p, helio_vel[i] - frame_v, semi_majors[i], gms[i]),
+                BodyKinematics::new(helio_locus[i].delta_from(frame_locus), helio_vel[i] - frame_v, semi_majors[i], gms[i]),
             )
         })
+    }
+
+    /// Cross-OS deterministic 64-bit FNV-1a digest over all 21 `[i64; 3]` `CosmicPos` ticks and quantized velocities.
+    pub fn deterministic_digest(self) -> u64 {
+        let snaps = self.snapshot_all(0.0);
+        let mut hash = 0xCBF2_9CE4_8422_2325_u64;
+        for s in snaps {
+            for axis in s.cosmic_locus().ticks() {
+                for b in axis.to_le_bytes() {
+                    hash ^= u64::from(b);
+                    hash = hash.wrapping_mul(0x0100_0000_01B3);
+                }
+            }
+            let v = s.velocity();
+            for va in [v.x, v.y, v.z] {
+                let qv = (va * 10_000.0).round() as i64;
+                for b in qv.to_le_bytes() {
+                    hash ^= u64::from(b);
+                    hash = hash.wrapping_mul(0x0100_0000_01B3);
+                }
+            }
+        }
+        hash
     }
 
     pub fn sun_direction_from(self, world_pos: DVec3, delta_t: f64) -> Vec3 {
@@ -202,24 +235,24 @@ impl SolarEphemeris {
         }
     }
 
-    /// Exact N-body gravitational acceleration (`m/s²`) at `pos` (`epoch + delta_t`) in `self.frame`.
+    /// Exact spherical N-body gravitational acceleration (`m/s²`) at `pos` (`epoch + delta_t`) in `self.frame`.
     pub fn gravity_accel_at(self, pos: DVec3, delta_t: f64) -> DVec3 {
         let bodies = self.snapshot_all(delta_t);
         let (_, _, frame_accel) = GravityBubble::new(self.proportions, self.epoch_secs + delta_t)
-            .heliocentric_state(self.frame);
+            .heliocentric_cosmic_state(self.frame);
+        let pos_cosmic = CosmicPos::from_dvec3(pos);
 
         let mut total = -frame_accel;
         for b in &bodies {
-            let rel = pos - b.center();
-            let cheb = rel.abs().max_element();
+            let rel = pos_cosmic.relative_dvec3(b.cosmic_locus());
+            let r_sq = rel.length_squared();
             let h = b.half_size();
             let knee = (h * 0.35).clamp(4.0, 24.0);
-            if b.nature().landable_crust() && cheb <= h + knee {
-                let bevel = BeveledGravity::decorating(ZoneGravity::new(), h as f32, 1.0);
-                let dir = bevel.pull_direction_at(rel.as_vec3()).as_dvec3();
+            if b.nature().landable_crust() && r_sq <= (h + knee) * (h + knee) {
+                let dir = if r_sq > 1e-8 { -rel / r_sq.sqrt() } else { DVec3::NEG_Y };
                 total += dir * f64::from(b.surface_g());
             } else {
-                let dist_sq = rel.length_squared().max(h * h);
+                let dist_sq = r_sq.max(h * h);
                 let dist = dist_sq.sqrt();
                 if dist > 1e-4 {
                     total -= rel * (b.gm() / (dist_sq * dist));
@@ -229,22 +262,22 @@ impl SolarEphemeris {
         total
     }
 
-    /// Dominant local surface-up vector (`ZoneGravity` near planetary crusts, radial outward in deep space).
+    /// Dominant local spherical surface-up vector (`rel.normalize()` radial outward everywhere).
     pub fn dominant_up_at(self, pos: DVec3) -> Vec3 {
         let bodies = self.snapshot_all(0.0);
+        let pos_cosmic = CosmicPos::from_dvec3(pos);
         let mut strongest = (0.0_f64, Vec3::Y);
         for b in &bodies {
-            let rel = pos - b.center();
-            let cheb = rel.abs().max_element();
+            let rel = pos_cosmic.relative_dvec3(b.cosmic_locus());
+            let r_sq = rel.length_squared();
             let h = b.half_size();
-            if b.nature().landable_crust() && cheb <= h + 48.0 {
-                let bevel = BeveledGravity::decorating(ZoneGravity::new(), h as f32, 1.0);
-                return bevel.surface_up_at(rel.as_vec3());
+            if b.nature().landable_crust() && r_sq <= (h + 48.0) * (h + 48.0) {
+                return if r_sq > 1e-8 { (rel / r_sq.sqrt()).as_vec3() } else { Vec3::Y };
             }
-            let r_sq = rel.length_squared().max(h * h);
-            let pull = b.gm() / r_sq;
-            if pull > strongest.0 && rel.length_squared() > 1e-6 {
-                strongest = (pull, rel.normalize().as_vec3());
+            let clamped_sq = r_sq.max(h * h);
+            let pull = b.gm() / clamped_sq;
+            if pull > strongest.0 && r_sq > 1e-6 {
+                strongest = (pull, (rel / r_sq.sqrt()).as_vec3());
             }
         }
         strongest.1

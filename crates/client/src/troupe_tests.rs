@@ -1,6 +1,6 @@
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
-use world::{BiomedCubeWorld, MeshTarget, PlanetaryWorld, Quad};
+use world::{BiomedQuadSphere, MeshTarget, PlanetaryWorld, Quad};
 use crate::allocation_audit::count_allocations;
 use crate::attire::{BodyPose, CrewPhysique, EvaAttire, HeldRelic, MartialStyle, SightMode, StrideRhythm, Wardrobe};
 use crate::avatar::{
@@ -30,7 +30,7 @@ impl MeshTarget for QuadLedger {
 
 #[test]
 fn test_spawn_contains_only_player_avatar_without_persons_or_items() {
-    let world = BiomedCubeWorld::beveled(32, 1.0);
+    let world = BiomedQuadSphere::of_size(32);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let attire = EvaAttire::astronaut();
 
@@ -90,7 +90,7 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
         assert!(shoulder_w.y - elbow_w.y >= 0.20 && elbow_w.x > stand_elbow.x + 0.04);
     }
 
-    let world = BiomedCubeWorld::beveled(32, 1.0);
+    let world = BiomedQuadSphere::of_size(32);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let (mut avatar, controls) = (PlanetaryAvatar::at(spawn), KeyMotion::idle());
     avatar.step_motion(1.0 / 60.0, &controls, &world);
@@ -100,7 +100,7 @@ fn test_standing_walking_and_running_figures_animate_distinct_gaits_with_zero_al
 
 #[test]
 fn test_dual_hand_eva_tools_and_torque_trajectories() {
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    let mut world = BiomedQuadSphere::of_size(32);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn);
     let controls = KeyMotion::idle();
@@ -149,7 +149,7 @@ fn test_wardrobe_excludes_removed_hand_cycle_keys() {
 
 #[test]
 fn test_satchel_open_shows_eva_tools_behind_and_outside_satchel_without_overlap() {
-    let world = BiomedCubeWorld::beveled(32, 1.0);
+    let world = BiomedQuadSphere::of_size(32);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let (mut unarmed, mut armed) = (PlanetaryAvatar::at(spawn), PlanetaryAvatar::at(spawn));
     unarmed.rotate_view(0.0, 380.0);
@@ -199,7 +199,7 @@ fn test_multiplayer_companion_figure_renders_ore_relics_and_live_host_guest_sync
     use sanctuary::{HostedPlanet, JoinTarget, RemotePlanet, SanctuaryHost};
     use crate::companion::CompanionFigure;
 
-    let base_world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
+    let base_world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::of_size(16));
     let raw_host = SanctuaryHost::bind("127.0.0.1:0", base_world, 16).expect("bind");
     let ticket = raw_host.ticket().encode();
     let mut host_planet = HostedPlanet::new(raw_host);

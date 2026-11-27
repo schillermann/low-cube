@@ -1,7 +1,7 @@
 use super::*;
 use crate::block::{BlockMedium, BlockMold, GridCell};
 use crate::topology::ClimateZone;
-use crate::{BiomedCubeWorld, CompanionPresence, PresenceKinematics, WorldFact};
+use crate::{BiomedQuadSphere, CompanionPresence, PresenceKinematics, WorldFact};
 use glam::{Quat, Vec3};
 
 struct TallPlateau;
@@ -127,7 +127,7 @@ fn test_height_stratigraphy_and_sector_saturation_curb_strip_mining() {
 
 #[test]
 fn test_world_fact_and_companion_presence_binary_roundtrip_and_zero_knowledge_enactment() {
-    let mut client_world = BiomedCubeWorld::hollow_beveled(32, 1.0);
+    let mut client_world = BiomedQuadSphere::hollow_of_size(32);
     let fact = WorldFact::StratumDisclosed {
         face: 0,
         stratum: ExposedStratum::new((1, 1, -2), BlockMedium::GoldOre),

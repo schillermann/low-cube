@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, CompanionPortal, CompanionPresence, PilotCraft, PlanetaryWorld,
+    BiomedQuadSphere, CompanionPortal, CompanionPresence, PilotCraft, PlanetaryWorld,
     PresenceAttire, PresenceKinematics, PresenceRhythm,
 };
 use crate::{
@@ -33,7 +33,7 @@ fn test_portal_mailbox_atomic_standby_and_craft_count() {
 fn test_hosted_planet_standby_wire_relays_guest_motion_without_planet_mutex() {
     let host = SanctuaryHost::bind(
         "127.0.0.1:0",
-        Box::new(BiomedCubeWorld::barren_beveled(16, 0.5)),
+        Box::new(BiomedQuadSphere::barren(16)),
         16,
     )
     .expect("bind host");
@@ -139,7 +139,7 @@ fn test_immutable_companion_glide_maintains_dead_stop_free_stride_under_arrival_
 fn test_standby_host_ignores_uncorrelated_sawtooth_subtick_without_time_reversal() {
     let host = SanctuaryHost::bind(
         "127.0.0.1:0",
-        Box::new(BiomedCubeWorld::barren_beveled(16, 0.5)),
+        Box::new(BiomedQuadSphere::barren(16)),
         16,
     )
     .expect("bind host");

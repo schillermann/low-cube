@@ -124,15 +124,15 @@ fn all_climate_zones_render_and_yield_distinct_resources() {
 }
 
 #[test]
-fn test_biomed_cube_world_contains_trees_across_biomes() {
-    use crate::{BiomedCubeWorld, TerrainMesh};
-    let world = BiomedCubeWorld::of_size(32);
+fn test_biomed_quad_sphere_contains_trees_across_biomes() {
+    use crate::{BiomedQuadSphere, TerrainMesh};
+    let world = BiomedQuadSphere::of_size(32);
     let mut target = TestMeshTarget::empty();
     world.emit_surface(&mut target);
 
     assert!(
         target.count() > 6144 + 500,
-        "BiomedCubeWorld must emit surface quads including planted trees, got {}",
+        "BiomedQuadSphere must emit surface quads including planted trees, got {}",
         target.count()
     );
 }
@@ -195,8 +195,8 @@ fn test_axe_cleave_shudder_heartwood_notch_woodchips_and_falling_leaves() {
 
 #[test]
 fn test_striking_and_felling_tree_refreshes_isolated_flora_slice_without_terrain_rebuild() {
-    use crate::{BiomedCubeWorld, PlanetaryWorld, TerrainMesh};
-    let mut world = BiomedCubeWorld::beveled(32, 1.0);
+    use crate::{BiomedQuadSphere, PlanetaryWorld, TerrainMesh};
+    let mut world = BiomedQuadSphere::of_size(32);
     let mut terrain_slice = TestMeshTarget::empty();
     let mut initial_flora = TestMeshTarget::empty();
     world.emit_face(0, &mut terrain_slice);

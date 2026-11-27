@@ -17,13 +17,13 @@ mod wormhole;
 use std::net::UdpSocket;
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CompanionPortal, CompanionPresence, CubePlanet, Face,
+    BiomedQuadSphere, BlockMedium, BlockMold, CompanionPortal, CompanionPresence, Face,
     FacetedReliefFace, HollowVeins, LivingVeins, NullFace, PlanetaryWorld, PresenceAttire,
     PresenceKinematics, WorldEarthworks, WorldFact,
 };
 use crate::{JoinTarget, PortalTicket, RemotePlanet, SanctuaryEnvelope, SanctuaryHost};
 
-fn build_ore_test_planet(authoritative: bool) -> CubePlanet {
+fn build_ore_test_planet(authoritative: bool) -> world::QuadSphere {
     let half = 16.0;
     let faces: Vec<Box<dyn Face>> = world::ClimateZone::all()
         .into_iter()
@@ -37,7 +37,7 @@ fn build_ore_test_planet(authoritative: bool) -> CubePlanet {
             Box::new(face)
         })
         .collect();
-    CubePlanet::cubic(faces, Box::new(NullFace), half)
+    world::QuadSphere::spherical(faces, Box::new(NullFace), half)
 }
 
 fn pump_pair(host: &mut SanctuaryHost, guest_a: &mut RemotePlanet, guest_b: &mut RemotePlanet, rounds: usize) {
@@ -50,7 +50,7 @@ fn pump_pair(host: &mut SanctuaryHost, guest_a: &mut RemotePlanet, guest_b: &mut
 
 #[test]
 fn test_encrypted_multiplayer_companions_dig_and_build_together_on_shared_cube() {
-    let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
+    let world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::of_size(16));
     let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16).expect("bind host");
     let ticket = host.ticket();
     let encoded = ticket.encode();
@@ -95,18 +95,20 @@ fn test_encrypted_multiplayer_companions_dig_and_build_together_on_shared_cube()
     assert!((after_echo_alice - after_predict).abs() < 0.02, "Chronicle echo must never double-dig Alice's pit");
     assert!((after_sync_bob - after_predict).abs() < 0.02, "Bob's cube must reflect Alice's excavated shaft");
 
-    let place_eye = Vec3::new(1.25, spawn.y + 1.55, 0.25);
+    let temp_frame = world::ClimateZone::Temperate.surface_frame(8.0);
+    let place_eye = temp_frame.point_at(1.25, 0.25, 1.55);
+    let alice_stand = temp_frame.point_at(2.25, 0.25, 0.0);
     alice.sync_presence(CompanionPresence::new(
         0,
-        PresenceKinematics::new(Vec3::new(2.25, spawn.y, 0.25), Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
+        PresenceKinematics::new(alice_stand, Quat::IDENTITY, Quat::IDENTITY, (0.0, 0.0)),
         (0.0, 0.0, 0.0, 0.0),
         PresenceAttire::astronaut(),
     ));
     pump_pair(&mut host, &mut alice, &mut bob, 2);
-    assert!(alice.place_molded_surface_block(place_eye, Vec3::NEG_Y, Vec3::new(2.25, spawn.y, 0.25), BlockMold::cube().in_medium(BlockMedium::QuarriedStone)));
+    assert!(alice.place_molded_surface_block(place_eye, -temp_frame.up_at(place_eye), alice_stand, BlockMold::cube().in_medium(BlockMedium::QuarriedStone)));
     pump_pair(&mut host, &mut alice, &mut bob, 6);
-    let bob_pillar = bob.constrain_to_surface(Vec3::new(1.25, 20.0, 0.25), 0.0).y;
-    assert!(bob_pillar > spawn.y + 0.3, "Bob must stand on the stone block placed by Alice");
+    let bob_pillar = temp_frame.elevation_of(bob.constrain_to_surface(temp_frame.point_at(1.25, 0.25, 4.0), 0.0));
+    assert!(bob_pillar > 0.3, "Bob must stand on the stone block placed by Alice, got {bob_pillar}");
 }
 
 #[test]
@@ -164,7 +166,7 @@ fn test_zero_knowledge_xray_shield_withholds_hidden_ores_until_adjacent_block_ex
 
 #[test]
 fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping() {
-    let world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
+    let world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::of_size(16));
     let mut host = SanctuaryHost::bind("127.0.0.1:0", world, 16).expect("bind host");
     let ticket = host.ticket();
 
@@ -205,16 +207,17 @@ fn test_sanctuary_ward_rejects_remote_telekinesis_speed_mining_and_block_duping(
     seal.seal(cid, &payload, &mut frame);
     sock.send_to(&frame, ticket.direct()).expect("pulse");
 
-    let far_spot = host.world().constrain_to_surface(Vec3::new(-6.25, 16.0, -6.25), 0.0);
+    let far_probe = Vec3::new(0.25, -16.0, 0.25);
+    let far_spot = host.world().constrain_to_surface(far_probe, 0.0);
     SanctuaryEnvelope::GuestPetition {
-        fact: WorldFact::Harvested { eye: far_spot + Vec3::Y * 1.5, direction: Vec3::NEG_Y },
+        fact: WorldFact::Harvested { eye: far_spot + Vec3::NEG_Y * 1.5, direction: Vec3::Y },
     }
     .inscribe(&mut payload);
     seal.seal(cid, &payload, &mut frame);
     sock.send_to(&frame, ticket.direct()).expect("telekinesis");
     let _ = host.tick(0.01);
-    let far_after = host.world().constrain_to_surface(Vec3::new(-6.25, 16.0, -6.25), 0.0);
-    assert!((far_after.y - far_spot.y).abs() < 1e-4, "Out-of-reach telekinesis mining must be rejected");
+    let far_after = host.world().constrain_to_surface(far_probe, 0.0);
+    assert!((far_after.length() - far_spot.length()).abs() < 1e-4, "Out-of-reach telekinesis mining must be rejected");
 
     for _ in 0..12 {
         let cur = host.world().constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0);

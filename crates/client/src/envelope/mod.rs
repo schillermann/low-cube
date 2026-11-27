@@ -75,24 +75,13 @@ impl BodyEnvelope {
         (self.half_width, self.half_depth, self.height, self.facing)
     }
 
-    fn cardinal_up(up: Vec3) -> Vec3 {
-        let ax = up.abs();
-        if ax.x >= ax.y && ax.x >= ax.z {
-            Vec3::new(up.x.signum(), 0.0, 0.0)
-        } else if ax.y >= ax.x && ax.y >= ax.z {
-            Vec3::new(0.0, up.y.signum(), 0.0)
-        } else {
-            Vec3::new(0.0, 0.0, up.z.signum())
-        }
-    }
-
     pub fn constrain_with_height(&self, point: Vec3, eye: f32, world: &dyn PlanetaryWorld) -> Vec3 {
-        let (base_surf, face_up) = (world.constrain_to_surface(point, eye), Self::cardinal_up(world.surface_up_at(point)));
+        let (base_surf, up) = (world.constrain_to_surface(point, eye), world.surface_up_at(point));
         let delta = base_surf - point;
-        if (delta - face_up * delta.dot(face_up)).length_squared() > 1e-4 {
+        if (delta - up * delta.dot(up)).length_squared() > 1e-4 {
             return base_surf;
         }
-        world.constrain_to_surface(point + face_up * (self.height - eye), self.height) - face_up * (self.height - eye)
+        world.constrain_to_surface(point + up * (self.height - eye), self.height) - up * (self.height - eye)
     }
 
     fn oriented_extents(&self, dir: Vec3, right: Vec3, up: Vec3) -> (f32, f32) {

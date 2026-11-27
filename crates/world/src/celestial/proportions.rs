@@ -168,7 +168,7 @@ impl SolarProportions {
         };
         let half = (self.voxel_blocks(spec.physique().diameter_ratio()) as f32) * 0.5;
         let band = (half * 0.45).clamp(36.0, 160.0);
-        local_pos.abs().max_element() > half + band
+        local_pos.length() > half + band
     }
 
     /// Appends the 16-byte handshake tail (`seed_lo`, `seed_hi`, `distance`, `belt`) preserving wire alignment at byte `60`.

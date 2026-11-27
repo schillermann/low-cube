@@ -1,28 +1,20 @@
 use glam::Vec3;
 
-mod bevel;
 mod boundary;
 mod climate_zone;
-mod folded_face;
 mod folded_point;
 mod perimeter;
 mod seam;
 #[cfg(test)]
-mod bevel_tests;
-#[cfg(test)]
-mod corner_tests;
-#[cfg(test)]
 mod tests;
 
-pub use bevel::{BevelTransition, SeamBevel};
-pub use boundary::{BeveledBoundary, CubicBoundary, OpenBoundary, SeamBoundary};
+pub use boundary::{OpenBoundary, SeamBoundary, ShellBoundary};
 pub use climate_zone::ClimateZone;
-pub use folded_face::PerimeterFold;
 pub use folded_point::FoldedPoint;
 pub use perimeter::{FacePerimeter, PerimeterCrossing, PerimeterEdge};
 pub use seam::{CoordinateFold, SeamFold};
 
-/// Interface representing topological planetary face connectivity and seam navigation.
+/// Interface representing topological `QuadSphere` shell connectivity and meridian navigation.
 pub trait Topology: Send + Sync {
     fn seam(&self, zone: ClimateZone, edge: PerimeterEdge) -> &SeamFold;
     fn neighbor_of(&self, zone: ClimateZone, edge: PerimeterEdge) -> ClimateZone;
@@ -30,19 +22,19 @@ pub trait Topology: Send + Sync {
     fn fold_vector(&self, zone: ClimateZone, edge: PerimeterEdge, vector: Vec3) -> Vec3;
 }
 
-/// Planetary topology connecting the six faces of a cubic world across 12 seam neighborhoods (24 directed folds).
+/// Planetary topology connecting the six `QuadSphere` climate shells across 12 meridian arcs (24 directed folds).
 pub struct PlanetaryTopology {
     folds: [SeamFold; 24],
 }
 
 impl PlanetaryTopology {
-    /// Primary constructor: assigns dense array of 24 seam folds directly.
+    /// Primary constructor: assigns dense array of 24 meridian folds directly.
     pub fn new(folds: [SeamFold; 24]) -> Self {
         Self { folds }
     }
 
-    /// Secondary constructor assembling the 24 directed seam folds without half-born dummy objects.
-    pub fn cubic(half_size: f32) -> Self {
+    /// Secondary constructor assembling the 24 directed `QuadSphere` meridian folds at `radius`.
+    pub fn quad_sphere(radius: f32) -> Self {
         let transitions: [(ClimateZone, PerimeterEdge, ClimateZone, PerimeterEdge); 24] = [
             // Temperate (+Y)
             (ClimateZone::Temperate, PerimeterEdge::PositiveU, ClimateZone::Desert, PerimeterEdge::PositiveV),
@@ -78,18 +70,18 @@ impl PlanetaryTopology {
 
         let folds = std::array::from_fn(|slot| {
             let (src, src_edge, dst, dst_edge) = transitions[slot];
-            SeamFold::between(src, src_edge, dst, dst_edge, half_size)
+            SeamFold::between(src, src_edge, dst, dst_edge, radius)
         });
 
         Self::new(folds)
     }
 
-    /// Total count of encapsulated seam folds.
+    /// Total count of encapsulated meridian folds.
     pub fn fold_count(&self) -> usize {
         self.folds.len()
     }
 
-    /// Derives the four seam folds for a given climate zone.
+    /// Derives the four meridian folds for a given climate zone.
     pub fn seams_for(&self, zone: ClimateZone) -> [SeamFold; 4] {
         [
             *self.seam(zone, PerimeterEdge::PositiveU),
@@ -97,11 +89,6 @@ impl PlanetaryTopology {
             *self.seam(zone, PerimeterEdge::PositiveV),
             *self.seam(zone, PerimeterEdge::NegativeV),
         ]
-    }
-
-    /// Derives the seam bevel transition zone for a climate zone and edge.
-    pub fn bevel(&self, zone: ClimateZone, edge: PerimeterEdge, half_size: f32, margin: f32) -> SeamBevel {
-        self.seam(zone, edge).bevel(half_size, margin)
     }
 }
 

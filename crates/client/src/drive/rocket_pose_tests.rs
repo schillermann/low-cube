@@ -68,7 +68,7 @@ fn test_rocket_pilot_arms_drive_four_way_stick_and_fore_aft_throttle_grip() {
 #[test]
 fn test_live_rocket_cockpit_and_character_studio_animate_stick_and_throttle() {
     let mut world = CelestialSystem::barren_authoritative(32, 1.0);
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av_pos = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for mold in [
@@ -90,7 +90,7 @@ fn test_live_rocket_cockpit_and_character_studio_animate_stick_and_throttle() {
         av_pos,
         BlockMold::cube().in_medium(BlockMedium::CabinSeat),
     ));
-    let spawn = world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0);
+    let spawn = world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0);
     let mut pilot = PlanetaryAvatar::with_attire_and_bindings(
         spawn,
         Box::new(ZeroGFlight::wrapping(SurfaceFlight::calibrated(0.522, 9.81, 1.0))),
@@ -132,7 +132,7 @@ fn test_live_rocket_cockpit_and_character_studio_animate_stick_and_throttle() {
 #[test]
 fn test_hoisted_crane_dual_steuerduesen_preserve_thruster_and_never_perch_off_seat() {
     let mut world = CelestialSystem::barren_authoritative(32, 1.0);
-    let g = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av = Vec3::new(0.25, g, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for mold in [

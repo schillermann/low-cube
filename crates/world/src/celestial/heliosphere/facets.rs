@@ -10,6 +10,16 @@ use super::cosmic_sky::{CosmicBodyCube, GiantCloudShell, EARTH_VOXEL_HANDOFF};
 use super::HeliosphereWorld;
 
 impl TerrainMesh for HeliosphereWorld {
+    fn allocated_brick_bytes(&self) -> usize {
+        let vic = self.vicinity.borrow();
+        let offworld: usize = [0usize, 1]
+            .into_iter()
+            .filter_map(|i| vic.slot_body(i))
+            .map(|b| b.planet().allocated_brick_bytes())
+            .sum();
+        self.earth.allocated_brick_bytes() + offworld
+    }
+
     fn emit_surface(&self, target: &mut dyn MeshTarget) {
         self.earth.emit_surface(target);
         let vic = self.vicinity.borrow();
@@ -179,7 +189,7 @@ impl TerrainMesh for HeliosphereWorld {
         let earth_dist = position.length();
         if self.ephemeris.frame().earth_centered() && earth_dist <= EARTH_VOXEL_HANDOFF {
             let continental = home_half > 128.0;
-            let orbital = position.abs().max_element() > home_half + 96.0;
+            let orbital = earth_dist > home_half + 96.0;
             let show_flora = !continental && earth_dist <= home_half + 420.0;
             let up = self.earth.surface_up_at(position);
             for (idx, zone) in ClimateZone::all().into_iter().enumerate() {
@@ -233,7 +243,7 @@ impl VesselDeck for HeliosphereWorld {
 
     fn present_vessels_near(&self, center: Vec3, radius: f32, sink: &mut dyn VesselSink) {
         if self.ephemeris.frame().earth_centered()
-            && (self.near_earth(center) || center.abs().max_element() <= self.ephemeris.proportions().earth_half() + radius)
+            && (self.near_earth(center) || center.length() <= self.ephemeris.proportions().earth_half() + radius)
         {
             self.earth.present_vessels_near(center, radius, sink);
         }

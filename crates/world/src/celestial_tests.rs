@@ -145,7 +145,7 @@ fn test_binary_gravity_and_orbital_fleet_across_homeworld_vacuum_and_moon() {
         .expect("Astronaut must re-board weightless orbital craft in deep space");
     assert!((reboarded.origin() - deep_space).length() < 1e-4);
 
-    let moon_south = moon_pos + Vec3::new(0.25, -LunarWorld::HALF_SIZE - 1.0, 0.25);
+    let moon_south = moon_pos + Vec3::new(0.0, -LunarWorld::HALF_SIZE - 1.0, 0.0);
     assert_eq!(cosmos.surface_up_at(moon_south), ClimateZone::Volcanic.normal());
 }
 

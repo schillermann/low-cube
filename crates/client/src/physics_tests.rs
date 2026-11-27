@@ -1,6 +1,6 @@
 use std::fs;
 use glam::Vec3;
-use world::{ClimateZone, CubePlanet, FacetedReliefFace, NullFace, PlanetaryWorld, RawAtom};
+use world::{ClimateZone, FacetedReliefFace, GravityField, NullFace, PlanetaryWorld, QuadSphere, RawAtom};
 use crate::argument_physics::ArgumentPhysics;
 use crate::environment_physics::EnvironmentPhysics;
 use crate::file_physics::FilePhysics;
@@ -15,21 +15,24 @@ fn evaluate_leap(physics: &dyn PlanetaryPhysics) -> f32 {
             .with_molded_block(0, 2, 0.0, RawAtom::turf_cube())
             .with_molded_block(0, 3, 0.0, RawAtom::turf_cube()),
     );
-    let world = CubePlanet::new(vec![shelf], Box::new(NullFace));
+    let world = QuadSphere::new(vec![shelf], Box::new(NullFace));
     let mut flight = physics.surface_flight(1.0);
 
-    let start_pos = world.constrain_to_surface(Vec3::new(0.25, 5.0, 0.85), 1.0);
-    let stride = Vec3::new(0.0, 0.0, 0.1);
+    let frame = ClimateZone::Temperate.surface_frame(half);
+    let start_pos = world.constrain_to_surface(frame.point_at(0.25, 0.85, 0.0), 1.0);
 
     flight.jump();
     let mut pos = start_pos;
     for _ in 0..5 {
-        pos = flight.advance(1.0 / 60.0, pos, stride, &WalkGait::upright(), Vec3::Y, &world);
+        let up = world.surface_up_at(pos);
+        let north = (Vec3::Z - up * Vec3::Z.dot(up)).normalize();
+        pos = flight.advance(1.0 / 60.0, pos, north * 0.1, &WalkGait::upright(), up, &world);
     }
     for _ in 0..120 {
-        pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::upright(), Vec3::Y, &world);
+        let up = world.surface_up_at(pos);
+        pos = flight.advance(1.0 / 60.0, pos, Vec3::ZERO, &WalkGait::upright(), up, &world);
     }
-    pos.y
+    (pos.length() * 1000.0).round() / 1000.0
 }
 
 #[test]
@@ -125,18 +128,20 @@ fn test_doorframe_blocks_one_block_narrow_gap_and_low_lintel_but_allows_two_bloc
         assert!(face.place_molded_block(Vec3::new(0.75, 8.92, 0.75), Vec3::new(0.0, -0.75, -0.75).normalize(), avatar_pos, BlockMold::cube()));
     }
     assert!(face.place_molded_block(Vec3::new(0.25, 8.92, -0.25), Vec3::new(-1.0, 1.45, 0.0).normalize(), avatar_pos, BlockMold::cube()));
-    let narrow_world = CubePlanet::new(vec![Box::new(face)], Box::new(NullFace));
+    let narrow_world = QuadSphere::new(vec![Box::new(face)], Box::new(NullFace));
     let mut flight = EarthPhysics::new().surface_flight(1.0);
-    let mut pos = narrow_world.constrain_to_surface(Vec3::new(0.25, 12.0, 0.25), 1.0);
-    let base_y = pos.y;
+    let mut pos = narrow_world.constrain_to_surface(Vec3::new(0.25, 8.0, 0.25), 1.0);
+    let base_r = pos.length();
     for step in 0..45 {
         if step == 10 {
             flight.jump();
         }
-        pos = flight.advance(1.0 / 60.0, pos, Vec3::new(0.0, 0.0, -0.05), &WalkGait::upright(), Vec3::Y, &narrow_world);
+        let up = narrow_world.surface_up_at(pos);
+        let south = -(Vec3::Z - up * Vec3::Z.dot(up)).normalize();
+        pos = flight.advance(1.0 / 60.0, pos, south * 0.05, &WalkGait::upright(), up, &narrow_world);
     }
     assert!(
-        pos.z > -0.10 && pos.y <= base_y + 0.60,
+        pos.z > -0.10 && pos.length() <= base_r + 0.60,
         "1-block-wide (0.5m) doorway must block walking and jumping without catapulting avatar over lintel, got {pos:?}"
     );
 
@@ -147,11 +152,13 @@ fn test_doorframe_blocks_one_block_narrow_gap_and_low_lintel_but_allows_two_bloc
         assert!(wide_face.place_molded_block(Vec3::new(1.25, 8.92, 0.75), Vec3::new(0.0, -0.75, -0.75).normalize(), avatar_pos, BlockMold::cube()));
     }
     assert!(wide_face.place_molded_block(Vec3::new(0.75, 8.92, -0.25), Vec3::new(-1.0, 1.45, 0.0).normalize(), avatar_pos, BlockMold::cube()));
-    let wide_world = CubePlanet::new(vec![Box::new(wide_face)], Box::new(NullFace));
-    let mut wide_pos = wide_world.constrain_to_surface(Vec3::new(0.50, 12.0, 0.25), 1.0);
+    let wide_world = QuadSphere::new(vec![Box::new(wide_face)], Box::new(NullFace));
+    let mut wide_pos = wide_world.constrain_to_surface(Vec3::new(0.50, 8.0, 0.25), 1.0);
     for _ in 0..30 {
-        wide_pos = flight.advance(1.0 / 60.0, wide_pos, Vec3::new(0.0, 0.0, -0.05), &WalkGait::upright(), Vec3::Y, &wide_world);
+        let up = wide_world.surface_up_at(wide_pos);
+        let south = -(Vec3::Z - up * Vec3::Z.dot(up)).normalize();
+        wide_pos = flight.advance(1.0 / 60.0, wide_pos, south * 0.05, &WalkGait::upright(), up, &wide_world);
     }
-    assert!(wide_pos.z < -0.50 && (wide_pos.y - base_y).abs() < 0.05, "2-block-wide doorway with 4-block vertical clearance must allow passage, got {wide_pos:?}");
+    assert!(wide_pos.z < -0.50 && (wide_pos.length() - base_r).abs() < 0.05, "2-block-wide doorway with 4-block vertical clearance must allow passage, got {wide_pos:?}");
     let _ = eye;
 }

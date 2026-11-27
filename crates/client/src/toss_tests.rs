@@ -1,7 +1,7 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
 use world::{
-    BiomedCubeWorld, BlockMedium, MeshTarget, PlanetaryWorld, Quad, SurfaceFind, TerrainMesh as _,
+    BiomedQuadSphere, BlockMedium, MeshTarget, PlanetaryWorld, Quad, SurfaceFind, TerrainMesh as _,
     WorldFact,
 };
 use crate::attire::{EvaAttire, HeldRelic};
@@ -32,7 +32,7 @@ impl MeshTarget for QuadTally {
 
 #[test]
 fn test_single_tap_stows_while_double_tap_casts_to_ground_and_retrieves() {
-    let mut world = BiomedCubeWorld::beveled(16, 1.0);
+    let mut world = BiomedQuadSphere::of_size(16);
     let spawn = world.constrain_to_surface(Vec3::new(0.25, 9.0, 0.25), 1.0);
     let controls = KeyMotion::idle();
     let mut avatar = PlanetaryAvatar::at(spawn);
@@ -113,7 +113,7 @@ fn test_cast_litter_world_fact_roundtrips_and_syncs_in_multiplayer() {
         assert_eq!(WorldFact::decode(&buf), Some((fact, buf.len())));
     }
 
-    let base_world: Box<dyn PlanetaryWorld> = Box::new(BiomedCubeWorld::beveled(16, 0.5));
+    let base_world: Box<dyn PlanetaryWorld> = Box::new(BiomedQuadSphere::of_size(16));
     let raw_host = SanctuaryHost::bind("127.0.0.1:0", base_world, 16).expect("bind");
     let ticket = raw_host.ticket().encode();
     let mut host_planet = HostedPlanet::new(raw_host);

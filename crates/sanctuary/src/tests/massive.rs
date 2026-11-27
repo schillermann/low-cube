@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::net::UdpSocket;
 use glam::{Quat, Vec3};
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, CompanionPortal, CompanionPresence, CraftBlueprint,
+    BiomedQuadSphere, BlockMedium, BlockMold, CompanionPortal, CompanionPresence, CraftBlueprint,
     CraftIdentity, CraftPose, DrivenCraft, ExposedStratum, PlanetaryWorld, PresenceAttire,
     PresenceKinematics, ProximityUtterance, VehicleAxes, WorldEarthworks, WorldFact,
 };
@@ -98,7 +98,7 @@ fn test_compacted_and_disk_vault_chronicle_decorators_deduplicate_and_fold_wal()
     let bp = CraftBlueprint::new(cid, vec![part]);
     let stratum = ExposedStratum::new((2, 3, -4), BlockMedium::GoldOre);
     {
-        let mut world = BiomedCubeWorld::of_size(4);
+        let mut world = BiomedQuadSphere::of_size(4);
         let base = CompactedChronicle::wrapping(ChronicleLog::empty());
         let mut vault = DiskVaultChronicle::replay_and_open(&wal_path, base, &mut world).expect("open wal");
         vault.record(WorldFact::StratumDisclosed { face: 0, stratum });
@@ -113,7 +113,7 @@ fn test_compacted_and_disk_vault_chronicle_decorators_deduplicate_and_fold_wal()
         }
         assert_eq!(vault.total(), 8, "Duplicate stratum and blueprint commissions must be compacted immediately");
     }
-    let mut rebooted_world = BiomedCubeWorld::of_size(4);
+    let mut rebooted_world = BiomedQuadSphere::of_size(4);
     let rebooted = DiskVaultChronicle::replay_and_open(
         &wal_path,
         CompactedChronicle::wrapping(ChronicleLog::empty()),
@@ -126,7 +126,7 @@ fn test_compacted_and_disk_vault_chronicle_decorators_deduplicate_and_fold_wal()
 
 #[test]
 fn test_admin_block_ward_and_spawn_stone_round_robin_plus_proximity_chat() {
-    let base_world = Box::new(BiomedCubeWorld::of_size(32));
+    let base_world = Box::new(BiomedQuadSphere::of_size(32));
     let raw_host = SanctuaryHost::bind("127.0.0.1:0", base_world, 32).expect("bind host");
     let addr = raw_host.local_addr().expect("addr");
     let mut host_planet = HostedPlanet::new(raw_host);

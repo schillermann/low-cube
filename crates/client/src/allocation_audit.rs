@@ -68,7 +68,7 @@ fn test_tracking_allocator_detects_heap_allocation() {
 
 #[test]
 fn test_hot_simulation_loop_zero_runtime_allocations() {
-    let world = world::BiomedCubeWorld::beveled(32, 1.0);
+    let world = world::BiomedQuadSphere::of_size(32);
     let spawn = world.constrain_to_surface(Vec3::new(0.0, 17.0, 0.0), 1.0);
     let mut avatar = PlanetaryAvatar::at(spawn);
     let walk_ctrl = WalkControls;
@@ -140,7 +140,7 @@ fn test_hot_simulation_loop_zero_runtime_allocations() {
     // Audit multiplayer walking on HostedPlanet & RemotePlanet while a companion drives a vehicle
     let host = sanctuary::SanctuaryHost::bind(
         "127.0.0.1:0",
-        Box::new(world::BiomedCubeWorld::barren_beveled(16, 0.5)),
+        Box::new(world::BiomedQuadSphere::barren(16)),
         16,
     )
     .expect("bind host");

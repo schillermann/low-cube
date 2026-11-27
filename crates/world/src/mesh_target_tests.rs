@@ -81,10 +81,10 @@ fn test_low_poly_grass_emits_3d_pyramid_blades_on_verdant_turf() {
 
 #[test]
 fn test_local_camera_meadow_is_constant_o1_across_world_cube_scales() {
-    use crate::{BiomedCubeWorld, TerrainMesh};
+    use crate::{BiomedQuadSphere, TerrainMesh};
 
-    let small_world = BiomedCubeWorld::beveled(96, 1.0);
-    let large_world = BiomedCubeWorld::beveled(160, 1.0);
+    let small_world = BiomedQuadSphere::of_size(96);
+    let large_world = BiomedQuadSphere::of_size(160);
     let (mut s_surf, mut l_surf) = (QuadLedger::empty(), QuadLedger::empty());
     small_world.emit_face(0, &mut s_surf);
     large_world.emit_face(0, &mut l_surf);
@@ -104,9 +104,9 @@ fn test_local_camera_meadow_is_constant_o1_across_world_cube_scales() {
 
 #[test]
 fn test_sector_patch_grid_and_toroidal_meadow_ring_update_o1_subpatches() {
-    use crate::{BiomedCubeWorld, MeadowRing, PlanetaryWorld, TerrainMesh, MEADOW_RING_SLOTS};
+    use crate::{BiomedQuadSphere, MeadowRing, PlanetaryWorld, TerrainMesh, MEADOW_RING_SLOTS};
 
-    let mut world = BiomedCubeWorld::barren_beveled(64, 1.0);
+    let mut world = BiomedQuadSphere::barren(64);
     assert_eq!(world.face_patch_count(0), 64, "64-block face (128 half-meter cells) must partition into 8x8 = 64 sectors");
     let mut init_buf = QuadLedger::empty();
     world.emit_face_patch(0, 0, &mut init_buf);
@@ -136,7 +136,7 @@ fn test_sector_patch_grid_and_toroidal_meadow_ring_update_o1_subpatches() {
     }
     assert_eq!(dig_meadow, 1, "Single dig crack must refresh only 1 of 81 toroidal meadow slots");
 
-    let center1 = Vec3::new(8.25, 34.0, 0.25);
+    let center1 = Vec3::new(9.0, 34.0, 0.25);
     let mut step_meadow = 0usize;
     while world.drain_stale_meadow_patch(center1, &mut ring, &mut QuadLedger::empty()).is_some() {
         step_meadow += 1;

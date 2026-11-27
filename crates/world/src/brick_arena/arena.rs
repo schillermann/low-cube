@@ -31,6 +31,10 @@ impl BrickArena {
         self.lookup.len()
     }
 
+    pub fn allocated_brick_bytes(&self) -> usize {
+        self.bricks.capacity() * core::mem::size_of::<Brick8>()
+    }
+
     pub fn brick_at(&self, bcoord: BrickCoord) -> Option<&Brick8> {
         let &slot_idx = self.lookup.get(&bcoord)?;
         self.bricks.get(slot_idx as usize)

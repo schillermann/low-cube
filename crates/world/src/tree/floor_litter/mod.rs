@@ -78,12 +78,10 @@ impl Arboreal for FloorLitter {
         }
         let (u, v, elevation) = self.coords;
         let dir = direction.normalize_or_zero();
-        let (eu, ev) = self.frame.decompose(eye);
-        let (du, dv) = self.frame.decompose(dir);
         for step in 2..=75 {
-            let t = (step as f32) * 0.04;
-            let (su, sv) = (eu + du * t, ev + dv * t);
-            let sh = self.frame.elevation_of(eye + dir * t) - elevation;
+            let sample = eye + dir * ((step as f32) * 0.04);
+            let (su, sv) = self.frame.decompose(sample);
+            let sh = self.frame.elevation_of(sample) - elevation;
             if (su - u).hypot(sv - v) <= 0.46 && (-0.28..=0.52).contains(&sh) {
                 return (Box::new(ClearedPlot::vacant(self.frame, u, v, elevation)), self.find);
             }

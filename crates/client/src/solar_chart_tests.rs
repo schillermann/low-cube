@@ -27,7 +27,7 @@ use crate::session::{HeadlessSession, HeadlessSurface};
 use crate::zero_g_flight::ZeroGFlight;
 
 fn build_fusion_torchship(world: &mut dyn PlanetaryWorld) -> Vec3 {
-    let g0 = world.constrain_to_surface(Vec3::new(0.25, 22.0, 0.25), 0.0).y;
+    let g0 = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 0.0).y;
     let av = Vec3::new(0.25, g0, 1.75);
     let crane_dir = Vec3::new(0.0, -0.8, -0.6).normalize();
     for mold in [
@@ -73,7 +73,7 @@ fn build_fusion_torchship(world: &mut dyn PlanetaryWorld) -> Vec3 {
         av,
         BlockMold::cube().in_medium(BlockMedium::FusionTorch),
     ));
-    world.constrain_to_surface(Vec3::new(1.75, 22.0, 0.75), 1.0)
+    world.constrain_to_surface(Vec3::new(1.75, 16.0, 0.75), 1.0)
 }
 
 #[test]

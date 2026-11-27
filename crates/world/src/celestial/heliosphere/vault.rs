@@ -1,12 +1,12 @@
 use std::collections::HashMap;
-use crate::{CubePlanet, MeshTarget, Quad, TerrainMesh, WorldFact};
+use crate::{MeshTarget, Quad, QuadSphere, TerrainMesh, WorldFact};
 use super::super::alien_worlds::AlienWorld;
 use super::super::catalog::BodyId;
 use super::super::proportions::SolarProportions;
 
 const MAX_WARM_BODIES: usize = 32;
 
-/// Idle duration in seconds after which an uninhabited off-world `CubePlanet` folds into cold `SectorSnapshot`s and frees RAM.
+/// Idle duration in seconds after which an uninhabited off-world `QuadSphere` folds into cold `SectorSnapshot`s and frees RAM.
 pub const OFFWORLD_IDLE_TTL_SECS: f32 = 180.0;
 
 struct DrainSink;
@@ -15,11 +15,11 @@ impl MeshTarget for DrainSink {
     fn push_quad(&mut self, _q: Quad) {}
 }
 
-/// Persistent off-world chronicle and warm authoritative `CubePlanet` pool with Idle-TTL cold eviction (`<= 4` fields).
+/// Persistent off-world chronicle and warm authoritative `QuadSphere` pool with Idle-TTL cold eviction (`<= 4` fields).
 pub struct OffworldVault {
     authoritative: bool,
     chronicles: HashMap<BodyId, Vec<WorldFact>>,
-    warm: HashMap<BodyId, (CubePlanet, f32, f32)>,
+    warm: HashMap<BodyId, (QuadSphere, f32, f32)>,
 }
 
 impl OffworldVault {
@@ -27,7 +27,7 @@ impl OffworldVault {
     pub const fn new(
         authoritative: bool,
         chronicles: HashMap<BodyId, Vec<WorldFact>>,
-        warm: HashMap<BodyId, (CubePlanet, f32, f32)>,
+        warm: HashMap<BodyId, (QuadSphere, f32, f32)>,
     ) -> Self {
         Self { authoritative, chronicles, warm }
     }
@@ -52,7 +52,7 @@ impl OffworldVault {
         self.chronicles.entry(id).or_default().push(fact);
     }
 
-    /// Folds `id`'s modified sectors into compact raycast-free `SectorSnapshot`s and drops `CubePlanet` from RAM.
+    /// Folds `id`'s modified sectors into compact raycast-free `SectorSnapshot`s and drops `QuadSphere` from RAM.
     pub fn evict_to_cold(&mut self, id: BodyId) -> bool {
         use crate::WorldEarthworks as _;
         let Some((cube, _, _)) = self.warm.remove(&id) else {
@@ -71,7 +71,7 @@ impl OffworldVault {
         true
     }
 
-    pub fn shelve(&mut self, id: BodyId, cube: CubePlanet, half: f32) {
+    pub fn shelve(&mut self, id: BodyId, cube: QuadSphere, half: f32) {
         if !self.authoritative {
             return;
         }
@@ -88,7 +88,7 @@ impl OffworldVault {
         self.warm.insert(id, (cube, half, 0.0));
     }
 
-    pub fn checkout(&mut self, id: BodyId, proportions: SolarProportions) -> (CubePlanet, f32) {
+    pub fn checkout(&mut self, id: BodyId, proportions: SolarProportions) -> (QuadSphere, f32) {
         if let Some((cube, half, _)) = self.warm.remove(&id) {
             return (cube, half);
         }
@@ -228,7 +228,7 @@ impl OffworldVault {
         for id in stale {
             let _ = self.evict_to_cold(id);
         }
-        let mut targets: Vec<&mut CubePlanet> = self
+        let mut targets: Vec<&mut QuadSphere> = self
             .warm
             .iter_mut()
             .filter_map(|(&id, (cube, _, _))| active_bodies.contains(&id).then_some(cube))

@@ -95,7 +95,7 @@ impl HorizonStream {
             }
         }
 
-        if recipient_frame.earth_centered() && anchor.abs().max_element() <= earth_half + HORIZON_FACT_METERS {
+        if recipient_frame.earth_centered() && anchor.length() <= earth_half + HORIZON_FACT_METERS {
             let dom_n = ClimateZone::dominant(anchor).normal();
             for (face_idx, zone) in ClimateZone::all().into_iter().enumerate() {
                 let n = zone.normal();
@@ -103,7 +103,12 @@ impl HorizonStream {
                     continue;
                 }
                 let frame = zone.surface_frame(earth_half);
-                let (u, v) = frame.decompose(anchor);
+                let (u, v) = if frame.matches_cone(anchor) {
+                    frame.decompose(anchor)
+                } else {
+                    let (tu, tv) = frame.decompose_vector(anchor);
+                    frame.clamp_interior(tu, tv, 0.0)
+                };
                 let su = (u / EARTH_SECTOR_METERS).floor() as i32;
                 let sv = (v / EARTH_SECTOR_METERS).floor() as i32;
                 for dv in -2..=2 {
@@ -129,7 +134,7 @@ impl HorizonStream {
                     true
                 } else if let Some(snap) = snaps.iter().find(|s| s.id() == body_id) {
                     let pad = (snap.half_size() * 26.0).max(640.0);
-                    (probe_d - snap.center()).abs().max_element() <= snap.half_size() + pad
+                    (probe_d - snap.center()).length() <= snap.half_size() + pad
                 } else {
                     let belt = world::AsteroidBelt::new(proportions, epoch_secs);
                     let helio_probe = world::GravityBubble::new(proportions, epoch_secs)

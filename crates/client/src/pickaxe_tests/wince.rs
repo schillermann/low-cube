@@ -1,7 +1,7 @@
 use acoustics::{AcousticWave, DigWaveTrace, KnuckleWince};
 use glam::Vec3;
 use world::{
-    BiomedCubeWorld, BlockMedium, BlockMold, PlanetaryWorld, WorldEarthworks as _,
+    BiomedQuadSphere, BlockMedium, BlockMold, PlanetaryWorld, WorldEarthworks as _,
 };
 use crate::attire::{EvaAttire, HeldRelic};
 use crate::avatar::{Avatar as _, AvatarMotor as _, PlanetaryAvatar};
@@ -29,7 +29,7 @@ fn test_bare_hands_on_hard_stone_emit_aua_wince_while_earth_sand_tools_and_sky_d
     let wince_wavs: Vec<Vec<u8>> = (0..4).map(|c| KnuckleWince::inflected(c).riff_wave()).collect();
     assert!(wince_wavs.windows(2).all(|w| w[0] != w[1]));
 
-    let mut world = BiomedCubeWorld::barren_beveled(16, 1.0);
+    let mut world = BiomedQuadSphere::barren(16);
     let stand = world.constrain_to_surface(Vec3::new(0.25, 16.0, 0.25), 1.0);
     let ground_y = world.constrain_to_surface(Vec3::new(0.25, 16.0, -0.75), 0.0).y;
     let aim_eye = Vec3::new(0.25, stand.y + 0.8, 0.25);

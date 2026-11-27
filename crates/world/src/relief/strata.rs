@@ -20,7 +20,6 @@ impl ReliefStrata {
     }
 
     /// Emits all surface and subterranean facets for a single discrete grid cell ("Tell, Don't Ask").
-    #[cfg(test)]
     pub fn emit_cell(
         &self,
         cell: GridCell,

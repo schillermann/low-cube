@@ -35,6 +35,8 @@ impl BrickStructure {
 
     pub const fn bricks(&self) -> &InertialBricks<BrickArena> { &self.bricks }
     pub const fn datum(&self) -> f32 { self.datum }
+    pub fn active_brick_count(&self) -> usize { self.bricks.inner().active_brick_count() }
+    pub fn allocated_brick_bytes(&self) -> usize { self.bricks.inner().allocated_brick_bytes() }
     pub const fn total_mass_kg(&self) -> f64 { self.bricks.total_mass_kg() }
     pub fn center_of_mass(&self) -> glam::DVec3 { self.bricks.center_of_mass() }
     pub fn inertia_matrix(&self) -> glam::DMat3 { self.bricks.inertia_matrix() }

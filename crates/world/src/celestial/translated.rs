@@ -59,8 +59,8 @@ impl<W> TranslatedWorld<W> {
         self.center = next_center;
     }
 
-    pub fn in_vicinity(&self, position: Vec3, cheb_bound: f32) -> bool {
-        (position - self.center).abs().max_element() <= cheb_bound
+    pub fn in_vicinity(&self, position: Vec3, radial_bound: f32) -> bool {
+        (position - self.center).length() <= radial_bound
     }
 
     pub const fn compose_atlas(&self, home_half: f32, moon_half: f32) -> crate::CelestialAtlas {
@@ -172,6 +172,7 @@ impl<W: TerrainMesh> TerrainMesh for TranslatedWorld<W> {
         self.origin.emit_meadow_around(center - self.center, view_dir, &mut shifted);
     }
     fn drain_disclosures(&mut self, out: &mut Vec<(u8, ExposedStratum)>) { self.origin.drain_disclosures(out); }
+    fn allocated_brick_bytes(&self) -> usize { self.origin.allocated_brick_bytes() }
 }
 
 impl<W: VesselDeck> VesselDeck for TranslatedWorld<W> {

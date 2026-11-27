@@ -49,9 +49,9 @@ impl ClimateZone {
         }
     }
 
-    /// Constructs the orthogonal surface frame for this climate zone at given planetary half size.
+    /// Constructs the spherical `QuadSphere` shell frame for this climate zone at planetary `radius`.
     pub fn surface_frame(&self, half_size: f32) -> SurfaceFrame {
-        SurfaceFrame::new(self.tangent(), self.bitangent(), self.normal(), half_size)
+        SurfaceFrame::quad_sphere(self.tangent(), self.bitangent(), self.normal(), half_size)
     }
 
     /// All six cubic planetary climate zones.

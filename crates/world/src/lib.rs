@@ -1,13 +1,13 @@
 use glam::Vec3;
 
 mod arrival_sites;
-mod beveled_world;
 mod biome;
 mod block;
 mod brick_arena;
 mod celestial;
 mod chronicle;
 mod contracts;
+mod cosmic_pos;
 mod frame;
 mod mesh_target;
 mod noise;
@@ -26,8 +26,6 @@ mod weather;
 mod wire_vector;
 
 #[cfg(test)]
-mod beveled_world_tests;
-#[cfg(test)]
 mod celestial_tests;
 #[cfg(test)]
 mod continental_cosmos_tests;
@@ -37,17 +35,18 @@ mod gravity_tests;
 mod mesh_target_tests;
 #[cfg(test)]
 mod offworld_eviction_tests;
+#[cfg(test)]
+mod quad_sphere_tests;
 
 pub use arrival_sites::{ArrivalSites, MediumArrivalSites, PrioritizedArrivalSites};
-pub use beveled_world::BeveledGravity;
 pub use biome::{
-    BarrenZone, BiomedCubeWorld, ForestedZone, HollowRelief, LivingRelief, OriginPlinthRelief,
+    BarrenZone, BiomedQuadSphere, ForestedZone, HollowRelief, LivingRelief, OriginPlinthRelief,
     ReliefMold, ZoneSurface,
 };
 pub use celestial::{
     ActiveVicinity, AlienWorld, ApexSpin, AsteroidBelt, AtlasMode, AwakenedBody, BeltAndReach,
-    BeltRock, BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique,
-    BodySnapshot, CelestialAtlas, CelestialSystem, CosmicFrame, EllipticShape, FrameHandoff,
+    BeltRock, BinaryGravity, BinaryPlanet, BodyId, BodyKinematics, BodyPhysique, BodySnapshot,
+    Brad64, CelestialAtlas, CelestialSystem, CosmicFrame, EllipticShape, FrameHandoff,
     GravityBubble, HeliosphereWorld, KeplerAnomaly, LunarCraterRelief, LunarWorld, OrbitElements,
     OrbitalFleetWorld, OrbitalLocus, OrbitalPlane, OrbitalSpec, PlanetarySpin, RadialWell,
     SignalKind, SkySignal, SolarCatalog, SolarEphemeris, SolarProportions, SurfaceNature,
@@ -77,13 +76,14 @@ pub use chronicle::{
 pub use contracts::{
     CompanionPortal, PlanetaryWorld, TerrainMesh, VesselDeck, WorldEarthworks,
 };
-pub use frame::SurfaceFrame;
+pub use cosmic_pos::CosmicPos;
+pub use frame::{FrameShape, SurfaceFrame};
 pub use mesh_target::{
     CountedMeshTarget, CrateredMeshTarget, MeadowCrown, NaturalMeadowTarget, TurfMeshTarget,
 };
 pub use noise::{CoherentNoise, DomainWarp, FractalHarmonics, SeededFrequency, SpatialFrequency};
 pub use null_face::NullFace;
-pub use planet::{CubePlanet, ModifiedSlices, PatchCoord, ZoneShards};
+pub use planet::{ModifiedSlices, PatchCoord, QuadSphere, ZoneShards};
 pub use presence::{
     Callsign, CompanionPresence, DrivenCraft, PilotCraft,
     PresenceAttire, PresenceKinematics, PresenceRhythm, ProximityUtterance,
@@ -96,18 +96,17 @@ pub use survivor::{
     RelicCatalog, SatchelManifest, SurvivorRecord, SurvivorWelcome, RELIC_SLOT_COUNT,
 };
 pub use relief::{
-    AttitudeGuidance, BlueprintCatalog, CellRole, CockpitAxes, CraftBlueprint, CraftIdentity,
-    CraftPose, CrustVault, DeckFrame, ExposedStratum, FacetedReliefFace, HelmLocks, HollowVeins,
-    HullOptic, HullWireframe, JetTone, LivingVeins, MeadowRing, MeadowStamp, MountDomain,
-    MountSite, OpticMount, PilotOrder, PlannedMount, ReliefElevation, ReliefFacet, ReliefPalette,
-    RigidImpulse, SeatOccupancy, SubterraneanVeins, SurfaceSightRay, TerracedRelief,
-    VehicleAssembly, VehicleAxes, VehiclePart, VesselSink, WorldCraft, MAX_EXHAUST_JETS,
-    MAX_WIRE_EDGES, MEADOW_RING_SLOTS,
+    AttitudeGuidance, BlueprintCatalog, CellRole, ClipmapLod, CockpitAxes, CraftBlueprint,
+    CraftIdentity, CraftPose, CrustVault, DeckFrame, ExposedStratum, FacetedReliefFace, HelmLocks,
+    HollowVeins, HullOptic, HullWireframe, JetTone, LivingVeins, MeadowRing, MeadowStamp,
+    MountDomain, MountSite, OpticMount, PilotOrder, PlanetHeightClipmap, PlannedMount,
+    ReliefElevation, ReliefFacet, ReliefPalette, RigidImpulse, SeatOccupancy, SubterraneanVeins,
+    SurfaceSightRay, TerracedRelief, VehicleAssembly, VehicleAxes, VehiclePart, VesselSink,
+    WorldCraft, MAX_EXHAUST_JETS, MAX_WIRE_EDGES, MEADOW_RING_SLOTS,
 };
 pub use topology::{
-    BevelTransition, BeveledBoundary, ClimateZone, CoordinateFold, CubicBoundary, FacePerimeter,
-    FoldedPoint, OpenBoundary, PerimeterCrossing, PerimeterEdge, PerimeterFold, PlanetaryTopology,
-    SeamBevel, SeamBoundary, SeamFold, Topology,
+    ClimateZone, CoordinateFold, FacePerimeter, FoldedPoint, OpenBoundary, PerimeterCrossing,
+    PerimeterEdge, PlanetaryTopology, SeamBoundary, SeamFold, ShellBoundary, Topology,
 };
 pub use tree::{
     Arboreal, ArborealFacet, ArcticPine, ClearedPlot, CleaveOutcome, ConicalSkirt,
@@ -138,10 +137,12 @@ pub trait GravityField {
     }
 }
 
-/// Interface representing an individual face of a planetary body.
+/// Interface representing an individual shell of a `QuadSphere` planetary body.
 pub trait Face: Send + Sync {
     fn matches(&self, point: Vec3) -> bool;
+    fn allocated_brick_bytes(&self) -> usize { 0 }
     fn surface_up(&self) -> Vec3;
+    fn surface_up_at(&self, _position: Vec3) -> Vec3 { self.surface_up() }
     fn pull_direction(&self) -> Vec3 { -self.surface_up() }
     fn constrain(&self, point: Vec3, distance: f32) -> Vec3;
     fn emit_surface(&self, target: &mut dyn MeshTarget);

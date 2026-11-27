@@ -85,7 +85,7 @@ impl<'a> MoldStack<'a> {
             }
             RigPlacement::WorldCube => {
                 if atom.medium().indestructible() {
-                    self.world_blocks.inlay_sanctuary(u, v, raw_floor, atom);
+                    self.world_blocks.stack_bare(u, v, raw_floor, ground_top, sub, atom, self.scars);
                     return true;
                 }
                 let site = BlueprintSite::new(self.rigs, self.fleet);
