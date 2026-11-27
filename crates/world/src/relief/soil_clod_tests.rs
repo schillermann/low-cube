@@ -156,7 +156,7 @@ fn test_earth_crust_side_walls_never_emit_dirt_clods() {
     );
     assert_eq!(relief.harvest_layer(1, 0, crust_layer_elev), Some(crate::block::BlockMedium::CrustRock));
     let placed_base = (relief.elevation_at(1, 0) as f32) * 0.5;
-    assert!(relief.stack_molded_cell(1, 0, placed_base, Box::new(crate::block::CuboidShape::new(0.5))));
+    assert!(relief.stack_molded_cell(1, 0, placed_base, crate::RawAtom::turf_cube()));
     assert_eq!(
         relief.mark_dig_layer(1, 0, crust_layer_elev, 1),
         Some(crate::block::BlockMedium::TurfEarth),
@@ -190,7 +190,7 @@ fn test_mining_blocks_never_expands_geometry_outward() {
     let frame = ClimateZone::Temperate.surface_frame(32.0);
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
     let mut relief = TerracedRelief::in_span(Box::new(FlatMeadow), 64);
-    assert!(relief.stack_molded_cell(0, 0, 0.0, Box::new(crate::block::CuboidShape::new(0.5))));
+    assert!(relief.stack_molded_cell(0, 0, 0.0, crate::RawAtom::turf_cube()));
     let mut idle = SpanBounds::empty();
     ReliefStrata::new().emit_cell(GridCell::new(0, 0), &frame, &relief, &palette, 64, &mut idle);
     for stage in 1..=3 {

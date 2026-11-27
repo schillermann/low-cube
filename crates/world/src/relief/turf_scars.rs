@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::block::{ElevatedShape, GridCell, TurfSod};
+use crate::block::{GridCell, TurfSod};
 use super::molded_structure::WorldBlocks;
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
@@ -78,9 +78,10 @@ impl ExcavationCracks {
         }
     }
 
-    pub fn block_stage(&self, u: i32, v: i32, block: &ElevatedShape) -> u8 {
+    pub fn cell_stage(&self, u: i32, v: i32, floor_elev: f32) -> u8 {
         let Some(&crack) = self.cells.get(&(u, v)) else { return 0 };
-        if block.occupies_layer(crack.elevation()) { crack.stage } else { 0 }
+        let e = crack.elevation();
+        if e >= floor_elev - 0.05 && e <= floor_elev + 0.48 { crack.stage } else { 0 }
     }
 
     pub fn clear_at(&mut self, u: i32, v: i32) -> bool {
@@ -143,8 +144,8 @@ impl TurfScars {
         self.cracks.layer_stage(u, v, layer_elev, occupied_at)
     }
 
-    pub fn block_stage(&self, u: i32, v: i32, block: &ElevatedShape) -> u8 {
-        self.cracks.block_stage(u, v, block)
+    pub fn cell_stage(&self, u: i32, v: i32, floor_elev: f32) -> u8 {
+        self.cracks.cell_stage(u, v, floor_elev)
     }
 
     pub fn clear_stage(&mut self, u: i32, v: i32) -> bool {

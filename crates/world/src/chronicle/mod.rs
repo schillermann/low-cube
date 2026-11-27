@@ -20,6 +20,7 @@ pub enum WorldFact {
     Harvested { eye: Vec3, direction: Vec3 },
     StratumDisclosed { face: u8, stratum: ExposedStratum },
     MoldPlaced { eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold },
+    ModulePlaced { eye: Vec3, direction: Vec3, avatar_pos: Vec3, spec: crate::ModuleSpec },
     TimberStruck { eye: Vec3, direction: Vec3 },
     Foraged { eye: Vec3, direction: Vec3 },
     RigAdjusted { eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool },
@@ -42,6 +43,9 @@ impl WorldFact {
             Self::StratumDisclosed { face, stratum } => Self::StratumDisclosed { face, stratum },
             Self::MoldPlaced { eye, direction, avatar_pos, mold } => {
                 Self::MoldPlaced { eye: eye + shift, direction, avatar_pos: avatar_pos + shift, mold }
+            }
+            Self::ModulePlaced { eye, direction, avatar_pos, spec } => {
+                Self::ModulePlaced { eye: eye + shift, direction, avatar_pos: avatar_pos + shift, spec }
             }
             Self::TimberStruck { eye, direction } => Self::TimberStruck { eye: eye + shift, direction },
             Self::Foraged { eye, direction } => Self::Foraged { eye: eye + shift, direction },
@@ -85,6 +89,9 @@ impl WorldFact {
             Self::MoldPlaced { eye, direction, avatar_pos, mold } => {
                 world.place_molded_surface_block(eye, direction, avatar_pos, mold)
             }
+            Self::ModulePlaced { eye, direction, avatar_pos, spec } => {
+                world.place_scaled_surface_module(eye, direction, avatar_pos, spec)
+            }
             Self::TimberStruck { eye, direction } => world.strike_timber(eye, direction).struck(),
             Self::Foraged { eye, direction } => world.forage_surface(eye, direction).gathered(),
             Self::RigAdjusted { eye, direction, delta_steps, rotate_quarter } => {
@@ -111,6 +118,7 @@ impl WorldFact {
             Self::Harvested { .. }
             | Self::StratumDisclosed { .. }
             | Self::MoldPlaced { .. }
+            | Self::ModulePlaced { .. }
             | Self::RigAdjusted { .. }
             | Self::RigLowered { .. }
             | Self::RigBlueprintBuilt { .. }

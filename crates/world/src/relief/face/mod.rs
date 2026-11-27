@@ -5,7 +5,7 @@ mod meadow_ring;
 mod orbital_shell;
 mod patch_grid;
 
-use crate::block::VoxelShape;
+use crate::brick_arena::RawAtom;
 use crate::topology::ClimateZone;
 use crate::WorldSeed;
 use super::elevation::{ReliefElevation, ZonedRelief};
@@ -93,9 +93,9 @@ impl FacetedReliefFace {
         )
     }
 
-    /// Returns this relief face with an additional molded voxel shape stacked at `(u, v, base)`.
-    pub fn with_molded_block(mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>) -> Self {
-        self.domain.relief.stack_molded_cell(u, v, base, shape);
+    /// Returns this relief face with an additional unboxed `RawAtom` stacked at `(u, v, base)`.
+    pub fn with_molded_block(mut self, u: i32, v: i32, base: f32, atom: RawAtom) -> Self {
+        self.domain.relief.stack_molded_cell(u, v, base, atom);
         self.cache.record_molded(u, v);
         self
     }

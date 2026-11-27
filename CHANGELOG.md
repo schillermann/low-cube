@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.134.0] - 2026-11-27
+
+### Changed
+- Completed **Stufe 2 (`BrickArena` & Multi-Block Anchor System)** of the Zero-Legacy Space-Age Engine rebuild (`REBUILD_PLAN.md`), replacing per-block heap structures with flat `8×8×8` (`0.5 m`) voxel bricks, multi-block `ModuleAnchor`/`ModuleProxy` machines, interactive `B × T × H` scalable modules, and incremental `O(1)` Steiner inertia (`crates/world`, `crates/sanctuary` & `crates/client`):
+  - Deleted `VoxelCells`, `ElevatedShape` (`Box<dyn VoxelShape>`), `TurfCoat`, `NaturalOverhang`, and `SodColumn` across `crates/world`, replacing them with unboxed `Copy` `BrickCell` (`Empty`, `RawAtom`, `ModuleAnchor(ModuleSpec)`, `ModuleProxy(AnchorOffset)`), `Brick8` (`512` cells + `8 × u64` occupancy & `8 × u64` granular bitmasks), and contiguous slot-recycling `BrickArena` with zero-allocation stack column scans (`visit_column`, `find_in_column_rev`).
+  - Added **8 fixed multi-block Space-Age machines** (`> 1` block: `ArcFurnace` `2×2×3`, `AssemblyBench` `2×1×2`, `ElectrolysisPlant` `2×2×3`, walkable `AirlockChamber` `2×2×4`, `PilotSeat` `2×2×3`, `PhosphorConsole` `2×2×2`, `DockingRing` `2×2×1`, and `CrewBerth` `2×4×2`) and **3 grid-scalable functional modules** (`PropulsionBell`, `PropellantTank`, and `ThermalFin` in `B × T × H`) with low-poly 3D `ModuleSculpture` meshes, `SpanHologram` 12-corner docking previews, `ScaleDrag` interactive drag-and-scroll client placement, `WorldFact::ModulePlaced` WAL/P2P replication, and atomic dismantling via any `ModuleProxy` cell.
+  - Integrated the `InertialBricks<V: BrickVolume>` Elegant-Objects decorator (`SteinerMass`, `SymmetricInertia`) maintaining exact incremental `O(1)` Parallel-Axis Theorem (Satz von Steiner) mass $M$, center of mass $\vec{c}$, and $3\times 3$ rotational inertia tensor $\mathbf{I}_{\text{CoM}}$ across atom and multi-block mutations.
+
 ## [0.133.0] - 2026-11-27
 
 ### Changed

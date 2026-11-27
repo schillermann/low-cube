@@ -108,6 +108,7 @@ impl SpatialFactIndex {
             }
             WorldFact::Harvested { eye, .. }
             | WorldFact::MoldPlaced { eye, .. }
+            | WorldFact::ModulePlaced { eye, .. }
             | WorldFact::TimberStruck { eye, .. }
             | WorldFact::Foraged { eye, .. }
             | WorldFact::RigAdjusted { eye, .. }

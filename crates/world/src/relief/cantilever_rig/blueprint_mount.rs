@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::block::GridCell;
 use crate::frame::SurfaceFrame;
 use super::super::craft_cluster::{CraftCluster, ParkedFleet};
 use super::super::craft_entity::CraftBlueprint;
@@ -60,6 +61,44 @@ impl<'a> BlueprintHoist<'a> {
         };
         *craft = cluster;
         Some(relocated)
+    }
+}
+
+/// Read-only collaborator querying aimed empty crane arms and capturing mounted blueprints (`1` field).
+pub(super) struct RigBlueprintQuery<'a> {
+    rigs: &'a HashMap<(i32, i32), CantileverRig>,
+}
+
+impl<'a> RigBlueprintQuery<'a> {
+    pub(super) const fn new(rigs: &'a HashMap<(i32, i32), CantileverRig>) -> Self {
+        Self { rigs }
+    }
+
+    pub(super) fn find_aimed(self, u: i32, v: i32, ray: SurfaceSightRay, frame: &SurfaceFrame) -> Option<(i32, i32)> {
+        if let Some((&mast, _)) = self.rigs.iter().find(|(&(mu, mv), r)| r.aimed_empty_boom(mu, mv, u, v)) {
+            return Some(mast);
+        }
+        (1..=60).find_map(|step| {
+            let sample = ray.sample_point((step as f32) * 0.08);
+            let (su, sv) = frame.decompose(sample);
+            let (ru, rv) = GridCell::at_planar(su, sv).feed_coordinates(|gu, gv| (gu, gv));
+            self.rigs.iter().find_map(|(&(mu, mv), r)| r.aimed_empty_boom(mu, mv, ru, rv).then_some((mu, mv)))
+        })
+    }
+
+    pub(super) fn capture(
+        self,
+        (u, v, layer_elev): (i32, i32, f32),
+        (eu, ev): (f32, f32),
+        frame: &SurfaceFrame,
+    ) -> Option<CraftBlueprint> {
+        self.rigs.iter().find_map(|(&(mu, mv), rig)| {
+            let hit = !rig.vacant_craft()
+                && (rig.craft_medium_at(u, v, layer_elev).is_some()
+                    || rig.boom_or_craft_at(mu, mv, u, v)
+                    || ((u, v) == (mu, mv) && rig.occupies_mast_layer(layer_elev)));
+            hit.then(|| rig.capture_blueprint(eu, ev, frame)).flatten()
+        })
     }
 }
 

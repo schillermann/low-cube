@@ -15,7 +15,7 @@ use super::CraftDrive as _;
 fn commission_expanse_ship(fusion_drive: bool) -> VehicleAssembly {
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
     let rcs_pod = |heading: WedgeHeading| {
-        BlockMold::shape_from_stamp([1, heading.code(), BlockMedium::RocketNozzle.code()])
+        BlockMold::atom_from_stamp([1, heading.code(), BlockMedium::RocketNozzle.code()])
     };
     let main_med = if fusion_drive {
         BlockMedium::FusionTorch
@@ -26,17 +26,17 @@ fn commission_expanse_ship(fusion_drive: bool) -> VehicleAssembly {
         VehiclePart::new(
             (0, 0),
             0.5,
-            BlockMold::cube().in_medium(BlockMedium::CabinSeat).shape_for(Vec3::NEG_Z, &frame),
+            BlockMold::cube().in_medium(BlockMedium::CabinSeat).atom_for(Vec3::NEG_Z, &frame),
         ),
         VehiclePart::new(
             (0, -1),
             0.5,
-            BlockMold::cube().in_medium(BlockMedium::FlightConsole).shape_for(Vec3::Z, &frame),
+            BlockMold::cube().in_medium(BlockMedium::FlightConsole).atom_for(Vec3::Z, &frame),
         ),
         VehiclePart::new(
             (0, 0),
             0.0,
-            BlockMold::cube().in_medium(main_med).shape_for(Vec3::NEG_Z, &frame),
+            BlockMold::cube().in_medium(main_med).atom_for(Vec3::NEG_Z, &frame),
         ),
         VehiclePart::new((-1, 0), 0.5, rcs_pod(WedgeHeading::East)),
         VehiclePart::new((1, 0), 0.5, rcs_pod(WedgeHeading::West)),

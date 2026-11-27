@@ -107,6 +107,12 @@ impl AvatarPresence for EmbodiedAvatar {
             .flatten()
     }
 
+    fn emit_placement_preview(&self, world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
+        if !self.body.driving() && !self.body.perished() && self.body.hull_camera_lens().is_none() {
+            self.gear.emit_preview(self.surface_reach(), world, target);
+        }
+    }
+
     fn sector_stamp(&self) -> (u8, i32, i32, i32) {
         self.body.sector_stamp()
     }

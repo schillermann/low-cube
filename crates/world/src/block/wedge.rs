@@ -5,7 +5,7 @@ use crate::frame::SurfaceFrame;
 use super::shape::VoxelShape;
 
 /// Cardinal heading along which a directional slope rises.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum WedgeHeading {
     North,
     South,

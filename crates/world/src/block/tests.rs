@@ -1,29 +1,36 @@
 use glam::Vec3;
-use super::{CornerHeading, CuboidShape, ElevatedShape, RampWedge, WedgeHeading};
+use super::{BlockMedium, CornerHeading, MoldArchetype, WedgeHeading};
+use crate::brick_arena::{AtomKind, GranularFlag, RawAtom};
 use crate::frame::SurfaceFrame;
 
 #[test]
-fn test_elevated_shape_cube_and_wedge_support_constraint() {
-    let cube = ElevatedShape::new(Box::new(CuboidShape::full_cube()), 0.0);
+fn test_raw_atom_cube_and_wedge_support_constraint() {
+    let cube = RawAtom::full_cube(BlockMedium::QuarriedStone);
 
     // At local fraction (0.5, 0.5): support height is 0.5m
-    let support = cube.constrain_support(0.5, 0.5, 0.0, 0.0, 1.0);
+    let support = cube.at_floor(0.0).constrain_support(0.5, 0.5, 0.0, 0.0, 1.0);
     assert_eq!(support, 0.5);
 
-    let wedge = ElevatedShape::new(Box::new(RampWedge::new(WedgeHeading::North)), 0.0);
-    let on_wedge = wedge.constrain_support(0.5, 0.5, 0.0, 0.0, 1.0);
+    let wedge = RawAtom::new(
+        BlockMedium::QuarriedStone,
+        AtomKind::molded(MoldArchetype::RampWedge, WedgeHeading::North),
+        GranularFlag::Rigid,
+        super::TurfSod::bare(),
+    );
+    let on_wedge = wedge.at_floor(0.0).constrain_support(0.5, 0.5, 0.0, 0.0, 1.0);
     assert!((on_wedge - 0.25).abs() < 1e-4);
 }
 
 #[test]
-fn test_elevated_shape_decorator() {
-    use super::{CuboidShape, ElevatedShape, VoxelShape};
-
-    let shape = Box::new(CuboidShape::half_slab());
-    let elevated = ElevatedShape::new(shape, 0.5);
-
-    // Half slab (0.25m) elevated by 0.5m -> elevation 0.75m
-    assert_eq!(elevated.elevation_at(0.5, 0.5), 0.75);
+fn test_atom_surface_crown_elevation() {
+    let slab = RawAtom::new(
+        BlockMedium::QuarriedStone,
+        AtomKind::molded(MoldArchetype::HalfSlab, WedgeHeading::South),
+        GranularFlag::Rigid,
+        super::TurfSod::bare(),
+    );
+    // Half slab (0.25m) elevated by 0.5m -> crown elevation 0.75m
+    assert_eq!(slab.at_floor(0.5).crown_elevation(), 0.75);
 }
 
 #[test]
@@ -133,16 +140,16 @@ fn test_block_mold_cycles_all_sixteen_forms_and_rotates_all_four_directions() {
 
     // Verify 4-way rotation of a RampWedge along -Z (South) -> +X (East) -> +Z (North) -> -X (West)
     let wedge_fwd = BlockMold::new(MoldArchetype::RampWedge, CardinalTurn::Forward);
-    let s_fwd = wedge_fwd.shape_for(Vec3::NEG_Z, &frame);
+    let s_fwd = wedge_fwd.atom_for(Vec3::NEG_Z, &frame).at_floor(0.0);
     assert!((s_fwd.elevation_at(0.5, 0.0) - 0.5).abs() < 1e-4 && s_fwd.elevation_at(0.5, 1.0).abs() < 1e-4);
 
-    let s_right = wedge_fwd.turn_clockwise().shape_for(Vec3::NEG_Z, &frame);
+    let s_right = wedge_fwd.turn_clockwise().atom_for(Vec3::NEG_Z, &frame).at_floor(0.0);
     assert!((s_right.elevation_at(1.0, 0.5) - 0.5).abs() < 1e-4 && s_right.elevation_at(0.0, 0.5).abs() < 1e-4);
 
-    let s_back = wedge_fwd.turn_clockwise().turn_clockwise().shape_for(Vec3::NEG_Z, &frame);
+    let s_back = wedge_fwd.turn_clockwise().turn_clockwise().atom_for(Vec3::NEG_Z, &frame).at_floor(0.0);
     assert!((s_back.elevation_at(0.5, 1.0) - 0.5).abs() < 1e-4 && s_back.elevation_at(0.5, 0.0).abs() < 1e-4);
 
-    let s_left = wedge_fwd.turn_counter_clockwise().shape_for(Vec3::NEG_Z, &frame);
+    let s_left = wedge_fwd.turn_counter_clockwise().atom_for(Vec3::NEG_Z, &frame).at_floor(0.0);
     assert!((s_left.elevation_at(0.0, 0.5) - 0.5).abs() < 1e-4 && s_left.elevation_at(1.0, 0.5).abs() < 1e-4);
 }
 

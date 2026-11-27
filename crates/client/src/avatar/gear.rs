@@ -268,6 +268,12 @@ impl AvatarGear {
         (!self.folio.open()).then(|| self.earthworks.planned_mount(reach, self.attire, world)).flatten()
     }
 
+    pub fn emit_preview(&self, reach: SurfaceReach, world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
+        if !self.folio.open() {
+            self.earthworks.emit_preview(reach, self.attire, world, target);
+        }
+    }
+
     pub fn emit_intercom(&self, aspect: f32, head_angles: (f32, f32), target: &mut dyn MeshTarget) -> glam::Mat4 {
         crate::attire::IntercomBust::new(self.attire, head_angles).emit(aspect, target)
     }

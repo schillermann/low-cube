@@ -62,6 +62,14 @@ impl<G: GravityField + Send> WorldEarthworks for BinaryPlanet<G> {
         }
     }
 
+    fn place_scaled_surface_module(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, spec: crate::ModuleSpec) -> bool {
+        if self.near_moon(eye) {
+            self.moon.place_scaled_surface_module(eye, direction, avatar_pos, spec)
+        } else {
+            self.home.place_scaled_surface_module(eye, direction, avatar_pos, spec)
+        }
+    }
+
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         if self.near_moon(eye) {
             self.moon.adjust_rig(eye, direction, delta_steps, rotate_quarter)

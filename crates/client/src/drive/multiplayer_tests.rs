@@ -167,12 +167,12 @@ fn test_unseated_deck_crew_stays_aboard_heliosphere_ship_across_liftoff_and_orbi
             parts.push(VehiclePart::new(
                 (gx, gz),
                 0.0,
-                BlockMold::cube().in_medium(BlockMedium::PlanedPlanks).shape_for(Vec3::NEG_Z, &frame),
+                BlockMold::cube().in_medium(BlockMedium::PlanedPlanks).atom_for(Vec3::NEG_Z, &frame),
             ));
         }
     }
-    parts.push(VehiclePart::new((0, 1), 0.5, BlockMold::cube().in_medium(BlockMedium::FlightConsole).shape_for(Vec3::NEG_Z, &frame)));
-    parts.push(VehiclePart::new((0, -1), 0.0, BlockMold::cube().in_medium(BlockMedium::RocketNozzle).shape_for(Vec3::NEG_Z, &frame)));
+    parts.push(VehiclePart::new((0, 1), 0.5, BlockMold::cube().in_medium(BlockMedium::FlightConsole).atom_for(Vec3::NEG_Z, &frame)));
+    parts.push(VehiclePart::new((0, -1), 0.0, BlockMold::cube().in_medium(BlockMedium::RocketNozzle).atom_for(Vec3::NEG_Z, &frame)));
     let bp = CraftBlueprint::commission(Vec3::new(0.25, earth_half + 2.0, 0.25), parts);
     let ship_id = bp.identity();
 

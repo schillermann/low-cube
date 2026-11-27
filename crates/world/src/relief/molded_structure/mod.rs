@@ -1,7 +1,4 @@
-mod cells;
 mod layers;
-mod overhang;
-mod sod;
 mod world_blocks;
 
 use glam::Vec3;
@@ -10,11 +7,8 @@ use crate::block::{BlockMedium, GridCell};
 use crate::frame::SurfaceFrame;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
-pub use self::cells::VoxelCells;
 pub use self::layers::{ParkedStructure, RiggedStructure, SanctuaryStructure};
 pub use self::world_blocks::WorldBlocks;
-
-pub(super) const NICHE_CONTACT_TOLERANCE: f32 = 0.05;
 
 /// Polymorphic 3D surface structure contract composed across world blocks, parked crafts, and cranes.
 pub trait MoldedStructure {

@@ -89,18 +89,18 @@ fn test_missing_side_steuerduese_produces_asymmetric_lever_moment() {
     let asym_bp = CraftBlueprint::commission(
         Vec3::ZERO,
         vec![
-            VehiclePart::new((0, 0), 0.0, seat.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, 1), 0.0, console.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((-2, 0), 0.0, left_pod.shape_for(Vec3::X, &frame)),
+            VehiclePart::new((0, 0), 0.0, seat.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 1), 0.0, console.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((-2, 0), 0.0, left_pod.atom_for(Vec3::X, &frame)),
         ],
     );
     let sym_bp = CraftBlueprint::commission(
         Vec3::ZERO,
         vec![
-            VehiclePart::new((0, 0), 0.0, seat.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, 1), 0.0, console.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((-2, 0), 0.0, left_pod.shape_for(Vec3::X, &frame)),
-            VehiclePart::new((2, 0), 0.0, right_pod.shape_for(Vec3::NEG_X, &frame)),
+            VehiclePart::new((0, 0), 0.0, seat.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 1), 0.0, console.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((-2, 0), 0.0, left_pod.atom_for(Vec3::X, &frame)),
+            VehiclePart::new((2, 0), 0.0, right_pod.atom_for(Vec3::NEG_X, &frame)),
         ],
     );
 

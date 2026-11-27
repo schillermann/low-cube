@@ -177,7 +177,7 @@ fn test_linear_hull_mass_demands_additional_main_nozzles_and_streams_live_plumes
     let up_burn = PilotOrder::new(Vec3::Y);
     let part = |ox: i32, oy: i32, z: f32, med: BlockMedium| {
         let mold = BlockMold::with_medium(MoldArchetype::FullCube, CardinalTurn::Forward, med);
-        VehiclePart::new((ox, oy), z, mold.shape_for(Vec3::Z, &frame))
+        VehiclePart::new((ox, oy), z, mold.atom_for(Vec3::Z, &frame))
     };
 
     let mut hull_parts = vec![

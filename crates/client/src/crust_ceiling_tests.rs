@@ -163,7 +163,7 @@ fn test_head_contact_beneath_subterranean_dirt_block_never_catapults_to_surface_
     assert!(after_overhang.count() != before_count && after_overhang.count() != wall_crater_count, "Digging overhanging dirt block must update faces with 3D crater animation");
 
     let frame = world::ClimateZone::Temperate.surface_frame(32.0);
-    let shape = world::MediumShape::new(Box::new(world::CuboidShape::new(0.5)), world::BlockMedium::CrustRock, true, false);
+    let shape = world::MediumShape::new(world::CuboidShape::new(0.5), world::BlockMedium::CrustRock, true, false);
     let mut rock_span = SpanCapture::empty();
     use world::VoxelShape;
     shape.emit_terraced_shape(world::GridCell::new(0, 0), -7.0, &frame, Vec3::ONE, Vec3::ONE, true, &mut rock_span);

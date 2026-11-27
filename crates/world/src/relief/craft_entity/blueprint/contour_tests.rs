@@ -77,23 +77,23 @@ fn nose_cone_and_wedge_wing_fuse_onto_spacecraft_wireframe_without_base_crossbar
         VehiclePart::new(
             (0, 0),
             0.0,
-            BlockMold::cube().in_medium(BlockMedium::CabinSeat).shape_for(Vec3::NEG_Z, &frame),
+            BlockMold::cube().in_medium(BlockMedium::CabinSeat).atom_for(Vec3::NEG_Z, &frame),
         ),
         VehiclePart::new(
             (0, -1),
             0.0,
-            BlockMold::cube().in_medium(BlockMedium::FlightConsole).shape_for(Vec3::Z, &frame),
+            BlockMold::cube().in_medium(BlockMedium::FlightConsole).atom_for(Vec3::Z, &frame),
         ),
         VehiclePart::new(
             (0, -1),
             0.5,
-            BlockMold::cube().in_medium(BlockMedium::RocketCamera).shape_for(Vec3::NEG_Z, &frame),
+            BlockMold::cube().in_medium(BlockMedium::RocketCamera).atom_for(Vec3::NEG_Z, &frame),
         ),
         VehiclePart::new(
             (1, 0),
             0.0,
             BlockMold::with_medium(MoldArchetype::RampWedge, CardinalTurn::Left, BlockMedium::QuarriedStone)
-                .shape_for(Vec3::NEG_Z, &frame),
+                .atom_for(Vec3::NEG_Z, &frame),
         ),
     ];
     let bp = CraftBlueprint::commission(Vec3::ZERO, parts);

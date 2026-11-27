@@ -41,6 +41,8 @@ mod watertight_tests;
 mod wedge_seam_tests;
 
 pub(crate) use corner::NaturalCrown;
+pub(crate) use molded_structure::MoldedStructure;
+pub(crate) use turf_scars::TurfScars;
 pub use craft_entity::{
     BlueprintCatalog, CellRole, CraftBlueprint, CraftIdentity, CraftPose, DeckFrame, HelmLocks,
     HullOptic, HullWireframe, JetTone, OpticMount, SeatOccupancy, VesselSink, WorldCraft,

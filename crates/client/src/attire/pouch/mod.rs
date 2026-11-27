@@ -1,9 +1,10 @@
 mod intake;
 mod palms;
 mod temper;
+mod transfer;
 
 use glam::Vec3;
-use world::{BlockMold, MeshTarget, PalmMolds, PlanetaryWorld};
+use world::{BlockMold, MeshTarget, ModuleSpec, PalmMolds, PlanetaryWorld};
 use super::burden::{CarryLoad, JoinedLoad, SatchelBurden};
 use super::pose::BodyPose;
 use super::relic::HeldRelic;
@@ -15,6 +16,7 @@ use super::EvaAttire;
 use self::intake::SatchelIntake;
 use self::palms::PalmStack;
 use self::temper::SatchelTemper;
+use self::transfer::SatchelTransfer;
 
 /// Shared EVA satchel inventory with stowed storage, WASD inspection grid, palm molds, and tool state (`4` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -60,6 +62,7 @@ impl BeltSatchel {
 
     pub const fn open(&self) -> bool { self.tray.open() }
     pub const fn with_open(self, open: bool) -> Self { Self::new(self.palms, self.tray.with_open(open), self.tripod, self.temper) }
+    pub const fn mold_on_side(&self, side: f32) -> BlockMold { self.palms.mold_on(side) }
     #[cfg(test)]
     pub const fn palm_molds(&self) -> PalmMolds { self.palms.palm_molds() }
     pub fn wardrobe_molds(&self, attire: EvaAttire) -> PalmMolds {
@@ -129,7 +132,8 @@ impl BeltSatchel {
             (true, true)
         } else {
             self.tray.focused_sides()
-        };
+        }
+        ;
         self.palms.map_sides(attire, mr, ml, op);
         self
     }
@@ -164,42 +168,8 @@ impl BeltSatchel {
     }
 
     pub fn transfer_hand(self, side: f32, attire: EvaAttire) -> (Self, EvaAttire, bool) {
-        let (mut state, (hand, other)) = (self.reconcile_attire(attire), attire.hand_pair(side));
-        if state.tray.open() {
-            let (chosen, chosen_rank) = state.tray.selected_slot();
-            if chosen.gripped() {
-                let drawn_wear = state.temper.take_stowed_wear(chosen, chosen_rank);
-                let (mut next_tray, _) = state.tray.taken_stowed(chosen);
-                if hand.gripped() {
-                    state.temper.push_stowed_wear(hand, state.temper.palm_wear(side));
-                    next_tray = next_tray.stowed_with(hand, state.palms.blocks_on(side));
-                }
-                state.temper.assign_palm_wear(side, drawn_wear);
-                if chosen.placeable_block() && other.placeable_block() && !chosen.independent_palm_mold() && !other.independent_palm_mold() {
-                    state.palms.sync_mold_from_opposite(side);
-                } else if !chosen.placeable_block() || chosen.independent_palm_mold() {
-                    state.palms.reset_mold(side);
-                }
-                state.palms.assign_blocks(side, u32::from(chosen.placeable_block()));
-                state.tray = next_tray.focused_on(side).closed();
-                return (state, attire.with_hand_relic(side, chosen), true);
-            }
-        }
-        if hand.gripped() {
-            state.temper.push_stowed_wear(hand, state.temper.palm_wear(side));
-            state.temper.assign_palm_wear(side, 0);
-            state.tray = state.tray.closed().stowed_with(hand, state.palms.blocks_on(side)).focused_on(side);
-            state.palms.assign_blocks(side, 0);
-            if hand.independent_palm_mold() { state.palms.reset_mold(side); }
-            (state, attire.with_hand_relic(side, HeldRelic::EmptyPalm), true)
-        } else if state.tray.open() {
-            state.tray = state.tray.closed();
-            (state, attire, true)
-        } else {
-            let (next_tray, opened) = state.tray.opened_if_populated(side);
-            state.tray = next_tray;
-            (state, attire, opened)
-        }
+        let (p, t, tm, na, ok) = SatchelTransfer::new(self.palms, self.tray, self.temper).transfer_hand(side, attire);
+        (Self::new(p, t, self.tripod, tm), na, ok)
     }
 
     pub fn place_from_hand(
@@ -225,6 +195,15 @@ impl BeltSatchel {
         let next_hand = if refilled { hand } else { HeldRelic::EmptyPalm };
         self.palms.assign_blocks(side, u32::from(refilled));
         (self, attire.with_hand_relic(side, next_hand), true)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn place_scaled_from_hand(
+        self, side: f32, attire: EvaAttire, eye: Vec3, view_dir: Vec3, avatar_pos: Vec3, spec: ModuleSpec, world: &mut dyn PlanetaryWorld,
+    ) -> (Self, EvaAttire, bool) {
+        let (p, t, tm, na, ok) = SatchelTransfer::new(self.palms, self.tray, self.temper)
+            .place_scaled(side, attire, eye, view_dir, avatar_pos, spec, world);
+        (Self::new(p, t, self.tripod, tm), na, ok)
     }
 
     pub fn strain_hand(

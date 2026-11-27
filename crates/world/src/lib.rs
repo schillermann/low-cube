@@ -4,6 +4,7 @@ mod arrival_sites;
 mod beveled_world;
 mod biome;
 mod block;
+mod brick_arena;
 mod celestial;
 mod chronicle;
 mod contracts;
@@ -56,12 +57,18 @@ pub use celestial::{
 pub use block::{
     AttitudeNozzleMesh, BlackBoxPodMesh, BlockMedium, BlockMold,
     BlueprintBlockMesh, CabinSeatMesh, CardinalTurn, ConsoleOrrery, CornerHeading, CuboidShape,
-    DiagonalSlope, ElevatedShape, FieldCameraTripod, FlightConsoleMesh, FootwellPlinth,
+    DiagonalSlope, FieldCameraTripod, FlightConsoleMesh, FootwellPlinth,
     FusionTorchMesh, GentleRidge, GentleValley, GentleWedge, GridCell, LaserBeaconMesh, MediumShape,
     MineralSeam, MiningEdge, MoldArchetype, NozzleAxis, OriginPlinthMesh, PalmMolds,
     PedalClusterMesh, PyramidPeak, RampWedge, RidgeCorner, RocketNozzleMesh,
-    SpawnPlinthMesh, StairCorner, StairFlight, ValleyCorner, VitrifiedBasaltMesh, VoxelShape,
-    WalnutFloorPan, WedgeHeading, WheelProfile,
+    SpawnPlinthMesh, StairCorner, StairFlight, TurfSod, ValleyCorner, VitrifiedBasaltMesh,
+    VoxelShape, WalnutFloorPan, WedgeHeading, WheelProfile,
+};
+pub use brick_arena::{
+    AnchorOffset, AtomKind, AtomSurface, Brick8, BrickArena, BrickCell, BrickCoord, BrickStructure,
+    BrickVolume, CellCoord, DismantledSpan, GranularFlag, InertialBricks, LocalSlot, MachineKind,
+    ModuleSculpture, ModuleSpan, ModuleSpec, NicheConfinement, RawAtom, ScalableKind,
+    SpaceModule, SpanHologram, SteinerMass, SymmetricInertia, MAX_MODULE_AXIS_CELLS,
 };
 pub use chronicle::{
     RigSnapshot, SectorColumnState, SectorSnapshot, SnapshotBlock, WorldFact,
@@ -167,6 +174,7 @@ pub trait Face: Send + Sync {
     fn cast_litter(&mut self, _eye: Vec3, _direction: Vec3, _find: SurfaceFind) -> bool { false }
     fn plan_molded_block(&self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> Option<PlannedMount> { None }
     fn place_molded_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool { false }
+    fn place_scaled_module(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _spec: ModuleSpec) -> bool { false }
     fn adjust_rig(&mut self, _eye: Vec3, _direction: Vec3, _delta_steps: i32, _rotate_quarter: bool) -> bool { false }
     fn lower_rig(&mut self, _eye: Vec3, _direction: Vec3) -> bool { false }
     fn board_vehicle(&mut self, _eye: Vec3, _direction: Vec3, _holding_block: bool) -> Option<VehicleAssembly> { None }

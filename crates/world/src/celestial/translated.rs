@@ -97,6 +97,9 @@ impl<W: WorldEarthworks> WorldEarthworks for TranslatedWorld<W> {
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         self.origin.place_molded_surface_block(eye - self.center, direction, avatar_pos - self.center, mold)
     }
+    fn place_scaled_surface_module(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, spec: crate::ModuleSpec) -> bool {
+        self.origin.place_scaled_surface_module(eye - self.center, direction, avatar_pos - self.center, spec)
+    }
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         self.origin.adjust_rig(eye - self.center, direction, delta_steps, rotate_quarter)
     }

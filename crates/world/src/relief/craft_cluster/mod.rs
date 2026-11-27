@@ -4,10 +4,11 @@ mod helm;
 
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, GridCell, VoxelShape, WedgeHeading};
+use crate::block::{BlockMedium, GridCell, WedgeHeading};
+use crate::brick_arena::{BrickCell, BrickStructure, CellCoord, ModuleSpec, RawAtom};
 use crate::frame::SurfaceFrame;
 use super::craft_entity::{CraftBlueprint, CraftIdentity};
-use super::molded_structure::{MoldedStructure, VoxelCells, WorldBlocks};
+use super::molded_structure::{MoldedStructure, WorldBlocks};
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
 use super::sight_ray::SurfaceSightRay;
@@ -19,35 +20,50 @@ use self::helm::ClusterHelm;
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 
-/// Independent multi-block object constructed on a cantilever crane and optionally driven and parked.
+/// Independent multi-block object constructed on a cantilever crane backed by `InertialBricks<BrickArena>` (`1` field).
 pub struct CraftCluster {
-    grid: VoxelCells,
+    grid: BrickStructure,
 }
 
 impl CraftCluster {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(grid: VoxelCells) -> Self {
+    pub const fn new(grid: BrickStructure) -> Self {
         Self { grid }
     }
 
     pub fn untouched() -> Self {
-        Self::new(VoxelCells::untouched())
+        Self::new(BrickStructure::untouched())
     }
 
-    pub fn insert(&mut self, u: i32, v: i32, floor_elev: f32, shape: Box<dyn VoxelShape>) {
-        self.grid.insert(u, v, floor_elev, shape);
+    pub const fn structure(&self) -> &BrickStructure {
+        &self.grid
+    }
+
+    pub fn insert(&mut self, u: i32, v: i32, floor_elev: f32, atom: RawAtom) {
+        if self.grid.vacant() {
+            let w = (floor_elev / BLOCK_STEP).round() as i32;
+            let rem = floor_elev - (w as f32) * BLOCK_STEP;
+            if rem.abs() > 1e-4 {
+                self.grid.shift_elevation(rem);
+            }
+        }
+        self.grid.insert_atom(u, v, floor_elev, atom);
+    }
+
+    pub fn place_module(&mut self, anchor: CellCoord, spec: ModuleSpec) -> bool {
+        self.grid.place_module_at(anchor, spec)
     }
 
     pub fn snapshot_relative(&self, mast_u: i32, mast_v: i32) -> Vec<(i16, i16, i16, [u8; 3])> {
-        use crate::VoxelShape as _;
         let mut cells = Vec::new();
-        self.grid.visit_cells(|(cu, cv), list| {
+        let datum = self.grid.datum();
+        self.grid.bricks().inner().visit_occupied_cells(|coord, cell| {
+            let BrickCell::RawAtom(atom) = cell else { return };
+            let (cu, cv) = coord.planar();
             let du = (cu - mast_u).clamp(i16::MIN as i32, i16::MAX as i32) as i16;
             let dv = (cv - mast_v).clamp(i16::MIN as i32, i16::MAX as i32) as i16;
-            for b in list {
-                let fq = (b.floor() * 4.0).round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
-                cells.push((du, dv, fq, b.shape_stamp()));
-            }
+            let fq = (coord.floor_elev(datum) * 4.0).round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+            cells.push((du, dv, fq, atom.stamp()));
         });
         cells.sort_unstable();
         cells
@@ -60,7 +76,7 @@ impl CraftCluster {
                 mast_u + i32::from(du),
                 mast_v + i32::from(dv),
                 (fq as f32) * 0.25,
-                crate::BlockMold::shape_from_stamp(stamp),
+                crate::BlockMold::atom_from_stamp(stamp),
             );
         }
         out
@@ -71,46 +87,53 @@ impl CraftCluster {
     }
 
     pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
-        self.grid.remove_at(u, v, layer_elev).map(|(b, _)| b.block_medium())
+        self.grid.remove_at(u, v, layer_elev).and_then(|(span, _)| span.medium())
     }
 
     pub fn occupies_claw(&self, claw: (i32, i32), hoist_z: f32) -> bool {
-        self.grid.any_at(claw.0, claw.1, |b| (b.floor() - hoist_z).abs() <= BLOCK_STEP + 0.12)
+        let datum = self.grid.datum();
+        self.grid
+            .bricks()
+            .inner()
+            .any_in_column(claw.0, claw.1, |c, _| (c.floor_elev(datum) - hoist_z).abs() <= BLOCK_STEP + 0.12)
     }
 
     pub fn touches_placement(&self, u: i32, v: i32, floor_elev: f32) -> bool {
-        [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)]
-            .into_iter()
-            .any(|(du, dv)| self.grid.any_at(u + du, v + dv, |b| (b.floor() - floor_elev).abs() <= BLOCK_STEP + 0.12))
+        let datum = self.grid.datum();
+        [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)].into_iter().any(|(du, dv)| {
+            self.grid
+                .bricks()
+                .inner()
+                .any_in_column(u + du, v + dv, |c, _| (c.floor_elev(datum) - floor_elev).abs() <= BLOCK_STEP + 0.12)
+        })
     }
 
     pub fn adjacent_hoisted_floor(&self, u: i32, v: i32, above_base: impl FnOnce(f32) -> bool) -> Option<f32> {
         let (mut min_z, mut adj_min) = (f32::MAX, None::<f32>);
-        self.grid.visit_cells(|(cu, cv), list| {
-            let near = (cu - u).abs() + (cv - v).abs() <= 1;
-            for b in list {
-                min_z = min_z.min(b.floor());
-                if near {
-                    adj_min = Some(adj_min.map_or(b.floor(), |cur| cur.min(b.floor())));
-                }
+        let datum = self.grid.datum();
+        self.grid.bricks().inner().visit_occupied_cells(|coord, _| {
+            let (cu, cv) = coord.planar();
+            let f = coord.floor_elev(datum);
+            min_z = min_z.min(f);
+            if (cu - u).abs() + (cv - v).abs() <= 1 {
+                adj_min = Some(adj_min.map_or(f, |cur| cur.min(f)));
             }
         });
         above_base(min_z).then_some(adj_min)?
     }
 
     pub fn clamped_vertical_delta(&self, raw_dz: f32, ground_fn: impl Fn(i32, i32) -> f32) -> f32 {
+        let datum = self.grid.datum();
         let mut lift = 0.0f32;
-        self.grid.visit_cells(|_, list| {
-            for b in list {
-                lift = lift.max(b.wheel_ground_lift());
+        self.grid.bricks().inner().visit_occupied_cells(|coord, cell| {
+            if let BrickCell::RawAtom(a) = cell {
+                lift = lift.max(a.at_floor(coord.floor_elev(datum)).wheel_ground_lift());
             }
         });
         let mut clamped = raw_dz;
-        self.grid.visit_cells(|(cu, cv), list| {
-            let ground = ground_fn(cu, cv);
-            for b in list {
-                clamped = clamped.max(ground + lift - b.floor());
-            }
+        self.grid.bricks().inner().visit_occupied_cells(|coord, _| {
+            let (cu, cv) = coord.planar();
+            clamped = clamped.max(ground_fn(cu, cv) + lift - coord.floor_elev(datum));
         });
         clamped
     }
@@ -123,12 +146,13 @@ impl CraftCluster {
         if let Some((u, v, z, _)) = self.steering_unit() {
             return Some((u, v, z));
         }
+        let datum = self.grid.datum();
         let mut fallback: Option<(i32, i32, f32)> = None;
-        self.grid.visit_cells(|(cu, cv), list| {
-            if let Some(first) = list.first() {
-                if (cu, cv) == (0, 0) || fallback.is_none_or(|(fu, fv, _)| (fu, fv) != (0, 0) && (cu, cv) < (fu, fv)) {
-                    fallback = Some((cu, cv, first.floor()));
-                }
+        self.grid.bricks().inner().visit_occupied_cells(|coord, _| {
+            let (cu, cv) = coord.planar();
+            let f = coord.floor_elev(datum);
+            if (cu, cv) == (0, 0) || fallback.is_none_or(|(fu, fv, _)| (fu, fv) != (0, 0) && (cu, cv) < (fu, fv)) {
+                fallback = Some((cu, cv, f));
             }
         });
         fallback
@@ -136,7 +160,8 @@ impl CraftCluster {
 
     pub(in crate::relief) fn min_boom_step(&self, mast_u: i32, mast_v: i32, step: (i32, i32), reach_steps: i32) -> i32 {
         let mut min_s = reach_steps;
-        self.grid.visit_cells(|(cu, cv), _| {
+        self.grid.bricks().inner().visit_occupied_cells(|coord, _| {
+            let (cu, cv) = coord.planar();
             let (du, dv) = (cu - mast_u, cv - mast_v);
             if du * step.1 == dv * step.0 {
                 let s = du * step.0 + dv * step.1;
@@ -148,19 +173,18 @@ impl CraftCluster {
         min_s
     }
 
-    pub fn dismantle_into(
-        self,
-        strata: &NaturalStrata,
-        shafts: &ShaftExcavation,
-        world_blocks: &mut WorldBlocks,
-        scars: &mut TurfScars,
-    ) {
-        for ((cu, cv), shape) in self.grid.into_entries() {
-            if !shape.block_medium().vehicle_engine() {
-                let ground_top = (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP;
-                world_blocks.stack_bare(cu, cv, shape.floor(), ground_top, false, shape.into_shape(), scars);
+    pub fn dismantle_into(self, strata: &NaturalStrata, shafts: &ShaftExcavation, world_blocks: &mut WorldBlocks, scars: &mut TurfScars) {
+        let datum = self.grid.datum();
+        self.grid.bricks().inner().visit_occupied_cells(|coord, cell| {
+            if let BrickCell::RawAtom(atom) = cell {
+                if !atom.medium().vehicle_engine() {
+                    let (cu, cv) = coord.planar();
+                    let ground_top = (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP;
+                    let floor = ((coord.floor_elev(datum) / BLOCK_STEP).round()) * BLOCK_STEP;
+                    world_blocks.stack_bare(cu, cv, floor.max(ground_top), ground_top, false, atom, scars);
+                }
             }
-        }
+        });
     }
 
     pub fn nearest_seat_distance(&self, eu: f32, ev: f32) -> Option<f32> {
@@ -170,30 +194,29 @@ impl CraftCluster {
     }
 
     fn nearest_seat(&self, eu: f32, ev: f32) -> Option<(i32, i32, f32, WedgeHeading)> {
+        let datum = self.grid.datum();
         let mut best: Option<(i32, i32, f32, WedgeHeading, f32)> = None;
-        self.grid.visit_cells(|(cu, cv), list| {
-            if let Some(seat) = list.iter().rfind(|b| b.block_medium() == BlockMedium::CabinSeat) {
+        self.grid.bricks().inner().visit_occupied_cells(|coord, cell| {
+            let seat = match cell {
+                BrickCell::RawAtom(a) if a.medium() == BlockMedium::CabinSeat => Some(a.heading()),
+                BrickCell::ModuleAnchor(s) if s.medium() == BlockMedium::PilotSeat => Some(WedgeHeading::from_code(s.turn().code())),
+                _ => None,
+            };
+            if let Some(heading) = seat {
+                let (cu, cv) = coord.planar();
                 let (cx, cy) = GridCell::new(cu, cv).center();
                 let dist = (cx - eu).hypot(cy - ev);
                 if best.is_none_or(|cur| dist < cur.4) {
-                    best = Some((cu, cv, seat.floor(), seat.block_heading(), dist));
+                    best = Some((cu, cv, coord.floor_elev(datum), heading, dist));
                 }
             }
         });
         best.map(|(cu, cv, floor, heading, _)| (cu, cv, floor, heading))
     }
 
-    fn steering_unit(&self) -> Option<(i32, i32, f32, WedgeHeading)> {
-        ClusterHelm::new(&self.grid).unit()
-    }
+    fn steering_unit(&self) -> Option<(i32, i32, f32, WedgeHeading)> { ClusterHelm::new(&self.grid).unit() }
 
-    pub fn relocate_to_claw(
-        &mut self,
-        claw: (i32, i32, f32),
-        eu: f32,
-        ev: f32,
-        frame: &SurfaceFrame,
-    ) -> Option<(Vec<(i32, i32, f32)>, Vec3, Vec3)> {
+    pub fn relocate_to_claw(&mut self, claw: (i32, i32, f32), eu: f32, ev: f32, frame: &SurfaceFrame) -> Option<(Vec<(i32, i32, f32)>, Vec3, Vec3)> {
         let (seat_u, seat_v, seat_floor, _) = self.nearest_seat(eu, ev)?;
         let (eng_u, eng_v, eng_floor, eng_heading) = self.steering_unit()?;
         let (du, dv, dz) = (claw.0 - eng_u, claw.1 - eng_v, claw.2 - eng_floor);
@@ -224,41 +247,20 @@ impl CraftCluster {
     }
 
     pub fn steerable(&self) -> bool { self.steering_unit().is_some() }
+    pub fn drivable(&self) -> bool { ClusterHelm::new(&self.grid).drivable() }
 
-    pub fn drivable(&self) -> bool {
-        ClusterHelm::new(&self.grid).drivable()
-    }
-
-    pub fn into_vehicle(
-        self,
-        ground_fn: impl Fn(i32, i32) -> f32,
-        ray: SurfaceSightRay,
-        frame: &SurfaceFrame,
-    ) -> Result<VehicleAssembly, Self> {
+    pub fn into_vehicle(self, ground_fn: impl Fn(i32, i32) -> f32, ray: SurfaceSightRay, frame: &SurfaceFrame) -> Result<VehicleAssembly, Self> {
         self.into_vehicle_with_id(CraftIdentity::unassigned(), ground_fn, ray, frame)
     }
 
     pub fn capture_blueprint(&self, eu: f32, ev: f32, frame: &SurfaceFrame) -> Option<CraftBlueprint> {
-        if self.grid.vacant() {
-            return None;
-        }
-        let anchor = self
-            .nearest_seat(eu, ev)
-            .map(|(su, sv, _, _)| (su, sv))
-            .or_else(|| self.claw_anchor().map(|(u, v, _)| (u, v)))?;
+        if self.grid.vacant() { return None; }
+        let anchor = self.nearest_seat(eu, ev).map(|(su, sv, _, _)| (su, sv)).or_else(|| self.claw_anchor().map(|(u, v, _)| (u, v)))?;
         PadCommission::new(&self.grid).draft_blueprint(anchor, frame)
     }
 
-    pub fn into_vehicle_with_id(
-        self,
-        identity: CraftIdentity,
-        ground_fn: impl Fn(i32, i32) -> f32,
-        ray: SurfaceSightRay,
-        frame: &SurfaceFrame,
-    ) -> Result<VehicleAssembly, Self> {
-        if !self.drivable() {
-            return Err(self);
-        }
+    pub fn into_vehicle_with_id(self, identity: CraftIdentity, ground_fn: impl Fn(i32, i32) -> f32, ray: SurfaceSightRay, frame: &SurfaceFrame) -> Result<VehicleAssembly, Self> {
+        if !self.drivable() { return Err(self); }
         let (eu, ev) = frame.decompose(ray.sample_point(0.0));
         let Some((seat_u, seat_v, _, _)) = self.nearest_seat(eu, ev) else { return Err(self) };
         Ok(PadCommission::new(&self.grid).assemble_vehicle(identity, (seat_u, seat_v), ground_fn, ray, frame))
@@ -276,7 +278,7 @@ impl MoldedStructure for CraftCluster {
     fn medium_at(&self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> { self.grid.medium_at(u, v, layer_elev) }
     fn hit_top_at(&self, cu: i32, cv: i32, u: f32, v: f32, ray_elev: f32) -> Option<f32> { self.grid.hit_top_at(cu, cv, u, v, ray_elev) }
     fn perch_at(&self, u: i32, v: i32, layer_elev: f32, eu: f32, ev: f32, frame: &SurfaceFrame) -> Option<VehicleAssembly> {
-        (self.medium_at(u, v, layer_elev) == Some(BlockMedium::CabinSeat))
+        matches!(self.medium_at(u, v, layer_elev), Some(BlockMedium::CabinSeat | BlockMedium::PilotSeat))
             .then(|| self.perch_seat(eu, ev, frame))
             .flatten()
     }

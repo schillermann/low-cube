@@ -63,7 +63,8 @@ impl Face for FacetedReliefFace {
     fn harvest(&mut self, eye: Vec3, direction: Vec3) -> Option<BlockMedium> {
         let half = self.cache.half_blocks();
         let (cu, cv, harvested) = self.domain.harvest(half, eye, direction)?;
-        self.refresh_neighborhood(cu, cv, half, 4);
+        let rad = if harvested.code() >= 28 { 16 } else { 4 };
+        self.refresh_neighborhood(cu, cv, half, rad);
         Some(harvested)
     }
 
@@ -91,7 +92,18 @@ impl Face for FacetedReliefFace {
         let Some((cu, cv)) = self.domain.place_molded(half, eye, direction, avatar_pos, mold) else {
             return false;
         };
-        self.refresh_neighborhood(cu, cv, half, 4);
+        let rad = if mold.medium().code() >= 28 { 8 } else { 4 };
+        self.refresh_neighborhood(cu, cv, half, rad);
+        true
+    }
+
+    fn place_scaled_module(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, spec: crate::ModuleSpec) -> bool {
+        let half = self.cache.half_blocks();
+        let Some((cu, cv)) = self.domain.place_scaled_module(half, eye, direction, avatar_pos, spec) else {
+            return false;
+        };
+        let (du, dv, _) = spec.span().dimensions();
+        self.refresh_neighborhood(cu, cv, half, i32::from(du.max(dv)) + 2);
         true
     }
 

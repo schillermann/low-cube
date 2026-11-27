@@ -54,12 +54,12 @@ Jede Stufe schließt mit grünem Build und schnellen Headless-Tests auf Linux un
 - [x] Alte Chronicle-/Snapshot-Kompatibilitätspfade bereinigen (sauberer Schnitt ohne Legacy-Decoder).
 
 ### Stufe 2: Neues Speicherherz — `BrickArena` (`8×8×8` à `0,5 m`) & Mehrblock-Anker
-- [ ] `Brick8` (`512` Zellen à `0,5 m` = `4 m` Würfel + `8 × u64` Belegungsmasken) und kontiguierliche `BrickArena` in `crates/world` anlegen.
-- [ ] Zell-Repräsentation ohne Heap-Pointer bauen: `Empty`, `RawAtom(Material, Orientation, GranularFlag)`, `ModuleAnchor(ModuleSpec)` und `ModuleProxy(AnchorOffset)`.
-- [ ] **Feste Mehrblock-Maschinen (`> 1 Block`)** auf dem neuen Anker/Proxy-System anlegen: Lichtbogen-Schmelze (`2×2×3`), Fabrikator (`2×1×2`), Elektrolyse-Raffinerie (`2×2×3`), Luftschleuse (`2×2×4`), Pilotensitz (`2×2×3`), Phosphor-Flugkonsole (`2×2×2`), Andockring (`2×2×1`) und Spawn-Koje (`2×4×2`).
-- [ ] **Im Raster skalierbare Funktionsblöcke (`B × H × T`)** anlegen: Skalierbarer Thruster, skalierbarer Treibstofftank und skalierbarer Radiator (inkl. Zieh-Hologramm und atomarem Abbau über jede `ModuleProxy`-Zelle).
-- [ ] `VoxelCells`, `ElevatedShape` (`Box<dyn VoxelShape>`) und `TurfCoat`-Einzelblock-Wrapper vollständig löschen.
-- [ ] Inkrementellen `O(1)`-Massentensor (Masse $M$, Schwerpunkt $\vec{c}$, $3\times 3$-Trägheitstensor $\mathbf{I}$ via Satz von Steiner) direkt in den Brick-Container integrieren.
+- [x] `Brick8` (`512` Zellen à `0,5 m` = `4 m` Würfel + `8 × u64` Belegungsmasken) und kontiguierliche `BrickArena` in `crates/world` anlegen.
+- [x] Zell-Repräsentation ohne Heap-Pointer bauen: `Empty`, `RawAtom(Material, Orientation, GranularFlag)`, `ModuleAnchor(ModuleSpec)` und `ModuleProxy(AnchorOffset)`.
+- [x] **Feste Mehrblock-Maschinen (`> 1 Block`)** auf dem neuen Anker/Proxy-System anlegen: Lichtbogen-Schmelze (`2×2×3`), Fabrikator (`2×1×2`), Elektrolyse-Raffinerie (`2×2×3`), Luftschleuse (`2×2×4`), Pilotensitz (`2×2×3`), Phosphor-Flugkonsole (`2×2×2`), Andockring (`2×2×1`) und Spawn-Koje (`2×4×2`).
+- [x] **Im Raster skalierbare Funktionsblöcke (`B × H × T`)** anlegen: Skalierbarer Thruster, skalierbarer Treibstofftank und skalierbarer Radiator (inkl. Zieh-Hologramm und atomarem Abbau über jede `ModuleProxy`-Zelle).
+- [x] `VoxelCells`, `ElevatedShape` (`Box<dyn VoxelShape>`) und `TurfCoat`-Einzelblock-Wrapper vollständig löschen.
+- [x] Inkrementellen `O(1)`-Massentensor (Masse $M$, Schwerpunkt $\vec{c}$, $3\times 3$-Trägheitstensor $\mathbf{I}$ via Satz von Steiner) direkt in den Brick-Container integrieren.
 
 ### Stufe 3: Grafik-Neubau — `glow`/`glutin` löschen $\rightarrow$ `wgpu` + `8-Byte` Quads (ThinkPad-Kern)
 - [ ] `glow`, `glutin` und `glutin-winit` aus `crates/engine` und `crates/client` entfernen; `CpuMeshBatch` (`184 Bytes/Quad`) und `GlMesh` löschen.

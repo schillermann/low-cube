@@ -43,18 +43,18 @@ impl MeshTarget for QuadCounter {
 
 fn build_prospector_parts(ore_medium: Option<(BlockMedium, i32)>) -> Vec<VehiclePart> {
     let mut parts = vec![
-        VehiclePart::new((0, 0), 0.0, BlockMold::shape_from_stamp([0, 0, BlockMedium::CabinSeat.code()])),
-        VehiclePart::new((0, 1), 0.0, BlockMold::shape_from_stamp([0, 0, BlockMedium::FlightConsole.code()])),
-        VehiclePart::new((0, -1), 0.0, BlockMold::shape_from_stamp([0, 0, BlockMedium::FusionTorch.code()])),
-        VehiclePart::new((1, 0), 0.0, BlockMold::shape_from_stamp([2, 1, BlockMedium::RocketNozzle.code()])),
-        VehiclePart::new((-1, 0), 0.0, BlockMold::shape_from_stamp([2, 3, BlockMedium::RocketNozzle.code()])),
+        VehiclePart::new((0, 0), 0.0, BlockMold::atom_from_stamp([0, 0, BlockMedium::CabinSeat.code()])),
+        VehiclePart::new((0, 1), 0.0, BlockMold::atom_from_stamp([0, 0, BlockMedium::FlightConsole.code()])),
+        VehiclePart::new((0, -1), 0.0, BlockMold::atom_from_stamp([0, 0, BlockMedium::FusionTorch.code()])),
+        VehiclePart::new((1, 0), 0.0, BlockMold::atom_from_stamp([2, 1, BlockMedium::RocketNozzle.code()])),
+        VehiclePart::new((-1, 0), 0.0, BlockMold::atom_from_stamp([2, 3, BlockMedium::RocketNozzle.code()])),
     ];
     if let Some((med, count)) = ore_medium {
         for i in 0..count {
             parts.push(VehiclePart::new(
                 ((i % 3) - 1, -2 - (i / 3)),
                 0.0,
-                BlockMold::shape_from_stamp([0, 0, med.code()]),
+                BlockMold::atom_from_stamp([0, 0, med.code()]),
             ));
         }
     }

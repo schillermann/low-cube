@@ -3,8 +3,8 @@ mod recipes;
 use crate::{BlockMedium, SurfaceFind};
 use self::recipes::RecipeLedger;
 
-/// Total number of Space-Age held/stowed item codes (`0..=29`, fitting inside the 6-bit `0..=63` palm wire span).
-pub const RELIC_SLOT_COUNT: usize = 30;
+/// Total number of Space-Age held/stowed item codes (`0..=40`, fitting inside the 6-bit `0..=63` palm wire span).
+pub const RELIC_SLOT_COUNT: usize = 41;
 
 /// Domain catalog mapping `BlockMedium`, `SurfaceFind`, config tokens, and Space-Age fabrication recipes to item codes (`<= 4` fields).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -62,6 +62,17 @@ impl RelicCatalog {
             27 => "black_box_pod",
             28 => "laser_beacon",
             29 => "titanium_billet",
+            30 => "arc_furnace",
+            31 => "assembly_bench",
+            32 => "electrolysis_plant",
+            33 => "airlock_chamber",
+            34 => "pilot_seat",
+            35 => "phosphor_console",
+            36 => "docking_ring",
+            37 => "crew_berth",
+            38 => "propulsion_bell",
+            39 => "propellant_tank",
+            40 => "thermal_fin",
             _ => "empty",
         }
     }
@@ -94,6 +105,17 @@ impl RelicCatalog {
             BlockMedium::VitrifiedBasalt => 26,
             BlockMedium::BlackBoxPod => 27,
             BlockMedium::LaserBeacon => 28,
+            BlockMedium::ArcFurnace => 30,
+            BlockMedium::AssemblyBench => 31,
+            BlockMedium::ElectrolysisPlant => 32,
+            BlockMedium::AirlockChamber => 33,
+            BlockMedium::PilotSeat => 34,
+            BlockMedium::PhosphorConsole => 35,
+            BlockMedium::DockingRing => 36,
+            BlockMedium::CrewBerth => 37,
+            BlockMedium::PropulsionBell => 38,
+            BlockMedium::PropellantTank => 39,
+            BlockMedium::ThermalFin => 40,
             BlockMedium::OriginStone => 0,
         }
     }

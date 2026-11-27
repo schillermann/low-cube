@@ -21,20 +21,20 @@ impl CraftFixture for QuadRcsCraft {
     fn assembly(&self) -> VehicleAssembly {
         let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
         let att = |heading: WedgeHeading| {
-            BlockMold::shape_from_stamp([1, heading.code(), BlockMedium::RocketNozzle.code()])
+            BlockMold::atom_from_stamp([1, heading.code(), BlockMedium::RocketNozzle.code()])
         };
         let parts = vec![
-            VehiclePart::new((0, 0), 0.5, BlockMold::cube().in_medium(BlockMedium::CabinSeat).shape_for(Vec3::NEG_Z, &frame)),
-            VehiclePart::new((0, -1), 0.5, BlockMold::cube().in_medium(BlockMedium::FlightConsole).shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, 0), 0.0, BlockMold::cube().in_medium(BlockMedium::RocketNozzle).shape_for(Vec3::NEG_Z, &frame)),
+            VehiclePart::new((0, 0), 0.5, BlockMold::cube().in_medium(BlockMedium::CabinSeat).atom_for(Vec3::NEG_Z, &frame)),
+            VehiclePart::new((0, -1), 0.5, BlockMold::cube().in_medium(BlockMedium::FlightConsole).atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 0), 0.0, BlockMold::cube().in_medium(BlockMedium::RocketNozzle).atom_for(Vec3::NEG_Z, &frame)),
             VehiclePart::new((-1, 0), 0.5, att(WedgeHeading::East)),
             VehiclePart::new((1, 0), 0.5, att(WedgeHeading::West)),
             VehiclePart::new((0, -2), 0.5, att(WedgeHeading::North)),
             VehiclePart::new((0, 1), 0.5, att(WedgeHeading::South)),
-            VehiclePart::new((0, 0), 1.0, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, -1), 1.0, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, 0), 1.5, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, -1), 1.5, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).shape_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 0), 1.0, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, -1), 1.0, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 0), 1.5, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, -1), 1.5, BlockMold::cube().in_medium(BlockMedium::QuarriedStone).atom_for(Vec3::Z, &frame)),
         ];
         VehicleAssembly::new(
             Vec3::new(0.25, 10.0, 0.25),

@@ -13,7 +13,7 @@ use lexicon::RelicLexicon;
 use temper::ToolTemper;
 use tokens::RelicTokenLexicon;
 
-/// Space-Age EVA tool, transceiver, billet, or structural/flight block held in the crew avatar's hands (`0..=29`).
+/// Space-Age EVA tool, transceiver, billet, multi-block machine, or scalable module (`0..=40`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HeldRelic {
     EmptyPalm,
@@ -46,10 +46,21 @@ pub enum HeldRelic {
     BlackBoxPod,
     LaserBeacon,
     TitaniumBillet,
+    ArcFurnace,
+    AssemblyBench,
+    ElectrolysisPlant,
+    AirlockChamber,
+    PilotSeat,
+    PhosphorConsole,
+    DockingRing,
+    CrewBerth,
+    PropulsionBell,
+    PropellantTank,
+    ThermalFin,
 }
 
 impl HeldRelic {
-    pub const COUNT: usize = 30;
+    pub const COUNT: usize = 41;
     pub const TRAY_ORDER: [Self; Self::COUNT - 1] = RelicLexicon::TRAY_ORDER;
 
     #[cfg(test)]
@@ -88,7 +99,18 @@ impl HeldRelic {
             26 => Self::VitrifiedBasalt,
             27 => Self::BlackBoxPod,
             28 => Self::LaserBeacon,
-            _ => Self::TitaniumBillet,
+            29 => Self::TitaniumBillet,
+            30 => Self::ArcFurnace,
+            31 => Self::AssemblyBench,
+            32 => Self::ElectrolysisPlant,
+            33 => Self::AirlockChamber,
+            34 => Self::PilotSeat,
+            35 => Self::PhosphorConsole,
+            36 => Self::DockingRing,
+            37 => Self::CrewBerth,
+            38 => Self::PropulsionBell,
+            39 => Self::PropellantTank,
+            _ => Self::ThermalFin,
         }
     }
 
@@ -124,6 +146,17 @@ impl HeldRelic {
             Self::BlackBoxPod => 27,
             Self::LaserBeacon => 28,
             Self::TitaniumBillet => 29,
+            Self::ArcFurnace => 30,
+            Self::AssemblyBench => 31,
+            Self::ElectrolysisPlant => 32,
+            Self::AirlockChamber => 33,
+            Self::PilotSeat => 34,
+            Self::PhosphorConsole => 35,
+            Self::DockingRing => 36,
+            Self::CrewBerth => 37,
+            Self::PropulsionBell => 38,
+            Self::PropellantTank => 39,
+            Self::ThermalFin => 40,
         }
     }
 
@@ -132,8 +165,11 @@ impl HeldRelic {
     pub const fn gripped(self) -> bool { !matches!(self, Self::EmptyPalm) }
     pub const fn free_palm(self) -> bool { matches!(self, Self::EmptyPalm) }
     pub const fn field_camera(self) -> bool { matches!(self, Self::FieldCamera) }
+    pub const fn scalable_module(self) -> bool {
+        matches!(self, Self::PropulsionBell | Self::PropellantTank | Self::ThermalFin)
+    }
     pub const fn independent_palm_mold(self) -> bool {
-        matches!(self, Self::FieldCamera | Self::RocketNozzle | Self::RocketCamera)
+        matches!(self, Self::FieldCamera | Self::RocketNozzle | Self::RocketCamera) || self.scalable_module()
     }
     pub const fn wearable(self) -> bool { ToolTemper::new(self).wearable() }
     pub const fn endurance_span(self) -> u16 { ToolTemper::new(self).endurance_span() }

@@ -92,7 +92,7 @@ fn test_full_cube_adjacent_to_ridge_corner_seals_wall() {
 
 #[test]
 fn test_lateral_ridge_corner_attachment_at_highest_pillar_block_without_ground_contact() {
-    use crate::block::{BlockMold, CardinalTurn, CuboidShape, MoldArchetype};
+    use crate::block::{BlockMold, CardinalTurn, MoldArchetype};
     use crate::Face;
     use super::FacetedReliefFace;
 
@@ -102,7 +102,7 @@ fn test_lateral_ridge_corner_attachment_at_highest_pillar_block_without_ground_c
 
     // Stack 4 full cubes on top of each other at cell (0, -2) -> height 2.0m
     for step in 0..4 {
-        face = face.with_molded_block(0, -2, (step as f32) * 0.5, Box::new(CuboidShape::new(0.5)));
+        face = face.with_molded_block(0, -2, (step as f32) * 0.5, crate::RawAtom::turf_cube());
     }
     let pillar_top = face.constrain(Vec3::new(0.25, 12.0, -0.75), 0.0).y - 8.0;
     assert!((pillar_top - 2.0).abs() < 1e-4, "Four stacked blocks must reach 2.0m");
@@ -137,7 +137,7 @@ fn test_lateral_ridge_corner_attachment_at_highest_pillar_block_without_ground_c
 
 #[test]
 fn test_ridge_corner_stacked_on_ridge_corner_preserves_lower_block() {
-    use crate::block::{CornerHeading, CuboidShape, RidgeCorner};
+    use crate::block::{BlockMedium, MoldArchetype, WedgeHeading};
     use super::TerracedRelief;
 
     let frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
@@ -145,8 +145,9 @@ fn test_ridge_corner_stacked_on_ridge_corner_preserves_lower_block() {
     let palette = ReliefPalette::for_zone(ClimateZone::Temperate);
     let mut terraced = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 16);
 
-    assert!(terraced.stack_molded_cell(0, 0, 0.0, Box::new(RidgeCorner::new(CornerHeading::NorthEast))));
-    assert!(terraced.stack_molded_cell(0, 0, 0.5, Box::new(RidgeCorner::new(CornerHeading::NorthEast))));
+    let ridge_ne = crate::RawAtom::molded(BlockMedium::TurfEarth, MoldArchetype::ConvexRidge, WedgeHeading::North);
+    assert!(terraced.stack_molded_cell(0, 0, 0.0, ridge_ne));
+    assert!(terraced.stack_molded_cell(0, 0, 0.5, ridge_ne));
 
     let mut sink = QuadSink::new();
     facet.emit_facet(GridCell::new(0, 0), &frame, &terraced, 16, &palette, &mut sink);
@@ -160,16 +161,17 @@ fn test_ridge_corner_stacked_on_ridge_corner_preserves_lower_block() {
         Box::new(TestRelief(|u, v| if (u, v) == (1, 1) || (u, v) == (2, 0) { 1 } else { 2 })),
         16,
     );
-    assert!(nat_terraced.stack_molded_cell(1, 0, 1.0, Box::new(RidgeCorner::new(CornerHeading::SouthWest))));
+    let ridge_sw = crate::RawAtom::molded(BlockMedium::TurfEarth, MoldArchetype::ConvexRidge, WedgeHeading::South);
+    assert!(nat_terraced.stack_molded_cell(1, 0, 1.0, ridge_sw));
     let mut nat_sink = QuadSink::new();
     facet.emit_facet(GridCell::new(1, 0), &frame, &nat_terraced, 16, &palette, &mut nat_sink);
     let nat_slopes = nat_sink.quads.iter().filter(|q| q.transfer(|_, _, _, _, n, _| n.y > 0.4 && n.y < 0.8)).count();
     assert_eq!(nat_slopes, 2, "Placing RidgeCorner on natural terrain RidgeCorner must preserve the terrain RidgeCorner slope");
 
     // Excavating the penultimate block (0.5..1.0) in a 3-block stack [0.0..0.5, 0.5..1.0, 1.0..1.5] must keep the topmost block (1.0..1.5)
-    assert!(terraced.stack_molded_cell(2, 2, 0.0, Box::new(CuboidShape::new(0.5))));
-    assert!(terraced.stack_molded_cell(2, 2, 0.5, Box::new(CuboidShape::new(0.5))));
-    assert!(terraced.stack_molded_cell(2, 2, 1.0, Box::new(CuboidShape::new(0.5))));
+    assert!(terraced.stack_molded_cell(2, 2, 0.0, crate::RawAtom::turf_cube()));
+    assert!(terraced.stack_molded_cell(2, 2, 0.5, crate::RawAtom::turf_cube()));
+    assert!(terraced.stack_molded_cell(2, 2, 1.0, crate::RawAtom::turf_cube()));
     assert!(terraced.excavate_layer(2, 2, 0.75), "Excavating the penultimate block at 0.5..1.0 must succeed");
     assert!((terraced.surface_height_at(1.25, 1.25) - 1.5).abs() < 1e-4, "Topmost block at 1.0..1.5 must remain after excavating penultimate block");
     assert_eq!(terraced.hit_top_at(1.25, 1.25, 0.75), None, "Excavated penultimate block slot 0.5..1.0 must now be empty air");
@@ -178,14 +180,14 @@ fn test_ridge_corner_stacked_on_ridge_corner_preserves_lower_block() {
 
 #[test]
 fn test_underside_block_attachment_and_doorframe_lintel_passage() {
-    use crate::block::{BlockMold, CuboidShape};
+    use crate::block::BlockMold;
     use crate::Face;
     use super::FacetedReliefFace;
 
     let mut face = FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 32);
     let (avatar_pos, eye) = (Vec3::new(0.25, 8.0, 0.25), Vec3::new(0.25, 8.92, 0.25));
     for step in 0..5 {
-        face = face.with_molded_block(0, -2, (step as f32) * 0.5, Box::new(CuboidShape::new(0.5)));
+        face = face.with_molded_block(0, -2, (step as f32) * 0.5, crate::RawAtom::turf_cube());
     }
     assert!(face.place_molded_block(eye, Vec3::new(0.0, 1.85, -1.0).normalize(), avatar_pos, BlockMold::cube()));
     let under_pos = Vec3::new(0.25, 8.0, -0.25);

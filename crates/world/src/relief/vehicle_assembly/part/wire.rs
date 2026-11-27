@@ -1,4 +1,5 @@
-use crate::block::{BlockMold, VoxelShape};
+use crate::block::BlockMold;
+use crate::brick_arena::RawAtom;
 
 /// Binary wire codec, canonical sort key, and FNV-1a digest step for a single `VehiclePart`.
 pub(super) struct PartWire {
@@ -20,7 +21,7 @@ impl PartWire {
         out.extend_from_slice(&self.stamp);
     }
 
-    pub(super) fn decode(bytes: &[u8]) -> Option<((i32, i32), f32, Box<dyn VoxelShape>, usize)> {
+    pub(super) fn decode(bytes: &[u8]) -> Option<((i32, i32), f32, RawAtom, usize)> {
         if bytes.len() < 11 {
             return None;
         }
@@ -31,7 +32,7 @@ impl PartWire {
             return None;
         }
         let stamp = [bytes[8], bytes[9], bytes[10]];
-        Some(((ox, oy), floor_offset, BlockMold::shape_from_stamp(stamp), 11))
+        Some(((ox, oy), floor_offset, BlockMold::atom_from_stamp(stamp), 11))
     }
 
     pub(super) fn canonical_key(&self) -> (i32, i32, i32, [u8; 3]) {

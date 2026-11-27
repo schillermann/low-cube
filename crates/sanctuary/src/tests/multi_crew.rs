@@ -98,10 +98,10 @@ fn test_multi_crew_epstein_ship_at_200_km_per_sec_zero_cabin_slip_and_intercom_c
         BlockMold::cube().in_medium(BlockMedium::CantileverRig),
     ));
     let parts = vec![
-        VehiclePart::new((0, 0), 0.0, BlockMold::cube().in_medium(BlockMedium::CabinSeat).shape_for(Vec3::NEG_Z, &frame)),
-        VehiclePart::new((0, 1), 0.0, BlockMold::cube().in_medium(BlockMedium::FlightConsole).shape_for(Vec3::NEG_Z, &frame)),
-        VehiclePart::new((1, 0), 0.0, BlockMold::cube().in_medium(BlockMedium::CabinSeat).shape_for(Vec3::NEG_Z, &frame)),
-        VehiclePart::new((0, -1), 0.0, BlockMold::cube().in_medium(BlockMedium::FusionTorch).shape_for(Vec3::NEG_Z, &frame)),
+        VehiclePart::new((0, 0), 0.0, BlockMold::cube().in_medium(BlockMedium::CabinSeat).atom_for(Vec3::NEG_Z, &frame)),
+        VehiclePart::new((0, 1), 0.0, BlockMold::cube().in_medium(BlockMedium::FlightConsole).atom_for(Vec3::NEG_Z, &frame)),
+        VehiclePart::new((1, 0), 0.0, BlockMold::cube().in_medium(BlockMedium::CabinSeat).atom_for(Vec3::NEG_Z, &frame)),
+        VehiclePart::new((0, -1), 0.0, BlockMold::cube().in_medium(BlockMedium::FusionTorch).atom_for(Vec3::NEG_Z, &frame)),
     ];
     let bp = CraftBlueprint::commission(Vec3::new(1.25, stand.y + 2.0, 1.25), parts);
     assert!(host.build_rig_blueprint(crane_eye, crane_dir, &bp));

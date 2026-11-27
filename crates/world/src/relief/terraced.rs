@@ -1,6 +1,7 @@
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, GridCell, MiningEdge, VoxelShape};
+use crate::block::{BlockMedium, GridCell, MiningEdge};
+use crate::brick_arena::{ModuleSpec, RawAtom};
 use crate::frame::SurfaceFrame;
 use super::column_clearance::ColumnClearance;
 use super::craft_entity::{CraftBlueprint, VesselSink};
@@ -177,10 +178,16 @@ impl ReliefElevation for TerracedRelief {
             .or_else(|| self.shafts.excavate_layer(&self.strata, &mut self.molds, u, v, layer_elev))
     }
 
-    fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, shape: Box<dyn VoxelShape>) -> bool {
+    fn stack_molded_cell(&mut self, u: i32, v: i32, base: f32, atom: RawAtom) -> bool {
         let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
         let sub = base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
-        self.molds.stack_molded(u, v, ground_top, sub, base, shape)
+        self.molds.stack_molded(u, v, ground_top, sub, base, atom)
+    }
+
+    fn stack_module_cell(&mut self, u: i32, v: i32, base: f32, spec: ModuleSpec) -> bool {
+        let ground_top = (self.elevation_at(u, v) as f32) * 0.5;
+        let sub = base < (self.crust_floor_at(u, v) as f32) * 0.5 + 0.1;
+        self.molds.stack_module(u, v, ground_top, sub, base, spec)
     }
 
     fn adjust_rig_at(&mut self, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool) -> (bool, (i32, i32)) {

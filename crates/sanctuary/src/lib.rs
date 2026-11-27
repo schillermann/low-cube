@@ -35,6 +35,7 @@ mod survivor_ledger;
 mod ticket;
 mod vault_stream;
 mod ward;
+mod warded_offworld;
 mod warded_planet;
 mod wormhole;
 

@@ -20,6 +20,7 @@ pub trait WorldEarthworks {
     fn forage_surface(&mut self, _eye: Vec3, _direction: Vec3) -> SurfaceFind { SurfaceFind::EmptyHanded }
     fn cast_surface_find(&mut self, _eye: Vec3, _direction: Vec3, _find: SurfaceFind) -> bool { false }
     fn place_molded_surface_block(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _mold: BlockMold) -> bool { false }
+    fn place_scaled_surface_module(&mut self, _eye: Vec3, _direction: Vec3, _avatar_pos: Vec3, _spec: crate::ModuleSpec) -> bool { false }
     fn adjust_rig(&mut self, _eye: Vec3, _direction: Vec3, _delta_steps: i32, _rotate_quarter: bool) -> bool { false }
     fn lower_rig(&mut self, _eye: Vec3, _direction: Vec3) -> bool { false }
     fn board_vehicle(&mut self, _eye: Vec3, _direction: Vec3, _holding_block: bool) -> Option<VehicleAssembly> { None }

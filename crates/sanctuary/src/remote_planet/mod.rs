@@ -155,6 +155,9 @@ impl WorldEarthworks for RemotePlanet {
     fn place_molded_surface_block(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, mold: BlockMold) -> bool {
         self.with_chronicled(|w| w.place_molded_surface_block(eye, direction, avatar_pos, mold))
     }
+    fn place_scaled_surface_module(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, spec: world::ModuleSpec) -> bool {
+        self.with_chronicled(|w| w.place_scaled_surface_module(eye, direction, avatar_pos, spec))
+    }
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         self.with_chronicled(|w| w.adjust_rig(eye, direction, delta_steps, rotate_quarter))
     }

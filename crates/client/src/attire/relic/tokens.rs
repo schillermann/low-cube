@@ -42,6 +42,17 @@ impl RelicTokenLexicon for RelicLexicon {
             "blackboxpod" | "blackbox" | "flightblackbox" | "flugschreiber" => Some(HeldRelic::BlackBoxPod),
             "laserbeacon" | "opticalbeacon" | "leuchtfeuer" | "beacon" => Some(HeldRelic::LaserBeacon),
             "titaniumbillet" | "spacetitanium" | "titanrohling" | "titanbarren" => Some(HeldRelic::TitaniumBillet),
+            "arcfurnace" | "lichtbogenschmelze" | "furnace" => Some(HeldRelic::ArcFurnace),
+            "assemblybench" | "fabrikator" | "bench" => Some(HeldRelic::AssemblyBench),
+            "electrolysisplant" | "elektrolyse" | "electrolysis" => Some(HeldRelic::ElectrolysisPlant),
+            "airlockchamber" | "airlock" | "luftschleuse" => Some(HeldRelic::AirlockChamber),
+            "pilotseat" | "pilotensitz" => Some(HeldRelic::PilotSeat),
+            "phosphorconsole" | "phosphorflugkonsole" => Some(HeldRelic::PhosphorConsole),
+            "dockingring" | "andockring" => Some(HeldRelic::DockingRing),
+            "crewberth" | "spawnkoje" | "koje" | "berth" => Some(HeldRelic::CrewBerth),
+            "propulsionbell" | "scalablethruster" | "skalierbarerthruster" => Some(HeldRelic::PropulsionBell),
+            "propellanttank" | "scalabletank" | "treibstofftank" => Some(HeldRelic::PropellantTank),
+            "thermalfin" | "scalableradiator" | "kuehlfinne" => Some(HeldRelic::ThermalFin),
             _ => None,
         }
     }

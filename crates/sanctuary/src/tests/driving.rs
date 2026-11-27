@@ -20,13 +20,13 @@ fn test_large_blueprint_roundtrip_and_80_byte_pose_wire_budget() {
     parts.push(VehiclePart::new(
         (0, 0),
         0.0,
-        BlockMold::cube().in_medium(BlockMedium::CabinSeat).shape_for(Vec3::NEG_Z, &frame),
+        BlockMold::cube().in_medium(BlockMedium::CabinSeat).atom_for(Vec3::NEG_Z, &frame),
     ));
     for idx in 1..96i32 {
         parts.push(VehiclePart::new(
             (idx % 12, idx / 12),
             0.0,
-            BlockMold::cube().in_medium(BlockMedium::PlanedPlanks).shape_for(Vec3::NEG_Z, &frame),
+            BlockMold::cube().in_medium(BlockMedium::PlanedPlanks).atom_for(Vec3::NEG_Z, &frame),
         ));
     }
     let bp = CraftBlueprint::commission(Vec3::new(1.25, 16.0, 1.25), parts);

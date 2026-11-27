@@ -1,18 +1,18 @@
-use super::super::cell::GridCell;
+use super::cell::GridCell;
 
-const REGH_EFFORT_FLOOR: f32 = 320.0;
-const REGH_EFFORT_SPAN: f32 = 440.0;
+const REGH_EFFORT_FLOOR_TENTHS: u32 = 3_200;
+const REGH_EFFORT_SPAN_TENTHS: u32 = 4_400;
 const CELL_HASH_U: i32 = 73_856_093;
 const CELL_HASH_V: i32 = 19_349_663;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum SodPhase {
-    Bare(f32),
+    Bare(u16),
     Verdant,
 }
 
-/// Immutable biological grass-sod value object encapsulated inside an earth block or surface scar.
-#[derive(Clone, Copy, Debug, PartialEq)]
+/// Immutable biological grass-sod value object encapsulated inside an earth atom or surface scar (`1` field, `Copy + Eq`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct TurfSod {
     phase: SodPhase,
 }
@@ -24,7 +24,7 @@ impl TurfSod {
 
     /// Secondary constructor for freshly harvested or placed bare soil without grass.
     pub const fn bare() -> Self {
-        Self::new(SodPhase::Bare(0.0))
+        Self::new(SodPhase::Bare(0))
     }
 
     /// Secondary constructor for established living turf with grass blades.
@@ -43,15 +43,16 @@ impl TurfSod {
             return (self, false);
         }
         match self.phase {
-            SodPhase::Bare(effort) => {
-                let next_effort = effort + dt * (grass_neighbors as f32);
+            SodPhase::Bare(tenths) => {
+                let step = ((dt * (grass_neighbors as f32) * 10.0).round().max(1.0)) as u32;
+                let next_tenths = u32::from(tenths).saturating_add(step);
                 let (u, v) = cell.feed_coordinates(|gu, gv| (gu, gv));
                 let hash = (u.wrapping_mul(CELL_HASH_U) ^ v.wrapping_mul(CELL_HASH_V)).unsigned_abs() % 100;
-                let threshold = REGH_EFFORT_FLOOR + (hash as f32 * 0.01) * REGH_EFFORT_SPAN;
-                if next_effort >= threshold {
+                let threshold = REGH_EFFORT_FLOOR_TENTHS + (hash * REGH_EFFORT_SPAN_TENTHS) / 100;
+                if next_tenths >= threshold {
                     (Self::verdant(), true)
                 } else {
-                    (Self::new(SodPhase::Bare(next_effort)), false)
+                    (Self::new(SodPhase::Bare(next_tenths.min(u16::MAX as u32) as u16)), false)
                 }
             }
             SodPhase::Verdant => (self, false),

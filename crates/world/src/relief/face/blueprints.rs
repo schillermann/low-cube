@@ -75,8 +75,32 @@ impl ReliefDomain {
         let (cu, cv, base, effective) = SurfaceSightRay::new(eye, direction)
             .oriented_placement_for_mold(&self.frame, self.relief.as_ref(), half, half_size, avatar_pos, mold)?;
         self.relief.resolve_planned_site(cu, cv, base, effective.medium())?;
-        let shape = effective.shape_for(direction, &self.frame);
-        let ok = self.relief.stack_molded_cell(cu, cv, base, shape);
+        let ok = if let Some(spec) = crate::ModuleSpec::from_mold(effective) {
+            self.relief.stack_module_cell(cu, cv, base, spec)
+        } else {
+            let atom = effective.atom_for(direction, &self.frame);
+            self.relief.stack_molded_cell(cu, cv, base, atom)
+        };
+        if ok {
+            self.awake = true;
+        }
+        ok.then_some((cu, cv))
+    }
+
+    pub(super) fn place_scaled_module(
+        &mut self,
+        half: i32,
+        eye: Vec3,
+        direction: Vec3,
+        avatar_pos: Vec3,
+        spec: crate::ModuleSpec,
+    ) -> Option<(i32, i32)> {
+        let half_size = self.frame.step_elevation(half);
+        let mold = BlockMold::with_medium(crate::MoldArchetype::FullCube, spec.turn(), spec.medium());
+        let (cu, cv, base, _) = SurfaceSightRay::new(eye, direction)
+            .oriented_placement_for_mold(&self.frame, self.relief.as_ref(), half, half_size, avatar_pos, mold)?;
+        self.relief.resolve_planned_site(cu, cv, base, spec.medium())?;
+        let ok = self.relief.stack_module_cell(cu, cv, base, spec);
         if ok {
             self.awake = true;
         }

@@ -1,6 +1,7 @@
 mod actions;
 mod debris;
 mod reach;
+mod scale_drag;
 mod toss;
 
 use glam::Vec3;
@@ -16,24 +17,31 @@ use crate::order::LocomotionOrder;
 use self::actions::PalmContact;
 use self::debris::DigOperation;
 pub use self::reach::SurfaceReach;
+pub use self::scale_drag::ScaleDrag;
 use self::toss::TossCadence;
 
-/// Immutable dual-hand EVA inventory, satchel inspection state, per-hand block molds, and excavation progress (`3` fields).
+/// Immutable dual-hand EVA inventory, satchel inspection state, excavation progress, and drag-scaling state (`4` fields).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PalmEarthworks {
     satchel: BeltSatchel,
     dig: DigOperation,
     toss: TossCadence,
+    drag: ScaleDrag,
 }
 
 impl PalmEarthworks {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn with_state(
+    pub const fn with_full_state(
         satchel: BeltSatchel,
         dig: DigOperation,
         toss: TossCadence,
+        drag: ScaleDrag,
     ) -> Self {
-        Self { satchel, dig, toss }
+        Self { satchel, dig, toss, drag }
+    }
+
+    pub const fn with_state(satchel: BeltSatchel, dig: DigOperation, toss: TossCadence) -> Self {
+        Self::with_full_state(satchel, dig, toss, ScaleDrag::Idle)
     }
 
     pub const fn with_dig(satchel: BeltSatchel, dig: DigOperation) -> Self {
@@ -94,9 +102,15 @@ impl PalmEarthworks {
             }
         }
         if !self.satchel.open() && bindings.matches(ControlAction::MoldRight, trigger) {
+            if let (next_drag, true) = self.drag.step_height(1) {
+                return (Self { drag: next_drag, ..self }, attire, true);
+            }
             return (self.mold_next_form(attire), attire, true);
         }
         if !self.satchel.open() && bindings.matches(ControlAction::MoldLeft, trigger) {
+            if let (next_drag, true) = self.drag.step_height(-1) {
+                return (Self { drag: next_drag, ..self }, attire, true);
+            }
             return (self.mold_prev_form(attire), attire, true);
         }
         if bindings.matches(ControlAction::Satchel, trigger)
@@ -190,6 +204,18 @@ impl PalmEarthworks {
         world.plan_molded_block(reach.eye(), reach.view_dir(), reach.stance_origin(), mold)
     }
 
+    pub fn emit_preview(&self, reach: SurfaceReach, attire: EvaAttire, world: &dyn PlanetaryWorld, target: &mut dyn MeshTarget) {
+        if self.satchel.open() {
+            return;
+        }
+        if self.drag.emit_preview(reach, &self.satchel, attire, world, target) {
+            return;
+        }
+        if let Some(planned) = self.planned_mount(reach, attire, world) {
+            planned.emit_hologram(target);
+        }
+    }
+
     pub const fn halt_dig(self) -> Self {
         Self::with_state(self.satchel.with_open(false), self.dig.halted(), TossCadence::Quiet)
     }
@@ -221,6 +247,9 @@ impl PalmEarthworks {
         self, reach: SurfaceReach, attire: EvaAttire, world: &mut dyn PlanetaryWorld,
     ) -> (Self, EvaAttire, bool, bool) {
         let state = self.reconcile_attire(attire);
+        if let Some((ns, na, placed)) = state.drag.commit(reach, state.satchel, attire, world) {
+            return (Self::with_state(ns, state.dig.with_grip(DigGrip::idle()), state.toss), na, false, placed);
+        }
         let (ns, na, nd, perch_ready, changed) = reach.release(state.satchel, attire, state.dig, world);
         (Self::with_state(ns, nd, state.toss), na, perch_ready, changed)
     }
@@ -228,6 +257,9 @@ impl PalmEarthworks {
     pub fn continue_digging(
         self, reach: SurfaceReach, attire: EvaAttire, rhythm: StrideRhythm, world: &mut dyn PlanetaryWorld,
     ) -> (Self, EvaAttire, StrideRhythm, bool) {
+        if self.drag.active() {
+            return (self, attire, rhythm, false);
+        }
         let (ns, na, nd, nr, changed) = reach.sustain(self.satchel, attire, rhythm, self.dig, world);
         (Self::with_state(ns, nd, self.toss), na, nr, changed)
     }

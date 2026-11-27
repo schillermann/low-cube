@@ -14,6 +14,17 @@ impl RelicLexicon {
         HeldRelic::RigWrench,
         HeldRelic::SuitRadio,
         HeldRelic::TitaniumBillet,
+        HeldRelic::PropulsionBell,
+        HeldRelic::PropellantTank,
+        HeldRelic::ThermalFin,
+        HeldRelic::ArcFurnace,
+        HeldRelic::AssemblyBench,
+        HeldRelic::ElectrolysisPlant,
+        HeldRelic::AirlockChamber,
+        HeldRelic::PilotSeat,
+        HeldRelic::PhosphorConsole,
+        HeldRelic::DockingRing,
+        HeldRelic::CrewBerth,
         HeldRelic::GoldOre,
         HeldRelic::IronOre,
         HeldRelic::CopperOre,
@@ -48,34 +59,12 @@ impl RelicLexicon {
     }
 
     pub const fn placeable_block(&self) -> bool {
-        matches!(
+        !matches!(
             self.relic,
-            HeldRelic::ExcavatedEarth
-                | HeldRelic::QuarriedStone
-                | HeldRelic::TimberBlock
-                | HeldRelic::PlankBlock
-                | HeldRelic::CrustBlock
-                | HeldRelic::CantileverCrane
-                | HeldRelic::SteeringWheel
-                | HeldRelic::AircraftEngine
-                | HeldRelic::FlightConsole
-                | HeldRelic::RocketNozzle
-                | HeldRelic::RocketCamera
-                | HeldRelic::CabinSeat
-                | HeldRelic::CarWheel
-                | HeldRelic::FieldCamera
-                | HeldRelic::PedalCluster
-                | HeldRelic::CopperOre
-                | HeldRelic::IronOre
-                | HeldRelic::GoldOre
-                | HeldRelic::VehicleBlueprint
-                | HeldRelic::FusionTorch
-                | HeldRelic::SpawnStone
-                | HeldRelic::TitaniumHull
-                | HeldRelic::CarbonSilicate
-                | HeldRelic::VitrifiedBasalt
-                | HeldRelic::BlackBoxPod
-                | HeldRelic::LaserBeacon
+            HeldRelic::EmptyPalm
+                | HeldRelic::RigWrench
+                | HeldRelic::SuitRadio
+                | HeldRelic::TitaniumBillet
         )
     }
 
@@ -123,6 +112,17 @@ impl RelicLexicon {
             HeldRelic::BlackBoxPod => "BLACKBOX POD",
             HeldRelic::LaserBeacon => "LASER BEACON",
             HeldRelic::TitaniumBillet => "SPACE TITANIUM",
+            HeldRelic::ArcFurnace => "ARC FURNACE",
+            HeldRelic::AssemblyBench => "ASSEMBLY BENCH",
+            HeldRelic::ElectrolysisPlant => "ELECTROLYSIS PLANT",
+            HeldRelic::AirlockChamber => "AIRLOCK CHAMBER",
+            HeldRelic::PilotSeat => "PILOT SEAT",
+            HeldRelic::PhosphorConsole => "PHOSPHOR CONSOLE",
+            HeldRelic::DockingRing => "DOCKING RING",
+            HeldRelic::CrewBerth => "CREW BERTH",
+            HeldRelic::PropulsionBell => "PROPULSION BELL",
+            HeldRelic::PropellantTank => "PROPELLANT TANK",
+            HeldRelic::ThermalFin => "THERMAL FIN",
         }
     }
 

@@ -5,7 +5,8 @@ mod registry;
 
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, GridCell, VoxelShape};
+use crate::block::{BlockMedium, GridCell};
+use crate::brick_arena::{CellCoord, ModuleSpec, RawAtom};
 use crate::frame::SurfaceFrame;
 use super::craft_cluster::CraftCluster;
 use super::craft_entity::CraftBlueprint;
@@ -142,10 +143,19 @@ impl CantileverRig {
         Some(floor_elev)
     }
 
-    pub fn place_craft_block(&mut self, mast_u: i32, mast_v: i32, u: i32, v: i32, floor_elev: f32, shape: Box<dyn VoxelShape>) -> Option<(i32, i32)> {
+    pub fn place_craft_block(&mut self, mast_u: i32, mast_v: i32, u: i32, v: i32, floor_elev: f32, atom: RawAtom) -> Option<(i32, i32)> {
         let relocated = self.arm.retract_for_placed_block(mast_u, mast_v, u, v, floor_elev);
-        self.craft.insert(u, v, floor_elev, shape);
+        self.craft.insert(u, v, floor_elev, atom);
         relocated
+    }
+
+    pub fn place_craft_module(&mut self, mast_u: i32, mast_v: i32, u: i32, v: i32, floor_elev: f32, spec: ModuleSpec) -> Option<(bool, Option<(i32, i32)>)> {
+        let anchor = CellCoord::from_floor(u, v, floor_elev, self.craft.structure().datum());
+        if !self.craft.place_module(anchor, spec) {
+            return Some((false, None));
+        }
+        let relocated = self.arm.retract_for_placed_block(mast_u, mast_v, u, v, floor_elev);
+        Some((true, relocated))
     }
 
     pub fn hit_boom_or_craft(&self, mast_u: i32, mast_v: i32, cu: i32, cv: i32, u: f32, v: f32, ray_elev: f32) -> Option<f32> {

@@ -38,9 +38,9 @@ fn test_attitude_nozzle_steers_spacecraft_and_fires_retro_descent_jet() {
     let rcs_bp = CraftBlueprint::commission(
         Vec3::ZERO,
         vec![
-            VehiclePart::new((0, 0), 0.0, seat_mold.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, 1), 0.0, console_mold.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, -1), 0.0, rcs_mold.shape_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 0), 0.0, seat_mold.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 1), 0.0, console_mold.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, -1), 0.0, rcs_mold.atom_for(Vec3::Z, &frame)),
         ],
     );
     let pose = CraftPose::parked(Vec3::ZERO, axes, Vec3::Z);
@@ -71,9 +71,9 @@ fn test_console_gyro_absorbs_compact_trim_but_yields_to_extreme_outrigger_nozzle
     let compact_bp = CraftBlueprint::commission(
         Vec3::ZERO,
         vec![
-            VehiclePart::new((0, 0), 0.0, seat_mold.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, 1), 0.0, console_mold.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, -1), 0.0, nozzle_mold.shape_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 0), 0.0, seat_mold.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 1), 0.0, console_mold.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, -1), 0.0, nozzle_mold.atom_for(Vec3::Z, &frame)),
         ],
     );
     assert!(compact_bp.spacefaring());
@@ -91,10 +91,10 @@ fn test_console_gyro_absorbs_compact_trim_but_yields_to_extreme_outrigger_nozzle
     let asymmetric_bp = CraftBlueprint::commission(
         Vec3::ZERO,
         vec![
-            VehiclePart::new((0, 0), 0.0, seat_mold.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((0, 1), 0.0, console_mold.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((5, 0), 0.0, nozzle_mold.shape_for(Vec3::Z, &frame)),
-            VehiclePart::new((6, 0), 0.0, nozzle_mold.shape_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 0), 0.0, seat_mold.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((0, 1), 0.0, console_mold.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((5, 0), 0.0, nozzle_mold.atom_for(Vec3::Z, &frame)),
+            VehiclePart::new((6, 0), 0.0, nozzle_mold.atom_for(Vec3::Z, &frame)),
         ],
     );
     let asym_imp = asymmetric_bp.sample_impulse(&up_burn, pose);
@@ -129,13 +129,13 @@ fn test_binary_gravity_and_orbital_fleet_across_homeworld_vacuum_and_moon() {
                 (0, 0),
                 0.0,
                 BlockMold::with_medium(MoldArchetype::FullCube, CardinalTurn::Forward, BlockMedium::CabinSeat)
-                    .shape_for(Vec3::Z, &frame),
+                    .atom_for(Vec3::Z, &frame),
             ),
             VehiclePart::new(
                 (0, 1),
                 0.0,
                 BlockMold::with_medium(MoldArchetype::FullCube, CardinalTurn::Forward, BlockMedium::FlightConsole)
-                    .shape_for(Vec3::Z, &frame),
+                    .atom_for(Vec3::Z, &frame),
             ),
         ],
     );

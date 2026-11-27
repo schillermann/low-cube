@@ -19,7 +19,7 @@ use super::super::wedge::WedgeHeading;
 use super::BlockMedium;
 
 /// Decorator binding a material medium to a VoxelShape.
-pub struct MediumShape<S = Box<dyn VoxelShape>> {
+pub struct MediumShape<S> {
     inner: S,
     medium: BlockMedium,
     archetype: MoldArchetype,

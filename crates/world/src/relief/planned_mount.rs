@@ -127,7 +127,14 @@ impl PlannedMount {
 
     /// Emits the shape-faithful luminous hologram preview and 3D corner docking brackets.
     pub fn emit_hologram(&self, target: &mut dyn MeshTarget) {
-        let shape = self.mold.shape_for(self.aim_dir, &self.site.frame);
+        if let Some(spec) = crate::ModuleSpec::from_mold(self.mold) {
+            let (u, v, z) = self.site.cell_coordinates();
+            let anchor = crate::CellCoord::from_floor(u, v, z, 0.0);
+            let mut shifted = BracketShiftTarget { shift: self.site.shift, col: self.domain.bracket_color(), inner: target };
+            crate::SpanHologram::new(anchor, spec, self.domain).emit(0.0, &self.site.frame, false, &mut shifted);
+            return;
+        }
+        let atom = self.mold.atom_for(self.aim_dir, &self.site.frame);
         let center = self.site.volume_center();
         let tint = self.domain.tint_color();
         {
@@ -136,9 +143,63 @@ impl PlannedMount {
                 center_shift: (center, self.site.shift),
                 domain: self.domain,
             };
-            shape.emit_shape(self.site.cell, self.site.floor_elev, &self.site.frame, tint, &mut holo);
+            atom.at_floor(self.site.floor_elev)
+                .with_shape(|s| s.emit_shape(self.site.cell, self.site.floor_elev, &self.site.frame, tint, &mut holo));
         }
         self.emit_docking_brackets(target);
+    }
+
+    /// Emits a stretched `B × T × H` drag-hologram preview between `self` and `end_mount`.
+    pub fn emit_drag_hologram(&self, end_mount: Self, extra_height_steps: i32, target: &mut dyn MeshTarget) {
+        let Some(kind) = crate::SpaceModule::from_medium(self.mold.medium()) else {
+            self.emit_hologram(target);
+            return;
+        };
+        let (u0, v0, z0) = self.site.cell_coordinates();
+        let (u1, v1, z1) = end_mount.site.cell_coordinates();
+        if u0 == u1 && v0 == v1 && extra_height_steps == 0 {
+            self.emit_hologram(target);
+            return;
+        }
+        let (anchor, span) = crate::ModuleSpan::dragged_between(
+            crate::CellCoord::from_floor(u0, v0, z0, 0.0),
+            crate::CellCoord::from_floor(u1, v1, z1, 0.0),
+            extra_height_steps,
+        );
+        let turn = crate::CardinalTurn::from_code(self.mold.chronicle_bytes()[1]);
+        let spec = crate::ModuleSpec::new(kind, span, turn);
+        let mut shifted = BracketShiftTarget { shift: self.site.shift, col: self.domain.bracket_color(), inner: target };
+        crate::SpanHologram::new(anchor, spec, self.domain).emit(0.0, &self.site.frame, false, &mut shifted);
+    }
+
+    /// Resolves `(anchor_eye, anchor_dir, ModuleSpec)` for a dragged `B × T × H` scalable module between `self` and `end_mount`.
+    pub fn resolve_dragged_module(
+        &self,
+        end_mount: Self,
+        extra_height_steps: i32,
+    ) -> Option<(Vec3, Vec3, crate::ModuleSpec)> {
+        let crate::SpaceModule::Scalable(kind) = crate::SpaceModule::from_medium(self.mold.medium())? else {
+            return None;
+        };
+        let (u0, v0, z0) = self.site.cell_coordinates();
+        let (u1, v1, z1) = end_mount.site.cell_coordinates();
+        let (anchor, spec) = if u0 == u1 && v0 == v1 && extra_height_steps == 0 {
+            (crate::CellCoord::from_floor(u0, v0, z0, 0.0), crate::ModuleSpec::from_mold(self.mold)?)
+        } else {
+            let (anc, span) = crate::ModuleSpan::dragged_between(
+                crate::CellCoord::from_floor(u0, v0, z0, 0.0),
+                crate::CellCoord::from_floor(u1, v1, z1, 0.0),
+                extra_height_steps,
+            );
+            let turn = crate::CardinalTurn::from_code(self.mold.chronicle_bytes()[1]);
+            (anc, crate::ModuleSpec::scalable(kind, span, turn))
+        };
+        let (au, av, _) = anchor.components();
+        let az = anchor.floor_elev(0.0);
+        let (uc, vc) = GridCell::new(au, av).center();
+        let eye = self.site.frame.point_at(uc, vc, az + 0.45) + self.site.shift;
+        let dir = -self.site.frame.normal();
+        Some((eye, dir, spec))
     }
 
     fn emit_docking_brackets(&self, target: &mut dyn MeshTarget) {

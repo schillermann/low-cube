@@ -48,7 +48,7 @@ impl MeshTarget for CrateredMeshTarget<'_> {
     }
 }
 
-struct TurfCoat {
+struct CanopyPigment {
     up: Vec3,
     top_color: Vec3,
     wall_color: Vec3,
@@ -57,7 +57,7 @@ struct TurfCoat {
 /// Decorator coloring upward canopy faces and vertical walls while sealing unemitted undersides.
 pub struct TurfMeshTarget<'a> {
     target: &'a mut dyn MeshTarget,
-    coat: TurfCoat,
+    coat: CanopyPigment,
     base_corners: [Vec3; 4],
     bottom_emitted: bool,
 }
@@ -74,7 +74,7 @@ impl<'a> TurfMeshTarget<'a> {
     ) -> Self {
         Self {
             target,
-            coat: TurfCoat { up, top_color, wall_color },
+            coat: CanopyPigment { up, top_color, wall_color },
             base_corners,
             bottom_emitted,
         }

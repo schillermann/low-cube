@@ -3,9 +3,9 @@ mod wire;
 
 use glam::Vec3;
 use crate::block::{
-    BlockMedium, BlockMold, GridCell, MoldArchetype, NozzleAxis, SensorPodAxis, VoxelShape,
-    WedgeHeading,
+    BlockMedium, BlockMold, GridCell, MoldArchetype, NozzleAxis, SensorPodAxis, WedgeHeading,
 };
+use crate::brick_arena::RawAtom;
 use crate::frame::SurfaceFrame;
 use crate::MeshTarget;
 use super::super::craft_cluster::CraftCluster;
@@ -18,45 +18,30 @@ use self::wire::PartWire;
 
 pub(in crate::relief) const BLOCK_STEP: f32 = GridCell::SPAN;
 
-/// Single block component inside a drivable vehicle assembly relative to the cabin seat.
+/// Single block component inside a drivable vehicle assembly (`3` fields, `Copy`, `0` heap pointers).
+#[derive(Clone, Copy, Debug)]
 pub struct VehiclePart {
     offset: (i32, i32),
     floor_offset: f32,
-    shape: Box<dyn VoxelShape>,
-}
-
-impl Clone for VehiclePart {
-    fn clone(&self) -> Self {
-        Self::new(self.offset, self.floor_offset, BlockMold::shape_from_stamp(self.shape.shape_stamp()))
-    }
-}
-
-impl std::fmt::Debug for VehiclePart {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("VehiclePart")
-            .field("offset", &self.offset)
-            .field("floor_offset", &self.floor_offset)
-            .field("stamp", &self.shape.shape_stamp())
-            .finish()
-    }
+    atom: RawAtom,
 }
 
 impl PartialEq for VehiclePart {
     fn eq(&self, other: &Self) -> bool {
         self.offset == other.offset
             && (self.floor_offset - other.floor_offset).abs() <= 1e-5
-            && self.shape.shape_stamp() == other.shape.shape_stamp()
+            && self.atom.stamp() == other.atom.stamp()
     }
 }
 
 impl VehiclePart {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(offset: (i32, i32), floor_offset: f32, shape: Box<dyn VoxelShape>) -> Self {
-        Self { offset, floor_offset, shape }
+    pub const fn new(offset: (i32, i32), floor_offset: f32, atom: RawAtom) -> Self {
+        Self { offset, floor_offset, atom }
     }
 
     fn wire(&self) -> PartWire {
-        PartWire::new(self.offset, self.floor_offset, self.shape.shape_stamp())
+        PartWire::new(self.offset, self.floor_offset, self.atom.stamp())
     }
 
     pub(in crate::relief) fn expand_span(
@@ -77,29 +62,28 @@ impl VehiclePart {
     pub(in crate::relief) fn digest_mix(&self, h: u64) -> u64 { self.wire().digest_mix(h) }
 
     pub(in crate::relief) fn decode(bytes: &[u8]) -> Option<(Self, usize)> {
-        let (off, floor_offset, shape, used) = PartWire::decode(bytes)?;
-        Some((Self::new(off, floor_offset, shape), used))
+        let (off, floor_offset, atom, used) = PartWire::decode(bytes)?;
+        Some((Self::new(off, floor_offset, atom), used))
     }
 
     pub(in crate::relief) fn passenger_seat_slot(&self) -> Option<(i32, i32, f32)> {
-        (self.offset != (0, 0) && self.shape.block_medium() == BlockMedium::CabinSeat)
+        (self.offset != (0, 0) && self.atom.medium() == BlockMedium::CabinSeat)
             .then_some((self.offset.0, self.offset.1, self.floor_offset))
     }
 
-    pub fn block_medium(&self) -> BlockMedium { self.shape.block_medium() }
+    pub const fn block_medium(&self) -> BlockMedium { self.atom.medium() }
 
     pub(in crate::relief) fn insert_rigid(&self, v_sign: i32, flip_v: bool, craft: &mut CraftCluster) {
-        let mut shape = BlockMold::shape_from_stamp(self.shape.shape_stamp());
-        if flip_v && matches!(shape.block_heading(), WedgeHeading::North | WedgeHeading::South) {
-            shape.rotate_quarter();
-            shape.rotate_quarter();
+        let mut atom = BlockMold::atom_from_stamp(self.atom.stamp());
+        if flip_v && matches!(atom.heading(), WedgeHeading::North | WedgeHeading::South) {
+            atom = atom.rotated_quarter().rotated_quarter();
         }
-        craft.insert(self.offset.0, self.offset.1 * v_sign, self.floor_offset, shape);
+        craft.insert(self.offset.0, self.offset.1 * v_sign, self.floor_offset, atom);
     }
 
     pub(in crate::relief) fn kinematic_part(&self) -> bool {
         matches!(
-            self.shape.block_medium(),
+            self.atom.medium(),
             BlockMedium::CarWheel
                 | BlockMedium::SteeringWheel
                 | BlockMedium::FieldCamera
@@ -110,17 +94,17 @@ impl VehiclePart {
     }
 
     pub(in crate::relief) fn seat_slot(&self) -> Option<((i32, i32), f32, WedgeHeading)> {
-        (self.shape.block_medium() == BlockMedium::CabinSeat)
-            .then_some((self.offset, self.floor_offset, self.shape.block_heading()))
+        (self.atom.medium() == BlockMedium::CabinSeat)
+            .then_some((self.offset, self.floor_offset, self.atom.heading()))
     }
 
     pub(in crate::relief) fn step_camera_turn(&mut self, delta: i32) -> Option<(i32, i32)> {
-        self.shape.step_camera_turn(delta).then_some(self.offset)
+        self.atom.step_camera_turn(delta).then_some(self.offset)
     }
 
     pub(in crate::relief) fn tripod_hub_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
         let cell = GridCell::new(self.offset.0, self.offset.1);
-        self.shape.camera_tripod_hub(cell, self.floor_offset + lift, frame)
+        self.atom.at_floor(self.floor_offset + lift).camera_tripod_hub(cell, frame)
     }
 
     pub(in crate::relief) fn cell_top_at(&self, cu: i32, cv: i32, lift: f32) -> Option<(f32, f32)> {
@@ -131,24 +115,19 @@ impl VehiclePart {
         Some((self.floor_offset + lift, self.floor_offset + lift + BLOCK_STEP))
     }
 
-    pub(in crate::relief) fn camera_equipped(&self) -> bool { self.shape.block_medium() == BlockMedium::FieldCamera }
-    pub(in crate::relief) fn rocket_camera(&self) -> bool { self.shape.block_medium() == BlockMedium::RocketCamera }
+    pub(in crate::relief) fn camera_equipped(&self) -> bool { self.atom.medium() == BlockMedium::FieldCamera }
+    pub(in crate::relief) fn rocket_camera(&self) -> bool { self.atom.medium() == BlockMedium::RocketCamera }
 
     pub(in crate::relief) fn rocket_pod_at(&self, lift: f32) -> Option<(SensorPodAxis, (i32, i32), f32)> {
-        if !self.rocket_camera() {
-            return None;
-        }
-        let axis = SensorPodAxis::from_mold(
-            MoldArchetype::from_code(self.shape.shape_stamp()[0]),
-            self.shape.block_heading(),
-        );
+        if !self.rocket_camera() { return None; }
+        let axis = SensorPodAxis::from_mold(MoldArchetype::from_code(self.atom.stamp()[0]), self.atom.heading());
         Some((axis, self.offset, self.floor_offset + lift))
     }
 
     pub(in crate::relief) fn camera_lens_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, (i32, i32), f32)> {
         let cell = GridCell::new(self.offset.0, self.offset.1);
-        let (hub, base_fwd, up) = self.shape.camera_tripod_hub(cell, self.floor_offset + lift, frame)?;
-        let yaw = MoldArchetype::from_code(self.shape.shape_stamp()[0]).placed_camera_yaw();
+        let (hub, base_fwd, up) = self.atom.at_floor(self.floor_offset + lift).camera_tripod_hub(cell, frame)?;
+        let yaw = MoldArchetype::from_code(self.atom.stamp()[0]).placed_camera_yaw();
         let right = base_fwd.cross(up).normalize_or_zero();
         let (s, c) = yaw.sin_cos();
         let lens_fwd = (base_fwd * c + right * s).normalize_or_zero();
@@ -156,42 +135,36 @@ impl VehiclePart {
     }
 
     pub(in crate::relief) fn console_base_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<Vec3> {
-        if !self.flight_console() {
-            return None;
-        }
+        if !self.flight_console() { return None; }
         let (uc, vc) = GridCell::new(self.offset.0, self.offset.1).center();
         Some(frame.point_at(uc, vc, self.floor_offset + lift))
     }
 
     pub fn attitude_pod(&self) -> bool {
-        self.shape.block_medium() == BlockMedium::RocketNozzle
-            && NozzleAxis::from_mold(
-                MoldArchetype::from_code(self.shape.shape_stamp()[0]),
-                self.shape.block_heading(),
-            )
-            .attitude_pod()
+        self.atom.medium() == BlockMedium::RocketNozzle
+            && NozzleAxis::from_mold(MoldArchetype::from_code(self.atom.stamp()[0]), self.atom.heading()).attitude_pod()
     }
 
     pub(in crate::relief) fn origin_seat_floor(&self) -> Option<f32> {
-        (self.offset == (0, 0) && self.shape.block_medium() == BlockMedium::CabinSeat).then_some(self.floor_offset)
+        (self.offset == (0, 0) && self.atom.medium() == BlockMedium::CabinSeat).then_some(self.floor_offset)
     }
 
     pub(in crate::relief) fn wheel_floor_drop(&self) -> Option<f32> {
-        self.shape.wheel_tread_drop().map(|drop| drop - self.floor_offset)
+        self.atom.at_floor(0.0).with_shape(|s| s.wheel_tread_drop()).map(|drop| drop - self.floor_offset)
     }
 
     pub(in crate::relief) fn wheel_radius(&self) -> Option<f32> {
-        (self.shape.block_medium() == BlockMedium::CarWheel).then(|| self.shape.wheel_radius())
+        (self.atom.medium() == BlockMedium::CarWheel).then(|| self.atom.at_floor(0.0).with_shape(|s| s.wheel_radius()))
     }
 
-    pub fn flight_console(&self) -> bool { self.shape.block_medium() == BlockMedium::FlightConsole }
+    pub fn flight_console(&self) -> bool { matches!(self.atom.medium(), BlockMedium::FlightConsole | BlockMedium::PhosphorConsole) }
 
     pub fn console_heading(&self, frame: &SurfaceFrame) -> Option<Vec3> {
-        self.flight_console().then(|| self.shape.block_heading().forward_vector(frame))
+        self.flight_console().then(|| self.atom.heading().forward_vector(frame))
     }
 
     pub fn steering_heading(&self, frame: &SurfaceFrame) -> Option<Vec3> {
-        (self.shape.block_medium() == BlockMedium::SteeringWheel).then(|| self.shape.block_heading().forward_vector(frame))
+        (self.atom.medium() == BlockMedium::SteeringWheel).then(|| self.atom.heading().forward_vector(frame))
     }
 
     pub(in crate::relief) fn world_sole_center(&self, lift: f32, frame: &SurfaceFrame) -> Vec3 {
@@ -204,77 +177,61 @@ impl VehiclePart {
         frame.point_at(uc, vc, self.floor_offset + lift + 0.25)
     }
 
-    fn prop(&self, lift: f32) -> PartPropulsion<'_> {
-        PartPropulsion::new(self.shape.as_ref(), GridCell::new(self.offset.0, self.offset.1), self.floor_offset + lift)
+    fn with_prop<R>(&self, lift: f32, f: impl FnOnce(PartPropulsion<'_>) -> R) -> R {
+        let cell = GridCell::new(self.offset.0, self.offset.1);
+        let floor = self.floor_offset + lift;
+        self.atom.at_floor(floor).with_shape(|s| f(PartPropulsion::new(s, cell, floor)))
     }
 
-    pub(in crate::relief) fn part_mass(&self) -> f32 { self.prop(0.0).part_mass() }
-    pub fn fusion_torch(&self) -> bool { self.shape.block_medium() == BlockMedium::FusionTorch }
+    pub(in crate::relief) fn part_mass(&self) -> f32 { self.with_prop(0.0, |p| p.part_mass()) }
+    pub fn fusion_torch(&self) -> bool { self.atom.medium() == BlockMedium::FusionTorch }
     pub(in crate::relief) fn main_bell(&self) -> bool {
-        (self.shape.block_medium() == BlockMedium::RocketNozzle && !self.attitude_pod()) || self.fusion_torch()
+        (self.atom.medium() == BlockMedium::RocketNozzle && !self.attitude_pod())
+            || self.fusion_torch()
+            || self.atom.medium() == BlockMedium::PropulsionBell
     }
 
-    pub(in crate::relief) fn bell_burn(
-        &self, lift: f32, frame: &SurfaceFrame, com: Vec3, order: &PilotOrder, axes: CockpitAxes, imp: RigidImpulse,
-    ) -> RigidImpulse {
-        self.prop(lift).bell_burn(frame, com, order, axes, imp)
+    pub(in crate::relief) fn bell_burn(&self, lift: f32, frame: &SurfaceFrame, com: Vec3, order: &PilotOrder, axes: CockpitAxes, imp: RigidImpulse) -> RigidImpulse {
+        self.with_prop(lift, |p| p.bell_burn(frame, com, order, axes, imp))
     }
-
-    pub(in crate::relief) fn fusion_burn(
-        &self, lift: f32, frame: &SurfaceFrame, com: Vec3, order: &PilotOrder, axes: CockpitAxes, imp: RigidImpulse,
-    ) -> RigidImpulse {
-        self.prop(lift).fusion_burn(frame, com, order, axes, imp)
+    pub(in crate::relief) fn fusion_burn(&self, lift: f32, frame: &SurfaceFrame, com: Vec3, order: &PilotOrder, axes: CockpitAxes, imp: RigidImpulse) -> RigidImpulse {
+        self.with_prop(lift, |p| p.fusion_burn(frame, com, order, axes, imp))
     }
-
-    pub(in crate::relief) fn attitude_burn(
-        &self, lift: f32, frame: &SurfaceFrame, com: Vec3, lin: Vec3, torq: Vec3, imp: RigidImpulse,
-    ) -> RigidImpulse {
-        self.prop(lift).attitude_burn(frame, com, lin, torq, imp)
+    pub(in crate::relief) fn attitude_burn(&self, lift: f32, frame: &SurfaceFrame, com: Vec3, lin: Vec3, torq: Vec3, imp: RigidImpulse) -> RigidImpulse {
+        self.with_prop(lift, |p| p.attitude_burn(frame, com, lin, torq, imp))
     }
-
     pub(in crate::relief) fn push_hull_solid(&self, lift: f32, out: &mut Vec<HullSolid>) {
-        self.prop(lift).push_hull_solid(out);
+        self.with_prop(lift, |p| p.push_hull_solid(out));
     }
 
     #[allow(clippy::too_many_arguments)]
     pub(in crate::relief) fn collect_wireframe(
-        &self,
-        lift: f32,
-        frame: &SurfaceFrame,
-        axes: CockpitAxes,
-        hull_metrics: (Vec3, Vec3, f32),
+        &self, lift: f32, frame: &SurfaceFrame, axes: CockpitAxes, hull_metrics: (Vec3, Vec3, f32),
         command: (&PilotOrder, Vec3, Vec3),
-        sinks: (
-            &mut ([WireframeCell; MAX_WIRE_CELLS], usize),
-            &mut ([ExhaustJet; MAX_EXHAUST_JETS], usize),
-        ),
+        sinks: (&mut ([WireframeCell; MAX_WIRE_CELLS], usize), &mut ([ExhaustJet; MAX_EXHAUST_JETS], usize)),
     ) {
-        self.prop(lift).collect_wireframe(frame, axes, hull_metrics, command, sinks);
+        self.with_prop(lift, |p| p.collect_wireframe(frame, axes, hull_metrics, command, sinks));
     }
 
     #[allow(clippy::too_many_arguments)]
     pub(in crate::relief) fn emit_space_kinematic(
         &self, lift: f32, frame: &SurfaceFrame, com: Vec3, order: &PilotOrder, lin: Vec3, torq: Vec3, out: &mut dyn MeshTarget,
     ) -> bool {
-        self.prop(lift).emit_space_part(frame, com, order, lin, torq, out)
+        self.with_prop(lift, |p| p.emit_space_part(frame, com, order, lin, torq, out))
     }
 
     pub(in crate::relief) fn emit_driven(&self, lift: f32, spin: f32, turn: f32, frame: &SurfaceFrame, top: Vec3, wall: Vec3, out: &mut dyn MeshTarget) {
         let cell = GridCell::new(self.offset.0, self.offset.1);
-        self.shape.emit_driven_part(cell, self.floor_offset + lift, spin, turn, frame, top, wall, out);
+        let floor = self.floor_offset + lift;
+        self.atom.at_floor(floor).with_shape(|s| s.emit_driven_part(cell, floor, spin, turn, frame, top, wall, out));
     }
 
     pub(in crate::relief) fn park_into(
-        mut self,
-        seat: (i32, i32),
-        basis: (i32, i32, i32, i32),
-        lift: f32,
-        craft: &mut CraftCluster,
-        strata: &NaturalStrata,
-        shafts: &ShaftExcavation,
+        mut self, seat: (i32, i32), basis: (i32, i32, i32, i32), lift: f32,
+        craft: &mut CraftCluster, strata: &NaturalStrata, shafts: &ShaftExcavation,
     ) {
         let ((rxx, rxy, ryx, ryy), (ox, oy)) = (basis, self.offset);
-        let (hx, hy) = match self.shape.block_heading() {
+        let (hx, hy) = match self.atom.heading() {
             WedgeHeading::East => (1, 0),
             WedgeHeading::North => (0, 1),
             WedgeHeading::West => (-1, 0),
@@ -287,13 +244,11 @@ impl VehiclePart {
             _ => WedgeHeading::South,
         };
         for _ in 0..4 {
-            if self.shape.block_heading() == target {
-                break;
-            }
-            self.shape.rotate_quarter();
+            if self.atom.heading() == target { break; }
+            self.atom = self.atom.rotated_quarter();
         }
         let (bu, bv) = (seat.0 + ox * rxx + oy * ryx, seat.1 + ox * rxy + oy * ryy);
         let ground_top = (shafts.elevation_at(strata, bu, bv) as f32) * BLOCK_STEP;
-        craft.insert(bu, bv, ground_top + lift + self.floor_offset, self.shape);
+        craft.insert(bu, bv, ground_top + lift + self.floor_offset, self.atom);
     }
 }

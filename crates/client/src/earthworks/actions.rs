@@ -61,6 +61,16 @@ impl PalmContact {
             );
         }
         let (ns, na, nd, nr, changed) = reach.strike(side, ew.satchel, attire, rhythm, ew.dig, world);
-        (PalmEarthworks::with_dig(ns, nd), na, nr, changed)
+        let next_drag = if !ew.drag.active()
+            && !changed
+            && nd.untouched()
+            && nd.grip().pending_place_on(side)
+            && na.hand_pair(side).0.scalable_module()
+        {
+            super::ScaleDrag::begin(side, reach)
+        } else {
+            super::ScaleDrag::Idle
+        };
+        (PalmEarthworks::with_full_state(ns, nd, ew.toss, next_drag), na, nr, changed)
     }
 }

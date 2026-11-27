@@ -6,7 +6,6 @@ mod corner;
 mod cuboid;
 mod diagonal_slope;
 mod earth_clods;
-mod elevated_shape;
 mod field_camera;
 mod forensic_blocks;
 mod gentle_ridge;
@@ -18,6 +17,7 @@ mod pedal_cluster;
 mod pyramid;
 mod ridge;
 mod shape;
+mod sod;
 mod space_parts;
 mod spawn_plinth;
 mod stair;
@@ -39,7 +39,6 @@ pub use cuboid::CuboidShape;
 pub use diagonal_slope::DiagonalSlope;
 pub use earth_clods::EarthClods;
 pub(crate) use earth_clods::LOAM_CROWN;
-pub use elevated_shape::{ElevatedShape, NicheColumn, TurfCoat, TurfSod};
 pub use field_camera::FieldCameraTripod;
 pub use forensic_blocks::{BlackBoxPodMesh, LaserBeaconMesh, VitrifiedBasaltMesh};
 pub use gentle_ridge::GentleRidge;
@@ -51,6 +50,7 @@ pub use pedal_cluster::{FootwellPlinth, PedalClusterMesh, WalnutFloorPan};
 pub use pyramid::PyramidPeak;
 pub use ridge::RidgeCorner;
 pub use shape::VoxelShape;
+pub use sod::TurfSod;
 pub use space_parts::{
     AttitudeNozzleMesh, ConsoleOrrery, FlightConsoleMesh, FusionTorchMesh, NozzleAxis, RcsManifold,
     RocketNozzleMesh, SensorPodAxis,

@@ -1,44 +1,47 @@
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{
-    BlockMedium, BlockMold, CuboidShape, ElevatedShape, GridCell, MediumShape, TurfCoat, VoxelShape,
+use crate::block::{BlockMedium, GridCell};
+use crate::brick_arena::{
+    BrickCell, BrickStructure, BrickVolume, CellCoord, DismantledSpan, ModuleSpec, RawAtom,
+    NICHE_CONTACT_TOLERANCE,
 };
 use crate::frame::SurfaceFrame;
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
-use super::super::turf_habitat::{CanopyHabitat, NaturalHabitat};
+use super::super::turf_habitat::{CanopyHabitat, NaturalHabitat, TurfHabitat};
 use super::super::turf_scars::TurfScars;
 use super::super::vehicle_assembly::VehicleAssembly;
-use super::overhang::NaturalOverhang;
-use super::{MoldedStructure, VoxelCells};
+use super::MoldedStructure;
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 
-/// Static World-Cube molded blocks (buildings, terrain stacks, benches, and decorative parts).
+/// Static World-Cube blocks and multi-block modules backed by `InertialBricks<BrickArena>` (`1` field, `0` per-cell heap pointers).
 pub struct WorldBlocks {
-    grid: VoxelCells,
+    grid: BrickStructure,
 }
 
 impl WorldBlocks {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(grid: VoxelCells) -> Self {
+    pub const fn new(grid: BrickStructure) -> Self {
         Self { grid }
     }
 
     pub fn untouched() -> Self {
-        Self::new(VoxelCells::untouched())
+        Self::new(BrickStructure::untouched())
+    }
+
+    pub const fn structure(&self) -> &BrickStructure {
+        &self.grid
     }
 
     pub fn sanctuary_at(&self, u: i32, v: i32) -> bool {
-        self.grid.any_at(u, v, |b| b.block_medium().indestructible())
+        self.grid.bricks().inner().any_in_column(u, v, |_, cell| {
+            matches!(cell, BrickCell::RawAtom(a) if a.medium().indestructible())
+        })
     }
 
-    pub fn insert_elevated(&mut self, u: i32, v: i32, shape: ElevatedShape) {
-        self.grid.insert_elevated(u, v, shape);
-    }
-
-    pub fn inlay_sanctuary(&mut self, u: i32, v: i32, floor_elev: f32, shape: Box<dyn VoxelShape>) {
-        self.insert_elevated(u, v, ElevatedShape::new(Box::new(TurfCoat::bare(shape)), floor_elev));
+    pub fn inlay_sanctuary(&mut self, u: i32, v: i32, floor_elev: f32, atom: RawAtom) {
+        self.grid.insert_atom(u, v, floor_elev, atom.smothered());
     }
 
     pub fn stack_bare(
@@ -48,15 +51,37 @@ impl WorldBlocks {
         floor_elev: f32,
         ground_top: f32,
         sub: bool,
-        shape: Box<dyn VoxelShape>,
+        atom: RawAtom,
         scars: &mut TurfScars,
     ) {
-        let coated: Box<dyn VoxelShape> = Box::new(TurfCoat::bare(shape));
-        let elevated = ElevatedShape::new(coated, floor_elev);
-        if !sub && elevated.smothers_turf_below(ground_top) {
+        let bare = atom.smothered();
+        if !sub && (floor_elev - ground_top).abs() < NICHE_CONTACT_TOLERANCE && bare.at_floor(floor_elev).smothers_turf() {
             scars.expose_dirt(u, v);
         }
-        self.insert_elevated(u, v, elevated);
+        self.grid.insert_atom(u, v, floor_elev, bare);
+    }
+
+    pub fn place_module(
+        &mut self,
+        anchor: CellCoord,
+        spec: ModuleSpec,
+        ground_top: f32,
+        scars: &mut TurfScars,
+    ) -> bool {
+        if !self.grid.place_module_at(anchor, spec) {
+            return false;
+        }
+        let (du, dv, _) = spec.span().dimensions();
+        if (anchor.floor_elev(0.0) - ground_top).abs() < NICHE_CONTACT_TOLERANCE {
+            for ov in 0..dv {
+                for ou in 0..du {
+                    let (u, v) = anchor.shifted(ou as i32, ov as i32, 0).planar();
+                    scars.expose_dirt(u, v);
+                    scars.clear_stage(u, v);
+                }
+            }
+        }
+        true
     }
 
     pub fn covers_ground_at(&self, u: i32, v: i32, ground_top: f32) -> bool {
@@ -80,10 +105,38 @@ impl WorldBlocks {
     ) -> (Vec<(i32, i32)>, bool) {
         let active = {
             let habitat = CanopyHabitat::new(NaturalHabitat::new(strata, shafts, scars), self);
-            self.grid.collect_colonization(&habitat)
+            let mut list = Vec::new();
+            self.grid.bricks().inner().visit_occupied_cells(|coord, cell| {
+                if let BrickCell::RawAtom(atom) = cell {
+                    let (u, v) = coord.planar();
+                    let above = self.grid.bricks().cell_at(coord.shifted(0, 0, 1)).occupied();
+                    if !above && atom.bare_turf() {
+                        let h = coord.layer_w() + 1;
+                        let n = habitat.verdant_neighbors(u, v, h);
+                        if n > 0 {
+                            list.push((coord, n));
+                        }
+                    }
+                }
+            });
+            list
         };
         let colonizing = !active.is_empty();
-        (self.grid.apply_colonization(dt, active), colonizing)
+        if !colonizing {
+            return (Vec::new(), false);
+        }
+        let mut regrown = Vec::new();
+        for (coord, n) in active {
+            let BrickCell::RawAtom(atom) = self.grid.bricks().cell_at(coord) else { continue };
+            let (next, grown) = atom.colonized(coord.grid_cell(), dt, n);
+            if next != atom {
+                self.grid.insert_atom(coord.planar().0, coord.planar().1, coord.floor_elev(0.0), next);
+            }
+            if grown {
+                regrown.push(coord.planar());
+            }
+        }
+        (regrown, colonizing)
     }
 
     pub fn step_camera_turn(&mut self, u: i32, v: i32, delta: i32) -> Option<(i32, i32)> {
@@ -96,11 +149,27 @@ impl WorldBlocks {
 
     pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32, ground_top: f32, scars: &mut TurfScars) -> Option<BlockMedium> {
         let (removed, column_vacated) = self.grid.remove_at(u, v, layer_elev)?;
-        if column_vacated && removed.smothers_turf_below(ground_top) {
-            scars.expose_dirt(u, v);
+        match removed {
+            DismantledSpan::Vacant => None,
+            DismantledSpan::Atom { coord, atom } => {
+                let floor = coord.floor_elev(0.0);
+                if column_vacated && (floor - ground_top).abs() < NICHE_CONTACT_TOLERANCE && atom.at_floor(floor).smothers_turf() {
+                    scars.expose_dirt(u, v);
+                }
+                scars.clear_stage(u, v);
+                Some(atom.medium())
+            }
+            DismantledSpan::Module { anchor, spec } => {
+                let (du, dv, _) = spec.span().dimensions();
+                for ov in 0..dv {
+                    for ou in 0..du {
+                        let (cu, cv) = anchor.shifted(ou as i32, ov as i32, 0).planar();
+                        scars.clear_stage(cu, cv);
+                    }
+                }
+                Some(spec.medium())
+            }
         }
-        scars.clear_stage(u, v);
-        Some(removed.block_medium())
     }
 
     pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32, ground_verdant: bool) {
@@ -108,22 +177,14 @@ impl WorldBlocks {
         let crown_verdant = ground_verdant && !self.covers_ground_at(u, v, (nat as f32) * BLOCK_STEP);
         for step in (next_elev + 1)..elev {
             let floor = (step as f32) * BLOCK_STEP;
-            let elevated = if vault.crust_layer_at(u, v, step) {
-                let shape = Box::new(MediumShape::new(Box::new(CuboidShape::new(BLOCK_STEP)), BlockMedium::CrustRock, true, false));
-                ElevatedShape::new(shape, floor)
+            let atom = if vault.crust_layer_at(u, v, step) {
+                RawAtom::full_cube(BlockMedium::CrustRock)
             } else if step == nat - 1 {
-                let crown: Box<dyn VoxelShape> = Box::new(NaturalOverhang::new(strata.crown_shape_at(u, v)));
-                let coated: Box<dyn VoxelShape> = if crown_verdant {
-                    Box::new(TurfCoat::verdant(crown))
-                } else {
-                    Box::new(TurfCoat::bare(crown))
-                };
-                ElevatedShape::new(coated, floor)
+                RawAtom::natural_crown(strata.crown_at(u, v), crown_verdant)
             } else {
-                let soil: Box<dyn VoxelShape> = Box::new(CuboidShape::new(BLOCK_STEP));
-                ElevatedShape::new(Box::new(TurfCoat::bare(soil)), floor)
+                RawAtom::full_cube(BlockMedium::TurfEarth)
             };
-            self.insert_elevated(u, v, elevated);
+            self.grid.insert_atom(u, v, floor, atom);
         }
     }
 
@@ -136,20 +197,25 @@ impl WorldBlocks {
     }
 
     pub fn capture_sector(&self, gsu: i32, gsv: i32) -> Vec<crate::SnapshotBlock> {
-        use crate::VoxelShape as _;
         let (u0, v0) = (gsu * 8, gsv * 8);
         let (u1, v1) = (u0 + 8, v0 + 8);
         let mut out = Vec::new();
-        self.grid.visit_cells(|(u, v), list| {
-            if u >= u0 && u < u1 && v >= v0 && v < v1 {
-                let uv = crate::SectorSnapshot::pack_uv(u, v, gsu, gsv);
-                for b in list {
-                    if b.block_medium().indestructible() {
-                        continue;
-                    }
-                    let fq = (b.floor() * 4.0).round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
-                    out.push(crate::SnapshotBlock::new(uv, fq, b.shape_stamp(), b.verdant_turf()));
+        self.grid.bricks().inner().visit_occupied_cells(|coord, cell| {
+            let (u, v) = coord.planar();
+            if u < u0 || u >= u1 || v < v0 || v >= v1 {
+                return;
+            }
+            let uv = crate::SectorSnapshot::pack_uv(u, v, gsu, gsv);
+            let fq = (coord.floor_elev(0.0) * 4.0).round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
+            match cell {
+                BrickCell::RawAtom(atom) if !atom.medium().indestructible() => {
+                    out.push(crate::SnapshotBlock::new(uv, fq, atom.stamp(), atom.verdant_turf()));
                 }
+                BrickCell::ModuleAnchor(spec) => {
+                    let bytes = spec.wire_bytes();
+                    out.push(crate::SnapshotBlock::new(uv, fq, [bytes[1], (bytes[2] << 4) | (bytes[3] & 0x0F), spec.medium().code()], (bytes[4] & 1) == 1));
+                }
+                _ => {}
             }
         });
         out.sort_unstable_by_key(|b| (b.local_uv(), (b.floor_elevation() * 4.0).round() as i16));
@@ -161,25 +227,36 @@ impl WorldBlocks {
         self.grid.clear_in((u0, u0 + 8), (v0, v0 + 8));
         for b in blocks {
             let (u, v) = crate::SectorSnapshot::unpack_uv(b.local_uv(), gsu, gsv);
-            let raw: Box<dyn VoxelShape> = if b.stamp()[0] == crate::NATURAL_OVERHANG_STAMP {
-                Box::new(NaturalOverhang::new(strata.crown_shape_at(u, v)))
-            } else {
-                BlockMold::shape_from_stamp(b.stamp())
-            };
-            if raw.block_medium().indestructible() {
+            let stamp = b.stamp();
+            let med = BlockMedium::from_code(stamp[2]);
+            if med.indestructible() {
                 continue;
             }
-            let coated: Box<dyn VoxelShape> = if b.verdant() {
-                Box::new(TurfCoat::verdant(raw))
+            if let Some(space_mod) = crate::SpaceModule::from_medium(med) {
+                let turn = crate::CardinalTurn::from_code(u8::from(b.verdant()));
+                let span = crate::ModuleSpan::clamped(stamp[0], stamp[1] >> 4, stamp[1] & 0x0F);
+                let spec = ModuleSpec::new(space_mod, span, turn);
+                let anchor = CellCoord::from_floor(u, v, b.floor_elevation(), 0.0);
+                let _ = self.grid.place_module_at(anchor, spec);
+                continue;
+            }
+            let atom = if stamp[0] == crate::NATURAL_OVERHANG_STAMP {
+                RawAtom::natural_crown(strata.crown_at(u, v), b.verdant())
             } else {
-                Box::new(TurfCoat::bare(raw))
+                RawAtom::from_stamp(stamp, b.verdant())
             };
-            self.insert_elevated(u, v, ElevatedShape::new(coated, b.floor_elevation()));
+            self.grid.insert_atom(u, v, b.floor_elevation(), atom);
         }
     }
 
     pub fn collect_modified_sectors(&self, out: &mut Vec<(i32, i32)>) {
-        self.grid.collect_sectors(out);
+        self.grid.bricks().inner().visit_occupied_cells(|coord, cell| {
+            let indestructible = matches!(cell, BrickCell::RawAtom(a) if a.medium().indestructible());
+            if !indestructible {
+                let (u, v) = coord.planar();
+                out.push((u.div_euclid(8), v.div_euclid(8)));
+            }
+        });
     }
 }
 

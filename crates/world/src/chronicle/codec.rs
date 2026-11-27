@@ -105,6 +105,13 @@ impl<'a> FactCodec<'a> {
                 out.push(15);
                 snapshot.inscribe(out);
             }
+            WorldFact::ModulePlaced { eye, direction, avatar_pos, spec } => {
+                out.push(16);
+                WireVector::new(eye).inscribe(out);
+                WireVector::new(direction).inscribe(out);
+                WireVector::new(avatar_pos).inscribe(out);
+                out.extend_from_slice(&spec.wire_bytes());
+            }
         }
     }
 }
@@ -230,6 +237,20 @@ impl<'a> FactBytes<'a> {
             15 if bytes.len() >= 24 => {
                 let (snapshot, used) = super::SectorSnapshot::decode(&bytes[1..])?;
                 Some((WorldFact::SectorSnapshot { snapshot }, 1 + used))
+            }
+            16 if bytes.len() >= 42 => {
+                let spec = crate::ModuleSpec::from_wire_bytes([
+                    bytes[37], bytes[38], bytes[39], bytes[40], bytes[41],
+                ])?;
+                Some((
+                    WorldFact::ModulePlaced {
+                        eye: WireSlice::new(&bytes[1..13]).vec3()?,
+                        direction: WireSlice::new(&bytes[13..25]).vec3()?,
+                        avatar_pos: WireSlice::new(&bytes[25..37]).vec3()?,
+                        spec,
+                    },
+                    42,
+                ))
             }
             _ => None,
         }

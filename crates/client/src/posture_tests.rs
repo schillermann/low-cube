@@ -135,7 +135,7 @@ fn test_player_avatar_leap_posture_crouches_extends_and_lands() {
 #[test]
 fn test_doorframe_passage_respects_character_height_width_and_depth() {
     use crate::attire::{BodyRegion, EvaAttire};
-    use world::{CuboidShape, ReliefElevation, TerracedRelief};
+    use world::{ReliefElevation, TerracedRelief};
     struct FlatRelief;
     impl ReliefElevation for FlatRelief { fn elevation_at(&self, _: i32, _: i32) -> i32 { 0 } fn surface_height_at(&self, _: f32, _: f32) -> f32 { 0.0 } }
     struct DoorframeWorld(TerracedRelief);
@@ -153,11 +153,11 @@ fn test_doorframe_passage_respects_character_height_width_and_depth() {
         let right_post = if wide_two { 2 } else { 1 };
         for h in 0..5 {
             let y = (h as f32) * 0.5;
-            t.stack_molded_cell(-1, 0, y, Box::new(CuboidShape::new(0.5)));
-            t.stack_molded_cell(right_post, 0, y, Box::new(CuboidShape::new(0.5)));
+            t.stack_molded_cell(-1, 0, y, world::RawAtom::turf_cube());
+            t.stack_molded_cell(right_post, 0, y, world::RawAtom::turf_cube());
         }
-        t.stack_molded_cell(0, 0, lintel_base, Box::new(CuboidShape::new(0.5)));
-        if wide_two { t.stack_molded_cell(1, 0, lintel_base, Box::new(CuboidShape::new(0.5))); }
+        t.stack_molded_cell(0, 0, lintel_base, world::RawAtom::turf_cube());
+        if wide_two { t.stack_molded_cell(1, 0, lintel_base, world::RawAtom::turf_cube()); }
         DoorframeWorld(t)
     };
     let walk_through = |world: &DoorframeWorld, attire: EvaAttire, x: f32, sneak: bool, sideways: bool| -> f32 {

@@ -64,6 +64,13 @@ impl WorldEarthworks for CubePlanet {
         .is_some()
     }
 
+    fn place_scaled_surface_module(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, spec: crate::ModuleSpec) -> bool {
+        self.try_aimed_faces(eye, direction, false, |f| {
+            f.place_scaled_module(eye, direction, avatar_pos, spec).then_some(())
+        })
+        .is_some()
+    }
+
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         self.try_aimed_faces(eye, direction, false, |f| {
             f.adjust_rig(eye, direction, delta_steps, rotate_quarter).then_some(())

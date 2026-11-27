@@ -186,6 +186,17 @@ impl Face for ForestedFace {
         changed
     }
 
+    fn place_scaled_module(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, spec: crate::ModuleSpec) -> bool {
+        let changed = self.origin.place_scaled_module(eye, direction, avatar_pos, spec);
+        if changed {
+            self.forest
+                .get_mut()
+                .expect("SectorForest lock poisoned")
+                .settle_near(eye, self.origin.as_ref(), &self.frame);
+        }
+        changed
+    }
+
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         self.origin.adjust_rig(eye, direction, delta_steps, rotate_quarter)
     }

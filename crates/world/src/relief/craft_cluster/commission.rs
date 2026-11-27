@@ -1,36 +1,44 @@
 use glam::Vec3;
-use crate::block::{BlockMold, GridCell, VoxelShape, WedgeHeading};
+use crate::block::{BlockMold, GridCell, WedgeHeading};
+use crate::brick_arena::{BrickCell, BrickStructure, RawAtom};
 use crate::frame::SurfaceFrame;
 use super::super::craft_entity::{CraftBlueprint, CraftIdentity};
-use super::super::molded_structure::VoxelCells;
 use super::super::sight_ray::SurfaceSightRay;
 use super::super::vehicle_assembly::{VehicleAssembly, VehicleAxes, VehiclePart};
 
 /// Collaborator extracting blueprint parts and surface-cleared launchpad origin from a crane `CraftCluster`.
 pub(super) struct PadCommission<'a> {
-    grid: &'a VoxelCells,
+    grid: &'a BrickStructure,
 }
 
 impl<'a> PadCommission<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(grid: &'a VoxelCells) -> Self {
+    pub(super) const fn new(grid: &'a BrickStructure) -> Self {
         Self { grid }
     }
 
     pub(super) fn extract_parts(&self, anchor: (i32, i32), frame: &SurfaceFrame) -> Vec<VehiclePart> {
         let floor_min = self.min_floor();
+        let datum = self.grid.datum();
         let flip_v = frame.tangent().cross(frame.bitangent()).dot(frame.normal()) > 0.0;
         let v_sign = if flip_v { -1 } else { 1 };
         let mut parts = Vec::new();
-        self.grid.visit_cells(|(cu, cv), list| {
-            for b in list {
-                let floor_off = (b.floor() - floor_min).max(0.0);
-                let mut shape = BlockMold::shape_from_stamp(b.shape_stamp());
-                if flip_v && matches!(shape.block_heading(), WedgeHeading::North | WedgeHeading::South) {
-                    shape.rotate_quarter();
-                    shape.rotate_quarter();
+        self.grid.bricks().inner().visit_occupied_cells(|coord, cell| {
+            let (cu, cv) = coord.planar();
+            let floor_off = (coord.floor_elev(datum) - floor_min).max(0.0);
+            match cell {
+                BrickCell::RawAtom(b) => {
+                    let mut atom = BlockMold::atom_from_stamp(b.stamp());
+                    if flip_v && matches!(atom.heading(), WedgeHeading::North | WedgeHeading::South) {
+                        atom = atom.rotated_quarter().rotated_quarter();
+                    }
+                    parts.push(VehiclePart::new((cu - anchor.0, (cv - anchor.1) * v_sign), floor_off, atom));
                 }
-                parts.push(VehiclePart::new((cu - anchor.0, (cv - anchor.1) * v_sign), floor_off, shape));
+                BrickCell::ModuleAnchor(spec) => {
+                    let atom = RawAtom::full_cube(spec.medium());
+                    parts.push(VehiclePart::new((cu - anchor.0, (cv - anchor.1) * v_sign), floor_off, atom));
+                }
+                _ => {}
             }
         });
         parts.sort_by_key(VehiclePart::canonical_key);
@@ -68,10 +76,9 @@ impl<'a> PadCommission<'a> {
 
     fn min_floor(&self) -> f32 {
         let mut floor_min = f32::MAX;
-        self.grid.visit_cells(|_, list| {
-            for b in list {
-                floor_min = floor_min.min(b.floor());
-            }
+        let datum = self.grid.datum();
+        self.grid.bricks().inner().visit_occupied_cells(|coord, _| {
+            floor_min = floor_min.min(coord.floor_elev(datum));
         });
         floor_min
     }
@@ -82,12 +89,12 @@ impl<'a> PadCommission<'a> {
             return pad_top;
         }
         let floor_min = self.min_floor();
-        self.grid.visit_cells(|(cu, cv), list| {
+        let datum = self.grid.datum();
+        self.grid.bricks().inner().visit_occupied_cells(|coord, _| {
+            let (cu, cv) = coord.planar();
             let ground = ground_fn(cu, cv);
-            for b in list {
-                let floor_off = (b.floor() - floor_min).max(0.0);
-                pad_top = pad_top.max(ground - floor_off);
-            }
+            let floor_off = (coord.floor_elev(datum) - floor_min).max(0.0);
+            pad_top = pad_top.max(ground - floor_off);
         });
         pad_top
     }

@@ -1,9 +1,11 @@
 mod blueprints;
+mod placement;
 mod snapshot;
 
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, GridCell, VoxelShape};
+use crate::block::{BlockMedium, GridCell};
+use crate::brick_arena::{ModuleSpec, RawAtom};
 use crate::frame::SurfaceFrame;
 use super::cantilever_rig::{RigPlacement, RigRegistry};
 use super::craft_cluster::ParkedFleet;
@@ -18,9 +20,9 @@ use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
 use self::blueprints::{BlueprintCommission, BlueprintSite, VehicleEmbarkation};
+use self::placement::MoldStack;
 use self::snapshot::{SectorMoldsTarget, SectorMoldsView};
 
-const BLOCK_STEP: f32 = GridCell::SPAN;
 const NICHE_WALL_MARGIN: f32 = 0.10;
 pub(super) const MAX_STACK_ELEVATION: f32 = 16.0;
 
@@ -154,16 +156,8 @@ impl OverhangMolds {
         if self.car_locked_at(u, v, layer_elev) {
             return None;
         }
-        if let Some(med) = self.rigs.remove_craft_layer(u, v, layer_elev) {
-            self.clear_stage(u, v);
-            return Some(med);
-        }
-        if self.rigs.pack_up(strata, shafts, u, v, layer_elev, &mut self.world_blocks, &mut self.scars) {
-            self.clear_stage(u, v);
-            return Some(BlockMedium::CantileverRig);
-        }
-        let ground_top = (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP;
-        self.world_blocks.remove_layer(u, v, layer_elev, ground_top, &mut self.scars)
+        MoldStack::new(&mut self.world_blocks, &self.fleet, &mut self.rigs, &mut self.scars)
+            .remove_layer(strata, shafts, u, v, layer_elev)
     }
 
     pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32) {
@@ -171,44 +165,14 @@ impl OverhangMolds {
         self.world_blocks.retain_overhang(strata, u, v, next_elev, elev, ground_verdant);
     }
 
-    pub fn stack_molded(&mut self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, shape: Box<dyn VoxelShape>) -> bool {
-        if shape.block_medium() == BlockMedium::VehicleBlueprint {
-            return false;
-        }
-        if shape.block_medium() == BlockMedium::CantileverRig {
-            self.rigs.deploy(u, v, ground_top);
-            self.clear_stage(u, v);
-            return true;
-        }
-        match self.rigs.resolve_placement(u, v, ground_top, sub, raw_floor) {
-            RigPlacement::BlockedMast => false,
-            RigPlacement::MountFirst { mast, cell, floor_elev } => {
-                self.rigs.place_on_rig(mast, cell, floor_elev, shape);
-                self.clear_stage(cell.0, cell.1);
-                true
-            }
-            RigPlacement::AttachCraft { mast, cell, floor_elev } => {
-                if floor_elev >= MAX_STACK_ELEVATION {
-                    return false;
-                }
-                self.rigs.place_on_rig(mast, cell, floor_elev, shape);
-                self.clear_stage(cell.0, cell.1);
-                true
-            }
-            RigPlacement::WorldCube => {
-                if shape.block_medium().indestructible() {
-                    self.world_blocks.inlay_sanctuary(u, v, raw_floor, shape);
-                    return true;
-                }
-                let site = BlueprintSite::new(&self.rigs, &self.fleet);
-                let Some(next_floor) = site.resolve_world_floor(&self.world_blocks, (u, v), (ground_top, raw_floor), sub) else {
-                    return false;
-                };
-                self.world_blocks.stack_bare(u, v, next_floor, ground_top, sub, shape, &mut self.scars);
-                self.clear_stage(u, v);
-                true
-            }
-        }
+    pub fn stack_molded(&mut self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, atom: RawAtom) -> bool {
+        MoldStack::new(&mut self.world_blocks, &self.fleet, &mut self.rigs, &mut self.scars)
+            .stack_atom((u, v), (ground_top, raw_floor), sub, atom)
+    }
+
+    pub fn stack_module(&mut self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, spec: ModuleSpec) -> bool {
+        MoldStack::new(&mut self.world_blocks, &self.fleet, &mut self.rigs, &mut self.scars)
+            .stack_module((u, v), (ground_top, raw_floor), sub, spec)
     }
 
     pub fn adjust_rig(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, delta_steps: i32, rotate_quarter: bool) -> (bool, (i32, i32)) {

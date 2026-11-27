@@ -102,6 +102,8 @@ mod pickaxe_tests;
 #[cfg(test)]
 mod posture_tests;
 #[cfg(test)]
+mod scale_drag_tests;
+#[cfg(test)]
 mod seam_clearance_tests;
 #[cfg(test)]
 mod solar_chart_tests;

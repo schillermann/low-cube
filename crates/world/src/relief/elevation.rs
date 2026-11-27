@@ -1,6 +1,7 @@
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, GridCell, MiningEdge, VoxelShape};
+use crate::block::{BlockMedium, GridCell, MiningEdge};
+use crate::brick_arena::{ModuleSpec, RawAtom};
 use crate::frame::SurfaceFrame;
 use super::craft_entity::{CraftBlueprint, VesselSink};
 use super::mineral_vein::ExposedStratum;
@@ -97,8 +98,11 @@ pub trait ReliefElevation: Send + Sync {
         None
     }
 
-    /// Stacks one molded voxel block layer at (u, v).
-    fn stack_molded_cell(&mut self, _u: i32, _v: i32, _base: f32, _shape: Box<dyn VoxelShape>) -> bool { false }
+    /// Stacks one unboxed `RawAtom` block layer at `(u, v)`.
+    fn stack_molded_cell(&mut self, _u: i32, _v: i32, _base: f32, _atom: RawAtom) -> bool { false }
+
+    /// Places a multi-block or scalable `ModuleSpec` anchored at `(u, v, base)`.
+    fn stack_module_cell(&mut self, _u: i32, _v: i32, _base: f32, _spec: ModuleSpec) -> bool { false }
 
     /// Raises, lowers, or rotates a polyhedral cantilever rig at or holding (u, v).
     fn adjust_rig_at(&mut self, _u: i32, _v: i32, _delta_steps: i32, _rotate_quarter: bool) -> (bool, (i32, i32)) { (false, (0, 0)) }

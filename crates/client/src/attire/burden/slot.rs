@@ -80,7 +80,11 @@ impl SlotBurden {
             | HeldRelic::VitrifiedBasalt
             | HeldRelic::CarWheel
             | HeldRelic::CopperOre
-            | HeldRelic::IronOre => WeightGrade::Weighty,
+            | HeldRelic::IronOre
+            | HeldRelic::PilotSeat
+            | HeldRelic::PhosphorConsole
+            | HeldRelic::DockingRing
+            | HeldRelic::ThermalFin => WeightGrade::Weighty,
             HeldRelic::CrustBlock
             | HeldRelic::GoldOre
             | HeldRelic::CantileverCrane
@@ -88,7 +92,14 @@ impl SlotBurden {
             | HeldRelic::FlightConsole
             | HeldRelic::FusionTorch
             | HeldRelic::SpawnStone
-            | HeldRelic::RocketNozzle => WeightGrade::Heavy,
+            | HeldRelic::RocketNozzle
+            | HeldRelic::ArcFurnace
+            | HeldRelic::AssemblyBench
+            | HeldRelic::ElectrolysisPlant
+            | HeldRelic::AirlockChamber
+            | HeldRelic::CrewBerth
+            | HeldRelic::PropulsionBell
+            | HeldRelic::PropellantTank => WeightGrade::Heavy,
         }
     }
 

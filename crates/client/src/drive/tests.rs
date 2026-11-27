@@ -39,10 +39,10 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
         m0.next_form().next_form().next_form(),
     );
     let radii = [
-        m0.shape_for(Vec3::NEG_Z, &frame).wheel_radius(),
-        m1.shape_for(Vec3::NEG_Z, &frame).wheel_radius(),
-        m2.shape_for(Vec3::NEG_Z, &frame).wheel_radius(),
-        m3.shape_for(Vec3::NEG_Z, &frame).wheel_radius(),
+        m0.atom_for(Vec3::NEG_Z, &frame).at_floor(0.0).with_shape(|s| s.wheel_radius()),
+        m1.atom_for(Vec3::NEG_Z, &frame).at_floor(0.0).with_shape(|s| s.wheel_radius()),
+        m2.atom_for(Vec3::NEG_Z, &frame).at_floor(0.0).with_shape(|s| s.wheel_radius()),
+        m3.atom_for(Vec3::NEG_Z, &frame).at_floor(0.0).with_shape(|s| s.wheel_radius()),
     ];
     assert!(radii[0] != radii[1] && radii[1] != radii[2] && radii[2] != radii[3] && radii[0] != radii[2]);
 
@@ -65,7 +65,9 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
         VertCollector(Vec::new()),
     ];
     for (i, sm) in [seat_mold, bench_mold, stool_mold, throne_mold].into_iter().enumerate() {
-        sm.shape_for(Vec3::NEG_Z, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut seat_meshes[i]);
+        sm.atom_for(Vec3::NEG_Z, &frame)
+            .at_floor(0.0)
+            .with_shape(|s| s.emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut seat_meshes[i]));
     }
     assert!(
         seat_meshes[0].0 != seat_meshes[1].0
@@ -75,8 +77,14 @@ fn test_wheel_types_spin_reverse_after_brake_and_seated_head_and_hands() {
             && seat_meshes[0].0.iter().filter(|v| v.y > 0.15).all(|v| v.z > 0.15)
     );
     let (mut pedal_verts, mut wheel_verts) = (VertCollector(Vec::new()), VertCollector(Vec::new()));
-    BlockMold::cube().in_medium(BlockMedium::PedalCluster).shape_for(Vec3::NEG_Z, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut pedal_verts);
-    m0.shape_for(Vec3::X, &frame).emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut wheel_verts);
+    BlockMold::cube()
+        .in_medium(BlockMedium::PedalCluster)
+        .atom_for(Vec3::NEG_Z, &frame)
+        .at_floor(0.0)
+        .with_shape(|s| s.emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut pedal_verts));
+    m0.atom_for(Vec3::X, &frame)
+        .at_floor(0.0)
+        .with_shape(|s| s.emit_shape(world::GridCell::new(0, 0), 0.0, &frame, Vec3::ONE, &mut wheel_verts));
     assert!(
         pedal_verts.0.iter().any(|v| (v.y - 0.50).abs() < 1e-4)
             && wheel_verts.0.iter().any(|v| (v.x - 0.50).abs() < 1e-4)

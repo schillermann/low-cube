@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use glam::Vec3;
 use crate::MeshTarget;
-use crate::block::{BlockMedium, GridCell, VoxelShape};
+use crate::block::{BlockMedium, GridCell};
+use crate::brick_arena::{ModuleSpec, RawAtom};
 use crate::frame::SurfaceFrame;
 use super::super::craft_cluster::ParkedFleet;
 use super::super::craft_entity::CraftBlueprint;
@@ -11,7 +12,7 @@ use super::super::shaft_excavation::ShaftExcavation;
 use super::super::sight_ray::SurfaceSightRay;
 use super::super::turf_scars::TurfScars;
 use super::super::vehicle_assembly::VehicleAssembly;
-use super::blueprint_mount::SeatedCarMount;
+use super::blueprint_mount::{RigBlueprintQuery, SeatedCarMount};
 use super::{CantileverRig, BLOCK_STEP, MAX_HOIST_STEPS};
 
 /// Placement routing decision resolved across active cantilever cranes.
@@ -91,16 +92,32 @@ impl RigRegistry {
         RigPlacement::WorldCube
     }
 
-    pub fn place_on_rig(&mut self, mast: (i32, i32), cell: (i32, i32), floor_elev: f32, shape: Box<dyn VoxelShape>) {
+    pub fn place_on_rig(&mut self, mast: (i32, i32), cell: (i32, i32), floor_elev: f32, atom: RawAtom) {
         let relocated = self
             .rigs
             .get_mut(&mast)
-            .and_then(|rig| rig.place_craft_block(mast.0, mast.1, cell.0, cell.1, floor_elev, shape));
+            .and_then(|rig| rig.place_craft_block(mast.0, mast.1, cell.0, cell.1, floor_elev, atom));
         if let Some(new_mast) = relocated {
             if let Some(rig) = self.rigs.remove(&mast) {
                 self.rigs.insert(new_mast, rig);
             }
         }
+    }
+
+    pub fn place_module_on_rig(&mut self, mast: (i32, i32), cell: (i32, i32), floor_elev: f32, spec: ModuleSpec) -> bool {
+        let Some((ok, relocated)) = self
+            .rigs
+            .get_mut(&mast)
+            .and_then(|rig| rig.place_craft_module(mast.0, mast.1, cell.0, cell.1, floor_elev, spec))
+        else {
+            return false;
+        };
+        if let Some(new_mast) = relocated {
+            if let Some(rig) = self.rigs.remove(&mast) {
+                self.rigs.insert(new_mast, rig);
+            }
+        }
+        ok
     }
 
     pub fn remove_craft_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
@@ -156,15 +173,7 @@ impl RigRegistry {
     }
 
     pub fn find_aimed_rig(&self, u: i32, v: i32, ray: SurfaceSightRay, frame: &SurfaceFrame) -> Option<(i32, i32)> {
-        if let Some((&mast, _)) = self.rigs.iter().find(|(&(mu, mv), r)| r.aimed_empty_boom(mu, mv, u, v)) {
-            return Some(mast);
-        }
-        (1..=60).find_map(|step| {
-            let sample = ray.sample_point((step as f32) * 0.08);
-            let (su, sv) = frame.decompose(sample);
-            let (ru, rv) = GridCell::at_planar(su, sv).feed_coordinates(|gu, gv| (gu, gv));
-            self.rigs.iter().find_map(|(&(mu, mv), r)| r.aimed_empty_boom(mu, mv, ru, rv).then_some((mu, mv)))
-        })
+        RigBlueprintQuery::new(&self.rigs).find_aimed(u, v, ray, frame)
     }
 
     pub fn reconnect_seated_car(
@@ -205,13 +214,7 @@ impl RigRegistry {
         ev: f32,
         frame: &SurfaceFrame,
     ) -> Option<CraftBlueprint> {
-        self.rigs.iter().find_map(|(&(mu, mv), rig)| {
-            let hit = !rig.vacant_craft()
-                && (rig.craft_medium_at(u, v, layer_elev).is_some()
-                    || rig.boom_or_craft_at(mu, mv, u, v)
-                    || ((u, v) == (mu, mv) && rig.occupies_mast_layer(layer_elev)));
-            hit.then(|| rig.capture_blueprint(eu, ev, frame)).flatten()
-        })
+        RigBlueprintQuery::new(&self.rigs).capture((u, v, layer_elev), (eu, ev), frame)
     }
 
     #[allow(clippy::too_many_arguments)]

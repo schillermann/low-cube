@@ -177,10 +177,10 @@ fn test_seam_chamfer_emission_at_world_border() {
 
     // Grass regrowth: scales with adjacent grass count (8 neighbors ~40-95s, 1 neighbor 8x slower, 2-block-high pillar never regrows)
     let mut terraced = TerracedRelief::in_span(Box::new(TestRelief(|_, _| 0)), 8);
-    assert!(terraced.stack_molded_cell(0, 0, 0.0, Box::new(crate::block::CuboidShape::new(0.5))) && terraced.bare_dirt_at(0, 0));
+    assert!(terraced.stack_molded_cell(0, 0, 0.0, crate::RawAtom::turf_cube()) && terraced.bare_dirt_at(0, 0));
     assert!(
-        terraced.stack_molded_cell(3, 3, 0.0, Box::new(crate::block::CuboidShape::new(0.5)))
-            && terraced.stack_molded_cell(3, 3, 0.5, Box::new(crate::block::CuboidShape::new(0.5)))
+        terraced.stack_molded_cell(3, 3, 0.0, crate::RawAtom::turf_cube())
+            && terraced.stack_molded_cell(3, 3, 0.5, crate::RawAtom::turf_cube())
             && terraced.bare_dirt_at(3, 3)
     );
     assert!(terraced.step_grass(15.0).is_empty() && terraced.bare_dirt_at(0, 0));

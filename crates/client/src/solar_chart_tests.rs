@@ -195,12 +195,12 @@ fn test_high_g_tunnel_vision_fusion_hum_and_end_to_end_earth_to_mars_brachistoch
     let right = ref_up.cross(launch_dir).normalize();
     let fwd = launch_dir.cross(right).normalize();
     let parts = vec![
-        world::VehiclePart::new((0, 0), 0.0, BlockMold::shape_from_stamp([0, 0, BlockMedium::CabinSeat.code()])),
-        world::VehiclePart::new((0, 1), 0.0, BlockMold::shape_from_stamp([0, 0, BlockMedium::FlightConsole.code()])),
-        world::VehiclePart::new((0, -1), 0.0, BlockMold::shape_from_stamp([0, 0, BlockMedium::FlightConsole.code()])),
-        world::VehiclePart::new((-1, 0), 0.0, BlockMold::shape_from_stamp([1, 0, BlockMedium::RocketNozzle.code()])),
-        world::VehiclePart::new((1, 0), 0.0, BlockMold::shape_from_stamp([1, 0, BlockMedium::RocketNozzle.code()])),
-        world::VehiclePart::new((0, 0), -0.5, BlockMold::shape_from_stamp([0, 0, BlockMedium::FusionTorch.code()])),
+        world::VehiclePart::new((0, 0), 0.0, BlockMold::atom_from_stamp([0, 0, BlockMedium::CabinSeat.code()])),
+        world::VehiclePart::new((0, 1), 0.0, BlockMold::atom_from_stamp([0, 0, BlockMedium::FlightConsole.code()])),
+        world::VehiclePart::new((0, -1), 0.0, BlockMold::atom_from_stamp([0, 0, BlockMedium::FlightConsole.code()])),
+        world::VehiclePart::new((-1, 0), 0.0, BlockMold::atom_from_stamp([1, 0, BlockMedium::RocketNozzle.code()])),
+        world::VehiclePart::new((1, 0), 0.0, BlockMold::atom_from_stamp([1, 0, BlockMedium::RocketNozzle.code()])),
+        world::VehiclePart::new((0, 0), -0.5, BlockMold::atom_from_stamp([0, 0, BlockMedium::FusionTorch.code()])),
     ];
     let assembly = world::VehicleAssembly::new(leo_origin, world::VehicleAxes::new(right, fwd, launch_dir), fwd, parts);
     assert!(world.park_vehicle(assembly));

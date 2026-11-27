@@ -93,7 +93,7 @@ fn test_compacted_and_disk_vault_chronicle_decorators_deduplicate_and_fold_wal()
     let part = world::VehiclePart::new(
         (0, 0),
         0.0,
-        BlockMold::shape_from_stamp([0, 0, BlockMedium::FlightConsole.code()]),
+        BlockMold::atom_from_stamp([0, 0, BlockMedium::FlightConsole.code()]),
     );
     let bp = CraftBlueprint::new(cid, vec![part]);
     let stratum = ExposedStratum::new((2, 3, -4), BlockMedium::GoldOre);

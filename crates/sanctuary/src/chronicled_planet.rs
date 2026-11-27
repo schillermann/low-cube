@@ -84,6 +84,14 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
         ok
     }
 
+    fn place_scaled_surface_module(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, spec: world::ModuleSpec) -> bool {
+        let ok = self.origin.place_scaled_surface_module(eye, direction, avatar_pos, spec);
+        if ok {
+            self.record_scoped(eye, WorldFact::ModulePlaced { eye, direction, avatar_pos, spec });
+        }
+        ok
+    }
+
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         let ok = self.origin.adjust_rig(eye, direction, delta_steps, rotate_quarter);
         if ok {

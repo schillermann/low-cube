@@ -162,44 +162,18 @@ impl BlockMold {
         (effective, wedge, Self::corner_for(wedge))
     }
 
-    fn build_shape(arch: MoldArchetype, wedge: WedgeHeading, medium: BlockMedium) -> Box<dyn VoxelShape> {
-        let corner = Self::corner_for(wedge);
-        let wrap = |s: Box<dyn VoxelShape>| -> Box<dyn VoxelShape> {
-            Box::new(MediumShape::with_archetype(s, medium, arch, wedge))
-        };
-        match arch {
-            MoldArchetype::FullCube => Box::new(MediumShape::with_archetype(CuboidShape::full_cube(), medium, arch, wedge)),
-            MoldArchetype::HalfSlab => Box::new(MediumShape::with_archetype(CuboidShape::half_slab(), medium, arch, wedge)),
-            MoldArchetype::RampWedge => Box::new(MediumShape::with_archetype(RampWedge::new(wedge), medium, arch, wedge)),
-            MoldArchetype::SteppedStair => Box::new(MediumShape::with_archetype(StairFlight::new(wedge), medium, arch, wedge)),
-            MoldArchetype::PyramidApex => Box::new(MediumShape::with_archetype(PyramidPeak::slope_aligned(), medium, arch, wedge)),
-            MoldArchetype::ConvexRidge => Box::new(MediumShape::with_archetype(RidgeCorner::new(corner), medium, arch, wedge)),
-            MoldArchetype::ConcaveValley => Box::new(MediumShape::with_archetype(ValleyCorner::new(corner), medium, arch, wedge)),
-            MoldArchetype::DiagonalRamp => Box::new(MediumShape::with_archetype(DiagonalSlope::new(corner), medium, arch, wedge)),
-            MoldArchetype::GentleLowerWedge => wrap(Box::new(GentleWedge::lower(wedge))),
-            MoldArchetype::GentleUpperWedge => wrap(Box::new(GentleWedge::upper(wedge))),
-            MoldArchetype::GentleLowerRidge => wrap(Box::new(GentleRidge::lower(corner))),
-            MoldArchetype::GentleUpperRidge => wrap(Box::new(GentleRidge::upper(corner))),
-            MoldArchetype::GentleLowerValley => wrap(Box::new(GentleValley::lower(corner))),
-            MoldArchetype::GentleUpperValley => wrap(Box::new(GentleValley::upper(corner))),
-            MoldArchetype::ConvexStairCorner => wrap(Box::new(StairCorner::convex(corner))),
-            MoldArchetype::ConcaveStairCorner => wrap(Box::new(StairCorner::concave(corner))),
-        }
+    pub(crate) fn resolve_atom_orientation(self, direction: Vec3, frame: &SurfaceFrame) -> (MoldArchetype, WedgeHeading, CornerHeading) {
+        self.resolve_orientation(direction, frame)
     }
 
-    /// Reconstructs an exact oriented `VoxelShape` from its 3-byte `[archetype, wedge, medium]` stamp.
-    pub fn shape_from_stamp(stamp: [u8; 3]) -> Box<dyn VoxelShape> {
-        Self::build_shape(
-            MoldArchetype::from_code(stamp[0]),
-            WedgeHeading::from_code(stamp[1]),
-            BlockMedium::from_code(stamp[2]),
-        )
+    /// Reconstructs an unboxed `RawAtom` from its 3-byte `[archetype, wedge, medium]` stamp.
+    pub const fn atom_from_stamp(stamp: [u8; 3]) -> crate::RawAtom {
+        crate::RawAtom::from_stamp(stamp, false)
     }
 
-    /// Resolves the concrete VoxelShape oriented along the placement direction and current turn.
-    pub fn shape_for(self, direction: Vec3, frame: &SurfaceFrame) -> Box<dyn VoxelShape> {
-        let (arch, wedge, _) = self.resolve_orientation(direction, frame);
-        Self::build_shape(arch, wedge, self.medium)
+    /// Resolves an unboxed `RawAtom` oriented along the placement direction and current turn.
+    pub fn atom_for(self, direction: Vec3, frame: &SurfaceFrame) -> crate::RawAtom {
+        crate::RawAtom::from_mold(self, direction, frame)
     }
 
     /// Emits a miniature 3D preview of this molded block oriented inside a hand basis without heap allocations.
@@ -209,11 +183,11 @@ impl BlockMold {
         scale: f32, side_color: Vec3, _top_color: Vec3, target: &mut dyn MeshTarget,
     ) {
         struct MiniatureBasis { origin: Vec3, right: Vec3, up: Vec3, back: Vec3 }
-        struct MiniatureTarget<'a> { basis: MiniatureBasis, scale: f32, out: &'a mut dyn MeshTarget }
+        struct MiniatureTarget<'a> { basis: MiniatureBasis, center_xz: (f32, f32), scale: f32, out: &'a mut dyn MeshTarget }
         impl MeshTarget for MiniatureTarget<'_> {
             fn push_quad(&mut self, quad: Quad) {
-                let (b, s) = (&self.basis, self.scale);
-                let map_pt = |p: Vec3| b.origin + b.right * ((p.x - 0.25) * s) + b.up * (p.y * s) + b.back * ((p.z - 0.25) * s);
+                let (b, (cx, cz), s) = (&self.basis, self.center_xz, self.scale);
+                let map_pt = |p: Vec3| b.origin + b.right * ((p.x - cx) * s) + b.up * (p.y * s) + b.back * ((p.z - cz) * s);
                 let map_n = |n: Vec3| (b.right * n.x + b.up * n.y + b.back * n.z).normalize_or_zero();
                 let glow = quad.radiate(|g| g);
                 let mapped = quad.transfer(|v0, v1, v2, v3, n, col| {
@@ -223,8 +197,25 @@ impl BlockMold {
             }
         }
         let unit_frame = SurfaceFrame::new(Vec3::X, Vec3::Z, Vec3::Y, 0.0);
+        if let Some(spec) = crate::ModuleSpec::from_mold(self) {
+            let (du, dv, dw) = spec.span().dimensions();
+            let fit = scale / (du.max(dv).max(dw).max(1) as f32);
+            let mut mini = MiniatureTarget {
+                basis: MiniatureBasis { origin, right, up, back: -forward },
+                center_xz: ((du as f32) * 0.25, (dv as f32) * 0.25),
+                scale: fit,
+                out: target,
+            };
+            crate::ModuleSculpture::new(crate::CellCoord::new(0, 0, 0), spec, 0.0).emit(&unit_frame, &mut mini);
+            return;
+        }
         let (arch, wedge, corner) = self.resolve_orientation(Vec3::NEG_Z, &unit_frame);
-        let mut mini = MiniatureTarget { basis: MiniatureBasis { origin, right, up, back: -forward }, scale, out: target };
+        let mut mini = MiniatureTarget {
+            basis: MiniatureBasis { origin, right, up, back: -forward },
+            center_xz: (0.25, 0.25),
+            scale,
+            out: target,
+        };
         let mut emit = |raw: &dyn VoxelShape| {
             struct RefShape<'a>(&'a dyn VoxelShape);
             impl VoxelShape for RefShape<'_> {

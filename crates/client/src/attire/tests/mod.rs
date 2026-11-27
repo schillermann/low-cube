@@ -5,7 +5,7 @@ mod encumbrance;
 use glam::{Quat, Vec3};
 use winit::keyboard::KeyCode;
 use world::{
-    ClimateZone, CubePlanet, CuboidShape, FacetedReliefFace, MeshTarget, NullFace, PlanetaryWorld,
+    ClimateZone, CubePlanet, FacetedReliefFace, MeshTarget, NullFace, PlanetaryWorld,
     Quad, WorldEarthworks as _,
 };
 use crate::avatar::{
@@ -59,7 +59,7 @@ impl MeshTarget for QuadLedger {
 fn world_with_cube_at(u: i32, v: i32) -> CubePlanet {
     let face = Box::new(
         FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 16)
-            .with_molded_block(u, v, 0.0, Box::new(CuboidShape::full_cube())),
+            .with_molded_block(u, v, 0.0, world::RawAtom::turf_cube()),
     );
     CubePlanet::new(vec![face], Box::new(NullFace))
 }

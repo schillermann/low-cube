@@ -1,13 +1,10 @@
 use glam::Vec3;
 use crate::{MeshTarget, Quad};
-use crate::block::{
-    CornerHeading, CuboidShape, GridCell, RampWedge, RidgeCorner, ValleyCorner, VoxelShape,
-    WedgeHeading,
-};
+use crate::block::{CornerHeading, GridCell, WedgeHeading};
 use crate::frame::SurfaceFrame;
 
 /// Natural top-layer crown topology of a discrete terrain cell derived from its 3x3 neighborhood.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NaturalCrown {
     Ramp(usize, WedgeHeading),
     Ridge(usize, CornerHeading),
@@ -67,13 +64,12 @@ impl NaturalCrown {
         }
     }
 
-    /// Materializes this natural crown into a concrete 3D `VoxelShape`.
-    pub fn into_shape(self) -> Box<dyn VoxelShape> {
+    pub fn rotated_quarter(self) -> Self {
         match self {
-            Self::Ramp(_, heading) => Box::new(RampWedge::new(heading)),
-            Self::Ridge(_, heading) => Box::new(RidgeCorner::new(heading)),
-            Self::Valley(_, heading) => Box::new(ValleyCorner::new(heading)),
-            Self::Flat => Box::new(CuboidShape::new(GridCell::SPAN)),
+            Self::Ramp(idx, h) => Self::Ramp(idx, h.rotated_ccw()),
+            Self::Ridge(idx, c) => Self::Ridge(idx, c.rotated_ccw()),
+            Self::Valley(idx, c) => Self::Valley(idx, c.rotated_ccw()),
+            Self::Flat => Self::Flat,
         }
     }
 

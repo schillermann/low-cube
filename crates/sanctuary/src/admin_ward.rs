@@ -183,6 +183,13 @@ impl<W: WorldEarthworks> WorldEarthworks for AdminBlockWard<W> {
         self.origin.place_molded_surface_block(eye, direction, avatar_pos, mold)
     }
 
+    fn place_scaled_surface_module(&mut self, eye: Vec3, direction: Vec3, avatar_pos: Vec3, spec: world::ModuleSpec) -> bool {
+        if spec.medium().admin_restricted() {
+            return false;
+        }
+        self.origin.place_scaled_surface_module(eye, direction, avatar_pos, spec)
+    }
+
     fn adjust_rig(&mut self, eye: Vec3, direction: Vec3, delta_steps: i32, rotate_quarter: bool) -> bool {
         self.origin.adjust_rig(eye, direction, delta_steps, rotate_quarter)
     }
@@ -234,6 +241,7 @@ impl<W: WorldEarthworks> WorldEarthworks for AdminBlockWard<W> {
     fn enact_offworld(&mut self, body: BodyId, fact: &WorldFact) -> bool {
         match *fact {
             WorldFact::MoldPlaced { mold, .. } if mold.medium().admin_restricted() => false,
+            WorldFact::ModulePlaced { spec, .. } if spec.medium().admin_restricted() => false,
             _ => self.origin.enact_offworld(body, fact),
         }
     }

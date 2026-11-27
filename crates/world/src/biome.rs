@@ -72,10 +72,10 @@ impl<R: ReliefMold> ReliefMold for OriginPlinthRelief<R> {
         let face = self.origin.mold_relief(zone, half, divs);
         if zone == ClimateZone::Temperate {
             let frame = zone.surface_frame(half);
-            let shape = BlockMold::cube()
+            let atom = BlockMold::cube()
                 .in_medium(BlockMedium::OriginStone)
-                .shape_for(frame.bitangent(), &frame);
-            face.with_molded_block(-1, -1, -crate::GridCell::SPAN, shape)
+                .atom_for(frame.bitangent(), &frame);
+            face.with_molded_block(-1, -1, -crate::GridCell::SPAN, atom)
         } else {
             face
         }

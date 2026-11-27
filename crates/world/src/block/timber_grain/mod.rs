@@ -41,6 +41,17 @@ pub enum BlockMedium {
     BlackBoxPod,
     LaserBeacon,
     OriginStone,
+    ArcFurnace,
+    AssemblyBench,
+    ElectrolysisPlant,
+    AirlockChamber,
+    PilotSeat,
+    PhosphorConsole,
+    DockingRing,
+    CrewBerth,
+    PropulsionBell,
+    PropellantTank,
+    ThermalFin,
 }
 
 impl BlockMedium {
@@ -75,6 +86,17 @@ impl BlockMedium {
             Self::BlackBoxPod => 25,
             Self::LaserBeacon => 26,
             Self::OriginStone => 27,
+            Self::ArcFurnace => 28,
+            Self::AssemblyBench => 29,
+            Self::ElectrolysisPlant => 30,
+            Self::AirlockChamber => 31,
+            Self::PilotSeat => 32,
+            Self::PhosphorConsole => 33,
+            Self::DockingRing => 34,
+            Self::CrewBerth => 35,
+            Self::PropulsionBell => 36,
+            Self::PropellantTank => 37,
+            Self::ThermalFin => 38,
         }
     }
 
@@ -108,6 +130,17 @@ impl BlockMedium {
             25 => Self::BlackBoxPod,
             26 => Self::LaserBeacon,
             27 => Self::OriginStone,
+            28 => Self::ArcFurnace,
+            29 => Self::AssemblyBench,
+            30 => Self::ElectrolysisPlant,
+            31 => Self::AirlockChamber,
+            32 => Self::PilotSeat,
+            33 => Self::PhosphorConsole,
+            34 => Self::DockingRing,
+            35 => Self::CrewBerth,
+            36 => Self::PropulsionBell,
+            37 => Self::PropellantTank,
+            38 => Self::ThermalFin,
             _ => Self::TurfEarth,
         }
     }

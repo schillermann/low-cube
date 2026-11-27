@@ -23,6 +23,7 @@ fn foldable_sector_key(body_code: u16, fact: &WorldFact) -> Option<(u16, u8, i32
         }
         WorldFact::Harvested { eye, .. }
         | WorldFact::MoldPlaced { eye, .. }
+        | WorldFact::ModulePlaced { eye, .. }
         | WorldFact::RigAdjusted { eye, .. }
         | WorldFact::RigLowered { eye, .. }
         | WorldFact::RigBlueprintBuilt { eye, .. } => Some(sector_for_eye(body_code, *eye)),

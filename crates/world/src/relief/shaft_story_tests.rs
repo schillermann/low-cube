@@ -85,10 +85,10 @@ fn test_unified_3d_block_model_supports_multi_story_surface_houses_and_settling_
     let mut house = TerracedRelief::in_span(Box::new(FlatRelief), 64);
     for step in [4, 5, 10, 11] {
         let base = (step as f32) * 0.5;
-        assert!(house.stack_molded_cell(0, 0, base, Box::new(crate::block::CuboidShape::new(0.5))));
+        assert!(house.stack_molded_cell(0, 0, base, crate::RawAtom::turf_cube()));
     }
     for step in 0..4 {
-        assert!(house.stack_molded_cell(1, 0, (step as f32) * 0.5, Box::new(crate::block::CuboidShape::new(0.5))));
+        assert!(house.stack_molded_cell(1, 0, (step as f32) * 0.5, crate::RawAtom::turf_cube()));
     }
 
     assert!((house.support_height_at(0.25, 0.25, 0.0, 1.80) - 0.0).abs() < 1e-4);
@@ -99,14 +99,9 @@ fn test_unified_3d_block_model_supports_multi_story_surface_houses_and_settling_
     assert!(clamped_u <= 0.30, "Multi-story surface wall at (1, 0) must clamp horizontal movement, got u={clamped_u}");
     assert!(clamped_z <= 1.86, "Ground story ceiling at 2.0m must clamp vertical head elevation, got z={clamped_z}");
 
-    let sand_shape = Box::new(crate::block::MediumShape::new(
-        Box::new(crate::block::CuboidShape::new(0.5)),
-        crate::block::BlockMedium::Sand,
-        true,
-        false,
-    ));
-    assert!(house.stack_molded_cell(2, 0, 0.0, Box::new(crate::block::CuboidShape::new(0.5))));
-    assert!(house.stack_molded_cell(2, 0, 0.5, sand_shape));
+    let sand_atom = crate::RawAtom::cube_of(crate::block::BlockMedium::Sand);
+    assert!(house.stack_molded_cell(2, 0, 0.0, crate::RawAtom::turf_cube()));
+    assert!(house.stack_molded_cell(2, 0, 0.5, sand_atom));
     assert!(house.excavate_layer(2, 0, 0.25));
     assert!(house.layer_occupied_at(2, 0, 0.75) && !house.layer_occupied_at(2, 0, 0.25));
     let settled = house.step_grass(0.05);

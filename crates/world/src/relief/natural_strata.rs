@@ -1,5 +1,4 @@
 use std::sync::OnceLock;
-use crate::block::VoxelShape;
 use super::corner::NaturalCrown;
 use super::crust_vault::CrustVault;
 use super::elevation::ReliefElevation;
@@ -56,9 +55,9 @@ impl NaturalStrata {
         self.origin.surface_height_at(u, v)
     }
 
-    /// Pristine voxel shape of the natural top layer at (u, v) so undercut slopes never expand into full cubes.
-    pub fn crown_shape_at(&self, u: i32, v: i32) -> Box<dyn VoxelShape> {
+    /// Pristine `NaturalCrown` topology of the natural top layer at `(u, v)` without heap allocation.
+    pub fn crown_at(&self, u: i32, v: i32) -> NaturalCrown {
         let _ = self.populate_grid();
-        NaturalCrown::at(u, v, |gu, gv| self.elevation_at(gu, gv)).into_shape()
+        NaturalCrown::at(u, v, |gu, gv| self.elevation_at(gu, gv))
     }
 }

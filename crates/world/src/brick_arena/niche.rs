@@ -1,19 +1,19 @@
 use glam::Vec3;
 use crate::{MeshTarget, Quad};
-use super::{ElevatedShape, NICHE_CONTACT_TOLERANCE};
 
 const NICHE_MIN_GAP: f32 = 0.45;
 const NICHE_WALL_MARGIN: f32 = 0.10;
 const NICHE_HEAD_CLEARANCE: f32 = 0.15;
 const SUB_METER_NICHE_SPAN: f32 = 0.75;
+pub const NICHE_CONTACT_TOLERANCE: f32 = 0.05;
 
-pub(super) struct FlankMeshTarget<'a> {
+pub(crate) struct FlankMeshTarget<'a> {
     inner: &'a mut dyn MeshTarget,
     up: Vec3,
 }
 
 impl<'a> FlankMeshTarget<'a> {
-    pub(super) fn new(inner: &'a mut dyn MeshTarget, up: Vec3) -> Self {
+    pub(crate) fn new(inner: &'a mut dyn MeshTarget, up: Vec3) -> Self {
         Self { inner, up }
     }
 }
@@ -27,14 +27,14 @@ impl MeshTarget for FlankMeshTarget<'_> {
     }
 }
 
-pub(super) struct LoosenedPartTarget<'a> {
+pub(crate) struct LoosenedPartTarget<'a> {
     inner: &'a mut dyn MeshTarget,
     pivot: Vec3,
     stage: u8,
 }
 
 impl<'a> LoosenedPartTarget<'a> {
-    pub(super) fn new(inner: &'a mut dyn MeshTarget, pivot: Vec3, stage: u8) -> Self {
+    pub(crate) fn new(inner: &'a mut dyn MeshTarget, pivot: Vec3, stage: u8) -> Self {
         Self { inner, pivot, stage }
     }
 }
@@ -59,30 +59,30 @@ impl MeshTarget for LoosenedPartTarget<'_> {
     }
 }
 
-/// Vertical column slice of elevated blocks evaluating sub-meter niche cavities.
-pub struct NicheColumn<'a> {
-    blocks: &'a [ElevatedShape],
+/// Evaluates sub-meter niche cavities along a sorted list of `(floor, ceiling)` vertical intervals (`2` fields).
+pub struct NicheConfinement<'a> {
+    spans: &'a [(f32, f32)],
     ground_h: f32,
 }
 
-impl<'a> NicheColumn<'a> {
+impl<'a> NicheConfinement<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(blocks: &'a [ElevatedShape], ground_h: f32) -> Self {
-        Self { blocks, ground_h }
+    pub const fn new(spans: &'a [(f32, f32)], ground_h: f32) -> Self {
+        Self { spans, ground_h }
     }
 
     pub fn confine(&self, elev: f32) -> Option<f32> {
         let (mut idx, mut floor) = (0, self.ground_h);
-        while idx < self.blocks.len() {
-            let base = self.blocks[idx].floor();
+        while idx < self.spans.len() {
+            let (base, ceil) = self.spans[idx];
             if base <= floor + NICHE_CONTACT_TOLERANCE {
-                floor = floor.max(self.blocks[idx].ceiling());
+                floor = floor.max(ceil);
                 idx += 1;
             } else if base >= floor + NICHE_MIN_GAP {
-                let (cav_ceil, mut roof_top) = (base, self.blocks[idx].ceiling());
+                let (cav_ceil, mut roof_top) = (base, ceil);
                 idx += 1;
-                while idx < self.blocks.len() && self.blocks[idx].floor() <= roof_top + NICHE_CONTACT_TOLERANCE {
-                    roof_top = roof_top.max(self.blocks[idx].ceiling());
+                while idx < self.spans.len() && self.spans[idx].0 <= roof_top + NICHE_CONTACT_TOLERANCE {
+                    roof_top = roof_top.max(self.spans[idx].1);
                     idx += 1;
                 }
                 let limit = (cav_ceil + SUB_METER_NICHE_SPAN).max(roof_top - NICHE_WALL_MARGIN);
@@ -92,7 +92,7 @@ impl<'a> NicheColumn<'a> {
                 }
                 floor = roof_top;
             } else {
-                floor = floor.max(self.blocks[idx].ceiling());
+                floor = floor.max(ceil);
                 idx += 1;
             }
         }

@@ -1,22 +1,22 @@
 use glam::Vec3;
 use world::{
-    BiomedCubeWorld, ClimateZone, CubePlanet, CuboidShape, FacetedReliefFace, NullFace,
-    PlanetaryWorld, RampWedge, VoxelShape, WedgeHeading,
+    BiomedCubeWorld, BlockMedium, ClimateZone, CubePlanet, FacetedReliefFace, MoldArchetype,
+    NullFace, PlanetaryWorld, RawAtom, WedgeHeading,
 };
 use crate::flight::{GravitationalFlight, SurfaceFlight};
 use crate::gait::{SneakGait, SprintGait, WalkGait};
 
-fn world_with_shape(u: i32, v: i32, shape: Box<dyn VoxelShape>) -> CubePlanet {
+fn world_with_atom(u: i32, v: i32, atom: RawAtom) -> CubePlanet {
     let face = Box::new(
         FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 16)
-            .with_molded_block(u, v, 0.0, shape),
+            .with_molded_block(u, v, 0.0, atom),
     );
     CubePlanet::new(vec![face], Box::new(NullFace))
 }
 
 #[test]
 fn test_walk_into_solid_cube_blocked() {
-    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
+    let world = world_with_atom(1, 0, RawAtom::turf_cube());
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // At x = 0.45, z = 0.25: just in front of the SolidCube at grid (1, 0) spanning x in [0.5, 1.0]
     let start_pos = world.constrain_to_surface(Vec3::new(0.45, 5.0, 0.25), 1.0);
@@ -31,7 +31,7 @@ fn test_walk_into_solid_cube_blocked() {
 
 #[test]
 fn test_walk_up_ramp_wedge_smoothly() {
-    let world = world_with_shape(0, 0, Box::new(RampWedge::new(WedgeHeading::North)));
+    let world = world_with_atom(0, 0, RawAtom::molded(BlockMedium::TurfEarth, MoldArchetype::RampWedge, WedgeHeading::North));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // At x = 0.25, z = 0.1: on the 45° RampWedge rising along +Z
     let start_pos = world.constrain_to_surface(Vec3::new(0.25, 5.0, 0.1), 1.0);
@@ -46,7 +46,7 @@ fn test_walk_up_ramp_wedge_smoothly() {
 
 #[test]
 fn test_walk_into_wall_while_strafing_preserves_lateral_motion() {
-    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
+    let world = world_with_atom(1, 0, RawAtom::turf_cube());
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // At x = 0.45, z = 0.15: in front of the SolidCube at grid (1, 0)
     let start_pos = world.constrain_to_surface(Vec3::new(0.45, 5.0, 0.15), 1.0);
@@ -63,7 +63,7 @@ fn test_walk_into_wall_while_strafing_preserves_lateral_motion() {
 
 #[test]
 fn test_walk_off_elevated_block_falls_when_not_sneaking() {
-    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
+    let world = world_with_atom(1, 0, RawAtom::turf_cube());
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // On the 0.5m cube at x = 0.95, z = 0.25 (edge is at x = 1.0, elevation 9.5)
     let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.25), 1.0);
@@ -84,7 +84,7 @@ fn test_walk_off_elevated_block_falls_when_not_sneaking() {
 
 #[test]
 fn test_sneak_on_elevated_block_prevents_falling() {
-    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
+    let world = world_with_atom(1, 0, RawAtom::turf_cube());
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // On the 0.5m cube at x = 0.95, z = 0.25 (edge is at x = 1.0, elevation 9.5)
     let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.25), 1.0);
@@ -101,7 +101,7 @@ fn test_sneak_on_elevated_block_prevents_falling() {
 
 #[test]
 fn test_sneak_on_elevated_block_diagonal_slides_along_edge() {
-    let world = world_with_shape(1, 0, Box::new(CuboidShape::full_cube()));
+    let world = world_with_atom(1, 0, RawAtom::turf_cube());
     let mut flight = SurfaceFlight::terrestrial(1.0);
     let start_pos = world.constrain_to_surface(Vec3::new(0.95, 5.0, 0.15), 1.0);
     let stride = Vec3::new(0.1, 0.0, 0.1);
@@ -134,7 +134,7 @@ fn test_sneak_paces_stride_distance() {
 
 #[test]
 fn test_sprint_jump_over_ramp_wedge_does_not_get_stuck() {
-    let world = world_with_shape(0, 0, Box::new(RampWedge::new(WedgeHeading::North)));
+    let world = world_with_atom(0, 0, RawAtom::molded(BlockMedium::TurfEarth, MoldArchetype::RampWedge, WedgeHeading::North));
     let mut flight = SurfaceFlight::terrestrial(1.0);
     // Start on flat ground before the ramp (z = -0.60) so the jump lands mid-slope on the wedge
     let mut pos = world.constrain_to_surface(Vec3::new(0.25, 5.0, -0.60), 1.0);
@@ -173,12 +173,12 @@ fn test_sprint_jump_on_biomed_cube_world_slopes() {
 fn test_full_cube_staircase_jump_climbs_block_by_block_without_flying() {
     let face = Box::new(
         FacetedReliefFace::in_zone(ClimateZone::Temperate, 8.0, 16)
-            .with_molded_block(0, 2, 0.0, Box::new(CuboidShape::full_cube()))
-            .with_molded_block(0, 3, 0.0, Box::new(CuboidShape::full_cube()))
-            .with_molded_block(0, 3, 0.5, Box::new(CuboidShape::full_cube()))
-            .with_molded_block(0, 4, 0.0, Box::new(CuboidShape::full_cube()))
-            .with_molded_block(0, 4, 0.5, Box::new(CuboidShape::full_cube()))
-            .with_molded_block(0, 4, 1.0, Box::new(CuboidShape::full_cube())),
+            .with_molded_block(0, 2, 0.0, RawAtom::turf_cube())
+            .with_molded_block(0, 3, 0.0, RawAtom::turf_cube())
+            .with_molded_block(0, 3, 0.5, RawAtom::turf_cube())
+            .with_molded_block(0, 4, 0.0, RawAtom::turf_cube())
+            .with_molded_block(0, 4, 0.5, RawAtom::turf_cube())
+            .with_molded_block(0, 4, 1.0, RawAtom::turf_cube()),
     );
     let world = CubePlanet::new(vec![face], Box::new(NullFace));
     let mut flight = SurfaceFlight::terrestrial(1.0);

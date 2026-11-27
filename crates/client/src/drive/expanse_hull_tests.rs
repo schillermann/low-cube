@@ -24,15 +24,15 @@ impl world::MeshTarget for GlowProbe {
 
 fn assemble_hull(hull_medium: BlockMedium, block_count: i32) -> VehicleAssembly {
     let mut parts = vec![
-        VehiclePart::new((0, 0), 0.0, BlockMold::shape_from_stamp([0, 0, BlockMedium::CabinSeat.code()])),
-        VehiclePart::new((0, 1), 0.0, BlockMold::shape_from_stamp([0, 0, BlockMedium::FlightConsole.code()])),
-        VehiclePart::new((0, 0), -0.5, BlockMold::shape_from_stamp([0, 0, BlockMedium::FusionTorch.code()])),
+        VehiclePart::new((0, 0), 0.0, BlockMold::atom_from_stamp([0, 0, BlockMedium::CabinSeat.code()])),
+        VehiclePart::new((0, 1), 0.0, BlockMold::atom_from_stamp([0, 0, BlockMedium::FlightConsole.code()])),
+        VehiclePart::new((0, 0), -0.5, BlockMold::atom_from_stamp([0, 0, BlockMedium::FusionTorch.code()])),
     ];
     for idx in 1..=block_count {
         parts.push(VehiclePart::new(
             (idx, 0),
             0.0,
-            BlockMold::shape_from_stamp([MoldArchetype::RampWedge.code(), 0, hull_medium.code()]),
+            BlockMold::atom_from_stamp([MoldArchetype::RampWedge.code(), 0, hull_medium.code()]),
         ));
     }
     VehicleAssembly::new(Vec3::new(0.0, 24.0, 0.0), VehicleAxes::new(Vec3::X, Vec3::Z, Vec3::Y), Vec3::Z, parts)

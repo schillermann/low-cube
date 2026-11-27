@@ -1,5 +1,5 @@
 /// Cardinal diagonal heading defining corner orientation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CornerHeading {
     NorthEast,
     NorthWest,
@@ -8,6 +8,15 @@ pub enum CornerHeading {
 }
 
 impl CornerHeading {
+    pub const fn rotated_ccw(self) -> Self {
+        match self {
+            Self::NorthEast => Self::NorthWest,
+            Self::NorthWest => Self::SouthWest,
+            Self::SouthWest => Self::SouthEast,
+            Self::SouthEast => Self::NorthEast,
+        }
+    }
+
     pub fn ridge_elevation(&self, u: f32, v: f32) -> f32 {
         match self {
             Self::NorthEast => (u + v - 1.0).max(0.0),
