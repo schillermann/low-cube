@@ -1,11 +1,13 @@
 use std::collections::HashMap;
-use glam::Mat4;
-use glow::HasContext;
-use engine::{CpuMeshBatch, Mesh, ShaderProgram, StreamingMesh};
+use glam::{Mat4, Vec3};
+use engine::{
+    BlendPassMode, FramePass, LuminanceHarvestTarget, Mesh, PointLightCluster, QuadBatch,
+    StreamingMesh,
+};
 use world::{CraftBlueprint, CraftIdentity, CraftPose, MeshTarget, Quad, VesselSink};
 use crate::surface::PlatformSurface;
 
-/// Decorator splitting opaque actor/hull quads from semi-transparent rocket plume quads (`glow < -1.5`).
+/// Decorator splitting opaque actor/hull quads from semi-transparent rocket plume quads (`glow < -1.5`, `2` fields).
 pub(super) struct PlumeSplitTarget<'a> {
     opaque: &'a mut StreamingMesh,
     plumes: &'a mut StreamingMesh,
@@ -28,11 +30,11 @@ impl MeshTarget for PlumeSplitTarget<'_> {
     }
 }
 
-/// GPU-cached local-space vehicle hull registry transforming hulls via `u_model` `Mat4` uniforms.
+/// GPU-cached local-space vehicle hull registry transforming hulls via `FramePass::apply_model` (`3` fields).
 pub struct VesselStage {
     hulls: HashMap<CraftIdentity, Box<dyn Mesh>>,
     instances: Vec<(CraftIdentity, Mat4)>,
-    scratch: CpuMeshBatch,
+    scratch: QuadBatch,
 }
 
 impl VesselStage {
@@ -40,13 +42,13 @@ impl VesselStage {
     pub fn new(
         hulls: HashMap<CraftIdentity, Box<dyn Mesh>>,
         instances: Vec<(CraftIdentity, Mat4)>,
-        scratch: CpuMeshBatch,
+        scratch: QuadBatch,
     ) -> Self {
         Self { hulls, instances, scratch }
     }
 
     pub fn empty() -> Self {
-        Self::new(HashMap::new(), Vec::with_capacity(16), CpuMeshBatch::with_quad_capacity(1_024))
+        Self::new(HashMap::new(), Vec::with_capacity(16), QuadBatch::with_quad_capacity(1_024))
     }
 
     pub fn clear_frame(&mut self) {
@@ -77,29 +79,27 @@ impl VesselStage {
 }
 
 impl Mesh for VesselStage {
-    fn draw(&self, _gl: &glow::Context) {}
-
-    fn draw_posed(&self, gl: &glow::Context, shader: &dyn ShaderProgram) {
+    fn draw(&self, pass: &mut dyn FramePass) {
         if self.instances.is_empty() {
             return;
         }
         for (id, model) in &self.instances {
             if let Some(hull) = self.hulls.get(id) {
-                shader.apply_model(gl, model);
-                hull.draw(gl);
+                pass.apply_model(*model);
+                hull.draw(pass);
             }
         }
-        shader.apply_model(gl, &Mat4::IDENTITY);
+        pass.apply_model(Mat4::IDENTITY);
     }
 
-    fn release(&self, gl: &glow::Context) {
+    fn release(&self, reclaim: &mut dyn engine::SlotReclamation) {
         for hull in self.hulls.values() {
-            hull.release(gl);
+            hull.release(reclaim);
         }
     }
 }
 
-/// Frame-scoped `VesselSink` routing GPU hulls to `VesselStage` and animated sub-parts to `MeshTarget`.
+/// Frame-scoped `VesselSink` routing GPU hulls to `VesselStage` and animated sub-parts to `MeshTarget` (`3` fields).
 pub(super) struct VesselFrameSink<'a> {
     stage: &'a mut VesselStage,
     surface: &'a dyn PlatformSurface,
@@ -122,23 +122,34 @@ impl VesselSink for VesselFrameSink<'_> {
     }
 }
 
-/// Combined dynamic actor stream, translucent exhaust plume stream, and GPU-posed vessel stage for `ShadedScenePass`.
+/// Combined dynamic actor stream, translucent plume stream, `VesselStage`, and `<= 16` `PointLightCluster` (`4` fields).
 pub struct SceneActors {
     figures: StreamingMesh,
     plumes: StreamingMesh,
     vessels: VesselStage,
+    lights: PointLightCluster,
 }
 
 impl SceneActors {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(figures: StreamingMesh, plumes: StreamingMesh, vessels: VesselStage) -> Self {
-        Self { figures, plumes, vessels }
+    pub fn new(
+        figures: StreamingMesh,
+        plumes: StreamingMesh,
+        vessels: VesselStage,
+        lights: PointLightCluster,
+    ) -> Self {
+        Self { figures, plumes, vessels, lights }
     }
 
-    pub(super) fn reset(&mut self) {
+    pub(super) fn reset(&mut self, viewer: Vec3) {
         self.figures.clear();
         self.plumes.clear();
         self.vessels.clear_frame();
+        self.lights.reset(viewer);
+    }
+
+    pub(super) const fn lights(&self) -> &PointLightCluster {
+        &self.lights
     }
 
     pub(super) fn emit_actors<F>(&mut self, f: F)
@@ -146,7 +157,8 @@ impl SceneActors {
         F: FnOnce(&mut dyn MeshTarget),
     {
         let mut split = PlumeSplitTarget::new(&mut self.figures, &mut self.plumes);
-        f(&mut split);
+        let mut harvested = LuminanceHarvestTarget::new(&mut split, &mut self.lights);
+        f(&mut harvested);
     }
 
     pub(super) fn collect_vessels<F>(&mut self, surface: &dyn PlatformSurface, f: F)
@@ -154,50 +166,24 @@ impl SceneActors {
         F: FnOnce(&mut dyn VesselSink),
     {
         let mut split = PlumeSplitTarget::new(&mut self.figures, &mut self.plumes);
-        let mut sink = VesselFrameSink::new(&mut self.vessels, surface, &mut split);
+        let mut harvested = LuminanceHarvestTarget::new(&mut split, &mut self.lights);
+        let mut sink = VesselFrameSink::new(&mut self.vessels, surface, &mut harvested);
         f(&mut sink);
     }
 }
 
 impl Mesh for SceneActors {
-    fn draw(&self, gl: &glow::Context) {
-        self.figures.draw(gl);
-        unsafe {
-            gl.enable(glow::BLEND);
-            gl.blend_func_separate(
-                glow::SRC_ALPHA,
-                glow::ONE_MINUS_SRC_ALPHA,
-                glow::ONE,
-                glow::ONE_MINUS_SRC_ALPHA,
-            );
-            gl.depth_mask(false);
-            self.plumes.draw(gl);
-            gl.depth_mask(true);
-            gl.disable(glow::BLEND);
-        }
+    fn draw(&self, pass: &mut dyn FramePass) {
+        self.vessels.draw(pass);
+        self.figures.draw(pass);
+        pass.select_blend(BlendPassMode::TranslucentPlume);
+        self.plumes.draw(pass);
+        pass.select_blend(BlendPassMode::OpaqueDepth);
     }
 
-    fn draw_posed(&self, gl: &glow::Context, shader: &dyn ShaderProgram) {
-        self.vessels.draw_posed(gl, shader);
-        self.figures.draw_posed(gl, shader);
-        unsafe {
-            gl.enable(glow::BLEND);
-            gl.blend_func_separate(
-                glow::SRC_ALPHA,
-                glow::ONE_MINUS_SRC_ALPHA,
-                glow::ONE,
-                glow::ONE_MINUS_SRC_ALPHA,
-            );
-            gl.depth_mask(false);
-            self.plumes.draw_posed(gl, shader);
-            gl.depth_mask(true);
-            gl.disable(glow::BLEND);
-        }
-    }
-
-    fn release(&self, gl: &glow::Context) {
-        self.vessels.release(gl);
-        self.figures.release(gl);
-        self.plumes.release(gl);
+    fn release(&self, reclaim: &mut dyn engine::SlotReclamation) {
+        self.vessels.release(reclaim);
+        self.figures.release(reclaim);
+        self.plumes.release(reclaim);
     }
 }

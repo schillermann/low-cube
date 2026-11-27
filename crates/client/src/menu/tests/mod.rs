@@ -7,7 +7,7 @@ mod world_tests;
 
 use std::cell::Cell;
 use glam::Vec3;
-use engine::{CpuMeshBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
+use engine::{GraphicPipeline, Mesh, PointLightCluster, QuadBatch};
 use world::{MeshTarget, Quad};
 use crate::attire::{AttireProfile, BodyRegion, ComplexionSwatch, EvaAttire, FileAttire, HeldRelic, SightMode, StrideRhythm, Wardrobe};
 use crate::aurora_cadence::AuroraCadence;
@@ -34,10 +34,9 @@ impl PlatformSurface for MockSurface {
     fn capture_cursor(&self) { self.captured.set(true); }
     fn release_cursor(&self) { self.captured.set(false); }
     fn normalize_cursor(&self, x: f64, y: f64) -> ScreenPoint { ScreenPoint::new(x as f32, y as f32) }
-    fn upload_mesh(&self, _b: &CpuMeshBatch) -> Box<dyn Mesh> { panic!("unused") }
-    fn compile_shader(&self, _s: &dyn ShaderSource) -> Box<dyn ShaderProgram> { panic!("unused") }
+    fn upload_mesh(&self, _b: &QuadBatch) -> Box<dyn Mesh> { panic!("unused") }
     fn assemble_diurnal_pipeline(&self, _c: Box<dyn CelestialCadence>, _a: Box<dyn AuroraCadence>, _p: Box<dyn AuroraCanopy>) -> Box<dyn GraphicPipeline> { panic!("unused") }
-    fn render_frame(&self, _p: &dyn GraphicPipeline, _s: &dyn ShaderProgram, _m: (&dyn Mesh, &dyn Mesh), _a: &dyn Avatar, _mo: &dyn SessionModal) {}
+    fn render_frame(&self, _p: &dyn GraphicPipeline, _m: (&dyn Mesh, &dyn Mesh), _l: &PointLightCluster, _a: &dyn Avatar, _mo: &dyn SessionModal) {}
 }
 
 pub(super) struct QuadCapture { quads: Vec<Quad> }

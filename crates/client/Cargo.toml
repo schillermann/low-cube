@@ -1,6 +1,6 @@
 [package]
 name = "client"
-version = "0.134.0"
+version = "0.135.0"
 edition = "2021"
 
 [dependencies]
@@ -9,9 +9,8 @@ world = { path = "../world" }
 engine = { path = "../engine" }
 sanctuary = { path = "../sanctuary" }
 glam = "0.29"
-glow = "0.16"
-glutin = "0.32"
-glutin-winit = "0.5"
+wgpu = { version = "24", default-features = false, features = ["wgsl", "dx12"] }
+pollster = "1.0"
 winit = { version = "0.30", features = ["rwh_06"] }
 raw-window-handle = "0.6"
 

@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use sanctuary::JoinTarget;
 use winit::keyboard::KeyCode;
-use engine::ShaderProgram;
+use engine::FramePass;
 use world::MeshTarget;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
@@ -131,5 +131,5 @@ pub trait SessionModal {
     #[cfg(test)]
     fn emit_ui(&self, avatar: &dyn Avatar, target: &mut dyn MeshTarget);
     fn emit_studio(&self, target: &mut dyn MeshTarget);
-    fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, avatar: &dyn Avatar, aspect: f32);
+    fn draw_layer(&self, pass: &mut dyn FramePass, avatar: &dyn Avatar, aspect: f32);
 }

@@ -108,11 +108,18 @@ impl CodebaseAudit for SourceFileAudit {
             "{} contains dead_code suppression",
             self.path.display()
         );
-        assert!(
-            !content.contains(concat!("gl.blend_func", "(")),
-            "{} uses unseparated gl.blend_func (corrupts window destination alpha); use blend_func_separate",
-            self.path.display()
-        );
+        for legacy in [
+            concat!("glow", "::"),
+            concat!("glutin", "::"),
+            concat!("CpuMesh", "Batch"),
+            concat!("Gl", "Mesh"),
+        ] {
+            assert!(
+                !content.contains(legacy),
+                "{} retains purged OpenGL legacy symbol `{legacy}`",
+                self.path.display()
+            );
+        }
         let (mut in_struct, mut struct_header, mut field_count) = (false, String::new(), 0usize);
         for line in content.lines() {
             let clean = line.split("//").next().unwrap_or("");

@@ -28,7 +28,6 @@ pub use strata::{
 };
 
 use glam::{Vec3, Vec4};
-use glow::HasContext;
 
 /// Optical scatter tint and outer Rayleigh shell thickness (`<= 4` fields).
 #[derive(Clone, Copy, Debug)]
@@ -53,13 +52,7 @@ pub trait AtmosphericEnvelope: Copy {
     fn sky_illumination_with_flux(&self, sun_dir: Vec3, solar_half_ang: f32) -> (Vec3, Vec4, f32);
     fn darkened(&self, overcast: f32) -> AtmosphericShell;
     fn for_pass_camera(&self, cam_pos: Vec3) -> AtmosphericShell;
-    fn bind_gl(&self, gl: &glow::Context, u_geom: &glow::UniformLocation, u_tint: &glow::UniformLocation);
-    fn bind_magnetosphere(
-        &self,
-        gl: &glow::Context,
-        u_lower: &glow::UniformLocation,
-        u_upper: &glow::UniformLocation,
-    );
+    fn sample_lut_ray(&self, ray_dir: Vec3, sun_dir: Vec3) -> [f32; 4];
     fn transfer_shell_quad<R>(&self, sink: impl FnOnce([[f32; 4]; 4]) -> R) -> R;
 }
 
@@ -227,28 +220,18 @@ impl AtmosphericEnvelope for AtmosphericShell {
         }
     }
 
-    fn bind_gl(
-        &self,
-        gl: &glow::Context,
-        u_geom: &glow::UniformLocation,
-        u_tint: &glow::UniformLocation,
-    ) {
-        self.transfer_shell_quad(|q| unsafe {
-            gl.uniform_4_f32(Some(u_geom), q[0][0], q[0][1], q[0][2], q[0][3]);
-            gl.uniform_4_f32(Some(u_tint), q[1][0], q[1][1], q[1][2], q[1][3]);
-        });
-    }
-
-    fn bind_magnetosphere(
-        &self,
-        gl: &glow::Context,
-        u_lower: &glow::UniformLocation,
-        u_upper: &glow::UniformLocation,
-    ) {
-        self.transfer_shell_quad(|q| unsafe {
-            gl.uniform_4_f32(Some(u_lower), q[2][0], q[2][1], q[2][2], q[2][3]);
-            gl.uniform_4_f32(Some(u_upper), q[3][0], q[3][1], q[3][2], q[3][3]);
-        });
+    fn sample_lut_ray(&self, ray_dir: Vec3, sun_dir: Vec3) -> [f32; 4] {
+        match self.state {
+            ShellState::Vacuum => [0.0, 0.0, 0.0, 0.0],
+            ShellState::CubicBody { rel_cam, body_half, optics, .. } => {
+                if (rel_cam.abs().max_element() - body_half) >= optics.thickness * 2.5 {
+                    return [0.0, 0.0, 0.0, 0.0];
+                }
+                let (rgb, alpha) = CubicRayleighShell::new(body_half, optics.thickness, optics.day_tint, 1.0)
+                    .scatter_along(rel_cam, ray_dir, sun_dir);
+                [rgb.x, rgb.y, rgb.z, alpha.clamp(0.0, 1.0)]
+            }
+        }
     }
 
     fn transfer_shell_quad<R>(&self, sink: impl FnOnce([[f32; 4]; 4]) -> R) -> R {

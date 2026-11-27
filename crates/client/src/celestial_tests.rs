@@ -153,7 +153,6 @@ fn test_diurnal_pipeline_construction() {
     let pipeline = DiurnalPipeline::new(
         epoch,
         Box::new(VoidFirmament::new()),
-        Box::new(VoidMesh::new()),
         Mutex::new(VaultEphemeris::dormant()),
     );
     assert!(std::mem::size_of_val(&pipeline) > 0);
@@ -169,13 +168,11 @@ fn test_void_firmament_construction() {
 
 #[test]
 fn test_firmament_shader_contains_aurora_and_time() {
-    use crate::firmament_glsl::{FirmamentGlslPair, GlslSourcePair};
-    FirmamentGlslPair::embedded().transfer_sources(|_, frag| {
-        assert!(frag.contains("u_time"));
-        assert!(frag.contains("polar_aurora"));
-        assert!(frag.contains("plateau_normal"));
-        assert!(frag.contains("planetary_rayleigh_shell"));
-    });
+    let wgsl = engine::FIRMAMENT_LUT_WGSL;
+    assert!(wgsl.contains("pole_time"));
+    assert!(wgsl.contains("u_aurora_factor"));
+    assert!(wgsl.contains("t_sky_lut"));
+    assert!(wgsl.contains("planet_cubes"));
 }
 
 #[test]

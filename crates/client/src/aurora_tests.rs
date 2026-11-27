@@ -1,10 +1,12 @@
+use engine::FIRMAMENT_LUT_WGSL;
 use crate::argument_aurora::ArgumentAurora;
 use crate::aurora_cadence::{
     AuroraCadence, DormantAuroraCadence, NightlyAuroraCadence, StochasticAuroraCadence,
 };
 use crate::aurora_canopy::{CalibratedCanopy, VoidCanopy};
 use crate::file_aurora::FileAurora;
-use crate::firmament_glsl::{FirmamentGlslPair, GlslSourcePair};
+use crate::gpu_profile::{AcPowerChoice, ArgumentGpuChoice, FileGpuChoice, GpuChoice};
+use crate::preview_strip::RoundRobinGate;
 
 #[test]
 fn test_calibrated_canopy_small_world_never_exceeds_arctic_face() {
@@ -57,19 +59,31 @@ fn test_void_canopy_null_object_pattern() {
 }
 
 #[test]
-fn test_firmament_glsl_contains_camera_pos_and_aurora_uniforms() {
-    FirmamentGlslPair::embedded().transfer_sources(|vert, frag| {
-        assert!(vert.contains("v_cam_pos"));
-        assert!(frag.contains("v_cam_pos"));
-        assert!(frag.contains("u_face_half"));
-        assert!(frag.contains("u_aurora_radius"));
-        assert!(frag.contains("u_ceiling_altitude"));
-        assert!(frag.contains("u_aurora_factor"));
-        assert!(frag.contains("u_aurora_lower"));
-        assert!(frag.contains("u_aurora_upper"));
-        assert!(frag.contains("aabb_slab"));
-        assert!(!frag.contains("on_earth"));
-    });
+fn test_firmament_wgsl_and_round_robin_240x160_monitors_and_optimus_gpu_decorators() {
+    assert!(FIRMAMENT_LUT_WGSL.contains("v_cam_pos"));
+    assert!(FIRMAMENT_LUT_WGSL.contains("t_sky_lut"));
+    assert!(FIRMAMENT_LUT_WGSL.contains("u_face_half"));
+    assert!(FIRMAMENT_LUT_WGSL.contains("u_aurora_radius"));
+    assert!(FIRMAMENT_LUT_WGSL.contains("u_ceiling_altitude"));
+    assert!(FIRMAMENT_LUT_WGSL.contains("u_aurora_factor"));
+    assert!(FIRMAMENT_LUT_WGSL.contains("u_aurora_lower"));
+    assert!(FIRMAMENT_LUT_WGSL.contains("u_aurora_upper"));
+    assert!(FIRMAMENT_LUT_WGSL.contains("aabb_slab"));
+    assert!(!FIRMAMENT_LUT_WGSL.contains("on_earth"));
+
+    let mut gate = RoundRobinGate::dormant();
+    assert_eq!(gate.tile_dimensions(), (240, 160));
+    assert_eq!(gate.step_one(3, 2), Some(0));
+    assert_eq!(gate.step_one(3, 2), Some(2));
+    assert_eq!(gate.step_one(3, 2), Some(0));
+    assert!(!gate.slot_primed(1), "Active fullscreen camera slot must be skipped by RoundRobinGate");
+
+    let ac = AcPowerChoice::new();
+    assert_eq!(ac.select_profile(), engine::GpuPowerProfile::DiscreteHighPerformance);
+    let cli_low = ArgumentGpuChoice::new(vec!["app".into(), "--gpu=low".into()], ac);
+    assert_eq!(cli_low.select_profile(), engine::GpuPowerProfile::IntegratedLowPower);
+    let missing_file = FileGpuChoice::new("non_existent_gpu_settings.toml", ac);
+    assert_eq!(missing_file.select_profile(), engine::GpuPowerProfile::DiscreteHighPerformance);
 }
 
 #[test]

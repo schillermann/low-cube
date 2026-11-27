@@ -62,13 +62,13 @@ Jede Stufe schließt mit grünem Build und schnellen Headless-Tests auf Linux un
 - [x] Inkrementellen `O(1)`-Massentensor (Masse $M$, Schwerpunkt $\vec{c}$, $3\times 3$-Trägheitstensor $\mathbf{I}$ via Satz von Steiner) direkt in den Brick-Container integrieren.
 
 ### Stufe 3: Grafik-Neubau — `glow`/`glutin` löschen $\rightarrow$ `wgpu` + `8-Byte` Quads (ThinkPad-Kern)
-- [ ] `glow`, `glutin` und `glutin-winit` aus `crates/engine` und `crates/client` entfernen; `CpuMeshBatch` (`184 Bytes/Quad`) und `GlMesh` löschen.
-- [ ] `wgpu`-Backend (Vulkan unter Linux, DX12/Vulkan unter Windows) mit expliziter **GPU-Auswahl (`HighPerformance` MX150 vs. `LowPower` Intel iGPU)**, `60 Hz` Frame-Pacing und **gedrosseltem PCIe-Upload-Ringbuffer (`<= 1,5 MB/Frame`)** aufbauen.
-- [ ] **CPU Binary Greedy Mesher** auf den `u64`-Bitmasken von `Brick8` implementieren (`~20 µs` pro geändertem Brick inkl. vorberechneter 2-Bit Eck-AO).
-- [ ] **`8-Byte` Packed Quad Pipeline (`u64` GPU Vertex-Pulling)** in `WGSL` schreiben und VRAM-Budget (`< 250 MB`) verifizieren.
-- [ ] Low-Poly Hardware-Instancing (`< 150` Dreiecke pro Typ, per Matrix auf `B × H × T` skaliert) für Mehrblock-Maschinen und skalierte Thruster/Tanks einbinden.
-- [ ] Kompakte `1024²` Sonnen-Shadow-Map + max. 16 Punktlichter + schnelle **`128×64` Atmosphären-LUT (`2 Hz` Update)** statt Pro-Pixel-Rayleigh-Shader einbauen.
-- [ ] Diegetische Phosphor-Bordmonitore (`NoseFlightHud`, `BellyFlightHud`, Docking-Cam) auf die neue `wgpu`-Pipeline umziehen — mit striktem **Round-Robin-Update (`max. 1 Monitor pro Frame` bei `240×160`)**.
+- [x] `glow`, `glutin` und `glutin-winit` aus `crates/engine` und `crates/client` entfernen; `CpuMeshBatch` (`184 Bytes/Quad`) und `GlMesh` löschen.
+- [x] `wgpu`-Backend (Vulkan unter Linux, DX12/Vulkan unter Windows) mit expliziter **GPU-Auswahl (`HighPerformance` MX150 vs. `LowPower` Intel iGPU)**, `60 Hz` Frame-Pacing und **gedrosseltem PCIe-Upload-Ringbuffer (`<= 1,5 MB/Frame`)** aufbauen.
+- [x] **CPU Binary Greedy Mesher** auf den `u64`-Bitmasken von `Brick8` implementieren (`~20 µs` pro geändertem Brick inkl. vorberechneter 2-Bit Eck-AO).
+- [x] **`8-Byte` Packed Quad Pipeline (`u64` GPU Vertex-Pulling)** in `WGSL` schreiben und VRAM-Budget (`< 250 MB`) verifizieren.
+- [x] Low-Poly Hardware-Instancing (`< 150` Dreiecke pro Typ, per Matrix auf `B × H × T` skaliert) für Mehrblock-Maschinen und skalierte Thruster/Tanks einbinden.
+- [x] Kompakte `1024²` Sonnen-Shadow-Map + max. 16 Punktlichter + schnelle **`128×64` Atmosphären-LUT (`2 Hz` Update)** statt Pro-Pixel-Rayleigh-Shader einbauen.
+- [x] Diegetische Phosphor-Bordmonitore (`NoseFlightHud`, `BellyFlightHud`, Docking-Cam) auf die neue `wgpu`-Pipeline umziehen — mit striktem **Round-Robin-Update (`max. 1 Monitor pro Frame` bei `240×160`)**.
 
 ### Stufe 4: Deterministischer `i64`-Kosmos & Runde `Quad-Sphere`-Planeten
 - [ ] Kosmische Koordinaten durchgehend auf **`CosmicPos` (`[i64; 3]` in `0,1 mm`-Schritten)** umstellen; kamera-relative Subtraktion vor der `f32`-Übergabe an `wgpu` verankern.

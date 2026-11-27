@@ -1,9 +1,10 @@
 [package]
 name = "engine"
-version = "0.134.0"
+version = "0.135.0"
 edition = "2021"
 
 [dependencies]
 world = { path = "../world" }
 glam = "0.29"
-glow = "0.16"
+wgpu = { version = "24", default-features = false, features = ["wgsl", "dx12"] }
+pollster = "1.0"

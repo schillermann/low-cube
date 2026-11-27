@@ -1,6 +1,6 @@
-use crate::Mesh;
+use crate::{FramePass, Mesh, SlotReclamation};
 
-/// Partitioned `16×16`-cell sector GPU mesh updating individual patches in `O(1)` without rebuilding the face.
+/// Partitioned `16×16`-cell sector GPU mesh updating individual patches in `O(1)` (`1` private field).
 pub struct SectorGridMesh {
     patches: Vec<Box<dyn Mesh>>,
 }
@@ -13,15 +13,15 @@ impl SectorGridMesh {
 }
 
 impl Mesh for SectorGridMesh {
-    fn draw(&self, gl: &glow::Context) {
+    fn draw(&self, pass: &mut dyn FramePass) {
         for patch in &self.patches {
-            patch.draw(gl);
+            patch.draw(pass);
         }
     }
 
-    fn release(&self, gl: &glow::Context) {
+    fn release(&self, reclaim: &mut dyn SlotReclamation) {
         for patch in &self.patches {
-            patch.release(gl);
+            patch.release(reclaim);
         }
     }
 

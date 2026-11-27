@@ -1,7 +1,6 @@
 use glam::{Mat4, Vec3};
-use glow::HasContext;
 use winit::keyboard::KeyCode;
-use engine::{CpuMeshBatch, Mesh, ShaderProgram};
+use engine::{BlendPassMode, FramePass, QuadBatch};
 use world::{MeshTarget, PlanetaryWorld, ProximityUtterance, Quad};
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
@@ -246,28 +245,16 @@ impl<M: SessionModal> SessionModal for ProximityChatModal<M> {
         }
     }
 
-    fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, avatar: &dyn Avatar, aspect: f32) {
-        self.origin.draw_layer(gl, shader, avatar, aspect);
+    fn draw_layer(&self, pass: &mut dyn FramePass, avatar: &dyn Avatar, aspect: f32) {
+        self.origin.draw_layer(pass, avatar, aspect);
         if self.origin.open() || (!self.composing() && self.feed.is_empty()) {
             return;
         }
-        let mut ui_batch = CpuMeshBatch::with_quad_capacity(512);
+        let mut ui_batch = QuadBatch::with_quad_capacity(512);
         self.emit_overlay(&mut ui_batch);
-        unsafe {
-            gl.disable(glow::DEPTH_TEST);
-            gl.enable(glow::BLEND);
-            gl.blend_func_separate(
-                glow::SRC_ALPHA,
-                glow::ONE_MINUS_SRC_ALPHA,
-                glow::ONE,
-                glow::ONE_MINUS_SRC_ALPHA,
-            );
-        }
-        shader.bind(gl, &Mat4::IDENTITY, Vec3::Z);
-        ui_batch.draw(gl);
-        unsafe {
-            gl.disable(glow::BLEND);
-            gl.enable(glow::DEPTH_TEST);
-        }
+        pass.select_blend(BlendPassMode::OverlayHud);
+        pass.bind_camera(Mat4::IDENTITY, Vec3::Z);
+        pass.stream_quads(&ui_batch);
+        pass.select_blend(BlendPassMode::OpaqueDepth);
     }
 }

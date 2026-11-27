@@ -1,6 +1,5 @@
 use winit::keyboard::KeyCode;
-use glow::HasContext;
-use engine::{CpuMeshBatch, Mesh, ShaderProgram};
+use engine::{BlendPassMode, FramePass, QuadBatch};
 use world::MeshTarget;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
@@ -117,17 +116,16 @@ impl<M: SessionModal> SessionModal for InspectionModal<M> {
         self.origin.emit_studio(target);
     }
 
-    fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, avatar: &dyn Avatar, aspect: f32) {
+    fn draw_layer(&self, pass: &mut dyn FramePass, avatar: &dyn Avatar, aspect: f32) {
         if !self.origin.open() {
-            let mut stage_batch = CpuMeshBatch::empty();
+            let mut stage_batch = QuadBatch::empty();
             if let Some((vp, light)) = avatar.emit_inspection_stage(aspect, &mut stage_batch) {
-                unsafe {
-                    gl.clear(glow::DEPTH_BUFFER_BIT);
-                }
-                shader.bind(gl, &vp, light);
-                stage_batch.draw(gl);
+                pass.clear_depth_layer();
+                pass.select_blend(BlendPassMode::OpaqueDepth);
+                pass.bind_camera(vp, light);
+                pass.stream_quads(&stage_batch);
             }
         }
-        self.origin.draw_layer(gl, shader, avatar, aspect);
+        self.origin.draw_layer(pass, avatar, aspect);
     }
 }

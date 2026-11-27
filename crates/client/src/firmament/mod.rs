@@ -1,23 +1,13 @@
 mod ephemeris;
+mod lut_sky;
 
 pub use self::ephemeris::{FirmamentEphemeris, VaultEphemeris};
+pub use self::lut_sky::LutSkyFirmament;
 
 use glam::{Mat4, Vec3, Vec4};
-use glow::HasContext;
-use engine::Mesh;
+use engine::FramePass;
 
-/// Focused contract binding camera projection and solar frame uniforms to OpenGL.
-pub trait VaultFrame: Copy {
-    fn bind_gl(
-        &self,
-        gl: &glow::Context,
-        u_inv_vp: &glow::UniformLocation,
-        u_sun: &glow::UniformLocation,
-        u_pole: &glow::UniformLocation,
-    );
-}
-
-/// Camera projection and solar orientation frame for a celestial vault draw pass (`<= 4` fields).
+/// Camera projection and solar orientation frame for a celestial vault draw pass (`3` private fields).
 #[derive(Clone, Copy, Debug)]
 pub struct VaultView {
     inv_view_proj: Mat4,
@@ -30,36 +20,18 @@ impl VaultView {
     pub const fn new(inv_view_proj: Mat4, sun_dir: Vec3, celestial_pole: Vec3) -> Self {
         Self { inv_view_proj, sun_dir, celestial_pole }
     }
-}
 
-impl VaultFrame for VaultView {
-    fn bind_gl(
-        &self,
-        gl: &glow::Context,
-        u_inv_vp: &glow::UniformLocation,
-        u_sun: &glow::UniformLocation,
-        u_pole: &glow::UniformLocation,
-    ) {
-        unsafe {
-            gl.uniform_matrix_4_f32_slice(Some(u_inv_vp), false, &self.inv_view_proj.to_cols_array());
-            gl.uniform_3_f32(Some(u_sun), self.sun_dir.x, self.sun_dir.y, self.sun_dir.z);
-            gl.uniform_3_f32(Some(u_pole), self.celestial_pole.x, self.celestial_pole.y, self.celestial_pole.z);
-        }
+    pub const fn components(self) -> (Mat4, Vec3, Vec3) {
+        (self.inv_view_proj, self.sun_dir, self.celestial_pole)
     }
 }
 
-/// Focused contract clearing the framebuffer and binding aurora activity and monotonic phase uniforms.
+/// Focused contract clearing the framebuffer backdrop (`Tell, Don't Ask`).
 pub trait VaultLuminance: Copy {
-    fn clear_backdrop(&self, gl: &glow::Context);
-    fn bind_gl(
-        &self,
-        gl: &glow::Context,
-        u_aurora: &glow::UniformLocation,
-        u_time: &glow::UniformLocation,
-    );
+    fn clear_backdrop(&self, pass: &mut dyn FramePass);
 }
 
-/// Backdrop clear color, aurora activity, and monotonic phase for a celestial vault pass (`<= 4` fields).
+/// Backdrop clear color, aurora activity, and monotonic phase for a celestial vault pass (`3` private fields).
 #[derive(Clone, Copy, Debug)]
 pub struct VaultGlow {
     sky_color: Vec4,
@@ -72,72 +44,66 @@ impl VaultGlow {
     pub const fn new(sky_color: Vec4, aurora_factor: f32, elapsed_secs: f32) -> Self {
         Self { sky_color, aurora_factor, elapsed_secs }
     }
+
+    pub const fn components(self) -> (Vec4, f32, f32) {
+        (self.sky_color, self.aurora_factor, self.elapsed_secs)
+    }
 }
 
 impl VaultLuminance for VaultGlow {
-    fn clear_backdrop(&self, gl: &glow::Context) {
-        unsafe {
-            gl.clear_color(self.sky_color.x, self.sky_color.y, self.sky_color.z, self.sky_color.w);
-            gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
-        }
-    }
-
-    fn bind_gl(
-        &self,
-        gl: &glow::Context,
-        u_aurora: &glow::UniformLocation,
-        u_time: &glow::UniformLocation,
-    ) {
-        unsafe {
-            gl.uniform_1_f32(Some(u_aurora), self.aurora_factor);
-            gl.uniform_1_f32(Some(u_time), self.elapsed_secs);
-        }
+    fn clear_backdrop(&self, pass: &mut dyn FramePass) {
+        pass.clear_sky(self.sky_color);
     }
 }
 
-/// Focused contract for rendering the celestial sky vault without wide parameter lists.
+/// Focused contract for rendering the celestial sky vault via `128×64` `2 Hz` `AtmosphereSkyLut`.
 pub trait SkyFirmament: Send + Sync {
     fn draw_firmament(
         &self,
-        gl: &glow::Context,
+        pass: &mut dyn FramePass,
+        cam_pos: Vec3,
         view: &VaultView,
         glow_state: &VaultGlow,
         ephemeris: &VaultEphemeris,
-        mesh: &dyn Mesh,
     );
 }
 
-/// Null-object firmament performing no GPU operations.
+/// Null-object firmament performing no GPU operations (`0` fields).
 #[cfg(test)]
 pub struct VoidFirmament;
 
 #[cfg(test)]
 impl VoidFirmament {
-    pub const fn new() -> Self { Self }
+    pub const fn new() -> Self {
+        Self
+    }
 }
 
 #[cfg(test)]
 impl SkyFirmament for VoidFirmament {
     fn draw_firmament(
         &self,
-        _gl: &glow::Context,
+        _pass: &mut dyn FramePass,
+        _cam_pos: Vec3,
         _view: &VaultView,
         _glow_state: &VaultGlow,
         _ephemeris: &VaultEphemeris,
-        _mesh: &dyn Mesh,
-    ) {}
+    ) {
+    }
 }
 
-/// Null-object mesh performing no draw operations.
+/// Null-object mesh performing no draw operations (`0` fields).
 #[cfg(test)]
 pub struct VoidMesh;
 
 #[cfg(test)]
 impl VoidMesh {
-    pub const fn new() -> Self { Self }
+    pub const fn new() -> Self {
+        Self
+    }
 }
 
 #[cfg(test)]
-impl Mesh for VoidMesh {
-    fn draw(&self, _gl: &glow::Context) {}
+impl engine::Mesh for VoidMesh {
+    fn draw(&self, _pass: &mut dyn FramePass) {}
 }

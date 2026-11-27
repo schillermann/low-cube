@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use glam::Vec3;
-use engine::{CpuMeshBatch, GraphicPipeline, Mesh, ShaderProgram, ShaderSource};
+use engine::{FramePass, GraphicPipeline, Mesh, PointLightCluster, QuadBatch};
 use world::{ClimateZone, MeshTarget, Quad};
 use crate::attire::SightMode;
 use crate::aurora_cadence::AuroraCadence;
@@ -17,28 +17,15 @@ struct HeadlessMesh {
 }
 
 impl Mesh for HeadlessMesh {
-    fn draw(&self, _gl: &glow::Context) {
+    fn draw(&self, _pass: &mut dyn FramePass) {
         let _ = self.quad_count;
     }
-}
-
-pub(super) struct HeadlessProgram;
-
-impl ShaderProgram for HeadlessProgram {
-    fn bind(&self, _gl: &glow::Context, _view_proj: &glam::Mat4, _light_dir: Vec3) {}
 }
 
 pub(super) struct HeadlessPipeline;
 
 impl GraphicPipeline for HeadlessPipeline {
-    fn render(
-        &self,
-        _gl: &glow::Context,
-        _shader: &dyn ShaderProgram,
-        _mesh: &dyn Mesh,
-        _view_proj: &glam::Mat4,
-    ) {
-    }
+    fn render(&self, _pass: &mut dyn FramePass, _mesh: &dyn Mesh, _view_proj: &glam::Mat4) {}
 }
 
 struct QuadSink {
@@ -51,7 +38,7 @@ impl MeshTarget for QuadSink {
     }
 }
 
-/// Windowless Fake-Object implementation of `PlatformSurface` enabling autonomous headless game sessions.
+/// Windowless Fake-Object implementation of `PlatformSurface` enabling autonomous headless game sessions (`3` fields).
 pub struct HeadlessSurface {
     viewport: (u32, u32),
     captured: Cell<bool>,
@@ -91,13 +78,8 @@ impl PlatformSurface for HeadlessSurface {
         ScreenPoint::new((x as f32 / w) * 2.0 - 1.0, 1.0 - (y as f32 / h) * 2.0)
     }
 
-    fn upload_mesh(&self, batch: &CpuMeshBatch) -> Box<dyn Mesh> {
-        let _ = batch;
-        Box::new(HeadlessMesh { quad_count: 1 })
-    }
-
-    fn compile_shader(&self, _source: &dyn ShaderSource) -> Box<dyn ShaderProgram> {
-        Box::new(HeadlessProgram)
+    fn upload_mesh(&self, batch: &QuadBatch) -> Box<dyn Mesh> {
+        Box::new(HeadlessMesh { quad_count: batch.total_quad_count() })
     }
 
     fn assemble_diurnal_pipeline(
@@ -112,8 +94,8 @@ impl PlatformSurface for HeadlessSurface {
     fn render_frame(
         &self,
         _pipeline: &dyn GraphicPipeline,
-        _shader: &dyn ShaderProgram,
         _scenes: (&dyn Mesh, &dyn Mesh),
+        _lights: &PointLightCluster,
         avatar: &dyn Avatar,
         modal: &dyn SessionModal,
     ) {
@@ -129,8 +111,8 @@ impl PlatformSurface for HeadlessSurface {
     fn capture_sight_frame(
         &self,
         _pipeline: &dyn GraphicPipeline,
-        _shader: &dyn ShaderProgram,
         _mesh: &dyn Mesh,
+        _lights: &PointLightCluster,
         avatar: &dyn Avatar,
         sight: SightMode,
         angle_label: &str,
@@ -154,7 +136,9 @@ impl PlatformSurface for HeadlessSurface {
         let mut mosaic = Vec::with_capacity(300);
         for r in 0..15 {
             for c in 0..20 {
-                let figure = !matches!(sight, SightMode::FirstPersonSight) && (8..12).contains(&c) && (3..11).contains(&r);
+                let figure = !matches!(sight, SightMode::FirstPersonSight)
+                    && (8..12).contains(&c)
+                    && (3..11).contains(&r);
                 mosaic.push(if figure {
                     Vec3::new(0.80, 0.66, 0.50)
                 } else if r < 7 {

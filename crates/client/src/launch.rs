@@ -1,6 +1,6 @@
 use winit::event_loop::ActiveEventLoop;
 
-use engine::{CpuMeshBatch, PlanetaryMesh, VoxelShaderSource};
+use engine::{PlanetaryMesh, QuadBatch};
 use world::{PlanetaryWorld, SolarProportions};
 use crate::attire::{AttireProfile, FileAttire, HeldRelic};
 use crate::aurora_cadence::AuroraCadence;
@@ -9,7 +9,7 @@ use crate::avatar::PlanetaryAvatar;
 use crate::black_box::{BlackBoxAvatar, FileBlackBox};
 use crate::celestial::CelestialCadence;
 use crate::controls::{BindingProfile, FileBindings, SprintControls};
-use crate::host_env::{GlHostEnvironment, HostEnvironment};
+use crate::host_env::{HostEnvironment, WgpuHostEnvironment};
 use crate::menu::{
     AutoPunchModal, EscapeMenu, InspectionModal, LobbyGateModal, PortalInvite, ProximityChatModal,
     SessionModal, SolarChartModal,
@@ -37,7 +37,7 @@ struct LaunchCosmos {
     aurora: Box<dyn AuroraCadence>,
 }
 
-/// Environment assembly mechanism for constructing GameSession.
+/// Environment assembly mechanism for constructing `GameSession` (`2` private fields).
 pub struct SessionLaunch {
     host_env: Box<dyn HostEnvironment>,
     cosmos: LaunchCosmos,
@@ -58,7 +58,7 @@ impl SessionLaunch {
         }
     }
 
-    /// Secondary constructor initializing with window dimensions and scalable solar proportions.
+    /// Secondary constructor initializing with `wgpu` window dimensions and scalable solar proportions.
     pub fn windowed_cosmos(
         title: &'static str,
         width: f64,
@@ -68,7 +68,7 @@ impl SessionLaunch {
         let celestial = Box::new(ServerCelestial::assembled());
         let aurora = Box::new(ServerAurora::assembled(celestial.duration_seconds()));
         Self::new(
-            Box::new(GlHostEnvironment::new(title, width, height)),
+            Box::new(WgpuHostEnvironment::new(title, width, height)),
             proportions,
             Box::new(ServerPhysics::assembled()),
             celestial,
@@ -126,8 +126,8 @@ impl SessionAssembly for SessionLaunch {
         let slice_count = planet.face_count() * 2;
         let initial_mask = planet.visible_slice_mask(spawn_position);
         let mut primary_faces: Vec<Box<dyn engine::Mesh>> = Vec::with_capacity(slice_count + 1);
-        let empty_cpu = CpuMeshBatch::empty();
-        let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
+        let empty_cpu = QuadBatch::empty();
+        let mut patch_buf = QuadBatch::with_quad_capacity(2_048);
         for idx in 0..slice_count {
             if (initial_mask >> idx.min(31)) & 1 == 0 {
                 primary_faces.push(surface.upload_mesh(&empty_cpu));
@@ -143,7 +143,7 @@ impl SessionAssembly for SessionLaunch {
                 }
                 primary_faces.push(Box::new(engine::SectorGridMesh::new(patches)));
             } else {
-                let mut cpu_buf = CpuMeshBatch::empty();
+                let mut cpu_buf = QuadBatch::empty();
                 planet.emit_face(idx, &mut cpu_buf);
                 primary_faces.push(surface.upload_mesh(&cpu_buf));
             }
@@ -158,7 +158,6 @@ impl SessionAssembly for SessionLaunch {
         primary_faces.push(Box::new(engine::SectorGridMesh::new(meadow_patches)));
 
         let primary_mesh = PlanetaryMesh::with_horizon(primary_faces, initial_mask, initial_mask);
-        let primary_shader = surface.compile_shader(&VoxelShaderSource::embedded());
         let canopy = Box::new(CalibratedCanopy::planetary(world_blocks));
         let primary_pipeline = surface.assemble_diurnal_pipeline(
             self.cosmos.celestial.clone_cadence(),
@@ -200,7 +199,7 @@ impl SessionAssembly for SessionLaunch {
             )))
         };
         let shaded_pass = PolaroidScenePass::new(ShadedScenePass::new(
-            (primary_pipeline, primary_shader),
+            primary_pipeline,
             primary_mesh,
             engine::StreamingMesh::with_quad_capacity(4_096),
             initial_ring,

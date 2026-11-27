@@ -1,6 +1,6 @@
 use glam::Vec3;
 use winit::keyboard::KeyCode;
-use engine::CpuMeshBatch;
+use engine::QuadBatch;
 use world::{
     BiomedCubeWorld, Callsign, CompanionPortal, CountedMeshTarget, CubePlanet, PlanetaryWorld,
     ProximityUtterance,
@@ -60,7 +60,7 @@ fn test_proximity_chat_modal_decorator_composes_submits_and_fades_feed() {
     assert_eq!(incoming.formatted_line(), "Tom: Hi there");
     let mut world = LoopbackChatWorld::new(vec![incoming]);
 
-    let mut base_batch = CpuMeshBatch::empty();
+    let mut base_batch = QuadBatch::empty();
     let mut base_counter = CountedMeshTarget::new(&mut base_batch);
     modal.emit_ui(&avatar, &mut base_counter);
     let reticle_quads = base_counter.count();
@@ -77,13 +77,13 @@ fn test_proximity_chat_modal_decorator_composes_submits_and_fades_feed() {
     modal.sync_portal_chat(&mut world);
     assert_eq!(world.spoken, vec!["Glück auf!"]);
 
-    let mut ui_batch = CpuMeshBatch::empty();
+    let mut ui_batch = QuadBatch::empty();
     let mut ui_counter = CountedMeshTarget::new(&mut ui_batch);
     modal.emit_ui(&avatar, &mut ui_counter);
     assert!(ui_counter.count() > reticle_quads + 20, "Active proximity chat feed must emit HUD glyph quads");
 
     modal.step(13.0);
-    let mut faded_batch = CpuMeshBatch::empty();
+    let mut faded_batch = QuadBatch::empty();
     let mut faded_counter = CountedMeshTarget::new(&mut faded_batch);
     modal.emit_ui(&avatar, &mut faded_counter);
     assert_eq!(faded_counter.count(), reticle_quads, "Proximity chat lines must expire cleanly after TTL");

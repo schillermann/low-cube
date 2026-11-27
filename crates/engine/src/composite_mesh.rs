@@ -1,6 +1,6 @@
-use crate::{Mesh, ShaderProgram};
+use crate::{FramePass, Mesh, SlotReclamation};
 
-/// Decorator combining two GPU-renderable meshes into a unified draw sequence.
+/// Decorator combining two GPU-renderable meshes into a unified draw sequence (`2` private fields).
 pub struct CompositeMesh<'a> {
     first: &'a dyn Mesh,
     second: &'a dyn Mesh,
@@ -13,19 +13,14 @@ impl<'a> CompositeMesh<'a> {
     }
 }
 
-impl<'a> Mesh for CompositeMesh<'a> {
-    fn draw(&self, gl: &glow::Context) {
-        self.first.draw(gl);
-        self.second.draw(gl);
-    }
-
-    fn draw_posed(&self, gl: &glow::Context, shader: &dyn ShaderProgram) {
-        self.first.draw_posed(gl, shader);
-        self.second.draw_posed(gl, shader);
+impl Mesh for CompositeMesh<'_> {
+    fn draw(&self, pass: &mut dyn FramePass) {
+        self.first.draw(pass);
+        self.second.draw(pass);
     }
 }
 
-/// Multi-face planetary GPU mesh enabling isolated single-face buffer updates and horizon slice culling.
+/// Multi-face planetary GPU mesh enabling isolated single-face buffer updates and horizon slice culling (`3` fields).
 pub struct PlanetaryMesh {
     faces: Vec<Box<dyn Mesh>>,
     visible_mask: u32,
@@ -42,7 +37,6 @@ impl PlanetaryMesh {
         Self::with_horizon(faces, visible_mask, u32::MAX)
     }
 
-    /// Secondary constructor enabling all slices by default.
     pub fn new(faces: Vec<Box<dyn Mesh>>) -> Self {
         Self::with_mask(faces, u32::MAX)
     }
@@ -91,31 +85,29 @@ impl PlanetaryMesh {
             face.store_patch(slot, patch);
         }
     }
-}
 
-impl Mesh for PlanetaryMesh {
-    fn draw(&self, gl: &glow::Context) {
-        self.draw_excluding(gl, usize::MAX);
-    }
-
-    fn release(&self, gl: &glow::Context) {
-        for face in &self.faces {
-            face.release(gl);
-        }
-    }
-}
-
-impl PlanetaryMesh {
-    fn draw_excluding(&self, gl: &glow::Context, excluded: usize) {
+    fn draw_excluding(&self, pass: &mut dyn FramePass, excluded: usize) {
         for (idx, face) in self.faces.iter().enumerate() {
             if idx != excluded && (self.visible_mask >> idx.min(31)) & 1 != 0 {
-                face.draw(gl);
+                face.draw(pass);
             }
         }
     }
 }
 
-/// `Mesh` decorator omitting a single fine-detail slice (such as `MeadowRing`) during coarse preview passes.
+impl Mesh for PlanetaryMesh {
+    fn draw(&self, pass: &mut dyn FramePass) {
+        self.draw_excluding(pass, usize::MAX);
+    }
+
+    fn release(&self, reclaim: &mut dyn SlotReclamation) {
+        for face in &self.faces {
+            face.release(reclaim);
+        }
+    }
+}
+
+/// `Mesh` decorator omitting a single fine-detail slice (such as `MeadowRing`) during coarse monitor passes (`2` fields).
 pub struct CoarseMesh<'a> {
     planet: &'a PlanetaryMesh,
     excluded_slice: usize,
@@ -129,7 +121,7 @@ impl<'a> CoarseMesh<'a> {
 }
 
 impl Mesh for CoarseMesh<'_> {
-    fn draw(&self, gl: &glow::Context) {
-        self.planet.draw_excluding(gl, self.excluded_slice);
+    fn draw(&self, pass: &mut dyn FramePass) {
+        self.planet.draw_excluding(pass, self.excluded_slice);
     }
 }

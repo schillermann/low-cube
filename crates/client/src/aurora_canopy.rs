@@ -1,17 +1,9 @@
-use glow::HasContext;
-
 /// Abstraction for the polar aurora atmospheric canopy.
 pub trait AuroraCanopy: Send + Sync {
-    fn bind_canopy(
-        &self,
-        gl: &glow::Context,
-        loc_half: &glow::UniformLocation,
-        loc_radius: &glow::UniformLocation,
-        loc_ceiling: &glow::UniformLocation,
-    );
+    fn canopy_bounds(&self) -> [f32; 3];
 }
 
-/// Atmospheric canopy for Arctic auroras calibrated to planetary dimensions.
+/// Atmospheric canopy for Arctic auroras calibrated to planetary dimensions (`3` private fields).
 pub struct CalibratedCanopy {
     face_half: f32,
     radius: f32,
@@ -50,22 +42,12 @@ impl CalibratedCanopy {
 }
 
 impl AuroraCanopy for CalibratedCanopy {
-    fn bind_canopy(
-        &self,
-        gl: &glow::Context,
-        loc_half: &glow::UniformLocation,
-        loc_radius: &glow::UniformLocation,
-        loc_ceiling: &glow::UniformLocation,
-    ) {
-        unsafe {
-            gl.uniform_1_f32(Some(loc_half), self.face_half);
-            gl.uniform_1_f32(Some(loc_radius), self.radius);
-            gl.uniform_1_f32(Some(loc_ceiling), self.ceiling_altitude);
-        }
+    fn canopy_bounds(&self) -> [f32; 3] {
+        [self.face_half, self.radius, self.ceiling_altitude]
     }
 }
 
-/// Null object pattern canopy performing no GPU operations.
+/// Null object pattern canopy emitting zeroed dimensions (`0` fields).
 #[cfg(test)]
 pub struct VoidCanopy;
 
@@ -79,11 +61,7 @@ impl VoidCanopy {
 
 #[cfg(test)]
 impl AuroraCanopy for VoidCanopy {
-    fn bind_canopy(
-        &self,
-        _gl: &glow::Context,
-        _loc_half: &glow::UniformLocation,
-        _loc_radius: &glow::UniformLocation,
-        _loc_ceiling: &glow::UniformLocation,
-    ) {}
+    fn canopy_bounds(&self) -> [f32; 3] {
+        [0.0, 0.0, 0.0]
+    }
 }

@@ -1,19 +1,18 @@
 mod epoch;
-mod quad;
 
 pub use epoch::{DiurnalEpoch, MeasuredEpoch, OvercastCanopyEpoch};
-pub use quad::{FirmamentQuadSource, QuadUpload};
 
 use std::sync::Mutex;
 use glam::{Mat4, Vec4};
 
-use engine::{GraphicPipeline, Mesh, ShaderProgram};
+use engine::{FramePass, GraphicPipeline, Mesh};
 use crate::aurora_cadence::AuroraCadence;
 use crate::aurora_canopy::AuroraCanopy;
 use crate::celestial::CelestialCadence;
 use crate::clock::{MonotonicTime, SystemClock};
-use crate::firmament::{FirmamentEphemeris, SkyFirmament, VaultEphemeris, VaultLuminance};
-use crate::gl_firmament::{FirmamentProgramSource, FirmamentShaderSource};
+use crate::firmament::{
+    FirmamentEphemeris, LutSkyFirmament, SkyFirmament, VaultEphemeris, VaultLuminance,
+};
 use crate::rayleigh_shell::{SyncedShellPair, UniformEnvelopeSource};
 
 trait EphemerisPacketSource {
@@ -50,11 +49,10 @@ impl EphemerisPacketSource for SyncedEphemerisPacket {
     }
 }
 
-/// Graphic pipeline driving planetary atmosphere sky, world-space solar lighting, and firmament display.
+/// `wgpu` graphic pipeline driving `128×64` `2 Hz` Atmosphere Sky-LUT, `1024²` Sun Shadow, and `8-Byte` `PackedQuad`s (`3` fields).
 pub struct DiurnalPipeline {
     epoch: Box<dyn DiurnalEpoch>,
     sky: Box<dyn SkyFirmament>,
-    sky_mesh: Box<dyn Mesh>,
     ephemeris_state: Mutex<VaultEphemeris>,
 }
 
@@ -63,10 +61,9 @@ impl DiurnalPipeline {
     pub const fn new(
         epoch: Box<dyn DiurnalEpoch>,
         sky: Box<dyn SkyFirmament>,
-        sky_mesh: Box<dyn Mesh>,
         ephemeris_state: Mutex<VaultEphemeris>,
     ) -> Self {
-        Self { epoch, sky, sky_mesh, ephemeris_state }
+        Self { epoch, sky, ephemeris_state }
     }
 }
 
@@ -86,13 +83,7 @@ impl GraphicPipeline for DiurnalPipeline {
         *guard = packet.decode_ephemeris();
     }
 
-    fn render(
-        &self,
-        gl: &glow::Context,
-        shader: &dyn ShaderProgram,
-        mesh: &dyn Mesh,
-        view_proj: &Mat4,
-    ) {
+    fn render(&self, pass: &mut dyn FramePass, mesh: &dyn Mesh, view_proj: &Mat4) {
         let inv_view_proj = Mat4::from_cols(
             view_proj.x_axis.with_z(0.0),
             view_proj.y_axis.with_z(0.0),
@@ -109,36 +100,27 @@ impl GraphicPipeline for DiurnalPipeline {
 
         let (light_direction, vault_view, vault_glow) =
             self.epoch.evaluate_pass(inv_view_proj, cam_pos, &pass_ephemeris);
-        vault_glow.clear_backdrop(gl);
+        vault_glow.clear_backdrop(pass);
+        self.sky.draw_firmament(pass, cam_pos, &vault_view, &vault_glow, &pass_ephemeris);
 
-        self.sky.draw_firmament(
-            gl,
-            &vault_view,
-            &vault_glow,
-            &pass_ephemeris,
-            self.sky_mesh.as_ref(),
-        );
-
-        shader.bind(gl, view_proj, light_direction);
-        mesh.draw_posed(gl, shader);
+        pass.bind_camera(*view_proj, light_direction);
+        mesh.draw(pass);
     }
 }
 
-/// Focused contract assembling a live OpenGL `DiurnalPipeline` outside constructors.
+/// Focused contract assembling a `DiurnalPipeline` outside constructors.
 pub trait DiurnalStageAssembly {
-    /// # Safety
-    /// Requires a valid, current OpenGL context.
-    unsafe fn assemble_gl(self, gl: &glow::Context) -> Box<dyn GraphicPipeline>;
+    fn assemble_stage(self) -> Box<dyn GraphicPipeline>;
 }
 
-/// Declarative specification of celestial cadence, aurora cadence, and aurora canopy (`<= 4` fields).
-pub struct GlDiurnalStage {
+/// Declarative specification of celestial cadence, aurora cadence, and aurora canopy (`3` private fields).
+pub struct WgpuDiurnalStage {
     cadence: Box<dyn CelestialCadence>,
     aurora: Box<dyn AuroraCadence>,
     canopy: Box<dyn AuroraCanopy>,
 }
 
-impl GlDiurnalStage {
+impl WgpuDiurnalStage {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn new(
         cadence: Box<dyn CelestialCadence>,
@@ -149,8 +131,8 @@ impl GlDiurnalStage {
     }
 }
 
-impl DiurnalStageAssembly for GlDiurnalStage {
-    unsafe fn assemble_gl(self, gl: &glow::Context) -> Box<dyn GraphicPipeline> {
+impl DiurnalStageAssembly for WgpuDiurnalStage {
+    fn assemble_stage(self) -> Box<dyn GraphicPipeline> {
         let clock = Box::new(SystemClock::new());
         let start = clock.current_instant();
         let epoch = Box::new(OvercastCanopyEpoch::new(MeasuredEpoch::new(
@@ -159,8 +141,7 @@ impl DiurnalStageAssembly for GlDiurnalStage {
             clock,
             start,
         )));
-        let sky = FirmamentShaderSource::embedded().compile(self.canopy, gl);
-        let sky_mesh = FirmamentQuadSource::new().upload(gl);
-        Box::new(DiurnalPipeline::new(epoch, sky, sky_mesh, Mutex::new(VaultEphemeris::dormant())))
+        let sky = Box::new(LutSkyFirmament::with_canopy(self.canopy));
+        Box::new(DiurnalPipeline::new(epoch, sky, Mutex::new(VaultEphemeris::dormant())))
     }
 }

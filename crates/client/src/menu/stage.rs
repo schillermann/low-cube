@@ -171,7 +171,7 @@ impl TurntableStage {
     }
 
     pub fn view_projection(&self, aspect: f32) -> Mat4 {
-        let proj = Mat4::perspective_rh_gl(45.0f32.to_radians(), aspect.max(0.5), 0.1, 30.0);
+        let proj = Mat4::perspective_rh(45.0f32.to_radians(), aspect.max(0.5), 0.1, 30.0);
         let view = Mat4::look_at_rh(
             Vec3::new(0.0, 1.05, 4.65),
             Vec3::new(0.0, 1.02, 0.0),

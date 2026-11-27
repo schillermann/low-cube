@@ -47,7 +47,7 @@ impl ModuleSculpture {
             SpaceModule::Machine(MachineKind::ArcFurnace) => {
                 BlockMedium::emit_box(u0 + 0.04, u1 - 0.04, v0 + 0.04, v1 - 0.04, h0, h0 + h_span * 0.72, frame, carbon, titanium, true, target);
                 BlockMedium::emit_box(u0 + 0.16, u1 - 0.16, v0 + 0.16, v1 - 0.16, h0 + h_span * 0.72, h1, frame, titanium, copper, false, target);
-                Self::emit_glow_panel(u0 + 0.20, u1 - 0.20, v0 + 0.02, h0 + 0.28, h0 + 0.68, frame, arc_orange, 2.2, target);
+                Self::emit_glow_panel(u0 + 0.20, u1 - 0.20, v0 + 0.02, h0 + 0.28, h0 + 0.68, frame, arc_orange, 1.95, target);
             }
             SpaceModule::Machine(MachineKind::AssemblyBench) => {
                 BlockMedium::emit_box(u0 + 0.03, u1 - 0.03, v0 + 0.03, v1 - 0.03, h0, h0 + h_span * 0.52, frame, carbon, titanium, true, target);

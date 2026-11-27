@@ -183,7 +183,7 @@ fn test_two_free_hands_swing_both_arms_and_troupe_avatar_excavates_and_places() 
 #[test]
 fn test_spade_in_left_hand_with_empty_right_hand_excavates_sloped_block_cleanly() {
     let mut world = BiomedCubeWorld::beveled(32, 1.0);
-    let mut initial_batch = engine::CpuMeshBatch::empty();
+    let mut initial_batch = engine::QuadBatch::empty();
     world.emit_surface(&mut initial_batch);
 
     let (mut slope_u, mut slope_z, mut slope_mid_y) = (0.0f32, -4.25f32, 0.0f32);

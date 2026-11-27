@@ -8,6 +8,14 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.135.0] - 2026-11-27
+
+### Changed
+- Completed **Stufe 3 (`wgpu` + `8-Byte` Packed Quads + ThinkPad-60-FPS Rendering Engine)** of the Zero-Legacy Space-Age Engine rebuild (`REBUILD_PLAN.md`), removing all OpenGL (`glow`, `glutin`, `glutin-winit`, `CpuMeshBatch`, `GlMesh`) dependencies across the workspace (`crates/engine` & `crates/client`):
+  - Built a pure-Rust `wgpu` backend (`WgpuStage`, `PassDraft`, `WgpuHostEnvironment`, `WgpuPlatformSurface`) targeting Vulkan on Linux and DirectX 12 / Vulkan on Windows with explicit Optimus hybrid-GPU selection (`ServerGpuChoice` composing `ArgumentGpuChoice<EnvironmentGpuChoice<FileGpuChoice<AcPowerChoice>>>` between `DiscreteHighPerformance` MX150 and `IntegratedLowPower` Intel UHD 620), `PresentMode::Fifo` `60 Hz` VSync pacing, `< 250 MB` `StrictVramGuard(VramLedger)`, and a throttled `<= 1.5 MB / Frame` (`1,572,864 B`) PCIe `UploadBudgetRing`.
+  - Implemented CPU `u64` bitwise `GreedyBrickQuads` + `CornerOcclusion` + `SliceBitMerge` over `Brick8` occupancy bitmasks (`~15 µs` per `8×8×8` brick with precomputed `4 × 2-Bit` corner voxel AO and cross-brick seam culling) feeding an index-free **`8-Byte` `PackedQuad` (`vec2<u32>`, `23×` smaller than `184 B`)** `WGSL` storage-buffer vertex-pulling pipeline (`packed_quad.wgsl`) alongside `AxisQuadPack` / `QuadBatch`.
+  - Added hardware-instanced low-poly `SpaceModule` rendering (`ModuleArchetypeBank`, `ModuleInstance`, `InstancedModuleStage`, `module_instance.wgsl`, `< 150` triangles per archetype scaled to `B × H × T`), a texel-snapped `1024²` directional `SunShadowCascade` + `<= 16` dynamic `PointLightCluster` (`LuminanceHarvestTarget` decorator), a `128 × 64` `2 Hz` (`0.5 s`) `AtmosphereSkyLut` (`firmament_lut.wgsl`), and shadow-free `240 × 160` Round-Robin (`RoundRobinGate`, `max. 1` monitor/frame) diegetic phosphor flight monitors (`PreviewAtlas`, `monitor_blit.wgsl`).
+
 ## [0.134.0] - 2026-11-27
 
 ### Changed

@@ -1,5 +1,5 @@
 use winit::keyboard::KeyCode;
-use engine::ShaderProgram;
+use engine::FramePass;
 use world::MeshTarget;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
@@ -174,7 +174,7 @@ impl<M: SessionModal> SessionModal for LobbyGateModal<M> {
         self.origin.emit_studio(target);
     }
 
-    fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, avatar: &dyn Avatar, aspect: f32) {
-        self.origin.draw_layer(gl, shader, avatar, aspect);
+    fn draw_layer(&self, pass: &mut dyn FramePass, avatar: &dyn Avatar, aspect: f32) {
+        self.origin.draw_layer(pass, avatar, aspect);
     }
 }

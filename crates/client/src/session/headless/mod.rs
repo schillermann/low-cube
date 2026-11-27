@@ -3,7 +3,7 @@ mod surface;
 use std::cell::RefCell;
 use std::rc::Rc;
 use winit::keyboard::KeyCode;
-use engine::{CpuMeshBatch, PlanetaryMesh, VoxelShaderSource};
+use engine::{PlanetaryMesh, QuadBatch};
 use world::{BiomedCubeWorld, PlanetaryWorld, Quad};
 use crate::attire::EvaAttire;
 use crate::avatar::{Avatar, PlanetaryAvatar};
@@ -55,7 +55,7 @@ impl HeadlessSession {
         let surface = Box::new(HeadlessSurface::hd(Rc::clone(&ui_quads)));
         let slice_count = world.face_count() * 2 + 1;
         let mut primary_slices: Vec<Box<dyn engine::Mesh>> = Vec::with_capacity(slice_count);
-        let empty_cpu = CpuMeshBatch::empty();
+        let empty_cpu = QuadBatch::empty();
         for idx in 0..slice_count {
             let patch_count = world.face_patch_count(idx);
             if patch_count > 0 {
@@ -65,9 +65,8 @@ impl HeadlessSession {
                 primary_slices.push(surface.upload_mesh(&empty_cpu));
             }
         }
-        let sh = surface.compile_shader(&VoxelShaderSource::embedded());
         let shaded = PolaroidScenePass::new(ShadedScenePass::new(
-            (Box::new(HeadlessPipeline), sh),
+            Box::new(HeadlessPipeline),
             PlanetaryMesh::with_mask(primary_slices, u32::MAX),
             engine::StreamingMesh::empty(),
             world::MeadowRing::cold(),

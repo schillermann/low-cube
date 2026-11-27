@@ -3,7 +3,7 @@ mod personal;
 mod phase;
 
 use winit::keyboard::KeyCode;
-use engine::{CpuMeshBatch, ShaderProgram};
+use engine::{FramePass, QuadBatch};
 use world::MeshTarget;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
@@ -234,11 +234,11 @@ impl SessionModal for EscapeMenu {
         }
     }
 
-    fn draw_layer(&self, gl: &glow::Context, shader: &dyn ShaderProgram, avatar: &dyn Avatar, aspect: f32) {
-        let mut stage_batch = CpuMeshBatch::empty();
+    fn draw_layer(&self, pass: &mut dyn FramePass, avatar: &dyn Avatar, aspect: f32) {
+        let mut stage_batch = QuadBatch::empty();
         self.emit_studio(&mut stage_batch);
-        let mut ui_batch = CpuMeshBatch::empty();
+        let mut ui_batch = QuadBatch::empty();
         self.panels.emit_ui(self.phase, self.pointer, avatar, aspect, &mut ui_batch);
-        self.panels.draw_overlay(self.phase, gl, shader, stage_batch, ui_batch, aspect);
+        self.panels.draw_overlay(self.phase, pass, &stage_batch, &ui_batch, aspect);
     }
 }

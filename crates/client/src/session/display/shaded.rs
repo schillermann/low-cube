@@ -1,6 +1,7 @@
+use glam::Vec3;
 use engine::{
-    CoarseMesh, CompositeMesh, CpuMeshBatch, GraphicPipeline, PlanetaryMesh, SectorGridMesh,
-    ShaderProgram, StreamingMesh,
+    CoarseMesh, CompositeMesh, GraphicPipeline, PlanetaryMesh, PointLightCluster, QuadBatch,
+    SectorGridMesh, StreamingMesh,
 };
 use world::{MeadowRing, PlanetaryWorld, MEADOW_RING_SLOTS};
 use crate::attire::SightMode;
@@ -11,9 +12,9 @@ use crate::surface::PlatformSurface;
 use super::pass::ScenePass;
 use super::vessel_stage::{SceneActors, VesselStage};
 
-/// Primary diurnal voxel rendering pass using `16×16` sector grids, toroidal `MeadowRing`, `VesselStage`, and `StreamingMesh`.
+/// Primary `wgpu` diurnal scene pass using `8-Byte` `PackedQuad`s, `16×16` sector grids, `VesselStage`, and `<= 16` lights (`4` fields).
 pub struct ShadedScenePass {
-    program: (Box<dyn GraphicPipeline>, Box<dyn ShaderProgram>),
+    pipeline: Box<dyn GraphicPipeline>,
     mesh: PlanetaryMesh,
     actors: SceneActors,
     meadow_ring: MeadowRing,
@@ -22,27 +23,31 @@ pub struct ShadedScenePass {
 impl ShadedScenePass {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub fn with_stage(
-        program: (Box<dyn GraphicPipeline>, Box<dyn ShaderProgram>),
+        pipeline: Box<dyn GraphicPipeline>,
         mesh: PlanetaryMesh,
         actors: SceneActors,
         meadow_ring: MeadowRing,
     ) -> Self {
-        Self { program, mesh, actors, meadow_ring }
+        Self { pipeline, mesh, actors, meadow_ring }
     }
 
-    /// Secondary constructor initializing an empty GPU `VesselStage` alongside actor streaming buffers.
     pub fn new(
-        program: (Box<dyn GraphicPipeline>, Box<dyn ShaderProgram>),
+        pipeline: Box<dyn GraphicPipeline>,
         mesh: PlanetaryMesh,
         figures: StreamingMesh,
         meadow_ring: MeadowRing,
     ) -> Self {
-        let actors = SceneActors::new(figures, StreamingMesh::with_quad_capacity(1_024), VesselStage::empty());
-        Self::with_stage(program, mesh, actors, meadow_ring)
+        let actors = SceneActors::new(
+            figures,
+            StreamingMesh::with_quad_capacity(1_024),
+            VesselStage::empty(),
+            PointLightCluster::centered_on(Vec3::ZERO),
+        );
+        Self::with_stage(pipeline, mesh, actors, meadow_ring)
     }
 
     fn ensure_meadow_grid(&mut self, surface: &dyn PlatformSurface, meadow_idx: usize) {
-        let empty = CpuMeshBatch::empty();
+        let empty = QuadBatch::empty();
         self.mesh.ensure_slice(meadow_idx, || surface.upload_mesh(&empty));
         if self.mesh.patch_at(meadow_idx, 0).is_some() {
             return;
@@ -61,7 +66,7 @@ impl ShadedScenePass {
     ) {
         let cone = avatar.sight_cone().scaled(sight_scale);
         let viewer = cone.observe_from(|eye| eye);
-        self.actors.reset();
+        self.actors.reset(viewer);
         self.actors.collect_vessels(surface, |sink| {
             avatar.present_vessel(sink);
             world.present_vessels_near(viewer, 2_400.0, sink);
@@ -84,7 +89,7 @@ impl ShadedScenePass {
     ) {
         let cone = avatar.sight_cone_for_mode(sight).scaled(sight_scale);
         let viewer = cone.observe_from(|eye| eye);
-        self.actors.reset();
+        self.actors.reset(viewer);
         self.actors.collect_vessels(surface, |sink| {
             avatar.present_vessel(sink);
             world.present_vessels_near(viewer, 2_400.0, sink);
@@ -118,14 +123,14 @@ impl ScenePass for ShadedScenePass {
 
     fn refresh_face_slice(&mut self, surface: &dyn PlatformSurface, world: &dyn PlanetaryWorld, idx: usize) {
         self.mesh.mark_uploaded(idx);
-        let empty_init = CpuMeshBatch::empty();
+        let empty_init = QuadBatch::empty();
         self.mesh.ensure_slice(idx, || surface.upload_mesh(&empty_init));
         let patch_count = world.face_patch_count(idx);
         if patch_count > 0 {
             if idx == 0 {
                 self.meadow_ring.invalidate_all();
             }
-            let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
+            let mut patch_buf = QuadBatch::with_quad_capacity(2_048);
             let mut patches = Vec::with_capacity(patch_count);
             for slot in 0..patch_count {
                 patch_buf.clear();
@@ -133,11 +138,11 @@ impl ScenePass for ShadedScenePass {
                 patches.push(surface.upload_mesh(&patch_buf));
             }
             let prev = self.mesh.slice_at(idx);
-            let _ = surface.replace_mesh(prev, &CpuMeshBatch::empty());
+            let _ = surface.replace_mesh(prev, &QuadBatch::empty());
             self.mesh.store_slice(idx, Box::new(SectorGridMesh::new(patches)));
             return;
         }
-        let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
+        let mut cpu_buf = QuadBatch::with_quad_capacity(65_536);
         world.emit_face(idx, &mut cpu_buf);
         let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);
         self.mesh.store_slice(idx, next);
@@ -147,7 +152,7 @@ impl ScenePass for ShadedScenePass {
         let meadow_idx = world.face_count() * 2;
         self.ensure_meadow_grid(surface, meadow_idx);
         self.meadow_ring.reopen();
-        let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
+        let mut patch_buf = QuadBatch::with_quad_capacity(2_048);
         while let Some(slot) = avatar.drain_meadow(world, &mut self.meadow_ring, &mut patch_buf) {
             if let Some(prev) = self.mesh.patch_at(meadow_idx, slot) {
                 let next = surface.replace_mesh(prev, &patch_buf);
@@ -172,7 +177,7 @@ impl ScenePass for ShadedScenePass {
         }
         let meadow_idx = world.face_count() * 2;
         self.ensure_meadow_grid(surface, meadow_idx);
-        let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
+        let mut patch_buf = QuadBatch::with_quad_capacity(2_048);
         for _ in 0..4 {
             let Some(slot) = avatar.drain_meadow(world, &mut self.meadow_ring, &mut patch_buf) else {
                 break;
@@ -187,7 +192,7 @@ impl ScenePass for ShadedScenePass {
 
     fn refresh_modified_face(&mut self, surface: &dyn PlatformSurface, world: &mut dyn PlanetaryWorld) {
         let mut updated_patch = false;
-        let mut patch_buf = CpuMeshBatch::with_quad_capacity(2_048);
+        let mut patch_buf = QuadBatch::with_quad_capacity(2_048);
         while let Some((slice_idx, patch_slot)) = world.drain_modified_patch(&mut patch_buf) {
             if let Some(prev) = self.mesh.patch_at(slice_idx, patch_slot) {
                 let next = surface.replace_mesh(prev, &patch_buf);
@@ -198,7 +203,7 @@ impl ScenePass for ShadedScenePass {
         }
         if !world.pending_slices() {
             if !updated_patch && self.mesh.patch_at(0, 0).is_none() {
-                let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
+                let mut cpu_buf = QuadBatch::with_quad_capacity(65_536);
                 let idx = world.emit_modified_face(&mut cpu_buf);
                 self.mesh.mark_uploaded(idx);
                 let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);
@@ -207,7 +212,7 @@ impl ScenePass for ShadedScenePass {
             return;
         }
         while world.pending_slices() {
-            let mut cpu_buf = CpuMeshBatch::with_quad_capacity(65_536);
+            let mut cpu_buf = QuadBatch::with_quad_capacity(65_536);
             if let Some(idx) = world.drain_modified_slice(&mut cpu_buf) {
                 self.mesh.mark_uploaded(idx);
                 let next = surface.replace_mesh(self.mesh.slice_at(idx), &cpu_buf);
@@ -222,7 +227,7 @@ impl ScenePass for ShadedScenePass {
         (world, avatar): (&dyn PlanetaryWorld, &dyn Avatar),
         sight: SightMode,
         sight_scale: f32,
-    ) -> Vec<glam::Vec3> {
+    ) -> Vec<Vec3> {
         let mask = avatar.visible_slices(world);
         self.ensure_horizon_slices(surface, world, mask);
         self.populate_sight_actors(surface, world, avatar, sight, sight_scale);
@@ -230,12 +235,12 @@ impl ScenePass for ShadedScenePass {
         use crate::rayleigh_shell::{EphemerisSync, SkyProjection, StormDarkenedProjection};
         StormDarkenedProjection::solar(world.celestial_atlas())
             .project_from(viewer)
-            .sync_pipeline(self.program.0.as_ref());
+            .sync_pipeline(self.pipeline.as_ref());
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
         surface.capture_sight_frame(
-            self.program.0.as_ref(),
-            self.program.1.as_ref(),
+            self.pipeline.as_ref(),
             &composed,
+            self.actors.lights(),
             avatar,
             sight,
             sight.photo_label(),
@@ -256,14 +261,14 @@ impl ScenePass for ShadedScenePass {
         use crate::rayleigh_shell::{EphemerisSync, SkyProjection, StormDarkenedProjection};
         StormDarkenedProjection::solar(world.celestial_atlas())
             .project_from(viewer)
-            .sync_pipeline(self.program.0.as_ref());
+            .sync_pipeline(self.pipeline.as_ref());
         let composed = CompositeMesh::new(&self.mesh, &self.actors);
         let coarse_terrain = CoarseMesh::new(&self.mesh, world.face_count() * 2);
         let coarse_composed = CompositeMesh::new(&coarse_terrain, &self.actors);
         surface.render_frame(
-            self.program.0.as_ref(),
-            self.program.1.as_ref(),
+            self.pipeline.as_ref(),
             (&composed, &coarse_composed),
+            self.actors.lights(),
             avatar,
             modal,
         );

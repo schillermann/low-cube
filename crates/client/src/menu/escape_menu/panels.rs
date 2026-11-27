@@ -1,7 +1,6 @@
 use glam::{Mat4, Vec3};
-use glow::HasContext;
 use winit::keyboard::KeyCode;
-use engine::{CpuMeshBatch, Mesh, ShaderProgram};
+use engine::{BlendPassMode, FramePass, QuadBatch};
 use world::MeshTarget;
 use crate::avatar::Avatar;
 use crate::controls::{InputTrigger, KeyboardControls};
@@ -258,29 +257,22 @@ impl StudioPanels {
     pub(super) fn draw_overlay(
         &self,
         phase: ModalPhase,
-        gl: &glow::Context,
-        shader: &dyn ShaderProgram,
-        stage_batch: CpuMeshBatch,
-        ui_batch: CpuMeshBatch,
+        pass: &mut dyn FramePass,
+        stage_batch: &QuadBatch,
+        ui_batch: &QuadBatch,
         aspect: f32,
     ) {
         if matches!(phase, ModalPhase::CharacterWardrobe) {
             let vp = self.personal.stage_projection(aspect);
             let light = Vec3::new(0.35, 0.55, 0.75).normalize();
-            unsafe { gl.clear(glow::DEPTH_BUFFER_BIT); }
-            shader.bind(gl, &vp, light);
-            stage_batch.draw(gl);
+            pass.clear_depth_layer();
+            pass.select_blend(BlendPassMode::OpaqueDepth);
+            pass.bind_camera(vp, light);
+            pass.stream_quads(stage_batch);
         }
-        unsafe {
-            gl.disable(glow::DEPTH_TEST);
-            gl.enable(glow::BLEND);
-            gl.blend_func_separate(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA, glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
-        }
-        shader.bind(gl, &Mat4::IDENTITY, Vec3::Z);
-        ui_batch.draw(gl);
-        unsafe {
-            gl.disable(glow::BLEND);
-            gl.enable(glow::DEPTH_TEST);
-        }
+        pass.select_blend(BlendPassMode::OverlayHud);
+        pass.bind_camera(Mat4::IDENTITY, Vec3::Z);
+        pass.stream_quads(ui_batch);
+        pass.select_blend(BlendPassMode::OpaqueDepth);
     }
 }
