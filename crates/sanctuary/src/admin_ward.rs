@@ -206,6 +206,16 @@ impl<W: WorldEarthworks> WorldEarthworks for AdminBlockWard<W> {
         self.origin.park_vehicle(assembly)
     }
 
+    fn park_moving_vehicle(
+        &mut self,
+        assembly: VehicleAssembly,
+        linear_vel: Vec3,
+        angular_vel: Vec3,
+        proper_accel: Vec3,
+    ) -> bool {
+        self.origin.park_moving_vehicle(assembly, linear_vel, angular_vel, proper_accel)
+    }
+
     fn build_rig_blueprint(&mut self, eye: Vec3, direction: Vec3, blueprint: &CraftBlueprint) -> bool {
         self.origin.build_rig_blueprint(eye, direction, blueprint)
     }

@@ -1,8 +1,8 @@
 use crate::block::{BlockMedium, CardinalTurn, GridCell};
 use crate::brick_arena::{CellCoord, ModuleSpec, RawAtom};
+use crate::grid_body::{GridBody, GridFleet};
 use super::super::cantilever_rig::{RigPlacement, RigRegistry};
-use super::super::craft_cluster::ParkedFleet;
-use super::super::molded_structure::WorldBlocks;
+use super::super::molded_structure::MoldedStructure;
 use super::super::natural_strata::NaturalStrata;
 use super::super::shaft_excavation::ShaftExcavation;
 use super::super::turf_scars::TurfScars;
@@ -11,10 +11,10 @@ use super::MAX_STACK_ELEVATION;
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
 
-/// Collaborator routing atom/module placement and layer removal across world bricks and cantilever rigs (`4` fields).
+/// Collaborator routing atom/module placement and layer removal across `GridBody`s (`4` fields).
 pub(super) struct MoldStack<'a> {
-    world_blocks: &'a mut WorldBlocks,
-    fleet: &'a ParkedFleet,
+    crust_body: &'a mut GridBody,
+    fleet: &'a GridFleet,
     rigs: &'a mut RigRegistry,
     scars: &'a mut TurfScars,
 }
@@ -22,12 +22,12 @@ pub(super) struct MoldStack<'a> {
 impl<'a> MoldStack<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
     pub(super) fn new(
-        world_blocks: &'a mut WorldBlocks,
-        fleet: &'a ParkedFleet,
+        crust_body: &'a mut GridBody,
+        fleet: &'a GridFleet,
         rigs: &'a mut RigRegistry,
         scars: &'a mut TurfScars,
     ) -> Self {
-        Self { world_blocks, fleet, rigs, scars }
+        Self { crust_body, fleet, rigs, scars }
     }
 
     pub(super) fn remove_layer(
@@ -42,12 +42,12 @@ impl<'a> MoldStack<'a> {
             self.scars.clear_stage(u, v);
             return Some(med);
         }
-        if self.rigs.pack_up(strata, shafts, u, v, layer_elev, self.world_blocks, self.scars) {
+        if self.rigs.pack_up(strata, shafts, (u, v, layer_elev), self.crust_body, self.scars) {
             self.scars.clear_stage(u, v);
             return Some(BlockMedium::CantileverRig);
         }
         let ground_top = (shafts.elevation_at(strata, u, v) as f32) * BLOCK_STEP;
-        self.world_blocks.remove_layer(u, v, layer_elev, ground_top, self.scars)
+        self.crust_body.crust_mut().remove_layer((u, v), (layer_elev, ground_top), self.scars)
     }
 
     pub(super) fn stack_atom(
@@ -85,14 +85,14 @@ impl<'a> MoldStack<'a> {
             }
             RigPlacement::WorldCube => {
                 if atom.medium().indestructible() {
-                    self.world_blocks.stack_bare(u, v, raw_floor, ground_top, sub, atom, self.scars);
+                    self.crust_body.crust_mut().stack_bare((u, v), (raw_floor, ground_top), sub, atom, self.scars);
                     return true;
                 }
                 let site = BlueprintSite::new(self.rigs, self.fleet);
-                let Some(next_floor) = site.resolve_world_floor(self.world_blocks, (u, v), (ground_top, raw_floor), sub) else {
+                let Some(next_floor) = site.resolve_world_floor(self.crust_body, (u, v), (ground_top, raw_floor), sub) else {
                     return false;
                 };
-                self.world_blocks.stack_bare(u, v, next_floor, ground_top, sub, atom, self.scars);
+                self.crust_body.crust_mut().stack_bare((u, v), (next_floor, ground_top), sub, atom, self.scars);
                 self.scars.clear_stage(u, v);
                 true
             }
@@ -121,12 +121,28 @@ impl<'a> MoldStack<'a> {
             }
             RigPlacement::WorldCube => {
                 let site = BlueprintSite::new(self.rigs, self.fleet);
-                let Some(next_floor) = site.resolve_world_floor(self.world_blocks, (u, v), (ground_top, raw_floor), sub) else {
+                let Some(next_floor) = site.resolve_world_floor(self.crust_body, (u, v), (ground_top, raw_floor), sub) else {
                     return false;
                 };
+                if spec.medium() == BlockMedium::DockingRing
+                    && !sub
+                    && (next_floor - ground_top).abs() <= 0.05
+                    && !self.touches_crust(u, v, next_floor)
+                    && self.rigs.deploy_magnetic_flange(u, v, ground_top, spec)
+                {
+                    self.scars.clear_stage(u, v);
+                    return true;
+                }
                 let anchor = CellCoord::from_floor(u, v, next_floor, 0.0);
-                self.world_blocks.place_module(anchor, spec, ground_top, self.scars)
+                self.crust_body.crust_mut().place_module(anchor, spec, ground_top, self.scars)
             }
         }
+    }
+
+    fn touches_crust(&self, u: i32, v: i32, floor_elev: f32) -> bool {
+        [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)].into_iter().any(|(du, dv)| {
+            self.crust_body.layer_occupied_at(u + du, v + dv, floor_elev + 0.25)
+                || self.crust_body.layer_occupied_at(u + du, v + dv, floor_elev - 0.25)
+        })
     }
 }

@@ -77,11 +77,11 @@ Jede Stufe schließt mit grünem Build und schnellen Headless-Tests auf Linux un
 - [x] **Sparse-Planet-Edits** durchsetzen: Unberührte Planetenoberflächen rendern rein über eine schlanke GPU-Höhen-Clipmap (`0 Bytes` Brick-RAM) und instanziieren `Brick8`-Blöcke erst bei realem Abbau, Hausbau oder Einschlagskratern.
 
 ### Stufe 5: Vereinheitlichung zum `GridBody` — Begehbare Schiffe & Raumstationen
-- [ ] Die vier getrennten Strukturen `WorldBlocks`, `CantileverRig`, `ParkedFleet` und `WorldCraft` zu **einem einzigen universellen Typ `GridBody`** verschmelzen (Haus auf der Erde, Raumstation im Orbit, Asteroid und Raumschiff nutzen 100 % denselben Code).
-- [ ] Kran-Zwang auflösen: Neuer Bau im Orbit oder am Boden startet an einem **magnetischen Montage-Anker / Docking-Flansch** und wird beim Entriegeln sofort ein freier `GridBody`.
-- [ ] `VesselBerth` zu **geschachtelten Trägheits-Räumen (`Nested Inertial Grids`)** ausbauen: Sitz-Zwang im Flug aufheben, sodass Spieler während des Flugs frei durch Schiff und Raumstation laufen und bauen können.
-- [ ] Lokale Scheinkräfte einspeisen: Linear-Beschleunigung ($-\vec{a}$ = künstliche Schwerkraft unter `1 g` Schub!) sowie Zentrifugal- und Corioliskraft für rotierende Raumstations-Ringe + Magnetstiefel für `0 g`.
-- [ ] Physisches **Andocken (`2×2×1` Andockring)** zwischen zwei `GridBody`s (z. B. Landefähre ans Mutterschiff oder neues Modul an eine Raumstation koppeln) implementieren.
+- [x] Die vier getrennten Strukturen `WorldBlocks`, `CantileverRig`, `ParkedFleet` und `WorldCraft` zu **einem einzigen universellen Typ `GridBody`** verschmelzen (Haus auf der Erde, Raumstation im Orbit, Asteroid und Raumschiff nutzen 100 % denselben Code).
+- [x] Kran-Zwang auflösen: Neuer Bau im Orbit oder am Boden startet an einem **magnetischen Montage-Anker / Docking-Flansch** und wird beim Entriegeln sofort ein freier `GridBody`.
+- [ ] `VesselBerth` zu **geschachtelten Trägheits-Räumen (`Nested Inertial Grids`)** ausbauen: Sitz-Zwang im Flug aufheben, sodass Spieler während des Flugs frei durch Schiff und Raumstation laufen und bauen können. *(Welt-Seite fertig: `VesselBerth::Nested`, `resolve_nested_berth`, `park_moving_vehicle`; Client-Anbindung des Sitz-Zwangs offen)*
+- [ ] Lokale Scheinkräfte einspeisen: Linear-Beschleunigung ($-\vec{a}$ = künstliche Schwerkraft unter `1 g` Schub!) sowie Zentrifugal- und Corioliskraft für rotierende Raumstations-Ringe + Magnetstiefel für `0 g`. *(Welt-Seite fertig: `InertialForce`-Decorator-Kette, `MagBootGrip`, `DeckFrame::local_acceleration`; Einbindung in `DeckFooting` offen)*
+- [x] Physisches **Andocken (`2×2×1` Andockring)** zwischen zwei `GridBody`s (z. B. Landefähre ans Mutterschiff oder neues Modul an eine Raumstation koppeln) implementieren.
 
 ### Stufe 6: Skalierbare Antriebs-Physik & Echtzeit-Stufen-Absprengung
 - [ ] Antriebs-Physik an die `B × H × T`-Skalierung knüpfen: Düsen-Querschnitt bestimmt Maximalschub (Planetenstart), Düsen-Länge bestimmt Effizienz/$I_{sp}$ (Deep-Space), Position relativ zum `O(1)`-Schwerpunkt bestimmt echtes Drehmoment.

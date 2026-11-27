@@ -1,6 +1,5 @@
 mod layers;
 mod sanctuary_plinth;
-mod world_blocks;
 mod world_snapshots;
 
 use glam::Vec3;
@@ -11,9 +10,9 @@ use super::turf_scars::TurfScars;
 use super::vehicle_assembly::VehicleAssembly;
 pub use self::layers::{ParkedStructure, RiggedStructure, SanctuaryStructure};
 pub use self::sanctuary_plinth::SanctuaryPlinth;
-pub use self::world_blocks::WorldBlocks;
+pub use self::world_snapshots::{SectorCanvas, SectorVault};
 
-/// Polymorphic 3D surface structure contract composed across world blocks, parked crafts, and cranes.
+/// Polymorphic 3D surface structure contract composed across `GridBody`s, fleets, and flanges.
 pub trait MoldedStructure {
     fn vacant(&self) -> bool;
     fn present_at(&self, u: i32, v: i32) -> bool;

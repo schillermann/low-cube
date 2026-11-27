@@ -25,6 +25,11 @@ impl RigArm {
         Self::new(ground_top, INITIAL_HOIST_STEPS, INITIAL_REACH_STEPS, turn & 3)
     }
 
+    /// Low-profile crane-free magnetic assembly flange (`0.5 m` collar above `ground_top`, `0` boom overhang).
+    pub const fn magnetic_flange(ground_top: f32, turn: u8) -> Self {
+        Self::new(ground_top, 1, 0, turn & 3)
+    }
+
     pub fn posture_tuple(self) -> (i16, i8, i8, u8) {
         let gq = (self.ground_top * 4.0).round().clamp(i16::MIN as f32, i16::MAX as f32) as i16;
         (gq, self.hoist_steps.clamp(-16, 64) as i8, self.reach_steps.clamp(-16, 64) as i8, self.turn & 3)

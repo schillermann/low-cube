@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::PathBuf;
 
 /// Polymorphic architectural audit verifying Elegant Objects invariants without static helpers.
@@ -191,5 +192,25 @@ fn test_workspace_architecture_guard_enforces_line_and_field_limits() {
         "client/src",
     ] {
         SourceTreeAudit::new(crates_dir.join(subdir)).verify();
+    }
+}
+
+#[test]
+fn test_legacy_body_structs_are_fully_replaced_by_grid_body() {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let world_src = manifest_dir.parent().expect("crates dir").join("world/src");
+    let mut stack = vec![world_src];
+    while let Some(dir) = stack.pop() {
+        for entry in fs::read_dir(&dir).expect("read dir").flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
+                let text = fs::read_to_string(&path).expect("read source");
+                for banned in ["struct WorldBlocks", "struct CantileverRig ", "struct ParkedFleet", "struct ParkedCraft", "struct WorldCraft"] {
+                    assert!(!text.contains(banned), "{} resurrects legacy `{banned}`", path.display());
+                }
+            }
+        }
     }
 }

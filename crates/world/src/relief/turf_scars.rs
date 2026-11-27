@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::block::{GridCell, TurfSod};
-use super::molded_structure::WorldBlocks;
+use crate::grid_body::GridBody;
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
 use super::turf_habitat::{CanopyHabitat, NaturalHabitat, TurfHabitat};
@@ -160,7 +160,7 @@ impl TurfScars {
         &mut self,
         strata: &NaturalStrata,
         shafts: &ShaftExcavation,
-        blocks: &WorldBlocks,
+        body: &GridBody,
         dt: f32,
     ) -> (Vec<(i32, i32)>, bool) {
         let mut refreshed = self.cracks.expire_step(dt);
@@ -169,13 +169,13 @@ impl TurfScars {
         }
         let active: Vec<((i32, i32), u32)> = {
             let natural = NaturalHabitat::new(strata, shafts, self);
-            let habitat = CanopyHabitat::new(&natural, blocks);
+            let habitat = CanopyHabitat::new(&natural, body.structure());
             self.bare_dirt
                 .keys()
                 .copied()
                 .filter_map(|(u, v)| {
                     let g_step = natural.ground_step_at(u, v);
-                    let smothered = blocks.covers_ground_at(u, v, (g_step as f32) * BLOCK_STEP);
+                    let smothered = body.covers_ground_at(u, v, (g_step as f32) * BLOCK_STEP);
                     if !natural.fertile_ground(u, v) || smothered {
                         return None;
                     }

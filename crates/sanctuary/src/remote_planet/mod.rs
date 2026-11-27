@@ -173,6 +173,15 @@ impl WorldEarthworks for RemotePlanet {
         }
     }
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool { self.with_chronicled(|w| w.park_vehicle(assembly)) }
+    fn park_moving_vehicle(
+        &mut self,
+        assembly: VehicleAssembly,
+        linear_vel: Vec3,
+        angular_vel: Vec3,
+        proper_accel: Vec3,
+    ) -> bool {
+        self.with_chronicled(|w| w.park_moving_vehicle(assembly, linear_vel, angular_vel, proper_accel))
+    }
     fn park_craft_by_id(&mut self, craft: CraftIdentity, pose: CraftPose) -> bool {
         self.journal.fleet_mut().park_by_id(craft, pose, self.world.as_mut())
     }

@@ -25,6 +25,15 @@ pub trait WorldEarthworks {
     fn lower_rig(&mut self, _eye: Vec3, _direction: Vec3) -> bool { false }
     fn board_vehicle(&mut self, _eye: Vec3, _direction: Vec3, _holding_block: bool) -> Option<VehicleAssembly> { None }
     fn park_vehicle(&mut self, _assembly: VehicleAssembly) -> bool { false }
+    fn park_moving_vehicle(
+        &mut self,
+        assembly: VehicleAssembly,
+        _linear_vel: Vec3,
+        _angular_vel: Vec3,
+        _proper_accel: Vec3,
+    ) -> bool {
+        self.park_vehicle(assembly)
+    }
     fn build_rig_blueprint(&mut self, _eye: Vec3, _direction: Vec3, _blueprint: &CraftBlueprint) -> bool { false }
     fn register_craft_blueprint(&mut self, _blueprint: CraftBlueprint) -> bool { false }
     fn claim_vehicle_helm(&mut self, _craft: CraftIdentity, _pilot_slot: u32, eye: Vec3, direction: Vec3) -> bool {
@@ -88,6 +97,13 @@ pub trait VesselDeck {
     fn passenger_seat_frame(&self, _craft: CraftIdentity, _local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> { None }
     fn sample_deck_frame(&self, _position: Vec3, _player_height: f32) -> Option<DeckFrame> { None }
     fn resolve_deck_pose(&self, _craft: CraftIdentity) -> Option<(CraftPose, f32)> { None }
+    fn resolve_deck_dynamics(&self, craft: CraftIdentity) -> Option<(CraftPose, crate::DeckDynamics, Vec3)> {
+        self.resolve_deck_pose(craft)
+            .map(|(pose, g)| (pose, crate::DeckDynamics::thrust_only(g), Vec3::ZERO))
+    }
+    fn resolve_nested_berth(&self, berth: crate::VesselBerth) -> crate::VesselBerth { berth }
+    fn couple_docking_rings(&mut self) -> bool { false }
+    fn undock_craft(&mut self, _craft: CraftIdentity) -> bool { false }
     fn constrain_on_craft(&self, _craft: CraftIdentity, _position: Vec3, _player_height: f32) -> Option<Vec3> { None }
     fn helm_revoked(&mut self, _craft: CraftIdentity) -> bool { false }
     fn emit_active_crafts(&self, _target: &mut dyn MeshTarget) {}

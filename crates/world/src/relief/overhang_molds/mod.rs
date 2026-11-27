@@ -7,11 +7,11 @@ use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell};
 use crate::brick_arena::{ModuleSpec, RawAtom};
 use crate::frame::SurfaceFrame;
+use crate::grid_body::{GridBody, GridFleet};
 use super::cantilever_rig::{RigPlacement, RigRegistry};
-use super::craft_cluster::ParkedFleet;
 use super::craft_entity::{CraftBlueprint, VesselSink};
 use super::molded_structure::{
-    MoldedStructure, ParkedStructure, RiggedStructure, SanctuaryStructure, WorldBlocks,
+    MoldedStructure, ParkedStructure, RiggedStructure, SanctuaryStructure,
 };
 use super::natural_strata::NaturalStrata;
 use super::planned_mount::MountDomain;
@@ -26,35 +26,38 @@ use self::snapshot::{SectorMoldsTarget, SectorMoldsView};
 const NICHE_WALL_MARGIN: f32 = 0.10;
 pub(super) const MAX_STACK_ELEVATION: f32 = 16.0;
 
-/// Overhanging World-Cube blocks composed with parked vehicles, cantilever cranes, and turf scars.
+/// Planetary structures, settled `GridBody` fleet, magnetic flanges, and turf scars (`4` fields).
 pub struct OverhangMolds {
-    world_blocks: WorldBlocks,
-    fleet: ParkedFleet,
+    crust_body: GridBody,
+    fleet: GridFleet,
     rigs: RigRegistry,
     scars: TurfScars,
 }
 
 impl OverhangMolds {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub fn new(world_blocks: WorldBlocks, fleet: ParkedFleet, rigs: RigRegistry, scars: TurfScars) -> Self {
-        Self { world_blocks, fleet, rigs, scars }
+    pub fn new(crust_body: GridBody, fleet: GridFleet, rigs: RigRegistry, scars: TurfScars) -> Self {
+        Self { crust_body, fleet, rigs, scars }
     }
 
     pub fn untouched() -> Self {
-        Self::new(WorldBlocks::untouched(), ParkedFleet::untouched(), RigRegistry::untouched(), TurfScars::untouched())
+        Self::new(GridBody::crust_anchored(), GridFleet::untouched(), RigRegistry::untouched(), TurfScars::untouched())
     }
 
+    pub const fn fleet(&self) -> &GridFleet { &self.fleet }
+    pub const fn crust_body(&self) -> &GridBody { &self.crust_body }
+
     pub fn crown_origin_plinth(&mut self) {
-        self.world_blocks.crown_origin_plinth();
+        self.crust_body.crown_origin_plinth();
     }
 
     pub fn allocated_brick_bytes(&self) -> usize {
-        self.world_blocks.allocated_brick_bytes()
+        self.crust_body.allocated_brick_bytes()
     }
 
-    const fn decorated(&self) -> RiggedStructure<'_, ParkedStructure<'_, SanctuaryStructure<'_>>> {
+    fn decorated(&self) -> RiggedStructure<'_, ParkedStructure<'_, SanctuaryStructure<'_>>> {
         RiggedStructure::new(
-            ParkedStructure::new(SanctuaryStructure::new(&self.world_blocks), &self.fleet),
+            ParkedStructure::new(SanctuaryStructure::new(&self.crust_body), self.fleet.surface_view()),
             &self.rigs,
         )
     }
@@ -62,10 +65,10 @@ impl OverhangMolds {
     pub fn empty(&self) -> bool { self.decorated().vacant() }
     pub fn present_at(&self, u: i32, v: i32) -> bool { self.decorated().present_at(u, v) }
     pub fn bare_dirt_at(&self, u: i32, v: i32) -> bool {
-        self.world_blocks.bare_surface_at(u, v, self.scars.bare_at(u, v))
+        self.crust_body.bare_surface_at(u, v, self.scars.bare_at(u, v))
     }
     pub fn ground_bare_at(&self, u: i32, v: i32, ground_top: f32) -> bool {
-        self.scars.bare_at(u, v) || self.world_blocks.covers_ground_at(u, v, ground_top)
+        self.scars.bare_at(u, v) || self.crust_body.covers_ground_at(u, v, ground_top)
     }
     pub fn expose_dirt(&mut self, u: i32, v: i32) { self.scars.expose_dirt(u, v); }
 
@@ -88,7 +91,7 @@ impl OverhangMolds {
     }
 
     pub fn confine_niche_elevation(&self, u: i32, v: i32, ground_h: f32, elev: f32) -> Option<f32> {
-        self.world_blocks.confine_niche_elevation(u, v, ground_h, elev)
+        self.crust_body.confine_niche_elevation(u, v, ground_h, elev)
     }
 
     pub fn constrain_support(&self, cell: GridCell, planar: (f32, f32), h: f32, span: (f32, f32)) -> f32 {
@@ -124,7 +127,7 @@ impl OverhangMolds {
         medium: BlockMedium,
     ) -> Option<(GridCell, f32, MountDomain)> {
         BlueprintSite::new(&self.rigs, &self.fleet).resolve_any_site(
-            &self.world_blocks,
+            &self.crust_body,
             (u, v),
             (ground_top, raw_floor),
             sub,
@@ -157,29 +160,29 @@ impl OverhangMolds {
     }
 
     pub fn collect_medium_sites(&self, medium: BlockMedium, frame: &SurfaceFrame, out: &mut Vec<(Vec3, Vec3)>) {
-        self.world_blocks.collect_medium_sites(medium, frame, out);
+        self.crust_body.crust().collect_medium_sites(medium, frame, out);
     }
 
     pub fn remove_layer(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
         if self.car_locked_at(u, v, layer_elev) {
             return None;
         }
-        MoldStack::new(&mut self.world_blocks, &self.fleet, &mut self.rigs, &mut self.scars)
+        MoldStack::new(&mut self.crust_body, &self.fleet, &mut self.rigs, &mut self.scars)
             .remove_layer(strata, shafts, u, v, layer_elev)
     }
 
     pub fn retain_overhang(&mut self, strata: &NaturalStrata, u: i32, v: i32, next_elev: i32, elev: i32) {
         let ground_verdant = !self.scars.bare_at(u, v);
-        self.world_blocks.retain_overhang(strata, u, v, next_elev, elev, ground_verdant);
+        self.crust_body.crust_mut().retain_overhang(strata, (u, v), (next_elev, elev), ground_verdant);
     }
 
     pub fn stack_molded(&mut self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, atom: RawAtom) -> bool {
-        MoldStack::new(&mut self.world_blocks, &self.fleet, &mut self.rigs, &mut self.scars)
+        MoldStack::new(&mut self.crust_body, &self.fleet, &mut self.rigs, &mut self.scars)
             .stack_atom((u, v), (ground_top, raw_floor), sub, atom)
     }
 
     pub fn stack_module(&mut self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, spec: ModuleSpec) -> bool {
-        MoldStack::new(&mut self.world_blocks, &self.fleet, &mut self.rigs, &mut self.scars)
+        MoldStack::new(&mut self.crust_body, &self.fleet, &mut self.rigs, &mut self.scars)
             .stack_module((u, v), (ground_top, raw_floor), sub, spec)
     }
 
@@ -193,7 +196,7 @@ impl OverhangMolds {
         self.rigs
             .step_camera_turn(u, v, delta_steps)
             .or_else(|| self.fleet.step_camera_turn(u, v, delta_steps))
-            .or_else(|| self.world_blocks.step_camera_turn(u, v, delta_steps))
+            .or_else(|| self.crust_body.step_camera_turn(u, v, delta_steps))
             .map_or((false, (u, v)), |cell| (true, cell))
     }
 
@@ -231,7 +234,7 @@ impl OverhangMolds {
 
     #[allow(clippy::too_many_arguments)]
     pub fn aimed_empty_rig(&self, u: i32, v: i32, ground_top: f32, sub: bool, raw_floor: f32, ray: SurfaceSightRay, frame: &SurfaceFrame) -> bool {
-        BlueprintSite::new(&self.rigs, &self.fleet).aimed_empty_rig(u, v, ground_top, sub, raw_floor, ray, frame)
+        BlueprintSite::new(&self.rigs, &self.fleet).aimed_empty_rig((u, v), (ground_top, raw_floor), sub, ray, frame)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -244,9 +247,10 @@ impl OverhangMolds {
     }
 
     pub fn step_grass(&mut self, strata: &NaturalStrata, shafts: &ShaftExcavation, dt: f32) -> (Vec<(i32, i32)>, bool) {
-        let settled_cells = self.world_blocks.settle_gravity(strata, shafts, &mut self.scars);
-        let (mut regrown, scars_active) = self.scars.regrow_step(strata, shafts, &self.world_blocks, dt);
-        let (sod_cells, blocks_active) = self.world_blocks.regrow_sod(strata, shafts, &self.scars, dt);
+        let settled_cells = self.crust_body.settle_gravity(strata, shafts, &mut self.scars);
+        let (mut regrown, scars_active) = self.scars.regrow_step(strata, shafts, &self.crust_body, dt);
+        let plinth = self.crust_body.sanctuary_plinth();
+        let (sod_cells, blocks_active) = self.crust_body.crust_mut().regrow_sod(plinth, strata, shafts, &self.scars, dt);
         let still_active = !settled_cells.is_empty() || scars_active || blocks_active;
         regrown.extend(sod_cells);
         regrown.extend(settled_cells);
@@ -254,15 +258,15 @@ impl OverhangMolds {
     }
 
     pub fn capture_sector(&self, gsu: i32, gsv: i32) -> (u64, Vec<crate::SnapshotBlock>, Vec<crate::RigSnapshot>) {
-        SectorMoldsView::new(&self.world_blocks, &self.rigs, &self.scars).capture(gsu, gsv)
+        SectorMoldsView::new(&self.crust_body, &self.rigs, &self.scars).capture(gsu, gsv)
     }
 
     pub fn apply_sector(&mut self, strata: &NaturalStrata, gsu: i32, gsv: i32, bare_mask: u64, cols: &crate::SectorColumnState) {
-        SectorMoldsTarget::new(&mut self.world_blocks, &mut self.rigs, &mut self.scars)
+        SectorMoldsTarget::new(&mut self.crust_body, &mut self.rigs, &mut self.scars)
             .apply(strata, gsu, gsv, bare_mask, cols);
     }
 
     pub fn collect_modified_sectors(&self, out: &mut Vec<(i32, i32)>) {
-        SectorMoldsView::new(&self.world_blocks, &self.rigs, &self.scars).collect_modified_sectors(out);
+        SectorMoldsView::new(&self.crust_body, &self.rigs, &self.scars).collect_modified_sectors(out);
     }
 }

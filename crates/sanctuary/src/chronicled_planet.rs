@@ -162,6 +162,27 @@ impl WorldEarthworks for ChronicledPlanet<'_> {
         ok
     }
 
+    fn park_moving_vehicle(
+        &mut self,
+        assembly: VehicleAssembly,
+        linear_vel: Vec3,
+        angular_vel: Vec3,
+        proper_accel: Vec3,
+    ) -> bool {
+        let id = assembly.identity();
+        let pose = assembly.pose();
+        let bp = assembly.blueprint().clone();
+        let ok = self.origin.park_moving_vehicle(assembly, linear_vel, angular_vel, proper_accel);
+        if ok && id.assigned() {
+            if self.journal.register_local_blueprint(bp.clone()) {
+                self.journal.inscribe_fact(WorldFact::CraftCommissioned { blueprint: bp });
+            }
+            self.journal.release_local_helm(id);
+            self.record_scoped(pose.origin(), WorldFact::HelmReleased { craft: id, pose });
+        }
+        ok
+    }
+
     fn park_craft_by_id(&mut self, craft: CraftIdentity, pose: CraftPose) -> bool {
         let ok = self.origin.park_craft_by_id(craft, pose);
         if ok {

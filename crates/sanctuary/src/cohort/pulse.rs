@@ -60,7 +60,7 @@ impl CohortPulse {
         let mut roster = Vec::with_capacity(wards.len() + 1);
         if let HostPresence::Occupied(p) = aura.presence() {
             match aura.host_berth() {
-                VesselBerth::Aboard(id) => {
+                VesselBerth::Aboard(id) | VesselBerth::Nested { body: id, .. } => {
                     if let Some((sf, dc)) = Self::resolve_ship(id, &crafts) {
                         raw_berths.insert(1, (id, p));
                         roster.push((sf, p.folded_onto_hull(dc.pose())));
@@ -72,7 +72,7 @@ impl CohortPulse {
         for (&cid, (ward, _)) in wards.iter() {
             let p = ward.presence();
             match ward.berth() {
-                VesselBerth::Aboard(id) => {
+                VesselBerth::Aboard(id) | VesselBerth::Nested { body: id, .. } => {
                     if let Some((sf, dc)) = Self::resolve_ship(id, &crafts) {
                         raw_berths.insert(cid, (id, p));
                         roster.push((sf, p.folded_onto_hull(dc.pose())));

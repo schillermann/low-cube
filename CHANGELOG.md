@@ -8,6 +8,24 @@ and [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## [Unreleased]
 
+## [0.137.0] - 2026-11-27
+
+### Added
+- Universal `GridBody` (`crates/world/src/grid_body/`) unifying planetary crust, magnetic assembly flanges, settled rovers, orbital stations and spacecraft, with `GridFleet`, `BodyMotion` (6-DOF), `BodyMooring`, `DockedLink`, and exact `O(1)` Steiner mass queries.
+- Crane-free magnetic assembly flange: placing a `DockingRing` on the ground deploys a `MagneticFlange` `GridBody` that unlocks directly into a free body; orbital placement spawns a free `GridBody`.
+- Physical `2x2x1` `DockingRing` coupling (`DockingPort`, `DockingClamp`, `FleetDockyard`) conserving Steiner momentum, with undocking.
+- Inertial force decorators `ThrustGravity`, `CentrifugalRing`, `CoriolisDeflection`, `MagBootGrip`, `DeckDynamics`; `DeckFrame::local_acceleration`; walkable orbital `GridBody` decks.
+- `VesselBerth::Nested`, `VesselDeck::resolve_nested_berth` / `couple_docking_rings` / `undock_craft`, `WorldEarthworks::park_moving_vehicle`.
+
+### Changed
+- `OrbitalFleetWorld` now holds a `GridFleet` and builds/harvests live on flying bodies; `origin` is private.
+
+### Removed
+- Legacy `WorldBlocks`, `CantileverRig`, `ParkedFleet`, `ParkedCraft`, `WorldCraft` (banned by `architecture_tests`).
+
+### Known gaps
+- Client-side seat-lock lift and `DeckFooting` force wiring remain open in Stufe 5.
+
 ## [0.136.0] - 2026-11-27
 
 ### Changed

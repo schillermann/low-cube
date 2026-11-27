@@ -1,7 +1,7 @@
 use crate::block::GridCell;
 use crate::frame::SurfaceFrame;
+use crate::grid_body::{GridBody, GridFleet};
 use super::super::cantilever_rig::{RigPlacement, RigRegistry};
-use super::super::craft_cluster::ParkedFleet;
 use super::super::craft_entity::CraftBlueprint;
 use super::super::molded_structure::{MoldedStructure, SanctuaryStructure};
 use super::super::natural_strata::NaturalStrata;
@@ -15,27 +15,27 @@ use super::MAX_STACK_ELEVATION;
 /// Read-only collaborator resolving blueprint hologram previews, vehicle capture, and empty-rig queries.
 pub(super) struct BlueprintSite<'a> {
     rigs: &'a RigRegistry,
-    fleet: &'a ParkedFleet,
+    fleet: &'a GridFleet,
 }
 
 impl<'a> BlueprintSite<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) const fn new(rigs: &'a RigRegistry, fleet: &'a ParkedFleet) -> Self {
+    pub(super) const fn new(rigs: &'a RigRegistry, fleet: &'a GridFleet) -> Self {
         Self { rigs, fleet }
     }
 
     pub(super) fn resolve_world_floor(
         &self,
-        world_blocks: &super::super::molded_structure::WorldBlocks,
+        crust_body: &GridBody,
         (u, v): (i32, i32),
         (ground_top, raw_floor): (f32, f32),
         sub: bool,
     ) -> Option<f32> {
-        if SanctuaryStructure::new(world_blocks).locked_at(u, v, ground_top) {
+        if SanctuaryStructure::new(crust_body).locked_at(u, v, ground_top) {
             return None;
         }
         let mut z = if sub { raw_floor } else { raw_floor.max(ground_top) };
-        while world_blocks.layer_occupied_at(u, v, z + 0.25) {
+        while crust_body.layer_occupied_at(u, v, z + 0.25) {
             z += if sub { -GridCell::SPAN } else { GridCell::SPAN };
         }
         (z < MAX_STACK_ELEVATION && !self.fleet.blocks_placement_at(u, v, z)).then_some(z)
@@ -43,13 +43,13 @@ impl<'a> BlueprintSite<'a> {
 
     pub(super) fn resolve_any_site(
         &self,
-        world_blocks: &super::super::molded_structure::WorldBlocks,
+        crust_body: &GridBody,
         (u, v): (i32, i32),
         (ground_top, raw_floor): (f32, f32),
         sub: bool,
         medium: crate::block::BlockMedium,
     ) -> Option<(GridCell, f32, MountDomain)> {
-        if SanctuaryStructure::new(world_blocks).locked_at(u, v, ground_top) {
+        if SanctuaryStructure::new(crust_body).locked_at(u, v, ground_top) {
             return None;
         }
         if medium == crate::block::BlockMedium::CantileverRig {
@@ -66,7 +66,7 @@ impl<'a> BlueprintSite<'a> {
             RigPlacement::AttachCraft { cell, floor_elev, .. } => (floor_elev < MAX_STACK_ELEVATION)
                 .then_some((GridCell::new(cell.0, cell.1), floor_elev, MountDomain::CraftRig)),
             RigPlacement::WorldCube => self
-                .resolve_world_floor(world_blocks, (u, v), (ground_top, raw_floor), sub)
+                .resolve_world_floor(crust_body, (u, v), (ground_top, raw_floor), sub)
                 .map(|z| (GridCell::new(u, v), z, MountDomain::WorldCube)),
         }
     }
@@ -91,6 +91,7 @@ impl<'a> BlueprintSite<'a> {
                 .then_some((GridCell::new(cell.0, cell.1), floor_elev, MountDomain::CraftRig)),
             RigPlacement::WorldCube => self
                 .fleet
+                .surface_view()
                 .present_at(u, v)
                 .then_some((GridCell::new(u, v), ground_top, MountDomain::CraftRig)),
         }
@@ -106,26 +107,23 @@ impl<'a> BlueprintSite<'a> {
     ) -> Option<CraftBlueprint> {
         let (eu, ev) = frame.decompose(ray.sample_point(0.0));
         self.rigs
-            .capture_blueprint(u, v, layer_elev, eu, ev, frame)
+            .capture_blueprint((u, v, layer_elev), (eu, ev), frame)
             .or_else(|| self.fleet.capture_blueprint_at(u, v, layer_elev, ray))
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn aimed_empty_rig(
         &self,
-        u: i32,
-        v: i32,
-        ground_top: f32,
+        (u, v): (i32, i32),
+        (ground_top, raw_floor): (f32, f32),
         sub: bool,
-        raw_floor: f32,
         ray: SurfaceSightRay,
         frame: &SurfaceFrame,
     ) -> bool {
-        self.rigs.resolve_empty_rig(u, v, ground_top, sub, raw_floor, ray, frame).is_some()
+        self.rigs.resolve_empty_rig((u, v), (ground_top, raw_floor), sub, ray, frame).is_some()
     }
 }
 
-/// Collaborator assembling a saved `CraftBlueprint` onto an aimed empty crane rig and clearing turf scars.
+/// Collaborator assembling a saved `CraftBlueprint` onto an aimed empty flange / rig and clearing turf scars.
 pub(super) struct BlueprintCommission<'a> {
     rigs: &'a mut RigRegistry,
     scars: &'a mut TurfScars,
@@ -137,7 +135,6 @@ impl<'a> BlueprintCommission<'a> {
         Self { rigs, scars }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(super) fn build(
         self,
         strata: &NaturalStrata,
@@ -149,22 +146,22 @@ impl<'a> BlueprintCommission<'a> {
         blueprint: &CraftBlueprint,
     ) -> Option<(i32, i32)> {
         let (u, v, ground_top, raw_floor) = cell_floor;
-        let mast = self.rigs.resolve_empty_rig(u, v, ground_top, sub, raw_floor, ray, frame)?;
+        let mast = self.rigs.resolve_empty_rig((u, v), (ground_top, raw_floor), sub, ray, frame)?;
         let final_mast = self.rigs.build_blueprint(mast, blueprint, strata, shafts, frame)?;
         self.scars.clear_stage(final_mast.0, final_mast.1);
         Some(final_mast)
     }
 }
 
-/// Collaborator resolving crane/fleet vehicle boarding and seated crane re-docking (`<= 4` fields).
+/// Collaborator resolving flange/fleet boarding, crane-free flange release, and seated re-docking (`2` fields).
 pub(super) struct VehicleEmbarkation<'a> {
     rigs: &'a mut RigRegistry,
-    fleet: &'a mut ParkedFleet,
+    fleet: &'a mut GridFleet,
 }
 
 impl<'a> VehicleEmbarkation<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(super) fn new(rigs: &'a mut RigRegistry, fleet: &'a mut ParkedFleet) -> Self {
+    pub(super) fn new(rigs: &'a mut RigRegistry, fleet: &'a mut GridFleet) -> Self {
         Self { rigs, fleet }
     }
 
@@ -177,11 +174,16 @@ impl<'a> VehicleEmbarkation<'a> {
         ray: SurfaceSightRay,
     ) -> (Option<VehicleAssembly>, bool) {
         let (u, v, layer_elev) = target_cell;
-        if let Some(assembly) = self.rigs.board_drivable(strata, shafts, u, v, layer_elev, ray, frame) {
+        if let Some(assembly) = self.rigs.board_drivable(strata, shafts, target_cell, ray, frame) {
             return (Some(assembly), true);
         }
         if let Some(assembly) = self.fleet.board_drivable(u, v, layer_elev, ray) {
             return (Some(assembly), false);
+        }
+        if let Some(assembly) = self.rigs.unlock_magnetic_flange(strata, shafts, (u, v), ray, frame) {
+            let (body, _) = GridBody::settled_on_surface(strata, shafts, frame, assembly);
+            self.fleet.insert_body(body);
+            return (None, true);
         }
         let Some(mast) = self.rigs.find_aimed_rig(u, v, ray, frame) else {
             return (None, false);

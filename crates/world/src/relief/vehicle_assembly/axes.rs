@@ -55,7 +55,7 @@ impl VehicleAxes {
         Some((Self::new(t.normalize(), b.normalize(), n.normalize()), 36))
     }
 
-    pub(in crate::relief) fn grid_basis(self, frame: &SurfaceFrame) -> (i32, i32, i32, i32) {
+    pub(crate) fn grid_basis(self, frame: &SurfaceFrame) -> (i32, i32, i32, i32) {
         let unfold = Quat::from_rotation_arc(self.normal.normalize_or_zero(), frame.normal());
         let (t_flat, b_flat) = (unfold * self.tangent, unfold * self.bitangent);
         let (du, dv) = (t_flat.dot(frame.tangent()), t_flat.dot(frame.bitangent()));

@@ -9,6 +9,7 @@ mod chronicle;
 mod contracts;
 mod cosmic_pos;
 mod frame;
+mod grid_body;
 mod mesh_target;
 mod noise;
 mod null_face;
@@ -31,6 +32,8 @@ mod celestial_tests;
 mod continental_cosmos_tests;
 #[cfg(test)]
 mod gravity_tests;
+#[cfg(test)]
+mod grid_body_tests;
 #[cfg(test)]
 mod mesh_target_tests;
 #[cfg(test)]
@@ -78,6 +81,12 @@ pub use contracts::{
 };
 pub use cosmic_pos::CosmicPos;
 pub use frame::{FrameShape, SurfaceFrame};
+pub use grid_body::{
+    BodyMooring, BodyMotion, CentrifugalRing, CoriolisDeflection, CrustMason, CrustSurvey,
+    DeckDynamics, DockedLink, DockingClamp, DockingPort, FlangeHoist, FlangeMason, FlangeSurvey,
+    FleetDockyard, GridBody, GridFleet, HullMason, InertialForce, MagBootGrip, SurfaceFleetView,
+    ThrustGravity, ZeroGravityField,
+};
 pub use mesh_target::{
     CountedMeshTarget, CrateredMeshTarget, MeadowCrown, NaturalMeadowTarget, TurfMeshTarget,
 };
@@ -102,7 +111,7 @@ pub use relief::{
     MountDomain, MountSite, OpticMount, PilotOrder, PlanetHeightClipmap, PlannedMount,
     ReliefElevation, ReliefFacet, ReliefPalette, RigidImpulse, SeatOccupancy, SubterraneanVeins,
     SurfaceSightRay, TerracedRelief, VehicleAssembly, VehicleAxes, VehiclePart, VesselSink,
-    WorldCraft, MAX_EXHAUST_JETS, MAX_WIRE_EDGES, MEADOW_RING_SLOTS,
+    MAX_EXHAUST_JETS, MAX_WIRE_EDGES, MEADOW_RING_SLOTS,
 };
 pub use topology::{
     ClimateZone, CoordinateFold, FacePerimeter, FoldedPoint, OpenBoundary, PerimeterCrossing,

@@ -59,6 +59,16 @@ impl VesselDeck for HostedPlanet {
     fn passenger_seat_frame(&self, craft: CraftIdentity, local_seat: Vec3) -> Option<(Vec3, Vec3, Vec3)> { self.host.passenger_seat_frame(craft, local_seat) }
     fn sample_deck_frame(&self, position: Vec3, player_height: f32) -> Option<DeckFrame> { self.host.sample_deck_frame(position, player_height) }
     fn resolve_deck_pose(&self, craft: CraftIdentity) -> Option<(CraftPose, f32)> { self.host.resolve_deck_pose(craft) }
+    fn resolve_deck_dynamics(&self, craft: CraftIdentity) -> Option<(CraftPose, world::DeckDynamics, Vec3)> {
+        self.host.world().resolve_deck_dynamics(craft).or_else(|| {
+            self.host.resolve_deck_pose(craft).map(|(p, g)| (p, world::DeckDynamics::thrust_only(g), Vec3::ZERO))
+        })
+    }
+    fn resolve_nested_berth(&self, berth: world::VesselBerth) -> world::VesselBerth {
+        self.host.world().resolve_nested_berth(berth)
+    }
+    fn couple_docking_rings(&mut self) -> bool { self.host.world_mut().couple_docking_rings() }
+    fn undock_craft(&mut self, craft: CraftIdentity) -> bool { self.host.world_mut().undock_craft(craft) }
     fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> { self.host.constrain_on_craft(craft, position, player_height) }
     fn emit_active_crafts(&self, target: &mut dyn MeshTarget) {
         self.host.world().emit_active_crafts(target);
@@ -168,6 +178,15 @@ impl WorldEarthworks for HostedPlanet {
         }
     }
     fn park_vehicle(&mut self, assembly: VehicleAssembly) -> bool { self.host.with_chronicled(|w| w.park_vehicle(assembly)) }
+    fn park_moving_vehicle(
+        &mut self,
+        assembly: VehicleAssembly,
+        linear_vel: Vec3,
+        angular_vel: Vec3,
+        proper_accel: Vec3,
+    ) -> bool {
+        self.host.with_chronicled(|w| w.park_moving_vehicle(assembly, linear_vel, angular_vel, proper_accel))
+    }
     fn disclose_stratum(&mut self, face_index: usize, stratum: ExposedStratum) { self.host.world_mut().disclose_stratum(face_index, stratum); }
     fn offworld_frame(&self, probe: Vec3) -> Option<(world::BodyId, Vec3)> { self.host.world().offworld_frame(probe) }
     fn body_center(&self, body: world::BodyId) -> Option<Vec3> { self.host.world().body_center(body) }

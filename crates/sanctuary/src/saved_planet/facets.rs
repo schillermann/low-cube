@@ -100,6 +100,22 @@ impl VesselDeck for SavedPlanet {
         self.world.resolve_deck_pose(craft)
     }
 
+    fn resolve_deck_dynamics(&self, craft: CraftIdentity) -> Option<(CraftPose, world::DeckDynamics, Vec3)> {
+        self.world.resolve_deck_dynamics(craft)
+    }
+
+    fn resolve_nested_berth(&self, berth: world::VesselBerth) -> world::VesselBerth {
+        self.world.resolve_nested_berth(berth)
+    }
+
+    fn couple_docking_rings(&mut self) -> bool {
+        self.world.couple_docking_rings()
+    }
+
+    fn undock_craft(&mut self, craft: CraftIdentity) -> bool {
+        self.world.undock_craft(craft)
+    }
+
     fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> {
         self.world.constrain_on_craft(craft, position, player_height)
     }

@@ -41,12 +41,18 @@ mod watertight_tests;
 #[cfg(test)]
 mod wedge_seam_tests;
 
+pub(crate) use cantilever_rig::{BlueprintHoist, RigArm};
 pub(crate) use corner::NaturalCrown;
-pub(crate) use molded_structure::MoldedStructure;
+pub(crate) use craft_cluster::CraftCluster;
+pub(crate) use craft_entity::PosedHull;
+pub(crate) use molded_structure::{MoldedStructure, SanctuaryPlinth, SectorCanvas, SectorVault};
+pub(crate) use natural_strata::NaturalStrata;
+pub(crate) use shaft_excavation::ShaftExcavation;
+pub(crate) use turf_habitat::{CanopyHabitat, NaturalHabitat, TurfHabitat};
 pub(crate) use turf_scars::TurfScars;
 pub use craft_entity::{
     BlueprintCatalog, CellRole, CraftBlueprint, CraftIdentity, CraftPose, DeckFrame, HelmLocks,
-    HullOptic, HullWireframe, JetTone, OpticMount, SeatOccupancy, VesselSink, WorldCraft,
+    HullOptic, HullWireframe, JetTone, OpticMount, SeatOccupancy, VesselSink,
     MAX_EXHAUST_JETS, MAX_WIRE_EDGES,
 };
 pub use crust_vault::CrustVault;

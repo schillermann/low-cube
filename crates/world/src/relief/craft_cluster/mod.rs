@@ -1,5 +1,4 @@
 mod commission;
-mod fleet;
 mod helm;
 
 use glam::Vec3;
@@ -7,15 +6,15 @@ use crate::MeshTarget;
 use crate::block::{BlockMedium, GridCell, WedgeHeading};
 use crate::brick_arena::{BrickCell, BrickStructure, CellCoord, ModuleSpec, RawAtom};
 use crate::frame::SurfaceFrame;
+use crate::grid_body::GridBody;
 use super::craft_entity::{CraftBlueprint, CraftIdentity};
-use super::molded_structure::{MoldedStructure, WorldBlocks};
+use super::molded_structure::MoldedStructure;
 use super::natural_strata::NaturalStrata;
 use super::shaft_excavation::ShaftExcavation;
 use super::sight_ray::SurfaceSightRay;
 use super::turf_scars::TurfScars;
 use super::vehicle_assembly::{VehicleAssembly, VehicleAxes};
 use self::commission::PadCommission;
-pub use self::fleet::ParkedFleet;
 use self::helm::ClusterHelm;
 
 const BLOCK_STEP: f32 = GridCell::SPAN;
@@ -37,6 +36,10 @@ impl CraftCluster {
 
     pub const fn structure(&self) -> &BrickStructure {
         &self.grid
+    }
+
+    pub fn into_structure(self) -> BrickStructure {
+        self.grid
     }
 
     pub fn insert(&mut self, u: i32, v: i32, floor_elev: f32, atom: RawAtom) {
@@ -80,14 +83,6 @@ impl CraftCluster {
             );
         }
         out
-    }
-
-    pub fn step_camera_turn(&mut self, u: i32, v: i32, delta_steps: i32) -> Option<(i32, i32)> {
-        self.grid.step_camera_turn(u, v, delta_steps)
-    }
-
-    pub fn remove_layer(&mut self, u: i32, v: i32, layer_elev: f32) -> Option<BlockMedium> {
-        self.grid.remove_at(u, v, layer_elev).and_then(|(span, _)| span.medium())
     }
 
     pub fn occupies_claw(&self, claw: (i32, i32), hoist_z: f32) -> bool {
@@ -173,7 +168,7 @@ impl CraftCluster {
         min_s
     }
 
-    pub fn dismantle_into(self, strata: &NaturalStrata, shafts: &ShaftExcavation, world_blocks: &mut WorldBlocks, scars: &mut TurfScars) {
+    pub fn dismantle_into(self, strata: &NaturalStrata, shafts: &ShaftExcavation, crust_body: &mut GridBody, scars: &mut TurfScars) {
         let datum = self.grid.datum();
         self.grid.bricks().inner().visit_occupied_cells(|coord, cell| {
             if let BrickCell::RawAtom(atom) = cell {
@@ -181,16 +176,10 @@ impl CraftCluster {
                     let (cu, cv) = coord.planar();
                     let ground_top = (shafts.elevation_at(strata, cu, cv) as f32) * BLOCK_STEP;
                     let floor = ((coord.floor_elev(datum) / BLOCK_STEP).round()) * BLOCK_STEP;
-                    world_blocks.stack_bare(cu, cv, floor.max(ground_top), ground_top, false, atom, scars);
+                    crust_body.crust_mut().stack_bare((cu, cv), (floor.max(ground_top), ground_top), false, atom, scars);
                 }
             }
         });
-    }
-
-    pub fn nearest_seat_distance(&self, eu: f32, ev: f32) -> Option<f32> {
-        let (su, sv, _, _) = self.nearest_seat(eu, ev)?;
-        let (cx, cy) = GridCell::new(su, sv).center();
-        Some((cx - eu).hypot(cy - ev))
     }
 
     fn nearest_seat(&self, eu: f32, ev: f32) -> Option<(i32, i32, f32, WedgeHeading)> {
@@ -246,7 +235,6 @@ impl CraftCluster {
         ClusterHelm::new(&self.grid).targets_helm(u, v, layer_elev, ray, frame)
     }
 
-    pub fn steerable(&self) -> bool { self.steering_unit().is_some() }
     pub fn drivable(&self) -> bool { ClusterHelm::new(&self.grid).drivable() }
 
     pub fn into_vehicle(self, ground_fn: impl Fn(i32, i32) -> f32, ray: SurfaceSightRay, frame: &SurfaceFrame) -> Result<VehicleAssembly, Self> {
@@ -264,6 +252,23 @@ impl CraftCluster {
         let (eu, ev) = frame.decompose(ray.sample_point(0.0));
         let Some((seat_u, seat_v, _, _)) = self.nearest_seat(eu, ev) else { return Err(self) };
         Ok(PadCommission::new(&self.grid).assemble_vehicle(identity, (seat_u, seat_v), ground_fn, ray, frame))
+    }
+
+    pub fn into_any_assembly(
+        self,
+        ground_fn: impl Fn(i32, i32) -> f32,
+        ray: SurfaceSightRay,
+        frame: &SurfaceFrame,
+    ) -> Option<VehicleAssembly> {
+        if self.grid.vacant() {
+            return None;
+        }
+        let (eu, ev) = frame.decompose(ray.sample_point(0.0));
+        let anchor = self
+            .nearest_seat(eu, ev)
+            .map(|(su, sv, _, _)| (su, sv))
+            .or_else(|| self.claw_anchor().map(|(u, v, _)| (u, v)))?;
+        Some(PadCommission::new(&self.grid).assemble_vehicle(CraftIdentity::unassigned(), anchor, ground_fn, ray, frame))
     }
 }
 

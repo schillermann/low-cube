@@ -8,14 +8,14 @@ use super::{CraftBlueprint, CraftPose};
 
 /// 6-DOF spatial hull view uniting a `CraftBlueprint` with a world-space `CraftPose`.
 #[derive(Clone, Copy)]
-pub(in crate::relief) struct PosedHull<'a> {
+pub(crate) struct PosedHull<'a> {
     blueprint: &'a CraftBlueprint,
     pose: CraftPose,
 }
 
 impl<'a> PosedHull<'a> {
     /// Primary constructor doing nothing except assigning arguments to fields.
-    pub(in crate::relief) const fn new(blueprint: &'a CraftBlueprint, pose: CraftPose) -> Self {
+    pub(crate) const fn new(blueprint: &'a CraftBlueprint, pose: CraftPose) -> Self {
         Self { blueprint, pose }
     }
 
@@ -80,7 +80,7 @@ impl<'a> PosedHull<'a> {
         }
     }
 
-    pub(in crate::relief) fn hit_ceiling_at(self, world_pt: Vec3) -> Option<Vec3> {
+    pub(crate) fn hit_ceiling_at(self, world_pt: Vec3) -> Option<Vec3> {
         let local = self.pose.local_point_of(world_pt);
         let (car_u, car_v, car_elev) = (local.x + 0.25, local.z + 0.25, local.y);
         let (cu, cv) = GridCell::at_planar(car_u, car_v).feed_coordinates(|gu, gv| (gu, gv));
@@ -99,7 +99,7 @@ impl<'a> PosedHull<'a> {
         Some(shift + car_frame.point_at(car_u, car_v, ceil))
     }
 
-    pub(in crate::relief) fn medium_at_world(self, world_pt: Vec3) -> Option<BlockMedium> {
+    pub(crate) fn medium_at_world(self, world_pt: Vec3) -> Option<BlockMedium> {
         let local = self.pose.local_point_of(world_pt);
         let (cu, cv) = GridCell::at_planar(local.x + 0.25, local.z + 0.25).feed_coordinates(|gu, gv| (gu, gv));
         let lift = self.blueprint.wheel_ground_lift();
@@ -109,7 +109,7 @@ impl<'a> PosedHull<'a> {
         })
     }
 
-    pub(in crate::relief) fn touches_world_floor(self, cell_floor_world: Vec3) -> bool {
+    pub(crate) fn touches_world_floor(self, cell_floor_world: Vec3) -> bool {
         let local = self.pose.local_point_of(cell_floor_world);
         let (car_u, car_v, car_floor) = (local.x + 0.25, local.z + 0.25, local.y);
         let lift = self.blueprint.wheel_ground_lift();
@@ -122,7 +122,7 @@ impl<'a> PosedHull<'a> {
         })
     }
 
-    pub(in crate::relief) fn backrest_world_at(self, world_pt: Vec3) -> Option<Vec3> {
+    pub(crate) fn backrest_world_at(self, world_pt: Vec3) -> Option<Vec3> {
         let local = self.pose.local_point_of(world_pt);
         let (cu, cv) = GridCell::at_planar(local.x + 0.25, local.z + 0.25).feed_coordinates(|gu, gv| (gu, gv));
         let lift = self.blueprint.wheel_ground_lift();
@@ -143,7 +143,7 @@ impl<'a> PosedHull<'a> {
         Some(shift + car_frame.point_at(bx, by, local.y))
     }
 
-    pub(in crate::relief) fn targets_helm(self, hit_world: Vec3, ray: SurfaceSightRay) -> bool {
+    pub(crate) fn targets_helm(self, hit_world: Vec3, ray: SurfaceSightRay) -> bool {
         let target_med = if self.blueprint.spacefaring() {
             BlockMedium::FlightConsole
         } else if self.blueprint.parts().iter().any(|p| p.block_medium() == BlockMedium::SteeringWheel) {
@@ -166,7 +166,7 @@ impl<'a> PosedHull<'a> {
         })
     }
 
-    pub(in crate::relief) fn perch_at(self, hit_world: Vec3, eye_world: Vec3) -> Option<VehicleAssembly> {
+    pub(crate) fn perch_at(self, hit_world: Vec3, eye_world: Vec3) -> Option<VehicleAssembly> {
         if self.medium_at_world(hit_world) != Some(BlockMedium::CabinSeat) {
             return None;
         }
@@ -174,7 +174,7 @@ impl<'a> PosedHull<'a> {
         Some(VehicleAssembly::new(seat_world, self.pose.axes(), self.pose.heading(), Vec::new()))
     }
 
-    pub(in crate::relief) fn nearest_seat_to(self, eye_world: Vec3) -> Option<((i32, i32), Vec3, f32)> {
+    pub(crate) fn nearest_seat_to(self, eye_world: Vec3) -> Option<((i32, i32), Vec3, f32)> {
         let lift = self.blueprint.wheel_ground_lift();
         let car_frame = self.pose.surface_frame();
         let shift = self.pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
@@ -191,7 +191,7 @@ impl<'a> PosedHull<'a> {
         best
     }
 
-    pub(in crate::relief) fn tripod_hub(self) -> Option<(Vec3, Vec3, Vec3)> {
+    pub(crate) fn tripod_hub(self) -> Option<(Vec3, Vec3, Vec3)> {
         let car_frame = self.pose.surface_frame();
         let shift = self.pose.origin() - car_frame.point_at(0.25, 0.25, 0.0);
         let lift = self.blueprint.wheel_ground_lift();

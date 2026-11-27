@@ -53,6 +53,16 @@ impl VesselDeck for RemotePlanet {
             .resolve_deck_pose(&crafts, craft)
             .or_else(|| self.world.resolve_deck_pose(craft))
     }
+    fn resolve_deck_dynamics(&self, craft: CraftIdentity) -> Option<(CraftPose, world::DeckDynamics, Vec3)> {
+        self.world.resolve_deck_dynamics(craft).or_else(|| {
+            self.resolve_deck_pose(craft).map(|(p, g)| (p, world::DeckDynamics::thrust_only(g), Vec3::ZERO))
+        })
+    }
+    fn resolve_nested_berth(&self, berth: world::VesselBerth) -> world::VesselBerth {
+        self.world.resolve_nested_berth(berth)
+    }
+    fn couple_docking_rings(&mut self) -> bool { self.world.couple_docking_rings() }
+    fn undock_craft(&mut self, craft: CraftIdentity) -> bool { self.world.undock_craft(craft) }
     fn constrain_on_craft(&self, craft: CraftIdentity, position: Vec3, player_height: f32) -> Option<Vec3> {
         let mut crafts = Vec::new();
         self.journal.crafts(&mut crafts);

@@ -35,8 +35,28 @@ impl<'a> PadCommission<'a> {
                     parts.push(VehiclePart::new((cu - anchor.0, (cv - anchor.1) * v_sign), floor_off, atom));
                 }
                 BrickCell::ModuleAnchor(spec) => {
-                    let atom = RawAtom::full_cube(spec.medium());
-                    parts.push(VehiclePart::new((cu - anchor.0, (cv - anchor.1) * v_sign), floor_off, atom));
+                    if matches!(spec.module(), crate::SpaceModule::Machine(_)) {
+                        let atom = RawAtom::molded(
+                            spec.medium(),
+                            crate::MoldArchetype::FullCube,
+                            WedgeHeading::from_code(spec.turn().code()),
+                        );
+                        parts.push(VehiclePart::new((cu - anchor.0, (cv - anchor.1) * v_sign), floor_off, atom));
+                    } else {
+                        let (du, dv, dh) = spec.span().dimensions();
+                        let atom = RawAtom::full_cube(spec.medium());
+                        for hw in 0..dh {
+                            for ov in 0..dv {
+                                for ou in 0..du {
+                                    parts.push(VehiclePart::new(
+                                        (cu + i32::from(ou) - anchor.0, (cv + i32::from(ov) - anchor.1) * v_sign),
+                                        floor_off + f32::from(hw) * GridCell::SPAN,
+                                        atom,
+                                    ));
+                                }
+                            }
+                        }
+                    }
                 }
                 _ => {}
             }

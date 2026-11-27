@@ -69,7 +69,7 @@ impl CraftBlueprint {
         }
     }
 
-    pub(in crate::relief) fn to_face_cluster(&self, frame: &SurfaceFrame) -> CraftCluster {
+    pub(crate) fn to_face_cluster(&self, frame: &SurfaceFrame) -> CraftCluster {
         let flip_v = frame.tangent().cross(frame.bitangent()).dot(frame.normal()) > 0.0;
         let v_sign = if flip_v { -1 } else { 1 };
         let mut craft = CraftCluster::untouched();
@@ -145,9 +145,6 @@ impl CraftBlueprint {
 
     pub fn parts(&self) -> &[VehiclePart] { &self.parts }
 
-    pub(in crate::relief) fn step_camera_turn(&mut self, delta: i32) -> Option<(i32, i32)> {
-        self.parts.iter_mut().rev().find_map(|p| p.step_camera_turn(delta))
-    }
 
     pub fn into_parts(self) -> Vec<VehiclePart> { self.parts }
 
@@ -184,7 +181,7 @@ impl CraftBlueprint {
         super::spatial::PosedHull::new(self, pose).constrain_at(position, player_height)
     }
 
-    pub(in crate::relief) fn clamped_seat(
+    pub(crate) fn clamped_seat(
         &self,
         raw_seat: (i32, i32),
         basis: (i32, i32, i32, i32),

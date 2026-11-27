@@ -15,44 +15,11 @@ pub use self::blueprint::{
 pub use self::deck::DeckFrame;
 pub use self::identity::CraftIdentity;
 pub use self::pose::{CraftPose, SeatOccupancy};
-pub(in crate::relief) use self::spatial::PosedHull;
+pub(crate) use self::spatial::PosedHull;
 
 /// Focused sink receiving active, parked, and orbital vessels for GPU-posed local-hull rendering.
 pub trait VesselSink {
     fn receive_vessel(&mut self, blueprint: &CraftBlueprint, pose: CraftPose);
-}
-
-/// Living planetary vehicle entity uniting identity, immutable blueprint, pose, and seat occupancy.
-#[derive(Clone, Debug, PartialEq)]
-pub struct WorldCraft {
-    identity: CraftIdentity,
-    blueprint: CraftBlueprint,
-    pose: CraftPose,
-    occupancy: SeatOccupancy,
-}
-
-impl WorldCraft {
-    /// Primary constructor doing nothing except assigning arguments to fields.
-    pub const fn new(
-        identity: CraftIdentity,
-        blueprint: CraftBlueprint,
-        pose: CraftPose,
-        occupancy: SeatOccupancy,
-    ) -> Self {
-        Self { identity, blueprint, pose, occupancy }
-    }
-
-    pub const fn identity(&self) -> CraftIdentity {
-        self.identity
-    }
-
-    pub const fn occupancy(&self) -> SeatOccupancy {
-        self.occupancy
-    }
-
-    pub fn emit(&self, target: &mut dyn MeshTarget) {
-        self.blueprint.emit_at(self.pose, target);
-    }
 }
 
 /// Planetary blueprint catalog resolving 80-byte `DrivenCraft` poses into full 3D vehicle geometry and collision.

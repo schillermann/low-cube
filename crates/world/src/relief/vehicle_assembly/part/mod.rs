@@ -58,7 +58,7 @@ impl VehiclePart {
     }
 
     pub(in crate::relief) fn inscribe(&self, out: &mut Vec<u8>) { self.wire().inscribe(out); }
-    pub(in crate::relief) fn canonical_key(&self) -> (i32, i32, i32, [u8; 3]) { self.wire().canonical_key() }
+    pub(crate) fn canonical_key(&self) -> (i32, i32, i32, [u8; 3]) { self.wire().canonical_key() }
     pub(in crate::relief) fn digest_mix(&self, h: u64) -> u64 { self.wire().digest_mix(h) }
 
     pub(in crate::relief) fn decode(bytes: &[u8]) -> Option<(Self, usize)> {
@@ -78,7 +78,15 @@ impl VehiclePart {
         if flip_v && matches!(atom.heading(), WedgeHeading::North | WedgeHeading::South) {
             atom = atom.rotated_quarter().rotated_quarter();
         }
-        craft.insert(self.offset.0, self.offset.1 * v_sign, self.floor_offset, atom);
+        let u = self.offset.0;
+        let v = self.offset.1 * v_sign;
+        if let Some(spec) = crate::ModuleSpec::from_medium_turn(atom.medium(), crate::CardinalTurn::from_code(atom.heading().code())) {
+            let anchor = crate::CellCoord::from_floor(u, v, self.floor_offset, craft.structure().datum());
+            if craft.place_module(anchor, spec) {
+                return;
+            }
+        }
+        craft.insert(u, v, self.floor_offset, atom);
     }
 
     pub(in crate::relief) fn kinematic_part(&self) -> bool {
@@ -98,9 +106,6 @@ impl VehiclePart {
             .then_some((self.offset, self.floor_offset, self.atom.heading()))
     }
 
-    pub(in crate::relief) fn step_camera_turn(&mut self, delta: i32) -> Option<(i32, i32)> {
-        self.atom.step_camera_turn(delta).then_some(self.offset)
-    }
 
     pub(in crate::relief) fn tripod_hub_at(&self, lift: f32, frame: &SurfaceFrame) -> Option<(Vec3, Vec3, Vec3)> {
         let cell = GridCell::new(self.offset.0, self.offset.1);
@@ -108,6 +113,18 @@ impl VehiclePart {
     }
 
     pub(in crate::relief) fn cell_top_at(&self, cu: i32, cv: i32, lift: f32) -> Option<(f32, f32)> {
+        if let Some(spec) = crate::ModuleSpec::from_medium_turn(
+            self.atom.medium(),
+            crate::CardinalTurn::from_code(self.atom.heading().code()),
+        ) {
+            let (du, dv, dh) = spec.span().dimensions();
+            let in_u = cu >= self.offset.0 && cu < self.offset.0 + i32::from(du);
+            let in_v = cv >= self.offset.1 && cv < self.offset.1 + i32::from(dv);
+            return (in_u && in_v).then_some((
+                self.floor_offset + lift,
+                self.floor_offset + lift + (f32::from(dh)) * BLOCK_STEP,
+            ));
+        }
         (self.offset == (cu, cv)).then_some((self.floor_offset + lift, self.floor_offset + lift + BLOCK_STEP))
     }
 
@@ -226,7 +243,7 @@ impl VehiclePart {
         self.atom.at_floor(floor).with_shape(|s| s.emit_driven_part(cell, floor, spin, turn, frame, top, wall, out));
     }
 
-    pub(in crate::relief) fn park_into(
+    pub(crate) fn park_into(
         mut self, seat: (i32, i32), basis: (i32, i32, i32, i32), lift: f32,
         craft: &mut CraftCluster, strata: &NaturalStrata, shafts: &ShaftExcavation,
     ) {
